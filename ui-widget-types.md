@@ -6,7 +6,7 @@ permalink: /ui-widget-types/
 
 # UI Widget Types (NAKA System)
 
-The KN5000 firmware uses a widget object system (internally referred to as "NAKA") for structured UI elements. The **NAKA_UIObjectTable** at ROM address `0xE1344E` contains 478 `.long` pointers to widget structures, registered by `InitializeNaka` with handler `ViewableProc` at `0xFA5995`. Beyond this table, there are approximately **1,410 total widget structures** across the entire Program ROM using 9 distinct type bytes.
+The KN5000 firmware uses a widget object system (internally referred to as "NAKA") for structured UI elements. The **NAKA_UIObjectTable** at ROM address `0xE1344E` contains 478 `.long` pointers to widget structures, registered by `InitializeNaka` (`0xF165EB`) with handler `ViewableProc` at `0xFA5995`. Beyond this table, there are approximately **1,410 total widget structures** across the entire Program ROM using 9 distinct type bytes.
 
 ## Widget Structure Header
 
@@ -99,35 +99,48 @@ Types `0x31` and `0x34` fall directly into group 3. Types `0x2b`, `0x2e`, `0x66`
 
 ## InitializeNaka Registration
 
-`InitializeNaka` (ROM `0xF221AC`) registers 11 object tables:
+`InitializeNaka` (ROM `0xF165EB`) registers eleven object tables, verbatim from
+`v10/maincpu/storage/flash_floppy_handlers.s`:
 
 ```asm
 InitializeNaka:
-    RegObjTable 0x1600004, 0xFA44E2, 0xE0E962, 0xE0E944, 0x16b
-    RegObjTable 0x160000c, 0xFA58FB, 0xE0E962, 0xE0E95E, 0x1cb
-    RegObjTable 0x160000d, 0xFA5948, 0xE0E968, 0xE0E964, 0x1eb
-    RegObjTabl  0x1600002, 0xFA496C, 0x12, 0xE0E7AE, 0x12b
-    RegObjTabl  0x1600002, 0xFA496C, 0x12, 0xE0E7FA, 0x42b
-    RegObjTabl  0x1600001, 0xFA48A9, 0x0, 0xE0E96A, 0x10b
-    RegObjTabl  0x1600001, 0xFA48A9, 0x0, 0xE0E96E, 0x40b
-    RegObjTabl  0x1600003, 0xFA4A18, 0x0, 0xE14824, 0x14b
-    RegObjTabl  0x1600003, 0xFA4A18, 0x0, 0xE14828, 0x44b
-    RegObjTabl  0x1600010, 0xFA5995, 0x1de, NAKA_UIObjectTable, 0xfd  ; 478 entries
-    RegObjTabl  0x160000f, 0xFA62CB, 0x1de, 0xE13BCA, 0x3fd
-    ...
+	lda xsp, (xsp - 14)
+
+	RegObjTable 0x1600004, 0xfa44e2, 0xe0e95c, 0xe0e944, 0x16b
+	RegObjTable 0x160000c, 0xfa58fb, 0xe0e962, 0xe0e95e, 0x1cb
+	RegObjTable 0x160000d, 0xfa5948, 0xe0e968, 0xe0e964, 0x1eb
+	RegObjTabl 0x1600002, 0xfa496c, 0x12, 0xe0e7ae, 0x12b
+	RegObjTabl 0x1600002, 0xfa496c, 0x12, 0xe0e7fa, 0x42b
+	RegObjTabl 0x1600001, 0xfa48a9, 0x0, 0xe0e96a, 0x10b
+	RegObjTabl 0x1600001, 0xfa48a9, 0x0, 0xe0e96e, 0x40b
+	RegObjTabl 0x1600003, 0xfa4a18, 0x0, 0xe14824, 0x14b
+	RegObjTabl 0x1600003, 0xfa4a18, 0x0, 0xe14828, 0x44b
+	RegObjTabl 0x1600010, 0xfa5995, 0x1de, NAKA_UIObjectTable, 0xfd
+	RegObjTabl 0x160000f, 0xfa62cb, 0x1de, 0xe13bca, 0x3fd
+
+	RegTitle 0xb, 0xe1, 0x481a, 0xfd, 0x1200000, 0xfd0000
+	lda xsp, (xsp + 14)
+	ret
 ```
 
-The `ViewableProc` handler (`0xFA5995`) is associated with type ID `0x1600010` and a count of `0x1DE` (478 decimal) entries in NAKA_UIObjectTable.
+The `ViewableProc` handler (`0xFA5995`) is associated with type ID `0x1600010` and a count of `0x1DE` (478 decimal) entries in `NAKA_UIObjectTable` — that third argument is where the 478 comes from.
+
+`InitializeNaka` is one of thirty-one module initialisers called from `InitializeObjectTable`
+(`0xFA40B3`); the full sequence is on
+[Architecture Flowchart]({{ site.baseurl }}/firmware-flowchart/#subsystem-registration).
 
 ## Source Location
 
+The main-CPU sources are split per subsystem under `v10/maincpu/`; a routine's file is not
+predictable from its purpose, because the split follows ROM address ranges.
+
 | Item | Location |
 |------|----------|
-| NAKA_UIObjectTable | `maincpu/kn5000_v10_program.s`, label at `0xE1344E` |
-| InitializeNaka | `maincpu/kn5000_v10_program.s`, label at `0xF221AC` |
-| ViewableProc | `maincpu/kn5000_v10_program.s`, label at `0xFA5995` |
-| Type classifier | `maincpu/kn5000_v10_program.s`, `SeMenu_SetObjectFlags` |
-| Type constants | `maincpu/shared/macros.s` |
+| NAKA_UIObjectTable (`0xE1344E`) | `v10/maincpu/ui_widgets/performance_style_screens.s` — a label at offset `0x4ADA` inside the descriptor blob |
+| InitializeNaka (`0xF165EB`) | `v10/maincpu/storage/flash_floppy_handlers.s` |
+| ViewableProc (`0xFA5995`) | `v10/maincpu/ui/ui_widget_defs.s` |
+| SeMenu_SetObjectFlags (`0xF06898`) | `v10/maincpu/audio/semenu_routines.s` |
+| Type constants | `v10/maincpu/shared/macros.s` |
 
 ## Assembly Macros
 

@@ -212,10 +212,10 @@ flowchart TD
     SUB --> DSP
 </pre>
 
-The 478 figure is the entry count in the `RegObjTabl` line that registers
-`NAKA_UIObjectTable` (`0xE1344E`) with `ViewableProc` — `0x1DE` entries; roughly 1,410 widget
-structures exist in the program ROM in total. See
-[UI Widget Types]({{ site.baseurl }}/ui-widget-types/).
+The 478 is literal in the source: `InitializeNaka`
+(`v10/maincpu/storage/flash_floppy_handlers.s`) registers `NAKA_UIObjectTable` against handler
+`ViewableProc` with an entry count of `0x1DE`. The widget type codes and the descriptor record
+layout are on [UI Widget Types]({{ site.baseurl }}/ui-widget-types/).
 
 ## NAKA Widget Event Flow
 

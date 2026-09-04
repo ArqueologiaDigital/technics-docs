@@ -20,21 +20,31 @@ The UI framework is organized in layers:
 
 ## Internal Module Names (Developer Code Names)
 
-The firmware contains 11 UI subsystem modules with internal code names (likely named after original Technics/Matsushita developers). These are initialized during boot via `InitializeObjectTable` (0xFA40B3):
+The firmware contains 11 UI subsystem modules with internal code names (likely named after
+original Technics/Matsushita developers). They are initialised during boot from
+`InitializeObjectTable` (0xFA40B3), which calls them in the order below and then twenty
+generic `InitializeUser12`–`InitializeUser31` slots and `InitializeRoot`.
 
-| Module | Init Routine | Address | Purpose |
-|--------|-------------|---------|---------|
-| **Murai** | `InitializeMurai` | 0xFA9712 | Core UI framework, event dispatch |
-| **Toshi** | `InitializeToshi` | 0xFC0969 | Tone/sound selection UI |
-| **East** | `InitializeEast` | 0xF63DFC | Eastern region/style UI |
-| **Suna** | `InitializeSuna` | 0xF1B134 | Sound parameter UI |
-| **Cheap** | `InitializeCheap` | 0xF96F22 | Basic parameter editing |
-| **Scoop** | `InitializeScoop` | 0xF00658 | Display update manager |
-| **Yoko** | `InitializeYoko` | 0xF2877C | Horizontal layout/scrolling |
-| **Kubo** | `InitializeKubo` | 0xF2D2C4 | Grid/table layout |
-| **Hama** | `InitializeHama` | 0xF17E34 | List handling |
-| **KSS** | `InitializeKSS` | 0xFC09C7 | Keyboard/panel status |
-| **Naka** | `InitializeNaka` | 0xF05A7C | Central dispatch |
+Addresses are v10, from `symbols/maincpu_v10_symbols_reference.txt`; the source file is the one
+that carries the routine's ROM address range, which is why several sit outside `ui/`.
+
+| Module | Init Routine | Address (v10) | Source file | Purpose |
+|--------|-------------|---------|---------|---------|
+| **Murai** | `InitializeMurai` | 0xF7AD77 | `ui/drawbar_panel_ui.s` | Core UI framework, event dispatch |
+| **Toshi** | `InitializeToshi` | 0xFC311A | `extensions/extension_init.s` | Extension device support |
+| **East** | `InitializeEast` | 0xF72BAC | `sequencer/seq_event_playback.s` | Eastern region/style UI |
+| **Suna** | `InitializeSuna` | 0xF19636 | `storage/flash_floppy_handlers.s` | Sound parameter UI |
+| **Cheap** | `InitializeCheap` | 0xF9426A | `file_io/medley.s` | Basic parameter editing |
+| **Scoop** | `InitializeScoop` | 0xF028E3 | `display/scoop_display.s` | Display update manager |
+| **Yoko** | `InitializeYoko` | 0xF29E6D | `sequencer/sequencer_ui.s` | Horizontal layout/scrolling |
+| **Kubo** | `InitializeKubo` | 0xF2D2C4 | `sequencer/sequencer_ui.s` | Grid/table layout |
+| **Hama** | `InitializeHama` | 0xF1E146 | `factory_test/test_init.s` | Factory diagnostic tests |
+| **KSS** | `InitializeKSS` | 0xFC3E4F | `kn5000_v10_program.s` | Keyboard/panel status |
+| **Naka** | `InitializeNaka` | 0xF165EB | `storage/flash_floppy_handlers.s` | UI widget descriptor tables |
+
+Three of the code names also name directories in the disassembly, which is what fixes their
+scope: `ui_widgets/` is NAKA, `extensions/` is TOSHI, `factory_test/` is HAMA. The other eight
+purposes are read from what each module registers, not from an independent source.
 
 Each module registers "object tables" that define UI component hierarchies using the `RegObjTable` / `RegObjTabl` macros.
 
