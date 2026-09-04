@@ -398,7 +398,7 @@ The entire rendering is immediate-mode: each Confirm event redraws all 16 rows f
 
 | Event | Handler | Action |
 |-------|---------|--------|
-| `0x1C00007` | `DbMemDump_OK` | **Navigation dispatch** — receives button presses, looks up the step size from a 6-entry offset table, adjusts the current address, clamps to 24 bits, triggers redraw via Confirm event |
+| `0x1C00007` | `DbMemDump_OK` | **Navigation dispatch** — receives button presses, looks up the step size from a 6-entry `u32` table at `0xEAA6FA` (`Str_No + 0x3E4`, labelled `DbMemDump_StepTable` in the source; entries 0x100000, 0x10000, 0x1000, 0x100, 0x10, 0x1 -- the hex-digit weights, index 0..5 selected at `v10/maincpu/ui/ui_widget_defs.s:7088-7091`), adjusts the current address, clamps to 24 bits, triggers redraw via Confirm event |
 | `0x1C0000F` | `DbMemDump_Confirm` | **Render** — reads 128 bytes from the current address and renders the full hex dump display |
 | `0x1C0000E` | `DbMemDump_Select` | **Auto-repeat** — forwards to Confirm, then sets a periodic timer (`SetApTimer` at 120 ticks) for continuous scrolling while a button is held |
 | `0x1C0000D` | `DbMemDump_Paint` | **Background paint** — draws the double-bordered box frame, then triggers a Select event to fill the hex content |
