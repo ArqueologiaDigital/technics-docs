@@ -38,6 +38,7 @@ Things we don't know yet and need to investigate.
 - [x] How is direction determined? **Quadrature decoding** of ROTA/ROTB phase relationship
 - [x] Encoder ID encoding? **5-bit ID from bits 0-2 and 6-7 of packet byte 0**
 - [x] Which physical encoders map to which IDs? **ID 2=Modwheel, 5=Volume, 25=Breath, 26=Foot, 27=Expression, 31=Passthrough**
+- [x] Does the TEMPO/PROGRAM data wheel travel through this system? **No** — it is a control-panel serial input with its own frame and acceleration curve, on [Data Wheel]({{ site.baseurl }}/data-wheel-investigation/)
 
 ## Hardware Architecture
 
@@ -48,8 +49,8 @@ Things we don't know yet and need to investigate.
 - [x] Is it UART, SPI, or custom protocol? **UART** (M37471 has built-in serial interface)
 
 ### Inter-CPU Communication
-- [x] How do main CPU and sub CPU coordinate? **Command/response via latch at 0x120000, DMA for bulk transfers**
-- [x] What data passes through the latches at 0x120000? **Commands (E1/E2/E3/00-1F), response bytes, status flags**
+- [x] How do main CPU and sub CPU coordinate? **Command/response via the IC22/IC23 latch — `0x140000` on the main-CPU bus, `0x120000` on the sub-CPU bus — with DMA for bulk transfers**
+- [x] What data passes through the latches? **Commands (E1/E2/E3/00-1F), response bytes, status flags**
 - [x] Are there handshaking signals? **Yes: status flags at 0x04FE (bit 6=payload ready, bit 7=xfer complete)**
 
 ### HDAE5000 Hard Disk Expansion
@@ -60,9 +61,7 @@ Things we don't know yet and need to investigate.
 ## ROM Reconstruction
 
 ### Main CPU Reconstruction
-- [x] ~~What instructions produce the 177 divergent bytes?~~ — Resolved: all divergences fixed, 100% byte-perfect match achieved via LLVM TLCS-900 backend
-- [x] ~~Are they encoding issues or data issues?~~ — Were instruction encoding variations; fixed by migrating from ASL to LLVM
-- [x] ~~Can they be fixed in the assembler or source?~~ — Fixed by custom LLVM backend with correct TLCS-900 encoding
+- [x] Does the main-CPU image rebuild byte-for-byte? **Yes** — every gated image is byte-identical under `make gate-all`, encoded natively by the custom LLVM TLCS-900 backend. See [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/).
 
 ### Table Data
 - [x] What is the structure of the table data ROM? **2MB ROM at 0x800000-0x9FFFFF** — contains rhythm patterns, sound parameter tables, bitmap images, demo songs, SSF presentation data. See [Storage Subsystem]({{ site.baseurl }}/storage-subsystem/)
@@ -115,12 +114,14 @@ Some flag bits appear unused in the code we've analyzed:
 ### Timing
 - Various routines use "wait 6 ticks" or "wait 3000 loops" - what are the actual timing requirements?
 
-### Undisassembled Code
-- ~~Encoder handlers at 0xFC6C80~~ ✓ **Fully disassembled** (450 bytes → 6 handlers)
-- ~~LED-related routines at 0xFC4B95, 0xFC4BC5 need investigation~~ ✓ **Resolved** — named and sized: `CPanel_LED_HandlePacket2` (0xFC4B95) and `CPanel_LED_HandlePacketN` (0xFC4BC5), see [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/#led-packet-handlers-fully-disassembled). Per that page, "all control panel routines have been fully disassembled."
+### Control Panel Code
+
+All control panel routines are disassembled: the encoder handlers at `0xFC6C80` (450 bytes, six
+handlers) and the LED packet handlers `CPanel_LED_HandlePacket2` (`0xFC4B95`) and
+`CPanel_LED_HandlePacketN` (`0xFC4BC5`) are named and sized — see
+[Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/#led-packet-handlers-fully-disassembled).
 
 ---
 
-*Last updated: September 2026 (LED packet type / handler questions resolved; rest is otherwise as of March 2026 and not independently re-verified this pass)*
-
-*Have answers or new questions? Contribute to the project!*
+*Have answers or new questions? Contribute to the project — see
+[Help Wanted]({{ site.baseurl }}/help-wanted/).*
