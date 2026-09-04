@@ -45,17 +45,32 @@ thirteen gated images. Data tables, strings, bitmaps, firmware bytecode for soft
 
 ### By ROM
 
-| ROM | Code `.byte` remaining | Status |
-|-----|---------------------|--------|
-| Main CPU (v9 / v10, each) | confirmed-region backlog 0 B + misframed islands (partly converted; not a fixed pool — see below) | **Not complete** |
-| Main CPU (v7) | 236,713 B in 789 confirmed regions, plus 29,032 B in 2,456 misframed islands — the largest code-as-`.byte` debt in the project | **Not complete** |
-| Sub CPU Payload | **0** | **Complete** |
-| Sub CPU Boot | **0** | **Complete** |
-| Table Data | **0** | **Complete** |
-| Custom Data | **0** (data only) | **Complete** |
-| HDAE5000 | 13,168 B | **Not complete** |
-| SX-WSA1R `prom_a` / `prom_b` | **0** — byte runs audited and typed | **Complete** |
-| SX-WSA1R `prom_c` / `prom_d` | **0** — survived a falsification attack | **Complete** |
+| ROM | Code `.byte` remaining | Instruction statements | Status |
+|-----|---------------------|-----------------------:|--------|
+| Main CPU (v9 / v10, each) | confirmed-region backlog 0 B + misframed islands (partly converted; not a fixed pool — see below) | 358,993 (v9) / 336,011 (v10) | **Not complete** |
+| Main CPU (v7) | 236,713 B in 789 confirmed regions, plus 29,032 B in 2,456 misframed islands — the largest code-as-`.byte` debt in the project | 268,186 | **Not complete** |
+| Sub CPU Payload | **0** | 45,478 | **Complete** |
+| Sub CPU Boot | **0** | 1,358 | **Complete** |
+| Table Data | **0** | 5,758 | **Complete** |
+| Custom Data | **0** (data only) | 0 | **Complete** |
+| HDAE5000 | 13,168 B | 35,285 | **Not complete** |
+| SX-WSA1R `prom_a` / `prom_b` | **0** — byte runs audited and typed | 121,691 / 67,195 | **Complete** |
+| SX-WSA1R `prom_c` / `prom_d` | **0** — survived a falsification attack | 75,701 / 0 | **Complete** |
+
+The **instruction statements** column is, in the disassembly repository,
+
+```
+python3 notes/syntax-convergence-probes/mnemonic_census.py --root <dir>
+```
+
+with `<dir>` one of `v10/maincpu`, `v9/maincpu`, `v7/maincpu`, `v142/subcpu`, `subcpu/boot`,
+`hdae5000`, `table_data`, `custom_data`, `wsa1/prom_a` … `wsa1/prom_d`; the `TOTAL` line is
+the figure. The census counts every instruction-shaped statement under the root — native
+mnemonics, tree-local synthetic names and tree macros alike — so it is **not** a count of
+native instructions. Custom data's 0 is a fact about a pure data ROM, not a gap. The SX-WSA1R
+figures cover the files under each `prom_*` root: the kernel and DSP-driver sources both
+processors share (`wsa1/kernel/`, 938 statements; `wsa1/dsp/`, 97) are assembled into `prom_a`
+and `prom_c` but live outside both roots.
 
 The misframed islands in the Main CPU rows are left as `.byte` on purpose: fixing one means
 re-framing an instruction already present in a neighbouring converted region, not filling a
@@ -74,23 +89,29 @@ scratch tree and is run as `--prepare`, then `--judge v7` and `--islands v7 --ma
 > data-framed-as-code, which is the third kind of debt and the one the byte gate is blind to
 > in both directions.
 
-### Native instruction counts are not currently measured
+### Why the column says "instruction statements"
 
-There is no committed script that reports native instruction counts per image, and the
-figures that used to sit in the table above (239,683 for the main CPU, 35,721, 1,357, 1,678
-and 502 for the others) cannot be reproduced from anything in the repository — they predate
-the LLVM toolchain. Two instruments do exist, and they measure different things, so they
-cannot be combined into one column:
+The figures that once occupied that column — 239,683 for the main CPU, 35,721, 1,357, 1,678
+and 502 for the others, labelled *native instruction counts* — could not be reproduced from
+anything in the repository: they predate the LLVM toolchain, and they were not merely stale.
+The HD-AE5000's was off by a factor of about seventy (502 against the census's 35,285). A
+figure with no producer does not get restored; the column is filled from the census and
+labelled by what the census counts, which is every instruction-shaped statement, native or
+synthetic.
 
-- `notes/syntax-convergence-probes/mnemonic_census.py --root v10/maincpu` counts
-  **instruction statements** in a source tree: 336,011 for v10's main CPU. See
+Two instruments exist and measure different things, so they cannot share a column:
+
+- `notes/syntax-convergence-probes/mnemonic_census.py --root <dir>` counts **instruction
+  statements** per source root — the column above. Its bucket breakdown for v10 is on
   [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#instruction-census).
 - `llvm-mc -g` emits one DWARF line row per instruction statement and none for data, which
-  gives a per-image count. Values on record in the disassembly repository's notes:
-  HD-AE5000 **36,391**, custom data **0**, `wsa1/prom_c` **76,647**, `prom_d` **0**.
+  gives a per-*image* count that includes every source the image pulls in. Values on record in
+  the disassembly repository's notes: HD-AE5000 **36,391**, custom data **0**, `wsa1/prom_c`
+  **76,647**, `prom_d` **0** — close to the census, not equal to it.
 
-Whether to grow the second into a per-image reporter is an open question; until then this
-page states debt, which is measured, rather than progress, which is not.
+Neither is a count of *native* instructions; how far the tree is from that is the subject of
+[LLVM Semantic Instructions]({{ site.baseurl }}/llvm-semantic-instructions/). This page states
+debt, which is measured, rather than progress.
 
 ### LLVM Backend Encodings Added
 
