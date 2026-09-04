@@ -45,26 +45,52 @@ thirteen gated images. Data tables, strings, bitmaps, firmware bytecode for soft
 
 ### By ROM
 
-| ROM | Native Instructions | Code `.byte` remaining | Status |
-|-----|-------------------|---------------------|--------|
-| Main CPU (v9 / v10, each) | 239,683 | confirmed-region backlog 0 B + misframed islands (partly converted; not a fixed pool — see below) | **Not complete** |
-| Main CPU (v7) | — | 275,822 B (797 confirmed regions + 2,268 misframed islands) — the largest code-as-`.byte` debt in the project | **Not complete** |
-| Sub CPU Payload | 35,721 | **0** | **Complete** |
-| Sub CPU Boot | 1,357 | **0** | **Complete** |
-| Table Data | 1,678 | **0** | **Complete** |
-| Custom Data | 0 (data only) | **0** | **Complete** |
-| HDAE5000 | 502 | 11,783 B | **Not complete** |
-| SX-WSA1R `prom_a` / `prom_b` | — | **0** — byte runs audited and typed | **Complete** |
-| SX-WSA1R `prom_c` / `prom_d` | — | **0** — survived a falsification attack | **Complete** |
+| ROM | Code `.byte` remaining | Status |
+|-----|---------------------|--------|
+| Main CPU (v9 / v10, each) | confirmed-region backlog 0 B + misframed islands (partly converted; not a fixed pool — see below) | **Not complete** |
+| Main CPU (v7) | 236,713 B in 789 confirmed regions, plus 29,032 B in 2,456 misframed islands — the largest code-as-`.byte` debt in the project | **Not complete** |
+| Sub CPU Payload | **0** | **Complete** |
+| Sub CPU Boot | **0** | **Complete** |
+| Table Data | **0** | **Complete** |
+| Custom Data | **0** (data only) | **Complete** |
+| HDAE5000 | 13,168 B | **Not complete** |
+| SX-WSA1R `prom_a` / `prom_b` | **0** — byte runs audited and typed | **Complete** |
+| SX-WSA1R `prom_c` / `prom_d` | **0** — survived a falsification attack | **Complete** |
 
 The misframed islands in the Main CPU rows are left as `.byte` on purpose: fixing one means
 re-framing an instruction already present in a neighbouring converted region, not filling a
 gap, and this work requires a round-trip proof per region rather than a bulk relabel.
 Converting a confirmed region creates new islands at its boundary, so the island count is
 not a fixed pool — it moves with the tree state and should be re-measured, not quoted from
-this page, before being used for planning. `scripts/analysis/v9_v10_undisassembled_census.py`
-is the v9/v10 and v7 census;
-`hdae5000/tools/measure_debt.py` is the HDAE5000 one.
+this page, before being used for planning.
+
+`scripts/analysis/v9_v10_undisassembled_census.py` is the v9/v10 and v7 census; it needs a
+scratch tree and is run as `--prepare`, then `--judge v7` and `--islands v7 --max-island 63`.
+`hdae5000/tools/measure_debt.py` is the HDAE5000 one and prints to stdout with no arguments.
+
+> **The HD-AE5000 figure rises as work lands, and that is correct.** Twelve regions of
+> mis-disassembled data were retyped *back* into `.byte`, which moved the measurement up
+> rather than down. A number that only ever falls would mean the instrument cannot see
+> data-framed-as-code, which is the third kind of debt and the one the byte gate is blind to
+> in both directions.
+
+### Native instruction counts are not currently measured
+
+There is no committed script that reports native instruction counts per image, and the
+figures that used to sit in the table above (239,683 for the main CPU, 35,721, 1,357, 1,678
+and 502 for the others) cannot be reproduced from anything in the repository — they predate
+the LLVM toolchain. Two instruments do exist, and they measure different things, so they
+cannot be combined into one column:
+
+- `notes/syntax-convergence-probes/mnemonic_census.py --root v10/maincpu` counts
+  **instruction statements** in a source tree: 336,011 for v10's main CPU. See
+  [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#instruction-census).
+- `llvm-mc -g` emits one DWARF line row per instruction statement and none for data, which
+  gives a per-image count. Values on record in the disassembly repository's notes:
+  HD-AE5000 **36,391**, custom data **0**, `wsa1/prom_c` **76,647**, `prom_d` **0**.
+
+Whether to grow the second into a per-image reporter is an open question; until then this
+page states debt, which is measured, rather than progress, which is not.
 
 ### LLVM Backend Encodings Added
 
@@ -85,17 +111,13 @@ All previously missing instruction encodings have been implemented in the LLVM T
 
 ### HDAE5000: not complete
 
-The HDAE5000 extension ROM's 502 native instructions do not cover all identified code
-regions. `hdae5000/tools/measure_debt.py` counts 11,783 B of undocumented `.byte`/`.word`
-operand bytes — overwhelmingly scattered single-byte numeric fields rather than one
-contiguous block — plus 3,793 B more that carries a decoding comment but has not been
-converted to real instructions. Most remaining `.byte` in the tree is genuine data (custom-
-filesystem templates — the HD-AE5000 filesystem is *not* FAT16 — string constants, UI
-bitmaps, etc.), but these figures are not yet zero.
-
-## Original Audit Results (Historical)
-
-Encoding gaps by category (original counts, now resolved):
+`hdae5000/tools/measure_debt.py` counts **13,168 B** of undocumented `.byte`/`.word` operand
+bytes — overwhelmingly scattered single-byte numeric fields rather than one contiguous block
+— plus **3,815 B** more that carries a decoding comment but has not been converted to real
+instructions. Against a 512 KB ROM that is 2.5 % debt and 96.8 % real source. Most remaining
+`.byte` in the tree is genuine data (custom-filesystem templates — the HD-AE5000 filesystem
+is *not* FAT16 — string constants, UI bitmaps, etc.), but these figures are not yet zero.
+There are **0 B** of raw `.incbin` with no rebuild rule.
 
 ## Execution Plan
 
@@ -173,11 +195,9 @@ Newly disassembled code may reveal previously unidentified jump tables or call t
 
 ### Step 13: Final Verification & Website Sync
 
-1. Full `make clean-all && make all && make asl-all` + `compare_roms.py` (100.00% on all
-   fifteen sections — see the note under *Verification* below)
+1. `make gate-all` — thirteen images byte-identical, or the change does not land
 2. Run `scripts/sync_docs_labels.py --apply` to update any new labels on the website
-3. Update `rom-reconstruction.md` with the milestone
-4. Update issue tracker — edit `kn5000_project/.beads/issues.jsonl` by hand to mark completed issues closed. Do **not** run `bd close` against `kn5000_project` (see `FSanches/beads-usage-policy.md`).
+3. Update `rom-reconstruction.md`
 
 ## Ordering & Priorities
 
@@ -194,15 +214,15 @@ Step 12 is iterative and may cycle back through Steps 3-11.
 ## Verification
 
 After each step:
-- `cd kn5000-roms-disasm && make clean-all && make all && make asl-all`
-- `python3 scripts/build/compare_roms.py` — must show 100.00% on all **fifteen** sections
+- `cd kn5000-roms-disasm && make gate-all` — thirteen images, byte-exact or non-zero exit
 - LLVM tests: `cd llvm-project && build/bin/llvm-lit llvm/test/CodeGen/TLCS900/`
 
-> **Section count matters more than the percentages.** This page was written in March 2026,
-> when the shorter `make clean && make all` was the habit. That form never assembles the six
-> ASL mirror sections, and `compare_roms.py` skips a missing section silently — so it prints
-> nine sections, all reading `100.00%`, and looks identical to a passing full run. Count the
-> sections. See [Disassembly Workflow]({{ site.baseurl }}/disassembly-workflow/).
+> **Do not accept a percentage in place of the gate.** `compare_roms.py` prints
+> `Similarity: 100.00%` rounded to two decimals, which in a 2 MB ROM covers up to 104
+> differing bytes, and it silently skips any section whose built file is missing — so a run
+> that never assembled the six ASL mirror sections prints nine sections, all reading
+> `100.00%`, and looks identical to a passing full run. See
+> [Disassembly Workflow]({{ site.baseurl }}/disassembly-workflow/#-never-gate-on-a-percentage).
 
 ## Policy Compliance
 
