@@ -8,20 +8,18 @@ permalink: /llvm-semantic-instructions/
 
 The LLVM TLCS-900 backend originally used 118 custom "wrapper" mnemonics encoding raw addressing mode bytes. This page tracks the ongoing work to replace them with proper semantic instructions.
 
-**Beads issues:** `kn5000-7ubb` (Phase 2), `kn5000-1hqd` (Phase 3), `kn5000-xcuk` (Phase 4), `kn5000-0vbs` (Phase 5)
-
 ## Why This Matters
 
 Wrapper mnemonics like `st_dri3b L, 0xfd, 0xb8, 0x01` are unreadable. The same instruction in standard TLCS-900 syntax is `lda xsp, (xsp+440)` — immediately clear that it's deallocating 440 bytes of stack frame. Semantic mnemonics make the disassembly comprehensible and cross-version diffs meaningful.
 
 ## Progress Summary
 
-**All five phases are complete.** The current backend and both KN5000 version
-trees have zero remaining occurrences of every wrapper mnemonic named below
-(`ld16_24`, `ldto_berp`, `st_dri3b`, and the rest of the Phase 2-5 lists). The
-per-phase instance counts below are the counts from when each phase was
-scoped, kept for context; they have not been re-verified against the current
-tree, and no page here asserts new counts in their place.
+**Forty-one of the forty-three wrapper families are at zero. Two are not.**
+`lda_dpi` and `bit_dri` still stand in the sources, and they are the hardest
+kind: their operands are literal mode and displacement bytes
+(`bit_dri 7, 0x07, 0xec, 0xf4`), so no rename reaches them until the operand
+is modelled. Both are still defined in the backend
+(`TLCS900InstrInfo.td`).
 
 | Phase | Description | Instances (at time of scoping) | Status |
 |-------|-------------|-----------|--------|
@@ -29,8 +27,23 @@ tree, and no page here asserts new counts in their place.
 | Phase 1b | Parenthesized direct addresses | 61,436 | **Complete** |
 | Phase 2 | 24-bit addressing semantics | ~1,700 | **Complete** |
 | Phase 3 | Extended register pair modes | ~3,300 | **Complete** |
-| Phase 4 | SRI/DRI indirect modes | ~3,500 | **Complete** |
+| Phase 4 | SRI/DRI indirect modes | ~3,500 | **Two families remain** |
 | Phase 5 | Miscellaneous | ~700 | **Complete** |
+
+Sites remaining, counted over the 547 tracked `.s` files:
+
+| Mnemonic | Total | v7 | v9 | v10 | v142 | hdae5000 | wsa1 | table_data |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `lda_dpi` | **669** | 135 | 187 | 187 | 9 | 11 | 138 | 2 |
+| `bit_dri` | **189** | 33 | 68 | 68 | 11 | 9 | — | — |
+
+Reproduce by counting the leading mnemonic on every instruction line of
+`git ls-files '*.s'` in the disassembly repository — the sources are latin-1,
+not UTF-8, so read them as latin-1 or the count silently comes back empty.
+
+The per-phase instance counts in the tables below are the counts from when each
+phase was scoped, kept for context; apart from those two families they have not
+been re-verified against the current tree.
 
 ## Completed Work
 
@@ -68,13 +81,13 @@ Changes:
 - `TLCS900InstPrinter.cpp` — Added `printDirectAddr()` to wrap output in parentheses
 - Both old (bare) and new (parenthesized) syntax accepted for backward compatibility
 
-## Phases 2-5 (Complete)
+## Phases 2-5
 
-These tables record the mnemonics as originally scoped. Every wrapper
-mnemonic listed in them has zero occurrences left in the KN5000 or SX-WSA1R
-trees; the semantic replacement shapes were not individually re-audited
-here, so read these as "what was migrated away from," not as a live
-inventory of current mnemonics.
+These tables record the mnemonics as originally scoped. Every wrapper mnemonic
+listed in them has zero occurrences left in the KN5000 or SX-WSA1R trees
+**except `lda_dpi` and `bit_dri`**, counted above. The semantic replacement
+shapes were not individually re-audited here, so read these as "what was
+migrated away from," not as a live inventory of current mnemonics.
 
 ### Phase 2: 24-bit Addressing Mode Semantics (~1,700 instances)
 
@@ -110,12 +123,12 @@ inventory of current mnemonics.
 | `st_dri3b/w/l` | `ld (reg+d16), val` | 2,105 | Complete |
 | `ld_srib3` / `ld_sriw3` | `ld val, (reg+d16)` | 1,073 | Complete |
 | `lda_dri3` | `lda reg, (reg+d16)` | 396 | Complete |
-| `lda_dpi` | `lda reg, (reg+d16)` | 164 | Complete |
+| `lda_dpi` | `lda reg, (reg+d16)` | 164 | **Open** — 669 sites remain |
 | `ld_spib` | `ld val, (xsp+d8)` | 129 | Complete |
 | `jp_dri` | `jp (reg+d16)` | 240 | Complete |
 | `stib_dri` / `stib_dpi` | `ld (reg+d16), imm` | 326 | Complete |
 | `st_dpiw` / `stiw_dri` | `ld (reg+d16), imm16` | 120 | Complete |
-| `bit_dri` | `bit n, (reg+d16)` | 68 | Complete |
+| `bit_dri` | `bit n, (reg+d16)` | 68 | **Open** — 189 sites remain |
 
 ### Phase 5: Miscellaneous (~700 instances)
 
