@@ -765,9 +765,9 @@ which prints to stdout and writes nothing unless given `--out`:
 
 | Bucket | Sites | Distinct names |
 |--------|------:|---------------:|
-| Instruction statements, total | 336,011 | 441 |
-| — a native LLVM mnemonic `unidasm` also has | 290,973 | 67 |
-| — a tree-local synthetic name encoding the operand form | 43,331 | 349 |
+| Instruction statements, total | 336,011 | 359 |
+| — a native LLVM mnemonic `unidasm` also has | 294,233 | 68 |
+| — a tree-local synthetic name encoding the operand form | 40,071 | 266 |
 | — a `.macro` defined inside the tree | 1,705 | 23 |
 | — unclassified | 2 | 2 |
 
