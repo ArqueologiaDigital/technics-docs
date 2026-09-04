@@ -37,9 +37,12 @@ Sites remaining, counted over the 547 tracked `.s` files:
 | `lda_dpi` | **669** | 135 | 187 | 187 | 9 | 11 | 138 | 2 |
 | `bit_dri` | **189** | 33 | 68 | 68 | 11 | 9 | — | — |
 
-Reproduce by counting the leading mnemonic on every instruction line of
-`git ls-files '*.s'` in the disassembly repository — the sources are latin-1,
-not UTF-8, so read them as latin-1 or the count silently comes back empty.
+Reproduce with `python3 tools/wrapper_mnemonic_census.py` in this repository,
+which counts the leading mnemonic on every instruction line of
+`git ls-files '*.s'` in the disassembly repository and prints the table above.
+⚠ The sources are latin-1, not UTF-8 — decoding them as UTF-8, or running GNU
+grep over them in a UTF-8 locale, can silently return zero matches on a file
+that plainly contains the string.
 
 The per-phase instance counts in the tables below are the counts from when each
 phase was scoped, kept for context; apart from those two families they have not
