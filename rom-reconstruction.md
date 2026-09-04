@@ -37,10 +37,9 @@ reverted, not explained away.
 
 Official firmware updates were distributed on floppy disk. All versions are archived at [archive.org](https://archive.org/details/technics-kn5000-system-update-disks).
 
-> **Provenance note.** The release dates below are inherited from earlier revisions of this
-> page and come from the update-disc listing, not from anything inside the ROM images. The
-> 2026-08 conversion work did not verify them, and no corresponding dates exist in the
-> disassembly repository. Treat them as unconfirmed.
+> **Provenance note.** The release dates below come from the update-disc listing, not from
+> anything inside the ROM images, and no corresponding dates exist in the disassembly
+> repository. Treat them as unconfirmed.
 
 ### Main Board Firmware
 
@@ -102,7 +101,7 @@ after the LLVM sources stop referencing them. Conversions therefore slice with
 
 ### The v1.42 sub-CPU firmware-update image
 
-New in August 2026: the sub-CPU payload is now verified in *both* of the forms it ships in.
+The sub-CPU payload is verified in *both* of the forms it ships in.
 
 `original_ROMs/kn5000_subprogram_v142_compressed.rom` is the v1.42 payload as it appears
 on a firmware-update disk ("Program DATA FILE PCK", File Type 007, flashed to Custom Data
@@ -167,38 +166,25 @@ therefore kept as a byte-exact raw slice of the dump and is *not* rebuilt from s
 whole-extent reference slice is still round-trip-verified by `make verify-help-databases`
 to pin the bytes down.
 
-## What the August 2026 conversion waves changed
+## What the source says each region is
 
-The work was scoped by an audit of every binary include and compressed region in the
-repository (10 agents: 7 scanners and 3 adversarial verifiers). It inventoried **598
-`.incbin`/`binclude` directives**, of which **505 are honest build products** — compiled
-from C or assembly, or generated from documented data — and produced **55 findings** with
-**24 adversarial verdicts**. Five rounds of conversion followed — waves 0, 1, 2, 3a and a
-combined 3b + 5 — landing **33 packages out of 35 launched**, each gated on a full rebuild
-at fifteen sections × 100.00%. Neither of the two that did not land was a byte-match
-failure: one worker stalled and was re-run, and one package was withdrawn because its
-comment would have asserted something the dump does not support. A sixth wave was an
-investigation into the boot path and dump provenance rather than a conversion round, so it
-contributed findings and documentation but no packages. The method is written up on the
+Every `.incbin` in the repository has been audited: **598 `.incbin`/`binclude` directives**,
+of which **505 are honest build products** — compiled from C or assembly, or generated from
+documented data. The audit method, and the discipline that keeps a conversion from silently
+asserting more than the dump supports, are on the
 [Disassembly Workflow]({{ site.baseurl }}/disassembly-workflow/) page.
 
-### Table Data ROM: from opaque halves to labelled source
+### Table Data ROM: labelled source, not opaque halves
 
-Before the waves, the LLVM source for the 2 MB table-data ROM pulled **1,262,528 bytes —
-60% of the ROM — out of anonymous blob files**: `initial_data.bin` (524,271 B) and
-`icons_to_strings.bin` (520,920 B) each as a single unlabelled `.incbin`, plus
-`wallpaper1_to_icons.bin`, `icon_pixel_data.bin`, `icon_table.bin`, `wallpaper_gap.bin`,
-`hkst_55.ssf` and six `bootcode_*.bin` code blobs.
-
-Today that figure is **zero**. `initial_data.bin` is not referenced by the LLVM build at
+The LLVM source for the 2 MB table-data ROM pulls **zero bytes out of anonymous blob files**.
+`initial_data.bin` is not referenced by the LLVM build at
 all; `icons_to_strings.bin` survives only as 13 labelled, explicitly sized slices
 (126,674 B: ten font glyph banks, the truncated German help block, the Composer factory
 memory image and one residue block); `wallpaper1_to_icons.bin` as 87 named bitmap slices;
 `icon_pixel_data.bin` as 177 named icon slices. Every remaining `.incbin` in the table-data
 sources carries a label, a length and a comment saying what it is.
 
-`icons_to_strings.bin` was then audited end to end (commit `6ab2b5d`): all 742,024 bytes
-are accounted for — 126,674 B in those 13 slices, 394,246 B that this build emits from
+`icons_to_strings.bin` is audited end to end: all 742,024 bytes are accounted for — 126,674 B in those 13 slices, 394,246 B that this build emits from
 source but the ASL mirror still takes from the blob, and a 221,104-byte dead tail
 (ROM `0x9C4050-0x9F9FFF`) that no build reads and that is a stale duplicate of the
 now-source-built demo-song presets. It was documented rather than deleted, because the
@@ -207,11 +193,10 @@ a second source would be a byte-match trap. `make audit-icons-blob` re-derives t
 from the tree and the factory dump and fails if any of it drifts. Details on the
 [Table Data ROM]({{ site.baseurl }}/table-data-rom/) page.
 
-Symbol counts tell the same story: `symbols/table_data_symbols_reference.txt` went from
-**133 symbols to 4,161**. The sub-CPU payload's reference file went from 3,862 to 4,338,
-the HD-AE5000's from 223 to 532, and the sub-CPU boot ROM's from 53 to 63.
+Symbol counts follow: `symbols/table_data_symbols_reference.txt` holds **4,161** symbols, the
+sub-CPU payload's **4,338**, the HD-AE5000's **532** and the sub-CPU boot ROM's **63**.
 
-### Regions newly converted or identified
+### Region-by-region source map
 
 | Region | ROM range | Now |
 |--------|-----------|-----|
@@ -235,11 +220,12 @@ the HD-AE5000's from 223 to 532, and the sub-CPU boot ROM's from 53 to 63.
 | HD-AE5000 initialised `.data` image | 0x2F94B2–0x2FA133 | `hdae5000/hdae5000_init_data.s` — nine tables, 96 code pointers and 166 string pointers, all named from the firmware's own registration calls |
 | HD-AE5000 graphics bank | 0x2A858E–0x2F8DCD | re-split into eleven regions: five palette + bitmap pairs at the boundaries hard-coded in `HDAE5000_Register_Frame`, plus a string head |
 
-Several long-standing descriptions were **corrected** by this work, not merely extended:
+Several of these regions are not what their file names say, and the names were kept while the
+descriptions were not:
 
-- `bootcode_flash_handlers.bin` was never "flash update handlers" — it is the bootloader's
+- `bootcode_flash_handlers.bin` is not flash update handlers — it is the bootloader's
   complete uPD72068 FDC command layer, a compact port of the maincpu FDC driver.
-- `bootcode_utils.bin` was not "motor control / VGA display / progress bar" — it is the
+- `bootcode_utils.bin` is not motor control, VGA display or a progress bar — it is the
   floppy disk-format probe plus the bootloader's own CP-serial driver, which is
   **independent of** the runtime `CPanel_*` stack in the program ROM.
 - The incbin boundary at 0x9FC6F6 was splitting a five-byte `ld A,(0x160002)` in half. It
@@ -248,18 +234,15 @@ Several long-standing descriptions were **corrected** by this work, not merely e
   middle of `DSP_MixerGain_Curve` (0x0131CF–0x0133CE), a 128-entry piecewise-exponential
   **gain** curve ending at digital full scale 0x7FFFFF00; the only proven consumer,
   `DSP_MixerCoeff_Compute`, treats its entries as amplitude.
-- The claim that the sub-CPU executable lives at table-data 0x830000 is wrong. That region
-  is the tone database; the runtime code payload's source path is a separate question.
-- `HDAE5000_GFX_DATA_1`, "graphics data block 1", is neither graphics nor code: all 3,160
+- The sub-CPU executable does not live at table-data 0x830000. That region is the tone
+  database; where the runtime code payload is sourced from is a separate question.
+- `HDAE5000_GFX_DATA_1`, despite the name, is neither graphics nor code: all 3,160
   bytes of it group into valid little-endian pointers — 769 into the UI descriptor pool,
-  20 into sub-CPU work RAM, and one NULL terminator. The "graphics data" reading was
-  retracted in six places, and the accompanying "size = 789 bytes" comment was wrong too:
-  0x315 is an *entry count*.
-- `HDAE5000_Font_Data` has been retired. The region holds no font, and the label's start
-  address fell 0x11818 bytes *inside* a 320×240 bitmap.
-- The 320×240 boot splash at 0x2E61CE was previously hidden inside a slice labelled "VGA
-  palette data (256 entries)" that ran for 0x13000 bytes — 0x400 of palette followed by a
-  whole picture nobody had identified.
+  20 into sub-CPU work RAM, and one NULL terminator. Its `0x315` is an *entry count*, not a
+  byte size.
+- There is no `HDAE5000_Font_Data` region. The address that label named holds no font, and
+  fell 0x11818 bytes *inside* a 320×240 bitmap.
+- A 320×240 boot splash sits at 0x2E61CE, immediately after the 0x400-byte VGA palette.
 - The sub-CPU boot ROM's 96 KB of `0xFF` is **not erased flash**. It was never dumped: only
   4,352 of the chip's 131,072 bytes have ever been read. Any "the sub-CPU boot ROM is ~99%
   disassembled" figure computed over the whole file is meaningless.
@@ -277,7 +260,7 @@ emitted by `.incbin` directives per ROM tree:
 | `v7/maincpu` | 995,213 | **Raw ROM slices behind a `generated/` path** — see the note below |
 | `v142/subcpu` | 0 | No binary includes at all |
 | `subcpu/boot` | 0 | The 656-byte blob was carved into source; the ASL mirror still `binclude`s the file, so it stays on disk |
-| `hdae5000` | 313,076 | Ten labelled slices of `code_29af2d_2fffff.bin`, and **all ten are pixel or palette data**: five 1,024-byte RGBX palettes, four 320×240 bitmaps and one 756-byte icon. Despite the file's name none of it is code. The four old slices cut pictures in half; the 2026-08 re-split (`b7752bc`) moved the boundaries onto the real palette/bitmap edges, retired the false `HDAE5000_Font_Data` label, and identified the boot splash at 0x2E61CE that had been sitting unnamed behind a 1KB palette |
+| `hdae5000` | 313,076 | Ten labelled slices of `code_29af2d_2fffff.bin`, and **all ten are pixel or palette data**: five 1,024-byte RGBX palettes, four 320×240 bitmaps and one 756-byte icon. Despite the file's name none of it is code. The slice boundaries sit on the real palette/bitmap edges, and the boot splash at 0x2E61CE is named |
 | `table_data` | 1,113,121 | All labelled: BMPs, wallpapers, font glyph banks, icon/bitmap slices, and the source-built compressed payloads |
 | `custom_data` | 667,648 | Six factory-style-database sections; blob-level documentation judged adequate (this is one unit's user-data area, not firmware) |
 
@@ -639,7 +622,7 @@ precede it, 1,971 follow it, and the chip's first 2,048 bytes were read and came
 blank.
 
 **What the guess does not yet survive: a rigorous check.** The adversarial re-verification
-that closed wave 6 graded the educated guess **UNDECIDED**, not corroborated. Its objection
+graded the educated guess **UNDECIDED**, not corroborated. Its objection
 is method: the enumeration it asks for — the targets of real `JP`/`JR`/`CALL`/`CALR`
 instructions plus the vector-table entries, taken out of a disassembly — has never been run
 and committed as an auditable artifact, and raw byte scans *do* turn up candidates. Two

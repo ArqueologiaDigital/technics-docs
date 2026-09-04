@@ -375,6 +375,6 @@ the rebuild: see the correction at the top of this page.
 - [Sub-CPU Payload Provenance]({{ site.baseurl }}/subcpu-payload-provenance/) — where the payload is supposed to come from
 - [Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/) — v1.40 / v1.41 / v1.42
 - [SubCPU Command Format]({{ site.baseurl }}/subcpu-command-format/) — the dispatch table the payload installs
-- [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#dump-provenance) — the dump-provenance record for all six ROMs
+- [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#dump-provenance) — the dump-provenance record for every gated image
 - [Boot Sequence]({{ site.baseurl }}/boot-sequence/#sub-cpu-boot-sequence) — the sub-CPU side of power-on
 - [MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/) — what the driver does and does not model
