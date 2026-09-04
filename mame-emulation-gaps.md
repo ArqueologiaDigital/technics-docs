@@ -218,6 +218,14 @@ Port E bit 0 (HD-AE5000 present strap), `Boot_CheckDiskPresent` (Port D bit 6, a
   the external width for the whole space via `m_am8_16`, and the KN5000 driver never calls
   `set_am8_16` for either CPU. Whether any block is genuinely 8-bit, and whether it matters,
   is unmeasured.
+- **Keybed service test modes cannot be entered.** The factory keybed diagnostics are
+  reached by holding B3+B4 at power-on and then selecting one of the mode codes `0xF5`–`0xFC`.
+  Entering them requires the checking-devices MCU to answer the combo, and the emulated
+  keybed cannot report held keys that early: `kn5000_tonegen_device` has a keybed FIFO
+  (`push_keybed_event`, `m_keybed_queue`) but no boot-time held-key path. So the keybed
+  self-tests — among the seventeen factory diagnostics that are the cheapest available
+  fidelity evidence — are unreachable under emulation. See
+  [Test Modes]({{ site.baseurl }}/test-modes/).
 
 ## Gap 4 — port bits nobody bound
 

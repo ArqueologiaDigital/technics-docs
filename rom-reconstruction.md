@@ -8,25 +8,30 @@ permalink: /rom-reconstruction/
 
 Goal: rebuild every KN5000 firmware image from disassembled source, byte for byte.
 
-`scripts/build/compare_roms.py` prints a similarity figure per verification section. As of
-August 2026 a complete run reports **15 sections, all at 100.00%** — nine from the primary
-LLVM build and six from the archived ASL mirror build.
+Byte-identity is the project's only acceptance criterion. The gate is
 
-Byte-identity is the project's only acceptance criterion. Any change that drops a
-section below 100.00% is reverted, not explained away.
+```
+make gate-all      # thirteen images: 9 KN5000 + 4 SX-WSA1R
+```
 
-> **Run the whole gate, and count the sections.** The full command is
+which rebuilds, then runs `scripts/analysis/assert_byte_identical.py` over nine KN5000 image
+pairs and four SX-WSA1R pairs, and `assert_toolchain_is_a_prerequisite.py` to prove the
+assembler is a prerequisite of every image rather than a stale object comparing green
+forever. It **compares bytes and exits non-zero on any difference**. A change that fails it is
+reverted, not explained away.
+
+> ⚠ **`compare_roms.py` is a similarity report, not the gate.** It prints
+> `Similarity: 100.00%`, rounded to two decimals — in a 2,097,152-byte ROM that rounding
+> covers up to 104 differing bytes, and `grep -c "Similarity: 100.00%"` prefix-matches the
+> failing line `Similarity: 100.00%  (N incorrect bytes)` as well. It is useful for locating
+> where a divergence sits, and it is what prints the fifteen verification sections below
+> (nine LLVM, six legacy ASL). It is not an acceptance criterion; see
+> [Disassembly Workflow]({{ site.baseurl }}/disassembly-workflow/#-never-gate-on-a-percentage).
 >
-> ```
-> make clean-all && make all && make asl-all && python3 scripts/build/compare_roms.py
-> ```
->
-> `make all` builds only the LLVM targets (`all: llvm-all`), while `make clean-all` deletes
-> the six ASL `*.rebuilt.rom` files — and `compare_roms.py` skips any section whose built
-> file is missing, silently. The short form therefore prints **nine** sections instead of
-> fifteen, all of them reading `100.00%`, having never assembled the mirror. Fifteen is the
-> number to check; see [Disassembly Workflow]({{ site.baseurl }}/disassembly-workflow/) for
-> why the full clean is also what defeats stale object files.
+> A full similarity run needs `make clean-all && make all && make asl-all` before it, because
+> `make all` builds only the LLVM targets and `compare_roms.py` silently skips a section whose
+> built file is missing — the short form prints nine sections, all reading `100.00%`, having
+> never assembled the mirror.
 
 ## Firmware Version History
 
@@ -39,14 +44,23 @@ Official firmware updates were distributed on floppy disk. All versions are arch
 
 ### Main Board Firmware
 
-| Version | Release Date | Notes |
+| Version | Release Date | Source tree |
 |---------|--------------|-------|
-| v5 | 1997-11-12 | Earliest available |
-| v6 | 1998-01-16 | |
-| v7 | 1998-06-26 | Source tree exists, builds 100% |
-| v8 | 1998-11-13 | |
-| v9 | 1999-01-26 | Source tree exists, builds 100% |
-| **v10** | 1999-08-02 | **Primary disassembly target** |
+| v5 | 1997-11-12 | none — earliest available; no dump in the disassembly repository |
+| v6 | 1998-01-16 | none — no dump in the disassembly repository |
+| **v7** | 1998-06-26 | `v7/maincpu/`, byte-identical |
+| v8 | 1998-11-13 | none — differs from v9 by the version byte alone, so this is the cheapest tree still missing |
+| **v9** | 1999-01-26 | `v9/maincpu/`, byte-identical |
+| **v10** | 1999-08-02 | `v10/maincpu/` — the primary disassembly target |
+
+Three of the six main-CPU releases are source-built. v5, v6 and v8 are archived on
+[archive.org](https://archive.org/details/technics-kn5000-system-update-disks) and selectable
+as MAME BIOS options, but no dump of them sits in the disassembly repository and none has a
+source tree, so they are outside the byte gate.
+
+The sub-CPU payload has the same shape: `v142/subcpu/` is source-built and gated, while v1.40
+and v1.41 are held as verified artifacts with no source tree — see
+[Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/).
 
 ### HD-AE5000 Firmware
 
@@ -713,7 +727,9 @@ instructions are encoded natively — no workaround macros needed.
 ```bash
 cd kn5000-roms-disasm
 
-# the full gate: expect FIFTEEN sections, all 100.00%
+make gate-all                         # the gate: thirteen images, byte-exact or non-zero exit
+
+# the full similarity report: expect FIFTEEN sections, all 100.00%
 make clean-all && make all && make asl-all && python3 scripts/build/compare_roms.py
 
 make all                              # LLVM sections only (nine) + compare
@@ -780,11 +796,14 @@ on [LLVM Semantic Instructions]({{ site.baseurl }}/llvm-semantic-instructions/).
 Symbol count is a `wc -l` on the reference file, which carries one symbol per line:
 
 ```
-wc -l symbols/maincpu_symbols_reference.txt   # 39,420
 grep -c LABEL_ symbols/maincpu_symbols_reference.txt   # 0
 ```
 
-Every symbol carries a semantic name; no opaque `LABEL_XXXXXX` placeholders remain.
+The file's own header block carries the count, regenerated with it by
+`scripts/analysis/l2_symbol_reference.py --regen`: **39,393 symbols**, of which 35,765 (90.8 %)
+have semantic names and 3,628 are positional. No opaque `LABEL_XXXXXX` placeholders remain, in
+that file or in any of the other seven `symbols/*_symbols_reference.txt`. Note the file is
+**v10 only** — it agrees with the v7 ELF at 25.96 % — so each version also has its own.
 
 **Subsystem entry points (main CPU):**
 
