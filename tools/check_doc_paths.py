@@ -39,7 +39,8 @@ actually reported.  A checker that cannot go red is not evidence.
 import os, re, subprocess, sys
 
 DOCS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REPOS = [os.path.expanduser("~/compartilhado/kn5000-roms-disasm"),
+REPOS = [DOCS,   # the pages cite this repository's own tools/ scripts
+         os.path.expanduser("~/compartilhado/kn5000-roms-disasm"),
          os.path.expanduser("~/compartilhado/kn7000_mame"),
          # Homebrew trees the tutorials cite: the App Loader extension ROM and
          # the Mines port built against it.  Without these, every path on
