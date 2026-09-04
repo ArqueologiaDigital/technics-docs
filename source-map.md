@@ -6,390 +6,517 @@ permalink: /source-map/
 
 # Source Code Map
 
-This page describes every source file in the [disassembly repository](https://github.com/ArqueologiaDigital/kn5000-roms-disasm). The firmware is reconstructed from TLCS-900/H2 assembly using LLVM's `llvm-mc` assembler.
+The [disassembly repository](https://github.com/ArqueologiaDigital/kn5000-roms-disasm) holds
+two products as TLCS-900 assembly that reassembles to the original dumps byte for byte: the
+**KN5000** — nine gated images under `v10/`, `v9/`, `v7/`, `v142/`, `subcpu/`, `hdae5000/`,
+`table_data/` and `custom_data/` — and the **SX-WSA1R**, four images under `wsa1/`. Every image
+is assembled by the project's LLVM TLCS-900 backend (`llvm-mc`), linked by `ld.lld` against its
+own linker script, and certified by one thing only: `make gate-all` (see [Build System](#build-system)).
+This page is the map of that tree. The measured state of the disassembly — byte gate, symbol
+counts, instruction census, remaining debt — is on
+[ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/).
 
-> ⚠ **This page is stale.** Its file paths predate the per-version source-tree split — the
-> main-CPU top level is now `v10/maincpu/…`, the sub-CPU payload `v142/subcpu/…` — several
-> listed filenames no longer exist, and the include counts and the "6 ROMs" figure are out
-> of date (the build now checks **15** verification sections, and the 2026-08 waves added
-> whole new modules). For the current, measured picture see
-> [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/). Rewriting this page is
-> queued.
-
-## ROM Overview
-
-| ROM | Size | Top-level Source | Include Files | Purpose |
-|-----|------|-----------------|---------------|---------|
-| [Main CPU](#main-cpu-2mb) | 2MB | `maincpu/kn5000_v10_program.s` | 154 | Primary firmware — UI, audio, sequencer, MIDI, file I/O |
-| [Sub CPU Payload](#sub-cpu-payload-192kb) | 192KB | `subcpu/kn5000_subprogram_v142.s` | 3 | Audio engine — tone generation, voice management, DSP |
-| [Sub CPU Boot](#sub-cpu-boot-128kb) | 128KB | `subcpu/boot/kn5000_subcpu_boot.s` | 0 | Sub CPU bootstrap — receives the payload over the inter-CPU link |
-| [HDAE5000](#hdae5000-extension-512kb) | 512KB | `hdae5000/hd-ae5000_v2_06i.s` | 7 | Hard disk expansion — IDE/ATA driver, custom filesystem, file manager UI |
-| [Table Data](#table-data-2mb) | 2MB | `table_data/kn5000_table_data.s` | 7 | Accompaniment style patterns, rhythm data |
-| [Custom Data](#custom-data-1mb) | 1MB | `custom_data/kn5000_custom_data.s` | 0 | User-modifiable flash storage (factory defaults) |
-
----
-
-## Main CPU (2MB)
-
-The main CPU ROM contains the entire user-facing firmware: the UI framework, display rendering, audio parameter control, sequencer, accompaniment engine, MIDI processing, file I/O, floppy disk controller, and control panel handling. It is split across **154 include files** organized into **15 subdirectories** by subsystem.
-
-### Directory Structure
+**Every count on this page is `find <dir> -name '*.<ext>' | wc -l`**, printed by
+`tools/source_map_counts.py` in the documentation repository:
 
 ```
-maincpu/
-  kn5000_v10_program.s       # Top-level file (ROM layout & inline data)
-  *_constants.s (4 files)    # Subsystem constant definitions
-  msp_factory_defaults.s     # MSP factory default data
-  shared/     (9 files)      # Cross-ROM shared: macros, SFR, VGA, boot
-  boot/       (3 files)      # System startup, interrupt handlers, init
-  ui/         (13 files)     # UI framework, widgets, drawing, panels
-  display/    (3 files)      # VGA graphics, text rendering, scoop editor
-  audio/      (31 files)     # Audio control, sound editor, DSP config, sound data
-  midi/       (9 files)      # MIDI serial, dispatch, SysEx, computer I/F
-  sequencer/  (15 files)     # Sequencer, SMF, accompaniment, rhythm, MSP
-  storage/    (2 files)      # Flash memory, floppy disk controller
-  demo/          (4 files)   # Feature demo mode
-  ui_widgets/    (27 files)  # UI screen layout descriptors (codename: NAKA)
-  file_io/       (9 files)   # Disk file operations
-  factory_test/  (4 files)   # Factory diagnostics (codename: HAMA)
-  includes/      (18 files)  # Style UI parameter blocks, screen data, GUI strings
-  extensions/    (2 files)   # Extension device support (codename: TOSHI)
+python3 tools/source_map_counts.py              # the tables below
+python3 tools/source_map_counts.py --selftest   # proves it can go red
 ```
 
-### Constants & Macros
+The figures here are its output against disassembly commit `467598e1`; re-run it rather than
+quoting them. Per-file line counts are deliberately not listed — they move with every
+conversion, and `wc -l` answers them in a second.
 
-| File | Lines | Description |
-|------|-------|-------------|
-| `shared/macros.s` | 124 | Assembler helper macros |
-| `shared/sfr_tmp94c241.s` | 241 | TMP94C241F special function register definitions |
-| `shared/vga_constants.s` | 74 | VGA display register constants |
-| `shared/event_codes.s` | 46 | System event code definitions |
-| `fdc_constants.s` | 75 | Floppy disk controller register constants |
-| `gui_constants.s` | 56 | GUI framework constants (widget types, flags) |
-| `cpanel_constants.s` | 197 | Control panel button/LED segment constants |
-| `midi_encoder_constants.s` | 91 | MIDI encoding format constants |
+## Tree overview
 
-### `boot/` — System Startup & Core Handlers
+| Tree | Directory | Root source | Image | `.s` | `.c` |
+|------|-----------|-------------|-------|-----:|-----:|
+| [Main CPU v10](#main-cpu-v10maincpu) | `v10/maincpu/` | `kn5000_v10_program.s` | 2 MB @ 0xE00000 | 156 | 104 |
+| Main CPU v9 | `v9/maincpu/` | `kn5000_v9_program.s` | 2 MB @ 0xE00000 | 156 | 91 |
+| Main CPU v7 | `v7/maincpu/` | `kn5000_v7_program.s` | 2 MB @ 0xE00000 | 156 | 91 |
+| [Sub-CPU payload v1.42](#sub-cpu-payload-v142subcpu) | `v142/subcpu/` | `kn5000_subprogram_v142.s` | 192 KB @ 0x0400 (+ its LZSS update image) | 5 | — |
+| [Sub-CPU boot ROM](#sub-cpu-boot-rom-subcpuboot) | `subcpu/boot/` | `kn5000_subcpu_boot.s` | 128 KB @ 0xFE0000 | 1 | — |
+| [HD-AE5000](#hd-ae5000-hdae5000) | `hdae5000/` | `hd-ae5000_v2_06i.s` | 512 KB @ 0x280000 | 8 | — |
+| [Table data](#table-data-table_data) | `table_data/` | `kn5000_table_data.s` | 2 MB @ 0x800000 | 26 | — |
+| [Custom data](#custom-data-custom_data) | `custom_data/` | `kn5000_custom_data.s` | 1 MB @ 0x300000 | 1 | — |
+| [SX-WSA1R](#sx-wsa1r-wsa1) | `wsa1/` | `prom_{a,b,c,d}/wsa1_prom_*.s` | 4 × 512 KB | 37 | — |
 
-| File | Lines | Description |
-|------|-------|-------------|
-| `shared/boot_hw_init.s` | 139 | Hardware register initialization (shared with Table Data ROM) |
-| `shared/boot_routines.s` | 87 | Region detection and boot helper routines |
-| `shared/boot_call_init_handlers.s` | 85 | Walk initialization handler table at boot |
-| `boot/system_handlers.s` | 8,251 | Interrupt handlers (NMI, timers), UI state machine, task scheduler, flash memory update, LZSS decompression |
-| `boot/main_title_ctrl_panel.s` | 611 | System initialization (graphics, events, timers, LCD), main title UI event loop |
-| `boot/screen_group_dispatch.s` | 264 | Boot screen group dispatcher (startup screens, error dialogs) |
-| `shared/vga_init.s` | 434 | VGA controller initialization sequence |
-| `shared/vga_io.s` | 51 | VGA register read/write primitives |
-
-### `display/` — VGA Graphics & Text Rendering
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `display/scoop_display.s` | 10,370 | Display dirty-region tracking, performance mode parameter handlers, scoop (oscilloscope) editor UI |
-| `display/graphics_text_vga.s` | 4,211 | VGA palette initialization, text rendering, string layout, VRAM operations |
-| `display/scoop_editor_data.s` | 1,177 | Sound editor display data, performance mode parameter bytecode, scoop config tables |
-
-### `ui/` — UI Framework & Widgets
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `ui/ui_widget_defs.s` | 19,640 | Grid box, exit window, title/resource widgets, event dispatch loops, object enumeration |
-| `ui/ui_window_procs.s` | 8,046 | Window procedure handlers: ModeEdit, TitleEdit, StringBox, Label, Bitmap, Icon, Line, Frame, EditSw, TextBox, VwBox, ListBox, RadioBox, TempoBox, GridBox |
-| `ui/ui_control_panel.s` | 4,086 | Control panel key dispatch, UI task control, slider/scrollbar handlers, GroupBoxProc container widget |
-| `ui/ui_mode_handlers.s` | 12,927 | UI mode handlers for Pmem (parametric), bank editor, filter grid, RVari (variable screen), effect modes |
-| `ui/drawbar_panel_ui.s` | 15,581 | Drawbar organ slider UI, DSP effect controls, presentation system, demo menu |
-| `ui/bitmap_out_routines.s` | 4,347 | Bitmap blitting and palette loading for VGA display |
-| `ui/drawing_primitives.s` | 4,567 | Line drawing (Bresenham), rectangle fill, reverse string rendering |
-| `ui/psgridbox_routines.s` | 1,138 | PS Grid Box widget initialization and event handling |
-| `ui/rvari_routines.s` | 2,752 | RVari (variable selection) screen renderer and interaction handlers |
-| `ui/setwall_routines.s` | 1,940 | Wallpaper loading and wall display update routines |
-| `ui/cpanel_routines.s` | 1,559 | Control panel hardware: serial RX/TX processing, button polling, LED control |
-| `ui/password_slot_routines.s` | 38 | Password slot management stubs |
-| `ui/ui_playback_modes.s` | 3,042 | UI state event handling and playback mode control: voice parameter handlers, sequencer timer/tempo, part validation, play/song/medley mode dispatch |
-
-### `audio/` — Sound & Audio Control
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `audio/audio_control_engine.s` | 8,377 | MIDI stream processing, control panel LED management, voice/tone control, sound preset dispatch |
-| `audio/sprintf_core.s` | 3,100 | `sprintf` — a general string formatter, not audio-specific. Renamed from `audio_cmd_encoder.s` once the routines were identified as `Sprintf_*` rather than `Audio_CommandEncoder`/`AudioCmd_*`; it still lives under `audio/` for historical reasons. |
-| `audio/audioinit_routines.s` | 2,505 | Audio subsystem initialization, stereo voice configuration |
-| `audio/dsp_config_sysex.s` | 5,626 | DSP effect parameter handlers (reverb, chorus, EQ, compressor), SysEx command processing |
-| `audio/sound_editor_ui.s` | 11,946 | Sound editor UI: patch/bank selection, parameter editing, drum kit editor |
-| `audio/sound_editor_routines.s` | 629 | Sound editor helper routines |
-| `audio/semenu_routines.s` | 3,431 | Sound editor menu (SeMenu) event handling and navigation |
-| `audio/sound_navigation.s` | 495 | Sound bank browsing: MainGetSoundName, Sound_Navigate_*, MainGetRhythmName, MainGetPmemName |
-| `audio/presentation_sound_nav.s` | 1,762 | SSF presentation workspace building, sound navigation, voice control, presentation control proc |
-| `audio/tonegen_fileio_handlers.s` | 1,071 | Tone generator config initialization, DSP config entry setup, FileIO callback handlers |
-| `audio/sndparam_routines.s` | 2,042 | Sound parameter probe, match, and heap allocation |
-| `audio/note_voice_mapping.s` | 26,105 | Note-on processing, voice allocation/stealing, NoteMap (91 functions), sequence playback, MIDI output, sound parameters, utility routines |
-| `audio/sound_data.s` | 34 | Consolidated sound data index — labels and includes for all 17 instrument categories |
-| `audio/sound_data_piano.s` | 2,188 | Piano sound data: 128-byte header + 2048 tone mapping pairs |
-| `audio/sound_data_strings_vocal.s` | 2,188 | Strings/vocal sound data: 128-byte header + 2048 tone mapping pairs |
-| `audio/sound_data_mallet_orch_perc.s` | 461 | Mallet/orchestral percussion sound data |
-| `audio/sound_data_flute_extra.s` | 305 | Extended flute sound data |
-| `audio/sound_data_flute.s` | 162 | Flute sound data |
-| `audio/sound_data_guitar.s` | 95 | Guitar sound data |
-| `audio/sound_data_world_perc.s` | 395 | World percussion: 128-entry pointer table + 0xFF-terminated patch entries |
-| `audio/sound_data_brass.s` | 403 | Brass: 128-entry pointer table + 0xFF-terminated patch entries |
-| `audio/sound_data_sax_reed.s` | 95 | Saxophone/reed sound data |
-| `audio/tonegen_param_table.c` | 92 | Tone generator parameter lookup table |
-| `audio/sound_data_synth.s` | 20 | Synth sound data |
-| `audio/sound_data_drum_kits.s` | 18 | Drum kit sound data |
-| `audio/sound_data_orchestral_pad.s` | 12 | Orchestral pad sound data |
-| `audio/sound_data_accordion_reg.s` | 6 | Accordion/register sound data |
-| `audio/sound_data_bass.s` | 6 | Bass sound data |
-| `audio/sound_data_digital_drawbar.s` | 6 | Digital drawbar sound data |
-| `audio/sound_data_organ_accordion.s` | 33 | Organ/accordion: 128 sound mapping pairs (0xF0-0xFD sub-bank IDs) |
-| `audio/sound_data_gm_special.s` | 6 | GM special sound data |
-
-### `midi/` — MIDI Processing & Computer Interface
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `midi/midi_dispatch_handlers.s` | 11,505 | MIDI CC handlers (22 types), serial input parsing, file data validation, sound mode handlers, arpeggiator queue |
-| `midi/midi_serial_routines.s` | 995 | MIDI serial communication (SC0): TX/RX handlers, initialization |
-| `midi/midi_encoder_routines.s` | 275 | MIDI encoder timing and output dispatch |
-| `midi/midipkt_routines.s` | 1,178 | MIDI packet extraction, packing, and queue management |
-| `midi/sysex_routines.s` | 239 | System Exclusive message handling |
-| `midi/ac_listener_handlers.s` | 1,884 | AcLswFuncBoxProc event dispatch, parameter processing, mixer controls, TtMd exclusion routines |
-| `midi/param_load_routines.s` | 658 | ParaLoadOpt parameter loading options, audio flag processing, event posting |
-| `midi/computer_interface_config.s` | 310 | MIDI computer interface configuration |
-| `midi/computer_interface_pcg.s` | 704 | Computer interface program change (PCG) handlers |
-
-### `sequencer/` — Sequencer & Accompaniment
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `sequencer/sequencer_engine.s` | 32,094 | Core sequencer: note editor UI, playback control, voice allocation, application event framework, part/voice data management |
-| `sequencer/sequencer_ui.s` | 14,372 | Sequencer editing UI, track display, bitmap drum editor |
-| `sequencer/seq_step_routines.s` | 3,103 | Step recording, note event dispatch, step playback |
-| `sequencer/smf_event_processor.s` | 8,247 | SMF (Standard MIDI File) event processing, tone generation dispatch, voice channel management |
-| `sequencer/smf_config_routines.s` | 3,263 | SMF configuration and parameter setup |
-| `sequencer/smf_playback.s` | 708 | SMF playback control entry points |
-| `sequencer/smf_tonegen_core.s` | 5,194 | Sequencer-driven tone generation: floppy I/O integration, SMF track event parsing, voice channel management, tone generator block writes, voice synthesis dispatch |
-| `sequencer/seq_event_playback.s` | 4,220 | Sequencer event buffer processing, voice slot scanning, note/channel decoding, accompaniment playback loop, tempo event dispatch, MIDI sustain, ring buffer management |
-| `sequencer/seq_audio_mode.s` | 2,010 | Audio mode stereo flags, accompaniment pedal processing, sequencer timing, part activation |
-| `sequencer/accompaniment_engine.s` | 32,617 | Rhythm dispatch, accompaniment voice selection, timing, patches, drum configuration, style conversion |
-| `sequencer/accompseq_routines.s` | 1,961 | Accompaniment sequencer periodic processing |
-| `sequencer/rhythm_routines.s` | 1,580 | Rhythm pattern comparison, trigger, and transposition |
-| `sequencer/ssf_gate_states.s` | 1,492 | SSF (Style Synthesis Format) gate state arrays for accompaniment patterns |
-| `sequencer/bmdredit_routines.s` | 4,434 | Bitmap drum editor: stream positioning, sequence display, voice allocation UI |
-| `sequencer/composer_msp_defaults.s` | 279 | MSP/Composer defaults: "HK"-signatured preset data, Composer UI callbacks, debug name strings |
-
-### `storage/` — Flash & Floppy
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `storage/flash_floppy_handlers.s` | 4,695 | Flash memory sector write, floppy disk note event loading, FDC format UI |
-| `storage/fdc_routines.s` | 1,503 | Floppy disk controller: register access, sector read/write, disk change detection |
-
-### `demo/` — Feature Demo Mode
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `demo/demo_routines.s` | 294 | Demo mode entry and control |
-| `demo/fdemotext_routines.s` | 2,334 | Feature demo text processing: voice probing, flag processing, output formatting |
-| `demo/file_demo_proc.s` | 8,359 | File demo procedures and title handlers |
-| `demo/demo_seq_bridge.s` | 1,060 | MiddleFuncCall dispatcher, SqTrSel (sequencer track select), demo-sequencer bridge |
-
-### `file_io/` — Disk File Operations
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `file_io/disk_operations.s` | 1,297 | Disk file copy, rename, format, disk info |
-| `file_io/filename_password.s` | 807 | Filename and password entry UI |
-| `file_io/composer_filters.s` | 968 | Composer load and filter operations |
-| `file_io/smf_operations.s` | 1,312 | Standard MIDI File load, save, naming |
-| `file_io/wallpaper.s` | 673 | Wallpaper image loading from disk |
-| `file_io/single_load.s` | 2,299 | Single file load with source/destination selection |
-| `file_io/medley.s` | 4,715 | Medley playback: internal, disk, SMF, performance data modes |
-| `file_io/misc_ui.s` | 969 | Miscellaneous file I/O UI (jump insert, file priority, setup) |
-| `file_io/title_handlers.s` | 349 | File title display handlers |
-
-### `ui_widgets/` — UI Screen Layout Descriptors (codename: NAKA)
-
-The "NAKA" widget format defines UI screen layouts as hierarchical widget trees. These files contain the screen definitions for nearly every UI mode. "NAKA" is a Matsushita/Technics developer codename; all original symbol names (`InitializeNaka`, `NAKA_TYPE_*`, etc.) are preserved in the code.
-
-Each assembly `.s` file uses `.incbin` to include a compiled C struct binary. The C files (`*.c`) contain typed packed structs with named fields, readable string literals, and symbolic pointer references (`NAKA_ADDR`, `SELF`). Linker scripts (`*_link.ld`) resolve external symbol addresses from the main ELF. Type definitions are in `naka_types.h`.
-
-**Assembly files** (26 files — widget data regions with `.incbin` directives):
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `ui_widgets/widget_descriptors.s` | 9,325 | Widget type definitions and descriptor tables |
-| `ui_widgets/widget_dispatch.s` | 9,751 | Widget event dispatch: string pointer tables, screen routing |
-| `ui_widgets/naka_screen_dispatch.s` | 2,295 | Screen definition tables: SeqToComposer, SeqCopy, EasyComposer, ModeSelect, ExpandMode |
-| `ui_widgets/technichord_string_data.s` | 3,658 | TechniChord style dispatch tables, style names, dialog text, multilingual UI strings |
-| `ui_widgets/disk_warning_strings.s` | 2,344 | Multilingual disk format/delete/operation warning messages (EN/ES/DE/FR/ID/IT) |
-| `ui_widgets/widget_names_charmap.s` | 2,396 | Widget type name strings, character encoding/mapping tables, NAKA presentation state |
-| `ui_widgets/naka_widget_tables_1.s` | 1,909 | Widget pointer tables: SmfDp, DocDp, PdDp, KssDp, DrumDp screen groups |
-| `ui_widgets/naka_widget_tables_2.s` | 1,668 | Widget data tables: CtlMsgGridBox, MidiControlMessage, additional NAKA types |
-| `ui_widgets/style_bitmaps.s` | 5,910 | Style selection bitmap resources |
-| `ui_widgets/performance_style_screens.s` | 6,116 | Feature Demo screens, style category menus, accompaniment UI |
-| `ui_widgets/composer_style_convert_screens.s` | 2,745 | Style presentation and performance UI |
-| `ui_widgets/msp_recording_screens.s` | 683 | Mixed widget data and strings |
-| `ui_widgets/direct_play_medley_screens.s` | 2,694 | Rhythm variation selection, song/sequencer parameter screens |
-| `ui_widgets/sequencer_exit_widgets.s` | 151 | Equalizer and effect parameter UI |
-| `ui_widgets/effects_sequencer_screens.s` | 8,274 | Accompaniment memory/PCG output grids, MIDI controller UI |
-| `ui_widgets/midi_reverb_presets_screens.s` | 2,910 | MIDI controller messages, accompaniment input grid |
-| `ui_widgets/sound_menu_drawbar_screens.s` | 286 | Menu item pagination UI |
-| `ui_widgets/technichord_part_settings.s` | 3,708 | Tech Chord dispatch, chord/transpose UI |
-| `ui_widgets/disk_menu_file_io_screens.s` | 5,503 | Disk format dialogs (multi-language), Tech Chord configuration |
-| `ui_widgets/block_012.s` | 552 | User bitmap viewer, track chord UI, language text, integration setup |
-| `ui_widgets/debug_naming_panel_sim.s` | 1,247 | Style bitmap and dispatch table wrapper |
-| `ui_widgets/block_007.s` | 86 | Additional widget block |
-| `ui_widgets/master_style_grid_screens.s` | 189 | Extension-region widget descriptor |
-| `ui_widgets/normal_mode_layout.s` | 182 | Extension-region widget descriptor |
-| `ui_widgets/control_menu_screens.s` | 1,940 | Extension-region widget data |
-| `ui_widgets/extension_device_screens.s` | 2,727 | Extension-region widget data |
-| `ui_widgets/sequencer_channel_containers.s` | 1,015 | Final widget block before boot code |
-
-**C struct files** (26 `.c` + 1 `.h` — typed widget data with named fields):
-
-| File | Lines | Size | Description |
-|------|-------|------|-------------|
-| `naka_types.h` | 260 | — | Struct definitions: `naka_container_t`, `naka_menu_item_t`, `naka_dispatch_t`, etc. |
-| `control_menu_header.c` | 323 | 592B | Control Menu screen header (hand-crafted gold standard) |
-| `naka_sequencer_exit.c` | 381 | 692B | Sequencer exit controls (hand-crafted gold standard) |
-| `naka_master_style.c` | 410 | 944B | Master Style grid (hand-crafted gold standard) |
-| `naka_widget_tables_2.c` | 190K | 159KB | Largest: CtlMsg, MIDI control, additional NAKA types |
-| `naka_widget_descriptors.c` | 197K | 151KB | Effects presets, lookup tables |
-| `naka_technichord_strings.c` | 117K | 112KB | TechniChord string tables |
-| `naka_style_bitmaps.c` | 38K | 102KB | Style selection bitmaps |
-| Other 19 files | 180K | 1-37KB | Various UI screens and widget blocks |
-
-### `includes/` — Style UI Parameter Blocks & Screen Data
-
-Data files for the style UI subsystem: parameter block definitions for different style editing modes, screen layout data, GUI display structures, and format strings.
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `includes/gui_display_struct_data.s` | 328 | GUI display structure data tables |
-| `style_ui/main.c` | 226 | Main style UI screen layout data |
-| `includes/gui_format_strings.s` | 49 | GUI number/text format strings |
-| `style_ui/ctlonly.c` | 40 | Control-only style screen data |
-| `style_ui/paramblock/bal.c` | 20 | Style balance parameter block |
-| `style_ui/yesctl.c` | 19 | Yes/control style screen data |
-| `style_ui/meascursor.c` | 16 | Measure cursor screen data |
-| `style_ui/paramblock/medium.c` | 16 | Medium-size parameter block |
-| `style_ui/paramblock/extended.c` | 16 | Extended parameter block |
-| `style_ui/paramblock/meas.c` | 14 | Measure parameter block |
-| `style_ui/paramblock/common.c` | 14 | Common parameter block |
-| `style_ui/paramblock/alte.c` | 12 | Alt-E parameter block variant |
-| `style_ui/paramblock/altc.c` | 11 | Alt-C parameter block variant |
-| `style_ui/paramblock/altd.c` | 9 | Alt-D parameter block variant |
-| `style_ui/paramblock/alta.c` | 7 | Alt-A parameter block variant |
-| `style_ui/paramblock/altb.c` | 7 | Alt-B parameter block variant |
-| `style_ui/paramblock/short.c` | 7 | Short parameter block |
-| `style_ui/paramblock/value.c` | 7 | Value parameter block |
-
-### `extensions/` — Extension Device Support (codename: TOSHI)
-
-Registers expansion slot devices (such as the HD-AE5000 hard disk board) with the main firmware. "TOSHI" is a Matsushita/Technics developer codename; original symbols (`InitializeToshi`, etc.) are preserved.
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `extensions/extension_init.s` | 107 | Extension slot driver framework: device registration and initialization |
-| `extensions/extension_data.s` | 6,708 | Extension device data tables and widget descriptors |
-
-### `factory_test/` — Factory Diagnostic Tests (codename: HAMA)
-
-Factory diagnostic test modes for hardware validation during manufacturing, including floppy disk and hard disk extension tests. "HAMA" is a Matsushita/Technics developer codename; original symbols (`InitializeHama`, `RegObjTableHama`, etc.) are preserved.
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `factory_test/test_init.s` | 503 | Test mode registration and macro definitions |
-| `factory_test/test_data.s` | 252 | Test UI configuration data |
-| `factory_test/fd_test_code.s` | 372 | Floppy disk test execution routines |
-| `factory_test/fd_test_data.s` | 418 | Floppy disk test parameters and dialog data |
-
-### Factory Defaults
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `msp_factory_defaults.s` | 709 | MSP (Music Style Preset) factory default data |
+The three main-CPU trees have the same 15-directory shape and the same 156 assembly files;
+`v9/` and `v7/` differ from `v10/` in content, in the thirteen C data files v10 alone carries,
+and in `v7/maincpu/transplant_manifest.txt`, which records how v7 was derived. `v10/` is the
+primary target and the one described file by file below. Each tree's `.ld` (32 per main-CPU
+tree, one per other image) is the linker script that places its sections; the 32 in a
+main-CPU tree are the image's own plus the link scripts of the C-compiled data blocks (see
+[`ui_widgets/`](#ui_widgets--naka-screen-descriptors) and [`style_ui/`](#style_ui--style-ui-screen-data-c)).
 
 ---
 
-## Sub CPU Payload (192KB)
+## Main CPU (`v10/maincpu/`)
 
-The Sub CPU runs the real-time audio engine. It receives commands from the Main CPU via a latch interface and directly controls the tone generator hardware and DSP effects.
+The main-CPU ROM is the whole user-facing firmware: UI framework and screen descriptors,
+display rendering, sound and DSP parameter control, sequencer and accompaniment, MIDI, file
+I/O, floppy controller, control-panel link, factory diagnostics. **156 `.s`, 104 `.c`, 3 `.h`
+and 32 `.ld` files** across 15 subject directories plus an `images/` directory of bitmaps.
 
-| File | Lines | Description |
-|------|-------|-------------|
-| `kn5000_subprogram_v142.s` | 43,772 | **Core audio engine**: RESET handler, initialization, main audio loop, voice slot management, tone generator command emission, pitch/envelope processing, DSP register writes |
-| `subcpu_vectors.s` | 200 | Interrupt vector table and 45 interrupt handler stubs (INT_HANDLER_00 through INT_HANDLER_2C) |
-| `subcpu_data_tables.s` | 8,897 | Firmware configuration, floating-point constants, serial I/O buffers, command dispatch table, voice polyphony limits, pitch/MIDI lookup tables |
-| `subcpu_fp_math.s` | 3,144 | IEEE 754 floating-point math library: double/single precision arithmetic, mantissa operations, multiply-add, division, pitch slide engine, amplitude convergence, NaN/overflow handling |
+```
+v10/maincpu/                       .s   .c
+  kn5000_v10_program.s              ROM layout: includes every module in address order,
+  maincpu.ld                        inline data, the boot combo handlers, Get_Firmware_Version
+  *_constants.s (4 files)           cpanel / fdc / gui / midi_encoder constants
+  msp_factory_defaults.s + .c       factory image of the accompaniment stream-buffer pool
+  shared/                           10    -   macros, SFRs, VGA, shared boot code, positional labels
+  boot/                              6    -   vectors, system handlers, main title, ROM end structure
+  display/                           3    -   VGA graphics/text, scoop display
+  ui/                               17    1   UI framework, widgets, control panel, mode handlers
+  audio/                            31   53   sound control, sound editor, DSP/SysEx, sound data
+  midi/                              9    -   MIDI serial, dispatch, SysEx, computer interface
+  sequencer/                        15    3   sequencer, SMF, accompaniment, rhythm
+  storage/                           2    -   flash memory, floppy controller
+  demo/                              4    -   feature demo
+  file_io/                           9    -   disk file operations
+  factory_test/                      4    -   factory diagnostics (codename HAMA)
+  extensions/                        2    -   expansion-slot devices (codename TOSHI)
+  ui_widgets/                       36   29   NAKA screen descriptors (+ naka_types.h, 27 .ld)
+  style_ui/                          -   16   Style UI screen data (+ screendata_types.h)
+  includes/                          2    1   GUI format strings; generated/ is build output
+  images/                            -    -   86 files: PNG + .bin pairs of the 1-bit bitmaps
+```
+
+### Top level
+
+| File | Contents |
+|------|----------|
+| `kn5000_v10_program.s` | The image. `.include`s every module in address order, carries the inline data between them, the boot-time button-combo handlers (`Boot_HandleComboDisplay`, `Boot_HandleFactoryReset`) and `Get_Firmware_Version` |
+| `maincpu.ld` | Linker script placing the 2 MB image at 0xE00000 |
+| `cpanel_constants.s` | Control-panel button and LED segment constants |
+| `fdc_constants.s` | Floppy disk controller register constants |
+| `gui_constants.s` | GUI framework constants (widget types, flags) |
+| `midi_encoder_constants.s` | MIDI and encoder constants |
+| `msp_factory_defaults.s` / `.c` | Factory image of the accompaniment stream-buffer pool; the `.s` `.incbin`s the compiled `.c` |
+
+### `shared/` — macros, SFRs, VGA and shared boot code
+
+| File | Contents |
+|------|----------|
+| `macros.s` | Assembler helper macros |
+| `sfr_tmp94c241.s` | TMP94C241F special-function-register names (`PC` is `0x30`, and so on) |
+| `vga_constants.s` | VGA display register constants |
+| `vga_init.s` | VGA controller initialisation sequence |
+| `vga_io.s` | VGA register read/write primitives |
+| `event_codes.s` | System event-code constants |
+| `boot_hw_init.s` | Hardware register initialisation |
+| `boot_routines.s` | Region detection and boot helpers |
+| `boot_call_init_handlers.s` | Walks the initialisation-handler table at boot |
+| `positional_labels.s` | Auto-generated positional labels for intra-block references |
+
+`table_data/shared/` carries its own copy of the boot and VGA files: the table-data ROM's
+boot code is the same code (see [Table data](#table-data-table_data)).
+
+### `boot/` — startup, vectors and core handlers
+
+| File | Contents |
+|------|----------|
+| `interrupt_vector_trampolines.s` | TMP94C241 hardware interrupt entry points |
+| `system_handlers.s` | Interrupt handlers (NMI, timers), UI state machine, task scheduler, flash-memory update, LZSS decompression, the inter-CPU link (`InterCPU_E2_Send`) |
+| `main_title_ctrl_panel.s` | System initialisation (graphics, events, timers, LCD) and the main-title event loop |
+| `screen_group_dispatch.s` | Boot screen-group dispatcher (startup screens, error dialogs) |
+| `boot_data_tables.s` | LED patterns, file-type signatures, firmware-update data |
+| `rom_end_structure.s` | Interrupt vector table and `FIRMWARE_VERSION` at the top of ROM |
+
+### `display/` — VGA graphics and text
+
+| File | Contents |
+|------|----------|
+| `graphics_text_vga.s` | Palette initialisation, text rendering, string layout, VRAM operations |
+| `scoop_display.s` | Display dirty-region tracking, performance-mode parameter handlers, scoop editor UI |
+| `scoop_editor_data.s` | Scoop editor and display parameter data, performance-mode parameter bytecode |
+
+### `ui/` — UI framework and widgets
+
+| File | Contents |
+|------|----------|
+| `ui_widget_defs.s` | Grid box, exit window, title/resource widgets, event dispatch loops, object enumeration; also the hidden hex viewer `DbMemoryDumpProc` |
+| `ui_window_procs.s` | Window procedures: ModeEdit, TitleEdit, StringBox, Label, Bitmap, Icon, Line, Frame, EditSw, TextBox, VwBox, ListBox, RadioBox, TempoBox, GridBox |
+| `ui_control_panel.s` | Control-panel key dispatch, UI task control, slider/scrollbar handlers, GroupBoxProc, `UI_PostModeChangeEvent` |
+| `ui_mode_handlers.s` | UI mode handlers (Pmem, bank editor, filter grid, RVari, effect modes); also the power-on self-test (`MainCPU_self_test_routines`) and the keybed service-mode detection (`SelfTest_FirmwareVersionCheck`) — see [Test Modes]({{ site.baseurl }}/test-modes/) |
+| `ui_playback_modes.s` | Voice parameter handlers, sequencer timer/tempo, part validation, play/song/medley mode dispatch |
+| `drawbar_panel_ui.s` | Drawbar organ slider UI, DSP effect controls, presentation system, demo menu |
+| `cpanel_routines.s` | Control-panel link: serial RX/TX, button polling (`CPanel_ScanButtons`, `CPanel_CheckSpecialCombos`), LED control |
+| `led_panel_write.s` | Control-panel LED write sequence |
+| `bitmap_out_routines.s` | Bitmap blitting and palette loading |
+| `drawing_primitives.s` | Line drawing, rectangle fill, reverse string rendering |
+| `psgridbox_routines.s` | PS Grid Box widget |
+| `rvari_routines.s` | RVari (rhythm variation) screen renderer and interaction |
+| `setwall_routines.s` | Wallpaper loading and wall display update |
+| `password_slot_routines.s` | Password slot management stubs |
+| `char_encoding_naka_state.s` | Character encoding tables and NAKA state blocks |
+| `charmap_dispatch_table.s` | Character-map mode dispatch table |
+| `sepaout_config.s` / `.c` / `sepaout_config_link.ld` | SepaOut (separate output) configuration data and resource-info handler offsets, compiled from C |
+
+### `audio/` — sound control, sound editor and sound data
+
+| File | Contents |
+|------|----------|
+| `audio_control_engine.s` | MIDI stream processing, control-panel LED management, voice/tone control, sound preset dispatch |
+| `audioinit_routines.s` | Audio subsystem initialisation, stereo voice configuration |
+| `dsp_config_sysex.s` | DSP effect parameter handlers (reverb, chorus, EQ, compressor), SysEx command processing |
+| `note_voice_mapping.s` | Note-on processing, voice allocation and stealing, NoteMap, sequence playback, MIDI output, sound parameters |
+| `sound_editor_ui.s` | Sound editor UI: patch/bank selection, parameter editing, drum-kit editor; `.incbin`s the `sound_editor_screens/` blocks |
+| `sound_editor_routines.s` | Sound editor mode helpers |
+| `semenu_routines.s` | Sound editor menu (SeMenu) event handling and navigation |
+| `sound_navigation.s` | Sound bank browsing: `MainGetSoundName`, `Sound_Navigate_*`, `MainGetRhythmName`, `MainGetPmemName` |
+| `presentation_sound_nav.s` | SSF presentation workspace, sound navigation, voice control, presentation control proc |
+| `tonegen_fileio_handlers.s` | Tone-generator config initialisation, DSP config entry setup, FileIO callbacks |
+| `sndparam_routines.s` | Sound-parameter probe, match and heap allocation |
+| `sprintf_core.s` | `sprintf` — a general string formatter. It keeps the `audio/` path from before the routines were identified as `Sprintf_*` rather than an audio command encoder |
+| `voice_bank_defaults.s` | Voice bank default data: header, slot templates, bank name strings |
+| `sound_data.s` | The sound-data hub: region identifier, category descriptor, the 16-entry section pointer table, the category name table, then the per-category data — it `.incbin`s the fifteen compiled `sound_data_*.c` blocks and `.include`s `sound_data_brass.s` and `sound_data_world_perc.s` |
+| `sound_data_brass.s`, `sound_data_world_perc.s` | Brass and world-percussion patch data: a 128-entry pointer table plus `0xFF`-terminated patch entries, kept in assembly |
+| `sound_data_{piano, strings_vocal, mallet_orch_perc, flute, flute_extra, guitar, sax_reed, synth, drum_kits, orchestral_pad, accordion_reg, bass, digital_drawbar, organ_accordion, gm_special}.s` | The same fifteen categories in assembly form. **In no v10 build**: nothing `.include`s them; the image takes those bytes from the compiled `.c` twins |
+| `sound_data_{…}.c` (15 files) | The category data as typed C: tone-mapping pairs, patch reference grids, pitch-offset and drawbar registration tables. Compiled to `includes/generated/sound_data_*.bin` and `.incbin`'d by `sound_data.s` |
+| `tonegen_param_table.c` | Feature-demo text / sound-engine parameter table |
+| `voice_factory_presets.c` | Voice factory preset data |
+| `sndparam_records/` | Nine `run_*.c` files, one per contiguous ROM run of 18-byte sound-parameter descriptors (named by start address, `run_edbac0.c` … `run_ee0010.c`), and `sndparam_types.h` defining the descriptor |
+| `sound_editor_screens/` | 27 `se_*.c` screen-layout blocks for the Sound Editor plus `se_screens_link.ld`, their shared linker script |
+
+### `midi/` — MIDI processing and computer interface
+
+| File | Contents |
+|------|----------|
+| `midi_dispatch_handlers.s` | MIDI CC handlers, serial input parsing, file-data validation, sound-mode handlers, arpeggiator queue |
+| `midi_serial_routines.s` | MIDI serial communication (SC0): TX/RX handlers, initialisation |
+| `midi_encoder_routines.s` | MIDI encoder timing and output dispatch |
+| `midipkt_routines.s` | MIDI packet extraction, packing and queue management |
+| `sysex_routines.s` | System Exclusive message handling |
+| `ac_listener_handlers.s` | AcLswFuncBoxProc event dispatch, parameter processing, mixer controls, TtMd exclusion |
+| `param_load_routines.s` | ParaLoadOpt parameter loading, audio flag processing, event posting |
+| `computer_interface_config.s` | Computer-interface connection configuration |
+| `computer_interface_pcg.s` | Computer-interface program change (PCG) output |
+
+### `sequencer/` — sequencer and accompaniment
+
+| File | Contents |
+|------|----------|
+| `sequencer_engine.s` | Core sequencer: note editor UI, playback control, voice allocation, application event framework, part/voice data |
+| `sequencer_ui.s` | Sequencer editing UI, track display, bitmap drum editor |
+| `seq_step_routines.s` | Step recording and editing, note event dispatch |
+| `seq_event_playback.s` | Event buffer processing, voice slot scanning, accompaniment playback loop, tempo events, MIDI sustain, ring buffers |
+| `seq_audio_mode.s` | Audio-mode stereo flags, accompaniment pedal processing, sequencer timing, part activation |
+| `smf_event_processor.s` | SMF event processing, tone-generation dispatch, voice channel management |
+| `smf_config_routines.s` | SMF configuration and parameter setup |
+| `smf_playback.s` | SMF playback control entry points |
+| `smf_tonegen_core.s` | Sequencer-driven tone generation: floppy I/O integration, SMF track parsing, tone-generator block writes |
+| `accompaniment_engine.s` | Rhythm dispatch, accompaniment voice selection, timing, patches, drum configuration, style conversion; `.incbin`s the `accomp_screens/` blocks |
+| `accompseq_routines.s` | Accompaniment sequencer periodic processing |
+| `rhythm_routines.s` | Rhythm pattern comparison, trigger and transposition |
+| `ssf_gate_states.s` | SSF gate-state arrays and presentation gate table |
+| `bmdredit_routines.s` | Bitmap drum editor: stream positioning, sequence display, voice allocation UI |
+| `composer_msp_defaults.s` | Composer / MSP (Music Style Preset) default configuration |
+| `accomp_screens/` | Three accompaniment screen-layout `.c` blocks (`accomp_section_widget`, `accomp_part_widget`, `accomp_display_full`) and `accomp_screens_link.ld` |
+
+### `storage/` — flash and floppy
+
+| File | Contents |
+|------|----------|
+| `flash_floppy_handlers.s` | Flash-memory sector write, floppy note-event loading, FDC format UI |
+| `fdc_routines.s` | Floppy disk controller: register access, sector read/write, disk-change detection |
+
+### `demo/` — feature demo
+
+| File | Contents |
+|------|----------|
+| `demo_routines.s` | Demo mode entry and control |
+| `fdemotext_routines.s` | Feature-demo text processing: voice probing, flag processing, output formatting |
+| `file_demo_proc.s` | File demo procedures and title handlers |
+| `demo_seq_bridge.s` | Demo-to-sequencer bridge and playback initialisation; MiddleFuncCall dispatcher, SqTrSel |
+
+### `file_io/` — disk file operations
+
+| File | Contents |
+|------|----------|
+| `disk_operations.s` | Disk file copy, rename, format, disk info |
+| `filename_password.s` | Filename and password entry UI |
+| `composer_filters.s` | Composer load and filter operations |
+| `smf_operations.s` | Standard MIDI File load, save, naming |
+| `wallpaper.s` | Wallpaper image loading from disk |
+| `single_load.s` | Single-file load with source/destination selection |
+| `medley.s` | Medley playback: internal, disk, SMF, performance-data modes |
+| `misc_ui.s` | Miscellaneous file I/O UI (jump insert, file priority, setup) |
+| `title_handlers.s` | Load/save title entry handlers |
+
+### `factory_test/` — factory diagnostics (codename HAMA)
+
+The factory test system, documented on [Test Modes]({{ site.baseurl }}/test-modes/). "HAMA" is
+a Matsushita developer codename preserved in the ROM's own symbol strings (`InitializeHama`,
+`RegObjTableHama`, …).
+
+| File | Contents |
+|------|----------|
+| `test_init.s` | `InitializeHama` — title and widget-table registration; `TestTitleFunc` lifecycle handler |
+| `test_data.s` | Factory test UI configuration data and the original-symbol string table |
+| `fd_test_code.s` | `FDLoadSaveTest` — the FD SAVE/LOAD test; `HamaListProc` file-browser handler |
+| `fd_test_data.s` | Floppy test dialog data: NAKA widget descriptors, `TT_HDDEXT` / `TT_EXTAPR` title strings |
+
+### `extensions/` — expansion-slot devices (codename TOSHI)
+
+| File | Contents |
+|------|----------|
+| `extension_init.s` | Extension-slot driver framework: device registration and initialisation (`InitializeToshi`) |
+| `extension_data.s` | Extension device data tables and NAKA widget descriptors |
+
+### `ui_widgets/` — NAKA screen descriptors
+
+The "NAKA" format describes UI screens as hierarchical widget trees; see
+[UI Widget Types]({{ site.baseurl }}/ui-widget-types/). Each descriptor block is a **C
+file** of typed packed structs with named fields, readable string literals and symbolic pointer
+references, compiled and then `.incbin`'d by an assembly file of the same region; a
+`*_link.ld` per block resolves external symbols against the main ELF, and `naka_types.h`
+defines the structs. The directory holds 36 `.s`, 29 `.c`, 27 `.ld` and the header.
+
+Assembly files (region wrappers and the dispatch/pointer tables that stay in assembly):
+
+| File | Contents |
+|------|----------|
+| `widget_descriptors.s` | Widget descriptor tables and grid data (ROM 0xE30E60–0xE55BC7); hosts the DSP name tables (see [DSP Name Tables]({{ site.baseurl }}/dsp-name-tables/)) |
+| `widget_dispatch.s` | NAKA widget dispatch parameters and instruction data |
+| `naka_screen_dispatch.s` | Screen definition tables: SeqToComposer, SeqCopy, EasyComposer, ModeSelect, ExpandMode |
+| `naka_widget_tables_1.s`, `naka_widget_tables_2.s` | Widget pointer tables, parts 1 and 2 |
+| `naka_property_descriptors.s` | Widget property descriptor tables |
+| `naka_widget_desc_dispatch.s`, `naka_effects_eq_dispatch.s`, `naka_sound_technichord_dispatch.s`, `naka_direct_play_dispatch.s`, `naka_direct_play_property_tables.s` | Dispatch and property data for the descriptor, effects/EQ, sound-menu/TechniChord and direct-play screens |
+| `naka_debug_proc_names.s` | NAKA debug proc-name table |
+| `control_menu_screens.s` | Control Menu header widgets |
+| `performance_style_screens.s` | Performance and style screens |
+| `composer_style_convert_screens.s` | Composer and style-convert screens |
+| `msp_recording_screens.s` | MSP recording and accompaniment screens |
+| `direct_play_medley_screens.s` | Direct Play, Medley, Step Record, Track Assign and Demo screens |
+| `effects_sequencer_screens.s` | Effects and sequencer screens |
+| `midi_reverb_presets_screens.s` | MIDI, reverb and presets screens |
+| `sound_menu_drawbar_screens.s` | Sound menu and drawbar screens |
+| `technichord_part_settings.s` | TechniChord part-settings screens |
+| `technichord_string_data.s` | TechniChord and UI string tables |
+| `disk_menu_file_io_screens.s` | Disk menu and file I/O screens |
+| `disk_warning_strings.s` | Multilingual disk-operation warning strings |
+| `extension_device_screens.s` | Extension-device diagnostic and configuration screens |
+| `master_style_grid_screens.s` | Master Style grid screens |
+| `normal_mode_layout.s` | Normal Mode screen layout |
+| `sequencer_exit_widgets.s` | Sequencer exit / mode widgets |
+| `sequencer_channel_containers.s` | Sequencer channel containers, drawbar/mixer data |
+| `debug_naming_panel_sim.s` | Debug / naming panel-simulator screens |
+| `style_bitmaps.s` | Style bitmaps, presentation data and UI dispatch |
+| `widget_names_charmap.s` | Widget name strings and character-map data |
+| `style_ui_params.s` | Style UI parameter blocks and screen data — `.incbin`s the compiled [`style_ui/`](#style_ui--style-ui-screen-data-c) blocks |
+| `naka_accomp7_widgets.s` | Accompaniment screen 7 widget descriptors |
+| `block_007.s`, `block_012.s` | Widget panel grid descriptors; disk/system UI panel widgets |
+
+C files — one per block above where the block is descriptor data: `control_menu_header.c`,
+`naka_ctrl_menu_body.c`, `naka_perf_style.c`, `naka_composer_style.c`, `naka_msp_recording.c`,
+`naka_direct_play.c`, `naka_effects_seq.c`, `naka_midi_reverb.c`, `naka_sound_menu_drawbar.c`,
+`naka_technichord_part.c`, `naka_technichord_strings.c`, `naka_disk_menu_file_io.c`,
+`naka_disk_warning.c`, `naka_extension_device.c`, `naka_master_style.c`, `naka_normal_mode.c`,
+`naka_sequencer_exit.c`, `naka_sequencer_channels.c`, `naka_debug_naming.c`,
+`naka_style_bitmaps.c`, `naka_widget_names_charmap.c`, `naka_widget_tables_1.c`,
+`naka_widget_tables_2.c`, `naka_widget_descriptors.c`, `naka_accomp7_widgets.c`,
+`naka_block_007.c`, `naka_block_012.c` — plus two lookup tables, `sound_config_lookup.c`
+(`NakaInst_SoundConfig_LookupTable`) and `tonekit_param_blocks.c` (ToneKit sound-parameter
+blocks).
+
+### `style_ui/` — Style UI screen data (C)
+
+Screen layouts and parameter blocks for the style-editing modes, as typed C
+(`screendata_types.h` defines the ScreenData bytecode commands); compiled blocks are
+`.incbin`'d from `ui_widgets/style_ui_params.s`. See
+[ScreenData C Conversion]({{ site.baseurl }}/screendata-c-conversion/).
+
+| File | Contents |
+|------|----------|
+| `main.c` | Style UI main screen layout |
+| `ctlonly.c` (+ `ctlonly_link.ld`) | CTL-only screen (control parameters) |
+| `yesctl.c` | Yes/No confirmation + CTL value screen |
+| `meascursor.c` | Measure-cursor screen |
+| `paramblock/{common, extended, medium, short, value, bal, meas, alta, altb, altc, altd, alte}.c` | The twelve parameter blocks; `altd` is the "Are You Sure?" confirmation dialog |
+
+### `includes/`
+
+| File | Contents |
+|------|----------|
+| `gui_format_strings.s` | GUI number/text format strings |
+| `gui_display_struct_data.s` / `.c` | GUI display-structure data for the Sound Editor. The `.s` is **in no build** — it emits zero bytes into any ROM, as its header says |
+| `generated/` | Build output: every compiled `.bin` that the assembly `.incbin`s. Not tracked; `make all` produces it |
+
+### `images/`
+
+86 tracked files: the 1-bit bitmaps of the main-CPU ROM (`Bitmap_1bit_Please_Wait`,
+`Bitmap_1bit_Completed`, …) as PNG, each beside the `.bin` that the image scripts
+(`scripts/build/indexed_images.py`, `scripts/build/mono_images.py`) regenerate from it and that
+`boot/boot_data_tables.s` `.incbin`s. The PNG is the source; the objects depend on it.
 
 ---
 
-## Sub CPU Boot (128KB)
+## Sub-CPU payload (`v142/subcpu/`)
 
-| File | Lines | Description |
-|------|-------|-------------|
-| `boot/kn5000_subcpu_boot.s` | 101,124 | Sub CPU bootstrap ROM: hardware init, inter-CPU command dispatch, DMA transfer setup, and the eight data objects at `0xFF8000`. It contains **no decompressor** — the main CPU decompresses the payload and pushes it over the link. The file is large because 98,304 of its lines are a bare `.byte 0xff`: that part of IC30 was never dumped (see [Sub-CPU Boot ROM (IC30)]({{ site.baseurl }}/subcpu-boot-rom/)) |
+The sub-CPU runs the real-time audio engine: it receives commands from the main CPU over the
+inter-CPU latch and drives the tone generator and the effects DSP. The v1.42 payload is
+verified in both forms it ships in — the 192 KB image the boot ROM runs at 0x0400 and the
+LZSS "SLIDE4K" update image on the firmware-update disk (see
+[ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#the-v142-sub-cpu-firmware-update-image)).
 
----
+| File | Contents |
+|------|----------|
+| `kn5000_subprogram_v142.s` | The engine: RESET handler, initialisation, main audio loop, voice-slot management, tone-generator command emission, pitch/envelope processing, DSP register writes, the keybed service (`Keybed_Read_Event`, `ToneGen_Process_Notes`) |
+| `subcpu_vectors.s` | The 45 entry stubs at 0x0400 (`INT_HANDLER_00` … `INT_HANDLER_2C`): slot 0 is the payload entry point the boot ROM `call`s, the rest are the interrupt entries the boot ROM's vector table reaches — `INT_HANDLER_09` is the inter-CPU latch receive. Also the latch and state-variable definitions |
+| `subcpu_data_tables.s` | Firmware configuration, floating-point constants, serial I/O buffers, command dispatch table, voice polyphony limits, pitch/MIDI lookup tables, the DSP data zones and the effects-DSP microprogram table |
+| `subcpu_fp_math.s` | IEEE 754 floating-point library: double/single arithmetic, mantissa operations, multiply-add, division, pitch-slide engine, amplitude convergence, NaN/overflow handling |
+| `shared/sfr_tmp94c241.s` | TMP94C241 SFR names (the sub-CPU is the same part as the main CPU) |
+| `subcpu.ld` | Linker script |
+| `tools/` | `convert_code_byte_runs.py`, `convert_arm_blocks.py`, `arm_block_evidence.py`, `spell_search.py` — the conversion and evidence scripts for this image |
 
-## HDAE5000 Extension (512KB)
-
-The HD-AE5000 is an optional hard disk expansion board. Its firmware provides IDE/ATA disk
-access, a [custom proprietary filesystem]({{ site.baseurl }}/hdae5000-filesystem/) (FSB/FGB/FEB —
-**not** FAT16, despite one "FAT read error" string in the ROM), and a file manager UI that
-integrates with the main keyboard interface.
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `hd-ae5000_v2_06i.s` | 4,137 | **Core**: ROM header, entry vectors, handler registration, bitmap resource descriptors, `Register_Frame` and its bitmap/palette copy code |
-| `hdae5000_hd_driver.s` | 6,067 | IDE/ATA hard disk driver: drive setup, identify, seek, read/write, error handling, CHS calculation, partition management |
-| `hdae5000_filesystem.s` | 5,111 | Custom filesystem: initialization, FSB (File System Block) read/write, directory scanning, entry lookup |
-| `hdae5000_ui_display.s` | 24,532 | File manager UI: menu registration, display scrolling, cell rendering, palette setup, event dispatch |
-| `hdae5000_utilities.s` | 1,641 | Utility functions: memory copy/compare, multiply, divide (signed/unsigned), string operations, and the 1,252-byte registered-object name pool at 0x29BAFC |
-| `hdae5000_data_tables.s` | 33,022 | UI configuration, class records, the 790-entry UI object and name tables, localization strings, and the six palette/bitmap slices |
-| `hdae5000_init_data.s` | 670 | The initialised `.data` image at 0x2F94B2 — nine pointer tables copied to RAM 0x23952A at boot (included from `hdae5000_data_tables.s`) |
-| `shared/event_codes.s` | 46 | Shared event-code constants |
-
-Eight files, 75,226 lines in total.
-
-There is **no font data** in this ROM: the label `HDAE5000_Font_Data` was retired in August
-2026 after it was shown to start 0x11818 bytes inside a bitmap. See
-[HDAE5000]({{ site.baseurl }}/hdae5000/#embedded-graphics-rewritten).
+The effects-DSP microprograms embedded in this image are extracted, disassembled and documented
+in the top-level [`dsp/`](#effects-dsp-microprograms-dsp) tree.
 
 ---
 
-## Table Data (2MB)
+## Sub-CPU boot ROM (`subcpu/boot/`)
 
-| File | Lines | Description |
-|------|-------|-------------|
-| `kn5000_table_data.s` | 3,995 | Accompaniment style pattern data, rhythm tables. Shares boot code with Main CPU ROM (`shared/boot_hw_init.s`, `shared/vga_init.s`). Mostly binary data includes. |
+| File | Contents |
+|------|----------|
+| `kn5000_subcpu_boot.s` | IC30: hardware init, inter-CPU command dispatch, payload reception, and the data objects at 0xFF8000 (the command-handler jump table, the RAM-test descriptor, the keybed velocity/touch front end). It contains **no decompressor** — the main CPU decompresses the payload and pushes it over the link. The undumped part of IC30 is emitted as erased-flash fill, not as source; see [Sub-CPU Boot ROM (IC30)]({{ site.baseurl }}/subcpu-boot-rom/) |
+| `subcpu_boot.ld` | Linker script (128 KB at 0xFE0000) |
+| `subcpu_boot_data_8000.bin` | The 0xFF8000 data region as a file. The LLVM source no longer reads it — the region is carved into labelled source — but the legacy ASL mirror still `binclude`s it, so it stays on disk |
+| `tools/convert_erased_fill.py` | The script that turned the erased-flash run into `.fill` |
 
 ---
 
-## Custom Data (1MB)
+## HD-AE5000 (`hdae5000/`)
 
-| File | Lines | Description |
-|------|-------|-------------|
-| `kn5000_custom_data.s` | 146 | User-modifiable flash memory containing factory default settings. Written during firmware update; preserved across power cycles. |
+The HD-AE5000 is the optional hard-disk expansion board. Its ROM provides IDE/ATA disk access,
+a [custom filesystem]({{ site.baseurl }}/hdae5000-filesystem/) (FSB/FGB/FEB — **not** FAT16,
+despite one "FAT read error" string), and a file-manager UI that plugs into the main firmware
+through the [`extensions/`](#extensions--expansion-slot-devices-codename-toshi) framework.
+
+| File | Contents |
+|------|----------|
+| `hd-ae5000_v2_06i.s` | ROM header, entry vectors, handler registration, bitmap resource descriptors, `HDAE5000_Register_Frame` and its bitmap/palette copy code |
+| `hdae5000_hd_driver.s` | IDE/ATA driver: drive setup, identify, seek, read/write, error handling, CHS calculation, partition management |
+| `hdae5000_filesystem.s` | The filesystem: initialisation (`FS_Init`), FSB read/write, directory scanning, entry lookup |
+| `hdae5000_ui_display.s` | File-manager UI: menu registration, display scrolling, cell rendering, palette setup, event dispatch |
+| `hdae5000_utilities.s` | Memory copy/compare, multiply, signed/unsigned divide, string operations, and the registered-object name pool |
+| `hdae5000_data_tables.s` | UI configuration, class records, the index-parallel UI object and name tables, localisation strings, the palette/bitmap slices |
+| `hdae5000_init_data.s` | The initialised `.data` image (ROM 0x2F94B2–0x2FA133) copied to RAM at boot: nine pointer tables, included from `hdae5000_data_tables.s` |
+| `shared/event_codes.s` | Shared event-code constants |
+| `hdae5000.ld` | Linker script (512 KB at 0x280000) |
+
+There is **no font data** in this ROM: the range once labelled as a font starts 0x11818
+bytes inside a bitmap. See [HDAE5000]({{ site.baseurl }}/hdae5000/#embedded-graphics-rewritten).
+
+---
+
+## Table data (`table_data/`)
+
+The 2 MB table-data ROM is labelled source end to end — no anonymous blob is pulled in whole
+(see [Table Data ROM]({{ site.baseurl }}/table-data-rom/) and the region map on
+[ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#region-by-region-source-map)).
+
+| File | Contents |
+|------|----------|
+| `kn5000_table_data.s` | The image: structure overview, `.include`s the modules below in address order, and the labelled `.incbin` slices |
+| `preset_banks.s` | Section directory and preset data banks (0x800000–0x82FFFF) |
+| `tone_database_directory.s` | [Tone database]({{ site.baseurl }}/tone-database/): directory, program maps and tone-record offset table |
+| `tone_database_records.s` | The tone/voice parameter records (`ToneRec_000` … `ToneRec_628`) |
+| `tone_database_aux.s` | Tone database auxiliary tables (0x855A48–0x87FFEF) |
+| `ui_bitmaps.s` | UI bitmaps, frame pieces and factory image banks (0x912C00–0x937FFF) |
+| `fonts.s` | UI text fonts: descriptor table and 1-bpp glyph banks (0x944D78–0x950FFF) |
+| `style_records.s` | [Music Stylist]({{ site.baseurl }}/music-stylist-database/) preset records (`StyleRec_000` … `StyleRec_999`) |
+| `style_record_ptr_tables.s` | Music Stylist pointer tables (0x986000 / 0x987000) |
+| `help_databases.s` | Help system: multilingual intro strings and the SLIDE8K help databases |
+| `panel_memory_presets.s` | Panel Memory factory bank names and preset records |
+| `boot_fdc_driver.s` | First-stage bootloader floppy (FDC) command-layer driver |
+| `boot_disk_probe.s` | Boot-time floppy disk-format probe |
+| `boot_cpserial.s`, `boot_cpserial_isr.s`, `boot_cpserial_states.s` | Boot-time control-panel serial-link driver: polling/setup half, interrupt entry half, state handlers and packet codecs — see [Boot CP-Serial Link]({{ site.baseurl }}/boot-cpserial-link/) |
+| `boot_clib.s` | Boot-time C runtime: heap allocator, memcmp, 32-bit divide/modulo |
+| `boot_debug.s` | Boot-time debug output group, disabled in shipped firmware |
+| `shared/` | `boot_hw_init.s`, `boot_routines.s`, `boot_call_init_handlers.s`, `vga_init.s`, `vga_io.s`, `vga_constants.s`, `sfr_tmp94c241.s`, `macros.s` — this ROM's own copy of the shared boot and VGA code |
+| `table_data.ld` | Linker script (2 MB at 0x800000) |
+| `includes/` | The data files the image slices from: `demo_presets/` (the 19 demo songs as `.mid` + `.yaml` sidecars and their compressed forms), `help_databases/` (the decompressed databases and their SLIDE8K streams), the six `bootcode_*.bin` slices, the icon, wallpaper and initial-data slices; `generated/` is build output |
+
+---
+
+## Custom data (`custom_data/`)
+
+| File | Contents |
+|------|----------|
+| `kn5000_custom_data.s` | IC19, the 1 MB flash of user-modifiable data with its factory contents — the sub-CPU update image at 0x3E0000 among them. Structure on [Custom Data Flash]({{ site.baseurl }}/custom-data-flash/) |
+| `custom_data.ld` | Linker script (1 MB at 0x300000) |
+
+---
+
+## SX-WSA1R (`wsa1/`)
+
+The second product in the tree: four 512 KB EPROM images, two processors, and — as
+[SX-WSA1 Disassembly]({{ site.baseurl }}/wsa1-disassembly/) sets out — **one kernel source
+that assembles into both processors' images**. `wsa1/` keeps its own `Makefile`, `scripts/`,
+`notes/`, `original_ROMs/` and `rebuilt_ROMs/`; the top-level `make wsa1` and `make gate-wsa1`
+delegate to it. 37 `.s` files outside `notes/` (which holds a probe's `.image-*.s` that is in no
+build).
+
+| Directory | `.s` | Contents |
+|-----------|-----:|----------|
+| `prom_a/` | 1 | `wsa1_prom_a.s` — CPU 1's program image (IC12), one file, plus `prom_a.ld` and `images/` |
+| `prom_b/` | 1 | `wsa1_prom_b.s` — CPU 1's second image (IC13), one file, plus `prom_b.ld` and `images/` |
+| `prom_c/` | 27 | CPU 2's image (IC28): `wsa1_prom_c.s` is a master listing that `.include`s 26 subject sources in address order, in `boot/` (reset and vectors, boot and main, the INTT1 scheduler tick), `keyscan/` (keyboard scanner, touch-to-velocity), `link/` (link interrupts, key events, link service), `midi/` (serial port, controllers), `voice/` (note engine, voice parameters, leaf helpers), `tone_db/`, `p7/` (the port-P7 module and its byte-stream pool), `devices/` (register-device drivers and writers), `storage/` (EEPROM, flash), `mathlib/`, `data_tables/` (preset bank, touch/EQ/mixer, voice/DSP tables, tail data zone) and `field_accessors.s` |
+| `prom_d/` | 4 | The tone database: `wsa1_prom_d.s`, `tone_database_directory.s`, `tone_database_records.s`, `tone_database_aux.s` — the same three-module shape as the KN5000's |
+| `kernel/` | 1 | `kernel.s` — the multitasking kernel, one source for both processors; `kernel_maincpu.inc` / `kernel_subcpu.inc` say what it means on each |
+| `dsp/` | 1 | `dsp_channel_regs.s` — the DSP channel-register driver, also one source included by both `prom_a` and `prom_c`, with its two `.inc` views |
+| `maincpu/shared/` | 2 | `indexed_table.s`, `lcd_screen_redraw.s` — routines `prom_a` and `prom_b` carry twice, included at both sites |
+| `include/` | — | `tmp95c061_sfr.inc` (the TMP95C061's I/O registers) and `tlcs900_mem_ops.inc` (the byte-emitter macros) |
+
+`wsa1/scripts/analysis/assert_byte_identical.py` is the product's gate;
+`wsa1/scripts/analysis/source_coverage.py` and `wsa1/notes/reachability.py` produce the
+coverage figures quoted on the WSA1 pages.
+
+---
+
+## Effects-DSP microprograms (`dsp/`)
+
+Not TLCS-900. The KN5000's effects DSP (IC311, an NEC uPD6383GF) has no ROM of its own: the
+sub-CPU host-boots it with microprograms embedded in the v1.42 payload. `dsp/` extracts and
+documents them — `programs.tsv` (the generated manifest), `instruction-set.md` (the ISA as far
+as it is decoded, with the withdrawn claims listed first), `algorithms/`, `disasm/*.dsm`,
+`flowcharts/` (the Mermaid signal-flow charts this site's flowchart pages are generated from),
+`analysis/`, `tools/` and `verify.py`. See [Effects DSP]({{ site.baseurl }}/effects-dsp/).
+
+---
+
+## Supporting directories
+
+| Directory | Contents |
+|-----------|----------|
+| `scripts/` | `build/` (the Makefile's helpers: `compare_roms.py`, the LZSS/SLIDE8K compressors, image conversion), `analysis/` (censuses, gates, symbol references — `assert_byte_identical.py`, `assert_images_assemble.py`, `l2_symbol_reference.py`, the data-as-code and coverage censuses), `converters/`, `generators/`, `lanes/`, `renaming/`, `repair/`, `tools/`; `scripts/README.md` indexes them |
+| `symbols/` | `*_symbols_reference.txt`, one per image — `SYMBOL ADDRESS` lines generated from the built ELF by `scripts/analysis/l2_symbol_reference.py --regen`. The authority for any address quoted on this site |
+| `archive/asl/` | The legacy ASL sources, still built by `make asl-all` and compared as six extra sections; they constrain which data files must stay byte-identical on disk |
+| `original_ROMs/`, `wsa1/original_ROMs/` | The dumps and their `unidasm` listings. Local only — no dump is committed |
+| `rebuilt_ROMs/`, `wsa1/rebuilt_ROMs/` | Build output: `.o`, `.elf` and `.rom` per image. The gate compares these against the dumps |
+| `notes/`, `analysis/`, `docs/`, `tests/` | Working notes and findings, lane ledgers, the older in-repo documentation, and the format re-implementations that double as tests |
+| `TOOLCHAIN_VERSION` | The pinned LLVM commit; the authority for which backend assembles the tree |
 
 ---
 
 ## Build System
 
-All ROMs are built with `make all` from the repository root:
-
 ```
-llvm-mc -triple=tlcs900  →  ld.lld  →  llvm-objcopy  →  raw binary
+make all          # the nine KN5000 images (LLVM), then compare_roms.py
+make wsa1         # the four SX-WSA1R images
+make everything   # both
+make gate         # KN5000: assert every image assembles, then assert byte identity
+make gate-wsa1    # SX-WSA1R byte identity
+make gate-all     # all thirteen, plus the check that the assembler is a prerequisite of every image
 ```
 
-Each ROM is verified against the original dump by **`make gate`** (`make gate-all` to
-include the four SX-WSA1R images), which rebuilds and then runs
-`scripts/analysis/assert_byte_identical.py` — a byte comparison with a non-zero exit status
-on any difference. ⚠ **Do not gate on `compare_roms.py`'s percentage**: `100.00%` is rounded
-to two decimals and covers up to 104 differing bytes in a 2 MB image. That script remains
-the way to see the archived ASL mirror, which has six of its fifteen sections; it silently
-skips a section whose built file is missing, so a short build prints nine sections that all
-read `100.00%` having assembled none of the mirror. See
+The pipeline per image is `llvm-mc -triple=tlcs900` → `ld.lld -T <image>.ld` →
+`llvm-objcopy` → raw binary, with the C data blocks compiled by `clang` and `.incbin`'d.
+Only the gate certifies a tree: `scripts/analysis/assert_byte_identical.py` compares bytes and
+exits non-zero on any difference. ⚠ **Do not gate on `compare_roms.py`'s percentage**:
+`100.00%` is rounded to two decimals and covers up to 104 differing bytes in a 2 MB image, and
+the script silently skips a section whose built file is missing, so a short build prints nine
+sections that all read `100.00%` having assembled none of the ASL mirror. See
 [Disassembly Workflow]({{ site.baseurl }}/disassembly-workflow/).
