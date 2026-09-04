@@ -185,8 +185,8 @@ designing the view**, because a second remap would change its shape.
 ```
 
 **Gap 3.5 — entering update mode is the real unresolved blocker.** The update path is gated
-on a sentinel byte at ROM `0xFFFFE8` being `0xFF` (read by `Get_Firmware_Version` at
-`0xEF0534`) and, on hardware, on a panel button held through power-on. Which button, and
+on a sentinel byte at ROM `0xFFFFE8` being `0xFF` (read by `Get_Firmware_Version`, `0xFFFEE5`,
+and tested in `Boot_RunSelfTest`, `0xEF0529`) and, on hardware, on a panel button held through power-on. Which button, and
 how to hold it from reset through the HLE'd `kn5000_cpanel_device`, is not established. This
 is the same class of problem as the still-unsolved KN7000 self-test entry.
 
@@ -218,13 +218,15 @@ Port E bit 0 (HD-AE5000 present strap), `Boot_CheckDiskPresent` (Port D bit 6, a
   the external width for the whole space via `m_am8_16`, and the KN5000 driver never calls
   `set_am8_16` for either CPU. Whether any block is genuinely 8-bit, and whether it matters,
   is unmeasured.
-- **Keybed service test modes cannot be entered.** The factory keybed diagnostics are
-  reached by holding B3+B4 at power-on and then selecting one of the mode codes `0xF5`–`0xFC`.
-  Entering them requires the checking-devices MCU to answer the combo, and the emulated
-  keybed cannot report held keys that early: `kn5000_tonegen_device` has a keybed FIFO
-  (`push_keybed_event`, `m_keybed_queue`) but no boot-time held-key path. So the keybed
-  self-tests — among the seventeen factory diagnostics that are the cheapest available
-  fidelity evidence — are unreachable under emulation. See
+- **Keybed service test modes: not established.** The factory keybed diagnostics (Tests 3–8,
+  mode codes `0xF5`–`0xFC`) are entered by holding one key pair at power-on;
+  `SelfTest_FirmwareVersionCheck` asks the sub-CPU for the held-key bitmap over the inter-CPU
+  link (command `0xF002`) once the payload is running, and only Test 4 needs the checking
+  device. Under emulation the sub-CPU sees the keybed through `kn5000_tonegen_device`'s event
+  FIFO (`push_keybed_event`, `m_keybed_queue`), which `keybed_scan` feeds every millisecond
+  from machine start; whether the sub-CPU's reply then reflects keys held from power-on has
+  not been measured, and no keybed test mode is on record as entered. These self-tests are
+  among the cheapest fidelity evidence available, so one measured run settles it. See
   [Test Modes]({{ site.baseurl }}/test-modes/).
 
 ## Gap 4 — port bits nobody bound
