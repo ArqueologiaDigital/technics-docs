@@ -750,7 +750,41 @@ find v10/maincpu -name '*.s' | wc -l
 find v10/maincpu -name '*.s' -exec cat {} + | wc -l
 ```
 
-The per-file breakdown lives on the [Source Code Map]({{ site.baseurl }}/source-map/) page.
+The per-file breakdown lives on the [Source Code Map]({{ site.baseurl }}/source-map/) page,
+and the diagram view of how the directories relate is on
+[Architecture Flowchart]({{ site.baseurl }}/firmware-flowchart/).
+
+### Instruction census
+
+How the source spells its instructions, for the v10 main-CPU tree. Produced by
+
+```
+python3 notes/syntax-convergence-probes/mnemonic_census.py --root v10/maincpu
+```
+
+which prints to stdout and writes nothing unless given `--out`:
+
+| Bucket | Sites | Distinct names |
+|--------|------:|---------------:|
+| Instruction statements, total | 336,011 | 441 |
+| — a native LLVM mnemonic `unidasm` also has | 290,973 | 67 |
+| — a tree-local synthetic name encoding the operand form | 43,331 | 349 |
+| — a `.macro` defined inside the tree | 1,705 | 23 |
+| — unclassified | 2 | 2 |
+
+Of the synthetic names, 6,020 sites over 79 names are *byte emitters wearing a mnemonic's
+name*: their operands are literal mode and displacement bytes rather than modelled operands,
+so no rename reaches them until the operand is modelled. What retiring the rest would take is
+on [LLVM Semantic Instructions]({{ site.baseurl }}/llvm-semantic-instructions/).
+
+Symbol count is a `wc -l` on the reference file, which carries one symbol per line:
+
+```
+wc -l symbols/maincpu_symbols_reference.txt   # 39,420
+grep -c LABEL_ symbols/maincpu_symbols_reference.txt   # 0
+```
+
+Every symbol carries a semantic name; no opaque `LABEL_XXXXXX` placeholders remain.
 
 **Subsystem entry points (main CPU):**
 
@@ -985,16 +1019,9 @@ ASL sometimes chooses different (but functionally equivalent) encodings than the
 | `ld A, imm8` | `21 nn` | Different | Use `LD_A` macro |
 | `ld D, imm8` | `24 nn` | Different | Use `LD_D` macro |
 
-## Earlier Milestones
+## How the source represents the ROM
 
-### March 2026: complete `LABEL_XXXXXX` elimination
-
-Every address-based placeholder label was analysed and renamed to a descriptive name —
-roughly 10,000 labels across the main-CPU sources alone, with zero `LABEL_XXXXXX`
-remaining in any ROM directory. All renames were verified with a full
-`make clean && make all` + `compare_roms.py`.
-
-### March 2026: raw-byte code elimination
+### Code spelled as data
 
 Executable code is written as native TLCS-900 mnemonics wherever it has been identified as
 code. It is **not** true that no code remains as `.byte`: the sub-CPU payload, the sub-CPU
@@ -1003,19 +1030,22 @@ boot ROM, table data, custom data and all four SX-WSA1R images are at zero, whil
 figures and the method that measures them are on
 [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/).
 
-### March 2026: C struct conversion, R+d16 addressing, waveform ROM
+### Data tables held as C
 
-15 sound-data files in `audio/sound_data/` were converted from raw byte arrays to typed C
-structs with named fields and `_Static_assert` size checks; 357 `R+d16` `.byte` fallbacks
-became native mnemonics once the LLVM backend gained SRI-prefix support; all 26 NAKA
-widget C files moved to named-struct format with symbol-resolved pointer tables; and the
-IC307 waveform ROM format was decoded (16-bit signed PCM at 32 kHz, 512-entry sample
-table). See [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/).
+Structured data is source as typed C rather than byte arrays wherever the shape is known:
+15 sound-data files in `audio/sound_data/` and 29 NAKA widget descriptor blocks are
+`__attribute__((packed))` struct initializers with named fields and `_Static_assert` size
+checks, compiled and `.incbin`'d so the ROM stays byte-identical. These are data only —
+**no firmware routine is written in C**; see
+[ScreenData C conversion]({{ site.baseurl }}/screendata-c-conversion/) and
+[UI Widget Types]({{ site.baseurl }}/ui-widget-types/).
+
+The IC307 waveform ROM's format is decoded — 16-bit signed PCM at 32 kHz with a 512-entry
+sample table — on [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/).
 
 ### Binary include splitting policy
 
 Binary includes are split whenever code references an address inside them, so that
 cross-references use symbolic labels instead of hardcoded addresses and structure
-boundaries are explicit. Since the August 2026 waves the rule is stronger: a slice must
-also carry a label, a length and a comment saying what it holds — an unnamed whole-file
-`.incbin` is treated as an unfinished conversion.
+boundaries are explicit. A slice must also carry a label, a length and a comment saying what
+it holds — an unnamed whole-file `.incbin` is treated as an unfinished conversion.
