@@ -216,7 +216,7 @@ Choose your path based on your interest:
 1. [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/) - Current progress
 2. [Reverse Engineering]({{ site.baseurl }}/reverse-engineering/) - Methodology
 3. [Open Questions]({{ site.baseurl }}/questions/) - Unsolved mysteries
-4. [Project Issues]({{ site.baseurl }}/issues/) - Task tracker
+4. [Help Wanted]({{ site.baseurl }}/help-wanted/) - Where to start contributing
 
 ## Related Pages
 

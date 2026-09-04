@@ -8,7 +8,9 @@ permalink: /help-wanted/
 
 This is a community reverse engineering project. Here's how you can contribute:
 
-**Current Progress:** thirteen ROM images — nine KN5000 and four SX-WSA1R — **rebuild byte-identically** from assembly source, built with a custom LLVM TLCS-900 backend. About 93.8 % of those 12.4 MB can also be explained (what the data represents, 95 % CI 86.7 – 96.6 %). See the [Project Issues]({{ site.baseurl }}/issues/) page for remaining open tasks.
+**Current Progress:** thirteen ROM images — nine KN5000 and four SX-WSA1R — **rebuild byte-identically** from assembly source, gated by `make gate-all` and built with a custom LLVM TLCS-900 backend. Twelve of those images are 12,386,304 distinct bytes (the thirteenth is a compressed re-encoding of one of the others), and about 93.8 % of them can be *explained* — what the data represents, not merely that it reproduces — with a 95 % confidence interval of 86.7 – 96.6 %.
+
+Where to look for work: the open technical unknowns are on [Open Questions]({{ site.baseurl }}/questions/), the programme-level plan is on the [Roadmap]({{ site.baseurl }}/roadmap/), and what the emulator does not model yet is on [MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/).
 
 ## High Priority
 
@@ -22,23 +24,26 @@ If you have a KN5000 and can dump ROMs, please reach out!
 
 ### ROM Disassembly Improvements
 
-All ROMs achieve 100% byte-perfect match, and all NAKA widget C data files have been converted from
-raw byte arrays to named packed structs. 15 sound data files have been converted to C structs with
-named fields.
+All thirteen images byte-match, every symbol carries a semantic name, and the NAKA widget and
+sound data files are typed C structs rather than raw byte arrays.
 
-⚠ **Two claims that stood here since March 2026 were measured false on 2026-08-14; one of
-them has since actually been achieved, re-measured 2026-09:**
+**Byte-match is not the same as understood, and this is the honest backlog.** A 100 % byte
+match is preserved by construction and says nothing about how much of the build is real source
+rather than `.incbin` passthrough or code spelled as `.byte`. What is genuinely open:
 
-| claim as it stood | measured 2026-08-14 | measured 2026-09 |
-|---|---|---|
-| "All `LABEL_XXXXXX` labels have been replaced with semantic names" | **35,924 of 39,451 rows (91 %)** in `symbols/maincpu_symbols_reference.txt` were still `LABEL_*` | **0 remain** — the file was regenerated from the build on 2026-08-21 (`169d4039`) with every `LABEL_*` replaced by a semantic name. The claim is now true. |
-| "All executable `.byte` code has been eliminated … zero code `.byte` fallbacks" | **at least 303** `.byte` lines still carried an instruction comment | **278** — still nonzero, so this one is still an open backlog, just a smaller one |
-
-Reproduce: `grep -c 'LABEL_' symbols/maincpu_symbols_reference.txt` and
-`grep -rn '^\s*\.byte' --include='*.s' . | grep -E ';.*\b(ld|jp|call|ret|push|pop)\b' | wc -l`
-in `kn5000-roms-disasm`. Note that 100 % byte-match is true and always will be — it is preserved by
-construction and says nothing about how much of the build is real source rather than `.incbin`
-passthrough. The `.byte`-fallback figure is *the honest remaining backlog*, and is a place to help.
+- **Code still written as `.byte`.** The v7 main-CPU tree holds 236,713 B in confirmed regions
+  plus 29,032 B in misframed islands; HD-AE5000 holds 13,168 B. Every other image is at zero.
+  Method and per-image measurement on
+  [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/).
+- **Two LLVM wrapper mnemonics.** `lda_dpi` (669 sites) and `bit_dri` (189) cannot be renamed
+  until their operands are modelled in the backend — see
+  [LLVM Semantic Instructions]({{ site.baseurl }}/llvm-semantic-instructions/).
+- **Firmware versions with no source tree.** v5, v6 and v8 on the main CPU; v1.40 and v1.41 on
+  the sub-CPU payload. v8 differs from v9 by the version byte alone, so it is the cheapest of
+  them by a wide margin.
+- **A C port beyond data.** The C files in the tree are all `__attribute__((packed))` struct
+  initializers; **no firmware routine is written in C yet.** Converting leaf functions while
+  holding byte-identity is open work with a working compiler behind it.
 
 ### HDAE5000 ROM Disassembly
 
@@ -150,8 +155,8 @@ See `CLAUDE.md` in the repository for complete policy details.
 
 1. Clone the [ROM disassembly repo](https://github.com/ArqueologiaDigital/kn5000-roms-disasm)
 2. Read the `CLAUDE.md` for build instructions and **contribution policies**
-3. Browse the [Project Issues]({{ site.baseurl }}/issues/) to find tasks you can help with
-4. Check the [Open Questions]({{ site.baseurl }}/questions/) for areas needing investigation
+3. Check the [Open Questions]({{ site.baseurl }}/questions/) for areas needing investigation
+4. Read the [Roadmap]({{ site.baseurl }}/roadmap/) for what the project is trying to reach and in what order
 5. Join the [discussion forum](https://forum.fiozera.com.br/t/technics-kn5000-homebrew-development/321)
 
 ## Long-Term Goals

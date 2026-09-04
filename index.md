@@ -158,7 +158,6 @@ and hardware have been reverse engineered in depth.
 | [Reverse Engineering]({{ site.baseurl }}/reverse-engineering/) | Methodology and strategies |
 | [Help Wanted]({{ site.baseurl }}/help-wanted/) | Contribution guide |
 | [Open Questions]({{ site.baseurl }}/questions/) | Unsolved mysteries |
-| [Issues]({{ site.baseurl }}/issues/) | Project task tracker |
 
 ## Learning Paths
 
@@ -182,7 +181,7 @@ Choose based on your goal:
 1. [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/) - Current progress
 2. [Reverse Engineering]({{ site.baseurl }}/reverse-engineering/) - Techniques
 3. [Open Questions]({{ site.baseurl }}/questions/) - Areas needing investigation
-4. [Issues]({{ site.baseurl }}/issues/) - Specific tasks
+4. [Help Wanted]({{ site.baseurl }}/help-wanted/) - Specific tasks you can pick up
 
 ## Project Status
 
@@ -210,7 +209,8 @@ file is a `BAD_DUMP`: 89% of IC30 was never read and is present in the file as a
 
 *Rebuilding is not the same as understanding. Of the same bytes, about **93.8 %** can be
 explained — what the data represents, not merely that it reproduces — with a 95 %
-confidence interval of 86.7 % – 96.6 %. Measured by
+confidence interval of 86.7 % – 96.6 %. That covers the twelve distinct images; the
+thirteenth gated image is a compressed re-encoding of the sub-CPU payload. Measured by
 `scripts/analysis/data_range_census.py`; see
 [how much of the data is actually explained]({{ site.baseurl }}/rom-reconstruction/#how-much-of-the-data-is-actually-explained).*
 
@@ -222,7 +222,7 @@ A [homebrew SDK]({{ site.baseurl }}/hdae5000-homebrew/) is available for writing
 
 | Component | Status |
 |-----------|--------|
-| MAME Driver | [PR #14558](https://github.com/mamedev/mame/pull/14558) in progress |
+| MAME Driver | upstream in mamedev/mame; further work staged as a queue of follow-up PRs — see [MAME Branch Review]({{ site.baseurl }}/mame-branch-review/) |
 | Display | 320x240 LCD working (VGA controller emulated) |
 | Audio | DSP protocol decoded, tone generator HLE |
 | Control Panel | Protocol documented, button state arrays emulated |
@@ -234,7 +234,7 @@ A [homebrew SDK]({{ site.baseurl }}/hdae5000-homebrew/) is available for writing
 - [Service Manual PDF]({{ site.baseurl }}/service_manual/technics_sx-kn5000.pdf) (26MB, EMID971655 A5) - Schematics, board layouts, IC pinouts
 - [GitHub: ROM Disassembly](https://github.com/ArqueologiaDigital/kn5000-roms-disasm) - Source code
 - [GitHub: Homebrew](https://github.com/felipesanches/kn5000_homebrew/) - Custom software
-- [MAME Pull Request](https://github.com/mamedev/mame/pull/14558) - Emulation work
+- [MAME Pull Requests]({{ site.baseurl }}/mame-pull-requests/) - the upstreaming record
 - [Discussion Forum](https://forum.fiozera.com.br/t/technics-kn5000-homebrew-development/321)
 - [Firmware Archive](https://archive.org/details/technics-kn5000-system-update-disks) - All versions (v5-v10, HD-AE5000 updates)
 - [Keysoftservice HDAE5000 Page](https://www.keysoftservice.ch/hdae5000-e.htm) - Original HDAE5000 information
