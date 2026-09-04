@@ -17,28 +17,31 @@ The KN5000 has a comprehensive built-in diagnostic system designed for factory a
 
 ## MAME Emulation Support
 
-All test modes can potentially be activated in MAME:
+What the driver (`src/mame/matsushita/kn5000.cpp` and its devices) models for each mode, and
+what is actually established under emulation. **Not established** means the source shows no
+reason the mode cannot work and no record shows it working: it has not been measured.
 
-| Mode | MAME Status | How to Activate |
-|------|------------|-----------------|
-| Power-on self-test | Working | Toggle "Main CPU Checking Device" or "Sub CPU Checking Device" DIP switches in Machine Configuration |
-| Button combos | Working | Assign keyboard keys to panel buttons via Tab → Input (This Machine), hold during boot |
-| Keybed service modes | Untested | Requires keybed input during boot — depends on tone generator device's key scan timing |
-| HAMA factory diagnostics | Via keybed | Hold B3+B4 during power-on (same as Test 8). Requires tone gen keybed scan during boot |
+| Mode | Status under MAME | What is modelled, and where |
+|------|-------------------|-----------------------------|
+| Power-on self-test, main CPU (CN11) | **Checking device modelled**: switch and LED. Whether every blink reports OK under emulation is not established | `PORT_DIPNAME` "Main CPU Checking Device" on port `CN11`, read through main-CPU Port C (`portc_read().set_ioport("CN11")`); the LED is output `checking_device_led_cn11`, driven from PC.1, drawn by `kn5000.lay` |
+| Power-on self-test, sub CPU (CN12) | Same: **switch and LED modelled**; result not established | "Sub CPU Checking Device" on port `CN12`, sub-CPU Port C, output `checking_device_led_cn12` |
+| Control-panel button combos | **Not established** | The firmware reads the panel MCUs' segment bytes over the CP serial link (`CPanel_ScanButtons` → `CPanel_CheckSpecialCombos`); `kn5000_cpanel_device` answers those scans from its button ioports (Tab → Input (This Machine)). No record of a combo honoured from power-on under emulation; the flash-update combo is the open item on [MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/) |
+| Keybed service modes (Tests 3–8) | **Not established** | `SelfTest_FirmwareVersionCheck` asks the sub-CPU for the held-key bitmap (inter-CPU command `0xF002`, 8 bytes at `0x8D64`). Under emulation the sub-CPU runs its real firmware and sees the keybed only through `kn5000_tonegen_device`'s event FIFO (`push_keybed_event`), fed by `keybed_scan` every millisecond from machine start and by the MIDI→keybed UART. Whether its reply reflects keys held from power-on has not been measured; no keybed test mode is on record as entered |
+| HAMA factory diagnostics | **Not established** — reached through Test 8 (B3+B4), so the row above applies | `factory_test/` |
 
 ---
 
 ## Power-On Self-Test
 
-The self-test runs automatically at boot **only when a CHECKING DEVICE is connected** to CN11 or CN12 on the main board. The checking device is a simple circuit: a switch, a 1kΩ resistor, and an LED. Without it, the self-test is skipped entirely (`MainCPU_self_test_routines` at `0xFB729E`).
+The self-test runs automatically at boot **only when a CHECKING DEVICE is connected** to CN11 or CN12 on the main board. The checking device is a simple circuit: a switch, a 1kΩ resistor, and an LED. Without it, the self-test is skipped entirely (`MainCPU_self_test_routines` at `0xFB729E`, `ui/ui_mode_handlers.s`).
 
 ### Detection
 
-The firmware reads Port D bit 0 (`PD.0` at I/O address `0x30`). If the checking device is not connected, `PD.0` reads high (pull-up) and the self-test returns immediately. With the checking device connected and its switch activated, `PD.0` reads low, and the self-test proceeds.
+The firmware reads Port C bit 0 (`PC.0`; `PC` is SFR `0x30` in `shared/sfr_tmp94c241.s`). If the checking device is not connected, `PC.0` reads high (pull-up) and the self-test returns immediately. With the checking device connected and its switch activated, `PC.0` reads low, and the self-test proceeds. The LED is `PC.1`, driven by `set_dd8 1, 0x30` / `res_dd8 1, 0x30` in `Report_test_result_by_blinking_LED`. The sub-CPU uses the same two bits of its own Port C for CN12.
 
 ```
-PD.0 = 1 (pull-up)  → No checking device → skip self-test
-PD.0 = 0 (grounded) → Checking device present → run self-test
+PC.0 = 1 (pull-up)  → No checking device → skip self-test
+PC.0 = 0 (grounded) → Checking device present → run self-test
 ```
 
 ### Test Sequence
@@ -59,6 +62,8 @@ The self-test reports results by blinking the checking device's LED:
 
 After the 4th blink, the keyboard switch scanning test engages: pressing any of the 61 keys lights the LED; releasing turns it off. This tests whether key switches and the Tone Generator LSI (IC303) are working.
 
+**Implementation:** the sub-CPU boot ROM's `INIT_MEMORY_TEST` (`0xFF8956`, `subcpu/boot/kn5000_subcpu_boot.s`), gated on the CN12 strap `PC.0`; its keybed pass drains the IC303 event FIFO through `INTER_CPU_LATCH_READ_DISPATCH` and `NOTE_VELOCITY_LOOKUP_CALCULATE` (both misnomers, as their headers say).
+
 #### Test 2: Main CPU Peripheral Devices (CN11)
 
 | Blink # | Component | IC |
@@ -78,24 +83,24 @@ After the 4th blink, the keyboard switch scanning test engages: pressing any of 
 
 ### Firmware Implementation
 
-The self-test is implemented in `MainCPU_self_test_routines` at `0xFB729E`:
+The self-test is implemented in `MainCPU_self_test_routines` at `0xFB729E`, in `ui/ui_mode_handlers.s` (addresses from `symbols/maincpu_v10_symbols_reference.txt`):
 
 | Routine | Address | Tests |
 |---------|---------|-------|
 | `Test_DRAM_IC10_and_IC9` | `0xFB7348` | Writes `0x5A5A5A5A` / `0xA5A5A5A5` patterns, reads back |
 | `Test_SRAM_IC21` | `0xFB7400` | Similar write/readback pattern test |
-| `Test_PROGRAM_and_TABLE_DATA_ROMs` | (nearby) | ROM checksum verification |
-| `Test_Rhythm_data_ROM_IC14` | (nearby) | ROM checksum verification |
-| `Test_Custom_data_ROM_IC19` | (nearby) | ROM checksum verification |
-| `Test_LCD_Controller_IC206` | (nearby) | LCD controller register test |
-| `Test_Video_RAM_IC207` | (nearby) | VRAM write/readback test |
+| `Test_PROGRAM_and_TABLE_DATA_ROMs` | `0xFB7456` | ROM checksum verification |
+| `Test_Rhythm_data_ROM_IC14` | `0xFB7561` | ROM checksum verification |
+| `Test_Custom_data_ROM_IC19` | `0xFB75D4` | ROM checksum verification |
+| `Test_LCD_Controller_IC206` | `0xFB763A` | LCD controller register test |
+| `Test_Video_RAM_IC207` | `0xFB7687` | VRAM write/readback test |
 | `Report_test_result_by_blinking_LED` | `0xFB72EA` | Outputs result via LED blinks |
 
 ---
 
 ## Control Panel Button Combos
 
-During boot, the firmware scans the control panel buttons via `CPanel_ScanButtons` (`0xFC3EE5`). The routine `CPanel_CheckSpecialCombos` (`0xFC4173`) tests for four specific button combinations and returns a combo code (0–4) in register HL.
+During boot, the firmware scans the control panel buttons via `CPanel_ScanButtons` (`0xFC3EE5`). The routine `CPanel_CheckSpecialCombos` (`0xFC4165`) tests for four specific button combinations and returns a combo code (0–4) in register HL.
 
 ### Button Combination Table
 
@@ -189,7 +194,7 @@ After the SubCPU payload is transferred and verified, the firmware calls `SelfTe
 
 `UI_PostModeChangeEvent` sends event `0x1C00015` with the mode code in the low byte, which triggers a screen group transition to the corresponding test mode UI.
 
-> **MAME note:** For keybed tests to work in MAME, the tone generator device must respond to the inter-CPU key scan command during boot. The keybed queue in `kn5000_tonegen_device` would need to report held keys at this early stage.
+> **Under MAME:** the `0xF002` reply comes from the sub-CPU's own firmware, which sees the keybed only through `kn5000_tonegen_device`'s event FIFO (`push_keybed_event`; `keybed_scan` in `kn5000.cpp` pushes into it every millisecond from machine start). Whether that reply reflects keys held from power-on has not been measured — see the status table above.
 
 ### Test 3: LCD Panel Test (G3 + G4)
 
@@ -219,7 +224,7 @@ Results are reported via LED blinks AND displayed on the LCD:
 
 Short blink = OK, long blink = defective.
 
-**Implementation:** `TEST4FUNC` at `0xFB7DDA`, dispatched via control panel event `0x1C00013`.
+**Implementation:** `TEST4FUNC` at `0xFB7DAC`, dispatched via control panel event `0x1C00013`.
 
 ### Test 5: Control Panel Switch & LED Check (F3 + F4)
 
@@ -228,7 +233,7 @@ All LEDs on the control panel light up simultaneously. Press each button to veri
 - Button release → LED turns off
 - For buttons without dedicated LEDs, the 4 BEAT display LEDs light up together when the START/STOP button is pressed
 
-**Implementation:** `TEST2FUNC` at `0xFB7D99`, dispatched via control panel event `0x1C00013`.
+**Implementation:** `TEST2FUNC` at `0xFB7D44`, dispatched via control panel event `0x1C00013`.
 
 ### Test 6: Wave ROM Check (E3 + E4)
 
@@ -249,7 +254,7 @@ Wave ROM mapping to keys:
 
 If no sound is produced or the sound is distorted for a particular key, the corresponding Wave ROM chip may be defective.
 
-**Implementation:** `TEST6FUNC` at `0xFB7E0E` and `TEST3FUNC` at `0xFB7DA6`, dispatched via control panel event `0x1C00013`. String data at `0xED19D0`–`0xED1A70`.
+**Implementation:** `TEST6FUNC` at `0xFB7DE0` and `TEST3FUNC` at `0xFB7D78`, dispatched via control panel event `0x1C00013`. String data at `0xED19D0`–`0xED1A70`.
 
 ### Test 7: FDC IC Test (A3 + A4)
 
@@ -257,7 +262,7 @@ Tests communication between the Floppy Disk Controller IC (IC208) and the Main C
 
 **Note:** This test only checks the FDC IC ↔ CPU communication path. It does **not** test the actual floppy disk drive mechanism. For a full drive test, use Test 8 instead.
 
-**Implementation:** `TestTitleFunc` at `0xF1E396` (shared test title display routine), with FDC-specific test code dispatched via the screen group event system.
+**Implementation:** `TestTitleFunc` at `0xF1E39A` (shared test title display routine), with FDC-specific test code dispatched via the screen group event system.
 
 ### Test 8: Floppy Disk SAVE/LOAD Test (B3 + B4)
 
@@ -272,7 +277,7 @@ Performs repeated save/load cycles on the floppy disk:
 
 Even with a properly functioning drive, occasional "NG" results may occur. If frequent, clean the drive heads with a cleaning disk and re-test. Persistent failures indicate a defective drive.
 
-**Implementation:** `FDLoadSaveTest` at `0xF1E5B0`. Display strings include "FD SAVE/LOAD TEST", "START FDD TEST LOOP", "STOP FDD TEST". Test results shown as "TEST2OKNG", "TEST2OKOK", etc.
+**Implementation:** `FDLoadSaveTest` at `0xF1E5DA`. Display strings include "FD SAVE/LOAD TEST", "START FDD TEST LOOP", "STOP FDD TEST". Test results shown as "TEST2OKNG", "TEST2OKOK", etc.
 
 ---
 
@@ -282,7 +287,7 @@ The HAMA subsystem is an internal Matsushita factory diagnostic system for testi
 
 ### Registration
 
-`InitializeHama` (at `0xF1E2FE`) is called unconditionally during boot from the UI initialization sequence (`ui/ui_widget_defs.s`). It registers:
+`InitializeHama` (at `0xF1E146`) is called unconditionally during boot from the UI initialization sequence (`ui/ui_widget_defs.s`). It registers:
 
 - **12 NAKA widget object tables** for the test UI system (file browsers, dialog buttons, diagnostic counters)
 - **2 diagnostic titles** in the firmware's title system:
@@ -292,7 +297,7 @@ The HAMA subsystem is an internal Matsushita factory diagnostic system for testi
 | `TT_HDDEXT` | `0xE1FD18` | `0x7F` | FDD / Hard Disk Extension test |
 | `TT_EXTAPR` | `0xE1FD22` | `0xFC` | Extension APR test |
 
-Both titles use `TestTitleFunc` (`0xF1E396`) as their lifecycle callback.
+Both titles use `TestTitleFunc` (`0xF1E39A`) as their lifecycle callback.
 
 ### TestTitleFunc Event Handler
 
@@ -320,7 +325,7 @@ When a HAMA title becomes active, `TestTitleFunc` processes two event types:
 
 ### FDD SAVE/LOAD Test (FDLoadSaveTest)
 
-The core diagnostic test (`0xF1E5B0`):
+The core diagnostic test (`0xF1E5DA`):
 
 1. Allocates a 2 KB buffer
 2. Fills it with a counting pattern (`0x000`–`0x3FF`, 2 bytes each)
@@ -337,7 +342,7 @@ The test dialog displays three DIAGLIST widgets showing TOTAL, OK, and NG counte
 
 The HAMA diagnostic system includes a built-in **interactive memory hex viewer** — a complete debugging tool for inspecting arbitrary memory addresses across the KN5000's entire 24-bit address space.
 
-**Implementation:** `DbMemoryDumpProc` in `ui/ui_widget_defs.s:6878` (263 lines of TLCS-900 assembly). Widget descriptor at `FDTest_Label_MemoryDump` in `factory_test/fd_test_data.s:157`.
+**Implementation:** `DbMemoryDumpProc` in `ui/ui_widget_defs.s:6878` (`0xFA2EE6`–`0xFA317D`, 663 bytes, per `symbols/maincpu_v10_symbols_reference.txt`). Widget descriptor at `FDTest_Label_MemoryDump` in `factory_test/fd_test_data.s:175`.
 
 #### Display Format
 
@@ -393,7 +398,7 @@ The entire rendering is immediate-mode: each Confirm event redraws all 16 rows f
 
 | Event | Handler | Action |
 |-------|---------|--------|
-| `0x1C00007` | `DbMemDump_OK` | **Navigation dispatch** — receives button presses, looks up step size from the 6-entry offset table at `0xEAA6FA`, adjusts the current address, clamps to 24 bits, triggers redraw via Confirm event |
+| `0x1C00007` | `DbMemDump_OK` | **Navigation dispatch** — receives button presses, looks up the step size from a 6-entry offset table, adjusts the current address, clamps to 24 bits, triggers redraw via Confirm event |
 | `0x1C0000F` | `DbMemDump_Confirm` | **Render** — reads 128 bytes from the current address and renders the full hex dump display |
 | `0x1C0000E` | `DbMemDump_Select` | **Auto-repeat** — forwards to Confirm, then sets a periodic timer (`SetApTimer` at 120 ticks) for continuous scrolling while a button is held |
 | `0x1C0000D` | `DbMemDump_Paint` | **Background paint** — draws the double-bordered box frame, then triggers a Select event to fill the hex content |
@@ -458,7 +463,7 @@ The tool's per-nibble navigation scheme (with step sizes from 1 byte to 1 MB) is
 
 **4. Cost-Effective Debug Infrastructure**
 
-Including the tool in the shipping ROM (rather than maintaining a separate debug build) saved Matsushita from needing to manage two firmware images. The tool costs only ~263 lines of code (~600 bytes of ROM) and is completely hidden from normal users — it requires a specific keybed combination (B3+B4) during power-on that no user would accidentally trigger. This is the same engineering philosophy seen in many Japanese consumer electronics of the era: ship the debug tools, hide them behind obscure key combinations, and let service technicians discover them through the service manual.
+Including the tool in the shipping ROM (rather than maintaining a separate debug build) saved Matsushita from needing to manage two firmware images. The tool costs 663 bytes of ROM (`0xFA2EE6`–`0xFA317D`) and is completely hidden from normal users — it requires a specific keybed combination (B3+B4) during power-on that no user would accidentally trigger. This is the same engineering philosophy seen in many Japanese consumer electronics of the era: ship the debug tools, hide them behind obscure key combinations, and let service technicians discover them through the service manual.
 
 **5. The "HAMA" Codename Connection**
 
@@ -520,22 +525,29 @@ Power on while holding B3 + B4
 
 ## Code Locations Summary
 
+Paths are under `v10/maincpu/` unless stated; addresses are from
+`symbols/maincpu_v10_symbols_reference.txt` and `symbols/subcpu_boot_symbols_reference.txt`,
+generated from the built ELFs, which are byte-identical to the dumps.
+
 | Routine | Address | File | Purpose |
 |---------|---------|------|---------|
-| `MainCPU_self_test_routines` | `0xFB729E` | `boot/system_handlers.s` | Power-on self-test dispatcher |
-| `Report_test_result_by_blinking_LED` | `0xFB72EA` | `boot/system_handlers.s` | LED blink result reporter |
-| `Test_DRAM_IC10_and_IC9` | `0xFB7348` | `boot/system_handlers.s` | DRAM test (write patterns) |
-| `Test_SRAM_IC21` | `0xFB7400` | `boot/system_handlers.s` | SRAM test |
+| `MainCPU_self_test_routines` | `0xFB729E` | `ui/ui_mode_handlers.s` | Power-on self-test dispatcher |
+| `Report_test_result_by_blinking_LED` | `0xFB72EA` | `ui/ui_mode_handlers.s` | LED blink result reporter |
+| `Test_DRAM_IC10_and_IC9` | `0xFB7348` | `ui/ui_mode_handlers.s` | DRAM test (write patterns) |
+| `Test_SRAM_IC21` | `0xFB7400` | `ui/ui_mode_handlers.s` | SRAM test |
+| `SelfTest_FirmwareVersionCheck` | `0xFB76D8` | `ui/ui_mode_handlers.s` | Keybed service-mode detection |
+| `INIT_MEMORY_TEST` | `0xFF8956` | `subcpu/boot/kn5000_subcpu_boot.s` | Sub-CPU (CN12) self-test |
 | `CPanel_ScanButtons` | `0xFC3EE5` | `ui/cpanel_routines.s` | Boot-time button scan |
-| `CPanel_CheckSpecialCombos` | `0xFC4173` | `ui/cpanel_routines.s` | Button combo detection |
-| `InitializeHama` | `0xF1E2FE` | `factory_test/test_init.s` | HAMA subsystem registration |
-| `TestTitleFunc` | `0xF1E396` | `factory_test/test_init.s` | Test title lifecycle handler |
-| `FDLoadSaveTest` | `0xF1E5B0` | `factory_test/fd_test_code.s` | Floppy disk SAVE/LOAD test |
-| `HamaListProc` | `0xF1E8C0` | `factory_test/fd_test_code.s` | File browser event handler |
-| `TEST2FUNC` | `0xFB7D99` | `boot/system_handlers.s` | Panel switch & LED test handler |
-| `TEST3FUNC` | `0xFB7DA6` | `boot/system_handlers.s` | Wave ROM test handler (part) |
-| `TEST4FUNC` | `0xFB7DDA` | `boot/system_handlers.s` | CPR/CPL MCU test handler |
-| `TEST6FUNC` | `0xFB7E0E` | `boot/system_handlers.s` | Wave ROM test handler (part) |
+| `CPanel_CheckSpecialCombos` | `0xFC4165` | `ui/cpanel_routines.s` | Button combo detection |
+| `InitializeHama` | `0xF1E146` | `factory_test/test_init.s` | HAMA subsystem registration |
+| `TestTitleFunc` | `0xF1E39A` | `factory_test/test_init.s` | Test title lifecycle handler |
+| `FDLoadSaveTest` | `0xF1E5DA` | `factory_test/fd_test_code.s` | Floppy disk SAVE/LOAD test |
+| `HamaListProc` | `0xF1E870` | `factory_test/fd_test_code.s` | File browser event handler |
+| `TEST2FUNC` | `0xFB7D44` | `ui/ui_mode_handlers.s` | Panel switch & LED test handler |
+| `TEST3FUNC` | `0xFB7D78` | `ui/ui_mode_handlers.s` | Wave ROM test handler (part) |
+| `TEST4FUNC` | `0xFB7DAC` | `ui/ui_mode_handlers.s` | CPR/CPL MCU test handler |
+| `TEST6FUNC` | `0xFB7DE0` | `ui/ui_mode_handlers.s` | Wave ROM test handler (part) |
+| `DbMemoryDumpProc` | `0xFA2EE6` | `ui/ui_widget_defs.s` | Hidden hex viewer |
 | `Boot_HandleComboDisplay` | `0xEF07A2` | `kn5000_v10_program.s` | Boot combo handler (LED version) |
 | `Boot_HandleFactoryReset` | `0xEF07F3` | `kn5000_v10_program.s` | Boot combo handler (factory reset) |
 | `WidgetParam_TestMode_Entry` | `0xEDBA44` | `ui_widgets/widget_dispatch.s` | Test mode widget entry |
