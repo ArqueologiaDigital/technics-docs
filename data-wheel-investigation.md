@@ -1,7 +1,7 @@
 ---
-layout: default
+layout: page
 title: Data Wheel (TEMPO/PROGRAM Encoder)
-nav_order: 25
+permalink: /data-wheel-investigation/
 ---
 
 # Data Wheel (TEMPO/PROGRAM Encoder)

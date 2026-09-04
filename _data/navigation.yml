@@ -213,6 +213,8 @@
   pages:
     - title: Control Panel Protocol
       url: /control-panel-protocol/
+    - title: Data Wheel (TEMPO/PROGRAM Encoder)
+      url: /data-wheel-investigation/
     - title: Boot CP-Serial Link
       url: /boot-cpserial-link/
     - title: Inter-CPU Protocol
