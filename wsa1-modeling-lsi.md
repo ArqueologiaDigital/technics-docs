@@ -119,10 +119,10 @@ notes, its HLE guide or the MAME driver's `block_name()`.*
 | `0x0180` | the same, with `v2`, from `p31` / `p34` | **SUB `FITTING`**, decay form | as above | **PROVEN / UNIDENTIFIED** |
 | `0x01C0` | `high16( fold(reg 0x0400's word) × Curve_Exp2Rise_128[clamp(v1, 0..PART[+0x11])] )` | **MAIN `FITTING`**, rise form | section A's cutoff coefficient scaled by `1 − 2^(−v1/16)` ∈ [0, 0.996) = 0 to −4.56 octaves | name **PROVEN**; **STRONG** that it is the same quantity as `0x0400`; see [the one undecided reading](#the-one-arithmetic-that-reads-two-ways) |
 | `0x0200` | the same, with `v2` and reg `0x0440`'s word | **SUB `FITTING`**, rise form | as above | **PROVEN** |
-| `0x0240` | <code>( high16( fold(reg 0x0480's word) × Curve_Exp2Rise_128[clamp(R[+0x14]+R[+0x18]+abs(R[+0x21])/4, 0..0x7F)] ) &amp; 0xFFF8 ) &#124; 7</code> | the register **`DEPTH`** scales | section C's Rise-scaled coefficient.  Its index is `DEPTH` (p14 bits 0-6) plus `SUB GAIN` plus the `P0SITI0N M0VEMENT` term; low 3 bits a separate field | structure **PROVEN**, name **STRONG** |
+| `0x0240` | <code>( high16( fold(reg 0x0480's word) × Curve_Exp2Rise_128[clamp(R[+0x14]+R[+0x18]+abs(R[+0x21])/4, 0..0x7F)] ) &amp; 0xFFF8 ) &#124; 7</code> | the register **`DEPTH`** scales | section C's Rise-scaled coefficient.  Its index is `DEPTH` (p14 bits 0-6) plus `SUB GAIN` plus the `P0SITI0N M0VEMENT` term; low 3 bits a separate field | structure **PROVEN**, name **PROVEN** |
 | `0x0280` | `Curve_Exp2Decay_101[clamp(R[+0x10]+R[+0x23], 0..100)]` | **`SUB GAIN`** | a Q15 gain over a 0..100 percent control with an explicit OFF, 37.3 dB taper; `p33` value, `p36` touch | **PROVEN** |
 | `0x02C0` | the literal `0xFF00`, always, on every path | — | — | **UNIDENTIFIED** |
-| `0x0300` | `b = ExpCurve_0_to_0x80[Q[+0x13]]`, written as <code>(b&lt;&lt;8) &#124; b</code>; `0x0000` when reg 0's bits 6..4 are clear | **`INTERACTION GAIN`** | an 8-bit gain over a 0..127 control, 42.1 dB, **duplicated into both halves**, and zero unless the part has layers grouped | **STRONG** |
+| `0x0300` | `b = ExpCurve_0_to_0x80[Q[+0x13]]`, written as <code>(b&lt;&lt;8) &#124; b</code>; `0x0000` when reg 0's bits 6..4 are clear | **`INTERACTION GAIN`** | an 8-bit gain over a 0..127 control, 42.1 dB, **duplicated into both halves**, and zero unless the part has layers grouped | **PROVEN** |
 | `0x0340` | `Curve_FE05C9[i3]` | **MAIN `MUTING`**, Q13 form | the Q13 companion of `0x0400`'s cutoff — **computable from it** | **PROVEN** |
 | `0x0380` | `Curve_FE05C9[i4]` | **SUB `MUTING`**, Q13 form | as above, of `0x0440` | **PROVEN** |
 | `0x03C0` | `Curve_FE05C9[i5]`, `i5 = clamp(Q[+0x0F], 44..96)` | — *no editor name exists* | section C's companion coefficient | table identity **PROVEN**; name **resolved, negatively** |
@@ -203,10 +203,11 @@ controller's own initialisation.
 **A page's read-back order is its parameter map.** Each page's ENTER routine
 fires a run of read-back requests at CPU 2 and stores reply *n* at
 `((u8 *)0x27A6)[n]`, so the request order *is* the map from tone-edit parameter
-to the RAM byte the page draws. That is checked, not assumed: four per-field
+to the RAM byte the page draws. That is checked, not assumed: the per-field
 editors name an (index, parameter) pair directly, in two immediates a few bytes
-apart, and **all eight pairs agree** — where ten indices are in play per page,
-so an unrelated map would agree eight times over with probability about 1e-8.
+apart, and **all thirty-three such bindings agree** with this map — zero
+contradictions, where ten indices are in play per page, so an unrelated map could
+not (see [the field editors and their limits](#the-field-editors-and-each-fields-limits) below).
 
 That gives, among others:
 
@@ -226,8 +227,8 @@ and skips a key-follow term when it is set, the other clears bit 7 and stores
 the remainder as `0x0240`'s index. A formant that is fixed or moves with the
 note is what that control is for.
 
-**`INTERACTION GAIN` has a second, independent argument**, which is why it is
-STRONG rather than a caption on a row: register `0x0300` is written as zero
+**`INTERACTION GAIN` has a second, independent argument** beyond its field
+editor: register `0x0300` is written as zero
 unless the part has layers grouped. A gain that only exists once layers are
 grouped, on a screen whose grouping control decides which layers interact,
 captioned `INTERACTION GAIN`. `DEPTH` and `FORMANT` have no reason to be
@@ -250,6 +251,63 @@ families carries a key-follow stage, which is the one the editor heads
 `MUTING`. The five headers are two-line stacks — `FIT`/`TING`, `MUT`/`ING`,
 `KEY`/`SHIFT`, `DE`/`TUNE`, `RESO`/`SCALE` — which is why the fourth column is
 `DETUNE` and the fifth is `RESO SCALE`.
+
+### The field editors, and each field's limits
+
+Each MODELING page routes its DATA-dial edits through a table of handler pointers
+indexed by the panel event code — **twenty-four editors in all**, none of them
+the target of a `call`, which is why they carried no name until the tables that
+reach them were decoded. Every editor builds one 11-byte edit descriptor and
+hands it to `ToneEdit_ApplyStep` (`0xFD6CE1`), which reads a **MASK**, a
+**SHIFT**, a **MIN** and a **MAX** — all immediates inside the editor — and
+clamps `(packed >> SHIFT) & MASK` into `[MIN, MAX]`. So **each field's limits are
+read straight from the ROM**, and consumed by code read from the ROM, with
+nothing interpreted between. The step is `±1`, or `±3` for the coarse key group.
+
+Thirty-three `(screen, RAM index, parameter)` bindings come out of the
+twenty-four, and **every one agrees with the read-back-order map above — zero
+contradictions**; the cross-check is verified able to fail (a run against a map
+with `MAIN`/`SUB FITTING` swapped registers exactly two clashes). Two independent
+instruments — the order in which a page's ENTER routine fires its read-back
+requests, and immediates inside routines those ENTER routines never touch — land
+on the same map.
+
+| control | parameter (MAIN / SUB) | limits |
+|---|---|---|
+| `RESONATOR TYPE` | p11 bits 0-5 | 0..63 (the 64-name table) |
+| `GROUP` | p11 bits 7:6 | 0..4 |
+| `P0SITI0N` | p13 | 0..250 = 0.0..50.0 in 0.2 |
+| `DEPTH` | p14 bits 0-6 | 0..127 |
+| `FORMANT` | p14 bit 7 | 0..1 (`FIX` / `MOVE`) |
+| `INTERACTION GAIN` | p19 | 0..127 |
+| `WIDTH` | p17 | 0..50 |
+| `SPEED` | p18 | 0..50 |
+| `S/H` | p18 bit 7 | 0..1 |
+| `TOUCH` | p16 | −50..+50 |
+| `FITTING` | p21 / p31 | 0..127 |
+| `MUTING` | p22 / p32 | 0..127 |
+| `KEY SHIFT` | p29 / p41 | −60..+60 (five octaves either way) |
+| `DETUNE` | p30 / p42 | −128..+127 |
+| `RESO SCALE` | p22 / p32 bit 7 | 0..1 (`OFF` / `ON`) |
+| `SUB GAIN` | p33 (SUB only) | −100..+100, **signed** |
+| `FITTING` touch | p23 / p34 | −50..+50 |
+| `MUTING` touch | p24 / p35 | −50..+50 |
+| `SUB GAIN` touch | p36 (SUB only) | −50..+50 |
+| `RESO MODE` | p21 / p31 bit 7 | 0..1 (`OFF` / `ON`) |
+| `MUTING SLOPE` | p28 / p40 | −50..+50 |
+| `KEY FOLLOW` low / break / high | p26·p25·p27 / p38·p37·p39 | mutually clamped `low ≤ break ≤ high` |
+
+Two of these settle earlier open points. **`RESO SCALE`** is edited by
+`ToneEditField_A5_ResoScale` (`0xFD4EFB`) — the *same* parameter as `MUTING`
+(p22 / p32) with `MASK 0x01`, `SHIFT 7` — so it is a bit-field editor over bit 7
+of that byte, not a separate parameter. And the three **`KEY FOLLOW`** notes
+bound one another: the editor takes its MAX and MIN from the *other two* RAM
+cells, so the firmware itself enforces `low ≤ break ≤ high`, pinning the ordering
+independently of any screen coordinate. `SUB GAIN` being **signed** `−100..+100`
+is what makes `0x0000`'s bit 7 (the sign of `SUB GAIN`) a state a user can
+actually reach.
+
+*(`wsa1/notes/wsa1_toneedit_field_editors.py --selftest`, 61 checks.)*
 
 
 ## The units
@@ -660,10 +718,11 @@ chance over the 65,536-pair key space would give 1.8, and the names round-trip
    waveform enters; whether `MUTING`'s two coefficients are two cascaded poles or
    one stage; how MAIN and SUB are coupled. `INTERACTION GAIN` names a register
    and a condition, but not a topology: what it is a gain *on* is not traced.
-3. **What `RESO SCALE` does to the coefficients.** The control is located — bit 7
-   of `p22` / `p32`, drawn `OFF` / `ON` — and it reaches the packer field
-   `R[+0x1A]`, but nothing found writes that field, so it is a named control with
-   no traced effect.
+3. **What `RESO SCALE` does to the coefficients.** The control and its editor are
+   located — `ToneEditField_A5_ResoScale` sets bit 7 of `p22` / `p32` (`OFF` /
+   `ON`), the *same* parameter as `MUTING`, which the packer folds into the field
+   `R[+0x1A]` — but what the silicon does with that field is not traced: a named,
+   editable control with no traced effect on the coefficients.
 4. **Whether `0x01C0` is a gain or a lower cutoff.** The arithmetic is the same
    under both readings; the chip decides, and nothing in the ROM does.
 5. **Register `0x0000`'s remaining bits.** Bits 3, 1 and 0 are unaccounted for by
@@ -679,21 +738,14 @@ chance over the 65,536-pair key space would give 1.8, and the names round-trip
    can seed it. ★ The `M`/`S` naming lines up with MAIN and SUB, but that is a
    coincidence of initials between a schematic and a screen, and it is graded
    **WEAK**.
-8. **Where a dozen of the named fields are edited.** The read-back order is the
-   parameter map and it is pinned eight times over, so the names do not depend on
-   this — but the DATA-dial editors for `DEPTH`, `FORMANT`, `INTERACTION GAIN`,
-   `WIDTH`, `SPEED`, `S/H`, `TOUCH`, `FITTING`, `KEY SHIFT`, `DETUNE`,
-   `RESO SCALE` and `RESO MODE` are not in the region that holds the others, and
-   have not been found. It is a hole in the coverage, stated rather than papered
-   over.
-9. **`0x00E093`**, a per-element block the three gate-opening routines fill with
+8. **`0x00E093`**, a per-element block the three gate-opening routines fill with
    both gains and both tuning words — the shape of a mix or coupling matrix over
    the four elements. It has eleven writers and **no located reader**.
 
 **The cheapest thing that would close most of this list is still not the
 instrument.** The controls are named; what is missing is what the silicon does
-with three of them. The two nearest items are the writer of `R[+0x1A]`, which is
-where `RESO SCALE` would reach the coefficients, and the reader of `0x00E093`.
+with three of them. The two nearest items are what the coefficients do with
+`R[+0x1A]` — where `RESO SCALE` reaches them — and the reader of `0x00E093`.
 
 ## What a first implementation should do
 
@@ -796,6 +848,7 @@ Each script reads the ROM images and no `.s` file, and each carries a
 | `wsa1/notes/lsi_curve_tables.py` | what quantity each ROM curve produces — every fit, with its residual **and** its null (`--fit`, `--summary`, `--dump NAME`) |
 | `wsa1/notes/wsa1_l7a1429_write_timing_probe.py` | when each register is written and how often — the channel count, the bus surface, the refresh rate, the note lifecycle |
 | `wsa1/notes/wsa1_toneedit_vocabulary.py` | what the machine calls each register — the walked display lists of the SOUND EDIT screens, with the `strings` null |
+| `wsa1/notes/wsa1_toneedit_field_editors.py` | each field's limits and step — the 24 DATA-dial editors, their edit descriptors, and the 33-binding cross-check against the read-back map |
 | `wsa1/notes/wsa1_tone_record_probe.py` | the 43 wave-select columns, the factory-data signatures, and the wave-catalogue control |
 | `wsa1/notes/prom_c_dev104_regmap_checks.py` | what the firmware writes into each register, decoded from the instructions that compute it |
 | `wsa1/notes/l7a1429_crosscheck.py` | do those documents agree — every register block named in both the sequencing and the curve account; **the name of every block, compared across four artefacts at once**: this page's register table, the disassembly's editor-pages note, its HLE guide and the MAME driver's `block_name()`; the sample rate re-derived from the crystal; and the semitone claim re-derived from equal temperament |
