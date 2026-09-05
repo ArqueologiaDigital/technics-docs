@@ -16,6 +16,7 @@ permalink: /memory-map/
 | `0x110000` | - | Floppy Disk Controller |
 | `0x120000` | - | Floppy DMA acknowledge window (**not** the inter-CPU latch — that is at `0x140000` on this bus) |
 | `0x140000` | - | Inter-CPU Communication Latches (IC22/IC23) |
+| `0x150000 - 0x150003` | - | Audio/mixer register file (IC11 74VHC138 decode) — register-address latch at `0x150000`, data at `0x150002`. `AudioMix_Init` writes ~68 registers every boot; it is the main-bus twin of the sub-bus `0x130000` block. Chip identity open (service-manual p.32) |
 | `0x160000 - 0x160006` | 8B | HDAE5000 PPI (8255) |
 | `0x1703B0 - 0x1703DF` | - | VGA Registers (LCD Controller IC206 MN89304, memory-mapped at 0x170000 + VGA port) |
 | `0x1A0000 - 0x1DFFFF` | 256KB | Video RAM (IC207 M5M44265CJ8S, 512KB chip with 256KB mapped via A18 bank select) |

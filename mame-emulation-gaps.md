@@ -27,7 +27,7 @@ the order in which the three prerequisites have to be built.
 | Reset entry | table-data bootloader at `0xFFB4E8` | program flash at `0xEF03C6` | wrong path, right end state |
 | Program flash IC4/IC6 | writable flash pair | `.rom()` region | not modelled |
 | Table data IC1/IC3 | mask ROM *or* flash — unresolved | `.rom()` region | unknown |
-| Custom data IC19 | AM29F400/800B-family flash | `.rom()` region + overlay | not modelled |
+| Custom data IC19 | AM29F400/800B-family flash | `amd_29f800b_16bit` flash device | modelled — JEDEC autoselect returns device ID `0x2258` |
 | FDC | µPD72068GF | `UPD72067` device | approximation |
 | Floppy formats | 1.44 MB PC-format discs | MFM containers only, no `FLOPPY_PC_FORMAT` | cannot mount `.img` |
 | Main-CPU pedals | Port G bits 2–7 = 2 foot switches + 4 foot controllers, active low | Port G unbound, reads `0x00` | all six read as permanently engaged |
@@ -64,27 +64,33 @@ device choice is questionable, **undecided** whether it is load-bearing.
 
 ## Gap 2 — real flash devices
 
-Three flash populations exist on the main board, and MAME models none of them as flash:
+Three flash populations exist on the main board. **IC19 (custom data) is a real flash
+device; the program and table-data pairs are `.rom()`, by design.**
 
-| Window | Devices | Bus | MAME today |
+| Window | Devices | Bus | MAME |
 |---|---|---|---|
-| `0x300000-0x3FFFFF` | IC19, one ×16 part (or two on Region 4) | 16-bit | `.rom()` + overlay |
-| `0x800000-0x9FFFFF` | pair of ×16 dies | 32-bit | `.rom()` |
-| `0xE00000-0xFFFFFF` | pair of ×16 dies | 32-bit | `.rom()` |
+| `0x300000-0x3FFFFF` | IC19, one ×16 part (or two on Region 4) | 16-bit | `amd_29f800b_16bit` flash |
+| `0x800000-0x9FFFFF` | pair of ×16 dies (table data) | 32-bit | `.rom()` |
+| `0xE00000-0xFFFFFF` | pair of ×16 dies (program) | 32-bit | `.rom()` |
 
-**The good news: for IC19, MAME already has an exact-match device.**
-`amd_29f800b_16bit_device` is `0x100000` bytes, 16-bit, manufacturer `MFG_AMD`, device ID
-`0x2258` — the right size, the right bus width, and an ID the KN5000's
-`Flash_IdentifyAndValidateChip` explicitly accepts. Its AMD command decoder already accepts
-the address form the firmware emits: the firmware unlocks at `base + 0xAAAA` and
+**IC19 is an exact-match device.** `amd_29f800b_16bit_device` is `0x100000` bytes, 16-bit,
+manufacturer `MFG_AMD`, device ID `0x2258` — the right size, the right bus width, and an ID
+the KN5000's `Flash_IdentifyAndValidateChip` explicitly accepts. Its AMD command decoder
+accepts the address form the firmware emits: the firmware unlocks at `base + 0xAAAA` and
 `base + 0x5554` (byte) = word `0x5555`/`0x2AAA`, and `intelfsh.cpp` matches on
-`(address & 0xffff) == 0x5555 / 0x2aaa`. So this collapses from "write a new device" to
-"instantiate an existing one".
+`(address & 0xffff) == 0x5555 / 0x2aaa`. With the device in place, `Flash_InitAllBanks`'s
+boot-time JEDEC autoselect stores a valid device ID (`0x2258`) at DRAM `0x0205E0` instead of
+the `0xFFFF` a `.rom()` region reads back — the prerequisite for the firmware-update path.
+(`FUJITSU_29LV800B`, ID `0x225b`, would be **rejected** by this firmware, so the wrong
+device silently breaks chip identification.)
 
-Note that `FUJITSU_29LV800B` (ID `0x225b`) would be **rejected** by this firmware, so
-picking the wrong device silently breaks chip identification.
+**The program and table-data pairs stay `.rom()` on purpose.** Only custom data carries a
+JEDEC ID the resident firmware consumes. `Flash_InitAllBanks` runs the autoselect on
+table data too but **reads and discards** the result, and the program flash is never put
+in command mode by resident firmware (the floppy updater reaches it by a different path).
+Converting either would add regression risk for no boot-consumed benefit.
 
-> **A trap for whoever does it.** Preloading an `intelfsh16` device from a ROM region
+> **A trap for whoever extends this to the other two.** Preloading an `intelfsh16` device from a ROM region
 > **byte-swaps** the contents. `nvram_default()` reads `m_region->as_u16(offs/2)` and stores
 > it big-endian (`m_data[offs] = v >> 8`), while `read_raw()` returns
 > `m_data[offset*2] | (m_data[offset*2+1] << 8)`. A `ROM_REGION16_LE` preload of the IC19
@@ -165,8 +171,8 @@ designing the view**, because a second remap would change its shape.
 ```
   [1] FDC container formats  (one line; nothing else can be tested without it)
         │
-        ├──> [2] flash devices for IC19 and the 0x800000 pair
-        │         (instantiate amd_29f800b_16bit; watch the byte-swap trap)
+        ├──> [2] IC19 flash device -- in place (amd_29f800b_16bit); the
+        │         0x800000/0xE00000 pairs stay .rom() by design (see Gap 2)
         │          │
         │          └──> [4] run a type-007 install end to end from
         │                    kn5000_v10_disk.img, and diff the resulting
