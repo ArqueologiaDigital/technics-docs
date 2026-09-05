@@ -14,11 +14,15 @@ implements that device. What was missing was a **clock** and a **memory map**,
 and both were recovered from the firmware images rather than from a databook.
 
 > **⚠ Do not read this page as "the machine works."** Both systems are declared
-> `MACHINE_NOT_WORKING | MACHINE_NO_SOUND`, and the second flag is the honest
-> one: **nothing synthesises**. The tone generator's actual synthesis, the three
-> uPD6383GF DSPs and their microcode upload, the flash and MIDI are all absent,
-> and **all six wave mask ROMs are undumped** (`NO_DUMP`). The machine draws a UI
-> and responds to its panel. That is all.
+> `MACHINE_NOT_WORKING | MACHINE_IMPERFECT_SOUND`, and the sound is a
+> **placeholder, not real synthesis**: the six wave mask ROMs are undumped
+> (`NO_DUMP`), so the tone generator plays a plain **sine** per voice — scaled by
+> the OUTPUT LEVEL register and silenced by the idle marker
+> (`wsa1_tonegen_device`) — standing in for the real samples, exactly as the
+> KN5000 does. **MIDI IN is wired**, and an external note now travels the
+> (fixed) inter-processor link to that placeholder. The three uPD6383GF DSPs and
+> the flash are still absent. So the machine draws a UI, responds to its panel,
+> and makes an unfaithful, placeholder sound — not the instrument's real voice.
 >
 > The modelling window at `0x00104000` has a
 > **placeholder device**, `l7a1429_device`. It models the *register
@@ -314,18 +318,24 @@ claim about the hardware that nobody has checked.*
 *(P5 bit 4 is not a candidate for the same treatment: it is the service
 CHECKING DEVICE's switch, and the manual says so in as many words.)*
 
-## The keybed scanner works; the link does not carry the note
-
-These are two different claims and the driver states them separately.
+## The keybed scanner works, and the link now carries the note
 
 * **The scanner works.** Press C4 after t = 71 s and prom_c reads `0x5C98` off
   `0x108000`, and `0x5C18` on release — touch `0x5C`, key 24, bit 7 for down —
   which is byte for byte what the driver queued.
-* **The link does not carry it.** CPU 2 → CPU 1 sends exactly one packet per boot
-  and then wedges on a handshake line CPU 1 never releases, so
-  `KeyEvents_ToLink`'s channel-5 packet is dropped.
+* **The link carries it now.** The CPU 2 → CPU 1 wedge — one packet, then stuck
+  on a handshake CPU 1 never released — was a **CPU-core bug**: a micro-DMA
+  channel's `INT0` was dispatched to the CPU instead of the channel it belonged
+  to. It is fixed in the overlay `tmp95c061` (`tlcs900_check_irqs` now skips an
+  interrupt an armed micro-DMA channel owns — as the `tmp94c241` already did),
+  plus a per-burst scheduling quantum so CPU 1 keeps up with the burst.
 
-So no note reaches the tone generator — and nothing would make a sound if it did.
+So a note now travels CPU 2 → CPU 1 → the link → CPU 2's note engine → the tone
+generator. **MIDI IN** is wired the same way (host MIDI → CPU 1's serial channel
+0 → the link → the note engine), and the tone generator turns the note into a
+**placeholder sine** — verified end to end by feeding a `.mid` file to
+`-midiin` and hearing it sound from ~t = 25 s. Real synthesis still waits on the
+undumped wave ROMs.
 
 ## Findings flow in both directions
 
@@ -346,18 +356,21 @@ closed and several are closed on one side only, so **read the note for the live
 status rather than a list repeated here** — it marks each entry closed, half
 closed, or closed for one variant.
 
-One result from that traffic is worth carrying: **the link wedge and the DSP
-handshake are the same problem.** CPU 2's stall is its uPD6383 READY poll (below),
-not the inter-processor link.
+One result from that traffic is worth carrying: **the CPU 2 → CPU 1 link wedge
+was a CPU-core bug, and is now fixed** (a micro-DMA channel's `INT0` was
+dispatched to the CPU instead of the channel; see the keybed/link section above).
+A separate CPU 2 stall — its uPD6383 READY poll (below) — is a different problem
+and is not the inter-processor link.
 
 ## What is still missing
 
 | gap | state |
 |---|---|
-| **Sound of any kind** | nothing synthesises. The tone generator, the three DSPs, the modelling LSI and the wave ROMs are all absent or undumped |
+| **Real synthesis** | the tone generator plays a **placeholder sine** (`wsa1_tonegen_device`), scaled by the OUTPUT LEVEL register and silenced by the idle marker; the three DSPs, the modelling LSI's internal signal path and the six wave mask ROMs are all absent or undumped, so the instrument's real voice is not produced |
+| **Voice release / retirement** | a note-off does not stop a placeholder voice: the tone generator's busy bit never falls (nothing runs the amplitude envelope to completion), so the firmware never retires the record. Held or repeated notes accumulate until the 64-voice pool recycles by stealing. Fixing it needs the time-varying segment envelope, whose rate/level semantics are not yet established |
 | **The six wave mask ROMs** | `NO_DUMP`. The manual gives their capacity (16 Mbit each) but not their organisation, and the scan does not resolve which sits on which of the tone generator's address buses — so each gets its own region rather than being concatenated |
 | **The AM29F400T flash** | not modelled; its data-poll and erase-verify loops are unbounded and will spin if reached |
-| **MIDI** | serial channel 0 is a register stub — `sc0buf_r()` returns 0 and `sc0buf_w()` only fakes transmit completion — so there is no engine for a `midiin`/`midiout` to attach to |
+| **MIDI OUT** | **MIDI IN is wired** — `tmp95c061` gained a serial-channel-0 receive engine (`sc0_rxd` raises `INTRX0`), and a `wsa1_midi_uart` bridges MAME's bit-serial `midiin` to CPU 1's SC0 (the rear MIDI1 jack); an external note reaches the tone generator. MIDI OUT (SC0 transmit) is still a stub — `sc0buf_w()` only fakes transmit completion |
 | **The panel MCU's mask ROM** | not dumped, and no ROM region is declared for it — the manual does not give its capacity, and guessing one would be worse than leaving it out |
 | **`0x104000` and `0x10C000`** | shapes established; the labels deliberately read `Dev104_` and `Dev10C_` rather than anything that would imply a function. For `0x104000` most of the register *meanings* are recovered — twelve names, six exact units, [the whole map]({{ site.baseurl }}/wsa1-modeling-lsi/) — but nothing in the driver acts on them, and the internal signal path is unknown |
 | **The drive motor line** | the firmware **does** drive CPU 1's PA bit 3 — four writes, the only bit of PA it changes after RESET, and it *clears* the bit (`res 3,(0x1E)` at `0xFE18EF`) before a 307 ms spin-up delay. The driver still declines to wire it to the drive's motor, because *what the pin does* is not claimed — a drive-motor or drive-select line is only the obvious reading. The consequence is stated rather than papered over: with no motor modelled, an attached image never becomes READY, and a read reports the firmware's own error `0x31`, drive not ready |
