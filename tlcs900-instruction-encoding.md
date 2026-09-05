@@ -84,11 +84,11 @@ The sub-opcode byte encodes both the operation and the destination register:
 | 0x90+d       | ADC d, r  | Add with carry | d ← d + r + C |
 | 0x98+d       | LD r, d   | Load reverse | r ← d |
 | 0xA0+d       | SUB d, r  | Subtract | d ← d − r |
-| 0xA8+n       | LDS r, n  | Load small immediate (0–7) | r ← n |
+| 0xA8+n       | ld r, n:i3 | Load small immediate (0–7) | r ← n |
 | 0xB0+d       | SBC d, r  | Subtract with borrow | d ← d − r − C |
 | 0xC0+d       | AND d, r  | Bitwise AND | d ← d & r |
 | 0xD0+d       | XOR d, r  | Bitwise XOR | d ← d ^ r |
-| 0xD8+n       | CPS r, n  | Compare small immediate (0–7) | r − n |
+| 0xD8+n       | cp r, n:i3 | Compare small immediate (0–7) | r − n |
 | 0xE0+d       | OR d, r   | Bitwise OR | d ← d \| r |
 | 0xF0+d       | CP d, r   | Compare | d − r |
 
@@ -280,15 +280,25 @@ encodings carry an immediate of the same width; only the opcode shape differs:
 | store `0xFF` at `(0x07)` | dedicated `LD (n),n` | `08 07 ff` | direct-address form | `f0 07 00 ff` |
 | store `0x8E00` at `(237)` | dedicated word form | `0a ed 00 8e` | direct-address form | `f0 ed 02 00 8e` |
 
-The disassembly names each form with its own mnemonic — `cps`/`lds`/`lds32`,
-`ldb`, `ldio`/`ldwio`, `stb_erp`/`ldb_erp` — precisely because the operand syntax
-has nowhere to put the distinction. **Nine mnemonics are genuine form selectors,
-across 78,364 instruction sites**: each one assembles cleanly under its native
-spelling and emits *different bytes*, so a mechanical rename would produce wrong
-code with no diagnostic anywhere. Only two names in the same family are mere
-spellings and carry no encoding choice: `incm`, an alias whose own definition
-prints as `incw`, and `ldda32`, whose `d`+`a`+`32` is fully expressible as
-`ld xwa, (4160:16)`.
+The disassembly carries the distinction on the **operand**, as an encoding-selector
+suffix, so both forms keep the instruction's real mnemonic. The 3-bit-field short
+forms take `:i3` (`cp a, 4:i3` = `c9 dc`, against the untagged long `cp a, 4` =
+`c9 cf 04`); the dedicated compact opcode takes `:opc` (`ld d, 4:opc` = `24 04`,
+against `ld d, 4` = `cc 03 04`); the dedicated I/O forms take `:io` on a
+direct-address operand (`ld (0x07:8), 0xff:io` = `08 07 ff`, against the
+direct-address form `f0 07 00 ff`). The six size/form families once spelled
+`cps`/`lds`/`lds32`/`ldb`/`ldio`/`ldwio` — **71,667 instruction sites** — are all
+written this way, and the parse-only aliases for the old spellings have been
+deleted, so an un-suffixed operand can only mean the untagged default. This is
+what makes the selector necessary rather than cosmetic: because thousands of 0-7
+immediates take the long form anyway (above), the selector records the choice the
+bytes actually made, where "pick the shortest that fits" would silently rewrite
+them.
+
+Two related synthetic names are pure spellings and carry no encoding choice:
+`incm` (prints as `incw`) and `ldda32` (fully expressible as `ld xwa, (4160:16)`).
+`stb_erp`/`ldb_erp` remain their own mnemonics: their distinction is a register
+class (a previous-bank GR8), not an immediate a selector could ride.
 
 ⚠ The size suffix on a **memory** operand is load bearing for the same reason: a
 memory operand carries no size of its own. `incw 1, (xsp+4)` is `9f 04 61` and
@@ -334,8 +344,9 @@ The following summarizes what the custom LLVM TLCS-900 backend supports for asse
 | Extended E2 direct memory load | 32-bit operand, 24-bit address |
 | Extended F2 direct memory store | reg16 and reg32 stores |
 | Previous bank (D7) operations | Full Q register support |
-| LDS/LDS32/LDS8 small immediate | Register prefix form |
-| CPS small immediate compare | All sizes |
+| Small-immediate 3-bit form | `:i3` suffix on `ld`/`cp`, all sizes, e.g. `cp a, 4:i3` |
+| Dedicated compact 8-bit load | `:opc` suffix, e.g. `ld d, 4:opc` (`0x20+r`) |
+| Dedicated I/O load/store | `:io` suffix on a direct address, e.g. `ld (0x07:8), 0xff:io` |
 | Direct-memory address width | Explicit `:8` / `:16` / `:24` suffix on `(addr)`, e.g. `(0x8a:8)`; no-suffix defaults to 24-bit |
 | PUSH/POP (memory operand) | Native mnemonic, e.g. `push (0x1234)` |
 | MUL/MULS/DIV/DIVS (memory operand) | Native mnemonic, e.g. `mul WA,(0x1234)` |
