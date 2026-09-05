@@ -162,6 +162,23 @@ git ls-files 'wsa1/*.py' | wc -l                                      # committe
 ⚠ A label count depends on what you count — compiler-local `.L` labels in
 particular — so a figure without its command is meaningless here.
 
+### Two named subsystems of CPU 1
+
+Against that backlog, two subsystems of CPU 1's `prom_a` are named as
+architecture rather than as addresses. The **UI screen-object system** —
+`PanelScreen_VtableTable` (`0xF86EC1`), 256 screen objects each a three-method
+Enter/Leave/Button vtable — is decoded, so a button press resolves to a named
+screen and its methods (see
+[the control panel]({{ site.baseurl }}/wsa1-panel/#the-screen-objects-how-a-screen-is-dispatched)).
+And the **disk / block-device command layer** at `0xFE0000`-`0xFE54B6` — the
+stack above the FDC driver, carrying `Disk_ReadSectors`, `Disk_WriteSectors`,
+`Disk_RequestSenseDriveStatus`, `Disk_SetRequestGeometry` and
+`Disk_CommandDispatch` — is named at the command-issue seam (see
+[storage]({{ site.baseurl }}/wsa1/#storage-and-a-fixed-disk-that-may-never-have-shipped)).
+⚠ These are two named subsystems, not a finished CPU: most of `prom_a` is still
+`sub_XXXXXX`, including the screen-object system's own ENTER methods and the disk
+dispatcher's handlers.
+
 ## ★★ ONE KERNEL, FOUR PROCESSORS, TWO PRODUCTS
 
 **The two WSA1R processors share ONE SOURCE FILE.** `wsa1/kernel/kernel.s`,

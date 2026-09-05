@@ -385,6 +385,21 @@ The disk FORMAT module is fully converted: one RAM bit (`(0x21E7) & 0x40`) picks
 1.44 MB against 720 KB, `DiskImage_Build720K` and `DiskImage_Build1440K` differ in
 exactly three immediates, and the geometries and gap lengths are the IBM ones.
 
+Above the FDC driver and below the UI sits a **block-device command layer**
+(prom_a `0xFE0000`-`0xFE54B6`). `Disk_CommandDispatch` routes a command code
+through a jump table to roughly nineteen handlers; the sector-I/O builders
+`Disk_ReadSectors` and `Disk_WriteSectors` fill the FDC request block with
+operation codes **3** and **4**, `Disk_RequestSenseDriveStatus` issues operation
+**11**, and `Disk_SetRequestGeometry` converts a logical sector number to
+head/track/sector (LBA→CHS) from the drive geometry before either read or write.
+The operation numbers are the FDC driver's own — `0` reset+identify, `3` read,
+`4` write, `5` format, `10` controller-present, `11` sense drive status — so a
+routine that writes a constant to the request block's op field and then reaches
+`Fdc_Request` (`0xFE66C7`) is issuing a named operation. ⚠ The dispatcher's
+individual handlers, and the file-system workers above them, are still
+`sub_XXXXXX`: naming the dispatcher does not name what it dispatches. Reproduce
+with `wsa1/notes/prom_a_disk_cmd_layer_checks.py --selftest`.
+
 More surprisingly, **prom_a contains an x86 FAT16 boot sector *and* a matching MBR
 for a ~250 MiB fixed disk** — 568 × 15 × 60 = 511,200 sectors, stated three times
 in two sectors through two different encodings, with media descriptor `0xF8`,

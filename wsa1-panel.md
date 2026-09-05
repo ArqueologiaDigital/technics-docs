@@ -358,6 +358,41 @@ screen is expected. Probing the chain instead — `0x2B20..0x2B3F` (did it reach
 CPU 1) → `0x2082` (control byte) → `0x2070`/`0x2071` (was a screen requested) →
 `0x207C` (is the dispatcher there) — is what turned the bug up.
 
+## The screen objects: how a screen is dispatched
+
+A screen request resolves through the **screen-object table**
+`PanelScreen_VtableTable` (prom_a `0xF86EC1`) — 256 little-endian pointers, **one
+screen object per slot**, each object a three-method vtable: **`+0` ENTER (paints
+the screen), `+4` LEAVE, `+8` BUTTON**. The offsets are pinned by their callers,
+not guessed: `+0` is invoked with the id that has just become current, `+4` with
+the id that just stopped being current, and `+8` by `PanelButton_Route`
+(`0xF8621E`) with the current id and a button index. A screen id `n` addresses
+**entry `n + 32`**: `PanelButton_Route` reads the table through a second base,
+`PanelScreen_VtableTable_ViewB` at `0xF86F41` (= `0xF86EC1 + 0x80`), so the id
+space and the raw table index differ by 32.
+
+**81 of the 256 slots point at the shared stub** `PanelScreen_NullVtable`, whose
+three offsets all reach one `ret` — an unpopulated screen. The remaining **175
+live objects are every screen this instrument has**: the `MODELING` tone-editor
+pages, `SOUND MODE`, the service screens, and the whole disk-menu family all sit
+here. A button press therefore resolves as *screen id → object → BUTTON method*,
+and the same object's ENTER method is what paints that screen.
+
+The DISK menu closes on itself, which is a check on the whole mapping. The menu
+(screen id `0x40`, object entry `0x60`) is itself a menu of
+`PanelScreen_VtableTable` ids: each LCD-row key writes one of the other disk
+screens' ids into the screen-request cells `(0x2070)`/`(0x2071)`, and every id it
+can write is one of the nine disk screens the same module owns.
+
+⚠ **This names the mechanism, not every screen.** Of the 175 live objects, 32
+carry a named ENTER method in prom_a and 36 have their ENTER in prom_b; the ENTER
+methods of about a hundred screens are still `sub_XXXXXX`, because most delegate
+their drawing to a helper rather than painting text inline, so a screen's title
+is two or three calls away from its object. Naming one ENTER method names that
+screen's LEAVE and BUTTON methods for free. Reproduce the table and its method
+offsets with `wsa1/notes/prom_a_naming_wave8_apply.py --screens` and
+`wsa1/notes/prom_a_screen_methods_wave29.py`.
+
 ## What is still open
 
 1. **Which of the four REALTIME CREATOR ring lamps is which.** The set is pinned;
