@@ -30,8 +30,6 @@ the order in which the three prerequisites have to be built.
 | Custom data IC19 | AM29F400/800B-family flash | `amd_29f800b_16bit` flash device | modelled — JEDEC autoselect returns device ID `0x2258` |
 | FDC | µPD72068GF | `UPD72067` device | approximation |
 | Floppy formats | 1.44 MB PC-format discs | MFM containers only, no `FLOPPY_PC_FORMAT` | cannot mount `.img` |
-| Main-CPU pedals | Port G bits 2–7 = 2 foot switches + 4 foot controllers, active low | Port G unbound, reads `0x00` | all six read as permanently engaged |
-| Extension slot strap | Port E bit 0, low when a board is fitted | `porte_read` returns bit 0 = 1 always | HD-AE5000 mapped but never initialised |
 | Sub-CPU DRAM strap | Port G bit 0 selects chip-select-3 sizing | hardcoded, sub-CPU port G unimplemented | one variant silently chosen |
 | Region code | 4 values on a two-pin strap | `AREA` dip offers 3 | Region 4 unreachable |
 | HD-AE5000 window | firmware treats `0x280000` as banked | flat 512 KB `.rom()` | possibly a superset never exercised |
@@ -197,8 +195,8 @@ how to hold it from reset through the HLE'd `kn5000_cpanel_device`, is not estab
 is the same class of problem as the still-unsolved KN7000 self-test entry.
 
 Even with all of that, the boot path has further gates that MAME cannot currently reach:
-Port E bit 0 (HD-AE5000 present strap), `Boot_CheckDiskPresent` (Port D bit 6, active low),
-`BootSerial_Init`, and `Boot_ProbeExternalDevice` needing to return device class 4.
+`Boot_CheckDiskPresent` (Port D bit 6, active low), `BootSerial_Init`, and
+`Boot_ProbeExternalDevice` needing to return device class 4.
 
 ## Secondary gaps
 
@@ -234,45 +232,6 @@ Port E bit 0 (HD-AE5000 present strap), `Boot_CheckDiskPresent` (Port D bit 6, a
   not been measured, and no keybed test mode is on record as entered. These self-tests are
   among the cheapest fidelity evidence available, so one measured run settles it. See
   [Test Modes]({{ site.baseurl }}/test-modes/).
-
-## Gap 4 — port bits nobody bound
-
-The TMP94C241's `port_r` returns `(latch & direction) | (external & ~direction)`, and the
-external term comes from a driver callback. Where no callback is bound the callback returns
-0, silently, and the firmware reads a valid-looking value that happens to be the wrong one.
-Two of those are load-bearing.
-
-**Port G is unbound, so both foot switches and all four foot controllers read as
-permanently engaged.** The pins are active low: the firmware's own idle test is
-`cp a, 0xf` on the upper nibble, so a released panel is `0xFC` and `0x00` is the
-all-six-pressed encoding. `MIDI_ProcessVoiceAssignment` reads `PG` three times per
-periodic tick and writes the foot-switch byte to DRAM `0x8EB6` and the foot-controller byte
-to `0x8EBA`; because the idle test never matches, the 500-count debounce at `0x8EC8` is
-never armed and the fully-engaged values are written on every tick. The fix is an ioport
-bound with `portg_read().set_ioport(...)` whose released state is `0xFC`; failing that,
-`set_constant(0xFC)` is strictly better than the present silence.
-
-*Verification:* memory-tap `0x8EB6`, `0x8EBA` and `0x8EC8` over a few seconds of idle
-running. Today `0x8EC8` must stay 0 and `0x8EBA` must be rewritten every tick; after the
-fix, with no pedal pressed, `0x8EC8` must be armed to 500 and `0x8EBA` must stop being
-rewritten. That before/after pair is the null the claim needs.
-
-**Port E bit 0 is hard-coded to "no extension board".** `porte_read` returns bit 0 = 1
-unconditionally, and `Boot_FlashAndExtensions` reads bit 0 = 1 as "slot empty" and skips
-`HDAE5000_Parport_Setup`. So although the driver instantiates a real extension connector
-and `hdae5000` is a selectable card that installs an ATA interface, a uPD71055 PPI and 1 MB
-of SRAM+ROM, the firmware is told the slot is empty: the PPI is never programmed and the
-hard disk is never probed. Everything the card provides is mapped and unreachable. The fix
-is a card-present query on the connector, with `porte_read` returning bit 0 = 0 when a card
-is fitted.
-
-*Verification:* run with `-extension hdae5000` and break on the write of `0x82` to
-`0x160006`, the PPI mode word and the first thing `HDAE5000_Parport_Setup` does. It must be
-reached with the card and **not** reached in a no-card control run, and the `AREA` ioport
-must not select region 4 (the firmware skips the board there regardless).
-
-Port assignments and the firmware sites behind them are on
-[CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/#io-ports).
 
 ## Acceptance tests worth writing
 
