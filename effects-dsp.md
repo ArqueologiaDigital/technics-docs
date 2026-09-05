@@ -167,6 +167,18 @@ Each 36-bit word divides into four fields (**MEASURED**):
 * **`lo12`** carries operand routing and some ALU-step identity (e.g. `0x647`/`0x687` =
   latch-store steps, `0x44C` = apply modulation offset).
 
+The source-operand routing lives in `lo12`, and its dominant code is settled.
+**`SRC 0x00`** — the value on 599 words, 572 of them exactly `lo12 == 0x000` —
+reads **`mem[ptr]`**, the current data-pointer cell, and that is the reading the
+emulator ships. Of the six candidate readings it was tested against, four
+(`zero`, the `P` register, the delay-RAM read register `DR`, and `tempA`) leave
+no survivor in the one block that forces `SRC 0x00` to carry data, and the only
+rival, the accumulator `acc`, becomes reachable only if a host parameter write
+gives the input-mix words a non-zero gain — which the factory coefficients never
+do. The tempting "`lo12 == 0x000` is a null routing" reading is **falsified**:
+the single-delay block needs `SRC 0x00` to carry its input. ⚠ This is one
+routing code; most of `lo12`'s codes, like most arithmetic words, remain OPEN.
+
 Two implicit cursors run alongside the word stream: the **coefficient cursor** (+1 per
 class-A word, reset by `801.0.00.021`) and the **data pointer** just described.
 
