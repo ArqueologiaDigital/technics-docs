@@ -287,6 +287,29 @@ Acceptance is gated at runtime (`0xFB33FE` checks `(0x207A)≠0x79`,
 `(0x7f32)&0x04==0`, `(0x7f38)&0x08` set; `sub_FB57ED` needs `(0x7f32)&0x10==0`),
 i.e. only in certain transport/clock states.
 
+#### The tempo message on the wire
+
+The command byte that routes to the tempo handler is **`0x25`**, and it is a
+*leaf* of the receive decoder's trie (`0xF5115B`, record byte `0x25` → slot 9) —
+so the tempo message carries **no `04 00 11` model bytes** (those belong to the
+transfer commands). The BPM is a 9-bit value split across the two data bytes as
+**low-nibble first, then the high part** — `value = (H<<4)|L`, range-checked
+40–300 — so the complete message is:
+
+```
+F0 50 25 <BPM & 0x0F> <BPM >> 4> F7
+```
+
+| BPM | message |
+|-----|---------|
+| 120 (`0x078`) | `F0 50 25 08 07 F7` |
+| 200 (`0x0C8`) | `F0 50 25 08 0C F7` |
+| 300 (`0x12C`) | `F0 50 25 0C 12 F7` |
+
+Both data bytes are always < 0x80, so the parser never mistakes them for status
+bytes. The value lands in the receive accumulator at offsets +0x11/+0x12 and is
+stored to `(0x7EE2)` (low 8 bits) + `(0x7EE3)` bit 0 (bit 8).
+
 ### Tone-edit parameters use a separate store
 
 The tone-editing parameters (RESONATOR TYPE, POSITION, DEPTH, KEY SHIFT, DETUNE,
@@ -366,12 +389,27 @@ change (**STRONG→PROVEN**, from enumerated callers and enumerated ring writers
 
 The genuinely implementable, firmware-faithful feature is a driver **"live
 parameter mirror"** option that watches the emulated unit's parameter store and
-emits the corresponding SysEx (KN5000 Roland-GS voice params; WSA1R tempo) out a
-MIDI-OUT port. Its correctness can be gated **without hardware** by feeding the
-emitted bytes back into the receive path and confirming the store changes exactly
-as a panel edit would — because the receive path *is* the real firmware. Button
-injection, per-edit reverse sync, and full bidirectional UI mirroring are ruled
-out by the firmware and are not implemented.
+emits the corresponding SysEx out a MIDI-OUT port. Its correctness is argued
+**without hardware**: the receive path is the same firmware a real unit runs, so
+a message the emulator builds and the real unit accepts changes the identical
+store.
+
+**This is implemented for the WSA1R.** Wiring the WSA1R's MIDI OUT (its SC0
+transmit path had been a stub) already mirrors every *performance* parameter for
+free — the firmware transmits volume/pan/expression/modulation/sustain, pitch
+bend and aftertouch as ordinary CC/AT/bend as you play (confirmed by capturing
+the machine's own power-on MIDI). On top of that, a default-off **"Live parameter
+mirror"** driver option transmits the one proven *config* value the firmware
+never emits on edit: on a tempo change it sends `F0 50 25 <lo> <hi> F7` out MIDI
+OUT. Verified end to end by capturing MIDI OUT off an ALSA port — writing
+120/200/300 BPM emits `F0 50 25 08 07 F7` / `08 0C F7` / `0C 12 F7`, the exact
+bytes above.
+
+Button injection, per-edit reverse sync, and full bidirectional UI mirroring are
+ruled out by the firmware and are not implemented. (The KN5000 already has MIDI
+OUT wired and transmits its performance params the same way; a config mirror
+there would follow the same shape, once each parameter's receive address is
+mapped.)
 
 ## Code References
 
