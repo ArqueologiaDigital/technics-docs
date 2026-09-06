@@ -337,6 +337,30 @@ generator. **MIDI IN** is wired the same way (host MIDI → CPU 1's serial chann
 `-midiin` and hearing it sound from ~t = 25 s. Real synthesis still waits on the
 undumped wave ROMs.
 
+### Note-off makes a voice retire, through the firmware's own path
+
+A released note used to sound **forever**. The firmware frees a voice only after
+the *chip's* amplitude has decayed to silence — it learns that by polling the
+tone generator's busy bitmap (`tg_status_r`, select 0–3) and, for every channel
+whose bit has fallen, writing `0x7E00` (FREE) — but nothing in the placeholder
+made that bit fall, so `note_long.mid` piled voices into a rising drone (the left
+channel's RMS climbed monotonically to full-scale clipping).
+
+There is **no note-off gate bit** at this interface: on note-off the firmware
+leaves block 0 at its gate value and instead re-stages the amplitude envelope
+with a *release* profile, from the retire walk (`Voice_Retire_Mode20` →
+`Dev10C_WriteSixChanRegs_FromD78A`, prom_c `0xFB7345`). That burst writes
+registers `chan+{0x0800, 0x0840, 0x0900, 0x0940, 0x09C0, 0x0A00}` — but **not**
+`chan+0x0A40`, whose only writer is the note-*on* burst
+(`Dev10C_WriteAllChanRegs`, its last register). The driver uses exactly that one
+asymmetry: `0x0A40` marks the end of a note-on burst, so a later write to
+`0x0A00` on a still-gated channel is the note-off. The placeholder voice then
+decays; when it reaches silence the driver drops the busy bit, and **the
+firmware's own retire path writes `0x7E00`** — the same sequence as on hardware.
+No `0x7E00` and no envelope shape are fabricated. Verified with
+`tools/rigs/wsa1_wav_rms.py`: before, a monotonic drone to clipping; after, each
+note sounds and retires and the passage ends in silence.
+
 ## Findings flow in both directions
 
 This machine is the clearest case on the site of a disassembly and an emulator
@@ -367,10 +391,10 @@ and is not the inter-processor link.
 | gap | state |
 |---|---|
 | **Real synthesis** | the tone generator plays a **placeholder sine** (`wsa1_tonegen_device`), scaled by the OUTPUT LEVEL register and silenced by the idle marker; the three DSPs, the modelling LSI's internal signal path and the six wave mask ROMs are all absent or undumped, so the instrument's real voice is not produced |
-| **Voice release / retirement** | a note-off does not stop a placeholder voice: the tone generator's busy bit never falls (nothing runs the amplitude envelope to completion), so the firmware never retires the record. Held or repeated notes accumulate until the 64-voice pool recycles by stealing. Fixing it needs the time-varying segment envelope, whose rate/level semantics are not yet established |
+| **Faithful release envelope shape** | *voice retirement now works* (see below) — a released note decays and the firmware frees it — but the decay is a fixed placeholder ramp, not the real time-varying segment envelope, whose rate/level semantics are not yet established |
 | **The six wave mask ROMs** | `NO_DUMP`. The manual gives their capacity (16 Mbit each) but not their organisation, and the scan does not resolve which sits on which of the tone generator's address buses — so each gets its own region rather than being concatenated |
 | **The AM29F400T flash** | not modelled; its data-poll and erase-verify loops are unbounded and will spin if reached |
-| **MIDI OUT** | **MIDI IN is wired** — `tmp95c061` gained a serial-channel-0 receive engine (`sc0_rxd` raises `INTRX0`), and a `wsa1_midi_uart` bridges MAME's bit-serial `midiin` to CPU 1's SC0 (the rear MIDI1 jack); an external note reaches the tone generator. MIDI OUT (SC0 transmit) is still a stub — `sc0buf_w()` only fakes transmit completion |
+| **MIDI (in and out)** | *both directions now wired.* `tmp95c061` has a serial-channel-0 receive engine (`sc0_rxd` raises `INTRX0`) and, new, a transmit callback (`sc0_txd`, from `sc0buf_w`); a `wsa1_midi_uart` bridges MAME's bit-serial `midiin`/`midiout` to CPU 1's SC0 (the rear MIDI1 jack) in both directions. An external note reaches the tone generator, and the firmware's own transmissions (bulk/group SysEx dumps, GM) now leave the machine (`-mdin`/`-mdout`). What the firmware does *not* transmit is per-edit SysEx — see the [live-sync analysis]({{ site.baseurl }}/sysex-messages/#live-sync-between-an-emulated-unit-and-real-hardware) |
 | **The panel MCU's mask ROM** | not dumped, and no ROM region is declared for it — the manual does not give its capacity, and guessing one would be worse than leaving it out |
 | **`0x104000` and `0x10C000`** | shapes established; the labels deliberately read `Dev104_` and `Dev10C_` rather than anything that would imply a function. For `0x104000` most of the register *meanings* are recovered — twelve names, six exact units, [the whole map]({{ site.baseurl }}/wsa1-modeling-lsi/) — but nothing in the driver acts on them, and the internal signal path is unknown |
 | **The drive motor line** | the firmware **does** drive CPU 1's PA bit 3 — four writes, the only bit of PA it changes after RESET, and it *clears* the bit (`res 3,(0x1E)` at `0xFE18EF`) before a 307 ms spin-up delay. The driver still declines to wire it to the drive's motor, because *what the pin does* is not claimed — a drive-motor or drive-select line is only the obvious reading. The consequence is stated rather than papered over: with no motor modelled, an attached image never becomes READY, and a read reports the firmware's own error `0x31`, drive not ready |
