@@ -410,6 +410,39 @@ found, and the search is documented as exhausted.
 
 ---
 
+## 8. The same chip on the SX-WSA1R — three instances (MEASURED, 2026-09-07)
+
+The 1995 **Technics SX-WSA1R** rack synthesizer carries **three** of this exact chip
+(uPD6383GF: IC5, IC6, IC30), and its firmware is fully dumped — so the same ISA model
+disassembles it, and it is a second, independent silicon witness for every conclusion above.
+
+- **Every effect program is now listed and commented.** The WSA1R's P7 stream pool holds
+  the effect microcode; each of its **56 named effects** resolves (via
+  `PoolDir_RecordForUnitProgram` → `PoolDir_Records` field +12) to an I-RAM program body.
+  All 48 with a distinct body are disassembled — mirror of this page's KN5000 tree — in the
+  repo at `kn5000-roms-disasm/wsa1/dsp/disasm/` (`gen_wsa1_dsp_disasm.py` regenerates it).
+- **The algorithms are the same, confirmed structurally.** The `PARAMETRIC EQ` is the same
+  Direct-Form-I bilinear biquad as the KN5000's SOLVED one — identical `[5,2]` coefficient-band
+  pattern, 6 bands × 2 channels versus the KN5000's 5 × 2 — so its decode is validated by
+  construction on a second chip. `SINGLE DELAY`, the distortions, the modulation effects all
+  match their KN5000 counterparts' idiom sequence.
+- **One real difference: the reverbs.** The DRAM access order shows the KN5000 reverb is an
+  **all-pass diffuser ladder** (read/write alternation) while the WSA1R reverb is a
+  **write-heavy multi-tap / comb (FDN)** — the same effect name, a different reverb
+  architecture between the two products.
+- **What actually executes at runtime (MEASURED on the emulated WSA1R).** Only **one** DSP
+  program is ever uploaded during normal SOUND play: a **63-word shared kernel** loaded to
+  IC30 at boot (`disasm/kernel.dsm`; it contains all 45 runtime-resident words). Selecting an
+  effect **re-uploads only C-RAM coefficients**, never the microcode — so the per-effect
+  bodies in ROM are not loaded in play; the resident kernel is parameterised by coefficients.
+  (A raw bus-capture proof is in `wsa1/dsp/analysis/dsp_bus_program_scan.py`.)
+
+Cross-product tooling: `dsp/tools/dsp_topology_fingerprint.py` (idiom counts vs the textbook
+algorithm), `dsp_idiom_sequence.py` (per-word structure), `dsp_residue_sudoku.py` (the
+prioritised decode roadmap over both corpora, 1002 distinct words, 86.7 % executable).
+
+---
+
 ## Related pages
 
 - [DSP Effect Data Zone (Sub-CPU ROM)]({{ site.baseurl }}/dsp-effect-data-zone/) — the
