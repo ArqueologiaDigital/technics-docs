@@ -245,6 +245,45 @@ diffuser (28 taps/ms). Its decay comes from the damping filters and recirculatio
 *outside* the motif — the diffuser alone is loss-less by construction, so "does it decay
 like a reverb" is **not** answered by the diffuser and is flagged as such.
 
+### Modulation — a quadrature LFO-swept delay (STRONG, by composition)
+
+Tracing `CHORUS` end to end shows it is a textbook **LFO-modulated delay**, built entirely
+from fields decoded independently by cross-program correlation: an **LFO phase accumulator**
+(`phase += increment`, then a wrap against the MEASURED `0x7FFFFF` = 2²³−1 mask) drives a
+**class-6 waveform lookup**, whose output sweeps the read tap of a delay line; the wet taps
+are scaled by a near-unity makeup gain (C-format load to register `0x44C`). The **number of
+distinct LFO-waveform tables an effect reads is its detuned-voice count** — `ENSEMBLE` reads
+four (`0x18/1A/1E/20`), the chorus family two (a quadrature pair, `0x18`+`0x20`), and
+`FLANGER / PHASER / VIBRATO / AUTO PAN / RING MODULATOR` one. This is literally why a chorus
+sounds richer than a vibrato and an ensemble richer than a chorus, and it is identical on
+both products.
+
+### Distortion — pre-gain · waveshaper · optional tone filter (STRONG, by composition)
+
+The distortion family is a static-curve waveshaper with an AGC around it: **input → drive
+gain → waveshaper table (class-6 selector `0x28`) → output level**, run per stereo channel.
+Whether a second-order tone filter sits in the chain, and where, separates the named effects:
+`FUZZ` and `DISTORTION` are the bare curve; `OVERDRIVE` and `EXCITER` add a **post** tone
+filter that smooths the clipping harmonics; the `PEQ+DIST / PEQ+OVERDR` combinations put a
+full parametric **pre**-EQ ahead of the drive. The curve itself is C-RAM data, not code.
+
+### Two filter primitives, not one (STRONG)
+
+The chip realises filters two different ways, and they separate cleanly by effect family. The
+parametric EQ uses the **Direct-Form-I latch biquad** above (`ld.ta`/`mac.tb`/a class-8
+normalise step/makeup) — and *only* the EQ, PEQ-combo and wah programs do (91 % of its
+section-entry op). Every other family — reverb, modulation, delay — instead uses a general
+**two-state update pair** (a `z⁻¹`/`z⁻²` op-pair that is adjacent in 82 % of the corpus) for
+the resonant and damping filters inside its feedback paths. An emulator therefore needs both
+kernels; conflating them is a mistake. The parametric EQ is the same Direct-Form-I biquad on
+both products (KN5000 five bands, SX-WSA1R six), whereas the reverb primitive genuinely
+differs between them (§8) — "same effect name" does not imply "same algorithm".
+
+*(Grades above are STRONG: each is a composition of individually-decoded, mostly-measured
+fields, cross-checked across both products, but not an exhaustive constraint proof like the
+EQ. Full evidence and the reproducing tools are in the disassembly repo's
+`dsp/analysis/DECODE-by-correlation-2026-09-08.md` and `EFFECT-ALGORITHMS-implementation-spec.md`.)*
+
 ---
 
 ## 5. The complete effect + parameter catalogue
