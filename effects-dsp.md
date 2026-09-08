@@ -273,7 +273,7 @@ The chip realises filters two different ways, and they separate cleanly by effec
 parametric EQ uses the **Direct-Form-I latch biquad** above (`ld.ta`/`mac.tb`/a class-8
 normalise step/makeup) — and *only* the EQ, PEQ-combo and wah programs do (91 % of its
 section-entry op). Every other family — reverb, modulation, delay — instead uses a general
-**two-state update pair** (a `z⁻¹`/`z⁻²` op-pair that is adjacent in 82 % of the corpus) for
+**two-state update pair** (a `z⁻¹`/`z⁻²` op-pair that is adjacent in 80 % of the corpus) for
 the resonant and damping filters inside its feedback paths. An emulator therefore needs both
 kernels; conflating them is a mistake. The parametric EQ is the same Direct-Form-I biquad on
 both products (KN5000 five bands, SX-WSA1R six), whereas the reverb primitive genuinely
