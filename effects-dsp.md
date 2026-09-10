@@ -482,6 +482,37 @@ prioritised decode roadmap over both corpora, 1002 distinct words, 86.7 % execut
 
 ---
 
+## 9. A high-level-emulation reference now makes the effects audible (2026-09-10)
+
+Section 7 is about the *low-level* core (executing the microcode) and hardware; it stands. But
+the decode is now complete enough to implement each effect's **behaviour** directly, and that
+reference exists and runs: `dsp/hle/` in the disassembly repo. It is **HLE, not LLE** — it
+reproduces the transfer function / block diagram of each effect, not the chip's 36-bit
+execution — and it is deliberately not wired into the delicate LLE device.
+
+Every effect is a wiring of four kernels — a Direct-Form-I biquad, a one-pole damping filter, an
+LFO (phase accumulator → shaped table), and a delay line — plus a waveshaper, driven by the
+host-side coefficient designers (the bilinear peaking-EQ formula, the ms→samples delay, the LFO
+rate). It is self-validating: the parametric-EQ band reproduces its solved biquad **exactly**
+(+12.00 dB peak at f₀; impulse response equal to the analytic transfer function to **0.000 dB**);
+the reverb all-pass diffuser is flat and unity-energy; the KN5000 reverb is the proven nine-stage
+all-pass ladder; distortion adds harmonics; the multi-band EQ boosts and cuts as designed. Fed
+the **real coefficients captured from the running chip**, all twelve captured biquad sections are
+stable in the decoded `b1,b0,b2,−a1,−a2,makeup` order — the reference runs the chip's own numbers.
+
+The SX-WSA1R acoustic-modeling LSI (L7A1429) has a matching reference (`wsa1/hle/`): coupled
+digital-waveguide resonators that ring at pitch, sustain and decay autonomously (the chip has no
+key-off), with `MUTING` as loop damping and a `SUB GAIN` coupling. Two inputs remain honest
+stand-ins, each behind a switch: the `DRIVER` excitation (IC4's wave mask ROMs are undumped) and
+the `POSITION` absolute scale (needs a hardware trace). So it is a faithful realization of the
+**documented model**, not the instrument's exact sound.
+
+⇒ "no audio from this chip" (§7) remains true of the *emulated hardware path*; what is new is a
+validated behavioural reference — the payoff of the paper decode, and the model a future MAME HLE
+path would port in (`dsp/hle/PORTING-TO-MAME.md`).
+
+---
+
 ## Related pages
 
 - [DSP Effect Data Zone (Sub-CPU ROM)]({{ site.baseurl }}/dsp-effect-data-zone/) — the
