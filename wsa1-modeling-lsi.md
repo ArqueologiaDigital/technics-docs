@@ -777,6 +777,37 @@ with three of them. The two nearest items are what the coefficients do with
   wave mask ROMs are dumped, a device here emits into nothing. The right first
   device is a register file with a decoded, inspectable parameter view.
 
+## A high-level-emulation reference now runs the model (2026-09-10)
+
+The MAME driver decodes this chip's registers into engineering units and stops there
+(`acoustic_modeling.cpp` / `l7a1429_device`, `decoded_channel()`) — correctly, because the
+internal signal path and the excitation are unmeasured. That decode is now complete enough to
+build the *other* half: a reference that **runs the documented resonator model** so the physics
+on this page can be heard and shown implementation-complete for the settled parameters. It exists
+and runs: `wsa1/hle/` in the disassembly repo, built strictly from `wsa1/notes/HLE-GUIDE-l7a1429.md`.
+
+It is **HLE, not LLE** — it realizes the block diagram the register vocabulary describes, not the
+chip's silicon — and it does not touch the register-decode device; it consumes the same decoded
+per-channel parameters. Per channel it runs a pair of coupled digital-waveguide resonators (the
+media the firmware names itself — `STRING, CYLINDER, CONE, FLARE, PLATE, MEMB`): the tuning sets
+the delay length, `MUTING` is the loop-loss one-pole using its **PROVEN** bilinear cutoff decode
+(index = MIDI note − 36), `POSITION` is a delay-tap along the medium, `FITTING` shapes the
+excitation, and `SUB GAIN` mixes the coupled SUB resonator. It is self-validating: the voice rings
+at the note's fundamental (220 / 440 / 880 Hz), **sustains past a second and decays gradually with
+no input** — the no-key-off requirement of §"There is no key-off register" — a brighter `MUTING`
+yields more high-frequency energy, and the `INTERACTION GAIN` coupling widens the normal-mode split
+(faithful to the `sub_FC4269` solver model, not its exact fixed-point arithmetic).
+
+Two inputs remain **honest stand-ins**, each behind a switch and drop-in replaceable: the `DRIVER`
+excitation — a synthetic shaped burst standing for IC4's undumped wave mask ROMs — and the
+`POSITION` absolute scale, the single unknown constant of §"`P0SITI0N` is a log-domain PERIOD"
+(it sets the pickup-comb timbre; the value needs a hardware trace). So this is a physically
+plausible realization of the **documented** model, **not** a faithful reproduction of the chip's
+audio — that stays impossible without the wave ROMs and an internal-path trace, exactly as the
+list above concludes. Run `python3 wsa1/hle/test_l7a1429_hle.py` (all checks pass) and
+`python3 wsa1/hle/render_l7a1429_demo.py`; the effects DSP has a matching reference under
+`dsp/hle/` (see the [Effects-DSP page]({{ site.baseurl }}/effects-dsp/) §9).
+
 ## The resonator coupling
 
 The two resonators interact, and **not through a register** — there is none. Three routines fill a
