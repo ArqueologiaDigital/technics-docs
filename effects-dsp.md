@@ -664,6 +664,48 @@ annotations.
 
 ---
 
+## 12. The parametric EQ is now audible in MAME (2026-09-11)
+
+The first effect from this decode now **produces audio inside the emulator**. A new, default-off
+option (`DSPHLE` config port, in the DSP1-enabled build) makes the tone generator filter the dry
+mix through a five-band biquad cascade — and the coefficients are read **live from the effects
+DSP's own C-RAM**, i.e. from the numbers the firmware computed for whatever the player dialled on
+the panel.
+
+The path deliberately does **not** try to run the raw C-RAM cells as biquad coefficients: an
+exhaustive search showed no assignment of the six cells to a peaking filter reproduces a boost
+(that requires the still-open recursion/realization, §10), so reading the cells as `b/a` gives
+nonsense. Instead it recovers the **design parameters** the firmware started from and rebuilds a
+textbook RBJ peaking filter — the same route the offline reference uses (§9):
+
+- **Centre frequency** comes from cell `0x03`, which holds `2·cos ω₀`; the five bands land at
+  ≈ 673, 966, 1405, 2091 and 3219 Hz.
+- **Gain** comes from cell `0x01`: it sits at exactly `0.5` at 0 dB (for every band, and it does
+  not move when only the frequency is changed) and rises with boost, so `A² = 1 + 455.7·(cell01 − 0.5)`.
+  A +12 dB panel edit reads back as `A² ≈ 3.98`.
+
+One wrinkle worth recording: the values in C-RAM at run time are at the *operand* scale — exactly
+**half** the values seen in the earlier coefficient dumps (cell `0x03` reads `cos ω₀`, not
+`2·cos ω₀`). This is the same factor of two noted in §10 ("operand = C-RAM ≫ 1"); the emulator
+detects the scale and normalises before designing the filter.
+
+The result was checked two ways, not by ear:
+
+1. **Offline** — the exact formula run against three real captured C-RAM presets (flat, +12 dB
+   boost, and a frequency sweep) gives 0.0 dB flat, +11.9 dB at 673 Hz for the boost, and a peak
+   that migrates correctly for the frequency edit.
+2. **In the emulator** — the same note played with the EQ bypassed and with it active, compared
+   spectrally: a +12 dB band-0 edit produces **+10 dB at the 673 Hz band centre and a flat
+   response (±0.3 dB) everywhere else**.
+
+When the option is off, the output is bit-for-bit what it was before. Only the gain constant for
+bands 1–4 and the exact filter Q remain to be pinned (only band 0 has been driven on the panel so
+far); extending the same design-parameter route to reverb, chorus, delay and distortion is the
+next step. Reproducibility: `dsp/tools/eq_rbj_reconstruct_ab.py` (offline) and
+`dsp/tools/eq_hle_ab.lua` + `eq_hle_ab_fft.py` (in-emulator A/B) in the disassembly repo.
+
+---
+
 ## Related pages
 
 - [DSP Effect Data Zone (Sub-CPU ROM)]({{ site.baseurl }}/dsp-effect-data-zone/) — the
