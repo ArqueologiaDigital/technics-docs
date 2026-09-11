@@ -29,6 +29,17 @@ claim needs real hardware to settle, it says so plainly.
 > instrument, not an audio feature: every frame is still discarded before it reaches the mix
 > (0 of 1,368,001 sampled frames complete), so the default build's audio is unaffected either
 > way and there is still no audio from this chip.
+>
+> **Update (2026-09-11) — the biquad DATAPATH is now decoded end to end.** Beyond the two
+> algorithms' *transfer functions* (below), the chip's own **microarchitecture** — how a word
+> multiplies, accumulates, stores and addresses — is now recovered **bit-exactly from live
+> emulator traces**: multiply `P = (coef × operand) >> 6`, accumulate/load on the `hi12[3:1]`
+> field, operand from the D-RAM pointer one slot late, and store `datum = acc >> 16`. Both
+> fixed-point shifts (`P_SHIFT = 6`, `ACC_SHIFT = 16`) are confirmed from the data, and the
+> multiplier form reproduces across two different programs. See [§10](#10-the-biquad-datapath-decoded-end-to-end-lle-2026-09-11). The remaining gap to
+> *audible* LLE is the **input route** (audio reaches the chip's DI-latch cells but the
+> stage that carries it into the effect bodies is undecoded) — a short, enumerated list of
+> open routing codes, not a fog.
 
 This page supersedes, in part, the older
 [DSP Bytecode Interpreter]({{ site.baseurl }}/dsp-bytecode-interpreter/) page, which was
@@ -510,6 +521,75 @@ the `POSITION` absolute scale (needs a hardware trace). So it is a faithful real
 ⇒ "no audio from this chip" (§7) remains true of the *emulated hardware path*; what is new is a
 validated behavioural reference — the payoff of the paper decode, and the model a future MAME HLE
 path would port in (`dsp/hle/PORTING-TO-MAME.md`).
+
+---
+
+## 10. The biquad datapath, decoded end to end (LLE, 2026-09-11)
+
+Sections 4 and 9 give the effects' *transfer functions* (what each block computes) and a
+behavioural HLE reference. This section is the complementary result: the chip's **datapath**
+— the actual per-word arithmetic the microcode drives — recovered **bit-exactly from live
+emulator frame traces** of the running parametric-EQ program. The method is a falsifiable,
+over-determined fit: take the chip's own product/accumulator columns as ground truth and
+require a *single* model to reproduce them across many words of distinct coefficients at once.
+
+**The multiplier — MEASURED.** `P[N] = (coef[N-1] × L[N]) >> 6`. Three facts fall out
+together, bit-exact on **27 of 27** in-band MAC words (the nearest rival model matches 11):
+
+* the **coefficient is latched one word early** (a depth-1 coefficient pipeline);
+* the operand is the **current-row latch** `L`, which is the D-RAM cell at the pointer read
+  by the *previous* word (`L[N] = mem[N-1]`), i.e. the microword's own addressing, one slot late;
+* the shift is **6** — an independent live confirmation of the documented `P_SHIFT`.
+
+The same `(coef[N-1] × L[N]) >> 6` reproduces on a **second, unrelated program** (the boot
+default, running a real note — 18 of 21 words, the three misses being frame-startup words
+whose product register still holds the previous frame's accumulator). So it is the chip's
+**general** multiplier, not an EQ-specific coincidence.
+
+**The accumulator — MEASURED.** The `hi12[3:1]` field (called `f31`), left **OPEN** in §3, is
+now read: **0 → `acc ← P`** (load), **1 → `acc += P`** (accumulate), **2 → hold**. The
+accumulate is a one-slot pipeline — `acc[N] = acc[N-1] + P[N-1]`, the product formed at one
+word lands in the accumulator at the next — and the load form was verified on 8 of 8 load
+words. Codes **4–7 remain OPEN**: `f31 = 5` is genuinely anomalous (it behaves as
+accumulate, then hold, then a partial `≈ 5/6·P` across its occurrences — not one clean op,
+and not bit-exact), and it lives in the shared kernel, effect-independent.
+
+**The store — MEASURED.** A band's output is written down to a 24-bit datum as
+**`datum = acc >> 16`** (an independent live confirmation of the documented `ACC_SHIFT = 16`),
+bit-exact on all four cascaded bands. That datum feeds the next band's input cell — the
+cascade. (It was decoded with a deliberately *small* injected stimulus so the output would
+not saturate at the store; the full-scale stimulus that proved the datapath is *live* had
+railed it.)
+
+**The coefficient layout — partially decoded (Phase-2 progress).** Read directly from the
+addressing (no longer assumed): each EQ band multiplies its **input cell by `b0 = 0.125`**
+in *every* band — the parametric-EQ signature, confirming the input cell is `x0` — then reads
+its neighbours in a fixed order that is **not** the SX-WSA1R `[b1,b0,b2,−a1,−a2,makeup]`
+order (which is why feeding the KN5000's coefficients in that order is unstable). The exact
+`x1/x2` vs `y1/y2` role assignment still needs a cross-frame capture (how the delay line
+shifts between frames) and is **OPEN**.
+
+**The reverb datapath is a *different* machine — STRONG.** The reverb (unit 1) uses **no
+class-A multiplies at all**; its feedback operand is the delayed output read from the
+external delay DRAM into `tempB`, and its gains (e.g. `0.91`) are applied through the
+**class-8 delay read/write** path, not the standard multiplier. This matches the all-pass
+ladder identity in §4 and lands squarely on the delay-pipeline questions the core's own
+research notes leave speculative — that pipeline is the reverb's remaining decode target.
+
+**The input route — LOCALISED, OPEN.** The external audio *does* reach the chip: the tone
+generator's send is deposited into two D-RAM cells (the DI latches), confirmed live. What is
+undecoded is the handful of input-stage words that carry those latches into the effect
+bodies — a **named, enumerated** set of unanchored routing codes (source codes `0x08`,
+`0x11`; action codes `0x08`, `0x0D`, `0x0E`, `0x17`), plus admitting the "operand unchanged"
+accumulator code on the port-read words. Because those words are executed as addressing-only
+today, their arithmetic cannot be *observed* in a trace (an unexecuted word emits no effect),
+so closing this last mile is an instruction-encoding question, not a matter of capturing more
+frames. **This is the single gate between the decoded datapath and audible low-level
+emulation**, and every downstream stage (reverb feedback, the second-accumulator source) sits
+behind it.
+
+Every figure on this page's §10 is reproduced from committed evidence traces by
+`dsp/tools/run_decode_regression.sh` in the disassembly repo (no emulator build required).
 
 ---
 
