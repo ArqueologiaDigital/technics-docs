@@ -783,6 +783,35 @@ which decoded cell moves.
 
 ---
 
+## 15. The flanger is now audible too (2026-09-11)
+
+The fourth effect, and a close relative of the chorus: a **flanger is an LFO-swept delay with
+feedback**. The feedback (the panel's RESONANCE) is what turns the moving comb into the deep,
+resonant flange sweep. It is the fourth entry on the DSP EFFECT page, and — as the chorus work had
+warned — it keeps its parameters in **different** cells from the chorus, so it was probed on its own:
+
+- Driving **LFO SPEED** moved **C-RAM cell 0x05** (from 38 to 418) — the LFO phase increment. At
+  rest that is a slow **0.2 Hz** sweep (the chorus's rate lived in a different cell and ran faster).
+- Driving **RESONANCE** moved **C-RAM cell 0x00** (0.594 → 0.792). Read at the operand scale that is
+  a feedback of about **0.3** — exactly the documented flanger feedback.
+- Driving **DEPTH** moved **C-RAM cell 0x08**, which scales the sweep amount.
+
+The emulator runs a single swept delay tap fed back into its own line (feedback = the decoded
+resonance) and mixes it 50/50 with the dry. Because the rest sweep (0.2 Hz) is too slow to see
+inside one held note, the check drives LFO SPEED up: the flanger then modulates the note at
+**0.77 Hz** — the rate its cell now decodes to — nearly **45× more than the dry note**, confirming
+the LFO, its rate cell, and the feedback path all work together.
+
+Still open: the flanger's MANUAL (centre-delay) and PHASE (stereo L/R offset) controls, and the
+waveform selector; and the chip's faithful structure is a swept all-pass chain, where the emulator
+uses a feedback delay that produces the same swept resonant notches. Reproducibility: the chorus
+harness reused with `TYPEIDX=3` (`chorus_ab.lua` + `chorus_ab.py`).
+
+Four effects are now reconstructed from the decode and validated in the emulator: a parametric EQ,
+a single delay, a chorus, and a flanger.
+
+---
+
 ## Related pages
 
 - [DSP Effect Data Zone (Sub-CPU ROM)]({{ site.baseurl }}/dsp-effect-data-zone/) — the
