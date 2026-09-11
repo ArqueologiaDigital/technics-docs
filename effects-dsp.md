@@ -508,8 +508,19 @@ rate). It is self-validating: the parametric-EQ band reproduces its solved biqua
 (+12.00 dB peak at f₀; impulse response equal to the analytic transfer function to **0.000 dB**);
 the reverb all-pass diffuser is flat and unity-energy; the KN5000 reverb is the proven nine-stage
 all-pass ladder; distortion adds harmonics; the multi-band EQ boosts and cuts as designed. Fed
-the **real coefficients captured from the running chip**, all twelve captured biquad sections are
-stable in the decoded `b1,b0,b2,−a1,−a2,makeup` order — the reference runs the chip's own numbers.
+the **real coefficients captured from the running SX-WSA1R chip**, all twelve captured biquad
+sections are stable in the decoded `b1,b0,b2,−a1,−a2,makeup` order (the recursive term stored as
+`−a`) — the reference runs that chip's own numbers.
+
+> **⚠ Convention note (2026-09-11):** the "12/12 stable" result above is the **SX-WSA1R** capture,
+> where the stored recursive coefficient is `−a` (so `a = −stored`). The **KN5000's own** EQ
+> coefficients, captured live this session, are **NOT** stable in that convention — in the naive
+> `a = −stored` reading a pole lands at 1.001 (a positive-feedback runaway). The KN5000 EQ is a real,
+> stable peaking filter (poles ≈ 0.71) only under the **opposite sign**: the stored recursive value
+> is the true `+a`, i.e. the feedback **subtracts**. So the two products, though the same DSP core,
+> use **different recursive-coefficient conventions**; do not carry the WSA1R sign over to the
+> KN5000. See [§10](#10-the-biquad-datapath-decoded-end-to-end-lle-2026-09-11) and
+> `dsp/tools/biquad_stability_probe.py`.
 
 The SX-WSA1R acoustic-modeling LSI (L7A1429) has a matching reference (`wsa1/hle/`): coupled
 digital-waveguide resonators that ring at pitch, sustain and decay autonomously (the chip has no
