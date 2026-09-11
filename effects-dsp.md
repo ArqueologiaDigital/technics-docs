@@ -681,8 +681,20 @@ textbook RBJ peaking filter — the same route the offline reference uses (§9):
 - **Centre frequency** comes from cell `0x03`, which holds `2·cos ω₀`; the five bands land at
   ≈ 673, 966, 1405, 2091 and 3219 Hz.
 - **Gain** comes from cell `0x01`: it sits at exactly `0.5` at 0 dB (for every band, and it does
-  not move when only the frequency is changed) and rises with boost, so `A² = 1 + 455.7·(cell01 − 0.5)`.
-  A +12 dB panel edit reads back as `A² ≈ 3.98`.
+  not move when only the frequency is changed) and rises with boost, so `A² = 1 + G·(cell01 − 0.5)`.
+  A +12 dB panel edit reads back as `A² ≈ 3.98`. The slope `G` is **not the same for every band** —
+  each was calibrated by driving that band's gain +12 dB on the panel and reading its cell:
+
+  | band | centre | G |
+  |---|---|---|
+  | 0 | 673 Hz | 465.8 |
+  | 1 | 966 Hz | 225.8 |
+  | 2 | 1405 Hz | 114.2 |
+  | 3 | 2091 Hz | 58.3 |
+  | 4 | 3219 Hz | 30.5 |
+
+  The gain cell moves about twice as far per dB with each band up the scale (the slope roughly
+  halves), so a single constant would over-boost the higher bands.
 
 One wrinkle worth recording: the values in C-RAM at run time are at the *operand* scale — exactly
 **half** the values seen in the earlier coefficient dumps (cell `0x03` reads `cos ω₀`, not
@@ -695,14 +707,16 @@ The result was checked two ways, not by ear:
    boost, and a frequency sweep) gives 0.0 dB flat, +11.9 dB at 673 Hz for the boost, and a peak
    that migrates correctly for the frequency edit.
 2. **In the emulator** — the same note played with the EQ bypassed and with it active, compared
-   spectrally: a +12 dB band-0 edit produces **+10 dB at the 673 Hz band centre and a flat
-   response (±0.3 dB) everywhere else**.
+   spectrally at two well-separated bands: a +12 dB edit produces **+10.4 dB at the 673 Hz band-0
+   centre** and **+10.5 dB at the 1405 Hz band-2 centre**, each with a flat response everywhere
+   else.
 
-When the option is off, the output is bit-for-bit what it was before. Only the gain constant for
-bands 1–4 and the exact filter Q remain to be pinned (only band 0 has been driven on the panel so
-far); extending the same design-parameter route to reverb, chorus, delay and distortion is the
-next step. Reproducibility: `dsp/tools/eq_rbj_reconstruct_ab.py` (offline) and
-`dsp/tools/eq_hle_ab.lua` + `eq_hle_ab_fft.py` (in-emulator A/B) in the disassembly repo.
+When the option is off, the output is bit-for-bit what it was before. All five bands' gain slopes
+are now calibrated; only the exact filter Q remains an assumption (it sets bandwidth, not the peak
+height the A/B checks). Extending the same design-parameter route to reverb, chorus, delay and
+distortion is the next step. Reproducibility: `dsp/tools/eq_rbj_reconstruct_ab.py` (offline),
+`dsp/tools/eq_band_gain_calibrate.py` (per-band gain), and `dsp/tools/eq_hle_ab.lua` +
+`eq_hle_ab_fft.py` (in-emulator A/B) in the disassembly repo.
 
 ---
 
