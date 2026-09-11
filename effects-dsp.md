@@ -713,10 +713,41 @@ The result was checked two ways, not by ear:
 
 When the option is off, the output is bit-for-bit what it was before. All five bands' gain slopes
 are now calibrated; only the exact filter Q remains an assumption (it sets bandwidth, not the peak
-height the A/B checks). Extending the same design-parameter route to reverb, chorus, delay and
-distortion is the next step. Reproducibility: `dsp/tools/eq_rbj_reconstruct_ab.py` (offline),
+height the A/B checks). Reproducibility: `dsp/tools/eq_rbj_reconstruct_ab.py` (offline),
 `dsp/tools/eq_band_gain_calibrate.py` (per-band gain), and `dsp/tools/eq_hle_ab.lua` +
 `eq_hle_ab_fft.py` (in-emulator A/B) in the disassembly repo.
+
+---
+
+## 13. The single delay is now audible too (2026-09-11)
+
+The second effect to be reconstructed from the decode. SINGLE DELAY is the seventh entry on the DSP
+EFFECT page; its two parameters were located the same way the EQ's were — by an intervention that
+drives one panel control and watches which decoded cell moves:
+
+- Driving **feedback** moved exactly one coefficient, **C-RAM cell 0x00** (and its stereo twin
+  0x09 for the right channel) — so that is the feedback gain (about −0.29 at the default, matching
+  the documented value).
+- The **delay length** is **descriptor cell 0x26 = 15437 samples = 350 ms** at the ROM default —
+  precisely the figure the static decode predicted, which also confirms the effect's identity (an
+  EQ has no delay descriptor).
+
+The emulator inserts a feedback delay line per channel with these values (internal wet/dry mix ≈
+0.5, the designed constant). Two wrinkles had to be handled: the delay descriptor is stored at
+half scale unless the speculative-descriptor decode is enabled (a new DSPCFG option supplies it
+without any low-level audio), and the descriptor counts samples at 44.1 kHz while the emulator
+renders at 48 kHz, so the length is converted.
+
+The check is **temporal**, not spectral — a delay's signature is lag. Cross-correlating the
+delay-on output against the dry shows a delayed copy of the signal at **350.6 ms** — the decoded
+delay time — with nothing there in the dry control. Still open, pending their own interventions:
+the high-damp (in-loop tone) cell, the exact right-channel delay pairing, and the mix cell.
+Reproducibility: `dsp/tools/delay_ab.lua` + `delay_ab_echo.py`.
+
+A note on the distortion family: an earlier reading that called OVERDRIVE's post filter a
+"polynomial waveshaper" has been **retracted** — that stage is the tone biquad, and the actual
+clipping curve is a table in ROM that has not been dumped, so a faithful distortion cannot be
+reconstructed the way the EQ and delay were.
 
 ---
 
