@@ -580,12 +580,15 @@ order (which is why feeding the KN5000's coefficients in that order is unstable)
 `x1/x2` vs `y1/y2` role assignment still needs a cross-frame capture (how the delay line
 shifts between frames) and is **OPEN**.
 
-**The reverb datapath is a *different* machine — STRONG.** The reverb (unit 1) uses **no
-class-A multiplies at all**; its feedback operand is the delayed output read from the
-external delay DRAM into `tempB`, and its gains (e.g. `0.91`) are applied through the
-**class-8 delay read/write** path, not the standard multiplier. This matches the all-pass
-ladder identity in §4 and lands squarely on the delay-pipeline questions the core's own
-research notes leave speculative — that pipeline is the reverb's remaining decode target.
+**The reverb datapath — same multiplier, plus a delay-line.** The reverb (unit 1) reads its
+feedback operand as the delayed output from the external delay DRAM into `tempB` (source
+`SRC 0x1A ← SRC 0x0B` delay read) and multiplies it by its gains (e.g. `0.91`) with the **same
+class-A MAC** as the biquad — consistent with the all-pass ladder identity in §4. (An earlier
+draft here claimed the reverb "uses no class-A multiplies"; that was a class4-extraction bug —
+the 0.91/`tempB` word is class-A/multiply-enabled — and is retracted.) What is genuinely open for
+the reverb is the **external delay-line advance** (how the delay DRAM pointer moves per frame),
+which the core's own research notes leave speculative — that pipeline is the reverb's remaining
+decode target, not the arithmetic.
 
 **The input route — LOCALISED, OPEN.** The external audio *does* reach the chip: the tone
 generator's send is deposited into two D-RAM cells (the DI latches), confirmed live. What is
