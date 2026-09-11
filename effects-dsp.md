@@ -812,6 +812,35 @@ a single delay, a chorus, and a flanger.
 
 ---
 
+## 16. The phaser is now audible too (2026-09-11)
+
+The fifth effect. A **phaser is a cascade of all-pass filters whose break frequency is swept by an
+LFO**, with feedback — the swept phase shift, mixed with the dry, creates notches that glide through
+the spectrum. It is the fifth entry on the DSP EFFECT page, and — as with every modulation effect so
+far — it keeps its parameters in its own cells, so it was probed separately:
+
+- Driving **LFO SPEED** moved **C-RAM cell 0x00** (76 → 456) — the phase increment, ≈ **0.4 Hz** at
+  rest.
+- Driving **MANUAL** moved **C-RAM cell 0x06** — the all-pass **centre coefficient** (where the
+  notches sit). There is a single such cell, so the stages share one coefficient.
+- Driving **DEPTH** moved **C-RAM cell 0x05** — how far that coefficient is swept.
+- Driving **RESONANCE** moved **C-RAM cell 0x02** — the feedback (≈ 0.3), which deepens the notches.
+
+The emulator runs six first-order all-pass stages sharing one coefficient `a = MANUAL + DEPTH·sin(LFO)`,
+feeds the cascade back into itself by the resonance amount, and mixes 50/50 with the dry. As with the
+flanger, the rest sweep (0.4 Hz) is slow, so the check drives LFO SPEED: the phaser then modulates the
+held note at **0.77 Hz** — the rate its cell decodes to — over **55× more than the dry note**.
+
+Still open: the exact number and order of all-pass stages (the emulator uses six first-order stages —
+this sets the notch pattern, not the sweep rate the A/B measures), the PHASE (stereo L/R offset) and
+waveform controls. Reproducibility: the chorus harness reused with `TYPEIDX=4`.
+
+Five effects are now reconstructed from the decode and validated in the emulator: a parametric EQ, a
+single delay, a chorus, a flanger, and a phaser — every one pinned by driving a single panel control
+and watching which decoded cell moves.
+
+---
+
 ## Related pages
 
 - [DSP Effect Data Zone (Sub-CPU ROM)]({{ site.baseurl }}/dsp-effect-data-zone/) — the
