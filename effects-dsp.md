@@ -751,6 +751,38 @@ reconstructed the way the EQ and delay were.
 
 ---
 
+## 14. The chorus is now audible too (2026-09-11)
+
+The third effect, and the first modulation effect. CHORUS is the first entry on the DSP EFFECT
+page; it is a **quadrature LFO-swept delay** — a short delay line read at two taps whose delay is
+swept by the sine and cosine of one slow oscillator. Its parameters were located by the same kind
+of intervention as the EQ, delay and (now) here:
+
+- Driving **LFO SPEED** moved exactly one cell, **C-RAM 0x00** — from 114 to 494 — matching the
+  live phase-accumulator ramp the earlier work had already measured. That cell is the LFO's
+  per-frame phase increment; the rate is `increment × 44100 / 2²³`, so 114 ≈ **0.6 Hz** at rest.
+- Driving the panel **DEPTH** moved **C-RAM 0x09/0x0A** (0.303 → 0.505), so on this instrument
+  "depth" is the **wet amount**, not the modulation depth.
+- The modulation sweep amplitude is a **fixed** cell (0x02 = 240 samples ≈ 5.4 ms) that no knob
+  moves — matching the earlier finding that the modulation value is constant.
+
+The emulator runs a per-channel delay line read at two quadrature taps and crossfades the two wet
+voices with the dry by the decoded wet gain. The check is on the **modulation**: with a single
+sustained note, the chorus amplitude-modulates the note's harmonics at **0.62 Hz** — the decoded
+LFO rate — nearly 19× more than the dry note does, and **driving LFO SPEED moves that modulation to
+1.40 Hz**, so the rate follows the panel knob (and cell 0x00) exactly. The instrument voice's own
+tremolo sits higher (~2.6 Hz) and is present in the dry too, so it is excluded from the test.
+
+Still open: the chorus's own base pre-delay (a fixed value is used), the flanger variant (a
+feedback all-pass chain, with its LFO phase in a different cell), and the LFO waveform selector.
+Reproducibility: `dsp/tools/chorus_ab.lua` + `chorus_ab.py`.
+
+That makes three effects reconstructed from the decode and validated in the emulator — a
+parametric EQ, a single delay, and a chorus — each pinned by driving one panel control and watching
+which decoded cell moves.
+
+---
+
 ## Related pages
 
 - [DSP Effect Data Zone (Sub-CPU ROM)]({{ site.baseurl }}/dsp-effect-data-zone/) — the
