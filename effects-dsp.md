@@ -607,6 +607,63 @@ Every figure on this page's §10 is reproduced from committed evidence traces by
 
 ---
 
+## 11. Every program run live, and topology matched to instructions (2026-09-11)
+
+With the datapath decoded, two things became possible: **run every effect on the emulator** and
+**match each program's shape to the textbook DSP topology it implements** — and the two together
+turned several "opaque" instructions into named operations.
+
+### Every distinct program runs, and the decode is cross-validated live
+
+All 20 distinct DSP-EFFECT program images were selected from the panel and captured live (the rest
+are the NO-OP stubs and the reverb presets that share one image). For every one, the number of
+program words that execute in the live frame **matches the static disassembly's image size exactly**
+(0 mismatches, corpus-wide), and the frame decomposes cleanly as **resident kernel (82 words) +
+selected program image + unit-1 reverb (133 words)**. The disassembly's program sizes are now
+confirmed against what the chip actually runs, not just against the ROM bytes.
+
+The one live-vs-static gap is illuminating rather than a defect: a few class-A multiplies per program
+do **not** fire in a steady frame — and they are exactly the **input/state-conditional** ops (an
+LFO-phase gate, a compressor threshold). Distortion and delay fire all their multiplies; every
+modulation and dynamics effect gates two or three.
+
+### The LFO, measured live
+
+A modulation effect's LFO is a phase accumulator — one memory cell that increments by a fixed step
+each sample. Captured live, CHORUS's LFO cell ramps **+114 per frame**, exactly the value the
+paper decode predicted; driving the LFO-SPEED knob up moved it to **+494 per frame**, proving the
+ramp increment *is* the LFO-SPEED parameter. The modulation model is now verified on the running chip.
+
+### Classic topologies, and what they say about the instruction set
+
+Each program's flowchart is now annotated with the canonical topology its shape matches — cascaded
+Direct-Form-I biquads (parametric EQ), a Schroeder delay / all-pass reverb tank, an LFO-modulated
+delay or a swept all-pass chain (chorus/flanger vs phaser), a memoryless waveshaper with an optional
+tone filter (distortion), an envelope-follower-plus-gain (compressor), and so on. Testing those
+predictions against an idiom census over all 38 images gave concrete instruction-decoding gains:
+
+- **A trio of action codes are the state-update ops of a 2nd-order section** (a biquad *or* an
+  all-pass stage) — present only where the topology has such a section, and their count equals the
+  number of sections: the phaser's long all-pass chain shows twenty, OVERDRIVE's single tone filter
+  one, the bare FUZZ none.
+- **The chip's table-lookup is one operation serving three roles** — the LFO waveform table, the
+  distortion waveshaper, and the ring-modulator carrier — present in exactly those families and
+  absent from the pure filters and delays.
+- **A "coefficient-squaring" source code marks the LFO/envelope path**, appearing only in the
+  modulation, tremolo/pan, and dynamics families.
+- And a correction: an action pair previously thought to be a biquad-only delay-stage update turns
+  out to be **universal** (it is in the plain delays too), so it is really a general delay/state
+  mixing operation.
+
+In short, matching each program to its classic topology, then checking the match against both the
+static ROM and the live run, anchors instructions to the effect stage they serve — raising confidence
+across the corpus and pinning the remaining unknowns (the audio input route into the biquad; the exact
+biquad realization) as the specific things still to solve. Full detail: the disassembly repo's
+`dsp/analysis/DSP-TOPOLOGY-INSTRUCTION-INSIGHT-2026-09-11.md` and the per-program flowchart
+annotations.
+
+---
+
 ## Related pages
 
 - [DSP Effect Data Zone (Sub-CPU ROM)]({{ site.baseurl }}/dsp-effect-data-zone/) — the
