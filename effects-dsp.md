@@ -1061,13 +1061,18 @@ a stable `a2 = 0.991` at Q23 and an impossible `1.98` at Q22 — and the LLE's b
 **rails at shift 22 (19 of 48 cell sightings at full scale) and is finite at shift 23 (0 of 48)**,
 with the multiplier still bit-exact (16/16 at `>> 7`). So on those words the coefficient field
 is **Q0.23, unity `0x7FFFFF`**. The refinement that the register already held, and that this
-measurement now sharpens: the scale is **per instruction word** — the EQ's `b0`, `b2`, `−a1`
-cells and the delay's feedback word behave as Q1.22, every damping word, the chorus wet and the
-EQ's `−a2` as Q0.23. The shipped LLE applied one shift to all words, which is why its EQ railed;
-a single global flip would be wrong for the other half. The register's candidate selector, word
-bit 12, was run as a per-word shift and explains every word **except the EQ's `b1`** (an RBJ
-band needs it at the same scale as `b0`/`a1`, and its word has the bit clear), so the mechanism
-is still open — a doubled store/operand on some words is the live hypothesis. For the HLE this is per cell: the
+measurement now sharpens, and the EQ settles what any account must produce. An RBJ peaking
+biquad has `b1 == a1` exactly, at every gain and frequency; reading each band's five ROM cells at
+one scale gives ratios `b0/1 = 0.2500`, `b1/a1 = 0.5000`, `b2/a2 = 0.2500` — **identical in all
+five bands, spread 0.00000** — and scaling `b0`, `b2` by 4 and `b1` by 2 makes the numerator
+exactly `[1, a1, a2]`, so `|H|` is **flat to 0.00 dB** where every rival scaling leaves 46–109 dB
+of ripple. Three distinct scales among five coefficients, from the ROM alone. That refutes both
+candidate selectors outright: word bit 12 cannot produce them (`b0` is the only bit-clear word
+yet shares `b2`'s scale), and neither can the ACT code (`b2` and `a2` share ACT 0x15 with
+different scales) — both were also built as device arms and both railed. What mechanism *does*
+carry the three scales is open; a first answer read off the operand cells was **retracted** the
+same day, because the traces available were either saturated or seeded with a 1:2:3:4 ramp into
+the very cells being compared. For the HLE this is per cell: the
 chorus's wet gain (a bit-clear word) had been read as `q22 × cs` — right for the program's
 integer cells (LFO increment 114, 240-sample sweep), 2× hot for that gain (0.30 where the chip's
 is 0.15) — corrected in the HLE and on its [impl page]({{ site.baseurl }}/effects-dsp/impl/);
