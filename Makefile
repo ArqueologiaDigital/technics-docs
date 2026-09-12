@@ -24,19 +24,24 @@ NO_BUNDLER   = JEKYLL_NO_BUNDLER_REQUIRE=true
 # chart improvements reach the site with one `make flowcharts`. Override with e.g.
 # `make flowcharts DISASM=/path/to/kn5000-roms-disasm`.
 DISASM      ?= ../kn5000-roms-disasm
+MAME        ?= ../kn7000_mame
 
-.PHONY: serve build flowcharts clean serve-ghpages help
+.PHONY: serve build flowcharts impl clean serve-ghpages help
 
 ## flowcharts: regenerate the DSP flowchart pages from the disassembly source
 flowcharts:
 	python3 tools/sync_flowcharts.py --disasm $(DISASM) --site .
 
+## impl: regenerate the per-effect "HLE + bytecode" pages from the MAME + disasm sources
+impl:
+	python3 tools/gen_effect_impl_pages.py --mame $(MAME) --disasm $(DISASM)
+
 ## serve: build + live-reload local preview at http://localhost:$(PORT) (renders Mermaid)
-serve: flowcharts
+serve: flowcharts impl
 	$(NO_BUNDLER) $(JEKYLL) serve -s . -d $(DEST) --port $(PORT) --livereload
 
 ## build: static build into $(DEST)/ (same HTML GitHub Pages serves)
-build: flowcharts
+build: flowcharts impl
 	$(NO_BUNDLER) $(JEKYLL) build -s . -d $(DEST)
 
 ## serve-ghpages: byte-faithful GitHub Pages render (needs `bundle install` w/ github-pages gem)
