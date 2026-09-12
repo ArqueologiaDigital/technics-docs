@@ -745,9 +745,10 @@ the high-damp (in-loop tone) cell, the exact right-channel delay pairing, and th
 Reproducibility: `dsp/tools/delay_ab.lua` + `delay_ab_echo.py`.
 
 A note on the distortion family: an earlier reading that called OVERDRIVE's post filter a
-"polynomial waveshaper" has been **retracted** — that stage is the tone biquad, and the actual
-clipping curve is a table in ROM that has not been dumped, so a faithful distortion cannot be
-reconstructed the way the EQ and delay were.
+"polynomial waveshaper" has been **retracted** — that stage is the tone biquad. A second claim,
+that the clipping curve is a ROM table that has not been dumped, has **also** been retracted (see
+[§20](#20-distortion-is-not-undumped-either-2026-09-12)): the class-6 waveshaper reads its table
+from C-RAM, and C-RAM is populated entirely from dumped ROM.
 
 ---
 
@@ -910,9 +911,10 @@ coefficient dumped and role-assigned — input scaling (0x90–0x92), three damp
 decay / REVERB-TIME coefficient (0x97 = 0.4), the two diffuser ladders of five and four stages
 (0x98–0x9C, 0xA1–0xA4), and the stereo output-tail mix (0xA9–0xB0). The external delay pipeline is
 decoded too, and the reverb's linear feedback **measurably decays in the emulator** when its state
-cells are impulse-seeded. Contrast this with the genuinely missing data — distortion's clipping
-curve sits in an undumped ROM table, and the acoustic-modeling chip's wave ROMs are undumped; the
-reverb is not in that category.
+cells are impulse-seeded. The only genuinely missing data near here is the acoustic-modeling chip's
+undumped wave ROMs (a separate chip). Distortion's clipping curve was once grouped in as "undumped"
+too — that is also wrong and has since been retracted (see [§20](#20-distortion-is-not-undumped-either-2026-09-12)):
+its waveshaper reads a table from C-RAM, and C-RAM is populated entirely from dumped ROM.
 
 What remains is a **decode refinement, not missing data**: the exact micro-topology is narrowed to
 a comb family (a pipe-comb or series-comb cascade; first-order all-pass, the parallel comb bank,
@@ -926,6 +928,43 @@ control come from the decoded cells. With it on, a plucked note leaves a decayin
 **six times** louder than the dry note's own release, absent with it off. It is labelled a preview:
 the diffusion and decay-control are decoded, but the exact topology and absolute reverb time await
 the decode above.
+
+---
+
+## 20. Distortion is not "undumped" either (2026-09-12)
+
+For a long time this page grouped distortion with the genuine data walls: "the clipping curve is a
+ROM table that has not been dumped." That is **wrong**, and it is now retracted.
+
+The nonlinearity is a **class-6 table lookup** — the same idiom the chip uses for an LFO waveform
+and a ring-mod carrier. Two facts put its data in dumped memory:
+
+- The class-6 lookup reads its table **from C-RAM** (the index sits in a temp register; the
+  `C63` + class-6 pair is measured as one idiom across the corpus). C-RAM is populated **entirely
+  from dumped ROM** — the per-preset parameter streams plus a resident table written once at boot
+  from a literal blob at Sub CPU ROM `0x01E6BE`.
+- This is **proven for the same idiom's LFO-waveform role**: that table is a 24-entry sine the host
+  uploads, and decoding the 24 packets matches `0.95·2²³·sin(2πk/24 + 0.1)` to within one LSB.
+  There is no internal silicon lookup ROM on this path.
+
+A runtime C-RAM capture that reads zeros where the table should be is a **capture artifact** — it
+replays the parameter streams from a zeroed C-RAM and never replays the boot blob — not missing
+data. (The earlier "polynomial waveshaper" reading of OVERDRIVE's post-filter was a separate error,
+already retracted in §13: that stage is the tone biquad.)
+
+What is still open is a **decode refinement, not a data wall**: exactly which C-RAM cells hold the
+waveshaper table (the selector is `0x28`) and the index arithmetic, which the chip's own class-6
+probe is built to pin.
+
+To make the point audible, the emulator now carries a default-off DISTORTION preview (selector 15).
+It reads the DISTORTION program's structure from the decode — an AGC (envelope-normalising) stage,
+a waveshaper, a DRIVE pre-gain from C-RAM cell `0x00` and an output VOLUME from cell `0x02` — and
+applies it to the mix. The **DRIVE and VOLUME gains are decoded from C-RAM**; the clip transfer
+curve is a **labelled stand-in** (a tanh soft-clip) pending the table-cell decode above. Fed a pure
+tone (the diagnostic sine render), the effect off is clean (total harmonic distortion 0.01 %), and
+on it generates the **odd-harmonic series of a symmetric waveshaper** — THD 11 %, about 1360× the
+dry tone, third harmonic 8 %, fifth 6 %, with the even harmonics absent. Reproducibility:
+`dsp/tools/distortion_ab.lua` + `distortion_ab.py`.
 
 ---
 
