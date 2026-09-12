@@ -968,6 +968,44 @@ dry tone, third harmonic 8 %, fifth 6 %, with the even harmonics absent. Reprodu
 
 ---
 
+## 21. The rest of the effect catalogue, reconstructed (2026-09-12)
+
+With EQ, the delays, the modulation family, reverb and distortion audible, the remaining programs
+were reconstructed in one pass — **enhancer, exciter, auto-wah, auto-pan, ring modulator, multi-tap
+delay, compressor, gated reverb, mix-up, rotary speaker**, and the **PEQ + X** / **auto-wah + delay**
+combinations. The disassembly of each program was decoded for its C-RAM cell usage and topology,
+the textbook DSP block was rebuilt from those, and each was added as a default-off option on the
+same `DSPHLE` selector (now selectors `0x10`–`0x22`).
+
+These are **honestly graded a notch below** the first effects. The first fifteen were each pinned by
+*intervention* — drive one panel control, watch which C-RAM cell moves. For this batch only a few
+numbers are that firmly pinned (the multi-tap delay times 136/272/408/544 ms and the mix-up LFO
+rates 3.0/5.2/7.4 Hz are host-named; the auto-pan ~1.2 Hz and ring-mod ~1 kHz oscillator rates are
+measured); most panel→cell *role* assignments are position-decoded from the program order, not yet
+A/B-confirmed. So every one ships as a labelled **preview**.
+
+Each was checked in the emulator against a dry control (`dsp/tools/fx_ab.lua` + `fx_features.py`):
+
+- **Cleanly demonstrated:** ring modulator (spectral centre moves from the 262 Hz note to the
+  ~1 kHz carrier, fully inharmonic); auto-pan (L and R amplitudes modulate in antiphase); mix-up
+  (three-LFO modulation, ×8 envelope depth, chorus detuning); rotary speaker (a ~7 Hz tremolo warble
+  with stereo motion and Doppler pitch-smear); exciter and enhancer (added high-band energy and
+  brightness on a harmonically-rich source); auto-wah (envelope-swept resonant filtering). The
+  combos chain correctly too — PEQ + chorus (emphasis + 3 Hz modulation), PEQ + distortion + delay
+  (added odd harmonics and an echo tail), PEQ + compressor (emphasis + sustain lift).
+- **Reconstructed and audible, signature gentle on a pure tone:** multi-tap delay (built on the
+  *measured* tap times — the firmest data here), compressor (the decaying tail is lifted ~1.7×), and
+  gated reverb (the tank runs and the gate chops the tail). A percussive source would show their
+  echoes/gate more plainly than the sustained test tone does.
+
+The rotary speaker carries one honest gap: its rotor **rotation rate is not in the program** (the
+firmware supplies it from outside the decoded microcode), so the preview uses canonical Leslie
+speeds — the Doppler delay lengths it sweeps, however, are decoded. None of this batch needs any
+undumped data; what is soft is the parameter *mapping*, recoverable by the same per-control
+intervention that pinned the first fifteen.
+
+---
+
 ## Related pages
 
 - [DSP Effect Data Zone (Sub-CPU ROM)]({{ site.baseurl }}/dsp-effect-data-zone/) — the
