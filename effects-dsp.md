@@ -1185,6 +1185,26 @@ actually fails. A four-part test was built precisely because single measures had
 this work, and then the most important of its parts was a quantity that stays constant under the
 very failure it existed to detect.
 
+**One change is now part of the emulation rather than an experiment.** Running the candidate
+against ten programs — the modulation family, both reverbs, both delay shapes and the equaliser —
+settled which half of the pair was right. The redirected store fails everywhere: every program with
+a modulation oscillator loses it, and the equaliser gains nine saturated cells. The other half, the
+rule that the multiplier's pending result does not survive a call into an effect body, passes with
+no regression on any of the ten, and **five of them gain a correct free-running oscillator where
+the unmodified device had none** — the phase advances by exactly its own increment, frame after
+frame, in the chorus, the modulated chorus, the flanger, the phaser and the ensemble.
+
+That is four independent lines of evidence for a single change, on ten programs rather than two, so
+it is now the default behaviour, with a switch to restore the old one for comparison. It is the
+first body-side finding in this investigation to earn that.
+
+Two caveats travel with it and are worth stating. The equaliser's arithmetic drops sharply under
+the change, and that is understood: what the unmodified device was busily filtering was the
+preceding block's leftover product, and removing the leftover leaves the filter correctly fed at a
+location nothing reads — the open problem described above. The enhancer's arithmetic also drops, by
+a factor of four, and **that is not understood**. It has no oscillator and nothing saturates. It is
+the standing argument against the change and the first thing to examine.
+
 **A correction to one of those refinements, from the trace rather than the coefficients.** The
 "right channel sweeps in antiphase" reading was taken from the sign of the depth coefficients: two
 of the four sweep instructions carry +240 samples and two carry −240. Checking which part of the
