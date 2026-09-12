@@ -864,6 +864,37 @@ chorus, flanger, phaser, ensemble, and vibrato.
 
 ---
 
+## 18. The S.DELAY+X combination effects (2026-09-11)
+
+Several panel presets are *combinations* — a single delay chained with a second effect. Because the
+building blocks (delay, chorus, flanger, phaser, a second delay) are already reconstructed and
+validated, a combination is those two blocks run in series. The catch is that each combo packs both
+effects' parameters into **its own** C-RAM layout, different from the standalone versions, so each
+was pinned on its own by driving one control and watching which cell moved:
+
+| Combination | delay feedback | second-stage rate | validated |
+|---|---|---|---|
+| S.Delay + Chorus  | cell 0x02 | chorus 0x00 (0.6 Hz) | echo 299 ms **and** chorus 0.62 Hz |
+| S.Delay + Flanger | cell 0x04 | flanger 0x00 (0.2 Hz) | modulation 0.77 Hz (driven) |
+| S.Delay + Vibrato | cell 0x04 | vibrato 0x00 (0.6 Hz) | modulation 0.62 Hz |
+| S.Delay + Phaser  | cell 0x00 | phaser 0x03 (0.4 Hz) | modulation 0.77 Hz (driven) |
+| S.Delay + S.Delay | 0x00 / 0x05 | (two delays) | echo 178 ms |
+
+Each is implemented as the shared feedback delay followed by the second block run on the delayed
+signal (reusing that block's own delay lines — only one effect is ever selected). For S.Delay+Chorus
+both stages were confirmed at once — a **299 ms echo *and* a 0.62 Hz chorus sweep** in the same
+output — proving the chaining works end to end; the others were confirmed by the stage that
+distinguishes them (the second effect's modulation rate, or the second delay's echo). Where a combo's
+layout does not separately expose a second-stage feedback or sweep, a fixed value is used; the
+decoded, validated quantity in each case is the modulation rate (or the echo time).
+
+That brings the count to twelve effects reconstructed from the decode and validated in the emulator:
+the seven standalone effects above plus the five S.Delay combinations. Still to come are the effects
+that need a block not yet built — the enhancer and auto-wah (whose parameters do not sit in the
+C-RAM coefficient bank), the rotary speaker (a full dual-rotor Leslie), reverb, and distortion.
+
+---
+
 ## Related pages
 
 - [DSP Effect Data Zone (Sub-CPU ROM)]({{ site.baseurl }}/dsp-effect-data-zone/) — the
