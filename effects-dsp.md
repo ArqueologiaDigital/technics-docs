@@ -1160,18 +1160,29 @@ reads, while the first filter band read a cell nothing writes. The two are adjac
 that stores is the same word whose pointer steps from one to the other — its store was aimed at the
 pointer before the step rather than after it.
 
-Aiming it after the step, together with the flush that keeps the previous block's product out of
-the accumulator, gives this: the chorus's modulation phase advances by its own increment with its
-body live, the equaliser's body moves 94 of its 105 executed rows, and **each of the five filter
-bands receives exactly one copy of the input** — five cells spaced four apart, which is precisely
-the five-band, four-cell-per-band structure the bytecode was already known to have, with the
-filtered histories moving beside them. Each of the two changes is necessary and they do different
-jobs: one makes the delivered quantity right, the other delivers it to the cell that is read.
-Without the first the bands saturate; without the second they receive nothing at all.
+Aiming it after the step does deliver: **each of the five filter bands then receives exactly one
+copy of the input** — five cells spaced four apart, precisely the five-band, four-cell-per-band
+structure the bytecode was already known to have, with the filtered histories moving beside them,
+and the equaliser's body moves 94 of its 105 executed rows where it had moved 9.
 
-Both remain off by default. This is joint evidence from two programs and four criteria, which is
-the strongest this investigation has had, and it is still not proof — a regression across the rest
-of the catalogue comes before any of it is promoted.
+**And it breaks the chorus, which took a further correction to see.** The test being used for the
+modulation was the phase cell's change *within a single frame*, and the two instructions involved
+load the increment and then store it — so that number reads correctly even when the phase is reset
+to zero on every frame and the oscillator never advances at all. The chip's own diagnostic had been
+reporting the right quantity in every capture taken: the phase value on eight consecutive frames.
+Read that way, the redirected store leaves the phase at zero on all eight. The modulation is dead.
+
+So there is still no configuration that satisfies everything, and the change that fixes the
+equaliser's delivery costs the chorus its oscillator. What the correction leaves is stronger than
+what it removes, though: measured across eight frames, the flush alone gives the chorus a perfectly
+constant step equal to its own increment — a correct free-running ramp — where the unmodified
+device wanders. That is now two unrelated tests, on two different programs, agreeing on the same
+change. Everything stays off by default.
+
+The lesson is recorded against the result it cost: a test must be able to fail in the way the thing
+actually fails. A four-part test was built precisely because single measures had been misleading
+this work, and then the most important of its parts was a quantity that stays constant under the
+very failure it existed to detect.
 
 **Retractions, kept in the record.** The device's delay-age census had been read as "the
 single delay's line depth matches the descriptor (~350–400 ms)". It does not measure that: the
