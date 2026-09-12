@@ -1151,6 +1151,28 @@ zero instead. The chip's own rule is therefore expected to be of the form the de
 in its source — *a load that brought no fresh product is an erasure, not an operation* — and that
 is what the next round tests, on both programs at once.
 
+**And then it passed — the first configuration to satisfy every criterion at once.** The criterion
+the HLE supplies turned out to be the one that mattered: *the equaliser's input is one copy of the
+pickup.* Measured that way, the configuration the liveness test had marked worst was the only one
+delivering a correct input, and the liveness test had been rewarding contamination all along. With
+that settled, the remaining fault was a single cell: the entry stored the input to a cell nothing
+reads, while the first filter band read a cell nothing writes. The two are adjacent, and the word
+that stores is the same word whose pointer steps from one to the other — its store was aimed at the
+pointer before the step rather than after it.
+
+Aiming it after the step, together with the flush that keeps the previous block's product out of
+the accumulator, gives this: the chorus's modulation phase advances by its own increment with its
+body live, the equaliser's body moves 94 of its 105 executed rows, and **each of the five filter
+bands receives exactly one copy of the input** — five cells spaced four apart, which is precisely
+the five-band, four-cell-per-band structure the bytecode was already known to have, with the
+filtered histories moving beside them. Each of the two changes is necessary and they do different
+jobs: one makes the delivered quantity right, the other delivers it to the cell that is read.
+Without the first the bands saturate; without the second they receive nothing at all.
+
+Both remain off by default. This is joint evidence from two programs and four criteria, which is
+the strongest this investigation has had, and it is still not proof — a regression across the rest
+of the catalogue comes before any of it is promoted.
+
 **Retractions, kept in the record.** The device's delay-age census had been read as "the
 single delay's line depth matches the descriptor (~350–400 ms)". It does not measure that: the
 census pools every program since boot and its addresses carry a stale speculative modulation
