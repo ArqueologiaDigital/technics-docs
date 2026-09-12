@@ -1059,15 +1059,20 @@ shift 23**, and the feedback cell reads −0.58 vs **−0.29** — the "0.3 feed
 header carries. The parametric EQ decides it independently: its `−a2` cell is `0x81227B`, which is
 a stable `a2 = 0.991` at Q23 and an impossible `1.98` at Q22 — and the LLE's biquad state block
 **rails at shift 22 (19 of 48 cell sightings at full scale) and is finite at shift 23 (0 of 48)**,
-with the multiplier still bit-exact (16/16 at `>> 7`). So the chip's coefficient field is **Q23,
-unity `0x7FFFFF`** — the variant the device already carried as `UPD6383_PSHIFT=2`. The
-disassembly's static annotations had read the cells that way all along; the LLE default and one
-HLE convention were the outliers. The HLE audit that followed is per block: the delay's `fscale`
-convention already yields Q23 (its feedback is −0.29, correct); the chorus's wet gain used
-`q22 × cs`, a convention right for the program's integer cells (LFO increment 114, 240-sample
-sweep) but 2× hot for a gain (0.30 where the chip's is 0.15) — corrected in the HLE and on its
-[impl page]({{ site.baseurl }}/effects-dsp/impl/); the remaining `q22 × cs` gains (distortion
-DRIVE/VOLUME) are queued for the same audit.
+with the multiplier still bit-exact (16/16 at `>> 7`). So on those words the coefficient field
+is **Q0.23, unity `0x7FFFFF`**. The refinement that the register already held, and that this
+measurement now sharpens: the scale is **per instruction word** — the EQ's `b0`, `b2`, `−a1`
+cells and the delay's feedback word behave as Q1.22, every damping word, the chorus wet and the
+EQ's `−a2` as Q0.23. The shipped LLE applied one shift to all words, which is why its EQ railed;
+a single global flip would be wrong for the other half. The register's candidate selector, word
+bit 12, was run as a per-word shift and explains every word **except the EQ's `b1`** (an RBJ
+band needs it at the same scale as `b0`/`a1`, and its word has the bit clear), so the mechanism
+is still open — a doubled store/operand on some words is the live hypothesis. For the HLE this is per cell: the
+chorus's wet gain (a bit-clear word) had been read as `q22 × cs` — right for the program's
+integer cells (LFO increment 114, 240-sample sweep), 2× hot for that gain (0.30 where the chip's
+is 0.15) — corrected in the HLE and on its [impl page]({{ site.baseurl }}/effects-dsp/impl/);
+the delay's feedback sits on a bit-SET word (Q1.22, −0.58) where the HLE reads −0.29, so it is
+queued for the same per-word audit along with the distortion's DRIVE/VOLUME.
 
 **Retractions, kept in the record.** The device's delay-age census had been read as "the
 single delay's line depth matches the descriptor (~350–400 ms)". It does not measure that: the
