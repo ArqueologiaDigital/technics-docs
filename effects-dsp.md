@@ -879,6 +879,7 @@ was pinned on its own by driving one control and watching which cell moved:
 | S.Delay + Vibrato | cell 0x04 | vibrato 0x00 (0.6 Hz) | modulation 0.62 Hz |
 | S.Delay + Phaser  | cell 0x00 | phaser 0x03 (0.4 Hz) | modulation 0.77 Hz (driven) |
 | S.Delay + S.Delay | 0x00 / 0x05 | (two delays) | echo 178 ms |
+| PEQ + S.Delay | 0x06 | emphasis band (freq 0x03, gain 0x01) | +16.7 dB at 3.2 kHz **and** echo 299 ms |
 
 Each is implemented as the shared feedback delay followed by the second block run on the delayed
 signal (reusing that block's own delay lines — only one effect is ever selected). For S.Delay+Chorus
@@ -888,10 +889,15 @@ distinguishes them (the second effect's modulation rate, or the second delay's e
 layout does not separately expose a second-stage feedback or sweep, a fixed value is used; the
 decoded, validated quantity in each case is the modulation rate (or the echo time).
 
-That brings the count to twelve effects reconstructed from the decode and validated in the emulator:
-the seven standalone effects above plus the five S.Delay combinations. Still to come are the effects
-that need a block not yet built — the enhancer and auto-wah (whose parameters do not sit in the
-C-RAM coefficient bank), the rotary speaker (a full dual-rotor Leslie), reverb, and distortion.
+PEQ+S.Delay adds the emphasis band of §1–3: its parameters reuse the **standalone EQ's exact cell
+layout** (frequency in cell 0x03, gain in cell 0x01, the same −2.0 structural constant in 0x05), so
+it is the EQ biquad chained into the delay — and both stages were confirmed at once: a **+16.7 dB
+emphasis at 3.2 kHz** and a **299 ms echo** in the same output.
+
+That brings the count to thirteen effects reconstructed from the decode and validated in the
+emulator: the seven standalone effects above plus the six delay combinations. Still to come are the
+effects that need a block not yet built — the enhancer and auto-wah (whose parameters do not sit in
+the C-RAM coefficient bank), the rotary speaker (a full dual-rotor Leslie), reverb, and distortion.
 
 ---
 
