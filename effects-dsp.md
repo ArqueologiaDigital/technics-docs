@@ -841,6 +841,29 @@ and watching which decoded cell moves.
 
 ---
 
+## 17. Ensemble and vibrato (2026-09-11)
+
+Two more members of the chorus family, both LFO-swept delays, done together because they reuse the
+same machinery:
+
+**Ensemble** (the sixth entry) is a **multi-voice chorus**. Driving its DEPTH knob moved *six*
+small-integer cells at once — three per channel (0x02/0x04/0x06 and 0x09/0x0B/0x0D), the delay times
+of three detuned voices whose spread widens with depth. The emulator reads one delay line per channel
+at those three taps, sweeps each by the LFO at a staggered phase, and sums them for the characteristic
+ensemble shimmer. Its LFO rate lives in cell 0x00 (≈ 0.4 Hz); with the rate driven up the ensemble
+modulates a held note at 0.77 Hz, **101× more than the dry note**.
+
+**Vibrato** (the seventeenth entry) is **pitch modulation** — a single swept tap, mostly wet, so the
+ear hears the pitch wobble rather than a chorus's dry-vs-wet beating. Its rate cell (0x02) sits at
+about **4 Hz** — noticeably faster than the chorus or flanger, as a vibrato should be — and its depth
+is cell 0x05. The check confirms it modulates the note squarely at **4.0 Hz**, **289× more than the
+dry note**, with nothing added at the instrument voice's own ~2.6 Hz tremolo.
+
+Seven effects are now reconstructed from the decode and validated in the emulator: EQ, single delay,
+chorus, flanger, phaser, ensemble, and vibrato.
+
+---
+
 ## Related pages
 
 - [DSP Effect Data Zone (Sub-CPU ROM)]({{ site.baseurl }}/dsp-effect-data-zone/) — the
