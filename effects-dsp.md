@@ -1079,6 +1079,36 @@ is 0.15) — corrected in the HLE and on its [impl page]({{ site.baseurl }}/effe
 the delay's feedback sits on a bit-SET word (Q1.22, −0.58) where the HLE reads −0.29, so it is
 queued for the same per-word audit along with the distortion's DRIVE/VOLUME.
 
+**The audio gate — located at one word, and opened.** The project's oldest open item is that
+external audio reaches the chip but never the effect body, so every program computes on stale
+state. The instrument that settled it is a **frame-pair diff**: capture frame *F* and frame *F+1*
+with an otherwise identical command line and compare every D-RAM cell and every executed row. A
+body fed live audio cannot produce two identical frames, so this replaces a judgement call with a
+two-sided test. On the shipped emulation it reports: the audio *does* arrive (the deposit cells
+move between frames), the shared kernel *is* live — and from one specific instruction onward,
+including the entire effect body, the two frames are **bit-identical**.
+
+The break is a single word of the shared kernel. It carries a `lo12` bit that the emulation reads
+as *"addressing only, no ALU effect"*, so the branch returns before the word's **capture action**
+runs; its target register stays frozen at a boot-time value, the next word consumes that frozen
+value, and what it computes becomes the body's input for every frame thereafter. Corpus-wide only
+95 of 3057 words carry that bit and just **two** carry a capture action — one of them this
+kernel word, on every effect's audio path. Performing the capture (a default-off diagnostic) makes
+the body run on live audio for the first time: body cells moving 0 → 3, executed rows 0 → 15 of
+105, and the input history shifting along like the delay line it is.
+
+**A second decode followed immediately: what the biquad's post-sum word does.** The parametric EQ's
+listing — the project's reference program — still carried one step marked *OPERATION UNKNOWN*,
+sitting between the five-term sum and the makeup multiply. The corpus says what it is: that
+encoding occurs at **35 sites with identical neighbours at every one**, only in the 17 programs
+carrying a biquad, ten times in the EQ = once per band per channel, and its own fields take the
+**accumulator** as operand while writing no memory. With the body finally running, a one-bit
+post-sum scale at that word is the unique small integer that un-saturates the filter: the
+no-op leaves 33 rows pinned at full scale with only the first band alive, and one bit of scaling
+leaves **nothing** at the rail with all five bands propagating. So the word is a **post-sum
+accumulator scale**, not a no-op — invisible until the body was live, because the evidence for
+"no-op" had been a *ratio*, which is blind to a uniform gain. The exact amount is not yet pinned.
+
 **Retractions, kept in the record.** The device's delay-age census had been read as "the
 single delay's line depth matches the descriptor (~350–400 ms)". It does not measure that: the
 census pools every program since boot and its addresses carry a stale speculative modulation
