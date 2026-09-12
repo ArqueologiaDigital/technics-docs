@@ -1006,6 +1006,59 @@ intervention that pinned the first fifteen.
 
 ---
 
+## 22. The HLE as an oracle for the LLE (2026-09-12)
+
+The HLE of §9–§21 exists to make the effects audible *now*; the goal remains a faithful
+low-level emulation of the chip, and the **bytecode, not the HLE, is the source of truth** — the
+HLE can be wrong (the bytecode already corrected it once, adding the single delay's in-loop HIGH
+DAMP filter that the first reconstruction had omitted). This section is the first round of using
+the two against each other in the other direction: the HLE's known signal flow as an **oracle** for
+what the LLE's per-word columns *must* show.
+
+**The instrument.** A default-off diagnostic (`UPD6383_DLYSEED2`) writes a known impulse
+(0x4000 → 0x400000 on the bus, 0.5 FS) into the external delay DRAM at the tap address the chip
+itself has just computed, so the genuine read → per-line latch → publish → ALU pipeline carries a
+value whose fate can be followed word by word in a one-frame trace. `dsp/tools/dlyseed_run.sh`
+captures one program (the trace frame is derived from the harness's own note-on schedule) and
+`dlyseed_confront.py` asks the questions: does the impulse reach the operand latch, is it
+multiplied by the measured multiplier rule, does the accumulator behave, and where does it die.
+
+**What generalized (MEASURED).** The biquad's datapath (§10) is the whole chip's: the multiplier
+`P[N] = coef[N−1] × L[N] >> 6` is bit-exact on the **single delay (16/16)**, the **chorus (5/5)**
+and the **flanger (11/11)**, and the one-slot accumulator classifies every row of all three
+programs once two device forms are named (a "bus-add" of the operand at datum scale, and
+"P ← bus"). The chorus's LFO phase cell advances by exactly **114 per frame** — the HLE's
+increment for its 0.6 Hz rate, with the increment itself visible on the bus at the phase word — and
+the HLE's cell→role map is confirmed **at word level**: cell `0x00` = 114 (rate) at the phase
+word, `0x02`/`0x04` = +240 and `0x0D`/`0x0F` = −240 (sweep depth in samples) at the four sweep
+words, `0x09`/`0x0A` = the wet gain after the waveform lookup, `0x08` = 24 (the lookup-index
+scale); the flanger's rate cell `0x05` = 38 likewise. Two HLE refinements surfaced from the
+bytecode while doing it: the chorus's right channel sweeps in **antiphase** (its depth coefficients
+are negated), and the flanger runs **two** phase accumulators — both are candidates, not yet
+validated changes.
+
+**Where the LLE breaks, now localized to single words.** In both modulation programs the seeded
+tap datum reaches the bus at the delay-READ word and **dies there**: the word after every such READ
+carries an operand code (`SRC 0x13`) the device decodes as the table-lookup source, which reads
+zero. An arm that stored the datum under the pointer instead was **run and refuted** — the datum
+then persisted, but into cells the programs use as state (the chorus folded it into its tap
+offset). The flanger showed the real carrier: its delay-WRITE word captures the datum into
+**tempA** (the single delay's proven route), and a *speculative* blanket rule in the device — five
+action codes all overwrite tempA — let the tap-offset word clobber it four words before `mac ta`
+reads it. Excusing that one code (`UPD6383_NOTA0C`) was **predicted to and did** deliver the tap
+to `mac ta` on both channels. The tap now reaches its consumer's operand latch; folding it into the
+feedback sum and the wet (the class-2 mixing words, the same open family the delay left) is the
+next decode.
+
+**Retractions, kept in the record.** The device's delay-age census had been read as "the
+single delay's line depth matches the descriptor (~350–400 ms)". It does not measure that: the
+census pools every program since boot and its addresses carry a stale speculative modulation
+offset, so its maximum moved between runs with identical hit counts. The LLE's realized line depth
+is **unmeasured**. Details, recipes and graded evidence: `dsp/analysis/N-DLYSEED2-SINGLE-DELAY-
+CONFRONT-2026-09-12.md` and `N-DLYSEED2-CHORUS-CONFRONT-2026-09-12.md`.
+
+---
+
 ## Related pages
 
 - [DSP Effect Data Zone (Sub-CPU ROM)]({{ site.baseurl }}/dsp-effect-data-zone/) — the
