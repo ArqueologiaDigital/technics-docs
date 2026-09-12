@@ -1109,6 +1109,19 @@ leaves **nothing** at the rail with all five bands propagating. So the word is a
 accumulator scale**, not a no-op — invisible until the body was live, because the evidence for
 "no-op" had been a *ratio*, which is blind to a uniform gain. The exact amount is not yet pinned.
 
+**An HLE refinement the bytecode points at, recorded but not yet applied.** With the effect body
+running, the chorus's tap-sweep word can be read directly, and it does not do what the HLE does.
+Its operand is the **LFO phase itself** — the same cell the phase accumulator steps by 114 every
+frame — and its product is `depth × phase`, which checks to the last bit (`240 × 2 800 600 >> 7 =
+5 251 125`) and sweeps `0…240` samples as the phase ramps through its modulus. That is a **ramp**,
+where the HLE reconstruction sweeps its two delay taps with the sine and cosine of the phase. The
+program does contain the waveform lookups — two of them, and the 24-entry sine they read is
+present and verified — but their result is consumed by a *different* word four slots later, not by
+the sweep. So the open question is which stage the table shapes, and until that is answered the HLE
+keeps its sine sweep: changing it on half the picture would trade a validated behaviour for an
+unvalidated one. Recorded here because the bytecode is the source of truth and this is what it
+says; the HLE page keeps the reconstruction exactly as it stands.
+
 **Retractions, kept in the record.** The device's delay-age census had been read as "the
 single delay's line depth matches the descriptor (~350–400 ms)". It does not measure that: the
 census pools every program since boot and its addresses carry a stale speculative modulation
