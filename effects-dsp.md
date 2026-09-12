@@ -1033,7 +1033,8 @@ the HLE's cell→role map is confirmed **at word level**: cell `0x00` = 114 (rat
 word, `0x02`/`0x04` = +240 and `0x0D`/`0x0F` = −240 (sweep depth in samples) at the four sweep
 words, `0x09`/`0x0A` = the wet gain after the waveform lookup, `0x08` = 24 (the lookup-index
 scale); the flanger's rate cell `0x05` = 38 likewise. Two HLE refinements surfaced from the
-bytecode while doing it: the chorus's right channel sweeps in **antiphase** (its depth coefficients
+bytecode while doing it (⚠ **the first is corrected below**): the chorus's second sweep pair runs
+with **negated depth** (its depth coefficients
 are negated), and the flanger runs **two** phase accumulators — both are candidates, not yet
 validated changes.
 
@@ -1183,6 +1184,17 @@ The lesson is recorded against the result it cost: a test must be able to fail i
 actually fails. A four-part test was built precisely because single measures had been misleading
 this work, and then the most important of its parts was a quantity that stays constant under the
 very failure it existed to detect.
+
+**A correction to one of those refinements, from the trace rather than the coefficients.** The
+"right channel sweeps in antiphase" reading was taken from the sign of the depth coefficients: two
+of the four sweep instructions carry +240 samples and two carry −240. Checking which part of the
+frame each one runs in shows the attribution was wrong. **All four are in the same processing
+unit's body.** Whatever the sign distinguishes, it is not the two units, so it cannot be the two
+output channels — it is a difference between the two voices of one channel, or between a read tap
+and a write tap, and the trace as it stands does not separate those. The measured fact keeps its
+value; the label it was given does not, and the reconstruction is unchanged either way. This is the
+third time on this device that a plausible "left and right" reading has not survived being checked
+against which unit the instruction actually belongs to.
 
 **Retractions, kept in the record.** The device's delay-age census had been read as "the
 single delay's line depth matches the descriptor (~350–400 ms)". It does not measure that: the
