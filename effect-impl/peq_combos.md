@@ -18,6 +18,11 @@ microcode, and reading the two together is how the bytecode is understood (and, 
 driven toward a faithful low-level emulation). See also the
 [signal-flow flowchart]({{ site.baseurl }}/effects-dsp/flowcharts/prog71_peq_chorus/).
 
+> **The bytecode below is the source of truth; the HLE reconstruction is not.** The HLE is our
+> best current interpretation and may contain mistakes — where the two disagree, the bytecode
+> wins, and a better HLE should be updated here. This page is the **permanent archive** of the
+> reference HLE: it is kept here even after the code is eventually removed from the MAME sources.
+
 ## DSP bytecode (reverse-engineered microprogram)
 
 The disassembled image the chip executes for this effect. Source (regenerable):

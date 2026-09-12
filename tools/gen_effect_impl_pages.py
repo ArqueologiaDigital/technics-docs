@@ -119,6 +119,17 @@ def extract_refresh(lines, decl_idx, flag, hi):
     return "\n".join(lines[decl_idx:block_close(lines, if_idx) + 1])
 
 
+def read_existing_cpp(path):
+    """Recover the (refresh, insert) ```cpp blocks from an already-committed page, so a rebuild
+    that can no longer reach the live MAME source preserves the permanently-archived reference."""
+    if not path.exists():
+        return None, None
+    blocks = re.findall(r"```cpp\n(.*?)\n```", path.read_text(), re.DOTALL)
+    r = blocks[0].rstrip("\n") if len(blocks) >= 1 else None
+    i = blocks[1].rstrip("\n") if len(blocks) >= 2 else None
+    return r, i
+
+
 def find_line(lines, pattern, lo=0, hi=None):
     rx = re.compile(pattern)
     hi = len(lines) if hi is None else hi
@@ -137,12 +148,26 @@ def main():
     args = ap.parse_args()
 
     mame = Path(args.mame); disasm = Path(args.disasm); outdir = Path(args.out)
-    tg = (mame / TONEGEN).read_text().split("\n")
-    split = find_line(tg, re.escape(SPLIT_MARKER))
-    if split < 0:
-        raise SystemExit(f"split marker {SPLIT_MARKER!r} not found in {TONEGEN}")
-    mame_slug = git_slug(mame); disasm_slug = git_slug(disasm)
+    tg_path = mame / TONEGEN
+    if tg_path.exists():
+        tg = tg_path.read_text().split("\n")
+        split = find_line(tg, re.escape(SPLIT_MARKER))
+        if split < 0:
+            raise SystemExit(f"split marker {SPLIT_MARKER!r} not found in {TONEGEN}")
+        try:
+            mame_slug = git_slug(mame)
+        except Exception:
+            mame_slug = "ArqueologiaDigital/MAME_Technics_Research"
+    else:
+        # ★ PERMANENCE: the MAME source has been removed. Do NOT fail and do NOT clobber; every
+        # HLE block will fall back to the committed page archive (read_existing_cpp).
+        print(f"note: {tg_path} absent -- preserving the archived HLE reference in the committed pages")
+        tg = []; split = 0; mame_slug = "ArqueologiaDigital/MAME_Technics_Research"
     mame_blob = f"https://github.com/{mame_slug}/blob/main/{TONEGEN}"
+    try:
+        disasm_slug = git_slug(disasm)
+    except Exception:
+        disasm_slug = "ArqueologiaDigital/kn5000-roms-disasm"
 
     outdir.mkdir(parents=True, exist_ok=True)
     written = set()
@@ -155,6 +180,16 @@ def main():
         # insert block: the if (<iflag>) inside the render loop (after the split marker)
         ii = find_line(tg, rf"if \({re.escape(iflag)}[\) ]", split)
         insert = extract_block(tg, ii) if ii >= 0 else "(insert block not found)"
+
+        # ★ PERMANENCE: the HLE reference must survive removal of the MAME source. If a block
+        # can no longer be extracted (source gone/renamed), PRESERVE whatever the committed page
+        # already holds rather than clobbering it with a placeholder. The committed .md is the
+        # permanent archive; MAME is only the import origin.
+        prev_refresh, prev_insert = read_existing_cpp(outdir / f"{name}.md")
+        if (not ri >= 0 or "not found" in refresh) and prev_refresh:
+            refresh = prev_refresh
+        if (not ii >= 0 or "not found" in insert) and prev_insert:
+            insert = prev_insert
 
         dsm_path = disasm / "dsp" / "disasm" / f"{prog}.dsm"
         dsm = dsm_path.read_text().rstrip() if dsm_path.exists() else f"({prog}.dsm not found)"
@@ -183,6 +218,11 @@ chip's microcode — it is a textbook DSP block built from the *decoded meaning*
 microcode, and reading the two together is how the bytecode is understood (and, in time,
 driven toward a faithful low-level emulation). See also the
 [signal-flow flowchart]({fc_link}).
+
+> **The bytecode below is the source of truth; the HLE reconstruction is not.** The HLE is our
+> best current interpretation and may contain mistakes — where the two disagree, the bytecode
+> wins, and a better HLE should be updated here. This page is the **permanent archive** of the
+> reference HLE: it is kept here even after the code is eventually removed from the MAME sources.
 
 ## DSP bytecode (reverse-engineered microprogram)
 
