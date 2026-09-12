@@ -1122,6 +1122,35 @@ keeps its sine sweep: changing it on half the picture would trade a validated be
 unvalidated one. Recorded here because the bytecode is the source of truth and this is what it
 says; the HLE page keeps the reconstruction exactly as it stands.
 
+**Why a fix that works on one program is not a decode, and what a proper test looks like.** The
+work above left one configuration in which the chorus's LFO phase came out right *and* its body
+stayed live, and it was tempting to call that the answer. Run on the **parametric EQ** — the
+reference program, the one decoded to the bit — the same configuration starves the filter: the
+band state stops moving almost entirely. So the two programs want opposite things at the same
+setting, which is exactly what a correct decode must not do.
+
+That turned into a standing instrument (`dsp/tools/pair_gate.sh`): a candidate rule is run against
+**both** programs at one setting, and is admissible only if the chorus's phase increment is right,
+the chorus's body is live, **and** the EQ's body is live. Four structurally unrelated
+interventions have now been through it — flushing the product register at the block call, driving
+it per word, clearing the coefficient-cursor seed, and the unmodified baseline — and they lie on a
+single trade curve: every rule that makes the phase right does so by removing product from the EQ,
+and the more it removes the more completely the EQ dies. A trade is not a decode. It also shows
+that the phase landmark **on its own is nearly vacuous**: the right value is what the machine
+reports whenever that register happens to be empty, including when it has been emptied by
+something that destroys everything else.
+
+Reading the EQ's body entry word by word says why, and it is the most useful single result of the
+round. Two words after the pickup arrives, the live input is sitting in the accumulator; two words
+later still, a word that performs **no multiply** loads the accumulator from the product register
+anyway — and so overwrites the input with whatever the previous block happened to leave. Without
+any intervention that leftover is the *kernel's* product, which is itself derived from audio, so
+the EQ's bands keep moving and the filter looks alive. **It was never being fed its own input; it
+was being fed the kernel's residue.** Clear the residue by any means and the bands get a clean
+zero instead. The chip's own rule is therefore expected to be of the form the device already names
+in its source — *a load that brought no fresh product is an erasure, not an operation* — and that
+is what the next round tests, on both programs at once.
+
 **Retractions, kept in the record.** The device's delay-age census had been read as "the
 single delay's line depth matches the descriptor (~350–400 ms)". It does not measure that: the
 census pools every program since boot and its addresses carry a stale speculative modulation
