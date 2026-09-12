@@ -897,7 +897,35 @@ emphasis at 3.2 kHz** and a **299 ms echo** in the same output.
 That brings the count to thirteen effects reconstructed from the decode and validated in the
 emulator: the seven standalone effects above plus the six delay combinations. Still to come are the
 effects that need a block not yet built — the enhancer and auto-wah (whose parameters do not sit in
-the C-RAM coefficient bank), the rotary speaker (a full dual-rotor Leslie), reverb, and distortion.
+the C-RAM coefficient bank) and the rotary speaker (a full dual-rotor Leslie).
+
+---
+
+## 19. The reverb — audible from the decoded coefficients (2026-09-12)
+
+An earlier version of this page described the reverb as "walled," alongside distortion. That was an
+overstatement and has been corrected: **the reverb needs no undumped data.** Its entire program (the
+one reverb image, shared by all twelve reverb presets) is decoded to the bit, with every C-RAM
+coefficient dumped and role-assigned — input scaling (0x90–0x92), three damping filters, the
+decay / REVERB-TIME coefficient (0x97 = 0.4), the two diffuser ladders of five and four stages
+(0x98–0x9C, 0xA1–0xA4), and the stereo output-tail mix (0xA9–0xB0). The external delay pipeline is
+decoded too, and the reverb's linear feedback **measurably decays in the emulator** when its state
+cells are impulse-seeded. Contrast this with the genuinely missing data — distortion's clipping
+curve sits in an undumped ROM table, and the acoustic-modeling chip's wave ROMs are undumped; the
+reverb is not in that category.
+
+What remains is a **decode refinement, not missing data**: the exact micro-topology is narrowed to
+a comb family (a pipe-comb or series-comb cascade; first-order all-pass, the parallel comb bank,
+Moorer and the lattice are all ruled out), and the mapping from the measured decay ratios to the
+ladder gains still needs the delay-line lengths — the same kind of intervention-driven decode that
+pinned the other effects.
+
+To prove the point, the emulator now carries an audible reverb (default off) reconstructed from
+those decoded coefficients — a comb-plus-all-pass network whose diffusion, damping and decay-time
+control come from the decoded cells. With it on, a plucked note leaves a decaying reverberant tail
+**six times** louder than the dry note's own release, absent with it off. It is labelled a preview:
+the diffusion and decay-control are decoded, but the exact topology and absolute reverb time await
+the decode above.
 
 ---
 
