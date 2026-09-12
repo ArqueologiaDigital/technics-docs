@@ -1050,6 +1050,25 @@ to `mac ta` on both channels. The tap now reaches its consumer's operand latch; 
 feedback sum and the wet (the class-2 mixing words, the same open family the delay left) is the
 next decode.
 
+**The coefficient scale, pinned by two programs (MEASURED).** The LLE had shipped with a
+multiply-to-datum shift of 22 (unity = `0x400000`), chosen by fitting the device's own columns —
+a fit that is scale-free and so never decided the absolute scale. Reading the single delay's
+recurrence off its seeded trace at the fixed point (`dsp/tools/dlyseed_recurrence.py`) gives the
+damping cascade's DC gain in closed form: **1.45× (amplifying) at shift 22, 0.18× (damping) at
+shift 23**, and the feedback cell reads −0.58 vs **−0.29** — the "0.3 feedback" the program's own
+header carries. The parametric EQ decides it independently: its `−a2` cell is `0x81227B`, which is
+a stable `a2 = 0.991` at Q23 and an impossible `1.98` at Q22 — and the LLE's biquad state block
+**rails at shift 22 (19 of 48 cell sightings at full scale) and is finite at shift 23 (0 of 48)**,
+with the multiplier still bit-exact (16/16 at `>> 7`). So the chip's coefficient field is **Q23,
+unity `0x7FFFFF`** — the variant the device already carried as `UPD6383_PSHIFT=2`. The
+disassembly's static annotations had read the cells that way all along; the LLE default and one
+HLE convention were the outliers. The HLE audit that followed is per block: the delay's `fscale`
+convention already yields Q23 (its feedback is −0.29, correct); the chorus's wet gain used
+`q22 × cs`, a convention right for the program's integer cells (LFO increment 114, 240-sample
+sweep) but 2× hot for a gain (0.30 where the chip's is 0.15) — corrected in the HLE and on its
+[impl page]({{ site.baseurl }}/effects-dsp/impl/); the remaining `q22 × cs` gains (distortion
+DRIVE/VOLUME) are queued for the same audit.
+
 **Retractions, kept in the record.** The device's delay-age census had been read as "the
 single delay's line depth matches the descriptor (~350–400 ms)". It does not measure that: the
 census pools every program since boot and its addresses carry a stale speculative modulation
