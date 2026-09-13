@@ -47,7 +47,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w2    02122FD407   mac.st  acc,(p)-3 ; mem[p]<-acc, acc=0
   w3    002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w4    0022200000   mac.b   ?,(p)+0
-  w5    0880130000   ?word   0x0880130000   ; 880.1.30.000  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL; addr8 0x30 also marks the FIRST DRAM access of a body, 37 of 38 distinct images (R3 sect. 6.2). external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
+  w5    0880130000   dly.r  dsc[k],p+48
   w6    0000200413   ld.ta   acc,(p)+0
   w7    00002401CD   ld      (p),(p)+64
   w8    01122031CE   mac     (p),(p)+3 ; mem[p]<-acc, acc=0
@@ -111,7 +111,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0B] = op0x24[2] (role coeff, INFERRED)
   w51   0204200000   ?word   0x0204200000   ; 204.2.00.000  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
-  w52   0880130407   ?word   0x0880130407   ; 880.1.30.407  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL; addr8 0x30 also marks the FIRST DRAM access of a body, 37 of 38 distinct images (R3 sect. 6.2). external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
+  w52   0880130407   dly.r  dsc[k],p+48
   w53   00002F5000   nop
   w54   000020A1CD   ld      (p),(p)+10
   w55   00002011CE   ld      (p),(p)+1
