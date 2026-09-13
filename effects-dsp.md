@@ -1205,6 +1205,35 @@ location nothing reads — the open problem described above. The enhancer's arit
 a factor of four, and **that is not understood**. It has no oscillator and nothing saturates. It is
 the standing argument against the change and the first thing to examine.
 
+**And then the gap closed.** With the residue gone, the remaining fault was a single cell: the
+entry stored the input where nothing reads it, and the first filter band read a cell nothing writes.
+Comparing the programs that work against the two that did not narrowed the cause to one field. A
+program whose body reads live data fills its state cells with a different store instruction
+entirely; the equaliser's only store at its entry is the one whose target was in question, and the
+enhancer has none at all. And the equaliser's entry store and the chorus's oscillator store are the
+same instruction but for the sign of their pointer step — one moves forward sixty-four cells, the
+other back twelve. That is a measured constraint rather than a guess: **no single store target can
+serve both**, which is why redirecting all of them fixes one program and breaks every oscillator.
+
+Making the target depend on that sign — forward steps store after the move, backward steps before —
+passes everything. The chorus keeps its free-running oscillator, and the equaliser's five bands each
+receive exactly one copy of their own input. Across the same ten programs there are no regressions
+at all: every oscillator still runs at its own rate, one program even loses a saturated cell, and
+the equaliser goes from two moving cells to thirty, from nine multiplications to ninety. Seven of
+the ten are untouched, which is what should happen — their entry stores step backward or do not
+store.
+
+So the input path through an effect body is now closed on the reference program: the kernel
+delivers, the entry assembles one clean copy, the store lands where the first band reads, and the
+bands filter their own signal. Both changes are on by default with switches to restore the old
+behaviour, each promoted only after ten programs agreed.
+
+Three things remain open and are worth naming. The enhancer is unchanged, because it has no store
+of that kind at its entry at all, so how its body is meant to be fed is still unknown. The
+sign rule is a hypothesis that survived rather than one that was derived — the sign may be standing
+in for something the trace does not record. And the output stage, which turns a finished body result
+into sound, is a separate problem that none of this touches.
+
 **A correction to one of those refinements, from the trace rather than the coefficients.** The
 "right channel sweeps in antiphase" reading was taken from the sign of the depth coefficients: two
 of the four sweep instructions carry +240 samples and two carry −240. Checking which part of the
