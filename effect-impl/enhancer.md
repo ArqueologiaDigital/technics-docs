@@ -45,12 +45,12 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w0    088013000B   ?word   0x088013000B   ; 880.1.30.00B  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL; addr8 0x30 also marks the FIRST DRAM access of a body, 37 of 38 distinct images (R3 sect. 6.2). external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
   w1    000020B1CD   ld      (p),(p)+11
   w2    000020040E   ld      acc,(p)+0
-  w3    0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w3    0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w4    002A240000   ?word   0x002A240000   ; 02A.2.40.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w5    0000A001D5   ld      (p),c+,(p)+0
         ; C-RAM[0x00] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x00] = damping filter tap 0 (role damping, PROVEN)
-  w6    0292A01412   ?word   0x0292A01412   ; 292.A.01.412  hi12{ST f98=2 f31=1 ?7 res=080} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x10); the source id / accumulator-combine f31=1 / ACT 0x12 may be OPEN]
+  w6    0292A01412   mac     acc,c+,(p)+1 ; store SUPPRESSED (bit7)
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x01] = damping filter tap 1 (role damping, PROVEN)
   w7    0282ABF1D5   mac     (p),c+,(p)-65
@@ -66,7 +66,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w15   010223F1CD   mac     (p),(p)+63
   w16   0212ABE412   mac     acc,c+,(p)-66 ; mem[p]<-acc, acc=0
         ; C-RAM[0x03] (coeff, base 0x00 MEASURED)
-  w17   0104200000   post.b  ?,(p)+0
+  w17   0104200000   post.b  (p)0,(p)+0
   w18   0026200000   ?word   0x0026200000   ; 026.2.00.000  hi12{f31=3 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w19   0880130407   dly.r  dsc[k],p+48
   w20   00002FF000   nop
@@ -74,13 +74,13 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w22   0104A001D5   post    (p),c+,(p)+0
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x04] = damping filter tap 0 (role damping, PROVEN)
-  w23   0292A01412   ?word   0x0292A01412   ; 292.A.01.412  hi12{ST f98=2 f31=1 ?7 res=080} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x10); the source id / accumulator-combine f31=1 / ACT 0x12 may be OPEN]
+  w23   0292A01412   mac     acc,c+,(p)+1 ; store SUPPRESSED (bit7)
         ; C-RAM[0x05] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x05] = damping filter tap 1 (role damping, PROVEN)
   w24   0282ABB1D5   mac     (p),c+,(p)-69
         ; C-RAM[0x06] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x06] = damping filter tap 2 (role damping, PROVEN)
-  w25   0282245000   mac.b   ?,(p)+69
+  w25   0282245000   mac.b   (p)0,(p)+69
   w26   00122BD447   ?word   0x00122BD447   ; 012.2.BD.447  hi12{ST f31=1}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w27   00002441C8   ?word   0x00002441C8   ; 000.2.44.1C8  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x08 = table-port multiply]
   w28   00002BE1D5   ld      (p),(p)-66
@@ -90,7 +90,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w32   01022431CD   mac     (p),(p)+67
   w33   0212ABA412   mac     acc,c+,(p)-70 ; mem[p]<-acc, acc=0
         ; C-RAM[0x07] (coeff, base 0x00 MEASURED)
-  w34   0104200000   post.b  ?,(p)+0
+  w34   0104200000   post.b  (p)0,(p)+0
   w35   0026200000   ?word   0x0026200000   ; 026.2.00.000  hi12{f31=3 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w36   0880130000   dly.r  dsc[k],p+48
   w37   0000A00415   ld      acc,c+,(p)+0
@@ -101,9 +101,9 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; coeff C-RAM[0x09] = op0x62[1] (role output-level, INFERRED)
   w39   0202AFB1D5   mac     (p),c+,(p)-5
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
-  w40   0202200000   mac.b   ?,(p)+0
+  w40   0202200000   mac.b   (p)0,(p)+0
   w41   09001601D5   dly.w  dsc[k],p+96
-  w42   0192A4D000   ?word   0x0192A4D000   ; 192.A.4D.000  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w42   0192A4D000   mac.b   (p)0,c+,(p)+77 ; store SUPPRESSED (bit7)
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0B] = op0x64[0] (role coeff, INFERRED)
   w43   00822001C0   mac.b   (p),(p)+0
@@ -121,7 +121,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w53   0000A001D5   ld      (p),c+,(p)+0
         ; C-RAM[0x0D] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0D] = damping filter tap 0 (role damping, PROVEN)
-  w54   0292A01412   ?word   0x0292A01412   ; 292.A.01.412  hi12{ST f98=2 f31=1 ?7 res=080} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x10); the source id / accumulator-combine f31=1 / ACT 0x12 may be OPEN]
+  w54   0292A01412   mac     acc,c+,(p)+1 ; store SUPPRESSED (bit7)
         ; C-RAM[0x0E] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0E] = damping filter tap 1 (role damping, PROVEN)
   w55   0282AB51D5   mac     (p),c+,(p)-75
@@ -137,20 +137,20 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w63   01022491CD   mac     (p),(p)+73
   w64   0212AB4412   mac     acc,c+,(p)-76 ; mem[p]<-acc, acc=0
         ; C-RAM[0x10] (coeff, base 0x00 MEASURED)
-  w65   0104200000   post.b  ?,(p)+0
+  w65   0104200000   post.b  (p)0,(p)+0
   w66   0026200000   ?word   0x0026200000   ; 026.2.00.000  hi12{f31=3 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w67   00002FF407   ld.st   acc,(p)-1
   w68   001224E1C0   mac.b   (p),(p)+78 ; mem[p]<-acc, acc=0
   w69   0104A001D5   post    (p),c+,(p)+0
         ; C-RAM[0x11] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x11] = damping filter tap 0 (role damping, PROVEN)
-  w70   0292A01412   ?word   0x0292A01412   ; 292.A.01.412  hi12{ST f98=2 f31=1 ?7 res=080} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x10); the source id / accumulator-combine f31=1 / ACT 0x12 may be OPEN]
+  w70   0292A01412   mac     acc,c+,(p)+1 ; store SUPPRESSED (bit7)
         ; C-RAM[0x12] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x12] = damping filter tap 1 (role damping, PROVEN)
   w71   0282AB11D5   mac     (p),c+,(p)-79
         ; C-RAM[0x13] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x13] = damping filter tap 2 (role damping, PROVEN)
-  w72   028224F000   mac.b   ?,(p)+79
+  w72   028224F000   mac.b   (p)0,(p)+79
   w73   00122AB447   ?word   0x00122AB447   ; 012.2.AB.447  hi12{ST f31=1}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w74   00002561C8   ?word   0x00002561C8   ; 000.2.56.1C8  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x08 = table-port multiply]
   w75   00002B41D5   ld      (p),(p)-76
@@ -160,7 +160,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w79   010224D1CD   mac     (p),(p)+77
   w80   0212AB0412   mac     acc,c+,(p)-80 ; mem[p]<-acc, acc=0
         ; C-RAM[0x14] (coeff, base 0x00 MEASURED)
-  w81   0104200000   post.b  ?,(p)+0
+  w81   0104200000   post.b  (p)0,(p)+0
   w82   0026200000   ?word   0x0026200000   ; 026.2.00.000  hi12{f31=3 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w83   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x15] (coeff, base 0x00 MEASURED)
@@ -170,9 +170,9 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; coeff C-RAM[0x16] = op0x62[3] (role output-level, INFERRED)
   w85   0202AFC1D5   mac     (p),c+,(p)-4
         ; C-RAM[0x17] (coeff, base 0x00 MEASURED)
-  w86   0202200000   mac.b   ?,(p)+0
+  w86   0202200000   mac.b   (p)0,(p)+0
   w87   09001601D5   dly.w  dsc[k],p+96
-  w88   0192A56000   ?word   0x0192A56000   ; 192.A.56.000  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w88   0192A56000   mac.b   (p)0,c+,(p)+86 ; store SUPPRESSED (bit7)
         ; C-RAM[0x18] (coeff, base 0x00 MEASURED)
   w89   00822001C0   mac.b   (p),(p)+0
   w90   0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]

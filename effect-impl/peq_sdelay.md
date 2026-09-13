@@ -45,7 +45,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w0    088013000B   ?word   0x088013000B   ; 880.1.30.00B  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL; addr8 0x30 also marks the FIRST DRAM access of a body, 37 of 38 distinct images (R3 sect. 6.2). external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
   w1    000024B1CD   ld      (p),(p)+75
   w2    000020040E   ld      acc,(p)+0
-  w3    0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w3    0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w4    0022A001D3   mac.ta  (p),c+,(p)+0
         ; C-RAM[0x00] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x00] = biquad b1 (role EQ, PROVEN)
@@ -91,7 +91,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w26   021220A1CD   mac     (p),(p)+10 ; mem[p]<-acc, acc=0
   w27   00002FF1CE   ld      (p),(p)-1
   w28   0212246407   mac.st  acc,(p)+70 ; mem[p]<-acc, acc=0
-  w29   0022200000   mac.b   ?,(p)+0
+  w29   0022200000   mac.b   (p)0,(p)+0
   w30   0000A001D3   ld.ta   (p),c+,(p)+0
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0A] = biquad b1 (role EQ, PROVEN)

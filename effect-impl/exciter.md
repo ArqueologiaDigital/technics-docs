@@ -45,23 +45,23 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w0    08801308BC   ?word   0x08801308BC   ; 880.1.30.8BC  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL; addr8 0x30 also marks the FIRST DRAM access of a body, 37 of 38 distinct images (R3 sect. 6.2). external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
   w1    000020B1CD   ld      (p),(p)+11
   w2    000020040E   ld      acc,(p)+0
-  w3    0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w3    0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w4    002A201407   ?word   0x002A201407   ; 02A.2.01.407  hi12{f31=5 ?5 res=020}  [SPECULATIVE: class-2 post-increment MAC (source 0x10); the accumulator-combine f31=5 and/or ACT 0x07 are OPEN]
   w5    000023F407   ld.st   acc,(p)+63
   w6    0026200000   ?word   0x0026200000   ; 026.2.00.000  hi12{f31=3 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w7    0000200415   ld      acc,(p)+0
-  w8    0212A00000   mac.b   ?,c+,(p)+0 ; mem[p]<-acc, acc=0
+  w8    0212A00000   mac.b   (p)0,c+,(p)+0 ; mem[p]<-acc, acc=0
         ; C-RAM[0x00] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x00] = op0x61[0] (role coeff, INFERRED)
   w9    00922C1700   ?word   0x00922C1700   ; 092.2.C1.700  hi12{ST f31=1 ?7 res=080}  [SPECULATIVE (prospective, not measured): SRC 0x1C = control/mod source into MAC (100% MAC-consumed; LFO in mod fx, envelope/AGC in dynamics) -- NOT LFO-only: present in 19 non-LFO programs (dsp_datapath_fingerprint)]
   w10   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
-  w11   018223F000   mac.b   ?,(p)+63
+  w11   018223F000   mac.b   (p)0,(p)+63
   w12   0040000C63   ?word   0x0040000C63   ; 040.0.00.C63  hi12{?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w13   00006284CD   ?word   0x00006284CD   ; 000.6.28.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w14   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w15   01042001CE   post    (p),(p)+0
-  w16   0102200000   mac.b   ?,(p)+0
+  w16   0102200000   mac.b   (p)0,(p)+0
   w17   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x02] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x02] = op0x62[0] (role output-level, INFERRED)
@@ -86,7 +86,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x08] = biquad makeup (role EQ, PROVEN)
   w26   00002C0647   ld.st   ta,(p)-64
-  w27   0022200000   mac.b   ?,(p)+0
+  w27   0022200000   mac.b   (p)0,(p)+0
   w28   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x09] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x09] = op0x66[0] (role mix/tap, INFERRED)
@@ -94,29 +94,29 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
   w30   02022091CD   mac     (p),(p)+9
   w31   000020340E   ld      acc,(p)+3
-  w32   02122FD000   mac.b   ?,(p)-3 ; mem[p]<-acc, acc=0
+  w32   02122FD000   mac.b   (p)0,(p)-3 ; mem[p]<-acc, acc=0
   w33   0028200000   ?word   0x0028200000   ; 028.2.00.000  hi12{f31=4 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w34   0880130407   dly.r  dsc[k],p+48
   w35   00002F7000   nop
   w36   000020A1CD   ld      (p),(p)+10
   w37   00002021CE   ld      (p),(p)+2
-  w38   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w38   0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w39   002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w40   0000243407   ld.st   acc,(p)+67
   w41   0026200000   ?word   0x0026200000   ; 026.2.00.000  hi12{f31=3 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w42   0000200415   ld      acc,(p)+0
-  w43   0212A00000   mac.b   ?,c+,(p)+0 ; mem[p]<-acc, acc=0
+  w43   0212A00000   mac.b   (p)0,c+,(p)+0 ; mem[p]<-acc, acc=0
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0B] = op0x61[1] (role coeff, INFERRED)
   w44   00922BD700   ?word   0x00922BD700   ; 092.2.BD.700  hi12{ST f31=1 ?7 res=080}  [SPECULATIVE (prospective, not measured): SRC 0x1C = control/mod source into MAC (100% MAC-consumed; LFO in mod fx, envelope/AGC in dynamics) -- NOT LFO-only: present in 19 non-LFO programs (dsp_datapath_fingerprint)]
   w45   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x0C] (coeff, base 0x00 MEASURED)
-  w46   0182243000   mac.b   ?,(p)+67
+  w46   0182243000   mac.b   (p)0,(p)+67
   w47   0040000C63   ?word   0x0040000C63   ; 040.0.00.C63  hi12{?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w48   00006284CD   ?word   0x00006284CD   ; 000.6.28.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w49   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w50   01042001CE   post    (p),(p)+0
-  w51   0102200000   mac.b   ?,(p)+0
+  w51   0102200000   mac.b   (p)0,(p)+0
   w52   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x0D] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0D] = op0x62[1] (role output-level, INFERRED)
@@ -141,7 +141,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x13] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x13] = biquad makeup (role EQ, PROVEN)
   w61   00002BC647   ld.st   ta,(p)-68
-  w62   0022200000   mac.b   ?,(p)+0
+  w62   0022200000   mac.b   (p)0,(p)+0
   w63   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x14] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x14] = op0x66[1] (role mix/tap, INFERRED)
@@ -149,7 +149,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x15] (coeff, base 0x00 MEASURED)
   w65   02022FB1CD   mac     (p),(p)-5
   w66   000021140E   ld      acc,(p)+17
-  w67   02122EF000   mac.b   ?,(p)-17 ; mem[p]<-acc, acc=0
+  w67   02122EF000   mac.b   (p)0,(p)-17 ; mem[p]<-acc, acc=0
   w68   042810E000   ?word   0x042810E000   ; 428.1.0E.000  hi12{END f31=4 ?5 res=020}  [END OF BLOCK, unit 0 -- CALL/RETURN -- and still performs the rest of the word]
 ```
 

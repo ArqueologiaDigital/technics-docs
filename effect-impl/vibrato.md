@@ -46,9 +46,9 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w1    088013000B   ?word   0x088013000B   ; 880.1.30.00B  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL; addr8 0x30 also marks the FIRST DRAM access of a body, 37 of 38 distinct images (R3 sect. 6.2). external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
   w2    000020B1CD   ld      (p),(p)+11
   w3    000020040E   ld      acc,(p)+0
-  w4    0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w4    0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w5    09001601D5   dly.w  dsc[k],p+96
-  w6    0192A40000   ?word   0x0192A40000   ; 192.A.40.000  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w6    0192A40000   mac.b   (p)0,c+,(p)+64 ; store SUPPRESSED (bit7)
         ; C-RAM[0x00] (coeff, base 0x00 MEASURED)
   w7    00822001C0   mac.b   (p),(p)+0
   w8    0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]
@@ -57,7 +57,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w11   0102ABD4C8   ?word   0x0102ABD4C8   ; 102.A.BD.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
   w12   0000204407   ld.st   acc,(p)+4
-  w13   0092A00200   ?word   0x0092A00200   ; 092.A.00.200  hi12{ST f31=1 ?7 res=080} cur+  [LFO: phase += increment (increment = f/44100 in Q0.23)]
+  w13   0092A00200   mac.b   c,c+,(p)+0 ; store SUPPRESSED (bit7)
         ; C-RAM[0x02] (coeff, base 0x00 MEASURED)
   w14   00822001C0   mac.b   (p),(p)+0
   w15   0094A00200   wrap    acc,c+          ; acc <- datum(acc) & coef  (LFO modulus)
@@ -66,18 +66,18 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w17   0092200700   ?word   0x0092200700   ; 092.2.00.700  hi12{ST f31=1 ?7 res=080}  [SPECULATIVE (prospective, not measured): SRC 0x1C = control/mod source into MAC (100% MAC-consumed; LFO in mod fx, envelope/AGC in dynamics) -- NOT LFO-only: present in 19 non-LFO programs (dsp_datapath_fingerprint)]
   w18   0000A001D5   ld      (p),c+,(p)+0
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)
-  w19   0182200000   mac.b   ?,(p)+0
+  w19   0182200000   mac.b   (p)0,(p)+0
   w20   0040000C63   ?word   0x0040000C63   ; 040.0.00.C63  hi12{?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w21   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w22   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w23   01042FE1CE   post    (p),(p)-2
-  w24   0102200000   mac.b   ?,(p)+0
+  w24   0102200000   mac.b   (p)0,(p)+0
   w25   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x05] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x05] = op0x66[0] (role mix/tap, INFERRED)
-  w26   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w26   0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w27   0000203407   ld.st   acc,(p)+3
-  w28   0092A00200   ?word   0x0092A00200   ; 092.A.00.200  hi12{ST f31=1 ?7 res=080} cur+  [LFO: phase += increment (increment = f/44100 in Q0.23)]
+  w28   0092A00200   mac.b   c,c+,(p)+0 ; store SUPPRESSED (bit7)
         ; C-RAM[0x06] (coeff, base 0x00 MEASURED)
   w29   00822001C0   mac.b   (p),(p)+0
   w30   0094A00200   wrap    acc,c+          ; acc <- datum(acc) & coef  (LFO modulus)
@@ -86,12 +86,12 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w32   0092200700   ?word   0x0092200700   ; 092.2.00.700  hi12{ST f31=1 ?7 res=080}  [SPECULATIVE (prospective, not measured): SRC 0x1C = control/mod source into MAC (100% MAC-consumed; LFO in mod fx, envelope/AGC in dynamics) -- NOT LFO-only: present in 19 non-LFO programs (dsp_datapath_fingerprint)]
   w33   0000A001D5   ld      (p),c+,(p)+0
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
-  w34   0182200000   mac.b   ?,(p)+0
+  w34   0182200000   mac.b   (p)0,(p)+0
   w35   0040000C63   ?word   0x0040000C63   ; 040.0.00.C63  hi12{?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w36   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w37   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w38   01042FE1CE   post    (p),(p)-2
-  w39   0102200000   mac.b   ?,(p)+0
+  w39   0102200000   mac.b   (p)0,(p)+0
   w40   0000AF4415   ld      acc,c+,(p)-12
         ; C-RAM[0x09] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x09] = op0x66[1] (role mix/tap, INFERRED)
@@ -99,7 +99,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w42   00002021CE   ld      (p),(p)+2
   w43   0212200407   mac.st  acc,(p)+0 ; mem[p]<-acc, acc=0
   w44   09001601D5   dly.w  dsc[k],p+96
-  w45   0192A41000   ?word   0x0192A41000   ; 192.A.41.000  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w45   0192A41000   mac.b   (p)0,c+,(p)+65 ; store SUPPRESSED (bit7)
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
   w46   00822001C0   mac.b   (p),(p)+0
   w47   0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]

@@ -54,7 +54,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w7    0212A001D5   mac     (p),c+,(p)+0 ; mem[p]<-acc, acc=0
         ; C-RAM[0x02] (coeff, base 0x00 MEASURED)
   w8    0880160000   dly.w  dsc[k],p+96
-  w9    0202200000   mac.b   ?,(p)+0
+  w9    0202200000   mac.b   (p)0,(p)+0
   w10   0000200000   nop
   w11   0000200000   nop
   w12   08801202C7   dly.r  dsc[k],p+32
@@ -84,25 +84,25 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w30   0202A0C1D5   mac     (p),c+,(p)+12
         ; C-RAM[0x06] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x06] = op0x66[3] (role mix/tap, INFERRED)
-  w31   0202200000   mac.b   ?,(p)+0
+  w31   0202200000   mac.b   (p)0,(p)+0
   w32   00002FD407   ld.st   acc,(p)-3
   w33   0050000921   ?word   0x0050000921   ; 050.0.00.921  hi12{ST ?6 res=040}  [SPECULATIVE: lo12 bit-11 modifier word + pointer-mode (bit11-family); the base selector/register is OPEN]
   w34   0002A031D5   mac     (p),c+,(p)+3
         ; C-RAM[0x07] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x07] = filter section cell 0 (role filter, INFERRED)
-  w35   02042FE000   post.b  ?,(p)-2
+  w35   02042FE000   post.b  (p)0,(p)-2
   w36   0002AFF1D5   mac     (p),c+,(p)-1
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x08] = damping filter tap 0 (role damping, PROVEN)
-  w37   0204202000   post.b  ?,(p)+2
+  w37   0204202000   post.b  (p)0,(p)+2
   w38   0002AFF1D5   mac     (p),c+,(p)-1
         ; C-RAM[0x09] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x09] = damping filter tap 1 (role damping, PROVEN)
-  w39   02042F6000   post.b  ?,(p)-10
+  w39   02042F6000   post.b  (p)0,(p)-10
   w40   0002A0B1D5   mac     (p),c+,(p)+11
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0A] = damping filter tap 2 (role damping, PROVEN)
-  w41   02042FA000   post.b  ?,(p)-6
+  w41   02042FA000   post.b  (p)0,(p)-6
   w42   0000204407   ld.st   acc,(p)+4
   w43   00102011D5   ld      (p),(p)+1 ; mem[p]<-acc, acc=0
   w44   02022011D5   mac     (p),(p)+1
@@ -132,7 +132,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w58   00122F21C0   mac.b   (p),(p)-14 ; mem[p]<-acc, acc=0
   w59   00002091CD   ld      (p),(p)+9
   w60   000020040E   ld      acc,(p)+0
-  w61   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w61   0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w62   00002FE407   ld.st   acc,(p)-2
   w63   00122F91C0   mac.b   (p),(p)-7 ; mem[p]<-acc, acc=0
   w64   00002FB1CD   ld      (p),(p)-5

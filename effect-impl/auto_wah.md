@@ -46,7 +46,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w1    000020340E   ld      acc,(p)+3
   w2    02122FD407   mac.st  acc,(p)-3 ; mem[p]<-acc, acc=0
   w3    002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
-  w4    0022200000   mac.b   ?,(p)+0
+  w4    0022200000   mac.b   (p)0,(p)+0
   w5    0880130000   dly.r  dsc[k],p+48
   w6    0000200413   ld.ta   acc,(p)+0
   w7    00002401CD   ld      (p),(p)+64
@@ -61,13 +61,13 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w15   00002FF647   ld.st   ta,(p)-1
   w16   0000202687   ld.st   tb,(p)+2
   w17   00002BC407   ld.st   acc,(p)-68
-  w18   0024200000   post.b  ?,(p)+0
+  w18   0024200000   post.b  (p)0,(p)+0
   w19   0000205407   ld.st   acc,(p)+5
   w20   0010AFC1D5   ld      (p),c+,(p)-4 ; mem[p]<-acc, acc=0
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
   w21   0202A031D5   mac     (p),c+,(p)+3
         ; C-RAM[0x02] (coeff, base 0x00 MEASURED)
-  w22   0202200000   mac.b   ?,(p)+0
+  w22   0202200000   mac.b   (p)0,(p)+0
   w23   002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w24   0026200000   ?word   0x0026200000   ; 026.2.00.000  hi12{f31=3 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w25   0018A001D5   ?word   0x0018A001D5   ; 018.A.00.1D5  hi12{ST f31=4} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=4 / ACT 0x15 may be OPEN]
@@ -75,7 +75,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w26   0104A001D5   post    (p),c+,(p)+0
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)
   w27   0C402C0000   ?word   0x0C402C0000   ; C40.2.C0.000  {C-fmt A=22 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=22 B=0 (imm13 0x02C0 = 22*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
-  w28   0182A00000   mac.b   ?,c+,(p)+0
+  w28   0182A00000   mac.b   (p)0,c+,(p)+0
         ; C-RAM[0x05] (coeff, base 0x00 MEASURED)
   w29   0000200447   ?word   0x0000200447   ; 000.2.00.447  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w30   0010AFA1D5   ld      (p),c+,(p)-6 ; mem[p]<-acc, acc=0
@@ -83,41 +83,41 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w31   0202AFE1D5   mac     (p),c+,(p)-2
         ; C-RAM[0x07] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x07] = op0x78[0] (role coeff, INFERRED)
-  w32   0202200000   mac.b   ?,(p)+0
+  w32   0202200000   mac.b   (p)0,(p)+0
   w33   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x08] = op0x78[1] (role coeff, INFERRED)
-  w34   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w34   0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w35   0000200407   ld.st   acc,(p)+0
   w36   00002FF1CD   ld      (p),(p)-1
   w37   000020040E   ld      acc,(p)+0
-  w38   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w38   0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w39   002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w40   0000200415   ld      acc,(p)+0
-  w41   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w41   0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w42   0000200415   ld      acc,(p)+0
-  w43   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w43   0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w44   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x09] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x09] = op0x24[0] (role coeff, INFERRED)
   w45   0212A081D5   mac     (p),c+,(p)+8 ; mem[p]<-acc, acc=0
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0A] = op0x24[1] (role coeff, INFERRED)
-  w46   0202200000   mac.b   ?,(p)+0
+  w46   0202200000   mac.b   (p)0,(p)+0
   w47   00002F9407   ld.st   acc,(p)-7
   w48   00122071D1   ?word   0x00122071D1   ; 012.2.07.1D1  hi12{ST f31=1}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=1 and/or ACT 0x11 are OPEN]
-  w49   0292200000   ?word   0x0292200000   ; 292.2.00.000  hi12{ST f98=2 f31=1 ?7 res=080}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w49   0292200000   mac.b   (p)0,(p)+0 ; store SUPPRESSED (bit7)
   w50   0000AFF455   ?word   0x0000AFF455   ; 000.A.FF.455  hi12{-} cur+  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0B] = op0x24[2] (role coeff, INFERRED)
-  w51   0204200000   post.b  ?,(p)+0
+  w51   0204200000   post.b  (p)0,(p)+0
   w52   0880130407   dly.r  dsc[k],p+48
   w53   00002F5000   nop
   w54   000020A1CD   ld      (p),(p)+10
   w55   00002011CE   ld      (p),(p)+1
-  w56   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w56   0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w57   002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
-  w58   0022200000   mac.b   ?,(p)+0
+  w58   0022200000   mac.b   (p)0,(p)+0
   w59   0000200413   ld.ta   acc,(p)+0
   w60   00002441CD   ld      (p),(p)+68
   w61   01122031CE   mac     (p),(p)+3 ; mem[p]<-acc, acc=0

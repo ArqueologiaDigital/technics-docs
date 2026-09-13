@@ -47,14 +47,14 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w2    00002DE40E   ld      acc,(p)-34
   w3    021222200B   ?word   0x021222200B   ; 212.2.22.00B  hi12{ST f98=2 f31=1}  [writes mem[ptr] (bit 4); mode 2, so the target IS the pointer]
   w4    00002F4407   ld.st   acc,(p)-12
-  w5    0092A00200   ?word   0x0092A00200   ; 092.A.00.200  hi12{ST f31=1 ?7 res=080} cur+  [LFO: phase += increment (increment = f/44100 in Q0.23)]
+  w5    0092A00200   mac.b   c,c+,(p)+0 ; store SUPPRESSED (bit7)
         ; C-RAM[0x00] (coeff, base 0x00 MEASURED)
   w6    00822001C0   mac.b   (p),(p)+0
   w7    0094A00200   wrap    acc,c+          ; acc <- datum(acc) & coef  (LFO modulus)
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
   w8    0000209447   ?word   0x0000209447   ; 000.2.09.447  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w9    09001601D5   dly.w  dsc[k],p+96
-  w10   0192A40000   ?word   0x0192A40000   ; 192.A.40.000  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w10   0192A40000   mac.b   (p)0,c+,(p)+64 ; store SUPPRESSED (bit7)
         ; C-RAM[0x02] (coeff, base 0x00 MEASURED)
   w11   00822001C0   mac.b   (p),(p)+0
   w12   0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]
@@ -65,7 +65,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w16   00002FF407   ld.st   acc,(p)-1
   w17   00122FE1C0   mac.b   (p),(p)-2 ; mem[p]<-acc, acc=0
   w18   09001601D5   dly.w  dsc[k],p+96
-  w19   0192A41000   ?word   0x0192A41000   ; 192.A.41.000  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w19   0192A41000   mac.b   (p)0,c+,(p)+65 ; store SUPPRESSED (bit7)
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)
   w20   00822001C0   mac.b   (p),(p)+0
   w21   0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]
@@ -89,16 +89,16 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w35   0000620407   ?word   0x0000620407   ; 000.6.20.407  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w36   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w37   01042011CE   post    (p),(p)+1
-  w38   0102200000   mac.b   ?,(p)+0
+  w38   0102200000   mac.b   (p)0,(p)+0
   w39   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x09] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x09] = op0x66[0] (role mix/tap, INFERRED)
-  w40   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w40   0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w41   00002FF407   ld.st   acc,(p)-1
   w42   0010A001D5   ld      (p),c+,(p)+0 ; mem[p]<-acc, acc=0
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0A] = op0x66[1] (role mix/tap, INFERRED)
-  w43   0202200000   mac.b   ?,(p)+0
+  w43   0202200000   mac.b   (p)0,(p)+0
   w44   0000A01412   ld      acc,c+,(p)+1
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
   w45   0212AF41D5   mac     (p),c+,(p)-12 ; mem[p]<-acc, acc=0
@@ -108,7 +108,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w48   0212201407   mac.st  acc,(p)+1 ; mem[p]<-acc, acc=0
   w49   00002FD407   ld.st   acc,(p)-3
   w50   09001601D5   dly.w  dsc[k],p+96
-  w51   0192A44000   ?word   0x0192A44000   ; 192.A.44.000  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w51   0192A44000   mac.b   (p)0,c+,(p)+68 ; store SUPPRESSED (bit7)
         ; C-RAM[0x0D] (coeff, base 0x00 MEASURED)
   w52   00822001C0   mac.b   (p),(p)+0
   w53   0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]
@@ -119,7 +119,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w57   00002FF407   ld.st   acc,(p)-1
   w58   00122FF1C0   mac.b   (p),(p)-1 ; mem[p]<-acc, acc=0
   w59   09001601D5   dly.w  dsc[k],p+96
-  w60   0192A44000   ?word   0x0192A44000   ; 192.A.44.000  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w60   0192A44000   mac.b   (p)0,c+,(p)+68 ; store SUPPRESSED (bit7)
         ; C-RAM[0x0F] (coeff, base 0x00 MEASURED)
   w61   00822001C0   mac.b   (p),(p)+0
   w62   0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]

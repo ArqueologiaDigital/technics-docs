@@ -81,11 +81,11 @@ Separator0:
   w17   0000A0A1D5   ld      (p),c+,(p)+10
         ; C-RAM[0x97] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0x97] = op0x75 reverb decay coeff (role decay, PROVEN)
-  w18   0202200000   mac.b   ?,(p)+0
+  w18   0202200000   mac.b   (p)0,(p)+0
 Ladder0:
   w19   08801602D4   dly.w  dsc[k],p+96
         ; DIFFUSER LADDER 0 -- 5 all-pass cores, C-RAM 0x98..0x9C
-  w20   0104200000   post.b  ?,(p)+0
+  w20   0104200000   post.b  (p)0,(p)+0
   w21   0000200419   ld.ta2  acc,(p)+0
   w22   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w23   0880120655   dly.r  dsc[k],p+32
@@ -96,7 +96,7 @@ Ladder0:
   w26   0000200000   nop
   w27   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 2 of 5
-  w28   0104200000   post.b  ?,(p)+0
+  w28   0104200000   post.b  (p)0,(p)+0
   w29   0000200419   ld.ta2  acc,(p)+0
   w30   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w31   0880120655   dly.r  dsc[k],p+32
@@ -107,7 +107,7 @@ Ladder0:
   w34   0000200000   nop
   w35   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 3 of 5
-  w36   0104200000   post.b  ?,(p)+0
+  w36   0104200000   post.b  (p)0,(p)+0
   w37   0000200419   ld.ta2  acc,(p)+0
   w38   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w39   0880120655   dly.r  dsc[k],p+32
@@ -118,7 +118,7 @@ Ladder0:
   w42   0000200000   nop
   w43   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 4 of 5
-  w44   0104200000   post.b  ?,(p)+0
+  w44   0104200000   post.b  (p)0,(p)+0
   w45   0000200419   ld.ta2  acc,(p)+0
   w46   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w47   0880120655   dly.r  dsc[k],p+32
@@ -129,7 +129,7 @@ Ladder0:
   w50   0000200000   nop
   w51   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 5 of 5
-  w52   0104200000   post.b  ?,(p)+0
+  w52   0104200000   post.b  (p)0,(p)+0
   w53   0000200419   ld.ta2  acc,(p)+0
   w54   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w55   0880120655   dly.r  dsc[k],p+32
@@ -162,7 +162,7 @@ Separator1:
 Ladder1:
   w69   08801602D4   dly.w  dsc[k],p+96
         ; DIFFUSER LADDER 1 -- FOUR all-pass cores, C-RAM 0xA1..0xA4
-  w70   0104200000   post.b  ?,(p)+0
+  w70   0104200000   post.b  (p)0,(p)+0
   w71   0000200419   ld.ta2  acc,(p)+0
   w72   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w73   0880120655   dly.r  dsc[k],p+32
@@ -174,7 +174,7 @@ Ladder1:
   w76   0000200000   nop
   w77   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 2 of 4
-  w78   0104200000   post.b  ?,(p)+0
+  w78   0104200000   post.b  (p)0,(p)+0
   w79   0000200419   ld.ta2  acc,(p)+0
   w80   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w81   0880120655   dly.r  dsc[k],p+32
@@ -185,7 +185,7 @@ Ladder1:
   w84   0000200000   nop
   w85   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 3 of 4
-  w86   0104200000   post.b  ?,(p)+0
+  w86   0104200000   post.b  (p)0,(p)+0
   w87   0000200419   ld.ta2  acc,(p)+0
   w88   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w89   0880120655   dly.r  dsc[k],p+32
@@ -196,7 +196,7 @@ Ladder1:
   w92   0000200000   nop
   w93   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 4 of 4
-  w94   0104200000   post.b  ?,(p)+0
+  w94   0104200000   post.b  (p)0,(p)+0
   w95   0000200419   ld.ta2  acc,(p)+0
   w96   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w97   0880120655   dly.r  dsc[k],p+32
@@ -231,7 +231,7 @@ Separator2:
   w113  00002FE407   ld.st   acc,(p)-2
   w114  08801202D5   dly.r  dsc[k],p+32
 OutputTails:
-  w115  0282A00000   mac.b   ?,c+,(p)+0
+  w115  0282A00000   mac.b   (p)0,c+,(p)+0
         ; C-RAM[0xA9] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0xA9] = LEFT output tail (op0x66 / ER.LEVEL) (role mix, PROVEN)
         ; mirrored LEFT / RIGHT output tails, C-RAM 0xA9..0xB4
@@ -246,12 +246,12 @@ OutputTails:
         ; coeff C-RAM[0xAC] = LEFT output tail (role mix, PROVEN)
   w119  02022081CD   mac     (p),(p)+8
   w120  00902FB40E   ?word   0x00902FB40E   ; 090.2.FB.40E  hi12{ST ?7 res=080}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
-  w121  0212205000   mac.b   ?,(p)+5 ; mem[p]<-acc, acc=0
+  w121  0212205000   mac.b   (p)0,(p)+5 ; mem[p]<-acc, acc=0
   w122  0C40180000   ?word   0x0C40180000   ; C40.1.80.000  {C-fmt A=12 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=12 B=0 (imm13 0x0180 = 12*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
   w123  0C40180000   ?word   0x0C40180000   ; C40.1.80.000  {C-fmt A=12 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=12 B=0 (imm13 0x0180 = 12*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
   w124  00002FB407   ld.st   acc,(p)-5
   w125  08801202D5   dly.r  dsc[k],p+32
-  w126  0282A00000   mac.b   ?,c+,(p)+0
+  w126  0282A00000   mac.b   (p)0,c+,(p)+0
         ; C-RAM[0xAD] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0xAD] = RIGHT output tail (role mix, PROVEN)
   w127  0000AFF452   ?word   0x0000AFF452   ; 000.A.FF.452  hi12{-} cur+  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]

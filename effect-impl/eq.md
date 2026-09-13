@@ -44,7 +44,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
 
   w0    000020B1CD   ld      (p),(p)+11
   w1    000020040E   ld      acc,(p)+0
-  w2    0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
+  w2    0212200000   mac.b   (p)0,(p)+0 ; mem[p]<-acc, acc=0
   w3    002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w4    0000240407   ld.st   acc,(p)+64
 Band0_Section:
@@ -167,7 +167,7 @@ Band0_Section:
   w52   00002F7000   nop
   w53   000020A1CD   ld      (p),(p)+10
   w54   00002FF1CE   ld      (p),(p)-1
-  w55   0212202000   mac.b   ?,(p)+2 ; mem[p]<-acc, acc=0
+  w55   0212202000   mac.b   (p)0,(p)+2 ; mem[p]<-acc, acc=0
   w56   002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w57   0000254407   ld.st   acc,(p)+84
   w58   0801000021   rstcur

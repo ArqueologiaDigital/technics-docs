@@ -43,7 +43,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
 ; Put labels/comments in the matching dsp/sym/*.sym; analysis in dsp/algorithms/.
 
   w0    08801308BC   ?word   0x08801308BC   ; 880.1.30.8BC  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL; addr8 0x30 also marks the FIRST DRAM access of a body, 37 of 38 distinct images (R3 sect. 6.2). external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
-  w1    0092A0E200   ?word   0x0092A0E200   ; 092.A.0E.200  hi12{ST f31=1 ?7 res=080} cur+  [LFO: phase += increment (increment = f/44100 in Q0.23)]
+  w1    0092A0E200   mac.b   c,c+,(p)+14 ; store SUPPRESSED (bit7)
         ; C-RAM[0x00] (coeff, base 0x00 MEASURED)
   w2    00822001C0   mac.b   (p),(p)+0
   w3    0094AF2200   wrap    acc,c+          ; acc <- datum(acc) & coef  (LFO modulus)
@@ -89,7 +89,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w40   0212AB0412   mac     acc,c+,(p)-80 ; mem[p]<-acc, acc=0
         ; C-RAM[0x03] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x03] = filter section cell 1 (role filter, INFERRED)
-  w41   0104200000   post.b  ?,(p)+0
+  w41   0104200000   post.b  (p)0,(p)+0
   w42   0880130407   dly.r  dsc[k],p+48
   w43   009220A700   ?word   0x009220A700   ; 092.2.0A.700  hi12{ST f31=1 ?7 res=080}  [SPECULATIVE (prospective, not measured): SRC 0x1C = control/mod source into MAC (100% MAC-consumed; LFO in mod fx, envelope/AGC in dynamics) -- NOT LFO-only: present in 19 non-LFO programs (dsp_datapath_fingerprint)]
   w44   0104AFB1D5   post    (p),c+,(p)-5
@@ -100,7 +100,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w47   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w48   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w49   01042021CE   post    (p),(p)+2
-  w50   0102200000   mac.b   ?,(p)+0
+  w50   0102200000   mac.b   (p)0,(p)+0
   w51   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x05] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x05] = op0x66[0] (role mix/tap, INFERRED)
@@ -115,7 +115,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w57   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w58   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w59   01042081CE   post    (p),(p)+8
-  w60   0102200000   mac.b   ?,(p)+0
+  w60   0102200000   mac.b   (p)0,(p)+0
   w61   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x08] = op0x66[2] (role mix/tap, INFERRED)
@@ -163,8 +163,8 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w99   0212AB1412   mac     acc,c+,(p)-79 ; mem[p]<-acc, acc=0
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0B] = filter section cell 1 (role filter, INFERRED)
-  w100  0104200000   post.b  ?,(p)+0
-  w101  0092A00200   ?word   0x0092A00200   ; 092.A.00.200  hi12{ST f31=1 ?7 res=080} cur+  [LFO: phase += increment (increment = f/44100 in Q0.23)]
+  w100  0104200000   post.b  (p)0,(p)+0
+  w101  0092A00200   mac.b   c,c+,(p)+0 ; store SUPPRESSED (bit7)
         ; C-RAM[0x0C] (coeff, base 0x00 MEASURED)
   w102  00822001C0   mac.b   (p),(p)+0
   w103  0094A00200   wrap    acc,c+          ; acc <- datum(acc) & coef  (LFO modulus)
