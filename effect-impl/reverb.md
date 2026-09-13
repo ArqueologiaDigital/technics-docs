@@ -89,7 +89,7 @@ Ladder0:
   w21   0000200419   ld.ta2  acc,(p)+0
   w22   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w23   0880120655   dly.r  dsc[k],p+32
-  w24   0102A0064B   ?word   0x0102A0064B   ; 102.A.00.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w24   0102A0064B   mac     ta,c+,(p)+0
         ; C-RAM[0x98] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0x98] = diffuser ladder-0 (REVERB TIME) (role decay, PROVEN)
   w25   0000200000   nop
@@ -100,7 +100,7 @@ Ladder0:
   w29   0000200419   ld.ta2  acc,(p)+0
   w30   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w31   0880120655   dly.r  dsc[k],p+32
-  w32   0102A0064B   ?word   0x0102A0064B   ; 102.A.00.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w32   0102A0064B   mac     ta,c+,(p)+0
         ; C-RAM[0x99] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0x99] = diffuser ladder-0 (role decay, PROVEN)
   w33   0000200000   nop
@@ -111,7 +111,7 @@ Ladder0:
   w37   0000200419   ld.ta2  acc,(p)+0
   w38   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w39   0880120655   dly.r  dsc[k],p+32
-  w40   0102A0064B   ?word   0x0102A0064B   ; 102.A.00.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w40   0102A0064B   mac     ta,c+,(p)+0
         ; C-RAM[0x9A] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0x9A] = diffuser ladder-0 (role decay, PROVEN)
   w41   0000200000   nop
@@ -122,7 +122,7 @@ Ladder0:
   w45   0000200419   ld.ta2  acc,(p)+0
   w46   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w47   0880120655   dly.r  dsc[k],p+32
-  w48   0102A0064B   ?word   0x0102A0064B   ; 102.A.00.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w48   0102A0064B   mac     ta,c+,(p)+0
         ; C-RAM[0x9B] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0x9B] = diffuser ladder-0 (role decay, PROVEN)
   w49   0000200000   nop
@@ -133,7 +133,7 @@ Ladder0:
   w53   0000200419   ld.ta2  acc,(p)+0
   w54   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w55   0880120655   dly.r  dsc[k],p+32
-  w56   0102A0064B   ?word   0x0102A0064B   ; 102.A.00.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w56   0102A0064B   mac     ta,c+,(p)+0
         ; C-RAM[0x9C] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0x9C] = diffuser ladder-0 (role decay, PROVEN)
   w57   0000200000   nop
@@ -166,7 +166,7 @@ Ladder1:
   w71   0000200419   ld.ta2  acc,(p)+0
   w72   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w73   0880120655   dly.r  dsc[k],p+32
-  w74   0102ABA64B   ?word   0x0102ABA64B   ; 102.A.BA.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w74   0102ABA64B   mac     ta,c+,(p)-70
         ; C-RAM[0xA1] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0xA1] = diffuser ladder-1 (REVERB TIME) (role decay, PROVEN)
         ; the ONE core word whose addr8 differs (0xBA), in all 12 presets
@@ -178,7 +178,7 @@ Ladder1:
   w79   0000200419   ld.ta2  acc,(p)+0
   w80   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w81   0880120655   dly.r  dsc[k],p+32
-  w82   0102A0064B   ?word   0x0102A0064B   ; 102.A.00.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w82   0102A0064B   mac     ta,c+,(p)+0
         ; C-RAM[0xA2] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0xA2] = diffuser ladder-1 (role decay, PROVEN)
   w83   0000200000   nop
@@ -189,7 +189,7 @@ Ladder1:
   w87   0000200419   ld.ta2  acc,(p)+0
   w88   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w89   0880120655   dly.r  dsc[k],p+32
-  w90   0102A0064B   ?word   0x0102A0064B   ; 102.A.00.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w90   0102A0064B   mac     ta,c+,(p)+0
         ; C-RAM[0xA3] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0xA3] = diffuser ladder-1 (role decay, PROVEN)
   w91   0000200000   nop
@@ -200,7 +200,7 @@ Ladder1:
   w95   0000200419   ld.ta2  acc,(p)+0
   w96   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w97   0880120655   dly.r  dsc[k],p+32
-  w98   0102A0064B   ?word   0x0102A0064B   ; 102.A.00.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w98   0102A0064B   mac     ta,c+,(p)+0
         ; C-RAM[0xA4] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0xA4] = diffuser ladder-1 (role decay, PROVEN)
   w99   0000200000   nop

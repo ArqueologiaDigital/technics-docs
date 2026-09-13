@@ -64,7 +64,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w15   0000200419   ld.ta2  acc,(p)+0
   w16   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w17   0880120655   dly.r  dsc[k],p+32
-  w18   0102A0064B   ?word   0x0102A0064B   ; 102.A.00.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w18   0102A0064B   mac     ta,c+,(p)+0
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)
   w19   0000200000   nop
   w20   0000200000   nop
@@ -73,7 +73,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w23   0000200419   ld.ta2  acc,(p)+0
   w24   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w25   0880120655   dly.r  dsc[k],p+32
-  w26   0102A0064B   ?word   0x0102A0064B   ; 102.A.00.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w26   0102A0064B   mac     ta,c+,(p)+0
         ; C-RAM[0x05] (coeff, base 0x00 MEASURED)
   w27   0000200000   nop
   w28   0000200000   nop
@@ -82,7 +82,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w31   0000200419   ld.ta2  acc,(p)+0
   w32   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w33   0880120655   dly.r  dsc[k],p+32
-  w34   0102A0064B   ?word   0x0102A0064B   ; 102.A.00.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w34   0102A0064B   mac     ta,c+,(p)+0
         ; C-RAM[0x06] (coeff, base 0x00 MEASURED)
   w35   0000A001D5   ld      (p),c+,(p)+0
         ; C-RAM[0x07] (coeff, base 0x00 MEASURED)
@@ -99,7 +99,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w41   0000200419   ld.ta2  acc,(p)+0
   w42   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w43   0880120655   dly.r  dsc[k],p+32
-  w44   0102AC464B   ?word   0x0102AC464B   ; 102.A.C4.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w44   0102AC464B   mac     ta,c+,(p)-60
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
   w45   0000200000   nop
   w46   0000200000   nop
@@ -108,7 +108,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w49   0000200419   ld.ta2  acc,(p)+0
   w50   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w51   0880120655   dly.r  dsc[k],p+32
-  w52   0102A0064B   ?word   0x0102A0064B   ; 102.A.00.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w52   0102A0064B   mac     ta,c+,(p)+0
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
   w53   0000200000   nop
   w54   0000200000   nop
@@ -117,7 +117,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w57   0000200419   ld.ta2  acc,(p)+0
   w58   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w59   0880120655   dly.r  dsc[k],p+32
-  w60   0102A0064B   ?word   0x0102A0064B   ; 102.A.00.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w60   0102A0064B   mac     ta,c+,(p)+0
         ; C-RAM[0x0C] (coeff, base 0x00 MEASURED)
   w61   0000200000   nop
   w62   0000200000   nop
@@ -126,7 +126,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w65   0000200419   ld.ta2  acc,(p)+0
   w66   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w67   0880120655   dly.r  dsc[k],p+32
-  w68   0102AF764B   ?word   0x0102AF764B   ; 102.A.F7.64B  hi12{f98=1 f31=1} cur+  [all-pass core slot 6/6 -- class-A multiply whose multiplicand is a SUM OF TWO REGISTERS, so lo12 0x64B is a fourth multiplicand route beside mac (0x1D5) and mulst (0x407) (FORCED under a 2-input ALU, R1 F8)]
+  w68   0102AF764B   mac     ta,c+,(p)-9
         ; C-RAM[0x0D] (coeff, base 0x00 MEASURED)
   w69   0000246407   ld.st   acc,(p)+70
   w70   0000A001D5   ld      (p),c+,(p)+0
