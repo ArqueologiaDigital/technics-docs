@@ -56,7 +56,9 @@ EFFECTS = [
     ("auto_pan",    "Auto Pan",                   0x13, "pan_hle",    "pan_hle",   "prog48_auto_pan",         "preview", "quadrature LFO pans L/R; rate=cell 0x01 MEASURED (~1.2 Hz)."),
     ("ring_mod",    "Ring Modulator",             0x14, "ring_hle",   "ring_hle",  "prog54_ring_modulator",   "preview", "carrier oscillator x signal; carrier rate=cell 0x00 MEASURED (~1 kHz)."),
     ("multitap",    "Multi Tap Delay",            0x15, "mtap_hle",   "mtap_hle",  "prog10_multi_tap_delay",  "preview", "4 panned taps at the MEASURED host delays 136/272/408/544 ms + feedback."),
-    ("compressor",  "Compressor",                 0x16, "comp_hle",   "comp_hle",  "prog36_compressor",       "preview", "square-law detector -> attack/release smoother -> gain computer; roles INFERRED."),
+    ("compressor",  "Compressor",                 0x16, "comp_hle",   "comp_hle",  "prog36_compressor",       "preview", "2/pi RECTIFY-and-smooth level detector (ROM 0x517CC1) -> attack/release one-pole "
+     "(the ROM's own 4.712 ms / 11.764 ms) -> gain computer; the DETECTOR is decoded, "
+     "the GAIN LAW is not."),
     ("gated_reverb","Gated Reverb",               0x17, "grev_hle",   "grev_hle",  "prog08_gated_reverb",     "preview", "reverb tank (MEASURED line lengths) + envelope gate chopping the tail; GATE TIME=0x15."),
     ("mixup",       "Mix Up",                     0x18, "mix_hle",    "mix_hle",   "prog56_mix_up",           "preview", "three LFOs (MEASURED 3.0/5.2/7.4 Hz = cells 0x00/0x02/0x04) modulate a short delay."),
     ("rotary",      "Rotary Speaker",             0x19, "rot_hle",    "rot_hle",   "prog15_rock_rotary",      "preview", "Leslie: crossover + two Doppler-swept (measured 7.26/3.63 ms) + AM rotors. Rotation rate not in program (canonical speeds)."),

@@ -9,7 +9,7 @@ permalink: /effects-dsp/impl/compressor/
 
 **DSPHLE selector `0x16`** &middot; program image `prog36_compressor` &middot; **Preview** (topology decoded and reconstructed; most panel&rarr;cell role mappings are position-decoded).
 
-> square-law detector -> attack/release smoother -> gain computer; roles INFERRED.
+> 2/pi RECTIFY-and-smooth level detector (ROM 0x517CC1) -> attack/release one-pole (the ROM's own 4.712 ms / 11.764 ms) -> gain computer; the DETECTOR is decoded, the GAIN LAW is not.
 
 This page pairs the **bytecode** the effect runs on the NEC &micro;PD6383GF with the
 **high-level reconstruction** that makes it audible in MAME. The reconstruction is not the
@@ -107,13 +107,23 @@ signal processing). Default OFF, behind the `DSPHLE` research port. Source:
 ```cpp
 	const bool comp_hle = (dsphle == 0x16);
 	double comp_thr = 0.0, comp_slope = 0.0, comp_atk = 0.0, comp_rel = 0.0, comp_makeup = 0.0;
+	double comp_rect = 0.0;
 	if (comp_hle)
 	{
+		//  C-RAM[0x00] = 2/pi, the rectifier calibration.  Fall back to the ROM's own value if
+		//  the cell has not been uploaded yet, so the detector is never silently scaled by zero.
+		comp_rect = std::fabs(q22x(m_dsp1->cram_read(0x00)) * x_cs);
+		if (comp_rect < 1e-6) comp_rect = 5340353.0 / 8388608.0;          // 0x517CC1
 		comp_thr   = std::clamp(0.03 + 0.25 * std::fabs(q22x(m_dsp1->cram_read(0x04)) * x_cs), 0.03, 0.5);
 		comp_slope = 0.75;                                       // 1 - 1/ratio (RATIO ~4:1); SPECULATIVE
-		const double tc = std::clamp(std::fabs(q22x(m_dsp1->cram_read(0x02)) * x_cs), 0.0, 1.0);
-		comp_atk   = std::exp(-1.0 / (double(STREAM_RATE) * (0.002 + 0.02 * tc)));   // 2..22 ms
-		comp_rel   = std::exp(-1.0 / (double(STREAM_RATE) * 0.15));                  // 150 ms
+		//  tau = 1/(a * 44100) with `a' the uploaded one-pole coefficient, converted to a
+		//  retention factor at this stream's own rate so the TIME is preserved, not the
+		//  coefficient.  Clamped to a musically sane span in case the cells are unloaded.
+		auto tau_from = [&](u8 cell, double dflt) -> double {
+			const double a = std::fabs(q22x(m_dsp1->cram_read(cell)) * x_cs);
+			return (a < 1e-9) ? dflt : std::clamp(1.0 / (a * 44100.0), 0.0005, 0.5); };
+		comp_atk   = std::exp(-1.0 / (double(STREAM_RATE) * tau_from(0x02, 0.004712)));
+		comp_rel   = std::exp(-1.0 / (double(STREAM_RATE) * tau_from(0x03, 0.011764)));
 		comp_makeup = 1.0 / (comp_thr + 0.2);                   // bring level back up after compression
 		comp_makeup = std::clamp(comp_makeup, 1.0, 4.0);
 	}
@@ -122,16 +132,23 @@ signal processing). Default OFF, behind the `DSPHLE` research port. Source:
 *Per-sample insert (the reconstructed signal path):*
 
 ```cpp
-		if (comp_hle)  // COMPRESSOR: square-law detector -> attack/release smoother -> gain computer
+		if (comp_hle)  // COMPRESSOR: 2/pi rectify-and-smooth detector -> gain computer
 		{
 			const double xl = double(mix_l) / 32768.0, xr = double(mix_r) / 32768.0;
-			const double rl = xl * xl, rr = xr * xr;
+			//  ★ RECTIFY and scale by the ROM's 2/pi -- NOT square-law; see the setup block.
+			//  The envelope is therefore already an amplitude, so the gain computer below no
+			//  longer takes a square root (it used to, to undo the squaring).
+			const double rl = std::fabs(xl) * comp_rect, rr = std::fabs(xr) * comp_rect;
 			const double cl = (rl > m_comp_env_l) ? comp_atk : comp_rel;
 			m_comp_env_l = rl + cl * (m_comp_env_l - rl);
 			const double cr = (rr > m_comp_env_r) ? comp_atk : comp_rel;
 			m_comp_env_r = rr + cr * (m_comp_env_r - rr);
-			auto gain = [&](double e2) -> double {
-				const double e = std::sqrt(std::max(e2, 0.0));
+			//  ⚠ THE GAIN LAW IS STILL SPECULATIVE and is deliberately left alone: what the
+			//  corpus establishes is only the NEGATIVE constraint that there is no comparator
+			//  opcode (the bodies are branchless), so THRESHOLD and RATIO must enter as
+			//  coefficients.  Nothing measured chooses between this knee and the linear
+			//  `g = clip(1 - k*env, 1/ratio, 1)' the Python reference uses.
+			auto gain = [&](double e) -> double {
 				if (e <= comp_thr || e < 1e-6) return comp_makeup;
 				return comp_makeup * std::pow(comp_thr / e, comp_slope); };
 			mix_l = int32_t(std::clamp(xl * gain(m_comp_env_l), -1.0, 1.0) * 32767.0);
