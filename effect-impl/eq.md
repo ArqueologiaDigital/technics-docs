@@ -44,7 +44,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
 
   w0    000020B1CD   ld      (p),(p)+11
   w1    000020040E   ld      acc,(p)+0
-  w2    0212200000   ?word   0x0212200000   ; 212.2.00.000  hi12{ST f98=2 f31=1}  [plain store: mem[ptr] <- acc, taken BEFORE this word's ALU step (FORCED)]
+  w2    0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
   w3    002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w4    0000240407   ld.st   acc,(p)+64
 Band0_Section:
@@ -164,10 +164,10 @@ Band0_Section:
   w49   00002AD647   ld.st   ta,(p)-83
   w50   0028200000   ?word   0x0028200000   ; 028.2.00.000  hi12{f31=4 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w51   0880130407   ?word   0x0880130407   ; 880.1.30.407  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL; addr8 0x30 also marks the FIRST DRAM access of a body, 37 of 38 distinct images (R3 sect. 6.2). external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
-  w52   00002F7000   ?word   0x00002F7000   ; 000.2.F7.000  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w52   00002F7000   nop
   w53   000020A1CD   ld      (p),(p)+10
   w54   00002FF1CE   ld      (p),(p)-1
-  w55   0212202000   ?word   0x0212202000   ; 212.2.02.000  hi12{ST f98=2 f31=1}  [writes mem[ptr] (bit 4); mode 2, so the target IS the pointer]
+  w55   0212202000   mac.b   ?,(p)+2 ; mem[p]<-acc, acc=0
   w56   002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w57   0000254407   ld.st   acc,(p)+84
   w58   0801000021   rstcur

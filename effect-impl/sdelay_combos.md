@@ -58,7 +58,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w10   0094A00200   ?word   0x0094A00200   ; 094.A.00.200  hi12{ST f31=2 ?7 res=080} cur+  [LFO: phase wrap, consumes 0x7FFFFF (29/29); AND vs sub-if-ge OPEN]
         ; C-RAM[0x03] (coeff, base 0x00 MEASURED)
   w11   0000209447   ?word   0x0000209447   ; 000.2.09.447  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
-  w12   0022200000   ?word   0x0022200000   ; 022.2.00.000  hi12{f31=1 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w12   0022200000   mac.b   ?,(p)+0
   w13   00002FE407   ld.st   acc,(p)-2
   w14   0000A011D5   ld      (p),c+,(p)+1
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)
@@ -70,7 +70,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w17   0202A01655   mac     ta,c+,(p)+1
         ; C-RAM[0x06] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x06] = filter section cell 2 (role filter, INFERRED)
-  w18   00002FF000   ?word   0x00002FF000   ; 000.2.FF.000  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w18   00002FF000   nop
   w19   0212200419   mac.ta2 acc,(p)+0 ; mem[p]<-acc, acc=0
   w20   088012064B   ?word   0x088012064B   ; 880.1.20.64B  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL. external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
   w21   0000202407   ld.st   acc,(p)+2
@@ -80,7 +80,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; coeff C-RAM[0x07] = op0x66[0] (role mix/tap, INFERRED)
   w24   020420D1CD   ?word   0x020420D1CD   ; 204.2.0D.1CD  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
   w25   000020040E   ld      acc,(p)+0
-  w26   0212200000   ?word   0x0212200000   ; 212.2.00.000  hi12{ST f98=2 f31=1}  [plain store: mem[ptr] <- acc, taken BEFORE this word's ALU step (FORCED)]
+  w26   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
   w27   00002F8407   ld.st   acc,(p)-8
   w28   0000A011D5   ld      (p),c+,(p)+1
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
@@ -95,7 +95,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w32   0192AF71D5   ?word   0x0192AF71D5   ; 192.A.F7.1D5  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=1 / ACT 0x15 may be OPEN]
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0B] = filter section cell 3 (role filter, INFERRED)
-  w33   0182245000   ?word   0x0182245000   ; 182.2.45.000  hi12{f98=1 f31=1 ?7 res=080}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w33   0182245000   mac.b   ?,(p)+69
   w34   000020044C   ?word   0x000020044C   ; 000.2.00.44C  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator); ACT 0x0C = delay READ]
   w35   088012040B   ?word   0x088012040B   ; 880.1.20.40B  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL. external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
   w36   0012201655   mac     ta,(p)+1 ; mem[p]<-acc, acc=0
@@ -118,7 +118,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w48   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w49   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w50   01042061CE   ?word   0x01042061CE   ; 104.2.06.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
-  w51   0102200000   ?word   0x0102200000   ; 102.2.00.000  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w51   0102200000   mac.b   ?,(p)+0
   w52   0000AF5415   ld      acc,c+,(p)-11
         ; C-RAM[0x0F] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0F] = op0x66[2] (role mix/tap, INFERRED)
@@ -130,7 +130,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w57   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w58   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w59   01042F31CE   ?word   0x01042F31CE   ; 104.2.F3.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
-  w60   0102200000   ?word   0x0102200000   ; 102.2.00.000  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w60   0102200000   mac.b   ?,(p)+0
   w61   0000AFE415   ld      acc,c+,(p)-2
         ; C-RAM[0x11] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x11] = op0x66[3] (role mix/tap, INFERRED)
@@ -138,7 +138,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w63   00002F81CE   ld      (p),(p)-8
   w64   021220B407   mac.st  acc,(p)+11 ; mem[p]<-acc, acc=0
   w65   0880130000   ?word   0x0880130000   ; 880.1.30.000  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL; addr8 0x30 also marks the FIRST DRAM access of a body, 37 of 38 distinct images (R3 sect. 6.2). external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
-  w66   0022200000   ?word   0x0022200000   ; 022.2.00.000  hi12{f31=1 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w66   0022200000   mac.b   ?,(p)+0
   w67   00002FE407   ld.st   acc,(p)-2
   w68   0000A011D5   ld      (p),c+,(p)+1
         ; C-RAM[0x12] (coeff, base 0x00 MEASURED)
@@ -159,7 +159,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; coeff C-RAM[0x15] = op0x66[4] (role mix/tap, INFERRED)
   w78   020420D1CD   ?word   0x020420D1CD   ; 204.2.0D.1CD  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
   w79   000020040E   ld      acc,(p)+0
-  w80   0212200000   ?word   0x0212200000   ; 212.2.00.000  hi12{ST f98=2 f31=1}  [plain store: mem[ptr] <- acc, taken BEFORE this word's ALU step (FORCED)]
+  w80   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
   w81   00002F9407   ld.st   acc,(p)-7
   w82   0000AFF1D5   ld      (p),c+,(p)-1
         ; C-RAM[0x16] (coeff, base 0x00 MEASURED)
@@ -174,7 +174,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w86   0192A031D5   ?word   0x0192A031D5   ; 192.A.03.1D5  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=1 / ACT 0x15 may be OPEN]
         ; C-RAM[0x19] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x19] = filter section cell 3 (role filter, INFERRED)
-  w87   0182248000   ?word   0x0182248000   ; 182.2.48.000  hi12{f98=1 f31=1 ?7 res=080}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w87   0182248000   mac.b   ?,(p)+72
   w88   000020044C   ?word   0x000020044C   ; 000.2.00.44C  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator); ACT 0x0C = delay READ]
   w89   088012040B   ?word   0x088012040B   ; 880.1.20.40B  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL. external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
   w90   0012201655   mac     ta,(p)+1 ; mem[p]<-acc, acc=0

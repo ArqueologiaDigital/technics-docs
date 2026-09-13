@@ -116,11 +116,11 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w48   000061E407   ?word   0x000061E407   ; 000.6.1E.407  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w49   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w50   01042F31CE   ?word   0x01042F31CE   ; 104.2.F3.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
-  w51   0102200000   ?word   0x0102200000   ; 102.2.00.000  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w51   0102200000   mac.b   ?,(p)+0
   w52   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x10] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x10] = op0x66[1] (role mix/tap, INFERRED)
-  w53   0212200000   ?word   0x0212200000   ; 212.2.00.000  hi12{ST f98=2 f31=1}  [plain store: mem[ptr] <- acc, taken BEFORE this word's ALU step (FORCED)]
+  w53   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
   w54   000020D407   ld.st   acc,(p)+13
   w55   0010AF11D5   ld      (p),c+,(p)-15 ; mem[p]<-acc, acc=0
         ; C-RAM[0x11] (coeff, base 0x00 MEASURED)

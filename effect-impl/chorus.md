@@ -89,16 +89,16 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w35   0000620407   ?word   0x0000620407   ; 000.6.20.407  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w36   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w37   01042011CE   ?word   0x01042011CE   ; 104.2.01.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
-  w38   0102200000   ?word   0x0102200000   ; 102.2.00.000  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w38   0102200000   mac.b   ?,(p)+0
   w39   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x09] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x09] = op0x66[0] (role mix/tap, INFERRED)
-  w40   0212200000   ?word   0x0212200000   ; 212.2.00.000  hi12{ST f98=2 f31=1}  [plain store: mem[ptr] <- acc, taken BEFORE this word's ALU step (FORCED)]
+  w40   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
   w41   00002FF407   ld.st   acc,(p)-1
   w42   0010A001D5   ld      (p),c+,(p)+0 ; mem[p]<-acc, acc=0
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0A] = op0x66[1] (role mix/tap, INFERRED)
-  w43   0202200000   ?word   0x0202200000   ; 202.2.00.000  hi12{f98=2 f31=1}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w43   0202200000   mac.b   ?,(p)+0
   w44   0000A01412   ld      acc,c+,(p)+1
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
   w45   0212AF41D5   mac     (p),c+,(p)-12 ; mem[p]<-acc, acc=0

@@ -45,7 +45,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w0    088013000B   ?word   0x088013000B   ; 880.1.30.00B  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL; addr8 0x30 also marks the FIRST DRAM access of a body, 37 of 38 distinct images (R3 sect. 6.2). external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
   w1    00002021CD   ld      (p),(p)+2
   w2    000020040E   ld      acc,(p)+0
-  w3    0212200000   ?word   0x0212200000   ; 212.2.00.000  hi12{ST f98=2 f31=1}  [plain store: mem[ptr] <- acc, taken BEFORE this word's ALU step (FORCED)]
+  w3    0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
   w4    0092A00200   ?word   0x0092A00200   ; 092.A.00.200  hi12{ST f31=1 ?7 res=080} cur+  [LFO: phase += increment (increment = f/44100 in Q0.23)]
         ; C-RAM[0x00] (coeff, base 0x00 MEASURED)
   w5    00822001C0   mac.b   (p),(p)+0
@@ -91,7 +91,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w36   01042001CE   ?word   0x01042001CE   ; 104.2.00.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
   w37   01022011CD   mac     (p),(p)+1
   w38   000020040E   ld      acc,(p)+0
-  w39   0212200000   ?word   0x0212200000   ; 212.2.00.000  hi12{ST f98=2 f31=1}  [plain store: mem[ptr] <- acc, taken BEFORE this word's ALU step (FORCED)]
+  w39   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
   w40   0000AF8415   ld      acc,c+,(p)-8
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0A] = op0x66[0] (role mix/tap, INFERRED)
@@ -105,7 +105,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w47   01042FF1CE   ?word   0x01042FF1CE   ; 104.2.FF.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
   w48   01022021CD   mac     (p),(p)+2
   w49   000020040E   ld      acc,(p)+0
-  w50   0212200000   ?word   0x0212200000   ; 212.2.00.000  hi12{ST f98=2 f31=1}  [plain store: mem[ptr] <- acc, taken BEFORE this word's ALU step (FORCED)]
+  w50   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
   w51   0000AF3415   ld      acc,c+,(p)-13
         ; C-RAM[0x0C] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0C] = op0x66[1] (role mix/tap, INFERRED)

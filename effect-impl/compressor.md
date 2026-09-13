@@ -50,10 +50,10 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w4    0104A001D5   ?word   0x0104A001D5   ; 104.A.00.1D5  hi12{f98=1 f31=2} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=2 / ACT 0x15 may be OPEN]
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
   w5    0C402C0000   ?word   0x0C402C0000   ; C40.2.C0.000  {C-fmt A=22 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=22 B=0 (imm13 0x02C0 = 22*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
-  w6    0182A00000   ?word   0x0182A00000   ; 182.A.00.000  hi12{f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w6    0182A00000   mac.b   ?,c+,(p)+0
         ; C-RAM[0x02] (coeff, base 0x00 MEASURED)
   w7    00A620D447   ?word   0x00A620D447   ; 0A6.2.0D.447  hi12{f31=3 ?7 ?5 res=0A0}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
-  w8    00A2200000   ?word   0x00A2200000   ; 0A2.2.00.000  hi12{f31=1 ?7 ?5 res=0A0}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w8    00A2200000   mac.b   ?,(p)+0
   w9    001223C1C0   mac.b   (p),(p)+60 ; mem[p]<-acc, acc=0
   w10   0000A00219   ?word   0x0000A00219   ; 000.A.00.219  hi12{-} cur+  [SPECULATIVE (prospective, not measured): SRC 0x08 = LFO/per-unit source]
         ; C-RAM[0x03] (coeff, base 0x00 MEASURED)
@@ -61,14 +61,14 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x04] = op0x72[0] (role gain-computer, PROVEN)
   w12   0C401E0451   ?word   0x0C401E0451   ; C40.1.E0.451  {C-fmt A=15 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=15 B=0 (imm13 0x01E0 = 15*32, MEASURED 57/57 for this opcode); destination register lo12=451 UNKNOWN]
-  w13   01022B5000   ?word   0x01022B5000   ; 102.2.B5.000  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w13   01022B5000   mac.b   ?,(p)-75
   w14   0026200000   ?word   0x0026200000   ; 026.2.00.000  hi12{f31=3 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w15   00002091CD   ld      (p),(p)+9
   w16   000024240E   ld      acc,(p)+66
-  w17   02122BE000   ?word   0x02122BE000   ; 212.2.BE.000  hi12{ST f98=2 f31=1}  [writes mem[ptr] (bit 4); mode 2, so the target IS the pointer]
+  w17   02122BE000   mac.b   ?,(p)-66 ; mem[p]<-acc, acc=0
   w18   0028200000   ?word   0x0028200000   ; 028.2.00.000  hi12{f31=4 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w19   0880130407   ?word   0x0880130407   ; 880.1.30.407  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL; addr8 0x30 also marks the FIRST DRAM access of a body, 37 of 38 distinct images (R3 sect. 6.2). external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
-  w20   0000201000   ?word   0x0000201000   ; 000.2.01.000  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w20   0000201000   nop
   w21   00122001C0   mac.b   (p),(p)+0 ; mem[p]<-acc, acc=0
   w22   002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w23   00262F9407   ?word   0x00262F9407   ; 026.2.F9.407  hi12{f31=3 ?5 res=020}  [SPECULATIVE: class-2 post-increment MAC (source 0x10); the accumulator-combine f31=3 and/or ACT 0x07 are OPEN]
@@ -77,21 +77,21 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w25   0104A001D5   ?word   0x0104A001D5   ; 104.A.00.1D5  hi12{f98=1 f31=2} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=2 / ACT 0x15 may be OPEN]
         ; C-RAM[0x06] (coeff, base 0x00 MEASURED)
   w26   0C402C0000   ?word   0x0C402C0000   ; C40.2.C0.000  {C-fmt A=22 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=22 B=0 (imm13 0x02C0 = 22*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
-  w27   0182A00000   ?word   0x0182A00000   ; 182.A.00.000  hi12{f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w27   0182A00000   mac.b   ?,c+,(p)+0
         ; C-RAM[0x07] (coeff, base 0x00 MEASURED)
   w28   00A6207447   ?word   0x00A6207447   ; 0A6.2.07.447  hi12{f31=3 ?7 ?5 res=0A0}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
-  w29   00A2200000   ?word   0x00A2200000   ; 0A2.2.00.000  hi12{f31=1 ?7 ?5 res=0A0}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w29   00A2200000   mac.b   ?,(p)+0
   w30   00122421C0   mac.b   (p),(p)+66 ; mem[p]<-acc, acc=0
   w31   0000A00219   ?word   0x0000A00219   ; 000.A.00.219  hi12{-} cur+  [SPECULATIVE (prospective, not measured): SRC 0x08 = LFO/per-unit source]
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
   w32   009AA00200   ?word   0x009AA00200   ; 09A.A.00.200  hi12{ST f31=5 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x08 = LFO/per-unit source]
         ; C-RAM[0x09] (coeff, base 0x00 MEASURED)
   w33   0C401E0451   ?word   0x0C401E0451   ; C40.1.E0.451  {C-fmt A=15 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=15 B=0 (imm13 0x01E0 = 15*32, MEASURED 57/57 for this opcode); destination register lo12=451 UNKNOWN]
-  w34   01022B4000   ?word   0x01022B4000   ; 102.2.B4.000  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w34   01022B4000   mac.b   ?,(p)-76
   w35   0026200000   ?word   0x0026200000   ; 026.2.00.000  hi12{f31=3 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w36   00002FB1CD   ld      (p),(p)-5
   w37   000025140E   ld      acc,(p)+81
-  w38   02122AF000   ?word   0x02122AF000   ; 212.2.AF.000  hi12{ST f98=2 f31=1}  [writes mem[ptr] (bit 4); mode 2, so the target IS the pointer]
+  w38   02122AF000   mac.b   ?,(p)-81 ; mem[p]<-acc, acc=0
   w39   042810E000   ?word   0x042810E000   ; 428.1.0E.000  hi12{END f31=4 ?5 res=020}  [END OF BLOCK, unit 0 -- CALL/RETURN -- and still performs the rest of the word]
 ```
 

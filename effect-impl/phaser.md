@@ -100,7 +100,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w47   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w48   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w49   01042021CE   ?word   0x01042021CE   ; 104.2.02.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
-  w50   0102200000   ?word   0x0102200000   ; 102.2.00.000  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w50   0102200000   mac.b   ?,(p)+0
   w51   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x05] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x05] = op0x66[0] (role mix/tap, INFERRED)
@@ -115,7 +115,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w57   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w58   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w59   01042081CE   ?word   0x01042081CE   ; 104.2.08.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
-  w60   0102200000   ?word   0x0102200000   ; 102.2.00.000  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w60   0102200000   mac.b   ?,(p)+0
   w61   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x08] = op0x66[2] (role mix/tap, INFERRED)

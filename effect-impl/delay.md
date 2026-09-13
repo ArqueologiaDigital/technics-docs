@@ -56,7 +56,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x02] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x02] = filter section cell 2 (role filter, INFERRED)
         ; 202.A.**.655 = op0x73 filter-section coefficient (INFERRED, 19/20 corpus)
-  w7    0000248000   ?word   0x0000248000   ; 000.2.48.000  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w7    0000248000   nop
   w8    0212200419   mac.ta2 acc,(p)+0 ; mem[p]<-acc, acc=0
   w9    088012064B   ?word   0x088012064B   ; 880.1.20.64B  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL. external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
   w10   0000A001D5   ld      (p),c+,(p)+0
@@ -69,7 +69,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x05] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x05] = damping filter tap 2 (role damping, PROVEN)
   w13   0202200407   mac.st  acc,(p)+0
-  w14   0000201000   ?word   0x0000201000   ; 000.2.01.000  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w14   0000201000   nop
   w15   0000A001D5   ld      (p),c+,(p)+0
         ; C-RAM[0x06] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x06] = damping filter tap 0 (role damping, PROVEN)
@@ -80,7 +80,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x08] = damping filter tap 2 (role damping, PROVEN)
   w18   0202200407   mac.st  acc,(p)+0
-  w19   00002B6000   ?word   0x00002B6000   ; 000.2.B6.000  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w19   00002B6000   nop
   w20   00002FE407   ld.st   acc,(p)-2
   w21   00002091CD   ld      (p),(p)+9
   w22   00002F740E   ld      acc,(p)-9
@@ -98,7 +98,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0B] = filter section cell 2 (role filter, INFERRED)
         ; 202.A.**.655 = op0x73 filter-section coefficient (INFERRED, 19/20 corpus)
-  w30   000024B000   ?word   0x000024B000   ; 000.2.4B.000  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w30   000024B000   nop
   w31   0212200419   mac.ta2 acc,(p)+0 ; mem[p]<-acc, acc=0
   w32   088012064B   ?word   0x088012064B   ; 880.1.20.64B  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL. external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
   w33   0000A001D5   ld      (p),c+,(p)+0
@@ -111,7 +111,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x0E] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0E] = damping filter tap 2 (role damping, PROVEN)
   w36   0202200407   mac.st  acc,(p)+0
-  w37   0000201000   ?word   0x0000201000   ; 000.2.01.000  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w37   0000201000   nop
   w38   0000A001D5   ld      (p),c+,(p)+0
         ; C-RAM[0x0F] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0F] = damping filter tap 0 (role damping, PROVEN)
@@ -122,7 +122,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x11] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x11] = damping filter tap 2 (role damping, PROVEN)
   w41   0202200407   mac.st  acc,(p)+0
-  w42   00002B5000   ?word   0x00002B5000   ; 000.2.B5.000  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w42   00002B5000   nop
   w43   00002FD407   ld.st   acc,(p)-3
   w44   00002FB1CD   ld      (p),(p)-5
   w45   000020040E   ld      acc,(p)+0
