@@ -136,7 +136,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x11] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x11] = filter section cell 4 (role filter, INFERRED)
   w63   0880160000   dly.w  dsc[k],p+96
-  w64   040010E407   ?word   0x040010E407   ; 400.1.0E.407  hi12{END}  [END OF BLOCK, unit 0 -- CALL/RETURN -- and still performs the rest of the word]
+  w64   040010E407   endblk  unit0          ; END OF BLOCK -- the image's last word
 ```
 
 ## HLE reconstruction (MAME, `kn5000_tonegen.cpp`)

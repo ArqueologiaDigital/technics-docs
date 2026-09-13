@@ -93,7 +93,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w38   02122F1000   mac.b   (p)0,(p)-15 ; mem[p]<-acc, acc=0
   w39   0028200000   ?word   0x0028200000   ; 028.2.00.000  hi12{f31=4 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w40   0880130000   dly.r  dsc[k],p+48
-  w41   040010E000   ?word   0x040010E000   ; 400.1.0E.000  hi12{END}  [END OF BLOCK, unit 0 -- CALL/RETURN -- and still performs the rest of the word]
+  w41   040010E000   endblk  unit0          ; END OF BLOCK -- the image's last word
 ```
 
 ## HLE reconstruction (MAME, `kn5000_tonegen.cpp`)

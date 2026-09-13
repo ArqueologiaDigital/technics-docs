@@ -134,7 +134,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w50   02042FB1CD   post    (p),(p)-5
   w51   000020040E   ld      acc,(p)+0
   w52   0880160000   dly.w  dsc[k],p+96
-  w53   061210E000   ?word   0x061210E000   ; 612.1.0E.000  hi12{END ST f98=2 f31=1}  [END OF BLOCK, unit 0 -- CALL/RETURN -- and still performs the rest of the word]  [!! bit 4 = store, yet addr8 is the unit index -- UNEXPLAINED]
+  w53   061210E000   endblk  unit0          ; END OF BLOCK -- the image's last word
 ```
 
 ## HLE reconstruction (MAME, `kn5000_tonegen.cpp`)

@@ -108,7 +108,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w50   0102AAD4C8   ?word   0x0102AAD4C8   ; 102.A.AD.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
   w51   0880160000   dly.w  dsc[k],p+96
-  w52   040010E000   ?word   0x040010E000   ; 400.1.0E.000  hi12{END}  [END OF BLOCK, unit 0 -- CALL/RETURN -- and still performs the rest of the word]
+  w52   040010E000   endblk  unit0          ; END OF BLOCK -- the image's last word
 ```
 
 ## HLE reconstruction (MAME, `kn5000_tonegen.cpp`)

@@ -265,7 +265,7 @@ OutputTails:
         ; coeff C-RAM[0xB0] = RIGHT output tail (role mix, PROVEN)
   w130  020227B1CD   mac     (p),(p)+123
   w131  088016040E   dly.w  dsc[k],p+96
-  w132  061210F000   ?word   0x061210F000   ; 612.1.0F.000  hi12{END ST f98=2 f31=1}  [END OF BLOCK, unit 1 -- CALL/RETURN -- and still performs the rest of the word]  [!! bit 4 = store, yet addr8 is the unit index -- UNEXPLAINED]
+  w132  061210F000   endblk  unit1          ; END OF BLOCK -- the image's last word
 ```
 
 ## HLE reconstruction (MAME, `kn5000_tonegen.cpp`)
