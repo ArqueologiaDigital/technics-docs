@@ -51,17 +51,17 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w6    0000200413   ld.ta   acc,(p)+0
   w7    00002401CD   ld      (p),(p)+64
   w8    01122031CE   mac     (p),(p)+3 ; mem[p]<-acc, acc=0
-  w9    01042001CE   ?word   0x01042001CE   ; 104.2.00.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w9    01042001CE   post    (p),(p)+0
   w10   02022FF1D5   mac     (p),(p)-1
   w11   0102ABF1D4   mac.tb  (p),c+,(p)-65
         ; C-RAM[0x00] (coeff, base 0x00 MEASURED)
-  w12   02042421CD   ?word   0x02042421CD   ; 204.2.42.1CD  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
-  w13   02042FE687   ?word   0x02042FE687   ; 204.2.FE.687  hi12{f98=2 f31=2}  [P-consumer, stores latch B (INFERRED)]
+  w12   02042421CD   post    (p),(p)+66
+  w13   02042FE687   post.st tb,(p)-2
   w14   08048161DA   ?word   0x08048161DA   ; 804.8.16.1DA  hi12{ESC f31=2} cur  [class 8: post-sum step (rescale/round/saturate?), OPERATION UNKNOWN]
   w15   00002FF647   ld.st   ta,(p)-1
   w16   0000202687   ld.st   tb,(p)+2
   w17   00002BC407   ld.st   acc,(p)-68
-  w18   0024200000   ?word   0x0024200000   ; 024.2.00.000  hi12{f31=2 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w18   0024200000   post.b  ?,(p)+0
   w19   0000205407   ld.st   acc,(p)+5
   w20   0010AFC1D5   ld      (p),c+,(p)-4 ; mem[p]<-acc, acc=0
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
@@ -72,7 +72,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w24   0026200000   ?word   0x0026200000   ; 026.2.00.000  hi12{f31=3 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w25   0018A001D5   ?word   0x0018A001D5   ; 018.A.00.1D5  hi12{ST f31=4} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=4 / ACT 0x15 may be OPEN]
         ; C-RAM[0x03] (coeff, base 0x00 MEASURED)
-  w26   0104A001D5   ?word   0x0104A001D5   ; 104.A.00.1D5  hi12{f98=1 f31=2} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=2 / ACT 0x15 may be OPEN]
+  w26   0104A001D5   post    (p),c+,(p)+0
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)
   w27   0C402C0000   ?word   0x0C402C0000   ; C40.2.C0.000  {C-fmt A=22 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=22 B=0 (imm13 0x02C0 = 22*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
   w28   0182A00000   mac.b   ?,c+,(p)+0
@@ -110,7 +110,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w50   0000AFF455   ?word   0x0000AFF455   ; 000.A.FF.455  hi12{-} cur+  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0B] = op0x24[2] (role coeff, INFERRED)
-  w51   0204200000   ?word   0x0204200000   ; 204.2.00.000  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w51   0204200000   post.b  ?,(p)+0
   w52   0880130407   dly.r  dsc[k],p+48
   w53   00002F5000   nop
   w54   000020A1CD   ld      (p),(p)+10
@@ -121,13 +121,13 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w59   0000200413   ld.ta   acc,(p)+0
   w60   00002441CD   ld      (p),(p)+68
   w61   01122031CE   mac     (p),(p)+3 ; mem[p]<-acc, acc=0
-  w62   01042001CE   ?word   0x01042001CE   ; 104.2.00.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w62   01042001CE   post    (p),(p)+0
   w63   02022FF1D5   mac     (p),(p)-1
   w64   0102ABB1D4   mac.tb  (p),c+,(p)-69
         ; C-RAM[0x0C] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0C] = op0x24[3] (role coeff, INFERRED)
-  w65   02042461CD   ?word   0x02042461CD   ; 204.2.46.1CD  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
-  w66   02042FE687   ?word   0x02042FE687   ; 204.2.FE.687  hi12{f98=2 f31=2}  [P-consumer, stores latch B (INFERRED)]
+  w65   02042461CD   post    (p),(p)+70
+  w66   02042FE687   post.st tb,(p)-2
   w67   08048161DA   ?word   0x08048161DA   ; 804.8.16.1DA  hi12{ESC f31=2} cur  [class 8: post-sum step (rescale/round/saturate?), OPERATION UNKNOWN]
   w68   00002FF647   ld.st   ta,(p)-1
   w69   0000202687   ld.st   tb,(p)+2

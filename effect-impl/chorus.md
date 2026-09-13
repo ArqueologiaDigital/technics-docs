@@ -84,11 +84,11 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w30   0040000C63   ?word   0x0040000C63   ; 040.0.00.C63  hi12{?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w31   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w32   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
-  w33   01042021CE   ?word   0x01042021CE   ; 104.2.02.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w33   01042021CE   post    (p),(p)+2
   w34   0142000C63   ?word   0x0142000C63   ; 142.0.00.C63  hi12{f98=1 f31=1 ?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w35   0000620407   ?word   0x0000620407   ; 000.6.20.407  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w36   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
-  w37   01042011CE   ?word   0x01042011CE   ; 104.2.01.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w37   01042011CE   post    (p),(p)+1
   w38   0102200000   mac.b   ?,(p)+0
   w39   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x09] (coeff, base 0x00 MEASURED)

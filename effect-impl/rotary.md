@@ -60,7 +60,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w9    0040000C63   ?word   0x0040000C63   ; 040.0.00.C63  hi12{?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w10   00006284CD   ?word   0x00006284CD   ; 000.6.28.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w11   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
-  w12   01042001CE   ?word   0x01042001CE   ; 104.2.00.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w12   01042001CE   post    (p),(p)+0
   w13   010220B1CD   mac     (p),(p)+11
   w14   00002FF40E   ld      acc,(p)-1
   w15   0212201000   mac.b   ?,(p)+1 ; mem[p]<-acc, acc=0
@@ -96,7 +96,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w35   0000243407   ld.st   acc,(p)+67
   w36   0C400001DA   ?word   0x0C400001DA   ; C40.0.00.1DA  {C-fmt A=0 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=0 B=0 (imm13 0x0000 = 0*32, MEASURED 57/57 for this opcode); destination register lo12=1DA UNKNOWN]
   w37   00122FC1D5   mac     (p),(p)-4 ; mem[p]<-acc, acc=0
-  w38   01042C01D5   ?word   0x01042C01D5   ; 104.2.C0.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w38   01042C01D5   post    (p),(p)-64
   w39   0102A401D5   mac     (p),c+,(p)+64
         ; C-RAM[0x0D] (coeff, base 0x00 MEASURED)
   w40   0000200000   nop
@@ -106,7 +106,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w43   0000247407   ld.st   acc,(p)+71
   w44   0C400001DA   ?word   0x0C400001DA   ; C40.0.00.1DA  {C-fmt A=0 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=0 B=0 (imm13 0x0000 = 0*32, MEASURED 57/57 for this opcode); destination register lo12=1DA UNKNOWN]
   w45   00122FC1D5   mac     (p),(p)-4 ; mem[p]<-acc, acc=0
-  w46   01042C01D5   ?word   0x01042C01D5   ; 104.2.C0.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w46   01042C01D5   post    (p),(p)-64
   w47   0102A401D5   mac     (p),c+,(p)+64
         ; C-RAM[0x0F] (coeff, base 0x00 MEASURED)
   w48   0000200000   nop

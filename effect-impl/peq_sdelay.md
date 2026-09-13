@@ -86,7 +86,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w23   0202AF3415   mac     acc,c+,(p)-13
         ; C-RAM[0x09] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x09] = op0x66[0] (role mix/tap, INFERRED)
-  w24   02042091CD   ?word   0x02042091CD   ; 204.2.09.1CD  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
+  w24   02042091CD   post    (p),(p)+9
   w25   00002F740E   ld      acc,(p)-9
   w26   021220A1CD   mac     (p),(p)+10 ; mem[p]<-acc, acc=0
   w27   00002FF1CE   ld      (p),(p)-1
@@ -131,7 +131,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w49   0202AF3415   mac     acc,c+,(p)-13
         ; C-RAM[0x13] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x13] = op0x66[1] (role mix/tap, INFERRED)
-  w50   02042FB1CD   ?word   0x02042FB1CD   ; 204.2.FB.1CD  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
+  w50   02042FB1CD   post    (p),(p)-5
   w51   000020040E   ld      acc,(p)+0
   w52   0880160000   dly.w  dsc[k],p+96
   w53   061210E000   ?word   0x061210E000   ; 612.1.0E.000  hi12{END ST f98=2 f31=1}  [END OF BLOCK, unit 0 -- CALL/RETURN -- and still performs the rest of the word]  [!! bit 4 = store, yet addr8 is the unit index -- UNEXPLAINED]

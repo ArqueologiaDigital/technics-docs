@@ -65,7 +65,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w14   0202AF3415   mac     acc,c+,(p)-13
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x04] = op0x66[0] (role mix/tap, INFERRED)
-  w15   020420D1CD   ?word   0x020420D1CD   ; 204.2.0D.1CD  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
+  w15   020420D1CD   post    (p),(p)+13
   w16   000020040E   ld      acc,(p)+0
   w17   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
   w18   0000202407   ld.st   acc,(p)+2
@@ -98,17 +98,17 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0A] = op0x66[1] (role mix/tap, INFERRED)
   w38   0092200700   ?word   0x0092200700   ; 092.2.00.700  hi12{ST f31=1 ?7 res=080}  [SPECULATIVE (prospective, not measured): SRC 0x1C = control/mod source into MAC (100% MAC-consumed; LFO in mod fx, envelope/AGC in dynamics) -- NOT LFO-only: present in 19 non-LFO programs (dsp_datapath_fingerprint)]
-  w39   0204A061D5   ?word   0x0204A061D5   ; 204.A.06.1D5  hi12{f98=2 f31=2} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=2 / ACT 0x15 may be OPEN]
+  w39   0204A061D5   post    (p),c+,(p)+6
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
   w40   0182200407   mac.st  acc,(p)+0
   w41   0040000C63   ?word   0x0040000C63   ; 040.0.00.C63  hi12{?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w42   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w43   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
-  w44   01042061CE   ?word   0x01042061CE   ; 104.2.06.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w44   01042061CE   post    (p),(p)+6
   w45   0142000C63   ?word   0x0142000C63   ; 142.0.00.C63  hi12{f98=1 f31=1 ?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w46   000061E407   ?word   0x000061E407   ; 000.6.1E.407  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w47   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
-  w48   01042F31CE   ?word   0x01042F31CE   ; 104.2.F3.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w48   01042F31CE   post    (p),(p)-13
   w49   0102200000   mac.b   ?,(p)+0
   w50   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x0C] (coeff, base 0x00 MEASURED)
@@ -140,7 +140,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w69   0202AF3415   mac     acc,c+,(p)-13
         ; C-RAM[0x10] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x10] = op0x66[4] (role mix/tap, INFERRED)
-  w70   020420D1CD   ?word   0x020420D1CD   ; 204.2.0D.1CD  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
+  w70   020420D1CD   post    (p),(p)+13
   w71   000020040E   ld      acc,(p)+0
   w72   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
   w73   0000202407   ld.st   acc,(p)+2

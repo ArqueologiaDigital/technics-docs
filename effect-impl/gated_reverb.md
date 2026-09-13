@@ -60,7 +60,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x03] (coeff, base 0x00 MEASURED)
   w12   0202200000   mac.b   ?,(p)+0
   w13   08801602D4   dly.w  dsc[k],p+96
-  w14   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w14   0104200000   post.b  ?,(p)+0
   w15   0000200419   ld.ta2  acc,(p)+0
   w16   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w17   0880120655   dly.r  dsc[k],p+32
@@ -69,7 +69,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w19   0000200000   nop
   w20   0000200000   nop
   w21   08801602D4   dly.w  dsc[k],p+96
-  w22   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w22   0104200000   post.b  ?,(p)+0
   w23   0000200419   ld.ta2  acc,(p)+0
   w24   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w25   0880120655   dly.r  dsc[k],p+32
@@ -78,7 +78,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w27   0000200000   nop
   w28   0000200000   nop
   w29   08801602D4   dly.w  dsc[k],p+96
-  w30   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w30   0104200000   post.b  ?,(p)+0
   w31   0000200419   ld.ta2  acc,(p)+0
   w32   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w33   0880120655   dly.r  dsc[k],p+32
@@ -95,7 +95,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; coeff C-RAM[0x09] = damping filter tap 2 (role damping, PROVEN)
   w38   0202200407   mac.st  acc,(p)+0
   w39   08801602D4   dly.w  dsc[k],p+96
-  w40   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w40   0104200000   post.b  ?,(p)+0
   w41   0000200419   ld.ta2  acc,(p)+0
   w42   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w43   0880120655   dly.r  dsc[k],p+32
@@ -104,7 +104,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w45   0000200000   nop
   w46   0000200000   nop
   w47   08801602D4   dly.w  dsc[k],p+96
-  w48   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w48   0104200000   post.b  ?,(p)+0
   w49   0000200419   ld.ta2  acc,(p)+0
   w50   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w51   0880120655   dly.r  dsc[k],p+32
@@ -113,7 +113,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w53   0000200000   nop
   w54   0000200000   nop
   w55   08801602D4   dly.w  dsc[k],p+96
-  w56   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w56   0104200000   post.b  ?,(p)+0
   w57   0000200419   ld.ta2  acc,(p)+0
   w58   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w59   0880120655   dly.r  dsc[k],p+32
@@ -122,7 +122,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w61   0000200000   nop
   w62   0000200000   nop
   w63   08801602D4   dly.w  dsc[k],p+96
-  w64   0104200407   ?word   0x0104200407   ; 104.2.00.407  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x10); the accumulator-combine f31=2 and/or ACT 0x07 are OPEN]
+  w64   0104200407   post.st acc,(p)+0
   w65   0000200419   ld.ta2  acc,(p)+0
   w66   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w67   0880120655   dly.r  dsc[k],p+32
@@ -147,7 +147,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w79   000020868B   ?word   0x000020868B   ; 000.2.08.68B  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0B = delay-line access (READ/WRITE class-borne)]
   w80   0018A001D5   ?word   0x0018A001D5   ; 018.A.00.1D5  hi12{ST f31=4} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=4 / ACT 0x15 may be OPEN]
         ; C-RAM[0x11] (coeff, base 0x00 MEASURED)
-  w81   0104A001D5   ?word   0x0104A001D5   ; 104.A.00.1D5  hi12{f98=1 f31=2} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=2 / ACT 0x15 may be OPEN]
+  w81   0104A001D5   post    (p),c+,(p)+0
         ; C-RAM[0x12] (coeff, base 0x00 MEASURED)
   w82   0C402C0000   ?word   0x0C402C0000   ; C40.2.C0.000  {C-fmt A=22 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=22 B=0 (imm13 0x02C0 = 22*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
   w83   0182A00000   mac.b   ?,c+,(p)+0
@@ -157,7 +157,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x14] (coeff, base 0x00 MEASURED)
   w86   0C403A0359   ?word   0x0C403A0359   ; C40.3.A0.359  {C-fmt A=29 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=29 B=0 (imm13 0x03A0 = 29*32, MEASURED 57/57 for this opcode); destination register lo12=359 UNKNOWN]
   w87   00922FF1D5   ?word   0x00922FF1D5   ; 092.2.FF.1D5  hi12{ST f31=1 ?7 res=080}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=1 and/or ACT 0x15 are OPEN]
-  w88   0184A011D5   ?word   0x0184A011D5   ; 184.A.01.1D5  hi12{f98=1 f31=2 ?7 res=080} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=2 / ACT 0x15 may be OPEN]
+  w88   0184A011D5   post    (p),c+,(p)+1
         ; C-RAM[0x15] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x15] = op0x6F[0] (role coeff, INFERRED)
   w89   01822FF407   mac.st  acc,(p)-1

@@ -60,46 +60,46 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w11   00002BB1D5   ld      (p),(p)-69
   w12   01022451CD   mac     (p),(p)+69
   w13   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w14   01042BA1D5   ?word   0x01042BA1D5   ; 104.2.BA.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w14   01042BA1D5   post    (p),(p)-70
   w15   01022461CD   mac     (p),(p)+70
   w16   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w17   01042B91D5   ?word   0x01042B91D5   ; 104.2.B9.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w17   01042B91D5   post    (p),(p)-71
   w18   01022471CD   mac     (p),(p)+71
   w19   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w20   01042B81D5   ?word   0x01042B81D5   ; 104.2.B8.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w20   01042B81D5   post    (p),(p)-72
   w21   01022481CD   mac     (p),(p)+72
   w22   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w23   01042B71D5   ?word   0x01042B71D5   ; 104.2.B7.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w23   01042B71D5   post    (p),(p)-73
   w24   01022491CD   mac     (p),(p)+73
   w25   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w26   01042B61D5   ?word   0x01042B61D5   ; 104.2.B6.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w26   01042B61D5   post    (p),(p)-74
   w27   010224A1CD   mac     (p),(p)+74
   w28   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w29   01042B51D5   ?word   0x01042B51D5   ; 104.2.B5.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w29   01042B51D5   post    (p),(p)-75
   w30   010224B1CD   mac     (p),(p)+75
   w31   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w32   01042B41D5   ?word   0x01042B41D5   ; 104.2.B4.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w32   01042B41D5   post    (p),(p)-76
   w33   010224C1CD   mac     (p),(p)+76
   w34   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w35   01042B31D5   ?word   0x01042B31D5   ; 104.2.B3.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w35   01042B31D5   post    (p),(p)-77
   w36   010224D1CD   mac     (p),(p)+77
   w37   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w38   01042B21D5   ?word   0x01042B21D5   ; 104.2.B2.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w38   01042B21D5   post    (p),(p)-78
   w39   010224E1CD   mac     (p),(p)+78
   w40   0212AB0412   mac     acc,c+,(p)-80 ; mem[p]<-acc, acc=0
         ; C-RAM[0x03] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x03] = filter section cell 1 (role filter, INFERRED)
-  w41   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w41   0104200000   post.b  ?,(p)+0
   w42   0880130407   dly.r  dsc[k],p+48
   w43   009220A700   ?word   0x009220A700   ; 092.2.0A.700  hi12{ST f31=1 ?7 res=080}  [SPECULATIVE (prospective, not measured): SRC 0x1C = control/mod source into MAC (100% MAC-consumed; LFO in mod fx, envelope/AGC in dynamics) -- NOT LFO-only: present in 19 non-LFO programs (dsp_datapath_fingerprint)]
-  w44   0104AFB1D5   ?word   0x0104AFB1D5   ; 104.A.FB.1D5  hi12{f98=1 f31=2} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=2 / ACT 0x15 may be OPEN]
+  w44   0104AFB1D5   post    (p),c+,(p)-5
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x04] = filter section cell 2 (role filter, INFERRED)
   w45   0182200407   mac.st  acc,(p)+0
   w46   0040000C63   ?word   0x0040000C63   ; 040.0.00.C63  hi12{?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w47   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w48   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
-  w49   01042021CE   ?word   0x01042021CE   ; 104.2.02.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w49   01042021CE   post    (p),(p)+2
   w50   0102200000   mac.b   ?,(p)+0
   w51   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x05] (coeff, base 0x00 MEASURED)
@@ -114,7 +114,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w56   0040000C63   ?word   0x0040000C63   ; 040.0.00.C63  hi12{?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w57   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w58   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
-  w59   01042081CE   ?word   0x01042081CE   ; 104.2.08.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w59   01042081CE   post    (p),(p)+8
   w60   0102200000   mac.b   ?,(p)+0
   w61   0000A00415   ld      acc,c+,(p)+0
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
@@ -134,36 +134,36 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w70   00002B11D5   ld      (p),(p)-79
   w71   010224F1CD   mac     (p),(p)+79
   w72   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w73   01042B01D5   ?word   0x01042B01D5   ; 104.2.B0.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w73   01042B01D5   post    (p),(p)-80
   w74   01022501CD   mac     (p),(p)+80
   w75   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w76   01042AF1D5   ?word   0x01042AF1D5   ; 104.2.AF.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w76   01042AF1D5   post    (p),(p)-81
   w77   01022511CD   mac     (p),(p)+81
   w78   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w79   01042AE1D5   ?word   0x01042AE1D5   ; 104.2.AE.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w79   01042AE1D5   post    (p),(p)-82
   w80   01022521CD   mac     (p),(p)+82
   w81   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w82   01042AD1D5   ?word   0x01042AD1D5   ; 104.2.AD.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w82   01042AD1D5   post    (p),(p)-83
   w83   01022531CD   mac     (p),(p)+83
   w84   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w85   01042AC1D5   ?word   0x01042AC1D5   ; 104.2.AC.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w85   01042AC1D5   post    (p),(p)-84
   w86   01022541CD   mac     (p),(p)+84
   w87   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w88   01042AB1D5   ?word   0x01042AB1D5   ; 104.2.AB.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w88   01042AB1D5   post    (p),(p)-85
   w89   01022551CD   mac     (p),(p)+85
   w90   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w91   01042AA1D5   ?word   0x01042AA1D5   ; 104.2.AA.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w91   01042AA1D5   post    (p),(p)-86
   w92   01022561CD   mac     (p),(p)+86
   w93   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w94   01042A91D5   ?word   0x01042A91D5   ; 104.2.A9.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w94   01042A91D5   post    (p),(p)-87
   w95   01022571CD   mac     (p),(p)+87
   w96   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
-  w97   01042A81D5   ?word   0x01042A81D5   ; 104.2.A8.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w97   01042A81D5   post    (p),(p)-88
   w98   01022581CD   mac     (p),(p)+88
   w99   0212AB1412   mac     acc,c+,(p)-79 ; mem[p]<-acc, acc=0
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0B] = filter section cell 1 (role filter, INFERRED)
-  w100  0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w100  0104200000   post.b  ?,(p)+0
   w101  0092A00200   ?word   0x0092A00200   ; 092.A.00.200  hi12{ST f31=1 ?7 res=080} cur+  [LFO: phase += increment (increment = f/44100 in Q0.23)]
         ; C-RAM[0x0C] (coeff, base 0x00 MEASURED)
   w102  00822001C0   mac.b   (p),(p)+0

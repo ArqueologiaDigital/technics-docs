@@ -90,19 +90,19 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w34   0002A031D5   mac     (p),c+,(p)+3
         ; C-RAM[0x07] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x07] = filter section cell 0 (role filter, INFERRED)
-  w35   02042FE000   ?word   0x02042FE000   ; 204.2.FE.000  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w35   02042FE000   post.b  ?,(p)-2
   w36   0002AFF1D5   mac     (p),c+,(p)-1
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x08] = damping filter tap 0 (role damping, PROVEN)
-  w37   0204202000   ?word   0x0204202000   ; 204.2.02.000  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w37   0204202000   post.b  ?,(p)+2
   w38   0002AFF1D5   mac     (p),c+,(p)-1
         ; C-RAM[0x09] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x09] = damping filter tap 1 (role damping, PROVEN)
-  w39   02042F6000   ?word   0x02042F6000   ; 204.2.F6.000  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w39   02042F6000   post.b  ?,(p)-10
   w40   0002A0B1D5   mac     (p),c+,(p)+11
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0A] = damping filter tap 2 (role damping, PROVEN)
-  w41   02042FA000   ?word   0x02042FA000   ; 204.2.FA.000  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w41   02042FA000   post.b  ?,(p)-6
   w42   0000204407   ld.st   acc,(p)+4
   w43   00102011D5   ld      (p),(p)+1 ; mem[p]<-acc, acc=0
   w44   02022011D5   mac     (p),(p)+1

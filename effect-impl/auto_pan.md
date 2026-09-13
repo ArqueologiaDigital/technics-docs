@@ -58,7 +58,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w11   02042FE44D   ?word   0x02042FE44D   ; 204.2.FE.44D  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator); ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
   w12   0202200000   mac.b   ?,(p)+0
   w13   0028200000   ?word   0x0028200000   ; 028.2.00.000  hi12{f31=4 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
-  w14   0024200000   ?word   0x0024200000   ; 024.2.00.000  hi12{f31=2 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
+  w14   0024200000   post.b  ?,(p)+0
   w15   0000204407   ld.st   acc,(p)+4
   w16   0092A00200   ?word   0x0092A00200   ; 092.A.00.200  hi12{ST f31=1 ?7 res=080} cur+  [LFO: phase += increment (increment = f/44100 in Q0.23)]
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
@@ -73,7 +73,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w23   0040000C63   ?word   0x0040000C63   ; 040.0.00.C63  hi12{?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w24   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w25   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
-  w26   01042FE1CE   ?word   0x01042FE1CE   ; 104.2.FE.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w26   01042FE1CE   post    (p),(p)-2
   w27   0102200000   mac.b   ?,(p)+0
   w28   0000203407   ld.st   acc,(p)+3
   w29   0092A00200   ?word   0x0092A00200   ; 092.A.00.200  hi12{ST f31=1 ?7 res=080} cur+  [LFO: phase += increment (increment = f/44100 in Q0.23)]
@@ -89,7 +89,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w36   0040000C63   ?word   0x0040000C63   ; 040.0.00.C63  hi12{?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w37   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w38   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
-  w39   01042F21CE   ?word   0x01042F21CE   ; 104.2.F2.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w39   01042F21CE   post    (p),(p)-14
   w40   010220A1CD   mac     (p),(p)+10
   w41   00002021CE   ld      (p),(p)+2
   w42   0212200407   mac.st  acc,(p)+0 ; mem[p]<-acc, acc=0

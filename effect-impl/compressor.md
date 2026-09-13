@@ -47,7 +47,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w2    00262F3000   ?word   0x00262F3000   ; 026.2.F3.000  hi12{f31=3 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w3    0018A001D5   ?word   0x0018A001D5   ; 018.A.00.1D5  hi12{ST f31=4} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=4 / ACT 0x15 may be OPEN]
         ; C-RAM[0x00] (coeff, base 0x00 MEASURED)
-  w4    0104A001D5   ?word   0x0104A001D5   ; 104.A.00.1D5  hi12{f98=1 f31=2} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=2 / ACT 0x15 may be OPEN]
+  w4    0104A001D5   post    (p),c+,(p)+0
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
   w5    0C402C0000   ?word   0x0C402C0000   ; C40.2.C0.000  {C-fmt A=22 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=22 B=0 (imm13 0x02C0 = 22*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
   w6    0182A00000   mac.b   ?,c+,(p)+0
@@ -74,7 +74,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w23   00262F9407   ?word   0x00262F9407   ; 026.2.F9.407  hi12{f31=3 ?5 res=020}  [SPECULATIVE: class-2 post-increment MAC (source 0x10); the accumulator-combine f31=3 and/or ACT 0x07 are OPEN]
   w24   0018A001D5   ?word   0x0018A001D5   ; 018.A.00.1D5  hi12{ST f31=4} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=4 / ACT 0x15 may be OPEN]
         ; C-RAM[0x05] (coeff, base 0x00 MEASURED)
-  w25   0104A001D5   ?word   0x0104A001D5   ; 104.A.00.1D5  hi12{f98=1 f31=2} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=2 / ACT 0x15 may be OPEN]
+  w25   0104A001D5   post    (p),c+,(p)+0
         ; C-RAM[0x06] (coeff, base 0x00 MEASURED)
   w26   0C402C0000   ?word   0x0C402C0000   ; C40.2.C0.000  {C-fmt A=22 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=22 B=0 (imm13 0x02C0 = 22*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
   w27   0182A00000   mac.b   ?,c+,(p)+0

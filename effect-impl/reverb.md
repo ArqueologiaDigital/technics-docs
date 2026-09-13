@@ -85,7 +85,7 @@ Separator0:
 Ladder0:
   w19   08801602D4   dly.w  dsc[k],p+96
         ; DIFFUSER LADDER 0 -- 5 all-pass cores, C-RAM 0x98..0x9C
-  w20   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w20   0104200000   post.b  ?,(p)+0
   w21   0000200419   ld.ta2  acc,(p)+0
   w22   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w23   0880120655   dly.r  dsc[k],p+32
@@ -96,7 +96,7 @@ Ladder0:
   w26   0000200000   nop
   w27   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 2 of 5
-  w28   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w28   0104200000   post.b  ?,(p)+0
   w29   0000200419   ld.ta2  acc,(p)+0
   w30   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w31   0880120655   dly.r  dsc[k],p+32
@@ -107,7 +107,7 @@ Ladder0:
   w34   0000200000   nop
   w35   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 3 of 5
-  w36   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w36   0104200000   post.b  ?,(p)+0
   w37   0000200419   ld.ta2  acc,(p)+0
   w38   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w39   0880120655   dly.r  dsc[k],p+32
@@ -118,7 +118,7 @@ Ladder0:
   w42   0000200000   nop
   w43   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 4 of 5
-  w44   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w44   0104200000   post.b  ?,(p)+0
   w45   0000200419   ld.ta2  acc,(p)+0
   w46   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w47   0880120655   dly.r  dsc[k],p+32
@@ -129,7 +129,7 @@ Ladder0:
   w50   0000200000   nop
   w51   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 5 of 5
-  w52   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w52   0104200000   post.b  ?,(p)+0
   w53   0000200419   ld.ta2  acc,(p)+0
   w54   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w55   0880120655   dly.r  dsc[k],p+32
@@ -162,7 +162,7 @@ Separator1:
 Ladder1:
   w69   08801602D4   dly.w  dsc[k],p+96
         ; DIFFUSER LADDER 1 -- FOUR all-pass cores, C-RAM 0xA1..0xA4
-  w70   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w70   0104200000   post.b  ?,(p)+0
   w71   0000200419   ld.ta2  acc,(p)+0
   w72   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w73   0880120655   dly.r  dsc[k],p+32
@@ -174,7 +174,7 @@ Ladder1:
   w76   0000200000   nop
   w77   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 2 of 4
-  w78   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w78   0104200000   post.b  ?,(p)+0
   w79   0000200419   ld.ta2  acc,(p)+0
   w80   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w81   0880120655   dly.r  dsc[k],p+32
@@ -185,7 +185,7 @@ Ladder1:
   w84   0000200000   nop
   w85   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 3 of 4
-  w86   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w86   0104200000   post.b  ?,(p)+0
   w87   0000200419   ld.ta2  acc,(p)+0
   w88   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w89   0880120655   dly.r  dsc[k],p+32
@@ -196,7 +196,7 @@ Ladder1:
   w92   0000200000   nop
   w93   08801602D4   dly.w  dsc[k],p+96
         ; all-pass core 4 of 4
-  w94   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
+  w94   0104200000   post.b  ?,(p)+0
   w95   0000200419   ld.ta2  acc,(p)+0
   w96   0012200680   mac.b   tb,(p)+0 ; mem[p]<-acc, acc=0
   w97   0880120655   dly.r  dsc[k],p+32

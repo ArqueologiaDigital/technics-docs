@@ -78,7 +78,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w23   0202AF3415   mac     acc,c+,(p)-13
         ; C-RAM[0x07] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x07] = op0x66[0] (role mix/tap, INFERRED)
-  w24   020420D1CD   ?word   0x020420D1CD   ; 204.2.0D.1CD  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
+  w24   020420D1CD   post    (p),(p)+13
   w25   000020040E   ld      acc,(p)+0
   w26   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
   w27   00002F8407   ld.st   acc,(p)-8
@@ -99,7 +99,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w34   000020044C   ?word   0x000020044C   ; 000.2.00.44C  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator); ACT 0x0C = delay READ]
   w35   088012040B   dly.r  dsc[k],p+32
   w36   0012201655   mac     ta,(p)+1 ; mem[p]<-acc, acc=0
-  w37   01042001D5   ?word   0x01042001D5   ; 104.2.00.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w37   01042001D5   post    (p),(p)+0
   w38   0A00000041   ?word   0x0A00000041   ; A00.0.00.041  hi12{ESC f98=2}  [head of a fixed 3-word template (S-5); operands SRC 0x01/ACT 0x01 dark]
   w39   08801202C7   dly.r  dsc[k],p+32
   w40   0102AB94C8   ?word   0x0102AB94C8   ; 102.A.B9.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
@@ -111,13 +111,13 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x0D] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0D] = op0x66[1] (role mix/tap, INFERRED)
   w44   0092200700   ?word   0x0092200700   ; 092.2.00.700  hi12{ST f31=1 ?7 res=080}  [SPECULATIVE (prospective, not measured): SRC 0x1C = control/mod source into MAC (100% MAC-consumed; LFO in mod fx, envelope/AGC in dynamics) -- NOT LFO-only: present in 19 non-LFO programs (dsp_datapath_fingerprint)]
-  w45   0204A061D5   ?word   0x0204A061D5   ; 204.A.06.1D5  hi12{f98=2 f31=2} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=2 / ACT 0x15 may be OPEN]
+  w45   0204A061D5   post    (p),c+,(p)+6
         ; C-RAM[0x0E] (coeff, base 0x00 MEASURED)
   w46   0182200407   mac.st  acc,(p)+0
   w47   0040000C63   ?word   0x0040000C63   ; 040.0.00.C63  hi12{?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w48   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w49   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
-  w50   01042061CE   ?word   0x01042061CE   ; 104.2.06.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w50   01042061CE   post    (p),(p)+6
   w51   0102200000   mac.b   ?,(p)+0
   w52   0000AF5415   ld      acc,c+,(p)-11
         ; C-RAM[0x0F] (coeff, base 0x00 MEASURED)
@@ -129,7 +129,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w56   0040000C63   ?word   0x0040000C63   ; 040.0.00.C63  hi12{?6 res=040}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w57   00006184CD   ?word   0x00006184CD   ; 000.6.18.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w58   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
-  w59   01042F31CE   ?word   0x01042F31CE   ; 104.2.F3.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w59   01042F31CE   post    (p),(p)-13
   w60   0102200000   mac.b   ?,(p)+0
   w61   0000AFE415   ld      acc,c+,(p)-2
         ; C-RAM[0x11] (coeff, base 0x00 MEASURED)
@@ -157,7 +157,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w77   0202AF3415   mac     acc,c+,(p)-13
         ; C-RAM[0x15] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x15] = op0x66[4] (role mix/tap, INFERRED)
-  w78   020420D1CD   ?word   0x020420D1CD   ; 204.2.0D.1CD  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
+  w78   020420D1CD   post    (p),(p)+13
   w79   000020040E   ld      acc,(p)+0
   w80   0212200000   mac.b   ?,(p)+0 ; mem[p]<-acc, acc=0
   w81   00002F9407   ld.st   acc,(p)-7
@@ -178,7 +178,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w88   000020044C   ?word   0x000020044C   ; 000.2.00.44C  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator); ACT 0x0C = delay READ]
   w89   088012040B   dly.r  dsc[k],p+32
   w90   0012201655   mac     ta,(p)+1 ; mem[p]<-acc, acc=0
-  w91   01042001D5   ?word   0x01042001D5   ; 104.2.00.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
+  w91   01042001D5   post    (p),(p)+0
   w92   0A00000041   ?word   0x0A00000041   ; A00.0.00.041  hi12{ESC f98=2}  [head of a fixed 3-word template (S-5); operands SRC 0x01/ACT 0x01 dark]
   w93   08801202C7   dly.r  dsc[k],p+32
   w94   0102AB84C8   ?word   0x0102AB84C8   ; 102.A.B8.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
