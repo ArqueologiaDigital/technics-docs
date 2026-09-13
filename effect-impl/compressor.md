@@ -55,9 +55,9 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w7    00A620D447   ?word   0x00A620D447   ; 0A6.2.0D.447  hi12{f31=3 ?7 ?5 res=0A0}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w8    00A2200000   mac.b   ?,(p)+0
   w9    001223C1C0   mac.b   (p),(p)+60 ; mem[p]<-acc, acc=0
-  w10   0000A00219   ?word   0x0000A00219   ; 000.A.00.219  hi12{-} cur+  [SPECULATIVE (prospective, not measured): SRC 0x08 = LFO/per-unit source]
+  w10   0000A00219   ld.ta2  ?,c+,(p)+0
         ; C-RAM[0x03] (coeff, base 0x00 MEASURED)
-  w11   009AA00200   ?word   0x009AA00200   ; 09A.A.00.200  hi12{ST f31=5 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x08 = LFO/per-unit source]
+  w11   009AA00200   ?word   0x009AA00200   ; 09A.A.00.200  hi12{ST f31=5 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x08 = C-RAM[cursor] (the COEFFICIENT), MEASURED: the chorus LFO at iw89 reads L = 114 and acc = 114<<16 exactly, and 114 = C-RAM[0x00] = floor(0.5993*2^23/44100), the ROM's own ramp constant; the rival "sample source" is REFUTED from disk (SQUARING-MULTIPLY item B)]
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x04] = op0x72[0] (role gain-computer, PROVEN)
   w12   0C401E0451   ?word   0x0C401E0451   ; C40.1.E0.451  {C-fmt A=15 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=15 B=0 (imm13 0x01E0 = 15*32, MEASURED 57/57 for this opcode); destination register lo12=451 UNKNOWN]
@@ -82,9 +82,9 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w28   00A6207447   ?word   0x00A6207447   ; 0A6.2.07.447  hi12{f31=3 ?7 ?5 res=0A0}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w29   00A2200000   mac.b   ?,(p)+0
   w30   00122421C0   mac.b   (p),(p)+66 ; mem[p]<-acc, acc=0
-  w31   0000A00219   ?word   0x0000A00219   ; 000.A.00.219  hi12{-} cur+  [SPECULATIVE (prospective, not measured): SRC 0x08 = LFO/per-unit source]
+  w31   0000A00219   ld.ta2  ?,c+,(p)+0
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
-  w32   009AA00200   ?word   0x009AA00200   ; 09A.A.00.200  hi12{ST f31=5 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x08 = LFO/per-unit source]
+  w32   009AA00200   ?word   0x009AA00200   ; 09A.A.00.200  hi12{ST f31=5 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x08 = C-RAM[cursor] (the COEFFICIENT), MEASURED: the chorus LFO at iw89 reads L = 114 and acc = 114<<16 exactly, and 114 = C-RAM[0x00] = floor(0.5993*2^23/44100), the ROM's own ramp constant; the rival "sample source" is REFUTED from disk (SQUARING-MULTIPLY item B)]
         ; C-RAM[0x09] (coeff, base 0x00 MEASURED)
   w33   0C401E0451   ?word   0x0C401E0451   ; C40.1.E0.451  {C-fmt A=15 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=15 B=0 (imm13 0x01E0 = 15*32, MEASURED 57/57 for this opcode); destination register lo12=451 UNKNOWN]
   w34   01022B4000   mac.b   ?,(p)-76

@@ -49,7 +49,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w2    0212AF61D5   mac     (p),c+,(p)-10 ; mem[p]<-acc, acc=0
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x01] = op0x61[1] (role coeff, INFERRED)
-  w3    0202A00216   ?word   0x0202A00216   ; 202.A.00.216  hi12{f98=2 f31=1} cur+  [SPECULATIVE (prospective, not measured): SRC 0x08 = LFO/per-unit source]
+  w3    0202A00216   ?word   0x0202A00216   ; 202.A.00.216  hi12{f98=2 f31=1} cur+  [SPECULATIVE (prospective, not measured): SRC 0x08 = C-RAM[cursor] (the COEFFICIENT), MEASURED: the chorus LFO at iw89 reads L = 114 and acc = 114<<16 exactly, and 114 = C-RAM[0x00] = floor(0.5993*2^23/44100), the ROM's own ramp constant; the rival "sample source" is REFUTED from disk (SQUARING-MULTIPLY item B)]
         ; C-RAM[0x02] (coeff, base 0x00 MEASURED)
   w4    0020200000   ld.b    ?,(p)+0
   w5    002E20000B   ?word   0x002E20000B   ; 02E.2.00.00B  hi12{f31=7 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read; ACT 0x0B = delay-line access (READ/WRITE class-borne)]
