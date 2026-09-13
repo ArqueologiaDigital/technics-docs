@@ -61,7 +61,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w12   01042001D5   ?word   0x01042001D5   ; 104.2.00.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
   w13   0102A004C8   ?word   0x0102A004C8   ; 102.A.00.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
         ; C-RAM[0x03] (coeff, base 0x00 MEASURED)
-  w14   00202002C7   ?word   0x00202002C7   ; 020.2.00.2C7  hi12{?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x0B = delay-read data register]
+  w14   00202002C7   ld.st   ?,(p)+0
   w15   00022C0680   mac.b   tb,(p)-64
   w16   08001201D5   dly.r  dsc[k],p+32
   w17   0192A4141A   ?word   0x0192A4141A   ; 192.A.41.41A  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x10); the source id / accumulator-combine f31=1 / ACT 0x1A may be OPEN]
@@ -74,7 +74,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w22   01042001D5   ?word   0x01042001D5   ; 104.2.00.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
   w23   0102A004C8   ?word   0x0102A004C8   ; 102.A.00.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
         ; C-RAM[0x05] (coeff, base 0x00 MEASURED)
-  w24   00202002C7   ?word   0x00202002C7   ; 020.2.00.2C7  hi12{?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x0B = delay-read data register]
+  w24   00202002C7   ld.st   ?,(p)+0
   w25   00022BF680   mac.b   tb,(p)-65
   w26   08001201D5   dly.r  dsc[k],p+32
   w27   0192A4241A   ?word   0x0192A4241A   ; 192.A.42.41A  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x10); the source id / accumulator-combine f31=1 / ACT 0x1A may be OPEN]
@@ -87,7 +87,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w32   01042001D5   ?word   0x01042001D5   ; 104.2.00.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
   w33   0102A004C8   ?word   0x0102A004C8   ; 102.A.00.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
         ; C-RAM[0x07] (coeff, base 0x00 MEASURED)
-  w34   00202002C7   ?word   0x00202002C7   ; 020.2.00.2C7  hi12{?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x0B = delay-read data register]
+  w34   00202002C7   ld.st   ?,(p)+0
   w35   00022B0680   mac.b   tb,(p)-80
   w36   000020E1CD   ld      (p),(p)+14
   w37   00002FB6CE   ?word   0x00002FB6CE   ; 000.2.FB.6CE  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
@@ -129,7 +129,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w70   01042001D5   ?word   0x01042001D5   ; 104.2.00.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
   w71   0102A004C8   ?word   0x0102A004C8   ; 102.A.00.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
-  w72   00202002C7   ?word   0x00202002C7   ; 020.2.00.2C7  hi12{?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x0B = delay-read data register]
+  w72   00202002C7   ld.st   ?,(p)+0
   w73   00022BA680   mac.b   tb,(p)-70
   w74   08001201D5   dly.r  dsc[k],p+32
   w75   0192A4741A   ?word   0x0192A4741A   ; 192.A.47.41A  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x10); the source id / accumulator-combine f31=1 / ACT 0x1A may be OPEN]
@@ -142,7 +142,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w80   01042001D5   ?word   0x01042001D5   ; 104.2.00.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
   w81   0102A004C8   ?word   0x0102A004C8   ; 102.A.00.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
         ; C-RAM[0x0C] (coeff, base 0x00 MEASURED)
-  w82   00202002C7   ?word   0x00202002C7   ; 020.2.00.2C7  hi12{?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x0B = delay-read data register]
+  w82   00202002C7   ld.st   ?,(p)+0
   w83   00022B9680   mac.b   tb,(p)-71
   w84   08001201D5   dly.r  dsc[k],p+32
   w85   0192A4841A   ?word   0x0192A4841A   ; 192.A.48.41A  hi12{ST f98=1 f31=1 ?7 res=080} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x10); the source id / accumulator-combine f31=1 / ACT 0x1A may be OPEN]
@@ -155,7 +155,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w90   01042001D5   ?word   0x01042001D5   ; 104.2.00.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
   w91   0102A004C8   ?word   0x0102A004C8   ; 102.A.00.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
         ; C-RAM[0x0E] (coeff, base 0x00 MEASURED)
-  w92   00202002C7   ?word   0x00202002C7   ; 020.2.00.2C7  hi12{?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x0B = delay-read data register]
+  w92   00202002C7   ld.st   ?,(p)+0
   w93   00022A5680   mac.b   tb,(p)-91
   w94   0880160000   dly.w  dsc[k],p+96
   w95   040010E000   ?word   0x040010E000   ; 400.1.0E.000  hi12{END}  [END OF BLOCK, unit 0 -- CALL/RETURN -- and still performs the rest of the word]
