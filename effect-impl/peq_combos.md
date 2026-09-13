@@ -43,8 +43,8 @@ The disassembled image the chip executes for this effect. Source (regenerable):
 ; Put labels/comments in the matching dsp/sym/*.sym; analysis in dsp/algorithms/.
 
   w0    08801308BC   ?word   0x08801308BC   ; 880.1.30.8BC  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL; addr8 0x30 also marks the FIRST DRAM access of a body, 37 of 38 distinct images (R3 sect. 6.2). external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
-  w1    00002031CD   ?word   0x00002031CD   ; 000.2.03.1CD  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
-  w2    000028140E   ?word   0x000028140E   ; 000.2.81.40E  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w1    00002031CD   ld      (p),(p)+3
+  w2    000028140E   ld      acc,(p)-127
   w3    021227F00B   ?word   0x021227F00B   ; 212.2.7F.00B  hi12{ST f98=2 f31=1}  [writes mem[ptr] (bit 4); mode 2, so the target IS the pointer]
   w4    002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w5    0092A00200   ?word   0x0092A00200   ; 092.A.00.200  hi12{ST f31=1 ?7 res=080} cur+  [LFO: phase += increment (increment = f/44100 in Q0.23)]
@@ -125,8 +125,8 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w55   0010AF11D5   ld      (p),c+,(p)-15 ; mem[p]<-acc, acc=0
         ; C-RAM[0x11] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x11] = op0x66[2] (role mix/tap, INFERRED)
-  w56   020220A1CD   ?word   0x020220A1CD   ; 202.2.0A.1CD  hi12{f98=2 f31=1}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
-  w57   00002051CE   ?word   0x00002051CE   ; 000.2.05.1CE  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w56   020220A1CD   mac     (p),(p)+10
+  w57   00002051CE   ld      (p),(p)+5
   w58   0212244407   mac.st  acc,(p)+68 ; mem[p]<-acc, acc=0
   w59   002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w60   0000A001D3   ld.ta   (p),c+,(p)+0

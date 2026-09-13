@@ -48,8 +48,8 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w2    00822001C0   mac.b   (p),(p)+0
   w3    0094AF2200   ?word   0x0094AF2200   ; 094.A.F2.200  hi12{ST f31=2 ?7 res=080} cur+  [LFO: phase wrap, consumes 0x7FFFFF (29/29); AND vs sub-if-ge OPEN]
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
-  w4    000020C1CD   ?word   0x000020C1CD   ; 000.2.0C.1CD  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
-  w5    000020240E   ?word   0x000020240E   ; 000.2.02.40E  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w4    000020C1CD   ld      (p),(p)+12
+  w5    000020240E   ld      acc,(p)+2
   w6    02122FE447   ?word   0x02122FE447   ; 212.2.FE.447  hi12{ST f98=2 f31=1}  [writes mem[ptr] (bit 4); mode 2, so the target IS the pointer]
   w7    002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w8    00002F8407   ld.st   acc,(p)-8
@@ -58,34 +58,34 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; coeff C-RAM[0x02] = filter section cell 0 (role filter, INFERRED)
   w10   02022481C8   ?word   0x02022481C8   ; 202.2.48.1C8  hi12{f98=2 f31=1}  [SPECULATIVE (prospective, not measured): ACT 0x08 = table-port multiply]
   w11   00002BB1D5   ld      (p),(p)-69
-  w12   01022451CD   ?word   0x01022451CD   ; 102.2.45.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w12   01022451CD   mac     (p),(p)+69
   w13   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w14   01042BA1D5   ?word   0x01042BA1D5   ; 104.2.BA.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w15   01022461CD   ?word   0x01022461CD   ; 102.2.46.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w15   01022461CD   mac     (p),(p)+70
   w16   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w17   01042B91D5   ?word   0x01042B91D5   ; 104.2.B9.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w18   01022471CD   ?word   0x01022471CD   ; 102.2.47.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w18   01022471CD   mac     (p),(p)+71
   w19   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w20   01042B81D5   ?word   0x01042B81D5   ; 104.2.B8.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w21   01022481CD   ?word   0x01022481CD   ; 102.2.48.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w21   01022481CD   mac     (p),(p)+72
   w22   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w23   01042B71D5   ?word   0x01042B71D5   ; 104.2.B7.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w24   01022491CD   ?word   0x01022491CD   ; 102.2.49.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w24   01022491CD   mac     (p),(p)+73
   w25   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w26   01042B61D5   ?word   0x01042B61D5   ; 104.2.B6.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w27   010224A1CD   ?word   0x010224A1CD   ; 102.2.4A.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w27   010224A1CD   mac     (p),(p)+74
   w28   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w29   01042B51D5   ?word   0x01042B51D5   ; 104.2.B5.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w30   010224B1CD   ?word   0x010224B1CD   ; 102.2.4B.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w30   010224B1CD   mac     (p),(p)+75
   w31   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w32   01042B41D5   ?word   0x01042B41D5   ; 104.2.B4.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w33   010224C1CD   ?word   0x010224C1CD   ; 102.2.4C.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w33   010224C1CD   mac     (p),(p)+76
   w34   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w35   01042B31D5   ?word   0x01042B31D5   ; 104.2.B3.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w36   010224D1CD   ?word   0x010224D1CD   ; 102.2.4D.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w36   010224D1CD   mac     (p),(p)+77
   w37   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w38   01042B21D5   ?word   0x01042B21D5   ; 104.2.B2.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w39   010224E1CD   ?word   0x010224E1CD   ; 102.2.4E.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w39   010224E1CD   mac     (p),(p)+78
   w40   0212AB0412   mac     acc,c+,(p)-80 ; mem[p]<-acc, acc=0
         ; C-RAM[0x03] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x03] = filter section cell 1 (role filter, INFERRED)
@@ -122,8 +122,8 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w62   0212AF51D5   mac     (p),c+,(p)-11 ; mem[p]<-acc, acc=0
         ; C-RAM[0x09] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x09] = op0x66[3] (role mix/tap, INFERRED)
-  w63   020220A1CD   ?word   0x020220A1CD   ; 202.2.0A.1CD  hi12{f98=2 f31=1}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
-  w64   00002F81CE   ?word   0x00002F81CE   ; 000.2.F8.1CE  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w63   020220A1CD   mac     (p),(p)+10
+  w64   00002F81CE   ld      (p),(p)-8
   w65   021220A407   mac.st  acc,(p)+10 ; mem[p]<-acc, acc=0
   w66   002A200000   ?word   0x002A200000   ; 02A.2.00.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w67   00002F9407   ld.st   acc,(p)-7
@@ -132,34 +132,34 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; coeff C-RAM[0x0A] = filter section cell 0 (role filter, INFERRED)
   w69   02022531C8   ?word   0x02022531C8   ; 202.2.53.1C8  hi12{f98=2 f31=1}  [SPECULATIVE (prospective, not measured): ACT 0x08 = table-port multiply]
   w70   00002B11D5   ld      (p),(p)-79
-  w71   010224F1CD   ?word   0x010224F1CD   ; 102.2.4F.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w71   010224F1CD   mac     (p),(p)+79
   w72   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w73   01042B01D5   ?word   0x01042B01D5   ; 104.2.B0.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w74   01022501CD   ?word   0x01022501CD   ; 102.2.50.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w74   01022501CD   mac     (p),(p)+80
   w75   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w76   01042AF1D5   ?word   0x01042AF1D5   ; 104.2.AF.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w77   01022511CD   ?word   0x01022511CD   ; 102.2.51.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w77   01022511CD   mac     (p),(p)+81
   w78   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w79   01042AE1D5   ?word   0x01042AE1D5   ; 104.2.AE.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w80   01022521CD   ?word   0x01022521CD   ; 102.2.52.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w80   01022521CD   mac     (p),(p)+82
   w81   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w82   01042AD1D5   ?word   0x01042AD1D5   ; 104.2.AD.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w83   01022531CD   ?word   0x01022531CD   ; 102.2.53.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w83   01022531CD   mac     (p),(p)+83
   w84   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w85   01042AC1D5   ?word   0x01042AC1D5   ; 104.2.AC.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w86   01022541CD   ?word   0x01022541CD   ; 102.2.54.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w86   01022541CD   mac     (p),(p)+84
   w87   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w88   01042AB1D5   ?word   0x01042AB1D5   ; 104.2.AB.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w89   01022551CD   ?word   0x01022551CD   ; 102.2.55.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w89   01022551CD   mac     (p),(p)+85
   w90   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w91   01042AA1D5   ?word   0x01042AA1D5   ; 104.2.AA.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w92   01022561CD   ?word   0x01022561CD   ; 102.2.56.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w92   01022561CD   mac     (p),(p)+86
   w93   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w94   01042A91D5   ?word   0x01042A91D5   ; 104.2.A9.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w95   01022571CD   ?word   0x01022571CD   ; 102.2.57.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w95   01022571CD   mac     (p),(p)+87
   w96   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w97   01042A81D5   ?word   0x01042A81D5   ; 104.2.A8.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w98   01022581CD   ?word   0x01022581CD   ; 102.2.58.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w98   01022581CD   mac     (p),(p)+88
   w99   0212AB1412   mac     acc,c+,(p)-79 ; mem[p]<-acc, acc=0
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x0B] = filter section cell 1 (role filter, INFERRED)

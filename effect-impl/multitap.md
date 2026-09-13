@@ -49,8 +49,8 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x00] (coeff, base 0x00 MEASURED)
   w4    0212AF61D5   mac     (p),c+,(p)-10 ; mem[p]<-acc, acc=0
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
-  w5    020220B1CD   ?word   0x020220B1CD   ; 202.2.0B.1CD  hi12{f98=2 f31=1}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
-  w6    000020040E   ?word   0x000020040E   ; 000.2.00.40E  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w5    020220B1CD   mac     (p),(p)+11
+  w6    000020040E   ld      acc,(p)+0
   w7    0212A001D5   mac     (p),c+,(p)+0 ; mem[p]<-acc, acc=0
         ; C-RAM[0x02] (coeff, base 0x00 MEASURED)
   w8    0880160000   ?word   0x0880160000   ; 880.1.60.000  hi12{ESC ?7 res=080}  [external delay-DRAM WRITE (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); the line BASE -- MULTI TAP DELAY's four taps share exactly one of these, which is what forces the polarity. external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
@@ -130,13 +130,13 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w56   00002BF000   ?word   0x00002BF000   ; 000.2.BF.000  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w57   0000203407   ld.st   acc,(p)+3
   w58   00122F21C0   mac.b   (p),(p)-14 ; mem[p]<-acc, acc=0
-  w59   00002091CD   ?word   0x00002091CD   ; 000.2.09.1CD  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
-  w60   000020040E   ?word   0x000020040E   ; 000.2.00.40E  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w59   00002091CD   ld      (p),(p)+9
+  w60   000020040E   ld      acc,(p)+0
   w61   0212200000   ?word   0x0212200000   ; 212.2.00.000  hi12{ST f98=2 f31=1}  [plain store: mem[ptr] <- acc, taken BEFORE this word's ALU step (FORCED)]
   w62   00002FE407   ld.st   acc,(p)-2
   w63   00122F91C0   mac.b   (p),(p)-7 ; mem[p]<-acc, acc=0
-  w64   00002FB1CD   ?word   0x00002FB1CD   ; 000.2.FB.1CD  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
-  w65   000020040E   ?word   0x000020040E   ; 000.2.00.40E  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w64   00002FB1CD   ld      (p),(p)-5
+  w65   000020040E   ld      acc,(p)+0
   w66   0880160000   ?word   0x0880160000   ; 880.1.60.000  hi12{ESC ?7 res=080}  [external delay-DRAM WRITE (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); the line BASE -- MULTI TAP DELAY's four taps share exactly one of these, which is what forces the polarity. external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
   w67   061210E000   ?word   0x061210E000   ; 612.1.0E.000  hi12{END ST f98=2 f31=1}  [END OF BLOCK, unit 0 -- CALL/RETURN -- and still performs the rest of the word]  [!! bit 4 = store, yet addr8 is the unit index -- UNEXPLAINED]
 ```

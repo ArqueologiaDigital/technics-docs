@@ -43,8 +43,8 @@ The disassembled image the chip executes for this effect. Source (regenerable):
 ; Put labels/comments in the matching dsp/sym/*.sym; analysis in dsp/algorithms/.
 
   w0    088013000B   ?word   0x088013000B   ; 880.1.30.00B  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL; addr8 0x30 also marks the FIRST DRAM access of a body, 37 of 38 distinct images (R3 sect. 6.2). external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
-  w1    000020B1CD   ?word   0x000020B1CD   ; 000.2.0B.1CD  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
-  w2    000020040E   ?word   0x000020040E   ; 000.2.00.40E  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w1    000020B1CD   ld      (p),(p)+11
+  w2    000020040E   ld      acc,(p)+0
   w3    0212200000   ?word   0x0212200000   ; 212.2.00.000  hi12{ST f98=2 f31=1}  [plain store: mem[ptr] <- acc, taken BEFORE this word's ALU step (FORCED)]
   w4    002A240000   ?word   0x002A240000   ; 02A.2.40.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w5    0000A001D5   ld      (p),c+,(p)+0
@@ -60,10 +60,10 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w9    00122C1447   ?word   0x00122C1447   ; 012.2.C1.447  hi12{ST f31=1}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w10   00002401C8   ?word   0x00002401C8   ; 000.2.40.1C8  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x08 = table-port multiply]
   w11   00002C21D5   ld      (p),(p)-62
-  w12   010223E1CD   ?word   0x010223E1CD   ; 102.2.3E.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w12   010223E1CD   mac     (p),(p)+62
   w13   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w14   01042C11D5   ?word   0x01042C11D5   ; 104.2.C1.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w15   010223F1CD   ?word   0x010223F1CD   ; 102.2.3F.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w15   010223F1CD   mac     (p),(p)+63
   w16   0212ABE412   mac     acc,c+,(p)-66 ; mem[p]<-acc, acc=0
         ; C-RAM[0x03] (coeff, base 0x00 MEASURED)
   w17   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
@@ -84,10 +84,10 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w26   00122BD447   ?word   0x00122BD447   ; 012.2.BD.447  hi12{ST f31=1}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w27   00002441C8   ?word   0x00002441C8   ; 000.2.44.1C8  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x08 = table-port multiply]
   w28   00002BE1D5   ld      (p),(p)-66
-  w29   01022421CD   ?word   0x01022421CD   ; 102.2.42.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w29   01022421CD   mac     (p),(p)+66
   w30   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w31   01042BD1D5   ?word   0x01042BD1D5   ; 104.2.BD.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w32   01022431CD   ?word   0x01022431CD   ; 102.2.43.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w32   01022431CD   mac     (p),(p)+67
   w33   0212ABA412   mac     acc,c+,(p)-70 ; mem[p]<-acc, acc=0
         ; C-RAM[0x07] (coeff, base 0x00 MEASURED)
   w34   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
@@ -115,7 +115,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; coeff C-RAM[0x0C] = op0x64[1] (role coeff, INFERRED)
   w48   00002F7000   ?word   0x00002F7000   ; 000.2.F7.000  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w49   002820A1CD   ?word   0x002820A1CD   ; 028.2.0A.1CD  hi12{f31=4 ?5 res=020}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
-  w50   00002FF1CE   ?word   0x00002FF1CE   ; 000.2.FF.1CE  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w50   00002FF1CE   ld      (p),(p)-1
   w51   0212202407   mac.st  acc,(p)+2 ; mem[p]<-acc, acc=0
   w52   002A24A000   ?word   0x002A24A000   ; 02A.2.4A.000  hi12{f31=5 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w53   0000A001D5   ld      (p),c+,(p)+0
@@ -131,10 +131,10 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w57   00122AF447   ?word   0x00122AF447   ; 012.2.AF.447  hi12{ST f31=1}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w58   00002521C8   ?word   0x00002521C8   ; 000.2.52.1C8  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x08 = table-port multiply]
   w59   00002B81D5   ld      (p),(p)-72
-  w60   01022481CD   ?word   0x01022481CD   ; 102.2.48.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w60   01022481CD   mac     (p),(p)+72
   w61   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w62   01042B71D5   ?word   0x01042B71D5   ; 104.2.B7.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w63   01022491CD   ?word   0x01022491CD   ; 102.2.49.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w63   01022491CD   mac     (p),(p)+73
   w64   0212AB4412   mac     acc,c+,(p)-76 ; mem[p]<-acc, acc=0
         ; C-RAM[0x10] (coeff, base 0x00 MEASURED)
   w65   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]
@@ -154,10 +154,10 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w73   00122AB447   ?word   0x00122AB447   ; 012.2.AB.447  hi12{ST f31=1}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w74   00002561C8   ?word   0x00002561C8   ; 000.2.56.1C8  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x08 = table-port multiply]
   w75   00002B41D5   ld      (p),(p)-76
-  w76   010224C1CD   ?word   0x010224C1CD   ; 102.2.4C.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w76   010224C1CD   mac     (p),(p)+76
   w77   0212201412   mac     acc,(p)+1 ; mem[p]<-acc, acc=0
   w78   01042B31D5   ?word   0x01042B31D5   ; 104.2.B3.1D5  hi12{f98=1 f31=2}  [SPECULATIVE: class-2 post-increment MAC (source 0x07); the accumulator-combine f31=2 and/or ACT 0x15 are OPEN]
-  w79   010224D1CD   ?word   0x010224D1CD   ; 102.2.4D.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
+  w79   010224D1CD   mac     (p),(p)+77
   w80   0212AB0412   mac     acc,c+,(p)-80 ; mem[p]<-acc, acc=0
         ; C-RAM[0x14] (coeff, base 0x00 MEASURED)
   w81   0104200000   ?word   0x0104200000   ; 104.2.00.000  hi12{f98=1 f31=2}  [all-pass core slot 1/6 -- role NOT settled (family B: acc += P; family A: no job at all).  Outside the reverb all 8 sites follow a class-A multiply-and-store]

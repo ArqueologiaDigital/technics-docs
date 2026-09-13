@@ -61,8 +61,8 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w10   00006284CD   ?word   0x00006284CD   ; 000.6.28.4CD  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w11   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w12   01042001CE   ?word   0x01042001CE   ; 104.2.00.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
-  w13   010220B1CD   ?word   0x010220B1CD   ; 102.2.0B.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
-  w14   00002FF40E   ?word   0x00002FF40E   ; 000.2.FF.40E  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w13   010220B1CD   mac     (p),(p)+11
+  w14   00002FF40E   ld      acc,(p)-1
   w15   0212201000   ?word   0x0212201000   ; 212.2.01.000  hi12{ST f98=2 f31=1}  [writes mem[ptr] (bit 4); mode 2, so the target IS the pointer]
   w16   0000A40415   ld      acc,c+,(p)+64
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)

@@ -89,7 +89,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x07] (coeff, base 0x00 MEASURED)
   w34   00202002C7   ?word   0x00202002C7   ; 020.2.00.2C7  hi12{?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x0B = delay-read data register]
   w35   00022B0680   mac.b   tb,(p)-80
-  w36   000020E1CD   ?word   0x000020E1CD   ; 000.2.0E.1CD  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
+  w36   000020E1CD   ld      (p),(p)+14
   w37   00002FB6CE   ?word   0x00002FB6CE   ; 000.2.FB.6CE  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
   w38   0212205407   mac.st  acc,(p)+5 ; mem[p]<-acc, acc=0
   w39   088016040B   ?word   0x088016040B   ; 880.1.60.40B  hi12{ESC ?7 res=080}  [external delay-DRAM WRITE (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); the line BASE -- MULTI TAP DELAY's four taps share exactly one of these, which is what forces the polarity. external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
@@ -113,8 +113,8 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w56   000061E407   ?word   0x000061E407   ; 000.6.1E.407  hi12{-}  [table-lookup idiom, class-6 addr8 = table selector (INFERRED)]
   w57   00124011CE   ?word   0x00124011CE   ; 012.4.01.1CE  hi12{ST f31=1}  [table-lookup idiom, third word (INFERRED)]
   w58   01042F31CE   ?word   0x01042F31CE   ; 104.2.F3.1CE  hi12{f98=1 f31=2}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
-  w59   010220A1CD   ?word   0x010220A1CD   ; 102.2.0A.1CD  hi12{f98=1 f31=1}  [gain multiply (same op in phaser all-pass and reverb diffuser)]
-  w60   00002F91CE   ?word   0x00002F91CE   ; 000.2.F9.1CE  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w59   010220A1CD   mac     (p),(p)+10
+  w60   00002F91CE   ld      (p),(p)-7
   w61   021220C407   mac.st  acc,(p)+12 ; mem[p]<-acc, acc=0
   w62   000020040B   ?word   0x000020040B   ; 000.2.00.40B  hi12{-}  [SPECULATIVE (prospective, not measured): ACT 0x0B = delay-line access (READ/WRITE class-borne)]
   w63   00102FC407   ld.st   acc,(p)-4 ; mem[p]<-acc, acc=0
