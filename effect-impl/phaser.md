@@ -46,7 +46,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w1    0092A0E200   ?word   0x0092A0E200   ; 092.A.0E.200  hi12{ST f31=1 ?7 res=080} cur+  [LFO: phase += increment (increment = f/44100 in Q0.23)]
         ; C-RAM[0x00] (coeff, base 0x00 MEASURED)
   w2    00822001C0   mac.b   (p),(p)+0
-  w3    0094AF2200   ?word   0x0094AF2200   ; 094.A.F2.200  hi12{ST f31=2 ?7 res=080} cur+  [LFO: phase wrap, consumes 0x7FFFFF (29/29); AND vs sub-if-ge OPEN]
+  w3    0094AF2200   wrap    acc,c+          ; acc <- datum(acc) & coef  (LFO modulus)
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
   w4    000020C1CD   ld      (p),(p)+12
   w5    000020240E   ld      acc,(p)+2
@@ -167,7 +167,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w101  0092A00200   ?word   0x0092A00200   ; 092.A.00.200  hi12{ST f31=1 ?7 res=080} cur+  [LFO: phase += increment (increment = f/44100 in Q0.23)]
         ; C-RAM[0x0C] (coeff, base 0x00 MEASURED)
   w102  00822001C0   mac.b   (p),(p)+0
-  w103  0094A00200   ?word   0x0094A00200   ; 094.A.00.200  hi12{ST f31=2 ?7 res=080} cur+  [LFO: phase wrap, consumes 0x7FFFFF (29/29); AND vs sub-if-ge OPEN]
+  w103  0094A00200   wrap    acc,c+          ; acc <- datum(acc) & coef  (LFO modulus)
         ; C-RAM[0x0D] (coeff, base 0x00 MEASURED)
   w104  00002F6447   ?word   0x00002F6447   ; 000.2.F6.447  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w105  050410E407   ?word   0x050410E407   ; 504.1.0E.407  hi12{END f98=1 f31=2}  [END OF BLOCK, unit 0 -- CALL/RETURN -- and still performs the rest of the word]

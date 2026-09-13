@@ -47,7 +47,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w2    0092A05200   ?word   0x0092A05200   ; 092.A.05.200  hi12{ST f31=1 ?7 res=080} cur+  [LFO: phase += increment (increment = f/44100 in Q0.23)]
         ; C-RAM[0x00] (coeff, base 0x00 MEASURED)
   w3    00822001C0   mac.b   (p),(p)+0
-  w4    0094A00200   ?word   0x0094A00200   ; 094.A.00.200  hi12{ST f31=2 ?7 res=080} cur+  [LFO: phase wrap, consumes 0x7FFFFF (29/29); AND vs sub-if-ge OPEN]
+  w4    0094A00200   wrap    acc,c+          ; acc <- datum(acc) & coef  (LFO modulus)
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
   w5    0000206447   ?word   0x0000206447   ; 000.2.06.447  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w6    08001201D5   dly.r  dsc[k],p+32
