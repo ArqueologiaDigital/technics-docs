@@ -79,7 +79,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w20   0192A40000   mac.b   (p)0,c+,(p)+64 ; store SUPPRESSED (bit7)
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
   w21   00822001C0   mac.b   (p),(p)+0
-  w22   0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]
+  w22   0C4032044C   ldreg   r4C,#25          ; immediate -> the register lo12 selects
   w23   0A00000041   ?word   0x0A00000041   ; A00.0.00.041  hi12{ESC f98=2}  [head of a fixed 3-word template (S-5); operands SRC 0x01/ACT 0x01 dark]
   w24   08801202C7   dly.r  dsc[k],p+32
   w25   0102ABE4C8   ?word   0x0102ABE4C8   ; 102.A.BE.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
@@ -90,7 +90,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w29   0192A4F000   mac.b   (p)0,c+,(p)+79 ; store SUPPRESSED (bit7)
         ; C-RAM[0x0A] (coeff, base 0x00 MEASURED)
   w30   00822001C0   mac.b   (p),(p)+0
-  w31   0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]
+  w31   0C4032044C   ldreg   r4C,#25          ; immediate -> the register lo12 selects
   w32   0A00000041   ?word   0x0A00000041   ; A00.0.00.041  hi12{ESC f98=2}  [head of a fixed 3-word template (S-5); operands SRC 0x01/ACT 0x01 dark]
   w33   08801202C7   dly.r  dsc[k],p+32
   w34   0102ABC4C8   ?word   0x0102ABC4C8   ; 102.A.BC.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
@@ -155,7 +155,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w71   0192A48000   mac.b   (p)0,c+,(p)+72 ; store SUPPRESSED (bit7)
         ; C-RAM[0x18] (coeff, base 0x00 MEASURED)
   w72   00822001C0   mac.b   (p),(p)+0
-  w73   0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]
+  w73   0C4032044C   ldreg   r4C,#25          ; immediate -> the register lo12 selects
   w74   0A00000041   ?word   0x0A00000041   ; A00.0.00.041  hi12{ESC f98=2}  [head of a fixed 3-word template (S-5); operands SRC 0x01/ACT 0x01 dark]
   w75   08801202C7   dly.r  dsc[k],p+32
   w76   0102AB64C8   ?word   0x0102AB64C8   ; 102.A.B6.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
@@ -166,7 +166,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w80   0192A57000   mac.b   (p)0,c+,(p)+87 ; store SUPPRESSED (bit7)
         ; C-RAM[0x1A] (coeff, base 0x00 MEASURED)
   w81   00822001C0   mac.b   (p),(p)+0
-  w82   0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]
+  w82   0C4032044C   ldreg   r4C,#25          ; immediate -> the register lo12 selects
   w83   0A00000041   ?word   0x0A00000041   ; A00.0.00.041  hi12{ESC f98=2}  [head of a fixed 3-word template (S-5); operands SRC 0x01/ACT 0x01 dark]
   w84   08801202C7   dly.r  dsc[k],p+32
   w85   0102AB44C8   ?word   0x0102AB44C8   ; 102.A.B4.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]

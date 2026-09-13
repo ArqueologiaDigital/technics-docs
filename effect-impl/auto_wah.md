@@ -74,7 +74,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x03] (coeff, base 0x00 MEASURED)
   w26   0104A001D5   post    (p),c+,(p)+0
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)
-  w27   0C402C0000   ?word   0x0C402C0000   ; C40.2.C0.000  {C-fmt A=22 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=22 B=0 (imm13 0x02C0 = 22*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
+  w27   0C402C0000   ldreg   r00,#22          ; immediate -> the register lo12 selects
   w28   0182A00000   mac.b   (p)0,c+,(p)+0
         ; C-RAM[0x05] (coeff, base 0x00 MEASURED)
   w29   0000200447   ?word   0x0000200447   ; 000.2.00.447  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]

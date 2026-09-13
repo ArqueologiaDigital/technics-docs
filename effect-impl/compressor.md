@@ -49,7 +49,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x00] (coeff, base 0x00 MEASURED)
   w4    0104A001D5   post    (p),c+,(p)+0
         ; C-RAM[0x01] (coeff, base 0x00 MEASURED)
-  w5    0C402C0000   ?word   0x0C402C0000   ; C40.2.C0.000  {C-fmt A=22 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=22 B=0 (imm13 0x02C0 = 22*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
+  w5    0C402C0000   ldreg   r00,#22          ; immediate -> the register lo12 selects
   w6    0182A00000   mac.b   (p)0,c+,(p)+0
         ; C-RAM[0x02] (coeff, base 0x00 MEASURED)
   w7    00A620D447   ?word   0x00A620D447   ; 0A6.2.0D.447  hi12{f31=3 ?7 ?5 res=0A0}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
@@ -60,7 +60,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w11   009AA00200   ?word   0x009AA00200   ; 09A.A.00.200  hi12{ST f31=5 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x08 = C-RAM[cursor] (the COEFFICIENT), MEASURED: the chorus LFO at iw89 reads L = 114 and acc = 114<<16 exactly, and 114 = C-RAM[0x00] = floor(0.5993*2^23/44100), the ROM's own ramp constant; the rival "sample source" is REFUTED from disk (SQUARING-MULTIPLY item B)]
         ; C-RAM[0x04] (coeff, base 0x00 MEASURED)
         ; coeff C-RAM[0x04] = op0x72[0] (role gain-computer, PROVEN)
-  w12   0C401E0451   ?word   0x0C401E0451   ; C40.1.E0.451  {C-fmt A=15 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=15 B=0 (imm13 0x01E0 = 15*32, MEASURED 57/57 for this opcode); destination register lo12=451 UNKNOWN]
+  w12   0C401E0451   ldreg   r51,#15          ; immediate -> the register lo12 selects
   w13   01022B5000   mac.b   (p)0,(p)-75
   w14   0026200000   ?word   0x0026200000   ; 026.2.00.000  hi12{f31=3 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w15   00002091CD   ld      (p),(p)+9
@@ -76,7 +76,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x05] (coeff, base 0x00 MEASURED)
   w25   0104A001D5   post    (p),c+,(p)+0
         ; C-RAM[0x06] (coeff, base 0x00 MEASURED)
-  w26   0C402C0000   ?word   0x0C402C0000   ; C40.2.C0.000  {C-fmt A=22 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=22 B=0 (imm13 0x02C0 = 22*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
+  w26   0C402C0000   ldreg   r00,#22          ; immediate -> the register lo12 selects
   w27   0182A00000   mac.b   (p)0,c+,(p)+0
         ; C-RAM[0x07] (coeff, base 0x00 MEASURED)
   w28   00A6207447   ?word   0x00A6207447   ; 0A6.2.07.447  hi12{f31=3 ?7 ?5 res=0A0}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
@@ -86,7 +86,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x08] (coeff, base 0x00 MEASURED)
   w32   009AA00200   ?word   0x009AA00200   ; 09A.A.00.200  hi12{ST f31=5 ?7 res=080} cur+  [SPECULATIVE (prospective, not measured): SRC 0x08 = C-RAM[cursor] (the COEFFICIENT), MEASURED: the chorus LFO at iw89 reads L = 114 and acc = 114<<16 exactly, and 114 = C-RAM[0x00] = floor(0.5993*2^23/44100), the ROM's own ramp constant; the rival "sample source" is REFUTED from disk (SQUARING-MULTIPLY item B)]
         ; C-RAM[0x09] (coeff, base 0x00 MEASURED)
-  w33   0C401E0451   ?word   0x0C401E0451   ; C40.1.E0.451  {C-fmt A=15 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=15 B=0 (imm13 0x01E0 = 15*32, MEASURED 57/57 for this opcode); destination register lo12=451 UNKNOWN]
+  w33   0C401E0451   ldreg   r51,#15          ; immediate -> the register lo12 selects
   w34   01022B4000   mac.b   (p)0,(p)-76
   w35   0026200000   ?word   0x0026200000   ; 026.2.00.000  hi12{f31=3 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
   w36   00002FB1CD   ld      (p),(p)-5

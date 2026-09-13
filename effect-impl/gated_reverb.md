@@ -149,13 +149,13 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x11] (coeff, base 0x00 MEASURED)
   w81   0104A001D5   post    (p),c+,(p)+0
         ; C-RAM[0x12] (coeff, base 0x00 MEASURED)
-  w82   0C402C0000   ?word   0x0C402C0000   ; C40.2.C0.000  {C-fmt A=22 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=22 B=0 (imm13 0x02C0 = 22*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
+  w82   0C402C0000   ldreg   r00,#22          ; immediate -> the register lo12 selects
   w83   0182A00000   mac.b   (p)0,c+,(p)+0
         ; C-RAM[0x13] (coeff, base 0x00 MEASURED)
   w84   00002F7447   ?word   0x00002F7447   ; 000.2.F7.447  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
   w85   0012A001D5   mac     (p),c+,(p)+0 ; mem[p]<-acc, acc=0
         ; C-RAM[0x14] (coeff, base 0x00 MEASURED)
-  w86   0C403A0359   ?word   0x0C403A0359   ; C40.3.A0.359  {C-fmt A=29 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=29 B=0 (imm13 0x03A0 = 29*32, MEASURED 57/57 for this opcode); destination register lo12=359 UNKNOWN]
+  w86   0C403A0359   ldreg   r59,#29          ; immediate -> the register lo12 selects
   w87   00922FF1D5   mac     (p),(p)-1 ; store SUPPRESSED (bit7)
   w88   0184A011D5   post    (p),c+,(p)+1
         ; C-RAM[0x15] (coeff, base 0x00 MEASURED)

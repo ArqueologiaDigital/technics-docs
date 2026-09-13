@@ -88,13 +88,13 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w29   0192A40000   mac.b   (p)0,c+,(p)+64 ; store SUPPRESSED (bit7)
         ; C-RAM[0x0B] (coeff, base 0x00 MEASURED)
   w30   00822001C0   mac.b   (p),(p)+0
-  w31   0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]
+  w31   0C4032044C   ldreg   r4C,#25          ; immediate -> the register lo12 selects
   w32   0A00000041   ?word   0x0A00000041   ; A00.0.00.041  hi12{ESC f98=2}  [head of a fixed 3-word template (S-5); operands SRC 0x01/ACT 0x01 dark]
   w33   08801202C7   dly.r  dsc[k],p+32
   w34   0102ABE4C8   ?word   0x0102ABE4C8   ; 102.A.BE.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
         ; C-RAM[0x0C] (coeff, base 0x00 MEASURED)
   w35   0000243407   ld.st   acc,(p)+67
-  w36   0C400001DA   ?word   0x0C400001DA   ; C40.0.00.1DA  {C-fmt A=0 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=0 B=0 (imm13 0x0000 = 0*32, MEASURED 57/57 for this opcode); destination register lo12=1DA UNKNOWN]
+  w36   0C400001DA   ldreg   rDA,#0          ; immediate -> the register lo12 selects
   w37   00122FC1D5   mac     (p),(p)-4 ; mem[p]<-acc, acc=0
   w38   01042C01D5   post    (p),(p)-64
   w39   0102A401D5   mac     (p),c+,(p)+64
@@ -104,7 +104,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; C-RAM[0x0E] (coeff, base 0x00 MEASURED)
   w42   02122BE41D   ?word   0x02122BE41D   ; 212.2.BE.41D  hi12{ST f98=2 f31=1}  [writes mem[ptr] (bit 4); mode 2, so the target IS the pointer]
   w43   0000247407   ld.st   acc,(p)+71
-  w44   0C400001DA   ?word   0x0C400001DA   ; C40.0.00.1DA  {C-fmt A=0 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=0 B=0 (imm13 0x0000 = 0*32, MEASURED 57/57 for this opcode); destination register lo12=1DA UNKNOWN]
+  w44   0C400001DA   ldreg   rDA,#0          ; immediate -> the register lo12 selects
   w45   00122FC1D5   mac     (p),(p)-4 ; mem[p]<-acc, acc=0
   w46   01042C01D5   post    (p),(p)-64
   w47   0102A401D5   mac     (p),c+,(p)+64
@@ -131,7 +131,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w60   0192A5B000   mac.b   (p)0,c+,(p)+91 ; store SUPPRESSED (bit7)
         ; C-RAM[0x15] (coeff, base 0x00 MEASURED)
   w61   00822001C0   mac.b   (p),(p)+0
-  w62   0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]
+  w62   0C4032044C   ldreg   r4C,#25          ; immediate -> the register lo12 selects
   w63   0A00000041   ?word   0x0A00000041   ; A00.0.00.041  hi12{ESC f98=2}  [head of a fixed 3-word template (S-5); operands SRC 0x01/ACT 0x01 dark]
   w64   08801202C7   dly.r  dsc[k],p+32
   w65   0102AA64C8   ?word   0x0102AA64C8   ; 102.A.A6.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]
@@ -151,7 +151,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w74   0192A50000   mac.b   (p)0,c+,(p)+80 ; store SUPPRESSED (bit7)
         ; C-RAM[0x1B] (coeff, base 0x00 MEASURED)
   w75   00822001C0   mac.b   (p),(p)+0
-  w76   0C4032044C   ?word   0x0C4032044C   ; C40.3.20.44C  {C-fmt A=25 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=25 B=0 (imm13 0x0320 = 25*32, MEASURED 57/57 for this opcode); destination register lo12=44C UNKNOWN]
+  w76   0C4032044C   ldreg   r4C,#25          ; immediate -> the register lo12 selects
   w77   0A00000041   ?word   0x0A00000041   ; A00.0.00.041  hi12{ESC f98=2}  [head of a fixed 3-word template (S-5); operands SRC 0x01/ACT 0x01 dark]
   w78   08801202C7   dly.r  dsc[k],p+32
   w79   0102AA74C8   ?word   0x0102AA74C8   ; 102.A.A7.4C8  hi12{f98=1 f31=1} cur+  [gain multiply (same op in phaser all-pass and reverb diffuser)]

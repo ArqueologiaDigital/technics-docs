@@ -226,8 +226,8 @@ Separator2:
         ; C-RAM[0xA8] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0xA8] = damping triple #3 (role damping, PROVEN)
   w110  02022B8407   mac.st  acc,(p)-72
-  w111  0C40180000   ?word   0x0C40180000   ; C40.1.80.000  {C-fmt A=12 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=12 B=0 (imm13 0x0180 = 12*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
-  w112  0C40180000   ?word   0x0C40180000   ; C40.1.80.000  {C-fmt A=12 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=12 B=0 (imm13 0x0180 = 12*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
+  w111  0C40180000   ldreg   r00,#12          ; immediate -> the register lo12 selects
+  w112  0C40180000   ldreg   r00,#12          ; immediate -> the register lo12 selects
   w113  00002FE407   ld.st   acc,(p)-2
   w114  08801202D5   dly.r  dsc[k],p+32
 OutputTails:
@@ -247,8 +247,8 @@ OutputTails:
   w119  02022081CD   mac     (p),(p)+8
   w120  00902FB40E   ?word   0x00902FB40E   ; 090.2.FB.40E  hi12{ST ?7 res=080}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
   w121  0212205000   mac.b   (p)0,(p)+5 ; mem[p]<-acc, acc=0
-  w122  0C40180000   ?word   0x0C40180000   ; C40.1.80.000  {C-fmt A=12 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=12 B=0 (imm13 0x0180 = 12*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
-  w123  0C40180000   ?word   0x0C40180000   ; C40.1.80.000  {C-fmt A=12 B=0}  hi12{ESC ?10 ?6 res=440}  [C-format opcode 0x620 IMMEDIATE LOAD: A=12 B=0 (imm13 0x0180 = 12*32, MEASURED 57/57 for this opcode); destination register lo12=000 UNKNOWN]
+  w122  0C40180000   ldreg   r00,#12          ; immediate -> the register lo12 selects
+  w123  0C40180000   ldreg   r00,#12          ; immediate -> the register lo12 selects
   w124  00002FB407   ld.st   acc,(p)-5
   w125  08801202D5   dly.r  dsc[k],p+32
   w126  0282A00000   mac.b   (p)0,c+,(p)+0
