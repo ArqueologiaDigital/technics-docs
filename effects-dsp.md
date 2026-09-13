@@ -1254,6 +1254,36 @@ still carries nothing on the frames where audio is present. So the stage that tu
 result into sound is an independent problem, and "make the bodies work and the output will follow"
 is now directly refuted rather than assumed.
 
+**⛔ A CORRECTION THAT RETRACTS TWO OF THE CLAIMS ABOVE — read it before them.** Both changes
+described above were subsequently **reverted**, and one of the results they rested on was **the
+wrong answer**. Two independent faults, found the same day:
+
+*First, they were validated against a setting the emulator does not ship.* Every test in that round
+passed an explicit override for an unrelated undecoded field. The device's own default for that
+field is different, and the combination was never run. At the shipped default, the pair adds six
+saturated cells to the equaliser where there had been none. A full factorial then showed the
+saturation appears in exactly one of four combinations — neither the change nor the setting does it
+alone — so they are not defective, they are incompatible. Both are off by default again, and the
+revert was verified to restore the previous behaviour exactly.
+
+*Second, and more instructive: the criterion itself was misapplied.* The reasoning above treats
+"every filter band receives exactly one copy of the input" as success. **The reconstruction says
+otherwise.** Its equaliser is a *series cascade* — each band filters the previous band's output, so
+exactly one band, the first, should ever see a copy of the input. Feeding all five in parallel is
+the wrong topology. Measured against that, the configuration the emulator already ships delivers
+one clean copy to the first band and only the first; the configuration built and promoted here
+delivers it to all five. **The promoted change was producing a defect and the test was calling it a
+success.**
+
+What survives is the criterion, once applied correctly: one copy at the *first stage of a cascade*,
+not one copy everywhere. What is retracted is the claim that every band receiving the input was an
+improvement. The change affecting the modulation family is untouched by this, since it concerns
+oscillators rather than the equaliser's structure.
+
+The lesson is recorded with the work: the bytecode is the source of truth and the reconstruction
+says what a program computes. A criterion applied without consulting either can confirm a fault and
+call it progress.
+
 **A correction to one of those refinements, from the trace rather than the coefficients.** The
 "right channel sweeps in antiphase" reading was taken from the sign of the depth coefficients: two
 of the four sweep instructions carry +240 samples and two carry −240. Checking which part of the
