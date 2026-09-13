@@ -1234,6 +1234,26 @@ sign rule is a hypothesis that survived rather than one that was derived — the
 in for something the trace does not record. And the output stage, which turns a finished body result
 into sound, is a separate problem that none of this touches.
 
+**And with the input path closed, every effect program in the catalogue now runs.** Sweeping all
+thirty-eight and verifying each one's identity from the machine's own upload, the bodies compute on
+live audio in every case. That took one further correction, and it is worth stating because it
+invalidated a good deal of this round's own analysis. Sixteen programs initially appeared to have a
+live input and a frozen body. They did not. A filter's first operand each frame is the state its
+own previous frame left behind, so a body only starts working once that loop has gone round at
+least once, and the traces were being captured too early in the note. Captured a second and a half
+later, all sixteen run.
+
+That means several intermediate explanations built on the frozen-body reading — including a change
+implemented and tested against it — were explaining a measurement artefact rather than the chip.
+They are marked as retired in the notes. The lesson recorded alongside them is the useful part: the
+same artefact had already been identified on five other programs earlier in the same work, and the
+theorising went ahead without excluding it.
+
+What is not fixed by any of this is the output stage. Re-measured with every body now computing, it
+still carries nothing on the frames where audio is present. So the stage that turns a finished
+result into sound is an independent problem, and "make the bodies work and the output will follow"
+is now directly refuted rather than assumed.
+
 **A correction to one of those refinements, from the trace rather than the coefficients.** The
 "right channel sweeps in antiphase" reading was taken from the sign of the depth coefficients: two
 of the four sweep instructions carry +240 samples and two carry −240. Checking which part of the
