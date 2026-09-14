@@ -14,7 +14,7 @@ Image rep **algo 64** &middot; slots 64 &middot; **unit 0** (I-RAM load 84) &mid
 
 > single delay + chorus
 
-**95 words**, 23 class-A coefficient multiplies (14 named), 20 instructions still opaque. Landmarks detected: 1 LFO phase word(s), 4 C-format immediate load(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s).
+**95 words**, 23 class-A coefficient multiplies (14 named), 0 instructions still opaque, **20 of 95 not yet decoded**. Landmarks detected: 1 LFO phase word(s), 4 C-format immediate load(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s).
 
 ```mermaid
 flowchart TD
@@ -31,14 +31,12 @@ flowchart TD
     N4 -.-> N5
     N6["C-format immediate loads (C40/C41)<br/>destination register UNKNOWN &mdash; the old 'envelope detector' reading is WITHDRAWN &times;4"]
     N4 --> N6
-    N7["Undecoded core<br/>20 of 95 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N7["VOLUME<br/>output level"]
     N6 --> N7
-    N8["VOLUME<br/>output level"]
+    N8["REV SEND<br/>to reverb bus"]
     N7 --> N8
-    N9["REV SEND<br/>to reverb bus"]
+    N9["Output (RETURN to kernel epilogue)"]
     N8 --> N9
-    N10["Output (RETURN to kernel epilogue)"]
-    N9 --> N10
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -46,12 +44,20 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N10 io;
+    class N0,N9 io;
     class N1,N4 inferred;
     class N2 measured;
-    class N3,N5,N8,N9 ctrl;
-    class N6,N7 open;
+    class N3,N5,N7,N8 ctrl;
+    class N6 open;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** Union of the sub-effect topologies, in name order.
+
+E.g. PEQ+DIST+DELAY = DF-I biquad(s) &rarr; waveshaper &rarr; delay line; the shape is the concatenation of the named stages.
+
+**Instruction hint:** each named stage contributes its own idiom (biquad ACT 0x12/13/14, waveshaper class-6 LUT, delay class-1 ESC, LFO cell).
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): DELAY DRY/WET, DELAY L, DELAY R, FEEDBACK L, FEEDBACK R, CHORUS DRY/WET, DEPTH, LFO SPEED, LFO WAVEFORM, VOLUME, REV SEND.
 

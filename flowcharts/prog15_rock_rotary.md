@@ -14,7 +14,7 @@ Image rep **algo 15** &middot; slots 15,53 &middot; **unit 0** (I-RAM load 84) &
 
 > rock rotary / rotary speaker (shared with algo 53)
 
-**86 words**, 33 class-A coefficient multiplies (6 named), 15 instructions still opaque. Landmarks detected: 1 biquad DF-I section(s), 5 C-format immediate load(s), 1 DRAM read/write word(s), 1 waveshaper LUT selector(s), 2 class-8 post-sum step(s).
+**86 words**, 33 class-A coefficient multiplies (6 named), 0 instructions still opaque, **19 of 86 not yet decoded**. Landmarks detected: 1 biquad DF-I section(s), 5 C-format immediate load(s), 1 DRAM read/write word(s), 1 waveshaper LUT selector(s), 2 class-8 post-sum step(s).
 
 ```mermaid
 flowchart TD
@@ -25,14 +25,12 @@ flowchart TD
     N1 --> N2
     N3["C-format immediate loads (C40/C41)<br/>destination register UNKNOWN &mdash; the old 'envelope detector' reading is WITHDRAWN &times;5"]
     N2 --> N3
-    N4["Undecoded core<br/>15 of 86 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N4["VOLUME<br/>output level"]
     N3 --> N4
-    N5["VOLUME<br/>output level"]
+    N5["REV SEND<br/>to reverb bus"]
     N4 --> N5
-    N6["REV SEND<br/>to reverb bus"]
+    N6["Output (RETURN to kernel epilogue)"]
     N5 --> N6
-    N7["Output (RETURN to kernel epilogue)"]
-    N6 --> N7
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -40,12 +38,20 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N7 io;
+    class N0,N6 io;
     class N1 inferred;
     class N2 measured;
-    class N3,N4 open;
-    class N5,N6 ctrl;
+    class N3 open;
+    class N4,N5 ctrl;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** LFO-swept delay (Doppler) + tone biquad (horn coloration).
+
+A rotating-speaker model: an LFO sweeps a delay (Doppler pitch) into a tone biquad.
+
+**Instruction hint:** LFO cell + delay-DRAM + a DF-I biquad, combined.
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): DRIVE, VOLUME ADJUST, TREBLE DEPTH, FAST, SLOW, WIND UP, WIND DOWN, BASS DEPTH, BASS FAST, BASS SLOW, WIND UP, WIND DOWN, VOLUME, SLOW/FAST, REV SEND.
 

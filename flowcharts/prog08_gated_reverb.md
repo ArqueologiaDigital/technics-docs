@@ -14,7 +14,7 @@ Image rep **algo 8** &middot; slots 8 &middot; **unit 0** (I-RAM load 84) &middo
 
 > gated reverb: all-pass ring + hold gate
 
-**102 words**, 22 class-A coefficient multiplies (7 named), 15 instructions still opaque. Landmarks detected: 2 C-format immediate load(s), 10 DRAM read/write word(s), 6 all-pass marker(s).
+**102 words**, 22 class-A coefficient multiplies (7 named), 0 instructions still opaque, **8 of 102 not yet decoded**. Landmarks detected: 2 C-format immediate load(s), 10 DRAM read/write word(s), 6 all-pass marker(s).
 
 ```mermaid
 flowchart TD
@@ -27,14 +27,12 @@ flowchart TD
     N1 --> N3
     N4["C-format immediate loads (C40/C41)<br/>destination register UNKNOWN &mdash; the old 'envelope detector' reading is WITHDRAWN &times;2"]
     N3 --> N4
-    N5["Undecoded core<br/>15 of 102 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N5["VOLUME<br/>output level"]
     N4 --> N5
-    N6["VOLUME<br/>output level"]
+    N6["REV SEND<br/>to reverb bus"]
     N5 --> N6
-    N7["REV SEND<br/>to reverb bus"]
+    N7["Output (RETURN to kernel epilogue)"]
     N6 --> N7
-    N8["Output (RETURN to kernel epilogue)"]
-    N7 --> N8
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -42,11 +40,19 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N8 io;
+    class N0,N7 io;
     class N1,N3 inferred;
-    class N2,N6,N7 ctrl;
-    class N4,N5 open;
+    class N2,N5,N6 ctrl;
+    class N4 open;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** All-pass diffuser ladder + comb (Schroeder/Moorer reverb tank).
+
+A chain of all-pass sections (single coefficient/stage on the KN5000) over the external delay-DRAM &mdash; the most DRAM-heavy program; ER taps at 6000/12000/18000/24000 samples.
+
+**Instruction hint:** the diffuser feed/feedback gains are class-A MACs on delay-read taps; the all-pass z&#8315;&#185; updates are the bqp pair (ACT 0x0D/0x0E).
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): GATE TIME, HIGH DAMP GAIN, THRESHOLD, MASK TIME, VOLUME, REV SEND.
 

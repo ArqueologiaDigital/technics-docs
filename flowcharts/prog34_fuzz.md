@@ -14,7 +14,7 @@ Image rep **algo 34** &middot; slots 34 &middot; **unit 0** (I-RAM load 84) &mid
 
 > fuzz: rail-clip waveshaper
 
-**42 words**, 6 class-A coefficient multiplies (4 named), 17 instructions still opaque. Landmarks detected: 2 waveshaper LUT selector(s).
+**42 words**, 6 class-A coefficient multiplies (4 named), 0 instructions still opaque, **13 of 42 not yet decoded**. Landmarks detected: 2 waveshaper LUT selector(s).
 
 ```mermaid
 flowchart TD
@@ -23,14 +23,12 @@ flowchart TD
     N0 --> N1
     N2["controls: DRIVE, ADJUST"]
     N1 -.-> N2
-    N3["Undecoded core<br/>17 of 42 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N3["VOLUME<br/>output level"]
     N1 --> N3
-    N4["VOLUME<br/>output level"]
+    N4["REV SEND<br/>to reverb bus"]
     N3 --> N4
-    N5["REV SEND<br/>to reverb bus"]
+    N5["Output (RETURN to kernel epilogue)"]
     N4 --> N5
-    N6["Output (RETURN to kernel epilogue)"]
-    N5 --> N6
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -38,11 +36,18 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N6 io;
+    class N0,N5 io;
     class N1 inferred;
-    class N2,N4,N5 ctrl;
-    class N3 open;
+    class N2,N3,N4 ctrl;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** Memoryless waveshaper (drive &rarr; nonlinearity &rarr; level) + optional tone biquad.
+
+gain(drive) &rarr; nonlinear transfer &rarr; gain(level); OVERDRIVE/EXCITER append a DF-I tone biquad, FUZZ/DISTORTION are the bare (harder) shaper.
+
+**Instruction hint:** the nonlinearity is a class-6 table lookup (addr8 0x28 = table selector). The class-6 idiom reads a table FROM C-RAM (index in m_tb); it is NOT undumped &mdash; C-RAM is populated entirely from dumped ROM (per-preset parameter streams + the boot blob at Sub CPU ROM 0x01E6BE). PROVEN for the identical idiom's LFO-waveform role: that table is a 24-entry sine UPLOADED BY THE HOST, matching 0.95&middot;2^23&middot;sin(2&pi;k/24+0.1) to 1 LSB &mdash; no internal silicon ROM is in the class-6 path. (Open DECODE, not missing data: which exact C-RAM cells hold the waveshaper table and the index arithmetic.) Present in OVERDRIVE, FUZZ and DISTORTION alike. The ACT 0x12/0x13/0x14 cluster, LIVE only in OVERDRIVE and ABSENT from FUZZ, is the post tone BIQUAD (its coeffs [0.019, 0.609, &minus;0.448, 0.750] sit in biquad range, e.g. &minus;a2&asymp;0.448 for a 4 kHz low-pass); it is NOT a polynomial waveshaper (an earlier reading, now retracted &mdash; the same cluster is the DF-I biquad state ops 0x13=ld.ta / 0x14=mac.tb).
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): DRIVE, ADJUST, VOLUME, REV SEND.
 

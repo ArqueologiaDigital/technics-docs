@@ -14,7 +14,7 @@ Image rep **algo 9** &middot; slots 9 &middot; **unit 0** (I-RAM load 84) &middo
 
 > single delay: 0.5 mix, 0.15/0.3 feedback
 
-**48 words**, 18 class-A coefficient multiplies (18 named), 13 instructions still opaque. Landmarks detected: 3 DRAM read/write word(s).
+**48 words**, 18 class-A coefficient multiplies (18 named), 0 instructions still opaque, **3 of 48 not yet decoded**. Landmarks detected: 3 DRAM read/write word(s).
 
 ```mermaid
 flowchart TD
@@ -23,14 +23,12 @@ flowchart TD
     N0 --> N1
     N2["controls: DELAY L, DELAY R, FEEDBACK L, FEEDBACK R, HIGH DAMP GAIN"]
     N1 -.-> N2
-    N3["Undecoded core<br/>13 of 48 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N3["VOLUME<br/>output level"]
     N1 --> N3
-    N4["VOLUME<br/>output level"]
+    N4["REV SEND<br/>to reverb bus"]
     N3 --> N4
-    N5["REV SEND<br/>to reverb bus"]
+    N5["Output (RETURN to kernel epilogue)"]
     N4 --> N5
-    N6["Output (RETURN to kernel epilogue)"]
-    N5 --> N6
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -38,11 +36,18 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N6 io;
+    class N0,N5 io;
     class N1 inferred;
-    class N2,N4,N5 ctrl;
-    class N3 open;
+    class N2,N3,N4 ctrl;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** Feedback / multi-tap delay line (Schroeder delay).
+
+External delay-DRAM (class-1 ESCAPE word, addr8 bit 6 = write vs read) + a feedback-gain MAC; multi-tap = one write / N read taps.
+
+**Instruction hint:** class-1 ESC words are the delay taps; delay length = READ_CELL &minus; WRITE_CELL (descriptor); feedback/mix gain = a class-A MAC on the delay-read register SRC 0x0B (LIVE: coef 0.5 = the documented 0.5 mix).
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): DELAY L, DELAY R, FEEDBACK L, FEEDBACK R, HIGH DAMP GAIN, VOLUME, REV SEND.
 

@@ -14,7 +14,7 @@ Image rep **algo 35** &middot; slots 35 &middot; **unit 0** (I-RAM load 84) &mid
 
 > harmonic exciter: LUT -> band-pass -> +dry
 
-**69 words**, 22 class-A coefficient multiplies (18 named), 24 instructions still opaque. Landmarks detected: 2 biquad DF-I section(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s).
+**69 words**, 22 class-A coefficient multiplies (18 named), 0 instructions still opaque, **15 of 69 not yet decoded**. Landmarks detected: 2 biquad DF-I section(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s).
 
 ```mermaid
 flowchart TD
@@ -27,14 +27,12 @@ flowchart TD
     N1 --> N3
     N4["controls: HIGH EMPHASIS FC, EMPHASIS GAIN"]
     N3 -.-> N4
-    N5["Undecoded core<br/>24 of 69 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N5["VOLUME<br/>output level"]
     N3 --> N5
-    N6["VOLUME<br/>output level"]
+    N6["REV SEND<br/>to reverb bus"]
     N5 --> N6
-    N7["REV SEND<br/>to reverb bus"]
+    N7["Output (RETURN to kernel epilogue)"]
     N6 --> N7
-    N8["Output (RETURN to kernel epilogue)"]
-    N7 --> N8
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -42,12 +40,19 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N8 io;
+    class N0,N7 io;
     class N1 inferred;
-    class N2,N4,N6,N7 ctrl;
+    class N2,N4,N5,N6 ctrl;
     class N3 measured;
-    class N5 open;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** Harmonic exciter = high-band waveshaper + tone biquad.
+
+A waveshaper generates upper harmonics, then a DF-I tone biquad shapes them.
+
+**Instruction hint:** same waveshaper + DF-I-biquad idioms as distortion.
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): DRIVE, ADJUST, HIGH EMPHASIS FC, EMPHASIS GAIN, VOLUME, REV SEND.
 

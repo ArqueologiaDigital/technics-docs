@@ -14,7 +14,7 @@ Image rep **algo 6** &middot; slots 6 &middot; **unit 0** (I-RAM load 84) &middo
 
 > ensemble: multi-voice chorus
 
-**96 words**, 15 class-A coefficient multiplies (6 named), 39 instructions still opaque. Landmarks detected: 1 LFO phase word(s), 3 DRAM read/write word(s), 4 waveshaper LUT selector(s).
+**96 words**, 15 class-A coefficient multiplies (6 named), 0 instructions still opaque, **37 of 96 not yet decoded**. Landmarks detected: 1 LFO phase word(s), 3 DRAM read/write word(s), 4 waveshaper LUT selector(s).
 
 ```mermaid
 flowchart TD
@@ -25,14 +25,12 @@ flowchart TD
     N1 -.-> N2
     N3["External delay line (DRAM)<br/>3 read/write word(s) (880.1.60 = READ, 880.1.20 = WRITE)"]
     N1 --> N3
-    N4["Undecoded core<br/>39 of 96 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N4["VOLUME<br/>output level"]
     N3 --> N4
-    N5["VOLUME<br/>output level"]
+    N5["REV SEND<br/>to reverb bus"]
     N4 --> N5
-    N6["REV SEND<br/>to reverb bus"]
+    N6["Output (RETURN to kernel epilogue)"]
     N5 --> N6
-    N7["Output (RETURN to kernel epilogue)"]
-    N6 --> N7
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -40,12 +38,19 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N7 io;
+    class N0,N6 io;
     class N1 measured;
-    class N2,N5,N6 ctrl;
+    class N2,N4,N5 ctrl;
     class N3 inferred;
-    class N4 open;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** LFO-modulated delay (chorus/flanger/ensemble) or swept all-pass chain (phaser).
+
+An LFO phase accumulator (a D-RAM cell ramping by the LFO-SPEED each frame) modulates a short delay tap (chorus/flanger, + feedback/resonance) or sweeps an all-pass chain (phaser sweeps notches, ~0 delay-DRAM but many z&#8315;&#185; pairs).
+
+**Instruction hint:** the LFO cell's per-frame increment IS the LFO-SPEED parameter (LIVE: CHORUS cell 0x10 ramps +114/frame, &rarr;+494 when the SPEED knob is driven); the LFO-conditional MACs are the class-A words that do NOT fire every frame (LIVE: FLANGER's SRC 0x08 coef-square, f31=4).
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): DEPTH, LFO SPEED, LFO WAVEFORM, VOLUME, REV SEND.
 

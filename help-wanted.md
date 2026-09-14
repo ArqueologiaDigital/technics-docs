@@ -80,6 +80,28 @@ If you have a working KN5000:
 - Document hardware behavior for edge cases
 - Take photos of PCB for chip identification
 
+### ★ Read six pins on the SX-WSA1R's effects board
+
+The single cheapest open item in the [µPD6383GF effects-DSP
+decode]({{ site.baseurl }}/effects-dsp/), and it needs no soldering and no test gear —
+just the service manual's effects-board sheet at **≥300 dpi**, or a continuity check.
+
+**The question:** where do **IC30 pins 83–88** go? In the CDJ-500 pin table those are
+`RQ1`–`RQ3` (host-written, testable by an instruction's condition field) and `GF1`–`GF3`
+(set by instructions, host-readable). Neither the condition field nor the flag-setting
+instruction has been located in the microcode, and neither MAME driver wires the pins.
+
+**Why it decides a whole line of work.** Three outcomes, and they are not close:
+- **wired to a latch or CPU port** → two searches for those instruction fields become
+  possible at once, and the addresses to poke and read are known;
+- **strapped to ground or supply** → one search runs degraded, the other is dead;
+- **not connected** → the axis is dead *on this board*, and the honest write-up is
+  *"not available on the WSA1R"* — never *"the chip has no such feature"*.
+
+⚠ These service manuals are **image-only scans**. `pdftotext` and `grep` return nothing
+from them, and that has already produced two false negatives on this project. Render the
+page before concluding anything is undocumented.
+
 ## Medium Priority
 
 ### Documentation

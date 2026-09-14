@@ -170,7 +170,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w103  0094A00200   wrap    acc,c+          ; acc <- datum(acc) & coef  (LFO modulus)
         ; C-RAM[0x0D] (coeff, base 0x00 MEASURED)
   w104  00002F6447   ?word   0x00002F6447   ; 000.2.F6.447  hi12{-}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator)]
-  w105  050410E407   endblk  unit0          ; END OF BLOCK -- the image's last word
+  w105  050410E407   endblk  #0E             ; END OF BLOCK -- the last word of a block
 ```
 
 ## HLE reconstruction (MAME, `kn5000_tonegen.cpp`)

@@ -14,7 +14,7 @@ Image rep **algo 54** &middot; slots 54 &middot; **unit 0** (I-RAM load 84) &mid
 
 > ring modulator: audio-rate quadrature AM
 
-**46 words**, 6 class-A coefficient multiplies (0 named), 23 instructions still opaque. Landmarks detected: 2 LFO phase word(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s).
+**46 words**, 6 class-A coefficient multiplies (0 named), 0 instructions still opaque, **15 of 46 not yet decoded**. Landmarks detected: 2 LFO phase word(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s).
 
 ```mermaid
 flowchart TD
@@ -23,14 +23,12 @@ flowchart TD
     N0 --> N1
     N2["controls: PHASE, LFO WAVEFORM"]
     N1 -.-> N2
-    N3["Undecoded core<br/>23 of 46 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N3["VOLUME<br/>output level"]
     N1 --> N3
-    N4["VOLUME<br/>output level"]
+    N4["REV SEND<br/>to reverb bus"]
     N3 --> N4
-    N5["REV SEND<br/>to reverb bus"]
+    N5["Output (RETURN to kernel epilogue)"]
     N4 --> N5
-    N6["Output (RETURN to kernel epilogue)"]
-    N5 --> N6
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -38,11 +36,18 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N6 io;
+    class N0,N5 io;
     class N1 measured;
-    class N2,N4,N5 ctrl;
-    class N3 open;
+    class N2,N3,N4 ctrl;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** Amplitude / carrier modulation (auto-pan L/R gain, ring-mod carrier&times;signal, vibrato).
+
+An LFO or carrier multiplies the signal: auto-pan = LFO&rarr;L/R gains; ring-mod = table carrier &times; signal; vibrato = LFO&rarr;delay/pitch.
+
+**Instruction hint:** the modulating multiply is a class-A MAC whose operand is the LFO/carrier cell; ring-mod adds a class-6 table (the carrier).
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): OSC SPEED, PHASE, LFO WAVEFORM, VOLUME, REV SEND.
 

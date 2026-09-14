@@ -14,7 +14,7 @@ Image rep **algo 3** &middot; slots 3 &middot; **unit 0** (I-RAM load 84) &middo
 
 > enhancer: phase/emphasis shaping
 
-**99 words**, 26 class-A coefficient multiplies (18 named), 32 instructions still opaque. Landmarks detected: 2 C-format immediate load(s), 1 DRAM read/write word(s), 4 all-pass marker(s).
+**99 words**, 26 class-A coefficient multiplies (18 named), 0 instructions still opaque, **21 of 99 not yet decoded**. Landmarks detected: 2 C-format immediate load(s), 1 DRAM read/write word(s), 4 all-pass marker(s).
 
 ```mermaid
 flowchart TD
@@ -31,14 +31,12 @@ flowchart TD
     N3 --> N5
     N6["controls: DELAY L, DELAY R"]
     N5 -.-> N6
-    N7["Undecoded core<br/>32 of 99 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N7["VOLUME<br/>output level"]
     N5 --> N7
-    N8["VOLUME<br/>output level"]
+    N8["REV SEND<br/>to reverb bus"]
     N7 --> N8
-    N9["REV SEND<br/>to reverb bus"]
+    N9["Output (RETURN to kernel epilogue)"]
     N8 --> N9
-    N10["Output (RETURN to kernel epilogue)"]
-    N9 --> N10
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -46,11 +44,19 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N10 io;
-    class N1,N7 open;
-    class N2,N4,N6,N8,N9 ctrl;
+    class N0,N9 io;
+    class N1 open;
+    class N2,N4,N6,N7,N8 ctrl;
     class N3,N5 inferred;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** Swept state-variable / DF-I biquad (enhancer, auto-wah).
+
+A biquad whose cutoff is swept by an LFO or an envelope (auto-wah).
+
+**Instruction hint:** the same DF-I biquad idiom as EQ, with the cutoff coefficient updated from the LFO/envelope cell.
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): MANUAL, LOW MIX, HIGH MIX, DELAY L, DELAY R, VOLUME, REV SEND.
 

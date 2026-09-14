@@ -14,7 +14,7 @@ Image rep **algo 36** &middot; slots 36 &middot; **unit 0** (I-RAM load 84) &mid
 
 > compressor: level detector + gain-computer (THRESHOLD/RATIO).  NOTE: the old 'hi12=0xC40 = envelope detector' reading is WITHDRAWN -- C40/C41 is a 13-bit immediate load (analysis/k5-output-stage.md); the detector is here on other grounds
 
-**40 words**, 10 class-A coefficient multiplies (1 named), 19 instructions still opaque. Landmarks detected: 4 C-format immediate load(s).
+**40 words**, 10 class-A coefficient multiplies (1 named), 0 instructions still opaque, **14 of 40 not yet decoded**. Landmarks detected: 4 C-format immediate load(s).
 
 ```mermaid
 flowchart TD
@@ -23,14 +23,12 @@ flowchart TD
     N0 --> N1
     N2["nearby controls: THRESHOLD, RATIO, ATTACK SENS., RELEASE SENS."]
     N1 -.-> N2
-    N3["Undecoded core<br/>19 of 40 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N3["VOLUME<br/>output level"]
     N1 --> N3
-    N4["VOLUME<br/>output level"]
+    N4["REV SEND<br/>to reverb bus"]
     N3 --> N4
-    N5["REV SEND<br/>to reverb bus"]
+    N5["Output (RETURN to kernel epilogue)"]
     N4 --> N5
-    N6["Output (RETURN to kernel epilogue)"]
-    N5 --> N6
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -38,10 +36,18 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N6 io;
-    class N1,N3 open;
-    class N2,N4,N5 ctrl;
+    class N0,N5 io;
+    class N1 open;
+    class N2,N3,N4 ctrl;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** Envelope follower + gain computer (level detector &rarr; VCA).
+
+A rectify/smooth level detector drives a gain multiply; no delay line.
+
+**Instruction hint:** the threshold/envelope path GATES a class-A MAC (LIVE: COMPRESSOR's SRC 0x07/ACT 0x15 store MAC does not fire every frame &mdash; the threshold conditional).
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): THRESHOLD, RATIO, ATTACK SENS., RELEASE SENS., VOLUME, REV SEND.
 

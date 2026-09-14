@@ -337,6 +337,25 @@ generator. **MIDI IN** is wired the same way (host MIDI → CPU 1's serial chann
 `-midiin` and hearing it sound from ~t = 25 s. Real synthesis still waits on the
 undumped wave ROMs.
 
+#### The MIDI bridge is now validated in **both** directions, by a program outside the emulator
+
+A `.mid` file on `-midiin`, an ALSA port on `-midiout`, and `aseqdump` — which knows nothing
+about MAME — listening on the other end. Request in, reply out, no Lua and no memory taps:
+the whole chain is `midiin` → the bit-serial bridge → CPU 1's `SC0` → the firmware's
+`INTRX0` handler → its SysEx parser → the reply into ring `0x601432` → `INTTX0` → `SC0BUF`
+→ `midiout`. At the UART the five request bytes and the seven reply bytes are 320 µs apart
+in each direction, which is 31250 baud, as it should be. (The responder is a
+[research patch](#a-debug-port-into-the-machine) rather than stock firmware — a stock
+machine has nothing to answer with — but every emulated component in that chain is the
+shipping one.)
+
+⚠ **`midiin`'s ten-second delay is an offset, not a deadline.** MAME sets
+`m_sequence_start = std::max(machine().time(), attotime(10,0))` — *"to allow the keyboards
+to initialize"* — and then plays the file **from there**, so an event stamped at *T* seconds
+arrives at *10 + T*. A run that is too short and a timestamp that is too late both look
+identical from outside: an empty capture. This is emulator behaviour, not a driver bug; an
+earlier reading of it as "the MIDI receive path is broken" was wrong.
+
 ### Note-off makes a voice retire, through the firmware's own path
 
 A released note used to sound **forever**. The firmware frees a voice only after
@@ -360,6 +379,79 @@ firmware's own retire path writes `0x7E00`** — the same sequence as on hardwar
 No `0x7E00` and no envelope shape are fabricated. Verified with
 `tools/rigs/wsa1_wav_rms.py`: before, a monotonic drone to clipping; after, each
 note sounds and retires and the passage ends in silence.
+
+## A debug port into the machine
+
+> **⚠ This is a research instrument, not emulation.** It is a **modified program ROM**. No
+> real SX-WSA1R has it, it must never reach a MAME pull request, and nothing on this page
+> above this line depends on it. It is documented because the technique is reusable and
+> because one of its findings — [how a byte leaves on MIDI
+> OUT]({{ site.baseurl }}/sysex-messages/#how-a-byte-physically-leaves-on-midi-out--measured)
+> — is ordinary firmware documentation that outlives it.
+
+The µPD6383GF decode has a measurement problem: the interesting questions are about what
+individual microcode words *do*, and the only readout on a real WSA1R is analogue audio out
+of a machine whose wave ROMs are undumped. The instrument that would fix this is a
+**bidirectional debug channel over MIDI** — load a probe, read exact integers back — and the
+program ROMs are socketed, so a modified EPROM is physically possible.
+
+**What exists today**, in the emulator, on a patched `prom_a`:
+
+| | |
+|---|---|
+| size | **397 bytes**, in `0xFBA236`–`0xFBA3C2` — a run of 2506 `0x0E` (`RET`) padding bytes that nothing in the ROM references |
+| hook | **one four-byte instruction.** `MIDI_RX_SysExData` (`0xFA586E`) is called for every data byte of an accepted SysEx; its first four bytes `f0 a9 c9 66` become `jp 0xFBA246`, and `jp abs24` is exactly four bytes. The routine has one caller and is only ever entered at its first byte, so nothing after the patch is reachable. **Restoring the ROM is a four-byte write** — or putting the original chip back in its socket |
+| state | **one borrowed bit.** `(0xA9)` is the firmware's own SysEx state byte, and **bit 5 is tested by `MIDI_RX_SysExData` and set nowhere in the firmware**. Its lifecycle is exactly right: `MIDI_RX_SysExStart` does `ld (0xa9),0x01`, clearing it at every `F0`. It means "this message is mine", which also makes the stock parser skip our bytes |
+| commands | `IDENT` — `F0 7E 7D 01 F7` → `F0 7E 7D 7F 01 00 F7`; `PEEK` — `F0 7E 7D 02 <6 address nibbles> F7` → `F0 7E 7D 7E <8 bytes as 16 nibbles> F7`. MIDI data bytes carry seven bits, so each payload byte travels as two nibbles: wasteful and completely unambiguous, the right trade for a debug channel |
+
+The patcher refuses to run unless four gates pass: the input hashes as the known `prom_a`
+dump, the destination is all `0x0E` for the payload's length, the hook site still holds
+`f0 a9 c9 66`, and the output differs in **exactly** the payload plus those four bytes. Two
+independent toolchains agree on the result — `llvm-mc` assembles it and MAME's own
+`unidasm` reads the patched image back as the intended instructions.
+
+**The PEEK test is self-verifying.** It is asked to read the eight bytes at `0xFBA236`,
+which is the monitor's *own reply table*, so the right answer is known before the machine
+starts. The reply nibble-decodes to `F0 7E 7D 7F 01 00 F7 00`. Byte for byte.
+
+Three things make that a result rather than an anecdote, and the first version of the test
+had none of them:
+
+1. **A negative control.** The same stimulus against the unpatched ROM must produce no
+   reply — and `0x7E` *is* an identifier the stock parser accepts, so "the firmware answered
+   by itself" was a live alternative, not a straw man.
+2. **The instrument is checked before it is read.** An empty capture is not a result. The
+   machine emits Active Sensing continuously, so the harness fails the run outright if the
+   capture contains none; otherwise a disconnected listener would make the negative control
+   pass for the wrong reason.
+3. **It has been seen to fail** — on the `midiin` timestamp trap described above.
+
+### ⛔ What it cannot do yet, and the reason is architectural
+
+The next commands wanted are `LOAD`, `POKE`, `RUN` and `DUMP` — put probe microcode into a
+µPD6383 and read the result. **They are not extensions of `PEEK`.** The monitor is patched
+into `prom_a`, which is **CPU 1**; the three DSPs hang off **CPU 2**'s ports (`P7` =
+`DSPD0-7`, `P5.3` = C/D, chip selects on `P5.4`/`P5.5`/`P2.7`). Between the processors is
+only the octal-latch mailbox — the same link `0xF40ED4` writes to. So every DSP command is a
+**second agent on the other processor**, speaking a protocol we would have to join. `PEEK`
+is CPU-1-only, which is why `PEEK` came first.
+
+Seven probe experiments, one per open axis of the instruction set, were designed and then
+put through a pass whose only instruction was to refute them. **All seven were refuted**, and
+the objections were not seven different objections — the wrong-CPU problem above is one of
+three that recur in every single design. The other two: there is **no audio readback**
+(the wave ROMs are undumped, so this machine makes no sound in MAME, and using the
+emulator's *model* of the DSP to decide what the real chip's instructions mean is circular);
+and several designs read their positive control **through the very idiom under test**, so
+"the poke never arrived", "the instruction does not read the table" and "the instruction
+does nothing" collapse into one observation.
+
+What survives is the cheapest item on the list: **render the service manual's effects-board
+pages at ≥300 dpi and read IC30 pins 83–88** (`RQ1-3`/`GF1-3` in the CDJ-500 pin table).
+They may reach a latch the host can read, which arms two searches at once; they may be
+strapped; they may be unconnected — in which case the honest report is *"not available on
+this board"*, never *"the chip has no such feature"*. These are image-only scans: `pdftotext`
+returns nothing on them and has already produced two false negatives on this project.
 
 ## Findings flow in both directions
 
@@ -394,7 +486,7 @@ and is not the inter-processor link.
 | **Faithful release envelope shape** | *voice retirement now works* (see below) — a released note decays and the firmware frees it — but the decay is a fixed placeholder ramp, not the real time-varying segment envelope, whose rate/level semantics are not yet established |
 | **The six wave mask ROMs** | `NO_DUMP`. The manual gives their capacity (16 Mbit each) but not their organisation, and the scan does not resolve which sits on which of the tone generator's address buses — so each gets its own region rather than being concatenated |
 | **The AM29F400T flash** | not modelled; its data-poll and erase-verify loops are unbounded and will spin if reached |
-| **MIDI (in and out)** | *both directions now wired.* `tmp95c061` has a serial-channel-0 receive engine (`sc0_rxd` raises `INTRX0`) and, new, a transmit callback (`sc0_txd`, from `sc0buf_w`); a `wsa1_midi_uart` bridges MAME's bit-serial `midiin`/`midiout` to CPU 1's SC0 (the rear MIDI1 jack) in both directions. An external note reaches the tone generator, and the machine now transmits what the firmware sends — performance parameters as CC/aftertouch/pitch-bend as you play, plus bulk/group SysEx dumps and GM (`-mdin`/`-mdout`). A default-off **"Live parameter mirror"** option adds the one config value the firmware never emits on edit, tempo, as `F0 50 25 <lo> <hi> F7` — see the [live-sync analysis]({{ site.baseurl }}/sysex-messages/#live-sync-between-an-emulated-unit-and-real-hardware) |
+| **MIDI (in and out)** | *both directions now wired.* `tmp95c061` has a serial-channel-0 receive engine (`sc0_rxd` raises `INTRX0`) and, new, a transmit callback (`sc0_txd`, from `sc0buf_w`); a `wsa1_midi_uart` bridges MAME's bit-serial `midiin`/`midiout` to CPU 1's SC0 (the rear MIDI1 jack) in both directions. An external note reaches the tone generator, and the machine now transmits what the firmware sends — performance parameters as CC/aftertouch/pitch-bend as you play, plus bulk/group SysEx dumps and GM (`-mdin`/`-mdout`). A default-off **"Live parameter mirror"** option adds the one config value the firmware never emits on edit, tempo, as `F0 50 25 <lo> <hi> F7` — see the [live-sync analysis]({{ site.baseurl }}/sysex-messages/#live-sync-between-an-emulated-unit-and-real-hardware). ★ The bridge is now **validated in both directions against an external program** ([above](#the-midi-bridge-is-now-validated-in-both-directions-by-a-program-outside-the-emulator)), so a MIDI-touching pull request can cite a round trip rather than an inspection |
 | **The panel MCU's mask ROM** | not dumped, and no ROM region is declared for it — the manual does not give its capacity, and guessing one would be worse than leaving it out |
 | **`0x104000` and `0x10C000`** | shapes established; the labels deliberately read `Dev104_` and `Dev10C_` rather than anything that would imply a function. For `0x104000` most of the register *meanings* are recovered — twelve names, six exact units, [the whole map]({{ site.baseurl }}/wsa1-modeling-lsi/) — but nothing in the driver acts on them, and the internal signal path is unknown. A behavioural **HLE reference** of the documented resonator model now runs *outside* the driver (`wsa1/hle/`, [see the LSI page]({{ site.baseurl }}/wsa1-modeling-lsi/#a-high-level-emulation-reference-now-runs-the-model-2026-09-10)) — a realization of the model, not the chip's audio, which still needs the wave ROMs and an internal-path trace |
 | **The drive motor line** | the firmware **does** drive CPU 1's PA bit 3 — four writes, the only bit of PA it changes after RESET, and it *clears* the bit (`res 3,(0x1E)` at `0xFE18EF`) before a 307 ms spin-up delay. The driver still declines to wire it to the drive's motor, because *what the pin does* is not claimed — a drive-motor or drive-select line is only the obvious reading. The consequence is stated rather than papered over: with no motor modelled, an attached image never becomes READY, and a read reports the firmware's own error `0x31`, drive not ready |
@@ -409,3 +501,11 @@ recipe and two traps worth repeating:
   Every script there keeps its handles in `_G`.
 * **Taps on these 16-bit spaces must start on a word boundary.** A tap on an odd
   single byte throws; cover the containing word and select the half with a mask.
+* **TLCS-900 registers are exposed bank-qualified** — `XDE0`…`XDE3`, never plain `DE`, so
+  `cpu.state["DE"]` is a nil index. Which bank is live depends on `RFP`.
+
+The MIDI round trip uses no Lua at all, deliberately, because a real machine offers none:
+`kn7000_mame/tools/wsa1r-sysex-monitor/midi_roundtrip.sh` builds the patched ROM, drives
+`IDENT` and `PEEK` from generated `.mid` files, captures the replies with `aseqdump`, and
+runs the stock-ROM negative control. `WSA1R_MIDI_LOG=1` with `-log` adds a UART-level view
+of every byte in and out.

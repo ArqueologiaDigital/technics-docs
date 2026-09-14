@@ -260,6 +260,56 @@ loaded from file, one for live MIDI:
 Dispatchers `sub_FB2160` (file) and `sub_FB21CB` (live) index these tables by a
 command slot. **Slot 9** of *both* tables points at handler `0xFB33FE`.
 
+### How a byte physically leaves on MIDI OUT — **MEASURED**
+
+Knowing the message templates is not the same as knowing the path a byte takes to the
+DIN socket, and that path had one trap in it worth documenting.
+
+The transmit interrupt handler **`MIDI_TX_Ready`** (`prom_a 0xFA542F`, vector slot `0x64`
+via the `prom_b` thunk at `0xF40718`) owns the `SC0BUF` register. It first drains the five
+**System Real Time** request bits in `(0xA0)` — writing the literal bytes `F8` clock, `FE`
+active sensing, `FA` start, `FB` continue, `FC` stop, in **that** priority order, which is
+*not* the bit order; putting the timing clock first is the correct choice, because it is
+the one message whose jitter is audible. Only if none is pending does it pull a byte from
+the output queue and write it to `SC0BUF` at `0xFA547E`.
+
+That output queue is a **256-byte ring at `0x601432`** with the usual eleven veneers. So an
+ordinary MIDI transmission is:
+
+| Step | Routine | Convention |
+|------|---------|------------|
+| queue a block | `Ring601432_PutBlock` — slot `0xF41DF8`, body `prom_a 0xF8481C` | `push <buffer:4>`, `pushw <count:2>`, call, clean 6. The frame is read as `ld BC,(XIZ+0x08)` = count, `ld XIY,(XIZ+0x0a)` = buffer |
+| wake the transmitter | `MIDI_PostSendWork` — `prom_a 0xFA590F` | no arguments; sets the `(0x77)` mailbox to `0xDD`, which restarts a transmitter that has already run dry. `MIDI_TX_Ready` writes `0xFD` there when it runs out |
+| queue one byte | `Ring601432_Put` — slot `0xF41DF4` | one byte at `(XIZ+0x08)` |
+
+`MIDI_SendBankAndProgram` (`0xFA5B5F`) shows the pair in use at `0xFA5BC6`–`0xFA5BD5`, in
+the arm its own header calls *"port A"*.
+
+> ⛔ **`0xF40ED4` is not the MIDI transmitter, despite appearances.** Its body is
+> `Link_SendBlockIn32ByteChunks` (`prom_a 0xF8E02C`): it splits a buffer into `0x20`-byte
+> pieces and hands each to `Link_SendCountedBlock`, which builds the header byte
+> `((selector << 5) | (count - 1))` and writes it to **`0x007C0000`** — the **CPU1↔CPU2
+> link port** — then micro-DMAs the body there. Its third argument looks like a port number
+> at the call sites (three push `0x00`, one pushes `0x02`) but is the **three-bit selector**
+> in that link header. `MIDI_SendBankAndProgram`'s header states the distinction outright:
+> *"bit 4 of the first argument picks the destination: clear sends through `0xF41DF8`
+> (`Ring601432_PutBlock`) … set sends through `0xF40ED4`, the block sender that carries
+> port B's stream to the other CPU."* Anything sent through `0xF40ED4` reaches CPU 2, not
+> the DIN socket. This cost a day of debugging on the emulator and is recorded so it costs
+> nobody else one.
+
+⚠ **Port B is not a second DIN socket.** The `_PortB` twins (`MIDI_PostSendWork_PortB`,
+`0xFA5C12`) drain their own ring `0x60153C` and forward the result *over the link*, so
+"port B" is a stream carried to the other processor, not an independent MIDI output.
+
+**Why any of this matters for interrupt-time code.** The ring is written under the
+firmware's own critical section, `push sr` / `ei 6` / … / `pop sr` — the **save-and-restore**
+form. `MIDI_SendBankAndProgram`, being main-loop code, can afford `ei 0x00` instead; code
+running inside the *receive* interrupt cannot, because forcing the mask to zero there
+unmasks a re-entrant MIDI receive on top of itself. Level 6 masks `INTTX0`, the ring's
+other writer. Note also that nothing transmits from inside an interrupt handler: a handler
+appends to the ring, and the byte leaves later, in `INTTX0`.
+
 ### The one traced live parameter: TEMPO (slot 9)
 
 The slot-9 handler `0xFB33FE` is, specifically, a **live tempo change** — traced
@@ -458,6 +508,12 @@ All addresses are on CPU 1 (`prom_a` = code @ `0xF80000`, `prom_b` = data @
 | `sub_FB57ED` | `0xFB57ED` | Writes tempo store `(0x7EE2)`/`(0x7EE3)` |
 | `TempoSetter` | `0xFAA350` | `(0x7EE2)` → `TREG5` sequencer reload |
 | Outgoing message templates | `prom_b 0xF4FEC8`–`0xF4FF60` | Literal `F0 50 …` / GM templates |
+| `MIDI_TX_Ready` | `0xFA542F` | `INTTX0`: real-time bytes, then the output ring → `SC0BUF` |
+| `Ring601432_PutBlock` | slot `0xF41DF8` → `0xF8481C` | append a block to the **MIDI OUT** ring at `0x601432` |
+| `Ring601432_Get` | slot `0xF41DF0` → `0xF847F7` | what `MIDI_TX_Ready` drains (`0xFFFF` = empty) |
+| `MIDI_PostSendWork` | `0xFA590F` | wake a transmitter that ran dry — `(0x77) = 0xDD` |
+| `Link_SendBlockIn32ByteChunks` | slot `0xF40ED4` → `0xF8E02C` | ⛔ **CPU1↔CPU2 link** at `0x007C0000`, *not* MIDI |
+| `MIDI_RX_Byte` / `MIDI_RX_SysExStart` / `MIDI_RX_SysExData` | `0xFA5496` / `0xFA584D` / `0xFA586E` | `INTRX0` and the SysEx parser; `(0xA9)` is its state byte |
 | `sub_FB7FEB` | `0xFB7FEB` | Byte-emit primitive |
 | `sub_FB6E7F`/`FB6F24`/`FB71BB`/`FB8081` | — | Transmit builders (bulk/group dump, replies) |
 | `PanelEvent_Code21_Dial` | `0xF86833` | Front-panel value/tempo dial |

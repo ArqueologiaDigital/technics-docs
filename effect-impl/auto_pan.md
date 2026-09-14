@@ -101,7 +101,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w46   02042EF44D   ?word   0x02042EF44D   ; 204.2.EF.44D  hi12{f98=2 f31=2}  [SPECULATIVE (prospective, not measured): SRC 0x11 = ACCB (2nd accumulator); ACT 0x0D = delay/state MIXING: mem onto bus (universal; pair w/ 0x0E)]
   w47   0202200000   mac.b   (p)0,(p)+0
   w48   0028200000   ?word   0x0028200000   ; 028.2.00.000  hi12{f31=4 ?5 res=020}  [SPECULATIVE (prospective, not measured): SRC 0x00 = mem[ptr]/delay-RAM read]
-  w49   042410E000   endblk  unit0          ; END OF BLOCK -- the image's last word
+  w49   042410E000   endblk  #0E             ; END OF BLOCK -- the last word of a block
 ```
 
 ## HLE reconstruction (MAME, `kn5000_tonegen.cpp`)

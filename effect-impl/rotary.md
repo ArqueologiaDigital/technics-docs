@@ -166,7 +166,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w83   0202AF71D5   mac     (p),c+,(p)-9
         ; C-RAM[0x20] (coeff, base 0x00 MEASURED)
   w84   0880160000   dly.w  dsc[k],p+96
-  w85   060210E000   endblk  unit0          ; END OF BLOCK -- the image's last word
+  w85   060210E000   endblk  #0E             ; END OF BLOCK -- the last word of a block
 ```
 
 ## HLE reconstruction (MAME, `kn5000_tonegen.cpp`)

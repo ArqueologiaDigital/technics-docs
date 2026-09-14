@@ -14,7 +14,7 @@ Image rep **algo 16** &middot; slots 16,17,18,19,20,21,22,23,24,25,26,27 &middot
 
 > reverb tank: all-pass diffuser ladders of 5 and 4 stages + damping (algorithm decoded to the bit; the per-word roles of the 6-word core are narrowed to two surviving assignments); the ONLY unit-1 image, shared by the 12 reverb presets algos 16-27
 
-**133 words**, 33 class-A coefficient multiplies (33 named), 7 instructions still opaque. Landmarks detected: 4 C-format immediate load(s), 13 DRAM read/write word(s), 9 all-pass marker(s).
+**133 words**, 33 class-A coefficient multiplies (33 named), 0 instructions still opaque, **9 of 133 not yet decoded**. Landmarks detected: 4 C-format immediate load(s), 13 DRAM read/write word(s), 9 all-pass marker(s).
 
 ```mermaid
 flowchart TD
@@ -41,10 +41,8 @@ flowchart TD
     N9 --> N10
     N11["controls: HIGH DAMP GAIN, ER.LEVEL, VOLUME"]
     N10 -.-> N11
-    N12["Undecoded core<br/>7 of 133 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N12["Output (the only unit-1 image; shared by all 12 reverb presets)"]
     N10 --> N12
-    N13["Output (the only unit-1 image; shared by all 12 reverb presets)"]
-    N12 --> N13
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -52,12 +50,19 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N13 io;
+    class N0,N12 io;
     class N1,N4,N5,N7,N8,N9,N10 measured;
     class N2 inferred;
     class N3,N6,N11 ctrl;
-    class N12 open;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** All-pass diffuser ladder + comb (Schroeder/Moorer reverb tank).
+
+A chain of all-pass sections (single coefficient/stage on the KN5000) over the external delay-DRAM &mdash; the most DRAM-heavy program; ER taps at 6000/12000/18000/24000 samples.
+
+**Instruction hint:** the diffuser feed/feedback gains are class-A MACs on delay-read taps; the all-pass z&#8315;&#185; updates are the bqp pair (ACT 0x0D/0x0E).
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): REVERB TIME, PRE DELAY, HIGH DAMP GAIN, ER.LEVEL, VOLUME.
 

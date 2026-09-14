@@ -14,7 +14,7 @@ Image rep **algo 97** &middot; slots 97 &middot; **unit 0** (I-RAM load 84) &mid
 
 > PEQ + compressor + overdrive (overdrive tone biquad present)
 
-**97 words**, 36 class-A coefficient multiplies (17 named), 25 instructions still opaque. Landmarks detected: 2 biquad DF-I section(s), 4 C-format immediate load(s), 2 waveshaper LUT selector(s), 4 class-8 post-sum step(s).
+**97 words**, 36 class-A coefficient multiplies (17 named), 0 instructions still opaque, **27 of 97 not yet decoded**. Landmarks detected: 2 biquad DF-I section(s), 4 C-format immediate load(s), 2 waveshaper LUT selector(s), 4 class-8 post-sum step(s).
 
 ```mermaid
 flowchart TD
@@ -29,14 +29,12 @@ flowchart TD
     N3 -.-> N4
     N5["C-format immediate loads (C40/C41)<br/>destination register UNKNOWN &mdash; the old 'envelope detector' reading is WITHDRAWN &times;4"]
     N3 --> N5
-    N6["Undecoded core<br/>25 of 97 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N6["VOLUME<br/>output level"]
     N5 --> N6
-    N7["VOLUME<br/>output level"]
+    N7["REV SEND<br/>to reverb bus"]
     N6 --> N7
-    N8["REV SEND<br/>to reverb bus"]
+    N8["Output (RETURN to kernel epilogue)"]
     N7 --> N8
-    N9["Output (RETURN to kernel epilogue)"]
-    N8 --> N9
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -44,12 +42,20 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N9 io;
+    class N0,N8 io;
     class N1 measured;
-    class N2,N4,N7,N8 ctrl;
+    class N2,N4,N6,N7 ctrl;
     class N3 inferred;
-    class N5,N6 open;
+    class N5 open;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** Union of the sub-effect topologies, in name order.
+
+E.g. PEQ+DIST+DELAY = DF-I biquad(s) &rarr; waveshaper &rarr; delay line; the shape is the concatenation of the named stages.
+
+**Instruction hint:** each named stage contributes its own idiom (biquad ACT 0x12/13/14, waveshaper class-6 LUT, delay class-1 ESC, LFO cell).
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): BAND EMPHASIS FC, BAND EMPHASIS Q, BAND EMPHASIS G, THRESHOLD, RATIO, ATTACK SENS., RELEASE SENS., DRIVE, ADJUST, VOLUME, REV SEND.
 

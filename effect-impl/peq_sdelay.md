@@ -134,7 +134,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
   w50   02042FB1CD   post    (p),(p)-5
   w51   000020040E   ld      acc,(p)+0
   w52   0880160000   dly.w  dsc[k],p+96
-  w53   061210E000   endblk  unit0          ; END OF BLOCK -- the image's last word
+  w53   061210E000   endblk  #0E             ; END OF BLOCK -- the last word of a block
 ```
 
 ## HLE reconstruction (MAME, `kn5000_tonegen.cpp`)

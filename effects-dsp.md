@@ -21,8 +21,11 @@ claim needs real hardware to settle, it says so plainly.
 > **Status.** The host upload path, word format, coefficient format, sample rate,
 > memory map, control-flow model and several instruction roles are established, and two
 > whole algorithms (the parametric EQ and the reverb diffuser) are decoded to the bit.
-> The instruction set as a whole is **not** fully decoded — honest coverage is ~18 % of
-> the microcode words. MAME now carries an experimental, opt-in partial-execution core for
+> The instruction set as a whole is **not** fully decoded, but the number has moved a long
+> way: honest coverage is **80.8 %** — 5876 of 7273 distinct microcode words pooled over
+> the KN5000 and the SX-WSA1R, leaving **1397 undecoded** (was ~18 % when this paragraph
+> was first written). On the KN5000's own 38 effect programs it is **79.4 %**, 2362 of 2974.
+> MAME now carries an experimental, opt-in partial-execution core for
 > the chip (compile-time `KN5000_ENABLE_DSP1`, default off; a runtime `DSPCFG` port, also
 > default off) that runs one uPD6383GF frame per tone-generator sample and logs which words
 > trap — 199 of the 285 words on the frame path execute, 108 of them fully. It is a decoding
@@ -198,9 +201,20 @@ ROM — the per-unit base is reset by the header to a value the instruction stre
 names (unit 0 = `0x70`, unit 1 = `0x50`, loaded via register `0x821`), and every static
 falsifier is a *difference*, hence origin-free. The **audio-input** instruction, the
 meaning of most individual arithmetic words, and the `COND`/`BRAKST` control fields named
-in the CDJ pin table are all unidentified. **Honest coverage is ~18 %** (545 of 2974
-microcode words) — the structural results are worth far more than that number, but the
-number is reported straight.
+in the CDJ pin table are all unidentified. **Honest coverage is 79.4 %** on this corpus
+(2362 of the KN5000's 2974 microcode words), or **80.8 %** pooled and de-duplicated across
+both products (5876 of 7273 distinct words, 1397 still undecoded) — the structural results
+are worth more than that number, but the number is reported straight.
+
+> ⚠ **Two counts, and they are not the same.** The per-program flowcharts report *opaque*
+> instructions — words with no name at all — and that count is now **0** on all 38 programs.
+> It is much the weaker bar: a word can be named and still undecoded, and **612 of the 2974
+> are exactly that.** Each flowchart therefore prints both, e.g. chorus is *"0 still opaque,
+> 18 of 70 not yet decoded"*. Do not read a zero in the first column as a finished decode.
+
+> **Rate discipline (RULE 9).** Pooled rates are quoted over **distinct** images. The WSA1R
+> tree carries byte-identical duplicates, and they are reverbs — better decoded than average
+> — so counting them inflates every figure.
 
 ### Control flow (PROVEN BY CONSTRUCTION)
 

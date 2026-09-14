@@ -33,44 +33,44 @@ Ordering follows the family signal chain documented in [`../algorithms/families.
 
 | chart | effect | family | conf. | words | opaque | landmarks |
 |---|---|---|---|---|---|---|
-| [prog00]({{ site.baseurl }}/effects-dsp/flowcharts/prog00_no_operation/) | NO OPERATION | dynamics | medium | 49 | 22 | 1 biquad DF-I section(s), 2 C-format immediate load(s), 3 DRAM read/write word(s) |
-| [prog01]({{ site.baseurl }}/effects-dsp/flowcharts/prog01_chorus/) | CHORUS | modulation | high | 70 | 17 | 1 LFO phase word(s), 4 C-format immediate load(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
-| [prog02]({{ site.baseurl }}/effects-dsp/flowcharts/prog02_modulated_chorus/) | MODULATED CHORUS | modulation | high | 85 | 22 | 2 LFO phase word(s), 4 C-format immediate load(s), 1 DRAM read/write word(s), 3 waveshaper LUT selector(s) |
-| [prog03]({{ site.baseurl }}/effects-dsp/flowcharts/prog03_enhancer/) | ENHANCER | filter | medium | 99 | 32 | 2 C-format immediate load(s), 1 DRAM read/write word(s), 4 all-pass marker(s) |
-| [prog04]({{ site.baseurl }}/effects-dsp/flowcharts/prog04_flanger/) | FLANGER | modulation | medium | 65 | 22 | 2 LFO phase word(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
-| [prog05]({{ site.baseurl }}/effects-dsp/flowcharts/prog05_phaser/) | PHASER | modulation | medium | 106 | 33 | 2 LFO phase word(s), 2 waveshaper LUT selector(s), 2 all-pass marker(s) |
-| [prog06]({{ site.baseurl }}/effects-dsp/flowcharts/prog06_ensemble/) | ENSEMBLE | modulation | medium | 96 | 39 | 1 LFO phase word(s), 3 DRAM read/write word(s), 4 waveshaper LUT selector(s) |
-| [prog08]({{ site.baseurl }}/effects-dsp/flowcharts/prog08_gated_reverb/) | GATED REVERB | reverb | medium | 102 | 15 | 2 C-format immediate load(s), 10 DRAM read/write word(s), 6 all-pass marker(s) |
-| [prog09]({{ site.baseurl }}/effects-dsp/flowcharts/prog09_single_delay/) | SINGLE DELAY | delay | high | 48 | 13 | 3 DRAM read/write word(s) |
-| [prog10]({{ site.baseurl }}/effects-dsp/flowcharts/prog10_multi_tap_delay/) | MULTI TAP DELAY | delay | high | 68 | 23 | 2 DRAM read/write word(s) |
-| [prog15]({{ site.baseurl }}/effects-dsp/flowcharts/prog15_rock_rotary/) | ROCK ROTARY | rotary | high | 86 | 15 | 1 biquad DF-I section(s), 5 C-format immediate load(s), 1 DRAM read/write word(s), 1 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
-| [prog16]({{ site.baseurl }}/effects-dsp/flowcharts/prog16_room_reverb_1/) | ROOM REVERB 1 | reverb | SOLVED | 133 | 7 | 4 C-format immediate load(s), 13 DRAM read/write word(s), 9 all-pass marker(s) |
-| [prog32]({{ site.baseurl }}/effects-dsp/flowcharts/prog32_distortion/) | DISTORTION | distortion | high | 42 | 17 | 2 waveshaper LUT selector(s) |
-| [prog33]({{ site.baseurl }}/effects-dsp/flowcharts/prog33_overdrive/) | OVERDRIVE | distortion | high | 63 | 18 | 2 biquad DF-I section(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
-| [prog34]({{ site.baseurl }}/effects-dsp/flowcharts/prog34_fuzz/) | FUZZ | distortion | high | 42 | 17 | 2 waveshaper LUT selector(s) |
-| [prog35]({{ site.baseurl }}/effects-dsp/flowcharts/prog35_exciter/) | EXCITER | exciter | high | 69 | 24 | 2 biquad DF-I section(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
-| [prog36]({{ site.baseurl }}/effects-dsp/flowcharts/prog36_compressor/) | COMPRESSOR | dynamics | medium | 40 | 19 | 4 C-format immediate load(s) |
-| [prog39]({{ site.baseurl }}/effects-dsp/flowcharts/prog39_parametric_eq/) | PARAMETRIC EQ | eq | SOLVED | 105 | 8 | 10 biquad DF-I section(s), 10 class-8 post-sum step(s) |
-| [prog48]({{ site.baseurl }}/effects-dsp/flowcharts/prog48_auto_pan/) | AUTO PAN | am | high | 50 | 24 | 2 LFO phase word(s), 2 waveshaper LUT selector(s) |
-| [prog50]({{ site.baseurl }}/effects-dsp/flowcharts/prog50_vibrato/) | VIBRATO | modulation | high | 53 | 16 | 2 LFO phase word(s), 2 C-format immediate load(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
-| [prog52]({{ site.baseurl }}/effects-dsp/flowcharts/prog52_auto_wah/) | AUTO WAH | filter | medium | 72 | 30 | 1 C-format immediate load(s), 2 class-8 post-sum step(s) |
-| [prog54]({{ site.baseurl }}/effects-dsp/flowcharts/prog54_ring_modulator/) | RING MODULATOR | am | high | 46 | 23 | 2 LFO phase word(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
-| [prog56]({{ site.baseurl }}/effects-dsp/flowcharts/prog56_mix_up/) | MIX UP | modulation | medium | 64 | 19 | 3 LFO phase word(s), 2 C-format immediate load(s), 1 DRAM read/write word(s), 3 waveshaper LUT selector(s) |
-| [prog64]({{ site.baseurl }}/effects-dsp/flowcharts/prog64_s_delay_chorus/) | S.DELAY+CHORUS | combi | high | 95 | 20 | 1 LFO phase word(s), 4 C-format immediate load(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
-| [prog65]({{ site.baseurl }}/effects-dsp/flowcharts/prog65_s_delay_s_delay/) | S.DELAY+S.DELAY | delay | high | 68 | 14 | 5 DRAM read/write word(s) |
-| [prog66]({{ site.baseurl }}/effects-dsp/flowcharts/prog66_s_delay_flanger/) | S.DELAY+FLANGER | combi | medium | 100 | 26 | 2 LFO phase word(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
-| [prog67]({{ site.baseurl }}/effects-dsp/flowcharts/prog67_s_delay_vibrato/) | S.DELAY+VIBRATO | combi | high | 86 | 20 | 2 LFO phase word(s), 2 C-format immediate load(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
-| [prog68]({{ site.baseurl }}/effects-dsp/flowcharts/prog68_s_delay_phaser/) | S.DELAY+PHASER | combi | medium | 110 | 30 | 2 LFO phase word(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s), 2 all-pass marker(s) |
-| [prog70]({{ site.baseurl }}/effects-dsp/flowcharts/prog70_auto_wah_s_delay/) | AUTO WAH+S.DELAY | combi | medium | 105 | 35 | 1 C-format immediate load(s), 3 DRAM read/write word(s), 2 class-8 post-sum step(s) |
-| [prog71]({{ site.baseurl }}/effects-dsp/flowcharts/prog71_peq_chorus/) | PEQ+CHORUS | combi | high | 93 | 20 | 2 biquad DF-I section(s), 1 LFO phase word(s), 4 C-format immediate load(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
-| [prog72]({{ site.baseurl }}/effects-dsp/flowcharts/prog72_peq_s_delay/) | PEQ+S.DELAY | combi | high | 54 | 9 | 2 biquad DF-I section(s), 3 DRAM read/write word(s), 2 class-8 post-sum step(s) |
-| [prog73]({{ site.baseurl }}/effects-dsp/flowcharts/prog73_peq_flanger/) | PEQ+FLANGER | combi | high | 91 | 23 | 2 biquad DF-I section(s), 2 LFO phase word(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
-| [prog74]({{ site.baseurl }}/effects-dsp/flowcharts/prog74_peq_vibrato/) | PEQ+VIBRATO | combi | high | 77 | 17 | 2 biquad DF-I section(s), 2 LFO phase word(s), 2 C-format immediate load(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
-| [prog75]({{ site.baseurl }}/effects-dsp/flowcharts/prog75_peq_compressor/) | PEQ+COMPRESSOR | combi | high | 59 | 19 | 2 biquad DF-I section(s), 4 C-format immediate load(s), 1 DRAM read/write word(s), 2 class-8 post-sum step(s) |
-| [prog96]({{ site.baseurl }}/effects-dsp/flowcharts/prog96_peq_compr_dist/) | PEQ+COMPR+DIST | combi | high | 90 | 28 | 2 biquad DF-I section(s), 4 C-format immediate load(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
-| [prog97]({{ site.baseurl }}/effects-dsp/flowcharts/prog97_peq_compr_overdr/) | PEQ+COMPR+OVERDR | combi | high | 97 | 25 | 2 biquad DF-I section(s), 4 C-format immediate load(s), 2 waveshaper LUT selector(s), 4 class-8 post-sum step(s) |
-| [prog98]({{ site.baseurl }}/effects-dsp/flowcharts/prog98_peq_dist_delay/) | PEQ+DIST+DELAY | combi | high | 92 | 23 | 2 biquad DF-I section(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
-| [prog99]({{ site.baseurl }}/effects-dsp/flowcharts/prog99_peq_overdr_delay/) | PEQ+OVERDR+DELAY | combi | high | 104 | 21 | 4 biquad DF-I section(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s), 4 class-8 post-sum step(s) |
+| [prog00]({{ site.baseurl }}/effects-dsp/flowcharts/prog00_no_operation/) | NO OPERATION | dynamics | medium | 49 | 0 | 1 biquad DF-I section(s), 2 C-format immediate load(s), 3 DRAM read/write word(s) |
+| [prog01]({{ site.baseurl }}/effects-dsp/flowcharts/prog01_chorus/) | CHORUS | modulation | high | 70 | 0 | 1 LFO phase word(s), 4 C-format immediate load(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
+| [prog02]({{ site.baseurl }}/effects-dsp/flowcharts/prog02_modulated_chorus/) | MODULATED CHORUS | modulation | high | 85 | 0 | 2 LFO phase word(s), 4 C-format immediate load(s), 1 DRAM read/write word(s), 3 waveshaper LUT selector(s) |
+| [prog03]({{ site.baseurl }}/effects-dsp/flowcharts/prog03_enhancer/) | ENHANCER | filter | medium | 99 | 0 | 2 C-format immediate load(s), 1 DRAM read/write word(s), 4 all-pass marker(s) |
+| [prog04]({{ site.baseurl }}/effects-dsp/flowcharts/prog04_flanger/) | FLANGER | modulation | medium | 65 | 0 | 2 LFO phase word(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
+| [prog05]({{ site.baseurl }}/effects-dsp/flowcharts/prog05_phaser/) | PHASER | modulation | medium | 106 | 0 | 2 LFO phase word(s), 2 waveshaper LUT selector(s), 2 all-pass marker(s) |
+| [prog06]({{ site.baseurl }}/effects-dsp/flowcharts/prog06_ensemble/) | ENSEMBLE | modulation | medium | 96 | 0 | 1 LFO phase word(s), 3 DRAM read/write word(s), 4 waveshaper LUT selector(s) |
+| [prog08]({{ site.baseurl }}/effects-dsp/flowcharts/prog08_gated_reverb/) | GATED REVERB | reverb | medium | 102 | 0 | 2 C-format immediate load(s), 10 DRAM read/write word(s), 6 all-pass marker(s) |
+| [prog09]({{ site.baseurl }}/effects-dsp/flowcharts/prog09_single_delay/) | SINGLE DELAY | delay | high | 48 | 0 | 3 DRAM read/write word(s) |
+| [prog10]({{ site.baseurl }}/effects-dsp/flowcharts/prog10_multi_tap_delay/) | MULTI TAP DELAY | delay | high | 68 | 0 | 2 DRAM read/write word(s) |
+| [prog15]({{ site.baseurl }}/effects-dsp/flowcharts/prog15_rock_rotary/) | ROCK ROTARY | rotary | high | 86 | 0 | 1 biquad DF-I section(s), 5 C-format immediate load(s), 1 DRAM read/write word(s), 1 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
+| [prog16]({{ site.baseurl }}/effects-dsp/flowcharts/prog16_room_reverb_1/) | ROOM REVERB 1 | reverb | SOLVED | 133 | 0 | 4 C-format immediate load(s), 13 DRAM read/write word(s), 9 all-pass marker(s) |
+| [prog32]({{ site.baseurl }}/effects-dsp/flowcharts/prog32_distortion/) | DISTORTION | distortion | high | 42 | 0 | 2 waveshaper LUT selector(s) |
+| [prog33]({{ site.baseurl }}/effects-dsp/flowcharts/prog33_overdrive/) | OVERDRIVE | distortion | high | 63 | 0 | 2 biquad DF-I section(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
+| [prog34]({{ site.baseurl }}/effects-dsp/flowcharts/prog34_fuzz/) | FUZZ | distortion | high | 42 | 0 | 2 waveshaper LUT selector(s) |
+| [prog35]({{ site.baseurl }}/effects-dsp/flowcharts/prog35_exciter/) | EXCITER | exciter | high | 69 | 0 | 2 biquad DF-I section(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
+| [prog36]({{ site.baseurl }}/effects-dsp/flowcharts/prog36_compressor/) | COMPRESSOR | dynamics | medium | 40 | 0 | 4 C-format immediate load(s) |
+| [prog39]({{ site.baseurl }}/effects-dsp/flowcharts/prog39_parametric_eq/) | PARAMETRIC EQ | eq | SOLVED | 105 | 0 | 10 biquad DF-I section(s), 10 class-8 post-sum step(s) |
+| [prog48]({{ site.baseurl }}/effects-dsp/flowcharts/prog48_auto_pan/) | AUTO PAN | am | high | 50 | 0 | 2 LFO phase word(s), 2 waveshaper LUT selector(s) |
+| [prog50]({{ site.baseurl }}/effects-dsp/flowcharts/prog50_vibrato/) | VIBRATO | modulation | high | 53 | 0 | 2 LFO phase word(s), 2 C-format immediate load(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
+| [prog52]({{ site.baseurl }}/effects-dsp/flowcharts/prog52_auto_wah/) | AUTO WAH | filter | medium | 72 | 0 | 1 C-format immediate load(s), 2 class-8 post-sum step(s) |
+| [prog54]({{ site.baseurl }}/effects-dsp/flowcharts/prog54_ring_modulator/) | RING MODULATOR | am | high | 46 | 0 | 2 LFO phase word(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
+| [prog56]({{ site.baseurl }}/effects-dsp/flowcharts/prog56_mix_up/) | MIX UP | modulation | medium | 64 | 0 | 3 LFO phase word(s), 2 C-format immediate load(s), 1 DRAM read/write word(s), 3 waveshaper LUT selector(s) |
+| [prog64]({{ site.baseurl }}/effects-dsp/flowcharts/prog64_s_delay_chorus/) | S.DELAY+CHORUS | combi | high | 95 | 0 | 1 LFO phase word(s), 4 C-format immediate load(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
+| [prog65]({{ site.baseurl }}/effects-dsp/flowcharts/prog65_s_delay_s_delay/) | S.DELAY+S.DELAY | delay | high | 68 | 0 | 5 DRAM read/write word(s) |
+| [prog66]({{ site.baseurl }}/effects-dsp/flowcharts/prog66_s_delay_flanger/) | S.DELAY+FLANGER | combi | medium | 100 | 0 | 2 LFO phase word(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
+| [prog67]({{ site.baseurl }}/effects-dsp/flowcharts/prog67_s_delay_vibrato/) | S.DELAY+VIBRATO | combi | high | 86 | 0 | 2 LFO phase word(s), 2 C-format immediate load(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s) |
+| [prog68]({{ site.baseurl }}/effects-dsp/flowcharts/prog68_s_delay_phaser/) | S.DELAY+PHASER | combi | medium | 110 | 0 | 2 LFO phase word(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s), 2 all-pass marker(s) |
+| [prog70]({{ site.baseurl }}/effects-dsp/flowcharts/prog70_auto_wah_s_delay/) | AUTO WAH+S.DELAY | combi | medium | 105 | 0 | 1 C-format immediate load(s), 3 DRAM read/write word(s), 2 class-8 post-sum step(s) |
+| [prog71]({{ site.baseurl }}/effects-dsp/flowcharts/prog71_peq_chorus/) | PEQ+CHORUS | combi | high | 93 | 0 | 2 biquad DF-I section(s), 1 LFO phase word(s), 4 C-format immediate load(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
+| [prog72]({{ site.baseurl }}/effects-dsp/flowcharts/prog72_peq_s_delay/) | PEQ+S.DELAY | combi | high | 54 | 0 | 2 biquad DF-I section(s), 3 DRAM read/write word(s), 2 class-8 post-sum step(s) |
+| [prog73]({{ site.baseurl }}/effects-dsp/flowcharts/prog73_peq_flanger/) | PEQ+FLANGER | combi | high | 91 | 0 | 2 biquad DF-I section(s), 2 LFO phase word(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
+| [prog74]({{ site.baseurl }}/effects-dsp/flowcharts/prog74_peq_vibrato/) | PEQ+VIBRATO | combi | high | 77 | 0 | 2 biquad DF-I section(s), 2 LFO phase word(s), 2 C-format immediate load(s), 1 DRAM read/write word(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
+| [prog75]({{ site.baseurl }}/effects-dsp/flowcharts/prog75_peq_compressor/) | PEQ+COMPRESSOR | combi | high | 59 | 0 | 2 biquad DF-I section(s), 4 C-format immediate load(s), 1 DRAM read/write word(s), 2 class-8 post-sum step(s) |
+| [prog96]({{ site.baseurl }}/effects-dsp/flowcharts/prog96_peq_compr_dist/) | PEQ+COMPR+DIST | combi | high | 90 | 0 | 2 biquad DF-I section(s), 4 C-format immediate load(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
+| [prog97]({{ site.baseurl }}/effects-dsp/flowcharts/prog97_peq_compr_overdr/) | PEQ+COMPR+OVERDR | combi | high | 97 | 0 | 2 biquad DF-I section(s), 4 C-format immediate load(s), 2 waveshaper LUT selector(s), 4 class-8 post-sum step(s) |
+| [prog98]({{ site.baseurl }}/effects-dsp/flowcharts/prog98_peq_dist_delay/) | PEQ+DIST+DELAY | combi | high | 92 | 0 | 2 biquad DF-I section(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s), 2 class-8 post-sum step(s) |
+| [prog99]({{ site.baseurl }}/effects-dsp/flowcharts/prog99_peq_overdr_delay/) | PEQ+OVERDR+DELAY | combi | high | 104 | 0 | 4 biquad DF-I section(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s), 4 class-8 post-sum step(s) |
 
 ## Regenerating
 

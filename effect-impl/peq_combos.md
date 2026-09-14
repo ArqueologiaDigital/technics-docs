@@ -182,7 +182,7 @@ The disassembled image the chip executes for this effect. Source (regenerable):
         ; coeff C-RAM[0x1E] = op0x66[3] (role mix/tap, INFERRED)
   w90   0204200000   post.b  (p)0,(p)+0
   w91   0880160000   dly.w  dsc[k],p+96
-  w92   042010E000   endblk  unit0          ; END OF BLOCK -- the image's last word
+  w92   042010E000   endblk  #0E             ; END OF BLOCK -- the last word of a block
 ```
 
 ## HLE reconstruction (MAME, `kn5000_tonegen.cpp`)

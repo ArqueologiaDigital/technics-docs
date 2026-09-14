@@ -14,7 +14,7 @@ Image rep **algo 52** &middot; slots 52 &middot; **unit 0** (I-RAM load 84) &mid
 
 > auto wah: envelope-swept resonator
 
-**72 words**, 13 class-A coefficient multiplies (6 named), 30 instructions still opaque. Landmarks detected: 1 C-format immediate load(s), 2 class-8 post-sum step(s).
+**72 words**, 13 class-A coefficient multiplies (6 named), 0 instructions still opaque, **11 of 72 not yet decoded**. Landmarks detected: 1 C-format immediate load(s), 2 class-8 post-sum step(s).
 
 ```mermaid
 flowchart TD
@@ -23,14 +23,12 @@ flowchart TD
     N0 --> N1
     N2["nearby controls: RESONANCE, MANUAL, SWEEP RANGE"]
     N1 -.-> N2
-    N3["Undecoded core<br/>30 of 72 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N3["VOLUME<br/>output level"]
     N1 --> N3
-    N4["VOLUME<br/>output level"]
+    N4["REV SEND<br/>to reverb bus"]
     N3 --> N4
-    N5["REV SEND<br/>to reverb bus"]
+    N5["Output (RETURN to kernel epilogue)"]
     N4 --> N5
-    N6["Output (RETURN to kernel epilogue)"]
-    N5 --> N6
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -38,10 +36,18 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N6 io;
-    class N1,N3 open;
-    class N2,N4,N5 ctrl;
+    class N0,N5 io;
+    class N1 open;
+    class N2,N3,N4 ctrl;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** Swept state-variable / DF-I biquad (enhancer, auto-wah).
+
+A biquad whose cutoff is swept by an LFO or an envelope (auto-wah).
+
+**Instruction hint:** the same DF-I biquad idiom as EQ, with the cutoff coefficient updated from the LFO/envelope cell.
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): RESONANCE, MANUAL, SWEEP RANGE, VOLUME, REV SEND.
 

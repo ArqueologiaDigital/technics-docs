@@ -14,17 +14,15 @@ Image rep **algo 0** &middot; slots 0,7,11,12,13,14,28,29,30,31,37,38,40,41,42,4
 
 > dry pass-through that still runs a level detector (2/pi env, one-pole smoothers); shared by 42 effect slots
 
-**49 words**, 8 class-A coefficient multiplies (0 named), 22 instructions still opaque. Landmarks detected: 1 biquad DF-I section(s), 2 C-format immediate load(s), 3 DRAM read/write word(s).
+**49 words**, 8 class-A coefficient multiplies (0 named), 0 instructions still opaque, **14 of 49 not yet decoded**. Landmarks detected: 1 biquad DF-I section(s), 2 C-format immediate load(s), 3 DRAM read/write word(s).
 
 ```mermaid
 flowchart TD
     N0["Stereo input (L / R)"]
     N1["C-format immediate loads (C40/C41)<br/>destination register UNKNOWN &mdash; the old 'envelope detector' reading is WITHDRAWN &times;2"]
     N0 --> N1
-    N2["Undecoded core<br/>22 of 49 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N2["Output (RETURN to kernel epilogue)"]
     N1 --> N2
-    N3["Output (RETURN to kernel epilogue)"]
-    N2 --> N3
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -32,8 +30,16 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N3 io;
-    class N1,N2 open;
+    class N0,N2 io;
+    class N1 open;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** Envelope follower + gain computer (level detector &rarr; VCA).
+
+A rectify/smooth level detector drives a gain multiply; no delay line.
+
+**Instruction hint:** the threshold/envelope path GATES a class-A MAC (LIVE: COMPRESSOR's SRC 0x07/ACT 0x15 store MAC does not fire every frame &mdash; the threshold conditional).
 
 Per-instruction detail: [`../disasm/prog00_no_operation.dsm`](https://github.com/ArqueologiaDigital/kn5000-roms-disasm/blob/main/dsp/disasm/prog00_no_operation.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.

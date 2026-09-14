@@ -14,7 +14,7 @@ Image rep **algo 66** &middot; slots 66 &middot; **unit 0** (I-RAM load 84) &mid
 
 > single delay + flanger
 
-**100 words**, 28 class-A coefficient multiplies (21 named), 26 instructions still opaque. Landmarks detected: 2 LFO phase word(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s).
+**100 words**, 28 class-A coefficient multiplies (21 named), 0 instructions still opaque, **22 of 100 not yet decoded**. Landmarks detected: 2 LFO phase word(s), 3 DRAM read/write word(s), 2 waveshaper LUT selector(s).
 
 ```mermaid
 flowchart TD
@@ -29,14 +29,12 @@ flowchart TD
     N2 --> N4
     N5["controls: DELAY DRY/WET, DELAY L, DELAY R, FEEDBACK L, FEEDBACK R"]
     N4 -.-> N5
-    N6["Undecoded core<br/>26 of 100 instructions<br/>(hand-unrolled, straight-line &mdash; see the .dsm)"]
+    N6["VOLUME<br/>output level"]
     N4 --> N6
-    N7["VOLUME<br/>output level"]
+    N7["REV SEND<br/>to reverb bus"]
     N6 --> N7
-    N8["REV SEND<br/>to reverb bus"]
+    N8["Output (RETURN to kernel epilogue)"]
     N7 --> N8
-    N9["Output (RETURN to kernel epilogue)"]
-    N8 --> N9
 
     classDef io fill:#e8eef7,stroke:#33475b,stroke-width:1px,color:#111;
     classDef proven fill:#d7f0d7,stroke:#2e7d32,stroke-width:2px,color:#111;
@@ -44,12 +42,19 @@ flowchart TD
     classDef inferred fill:#fdf0d5,stroke:#b8860b,stroke-width:1.5px,color:#111;
     classDef open fill:#eeeeee,stroke:#888,stroke-width:1px,color:#333,stroke-dasharray:5 5;
     classDef ctrl fill:#f3e8fb,stroke:#6a1b9a,stroke-width:1px,color:#111;
-    class N0,N9 io;
+    class N0,N8 io;
     class N1,N4 inferred;
     class N2 measured;
-    class N3,N5,N7,N8 ctrl;
-    class N6 open;
+    class N3,N5,N6,N7 ctrl;
 ```
+
+### Classic-topology match
+
+**Most likely textbook topology:** Union of the sub-effect topologies, in name order.
+
+E.g. PEQ+DIST+DELAY = DF-I biquad(s) &rarr; waveshaper &rarr; delay line; the shape is the concatenation of the named stages.
+
+**Instruction hint:** each named stage contributes its own idiom (biquad ACT 0x12/13/14, waveshaper class-6 LUT, delay class-1 ESC, LFO cell).
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): DELAY DRY/WET, DELAY L, DELAY R, FEEDBACK L, FEEDBACK R, FLANGER DRY/WET, DEPTH, LFO SPEED, RESONANCE, MANUAL, PHASE, LFO WAVEFORM, VOLUME, REV SEND.
 

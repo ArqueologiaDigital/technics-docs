@@ -216,7 +216,7 @@ Separator2:
   w104  0212200419   mac.ta2 acc,(p)+0 ; mem[p]<-acc, acc=0
   w105  088012064B   ?word   0x088012064B   ; 880.1.20.64B  hi12{ESC ?7 res=080}  [external delay-DRAM READ (FORCED, adjudication-round5 sect. 3 -- addr8 bit 6 is the direction field and 0x60 is the WRITE; this REVERSES R1 F1, which bounded the read latency to one repetition when the descriptors need twenty words); this end moves with the user's DELAY (ms) knob, and the delay is READ_CELL - WRITE_CELL. external delay-DRAM access; address = DESCRIPTOR_CELL[k] + G, from the host bank behind pointer ...825 / tag 0x4C (R3, PROVEN BY CONSTRUCTION) -- the k-th class-1 escape word of a body takes the k-th cell of that body's own descriptor block (the IDENTITY map, FORCED in adjudication-round5 sect. 1), so the address is NOT in this word]
   w106  0000249407   ld.st   acc,(p)+73
-  w107  0090A001D5   ?word   0x0090A001D5   ; 090.A.00.1D5  hi12{ST ?7 res=080} cur+  [SPECULATIVE: class-A multiply (P = coef x source 0x07); the source id / accumulator-combine f31=0 / ACT 0x15 may be OPEN]
+  w107  0090A001D5   ld      (p),c+,(p)+0 ; store SUPPRESSED (bit7)
         ; C-RAM[0xA6] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0xA6] = op0x76 damping triple #3 (HIGH DAMP GAIN) (role damping, PROVEN)
   w108  0212A00415   mac     acc,c+,(p)+0 ; mem[p]<-acc, acc=0
@@ -245,7 +245,7 @@ OutputTails:
         ; C-RAM[0xAC] (coeff, base 0x90 MEASURED)
         ; coeff C-RAM[0xAC] = LEFT output tail (role mix, PROVEN)
   w119  02022081CD   mac     (p),(p)+8
-  w120  00902FB40E   ?word   0x00902FB40E   ; 090.2.FB.40E  hi12{ST ?7 res=080}  [SPECULATIVE (prospective, not measured): ACT 0x0E = delay/state MIXING: acc onto bus (universal; pair w/ 0x0D)]
+  w120  00902FB40E   ld      acc,(p)-5 ; store SUPPRESSED (bit7)
   w121  0212205000   mac.b   (p)0,(p)+5 ; mem[p]<-acc, acc=0
   w122  0C40180000   ldreg   r00,#12          ; immediate -> the register lo12 selects
   w123  0C40180000   ldreg   r00,#12          ; immediate -> the register lo12 selects
@@ -265,7 +265,7 @@ OutputTails:
         ; coeff C-RAM[0xB0] = RIGHT output tail (role mix, PROVEN)
   w130  020227B1CD   mac     (p),(p)+123
   w131  088016040E   dly.w  dsc[k],p+96
-  w132  061210F000   endblk  unit1          ; END OF BLOCK -- the image's last word
+  w132  061210F000   endblk  #0F             ; END OF BLOCK -- the last word of a block
 ```
 
 ## HLE reconstruction (MAME, `kn5000_tonegen.cpp`)
