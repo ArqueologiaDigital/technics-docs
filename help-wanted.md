@@ -80,27 +80,42 @@ If you have a working KN5000:
 - Document hardware behavior for edge cases
 - Take photos of PCB for chip identification
 
-### ★ Read six pins on the SX-WSA1R's effects board
+### ~~Read six pins on the SX-WSA1R's effects board~~ — ✅ **ANSWERED 2026-09-15**
 
-The single cheapest open item in the [µPD6383GF effects-DSP
-decode]({{ site.baseurl }}/effects-dsp/), and it needs no soldering and no test gear —
-just the service manual's effects-board sheet at **≥300 dpi**, or a continuity check.
+Kept here because the *method* is the reusable part, and because the answer is a negative
+worth stating loudly.
 
-**The question:** where do **IC30 pins 83–88** go? In the CDJ-500 pin table those are
+**The question was:** where do **IC30 pins 83–88** go? In the CDJ-500 pin table those are
 `RQ1`–`RQ3` (host-written, testable by an instruction's condition field) and `GF1`–`GF3`
 (set by instructions, host-readable). Neither the condition field nor the flag-setting
 instruction has been located in the microcode, and neither MAME driver wires the pins.
 
-**Why it decides a whole line of work.** Three outcomes, and they are not close:
-- **wired to a latch or CPU port** → two searches for those instruction fields become
-  possible at once, and the addresses to poke and read are known;
-- **strapped to ground or supply** → one search runs degraded, the other is dead;
-- **not connected** → the axis is dead *on this board*, and the honest write-up is
-  *"not available on the WSA1R"* — never *"the chip has no such feature"*.
+**The answer, read at 400 dpi off the WSA1R service manual, sheet II-15/II-16:**
 
-⚠ These service manuals are **image-only scans**. `pdftotext` and `grep` return nothing
-from them, and that has already produced two false negatives on this project. Render the
-page before concluding anything is undocumented.
+- `RQ1`, `RQ2`, `RQ3` (86, 87, 88) are **tied together and strapped to ground** — the host
+  can never vary them.
+- `GF1`, `GF2`, `GF3` (83, 84, 85) are **short stubs with no net, no strap and no
+  destination** — the host can never read them.
+
+⇒ the flag/condition decode route is **dead on the SX-WSA1R**. The honest report is
+*"not available on this machine"* — **never** *"the chip has no `COND` field"*: the pins
+exist on the die, and the CDJ-500 may well wire them. See the
+[pinout]({{ site.baseurl }}/upd6383-datasheet/#2-pinout).
+
+⚠ It cost one `pdftoppm` command. These service manuals are **image-only scans** —
+`pdftotext` and `grep` return nothing from them, and that has produced two false negatives
+on this project. **Render the page before concluding anything is undocumented.**
+
+### Still wanted: a Pioneer CDJ-500 firmware dump
+
+The CDJ-500 / CDJ-500G uses the same µPD6383GF as IC302, and its DSP-shaped feature —
+**Master Tempo**, key-lock pitch shifting — is microcode neither Technics corpus contains.
+It is worth **+214 decoded words** once the corpus-side work is done (and, measurably,
+almost nothing before then — see the
+[route to 100 %]({{ site.baseurl }}/upd6383-decode-status/#5-the-routes-ranked-cheapest-and-safest-first)).
+
+A cheap second-hand player and a ROM reader is the whole shopping list. **What is needed is
+the firmware dump, not the service manual** — we have the manual.
 
 ## Medium Priority
 

@@ -172,6 +172,10 @@
       url: /effects-dsp/
     - title: Effects-DSP Flowcharts
       url: /effects-dsp/flowcharts/
+    - title: uPD6383GF Unofficial Datasheet
+      url: /upd6383-datasheet/
+    - title: uPD6383GF Decode — State of Play
+      url: /upd6383-decode-status/
     - title: DSP Effect Data Zone
       url: /dsp-effect-data-zone/
     - title: DSP Name Tables (Main CPU)

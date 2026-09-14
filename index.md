@@ -111,6 +111,8 @@ and hardware have been reverse engineered in depth.
 | [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) | Documented | DSP effects, tone generation, voice management |
 | [Effects DSP (NEC uPD6383GF)]({{ site.baseurl }}/effects-dsp/) | Documented | IC311 effects processor — chip, instruction word, decoded EQ/reverb, 50-effect parameter catalogue |
 | [Effects-DSP Flowcharts]({{ site.baseurl }}/effects-dsp/flowcharts/) | Documented | Signal-flow Mermaid diagrams — the shared kernel + 38 effect microprograms, synced from the disassembly |
+| [µPD6383GF Unofficial Datasheet]({{ site.baseurl }}/upd6383-datasheet/) | Documented | Pinout, memories, host interface and instruction set of a chip NEC never documented |
+| [µPD6383GF Decode — State of Play]({{ site.baseurl }}/upd6383-decode-status/) | Documented | 80.8 % decoded: what is left, what has been ruled out, and the cost-ranked route to 100 % |
 | [Keybed Scanning]({{ site.baseurl }}/keybed-scanning/) | Documented | Hardware key scanning, note encoding, voice slots |
 | [Display Subsystem]({{ site.baseurl }}/display-subsystem/) | Documented | Framebuffer layout, palette, VGA registers |
 | [Storage Subsystem]({{ site.baseurl }}/storage-subsystem/) | Documented | Floppy, flash, Table Data ROM, HDAE5000 |
