@@ -3,7 +3,7 @@
 
 READS the GENERATED Mermaid charts from the sibling disassembly repo
 (kn5000-roms-disasm/dsp/flowcharts/*.md) and EMITS Jekyll pages under
-kn5000-docs/flowcharts/, so future flowchart regenerations flow to the site
+technics-docs/flowcharts/, so future flowchart regenerations flow to the site
 with one command (`make flowcharts`).
 
 This is a CONSUMER of that source tree: it never edits the charts, it only
@@ -33,12 +33,12 @@ import sys
 from pathlib import Path
 
 # --- output layout on the site -------------------------------------------------
-SITE_SUBDIR = "flowcharts"                      # kn5000-docs/flowcharts/
+SITE_SUBDIR = "flowcharts"                      # technics-docs/flowcharts/
 PERMALINK_BASE = "/effects-dsp/flowcharts"      # + /<name>/  (index = base + /)
 GENERATED_MARKER = "SYNCED from kn5000-roms-disasm"
 
 # Links written into the emitted pages use {{ site.baseurl }} so they resolve
-# under the site's baseurl (/KN5000-docs) exactly like the hand-written pages do.
+# under the site's baseurl (/technics-docs) exactly like the hand-written pages do.
 SITE_INDEX_LINK = "{{ site.baseurl }}" + PERMALINK_BASE + "/"
 
 
@@ -198,7 +198,7 @@ def main() -> int:
     ap.add_argument("--disasm", type=Path, default=default_disasm,
                     help=f"path to the kn5000-roms-disasm repo (default: {default_disasm})")
     ap.add_argument("--site", type=Path, default=Path(__file__).resolve().parents[1],
-                    help="path to the kn5000-docs site root (default: repo of this script)")
+                    help="path to the technics-docs site root (default: repo of this script)")
     args = ap.parse_args()
 
     src_dir = args.disasm / "dsp" / "flowcharts"

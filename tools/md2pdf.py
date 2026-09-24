@@ -221,7 +221,7 @@ def convert(md):
     )
 
 
-SITE = "https://arqueologiadigital.github.io/KN5000-docs"
+SITE = "https://arqueologiadigital.github.io/technics-docs"
 
 
 def strip_front_matter(md):

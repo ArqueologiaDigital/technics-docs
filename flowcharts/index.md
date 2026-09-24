@@ -13,7 +13,7 @@ One **structural flowchart** per NEC uPD6383GF microprogram: the shared [`kernel
 
 ## How to read these charts
 
-The charts are **Mermaid** (they render on GitHub and in the kn5000-docs Jekyll site) and are **regenerated from the ROM words plus the notes** &mdash; never hand-drawn. A node is emitted **only when the landmark it names is actually detected in the program's words**, using the same rules as the disassembler ([`../tools/dsp_disasm.py`](https://github.com/ArqueologiaDigital/kn5000-roms-disasm/blob/main/dsp/tools/dsp_disasm.py)). Every instruction is accounted for: the ones a recognised landmark matches become labelled stages, and the rest are collected into a single honest **opaque "undecoded core (N of M instructions)"** node. **No signal flow is invented.**
+The charts are **Mermaid** (they render on GitHub and in the technics-docs Jekyll site) and are **regenerated from the ROM words plus the notes** &mdash; never hand-drawn. A node is emitted **only when the landmark it names is actually detected in the program's words**, using the same rules as the disassembler ([`../tools/dsp_disasm.py`](https://github.com/ArqueologiaDigital/kn5000-roms-disasm/blob/main/dsp/tools/dsp_disasm.py)). Every instruction is accounted for: the ones a recognised landmark matches become labelled stages, and the rest are collected into a single honest **opaque "undecoded core (N of M instructions)"** node. **No signal flow is invented.**
 
 **Confidence is carried in the node style:**
 

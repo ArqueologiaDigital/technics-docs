@@ -1,4 +1,4 @@
-# kn5000-docs — local rendering of the documentation site.
+# technics-docs — local rendering of the documentation site.
 #
 # The site is a Jekyll site published via GitHub Pages. Mermaid flowcharts render
 # CLIENT-SIDE (Mermaid.js is loaded in _includes/head.html + _layouts/default.html),

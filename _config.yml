@@ -1,10 +1,6 @@
 title: Technics Keyboards — Reverse Engineering & Preservation
 description: Reverse engineering and digital preservation of Technics musical keyboards (KN5000, KN7000, and related models)
-# NOTE: baseurl is kept as /KN5000-docs so the existing GitHub Pages deployment
-# keeps working. Renaming the GitHub repository (e.g. to "technics-docs") and
-# updating baseurl to match is a pending manual step — GitHub redirects the old
-# URL automatically once the repo is renamed.
-baseurl: "/KN5000-docs"
+baseurl: "/technics-docs"
 url: "https://arqueologiadigital.github.io"
 
 # Build settings
