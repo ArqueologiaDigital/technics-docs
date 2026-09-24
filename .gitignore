@@ -13,5 +13,10 @@ service_manual/pages/
 # browsing the built site from disk. It MUST NOT be tracked: on GitHub Pages
 # _site does not exist when the build starts, so realpath on this link fails with
 #   No such file or directory @ rb_check_realpath_internal - /github/workspace/technics-docs
-# which aborts the build. Committed by mistake in a6f2303 (2026-07-10).
+# which aborts the build. Committed by mistake in a6f2303 (2026-07-10), and again in
+# 8af927a (2026-09-24), when this entry was renamed to follow the repository while the
+# link on disk kept its old name. Both names are listed so either one stays untracked.
+# Gate before pushing a rename (must print nothing -- the site tracks no symlinks):
+#   git ls-files -s | awk '$1 == "120000"'
+KN5000-docs
 technics-docs
