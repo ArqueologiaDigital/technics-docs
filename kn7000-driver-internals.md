@@ -356,6 +356,29 @@ project repository as `notes/kn7000-driver-source-annotations.md`.
 > The region stands in for it and is left erased. */ \
 
 
+## The audio path, and why there is no bridge device
+
+The signal chain on the machine is
+
+    tone generator (IC201/IC205) -> effects DSP (IC306, ADSP-21065L) -> IC311 main DAC
+                                                                     -> IC310 (PCM69BU, SUB OUT)
+
+with IC25 (a 74HC174) latching the main DAC's mode pins. There is no part between the
+tone generator and the DSP.
+
+An earlier revision of the driver had a `kn7000_dsp_bridge_device` sitting in MAME's
+sound graph at that position. It mixed two unlike things: the send/direct/return
+crossfade and the effect returns, which are hardware behaviour, and a pair of ring
+buffers, which exist only because MAME's sound stream pulls samples while the SHARC
+runs on its own schedule. A `DEFINE_DEVICE_TYPE` for it put a name in MAME's device
+list with no chip behind it.
+
+It is gone. The rings, the returns and the master gain now live in
+`kn_tonegen_base_device`, which is where the send/direct/return/depth gains already
+were -- the driver had been copying them into the bridge on every volume tick. The
+tone generator now produces the signal that reaches the DACs, and the buffering is a
+private detail of a device that does correspond to a part.
+
 ## Tone generator: the shared voice engine
 
 *Source: `src/mame/matsushita/kn_tonegen.h`*
