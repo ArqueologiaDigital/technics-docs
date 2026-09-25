@@ -468,7 +468,7 @@ labelled tables in August 2026. All addresses are sub-CPU addresses.
 |-------|------|----------|
 | `0x00F7E6 - 0x012114` | ~10.5KB | Voice trim/portamento/key-bend tables, transfer-curve families, jump tables and case maps, DSP algorithm descriptors |
 | `0x012115 - 0x012158` | 68B | Tone-generator voice template |
-| `0x012195 - 0x014738` | ~9.6KB | EQ and coefficient pools, floating-point constant pools, per-effect parameter metadata for all 100 algorithms |
+| `0x012195 - 0x014738` | ~9.6KB | EQ and coefficient pools, floating-point constant pools, per-effect parameter metadata for all 100 algorithms (from `0x0133CF`: a copy of main-CPU `0xEE4FC6-0xEE636B`, which only the main CPU reads — see [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/#the-main-cpu-holds-the-same-metadata-and-reads-it)) |
 | `0x0131CF - 0x0133CE` | 512B | `DSP_MixerGain_Curve` — 128 × u32 monotonic **gain** curve (piecewise-exponential, 53.5 dB span, ends at 0x7FFFFF00). Read by `DSP_MixerCoeff_Compute`; it is *not* a pitch table |
 | `0x0147B3 - 0x01E17E` | 39,372B | DSP effect bytecode + parameter zone — see [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/) |
 | `0x01ED7C` / `0x01EF0C` / `0x01F09C` / `0x01F22C` | 400B each | The four 100-entry `u32` pointer arrays that index the effect zone (algorithm bytecode, coefficient bytecode, parameter values, parameter descriptors) |
