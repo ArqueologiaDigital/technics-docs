@@ -82,6 +82,69 @@ Things we don't know yet and need to investigate.
 - [ ] What do field_04 and field_06 represent? (field_04 appears to be a screen/index value, field_06 may be child count or flags)
 - [ ] What is the relationship between inst_ptr (code string) and proc_addr (handler function)?
 
+## SX-WSA1R
+
+Open questions left by the 2026-09-25 semantic push over the four SX-WSA1R images. Each
+lane's full list of what it could not do is in the disassembly repository,
+`notes/lanes/wave2-2026-09-25/lane-reports/proma.json`, `promb.json` and `promcd.json`.
+
+### CPU 1's parameter-number space
+See [Parameter Records]({{ site.baseurl }}/wsa1-parameters/).
+- [ ] What do the thirteen single-handler numbers of `Dispatch_By_60F080` do (`0x44`,
+  `0x45`, `0x46`, `0x48`, `0x60`, `0x70`, `0x72`, `0x7A`, `0x90`, `0x91`, `0x98`, `0xA8`,
+  `0xB0`)?
+- [ ] Which controllers are numbers `0xB6` and `0xB7`? Two MIDI-in tables carry them for
+  every part, but no controller number reaches their handlers.
+- [ ] What does bit 5 of RAM `0x7F36`, tested before every controller fan-out, switch off?
+- [ ] What are the switch assignments `0x88`, `0x89` and `0x90`, and which physical controls
+  are panel groups `0x0B`–`0x17`?
+- [ ] The part record's layout beyond the known classes; what `Dispatch_By_60F080__Tail` is.
+- [ ] Reconcile `prom_b`'s factory-default ids that are "without meaning" (`0x60`,
+  `0x78`–`0x7A`, `0x80`, `0x91`–`0x93`, `0x98`, `0x99`) with the SysEx reference's names for
+  the combination chunks (`0x78` COMBINATION NAME, `0x60` EFFECT COMMON, `0x79` PART
+  COMMON, `0x92` KEY SCALING / SCALE TUNING). `tools/wsa1_param_record_layout_check.py`
+  shows those chunks and the parameter records occupy the same RAM, which makes the names a
+  strong lead; they are not yet confirmed from `prom_a`'s own readers. (The default payload
+  of `0x78` is sixteen spaces, as a blank name would be.)
+- [ ] SysEx address-hi `0x11` reads RAM `0x7622 + lo` in the SMF exporter. Does the SysEx
+  reference's address map agree, field by field, with the combination layout at those
+  offsets?
+- [ ] Does `SmfSysEx_WriteAddr11`'s pointer-versus-entry compare really let a write to an
+  unused address through to `0xFFFFFF`? Worth a MAME trace.
+- [ ] Eight jump tables are indexed by RAM cells rather than button codes — the ones at
+  `0xF9A3C7` and `0xF9AB84` by `(0x2720)`, `0xF9D966` by `(0x269A)`, and `0xF9DBE6`,
+  `0xF9EC58`, `0xFA08BF`, `0xFA09BD`, `0xFA0B13` by others. What do the cells select?
+
+### `prom_a` and `prom_b` data
+- [ ] `DrumKitNames_Block7`–`DrumKitNames_Block12` (7,740 B): no reader; their 24-bit block
+  and base addresses occur in none of the four images.
+- [ ] Not yet attempted: `RecordTables_FB82A0` (2,566 B), `MixedTables_FC6626`, the hard-disk
+  sectors `DiskImage_HardDisk_BootSector` / `DiskImage_HardDisk_MBR` (1,024 B), `Msg0716_ObjectRecords`, the `VersionScreen_*` objects,
+  `RamInitTable_F96CA6_Addrs`, `MidiFile_Tables_FBA169`.
+- [ ] How are the `SoundCodeByGroupMember_*` words (6,660 B) encoded? `sub_FAAF91` splits a
+  low byte into kind bands; the consumers of parameter `0x98` are untraced.
+- [ ] What do a SysEx decode-tree leaf's result and pair bytes select (`LinkTable_F4FF61`)?
+- [ ] Is there more older-build residue? `relocated_copy_scan.py --boundaries` lists
+  unchecked candidates in `prom_b`, and `prom_a`'s ~`0x400` stale twins suggest a systematic
+  constant-delta twin scan there too
+  ([remnants]({{ site.baseurl }}/wsa1-disassembly/#older-build-remnants-and-why-unreached-code-can-be-correct)).
+- [ ] `DLRecordPtrs_F03173`'s readers index entries 19–20, past the end of the table and into
+  the next display list — a firmware bug, or a deliberate overlap?
+- [ ] `TouchCurve_BoxOrigins3[0]` gives x = `0xA8`, but its list's box starts at `0xE0`.
+- [ ] Is either of the firmware's two Japanese messages (the display list at `0xF2E91A`)
+  reachable? `0xF2E97A`, where the second begins, is spelled nowhere.
+
+### `prom_c` and `prom_d`
+- [ ] 24 P7 streams (5,897 B) have no reader in any image. Orphans of an older build, or
+  reached some way no search has tried?
+- [ ] The P7 type letters `v` and `s`: only their width (one byte) is decoded; `s` occurs
+  only in the two wah records, whose hand-coded paths are untraced.
+- [ ] Record 14 (ROTARY SPEAKER), descriptor 14, is a 0/1 switch driven by
+  amount ≥ `0x40`. Is it the panel's rotary speed control?
+- [ ] The program order of `ToneDB_ToneNumBanks` in `prom_d`.
+- [ ] Four maths helpers beside the `Double_*` routines are unnamed (`sub_FC8EE5`,
+  `sub_FC9FA3`, `sub_FC9ACB` with no caller, `sub_FC9BBC`).
+
 ## Needs Technical Documentation
 
 These areas would benefit from official datasheets or service manuals:
