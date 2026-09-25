@@ -6,11 +6,15 @@ permalink: /wsa1-parameters/
 
 # SX-WSA1R — one parameter-number space on CPU 1
 
-Every change CPU 1 makes to the sound — a MIDI controller arriving, a panel control
-moving, an editor field being written — travels as the same **four-byte record**, and the
-first byte of that record is a **parameter number** from one shared space. The number names
-either a *record* in work RAM (a part, an effect block, the combination name …) or a *MIDI
+A parameter change on CPU 1 — a MIDI controller arriving, a panel control moving, a
+performance setting being written — travels as one **four-byte record**, and the first byte
+of that record is a **parameter number** from one shared space. The number names either a
+*record* in work RAM (a part, an effect block, the combination name …) or a *MIDI
 controller* that applies to many parts at once.
+
+⚠ Not everything goes this way: the tone editor's fields (RESONATOR TYPE, POSITION, DEPTH …)
+live in a separate store at RAM `0x27A6` and are committed by `ToneEdit_CommitField` — see
+[System Exclusive Messages]({{ site.baseurl }}/sysex-messages/#tone-edit-parameters-use-a-separate-store).
 
 Everything on this page is read from the [SX-WSA1R disassembly]({{ site.baseurl }}/wsa1-disassembly/)
 (`wsa1/prom_a/wsa1_prom_a.s`, `wsa1/prom_b/wsa1_prom_b.s` and
@@ -205,8 +209,9 @@ are parameter-record numbers. The disassembly's SysEx reference
 at `0x7620`, every one of the 23 chunks' payloads lands exactly on
 `ParamNumber_RecordPtrs[tag]` — `0x78` at `0x7622`, `0x60` at `0x7634`, `0x61` at `0x7642`,
 … `0x79` at `0x78B2` — and a RAM base two bytes either way matches none. That also explains
-the irregular step in the part-record table: parts 0–7 end at `0x7882`, the `0x92` and `0x79`
-chunks and the terminator fill the next `0x40` bytes, and part 8 starts at `0x78E2`.
+the one irregular step in the part-record table: part 7's first half is at `0x7862` and part
+8's at `0x78E2`, `0x80` apart where every other step is `0x40`, because the combination's
+`0x92` and `0x79` chunks and its terminator sit in between.
 Re-derive it with `tools/wsa1_param_record_layout_check.py` in this repository, which reads
 the two images and asserts all 23 matches, one chunk layout across all 129 records, and the
 negative control.
@@ -243,9 +248,13 @@ The live-MIDI SysEx decoder is on [System Exclusive Messages]({{ site.baseurl }}
 
 ## What is not established
 
-* The field layout inside a part record beyond the classes above, `+0x0D` (the MIDI
-  channel byte) and the bytes the AND/OR patch lists touch (`+0x0C`, `+0x0D`,
-  `+0x2B`–`+0x36`). The 0x40-byte record size is a step in a table, not a proof.
+* Which byte of a part record is which field, *from `prom_a`'s own code*: only the classes
+  above, `+0x0D` (the MIDI channel byte) and the bytes the AND/OR patch lists touch (`+0x0C`,
+  `+0x0D`, `+0x2B`–`+0x36`) are confirmed there. The SysEx reference names more — KEY LAYER
+  LOW / HIGH at B-block `+0x07` / `+0x08` and others (`sysex_combination_layout.py --fields`)
+  — and the shared layout above makes those names a strong lead, not yet a reading of the
+  code. (The `0x40`-byte step between part records, once called "a step, not a proof", is
+  two chunks of 2 + 30 bytes.)
 * What the thirteen single-handler numbers of `Dispatch_By_60F080` do, and what the
   default-module ids listed above mean in prom_a's own code.
 * Which controllers numbers `0xB6` and `0xB7` stand for; what bit 5 of `0x7F36` gates; the
