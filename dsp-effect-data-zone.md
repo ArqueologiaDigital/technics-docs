@@ -85,6 +85,75 @@ was captured live per effect
 `subcpu_data_tables.s`. The two trailing UI controls of every effect are VOLUME and
 REV SEND, landing on cells `0x90`/`0x06` (which is which is not forced by record order).
 
+## The main CPU holds the same metadata, and reads it
+
+Two blocks of effect material exist on **both** CPUs. The subcpu lane (September 2026)
+found that the main CPU is the one that uses them.
+
+**1. Effect-parameter metadata.** Sub-CPU `0x0133CF-0x014738` (the "per-effect parameter
+metadata complex" just below this zone: range arrays, 23-byte defaults records,
+`EFF_ParamCount_Table`, `EFF_ParamRanges_PtrTable`, `EFF_ParamDefaults_PtrTable`) is a
+**byte- and relocation-identical copy of main-CPU program ROM `0xEE4FC6-0xEE636B`**. It sits at
+the same address in v7, v9 and v10 and is unchanged in sub-CPU payloads v1.40 and v1.41. The
+only differences are that the main copy's defaults records are 24 bytes (the 23 plus one `0xFF`)
+and that its pointer tables hold main-CPU addresses. The main CPU reads its copy:
+
+| main-CPU table | readers (v10) |
+|:---|:---|
+| range pointer table `0xEE6044` | `DSPCfg_LookupAndExtract` (0xFDC41D), `DSPCfg_ClampAndExtract` (0xFDC803, clamps to [min, max]) |
+| range records, `{s16 BE min, s16 BE max, byte, s8}` | `DSPCfg_ExtractPairFromStruct` (0xFDC3C9) |
+| parameter count table `0xEE5FE0` | `DSPCfg_GetSlotCount` (0xFDC456) |
+| defaults pointer table `0xEE61D4` (`DspFxSettingsPtrTable`) | `DSPCfg_ResolveWithFallback` (0xFDC710), `DSPCfg_WriteAllSlots_Direct` (0xFDCB40) |
+| defaults record: byte 0 = effect number, fields from byte 1 | `DSPCfg_ReadViaTableLookup` (0xFDC364), `DSPCfg_ReadMultiField`, `DSPCfg_ReadField` |
+
+The main-CPU source still labels this block `ToneKit_NullParams`, `ToneKit_DefaultParams`,
+`ToneKit_ParamBlock_*` (`v10/maincpu/ui_widgets/tonekit_param_blocks.c`) and
+`ToneKit_VoiceDispatch_Table`. Those names predate the finding. The last one sits 4 bytes
+past the range pointer table's start: the code uses `0xEE6044`, and `0xEE6048` occurs nowhere.
+**No reader of the sub-CPU copy exists in the v1.42 payload.** Why the sub CPU carries it is
+not established. Proof: `scripts/analysis/v142_param_meta_maincpu_twin.py` (ALL PASS). The
+sub-CPU source's header at `0x0133CF` (`v142/subcpu/subcpu_data_tables.s`) lists every reader
+with its operand.
+
+**2. Parameter-write records.** The main CPU's 58 parameter-write record lists
+`DspFxRecs_NN_<Effect>` (`0xEE63BA-0xEE7786`, typed by the uimisc lane; the older source called
+them `WidgetParam_Config_000..057`) are indexed by effect number through `DspFxRecListPtrTable`
+(`0xEE75F6`, 100 × u32; readers `DSPCfg_ValidateSlotForWrite`, `DSPCfg_FindSlot63` and six more
+`DSPCfg_*` routines). The subcpu lane pairs them with this zone's `DSP_Eff<NN>_Param_Values`
+tables. A byte comparison made for this page, pairing each list with the table the sub-CPU
+parameter-VALUE array (`0x01F09C`) gives for the same effect, finds that the pairing holds as a
+shared leading run, not as whole-table identity. Of the 58 lists:
+
+- 4 match over the whole main-CPU list (the IC310 reverbs 57-60, 66 bytes each);
+- 32 agree for all but their last 1-12 bytes (e.g. effect 32 for 27 of 38 bytes, effect 66
+  for 174 of 180);
+- 3 agree for at least half their length (effects 9, 10 and 75);
+- 19 agree for less than that: effects 8 and 36 for 6 and 13 bytes, the reverbs 16-26 for
+  4-17 bytes, and effects 52, 70, 71, 96, 97 and 99 for 1 byte.
+
+So "twin" means the same effect's records, often largely the same bytes, and the pairing is
+weakest for the reverbs and the multi-effects. The main-CPU lists are what `DSPCfg_*` writes when the panel changes a
+DSP parameter.
+
+```python
+# run in kn5000-roms-disasm; sub-CPU image offset = address - 0xEF00 for addresses >= 0xF000
+import struct, re
+M = open('original_ROMs/kn5000_v10_program.rom', 'rb').read()
+S = open('original_ROMs/kn5000_subprogram_v142.rom', 'rb').read()
+syms = sorted((int(a, 16), n) for n, a in (l.split() for l in open('symbols/maincpu_v10_symbols_reference.txt')
+              if not l.startswith('#')) if n.startswith('DspFxRecs_') or n == 'DspFxRecListPtrTable')
+vp = [struct.unpack_from('<I', S, 0x01F09C - 0xEF00 + 4 * i)[0] for i in range(100)]
+for (a, n), (b, _) in zip(syms, syms[1:]):
+    m = M[a - 0xE00000:b - 0xE00000]; s = S[vp[int(n.split('_')[1])] - 0xEF00:][:len(m)]
+    k = next((i for i in range(len(m)) if m[i] != s[i]), len(m)); print(n, k, '/', len(m))
+```
+
+Two more subcpu-lane corrections concern this zone's labels: effects 57-60 ("unidentified
+two-parameter entries" in older headers) are the IC310 reverbs STANDARD / PERCUSSIVE /
+SYMPHONIC / DEEP SPACE, and 79 / 88-91 are GEQ / ROOM / KARAOKE / BATH ROOM / STAGE. The
+15/53 rotary labels were swapped: 15 is ROCK ROTARY, 53 ROTARY SPEAKER
+(`scripts/renaming/rename_v142_effect_param_meta.sed`).
+
 ## Chip partition: uPD6383 (IC311) vs MN19413 (IC310)
 
 Nine effect numbers are **IC310 (MN19413, the second DSP)** programs: 57 STANDARD,

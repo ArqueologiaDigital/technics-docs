@@ -600,7 +600,7 @@ The `count` field gives the number of data bytes following the header (after sub
 | 0x4 | DSP Write Type 4 | Short parameter write (offset 0x473) |
 | 0x5 | DSP Write Type 5 | Short config write (offset 0x48D) |
 | 0x6-0xC | — | Invalid (skipped) |
-| 0xD | State Change | Yields to task scheduler (`TaskSched_PreemptiveYield_INT`), then continues |
+| 0xD | State Change | `DSP_Bytecode_NotifyStateChange`: releases kernel semaphore 1 (`TaskSem_Release`, WA = 1 is the semaphore id, not a priority), waking the task blocked on it, then switches tasks; continues when this task is next dispatched |
 | 0xE | Send Command | Sends command byte + data bytes directly to DSP hardware |
 | 0xF | End | Terminates bytecode execution |
 
@@ -770,7 +770,7 @@ When `DSP_WriteGlobalConfig` is called to mute DSP chip 0:
 6. Dispatches on opcode:
    - 0xE → sends command+data to DSP hardware
    - 0x0-0x5 → jumps to native handler for bulk register writes
-   - 0xD → yields to scheduler, then continues
+   - 0xD → releases kernel semaphore 1 and switches tasks, then continues
    - 0xF → terminates
 7. Repeats until 0xF terminator encountered
 ```
@@ -1339,8 +1339,8 @@ Possible causes under investigation:
 
 | Routine | Address | Description |
 |---------|---------|-------------|
-| `Audio_Lock_Acquire` | 0xEF1FEE | Acquire inter-CPU lock |
-| `Audio_Lock_Release` | 0xEF1F0F | Release inter-CPU lock |
+| `Audio_Lock_Acquire` | 0xEF1FEE | Kernel semaphore P (wait); the audio path uses semaphore 7 |
+| `Audio_Lock_Release` | 0xEF1F0F | Kernel semaphore V (release); byte twin of the sub CPU's `TaskSem_Release` |
 | `Audio_DMA_Transfer` | 0xEF341B | Core DMA transfer |
 | `SubCPU_Init_DMA_Channels` (was `Audio_InitDMAChannels`) | 0xEF329E | Initialize DMA channels |
 | `sendCOMM` | 0xEF32F4 | Send command/audio data to Sub CPU (chunks 32-byte blocks) |
@@ -1664,7 +1664,7 @@ The complete algorithm change writes 8 bytecode programs to the DSPs in order:
 
 3-8. AlgoChange_Ch1 (4 programs with delay):
    - SEND_CMD: cmd=0x30 sub=0x03 + 2 data bytes (mode select)
-   - STATE_CHANGE (yield to scheduler)
+   - STATE_CHANGE (release semaphore 1 and switch tasks)
    - SEND_CMD: cmd=0x30 sub=0x05 + 100-189 data bytes (coefficients)
    - SEND_CMD: cmd=0x30 sub=0x00 + variable data (parameters)
    - SEND_CMD: cmd=0x30 sub=0x0D + variable data (delay line config)

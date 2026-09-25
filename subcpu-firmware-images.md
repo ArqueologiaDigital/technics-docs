@@ -39,8 +39,10 @@ transient staging area: the main CPU decompresses it afresh on **every** boot.
 
 The `SubCPU_Send_Payload` fallback branch points at table-data `0x800000` (not `0x830000`,
 which is the start of the five *unconditional* tone-database transfers that run whichever
-source is chosen). `0x800100` onward is preset-bank filler, so the fallback would ship
-garbage. See [LZSS Compression]({{ site.baseurl }}/lzss-compression/).
+source is chosen). `0x800100` onward is a bank of 8bpp bitmaps (transparent colour `0xF7`),
+so the fallback would ship picture data. That is a strong lead on the "Preset Data Destination"
+dispute, not yet confirmed in MAME; see
+[LZSS Compression]({{ site.baseurl }}/lzss-compression/#preset-data-destination-dispute).
 
 All three compressed images in the repository were extracted from the
 [system update floppy disk images](https://archive.org/details/technics-kn5000-system-update-disks)

@@ -29,10 +29,10 @@ canonical table of contents. Large regions live in their own modules:
 
 | Module | ROM range | Contents |
 |:---|:---|:---|
-| `preset_banks.s` | `0x800000-0x82FFFF` | Section directory + 27 in-half preset/user data banks |
+| `preset_banks.s` | `0x800000-0x82FFFF` | Section directory + 26 bitmaps (the module name is historical: it holds no preset data) |
 | `tone_database_directory.s` | `0x830000-0x8324D3` | Tone-DB directory, bank/program maps, 629-entry offset table |
 | `tone_database_records.s` | `0x8324D4-0x855A47` | 579 tone/voice parameter records |
-| `tone_database_aux.s` | `0x855A48-0x87FFEF` | Drum kits, percussion, name lists, envelope data |
+| `tone_database_aux.s` | `0x855A48-0x87FFEF` | Velocity-split records, multisample SET descriptors, key maps and zone records, drum kits, percussion, name lists |
 | `kn5000_table_data.s` | `0x87FFF0-0x912BFF`, `0x938000-0x944D77`, `0x9999CC-0x9999D2`, `0x9B4000-0x9FFFFF` | Feature-demo assets, demo presets, wallpapers, icons, Composer image, bootloader (which it splits into the `boot_*` modules below) |
 | `ui_bitmaps.s` | `0x912C00-0x937FFF` | Wallpaper trailer, UI bitmap/frame tables, factory image banks |
 | `fonts.s` | `0x944D78-0x950FFF` | Font descriptor table + ten 1bpp glyph banks |
@@ -53,7 +53,7 @@ canonical table of contents. Large regions live in their own modules:
 | Address range | Size | Contents |
 |:---|:---|:---|
 | `0x800000-0x800087` | 136 B | `SectionDirectory_Table` — 33 pointers + null terminator |
-| `0x800088-0x82FFFF` | ~192 KB | Preset / user data banks (27 sections in this half) |
+| `0x800088-0x82FFFF` | ~192 KB | 26 8bpp bitmaps of the section directory (entries 0-5, 8-27), the KN-5000 wordmark (entry 7) and 17 accessor routines at `0x82F000` |
 | `0x830000-0x8324D3` | 9.2 KB | Tone-DB directory, bank maps, 629-entry offset table |
 | `0x8324D4-0x855A47` | 141 KB | 579 tone/voice records |
 | `0x855A48-0x87FFEF` | 169 KB | Tone-DB auxiliary tables + 0xFF fill |
@@ -104,52 +104,56 @@ canonical table of contents. Large regions live in their own modules:
 | `0x9FFEE0-0x9FFEFF` | 32 B | `RESET_HANDLER` + reserved bytes |
 | `0x9FFF00-0x9FFFFF` | 256 B | TMP94C241F interrupt vector table |
 
-## Section directory and preset banks (0x800000)
+## Section directory and bitmap bank (0x800000)
 
-The ROM opens with a 34-entry table of 4-byte little-endian pointers — 33 section pointers
-plus a null terminator. A section's size is the distance to the next-higher directory
-target, and the targets are **not** in address order: entry 7 points backwards into this
-half (`0x82CDA2`), and entries 6 and 28-32 point *forward* into the UI-bitmap half of the
-ROM at `0x91D000` and above.
+The ROM opens with a 34-entry table of 4-byte little-endian pointers, `SectionDirectory_Table`:
+33 targets plus a null terminator. The targets are not in address order. Entry 7 points
+backwards into this half (`0x82CDA2`), and entries 6 and 28-32 point *forward* into the
+UI-bitmap half of the ROM at `0x91D000` and above.
 
-This 192 KB half is the rewritable user-data area of the table-data flash pair. A
-"`Technics KN5000 Table    DATA FILE 1/2`" update floppy rewrites the whole half through
-`HANDLE_UPDATE_FILE_TYPE_ID_003h` -> `Flash_BurnWithProgress` + `FDC_WriteSectors`. No
-disassembled Main-CPU or Sub-CPU code reads an individual directory entry or section
-address directly, so the per-section roles are described **structurally** in the source:
-the factory images here are the power-on/factory-reset defaults for the user's
-sound/registration/Composer memories, but the exact mapping of section number to feature
-is still unattributed.
+**Every one of the 33 targets is an 8bpp indexed bitmap** (the `tdata` lane, September 2026).
+Each is byte-identical to an image the program ROM carries for itself and that the
+disassembly already extracts under `v10/maincpu/images/`, so the source now emits each from
+that file (`.incbin`, one line per image):
 
-Factory fill patterns encode the initialization state of each bank: `0xF7`/`0xF8` erased
-flash, `0x07`/`0x06` default parameter values, `0x00` zeroed fields, `0xFF`/`0xFE`/`0xFC`
-empty fields.
-
-Dominant record grids (all exact size divisors, from autocorrelation):
-
-| Sections | Grid |
+| entries | images |
 |:---|:---|
-| 0, 1 | 95 x 120 B |
-| 3-5 | 222 x 22 B |
-| 8 | 25 x 112 B |
-| 9 | 18 x 80 B |
-| 10 | 25 x 114 B |
-| 11 | 20 x 108 B |
-| 12-24 | 52 x 58 B (13 uniform 3,016-byte slots) |
-| 25-27 | 108 x 296 B (3 uniform 31,968-byte slots) |
+| 0, 1 | accordion pictures, 120×95 ("accger16", "accita16") |
+| 2 | a strip of small arrows, 294×6 |
+| 3-5 | drawbar scale 8..1 with a red / white / black knob, 22×222 |
+| 7 | the **KN-5000 wordmark**, 199×36 (previously "section 7, bitmap-like") |
+| 8-11 | FADE IN / FADE OUT symbols and lettering |
+| 12-24 | the split-point pictures, 58×52: none, then C … B |
+| 25-27 | MIDI-connection diagrams, 296×108 |
+| 6, 28-32 | Technics logo, KN5000 picture, note-edit and drum-edit backgrounds (in `ui_bitmaps.s`) |
 
-Section 7 is the outlier: its directory target is `0x82CDA2`, and its in-half extent runs
-from there to the end of the half at `0x82FFFF` — 12,894 bytes. Those bytes are
-bitmap-like: roughly 200-byte-period rows of palette indices `0x22-0x2E` over the `0xF7`
-background `DrawBitmap` treats as transparent. The section's actual save/load span is
-**unverified**.
+Two independent checks fix the geometry. The 17 accessor routines at `0x82F000`
+(`SectionInfo_SecNN`, previously 745 bytes of `.byte`) return (base, width, height) for
+entries 0-11 and 28-32. And the entries tile `0x800088-0x82E9C1` with no gap, each target
+being the previous one plus its image size.
 
-> **Caveat on the size heuristic.** `preset_banks.s` derives each section's size as the
-> distance to the next-higher directory target, which reports **983,646 bytes** for
-> section 7 — the gap from `0x82CDA2` to entry 6's target at `0x91D000`, on the far side
-> of the ROM. That figure nominally swallows the tone database, the feature demo and both
-> wallpapers, none of which belong to section 7. It is an artifact of the heuristic, not a
-> section length. The same artifact is present in the source module's own comment.
+**Readers: none found** for the directory or for these copies. Every target address was
+searched as a 24-bit and a 32-bit little-endian constant in the v7/v9/v10 program ROMs, the
+v1.42 Sub CPU program, custom data (IC19) and the HD-AE5000 ROM. The only hits are byte
+coincidences; the program draws its **own** copies. The firmware does write this half: a
+"`Technics KN5000 Table    DATA FILE 1/2`" update floppy rewrites the whole `0x800000` half
+through `HANDLE_UPDATE_FILE_TYPE_ID_003h` → `Flash_BurnWithProgress` + `FDC_WriteSectors`.
+
+> **Corrected.** This section used to call the region "the rewritable user-data area" holding
+> "factory defaults for the user's sound/registration/Composer memories", with a fill-pattern
+> legend (`0xF7`/`0xF8` "erased flash", `0x07`/`0x06` "default parameter values") and record
+> grids found by autocorrelation (95 × 120 B, 222 × 22 B, 52 × 58 B, 108 × 296 B, …). The grids
+> were real, because they are the images' row lengths and heights. The reading was wrong. The
+> byte values are palette indices, and **`0xF7` is the transparent colour**. The per-slot
+> "re-marking" of entries 12-24 (`0xFF` → `0xFE`, `0x00` → `0xFC`) is the split-point pictures
+> recolouring the keys on one side of the split. The labels `PresetBank_SecNN` became
+> `SectionBankNN_<image>` (`scripts/renaming/rename_tdata_section_banks.sed`). Evidence:
+> `python3 scripts/analysis/tdata_evidence_probes.py` (checks `sections`, `sec07`,
+> `accessors`), and the header of `table_data/preset_banks.s`.
+
+This matters for the Sub CPU boot: `SubCPU_Send_Payload`'s fallback ships table data from
+`0x800000` on, i.e. this bitmap bank. See the dispute note on
+[LZSS Compression]({{ site.baseurl }}/lzss-compression/#preset-data-destination-dispute).
 
 ## Tone database (0x830000-0x87FFEF)
 
@@ -203,7 +207,12 @@ Nineteen compressed preset blocks hold the panel setups for the demo songs. Eigh
 them (entries 0-17) sit at `0x9C4050-0x9F94CA`, abutting one another except for a single
 `0xFF` pad byte at `0x9C9017`, with `0xFF` fill from `0x9F94CB` to the end of the region;
 **entry 18, the Feature Demo preset, is stored apart at `0x8E0000`** and decompresses to
-38,144 bytes.
+38,144 bytes. Its reader is the same as the others': `DemoSongPreset_PointerTable[18]`
+(`0x9C4048`), which `Demo_ParseSlideHeader` passes to `SLIDE_Parse_Header` with destination
+RAM `0x69800`. `SubCPU_Send_Payload` does not read it: that routine decompresses from
+`0x3E0000` and falls back to `0x800000`. `Seq_CopyResourcePtrs` pairs demo number 18 with
+the Feature Demo script (`hkst_55.ssf`). (Corrected in the source in September 2026, `tdata`
+lane.)
 
 `DemoSongPreset_PointerTable` at `0x9C4000` is the index: 19 four-byte LE pointers plus a
 null terminator, read by the `Demo_GetPresetBaseForPart` family as
@@ -235,18 +244,25 @@ reads. See *The backing blob* below before treating it as a second copy of anyth
 
 ## Wallpapers (0x8ED000, 0x900000)
 
-Two 320x240 8bpp LCD background images, 76,800 bytes each, referenced by `SetWallPaper`
-via the wallpaper table at `0xEAAE62` in the Main CPU ROM:
+Two 320x240 8bpp LCD background images, 76,800 bytes each. The Main CPU's wallpaper table at
+`0xEAAE62` holds five 10-byte records `{+0 pixel pointer, +4 palette pointer, +8 zero word}`.
+Records 0 and 1 are these two images and their trailers; records 2-4 point into custom-data
+flash `0x3C0000` and RAM.
 
 * **Wallpaper 0** (`0x8ED000`) — blue textured pattern
 * **Wallpaper 1** (`0x900000`) — Technics-branded texture
 
-Each is followed by a 1 KB trailer. In both trailers the `+0x380` slot holds a 16-entry
-ramp of ascending `{r, g, b, 0x00}` quadruplets (`Wallpaper0_ShadeRamp`, and the matching
-`WallpaperRamp_*` set in `ui_bitmaps.s`); Wallpaper_1's trailer additionally carries a bank
-of four candidate ramps at `+0x80`. **No code reference to these ramps has been found yet**,
-so the RGB reading is tentative — the values behave like one (monotonically brightening
-triplets), but nothing has been traced that consumes them.
+`SetWallPaper` (0xF9A9EF) jumps to `ChangeWall`. `ChangeWall_Impl` (0xFAF237) stores
+record+0, and `DrawWall` (0xFABB73) copies the image to the offscreen buffer at `0x43C00`.
+**Each 1 KB trailer is a 256-entry palette of `{red, green, blue, 0}`.**
+`ChangePalette_Impl` (0xFAF2F3) reads record+4 and copies entries 0x20-0xDF into the RAM
+palette at `0x324FC` via `SetPaletteRGB`. `VGA_WritePaletteEntry` sends bytes +0, +1, +2 to
+the DAC data port in that order. Every pixel of both images is in 0xE0-0xEF, the 16-shade
+ramp at trailer `+0x380` (`Wallpaper0_ShadeRamp`, the `WallpaperRamp_*` set in
+`ui_bitmaps.s`). The loader of entries 0xE0-0xEF (`ChangeWallPalette_Impl`, via the RAM
+table at `0x3F1E4`) has not been traced back to that slot. The older note that "no code
+reference to these ramps has been found" is superseded. The wallpaper table itself still
+sits under the positional labels `Str_No_0xB4C` / `Str_No_0xB50` in the main-CPU source.
 
 ## UI bitmaps, frames and icons (0x912C00-0x944D77)
 
@@ -563,13 +579,19 @@ dead tail is still exactly the eighteen preset blocks plus `0xFF` fill. It is no
 The ROM is byte-complete in source form, but understanding lags behind location in several
 places:
 
-* **Preset-bank semantics.** Sections 0-32 are located, sized and grid-analysed, but no
-  code reads an individual directory entry, so which section backs which user memory is
-  still unattributed.
-* **Shade-ramp consumers.** The wallpaper trailer ramps have no traced reader; the RGB
-  interpretation is inferred from their shape.
-* **Panel Memory / Music Stylist parameter blocks.** The chunk and record framing is
-  settled; most parameter payloads inside them are still undecoded MIDI-range values.
+* **The section directory's reader.** All 33 targets are identified bitmaps, but nothing in
+  any ROM we hold reads the directory (`SectionDirectory_Table`, 136 B) or these copies.
+* **Wallpaper palette entries 0xE0-0xEF.** Entries 0x20-0xDF come from the trailer through
+  `ChangePalette_Impl`. The 0xE0-0xEF shade ramp is loaded by `ChangeWallPalette_Impl` via
+  RAM `0x3F1E4`, and what writes that RAM table is not found.
+* **Panel Memory parameter payloads.** The chunk framing is settled. Each of the 80 records
+  now carries its ROM/RAM addresses, but most payloads are still undecoded. The Music Stylist
+  parameter block is decoded ([Music Stylist]({{ site.baseurl }}/music-stylist-database/#the-parameter-block)).
+* **Icon names.** The 176 icons have no semantic names yet. `DrawIcons` callers take the
+  icon id from widget fields (+50, +46, +22); icon 32 is the GENERAL MIDI logo, used by the
+  GM on/off widget.
+* **Boot disk types 1 and 3** both write `0x800000`/`0x900000`; how the chip is selected is
+  not worked out.
 * **Tone-record fields.** The record framing is exact; several fixed-value fields have no
   established meaning yet (see the tone-database page).
 * **Housekeeping — settled.** Both items previously listed here are closed. The seven

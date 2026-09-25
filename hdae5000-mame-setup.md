@@ -36,7 +36,7 @@ device in the machine, MAME's canonical, unnumbered names are the ones to prefer
 
 ### Blank Disk
 
-The HDAE5000 firmware uses CHS (Cylinder/Head/Sector) addressing and a custom filesystem (FSB/FGB/FEB --- not standard FAT). The geometry is read from the drive's ATA IDENTIFY DEVICE response. The firmware's internal sector limit is **20,457 sectors** (~10.5 MB usable), though the original hardware shipped with larger drives (the excess capacity was simply unused by the firmware).
+The HDAE5000 firmware uses CHS (Cylinder/Head/Sector) addressing and a custom filesystem (its own 32-bit FAT and cluster chains, not a FAT12/16/32 volume). The geometry is read from the drive's ATA IDENTIFY DEVICE response, and `HDAE5000_HD_ParseIdentify` sizes the FAT and data area from the reported capacity (clusters of 0x20 sectors, or 0x40 on drives of at least 0x14DC93 sectors). An earlier version of this page gave a "firmware sector limit of 20,457 sectors". That number is a bound in the lyric-file parser (the 0x5000-byte lyric buffer), not a disk limit. See [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/#disk-layout).
 
 Create a blank raw disk image:
 
@@ -119,7 +119,7 @@ LEFT side:     RIGHT side:
 
 ![HD FORMAT instructions from the HD-AE5000 owner's manual]({{ site.baseurl }}/assets/images/hdae5000-hd-format-manual.png)
 
-This creates the custom HDAE5000 filesystem (FSB/FGB/FEB structures) on the disk.
+This runs `HDAE5000_HD_FormatDrive`, which calls `HDAE5000_HD_Format` between main-CPU callbacks. The layout a formatted disk carries is on [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/#disk-layout).
 
 Alternatively, the original HD-TechManager5000 PC software could format the disk via the parallel port interface (command 0x17).
 
@@ -166,7 +166,7 @@ Verify:
 
 ### Drive detected but filesystem errors
 
-A blank disk image will pass the ATA polling but fail filesystem validation. The firmware expects its custom FSB/FGB/FEB filesystem structures. Creating a properly formatted disk requires either:
+A blank disk image will pass the ATA polling but fail filesystem validation. The firmware expects the signature longs `0xAA55AA55`, `0xF4F1F2F3` in filesystem sector 1; without them `HDAE5000_HD_Init` reports the disk as unformatted (step code 1). Creating a properly formatted disk requires either:
 - The original HD-TechManager5000 PC software (via parallel port emulation --- not yet implemented)
 - A disk image tool that creates the HDAE5000 filesystem format (not yet available)
 

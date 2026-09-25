@@ -1819,7 +1819,7 @@ Analysis of indirect jump patterns in the main CPU ROM:
 | `LDA XIX/XHL, 0E/0F*h` | 441 | Raw address loads |
 
 **High-use indirect call tables (analyzed):**
-- 0xE9F11C (13 uses) - EVENT_HANDLER_DISPATCH_TABLE (11 handlers + 2 padding)
+- 0xE9F11C (13 uses) - `PsMixer_ControlProcTable`: 11 code addresses, the mixer's control-type procedures `PsMixer_CtlTypeProc0`..`10`, called by `PsMixer_ControlHelper` with the paint message (September 2026; it was called EVENT_HANDLER_DISPATCH_TABLE)
 - 0xEA0A16 (12 uses) - SingleLoadDstHandlerTable (data transfer subsystem)
 
 ### FDC Memory Map
@@ -1998,7 +1998,7 @@ Analysis of indirect jump patterns in the main CPU ROM reveals the scale of disp
 
 | Address | Uses | Purpose |
 |---------|------|---------|
-| 0xE9F11C | 13 | EVENT_HANDLER_DISPATCH_TABLE (11 handlers + 2 padding) |
+| 0xE9F11C | 13 | `PsMixer_ControlProcTable`: the 11 mixer control-type procedures `PsMixer_CtlTypeProc0`..`10` (was read as EVENT_HANDLER_DISPATCH_TABLE) |
 | 0xEA0A16 | 12 | SingleLoadDstHandlerTable (data transfer subsystem) |
 | 0xEA0212 | 1 | Resource loader dispatch |
 
@@ -2094,7 +2094,7 @@ A comprehensive analysis identified 200+ labels across 14 assembly files that ne
 | fdc_routines.asm | 15 | `FDC_Setup_DMA_Write_Mode`, `FDC_Exception_Status_Decoder` |
 | subcpu_boot.asm | 15 | `TONE_GEN_CHANNEL_INIT`, `DEBUG_OUTPUT_BYTE_HEX` |
 | subcpu_payload.asm | 20 | `Audio_DMA_RingBuffer_To_Maincpu`, `Voice_EnvelopeRate_Lookup` |
-| hdae5000.asm | 22 | `HDAE5000_Calculate_Row_Address`, `HDAE5000_PPORT_Cmd_LoadHDtoMemory` |
+| hdae5000.asm | 22 | `HDAE5000_SongRecord_Address` (then `HDAE5000_Calculate_Row_Address`), `HDAE5000_PPORT_Cmd12_Nothing` (then `HDAE5000_PPORT_Cmd_LoadHDtoMemory`) |
 | file_io/*.asm | 20 | `SelectPasswordMode`, `DisplaySmfFileList` |
 
 ### Naming Conventions

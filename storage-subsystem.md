@@ -241,10 +241,15 @@ The floppy subsystem is strictly a data transport. The firmware **never executes
 
 | Symbol | Address | Purpose |
 |--------|---------|---------|
-| `ATA_IdentifyDevice` | `0x28C000` | Read drive parameters (HDAE5000 ROM) |
-| `ATA_ReadSectors` | `0x28C100` | Read sectors from HDD |
-| `ATA_WriteSectors` | `0x28C200` | Write sectors to HDD |
-| `FSB_Init` | `0x28D000` | Initialize filesystem block |
+| `HDAE5000_ATA_IdentifyDevice` | `0x297884` | Read drive parameters (HDAE5000 ROM) |
+| `HDAE5000_ATA_ReadSector` | `0x297788` | Read one sector (1-based, head-major CHS) |
+| `HDAE5000_ATA_WriteSector` | `0x29769B` | Write one sector |
+| `HDAE5000_HD_Init` | `0x2971B7` | Bring the drive up: SRAM test, IDENTIFY, signature, tables |
+| `HDAE5000_HD_ReadTables` / `HDAE5000_HD_WriteTables` | `0x297BE9` / `0x297A8D` | The 323 filesystem-table sectors |
+| `HDAE5000_HD_WriteFile` / `HDAE5000_HD_ReadFile` | `0x297E16` / `0x29811C` | A file as a FAT cluster chain |
+
+(The rows this table used to carry, `ATA_ReadSectors` at `0x28C100`, `FSB_Init` at `0x28D000`
+and so on, matched no routine. See [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/).)
 
 ## External References
 

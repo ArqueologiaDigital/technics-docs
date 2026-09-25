@@ -326,6 +326,12 @@ reverbs and delays, **THRESHOLD / RATIO** only on the compressor, **LFO SPEED / 
 WAVEFORM** only on LFO effects, and the EQ's five **BAND EMPHASIS FC/Q/G** triples are
 exactly the solved biquad's five bands.
 
+The parameters' **ranges and defaults** are data the main CPU owns. Main-CPU ROM
+`0xEE4FC6-0xEE636B` holds range records, a count table and 24-byte defaults records, read by the
+`DSPCfg_*` routines (`DSPCfg_ClampAndExtract` clamps a value to its range). The sub-CPU payload
+carries a byte-identical copy at `0x0133CF` that it never reads. See
+[DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/#the-main-cpu-holds-the-same-metadata-and-reads-it).
+
 ### DSP EFFECT page (38 effects, in TYPE-selector order)
 
 | # | Effect | Parameters (in order) |

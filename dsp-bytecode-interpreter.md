@@ -54,9 +54,12 @@ The interpreter has two levels:
   Sub CPU effect data zone. `DSP_WriteParam_Generic` (`0x03C20E`) fetches them from the two
   100-entry `u32` arrays at `0x01F22C` (descriptors) and `0x01F09C` (values) — *corrected
   2026-08*: an earlier revision of this page sourced them from the main-CPU table at
-  `0xEE75F6`; that table is a separate main-CPU-side DSP-config field table (its first
+  `0xEE75F6`; that table is a separate main-CPU-side table (its first
   entries are `u32` pointers into `0xEE64DA`-`0xEE69E8`, i.e. main-CPU program ROM) and is
-  not this engine's program source
+  not this engine's program source. It is now labelled `DspFxRecListPtrTable`: 100 pointers,
+  by effect number, to the main CPU's parameter-write record lists `DspFxRecs_NN_<Effect>`,
+  which pair with this engine's value tables effect for effect — see
+  [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/#the-main-cpu-holds-the-same-metadata-and-reads-it)
 - **Format:** records `[len_hi, len_lo, id, payload…]`, big-endian length covering the whole
   record, `0xF0` as the end-of-table sentinel. Inside a value record the `id` byte is
   dispatched as an opcode, then `{ id, field-index, operands }` repeat until `0x7A`
@@ -194,13 +197,17 @@ data zones turned up the whole supporting table family, all of which agree on th
 
 | table | address | shape |
 |-------|---------|-------|
-| `AlgoJumpTable1` | `0x00FB66` | 12 × `u16` offsets, base `0x033812` (`DSP_AlgoType_Dispatch1_TableData`) |
-| `AlgoJumpTable2` | `0x00FB7E` | 12 × `u16`, base `0x0339DE` |
-| `AlgoJumpTable3` | `0x00FB96` | 12 × `u16`, base `0x033E44` |
-| `AlgoJumpTable4/5/6` | `0x00FBAE` / `0x00FBC0` / `0x00FBD2` | 9 × `u16`, bases `0x0340CC` / `0x0341BE` / `0x03429D` |
+| `DSP_AlgoType_Dispatch1_CaseOffsets` | `0x00FB66` | 12 × `u16` offsets, base `0x033812` (`DSP_AlgoType_Dispatch1_Arms`) |
+| `DSP_AlgoType_Dispatch2_CaseOffsets` | `0x00FB7E` | 12 × `u16`, base `0x0339DE` |
+| `DSP_AlgoType_Dispatch3_CaseOffsets` | `0x00FB96` | 12 × `u16`, base `0x033E44` |
+| `Algo_SubTable_DispatchB_CaseOffsets` / `Algo_SubTable_DispatchC_CaseOffsets` / `Algo_SubTable_Bit15Dispatch_CaseOffsets` | `0x00FBAE` / `0x00FBC0` / `0x00FBD2` | 9 × `u16`, bases `0x0340CC` / `0x0341BE` / `0x03429D` |
 | `DSP_EFFPARAM_APPLY_JUMPTABLE` | `0x00F99B` | 12 × `u16`, base `0x02F2D9` (`DSP_EffParam_Apply_By_AlgoType`) |
 | `DSP_AlgoChannel_SelectorRecords` | `0x010FCE` | 12 × 6 bytes — three 2-byte channel pairs per type, `0xFF` = no entry |
 | `DSP_AlgoDescriptor_Records` | `0x011E16` | 14 × 39-byte (`0x27`) records; types 12 and 13 are all zero |
+
+(The six `*_CaseOffsets` tables were `AlgoJumpTable1`-`AlgoJumpTable6` until September 2026;
+each is now named after the dispatcher that reads it,
+`scripts/renaming/rename_v142_case_offset_tables.sed`.)
 
 **Correction (2026-08).** An earlier revision of this page said `DSP_WriteEFFConfig` "looks
 up the algorithm type from a table at `0x1ED6D[wa]`". It does not: `0x01ED6D` is the 5-byte

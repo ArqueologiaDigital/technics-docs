@@ -307,30 +307,159 @@ RET
 
 The firmware passes `0x027ED2` in XWA to Boot_Init. This is the base address of the firmware's **object table** in main DRAM -- a data structure with 14-byte entries spanning from `0x027ED2` to `0x02BC12` (~1,118 entries).
 
-The workspace provides access to the firmware's callback dispatch system via pointer chains:
+The workspace pointer reaches the firmware's functions through the object table
+itself. Each 14-byte entry is `{class id, proc, count, data}` and the data pointer
+sits at +10, so:
 
-```
-Workspace (0x027ED2)
-    |
-    +-- offset +0x0E0A --> Handler Table A pointer
-    |                        |
-    |                        +-- offset +0x00DC --> Default handler function (lifecycle)
-    |                        +-- offset +0x00E4 --> RegisterObjectTable function
-    |                        +-- offset +0x0100 --> Secondary dispatch function
-    |                        +-- offset +0x0124 --> Display callback function
-    |                        +-- offset +0x0168 --> DISK MENU handler (FA44E2)
-    |                        +-- offset +0x0244, +0x0248, +0x024C --> UI callbacks
-    |                        +-- offset +0x0270 --> Graphics init dispatch
-    |                        +-- offset +0x02C4 --> DISK MENU slot registration
-    |
-    +-- offset +0x0E88 --> Handler Table B pointer
-                             |
-                             +-- offset +0x0100 --> Init function 2
-                             +-- offset +0x0104 --> Init function 3
-                             +-- offset +0x0108 --> Init function 1
-```
+- `workspace + 0x0E0A` = `0x027ED2 + 14 × 0x100 + 10` is the data pointer of
+  **object table 0x100**. That is the **Function table `InitializeRoot`
+  registers**: 0x160 entries at ROM `0xEAFA6E`. Its parallel name table is
+  table 0x400 (`WidgetName_InitPtrTable`, `0xEAFFF2`).
+- `workspace + 0x0E88` = `0x027ED2 + 14 × 0x109 + 10` is the data pointer of
+  **object table 0x109**, the **Function table `InitializeHama` registers**
+  (`HamaObj_109_Data`, `0xE1F0EC`; 0x4B entries). Its names are table 0x409
+  (`Hama_ModeParam_Table`, `0xE1F240`).
 
-Both handler tables are in main DRAM (0x000000-0x0FFFFF range). The values at these offsets are function pointers into the firmware ROM. The offset `+0x0168` resolves to `ClassProc` (0xFA44E2), the shared DISK MENU handler used by all built-in modules. The offset `+0x00E4` resolves to `RegisterObjectTable` (0xFA42FB).
+An offset into either table is 4 × the function's index, and the firmware's name
+table gives the function's **own name** at the same index. The HD-AE5000 uses
+99 of these functions (41 in table 0x100, 58 in table 0x109) at 953 call sites.
+The disassembly spells each call symbolically as `WS_RootFnTable` /
+`WS_HamaFnTable` plus a `RootFn_<name>` / `HamaFn_<name>` constant
+(`hdae5000/hd-ae5000_v2_06i.s`), and the v10 build's label at each target
+agrees with the firmware's name for all 99.
+
+Evidence: `tools/hdae5000_fn_table_check.py` in this site's repository
+(`python3 tools/hdae5000_fn_table_check.py --repo ../kn5000-roms-disasm`)
+re-reads every constant's function pointer and name from
+`original_ROMs/kn5000_v10_program.rom` and counts the call sites. The
+disassembly's `scripts/converters/hdae5000_symbolize_fn_tables.py`, which
+generated the constants, no longer runs as a check: it refuses because the
+`InitializeHama` registration line it looks for now reads `HamaObj_109_Data`
+instead of `0xe1f0ec`. An earlier count of "100 functions" (the hdae lane
+report) is not reproduced: the sources define 99 constants and use all 99.
+
+**Earlier versions of this page guessed several of these wrong.** `+0x0100` is
+`SendEvent`, not a "secondary dispatch function". `+0x0124` is `ApPostEvent`,
+not a "display callback". `+0x0270` is `RegisterTitle`, not "graphics init
+dispatch". `+0x02C4` is `GetViewInstance`, not "DISK MENU slot registration".
+In table 0x109, `+0x0100`/`+0x0104`/`+0x0108` are `GetAdr_sqbtof` /
+`GetAdr_sq_beadt` / `GetAdr_sqsrtc`, not "init functions". Each returns the
+address of one main-CPU sequencer variable (RAM `0x041C`, `0x041B`, `0x0421`),
+which the frame handler reads to drive the lyrics.
+
+**Table 0x100 (`workspace + 0x0E0A`), the offsets the HD-AE5000 uses:**
+
+| Offset | Index | Constant (firmware name after the prefix) | Main-CPU address (v10) |
+|--------|------:|----------|---------|
+| `+0x0084` | 33 | `RootFn_UpdateScreen` | `0xFAA61D` |
+| `+0x009C` | 39 | `RootFn_DrawLine` | `0xFAA98A` |
+| `+0x00A4` | 41 | `RootFn_DrawBox` | `0xFAB273` |
+| `+0x00A8` | 42 | `RootFn_DrawFrame` | `0xFAB3DE` |
+| `+0x00B0` | 44 | `RootFn_MovePixels` | `0xFABA53` |
+| `+0x00C4` | 49 | `RootFn_DrawString` | `0xFACACA` |
+| `+0x00DC` | 55 | `RootFn_InheritedProc` | `0xFA4409` |
+| `+0x00E4` | 57 | `RootFn_RegisterObjectTable` | `0xFA42FB` |
+| `+0x0100` | 64 | `RootFn_SendEvent` | `0xFA9660` |
+| `+0x0104` | 65 | `RootFn_PostEvent` | `0xFA9752` |
+| `+0x0124` | 73 | `RootFn_ApPostEvent` | `0xFA9D58` |
+| `+0x013C` | 79 | `RootFn_ResEventProc` | `0xFA58FB` |
+| `+0x0140` | 80 | `RootFn_ResMethodProc` | `0xFA5948` |
+| `+0x0148` | 82 | `RootFn_ResNameProc` | `0xFA62CB` |
+| `+0x0150` | 84 | `RootFn_GetCharHeight` | `0xFB260A` |
+| `+0x0154` | 85 | `RootFn_GetCharDescent` | `0xFB2617` |
+| `+0x0158` | 86 | `RootFn_GetCenteredDelta` | `0xFB2624` |
+| `+0x015C` | 87 | `RootFn_ConvertStrings` | `0xFB2640` |
+| `+0x0168` | 90 | `RootFn_ClassProc` | `0xFA44E2` |
+| `+0x0244` | 145 | `RootFn_FunctionProc` | `0xFA48A9` |
+| `+0x0248` | 146 | `RootFn_ApFunctionProc` | `0xFA496C` |
+| `+0x024C` | 147 | `RootFn_MainFunctionProc` | `0xFA4A18` |
+| `+0x0250` | 148 | `RootFn_ApFuncCall` | `0xFA49B7` |
+| `+0x0254` | 149 | `RootFn_MainFuncCall` | `0xFA4A63` |
+| `+0x0270` | 156 | `RootFn_RegisterTitle` | `0xFA4D80` |
+| `+0x0278` | 158 | `RootFn_GetTitleNow` | `0xFA5867` |
+| `+0x0280` | 160 | `RootFn_ViewableProc` | `0xFA5995` |
+| `+0x0294` | 165 | `RootFn_SetVisible` | `0xFA5E8C` |
+| `+0x02C4` | 177 | `RootFn_GetViewInstance` | `0xFA6266` |
+| `+0x02D4` | 181 | `RootFn_GetClientBox` | `0xF995DD` |
+| `+0x02DC` | 183 | `RootFn_DrawDesignBox` | `0xFAD559` |
+| `+0x03C4` | 241 | `RootFn_SetDialEnable` | `0xF9A53B` |
+| `+0x03C8` | 242 | `RootFn_SetDialUp` | `0xF9A579` |
+| `+0x03CC` | 243 | `RootFn_SetDialDown` | `0xF9A58A` |
+| `+0x0410` | 260 | `RootFn_SetApTimer` | `0xFAA135` |
+| `+0x0418` | 262 | `RootFn_KillApTimer` | `0xFAA257` |
+| `+0x042C` | 267 | `RootFn_SetAutoInc` | `0xF9A5BD` |
+| `+0x050C` | 323 | `RootFn_GetNamingWindowID` | `0xFA1FC7` |
+| `+0x0534` | 333 | `RootFn_DeleteEvent` | `0xFA9868` |
+| `+0x0538` | 334 | `RootFn_SleepMainTask` | `0xF9883C` |
+| `+0x053C` | 335 | `RootFn_WakeUpMainTask` | `0xF9884B` |
+
+**Table 0x109 (`workspace + 0x0E88`), the offsets the HD-AE5000 uses:**
+
+| Offset | Index | Constant (firmware name after the prefix) | Main-CPU address (v10) |
+|--------|------:|----------|---------|
+| `+0x0004` | 1 | `HamaFn_FDLoadSaveTest` | `0xF1E5DA` |
+| `+0x0008` | 2 | `HamaFn_GetMediaType` | `0xF525EC` |
+| `+0x000C` | 3 | `HamaFn_PreLswLoad` | `0xFDB434` |
+| `+0x0010` | 4 | `HamaFn_PostLswLoad` | `0xFDB43B` |
+| `+0x0014` | 5 | `HamaFn_PreLswSave` | `0xFDB48E` |
+| `+0x0018` | 6 | `HamaFn_PostLswSave` | `0xFDB48F` |
+| `+0x001C` | 7 | `HamaFn_PrePmLoad` | `0xFDB490` |
+| `+0x0020` | 8 | `HamaFn_PostPmLoad` | `0xFDB491` |
+| `+0x0024` | 9 | `HamaFn_PrePmSave` | `0xFDB49E` |
+| `+0x0028` | 10 | `HamaFn_PostPmSave` | `0xFDB49F` |
+| `+0x002C` | 11 | `HamaFn_SeqLoadPre` | `0xF47850` |
+| `+0x0030` | 12 | `HamaFn_SeqLoadPost` | `0xF47858` |
+| `+0x0034` | 13 | `HamaFn_SeqSavePre` | `0xF47923` |
+| `+0x0038` | 14 | `HamaFn_SeqSavePost` | `0xF47943` |
+| `+0x003C` | 15 | `HamaFn_cmp_ld_mae` | `0xF6BC24` |
+| `+0x0040` | 16 | `HamaFn_cmp_ld_ato` | `0xF6BC2F` |
+| `+0x0044` | 17 | `HamaFn_cmp_sv_mae` | `0xF6BC48` |
+| `+0x0048` | 18 | `HamaFn_cmp_sv_ato` | `0xF6BC5A` |
+| `+0x004C` | 19 | `HamaFn_PreTmLoad` | `0xFF049F` |
+| `+0x0050` | 20 | `HamaFn_PostTmLoad` | `0xFF04A0` |
+| `+0x0054` | 21 | `HamaFn_PreTmSave` | `0xFF04E4` |
+| `+0x0058` | 22 | `HamaFn_PostTmSave` | `0xFF04E5` |
+| `+0x005C` | 23 | `HamaFn_msp_ld_mae` | `0xF6BC66` |
+| `+0x0060` | 24 | `HamaFn_msp_ld_ato` | `0xF6BC71` |
+| `+0x0064` | 25 | `HamaFn_msp_sv_mae` | `0xF6BC82` |
+| `+0x0068` | 26 | `HamaFn_msp_sv_ato` | `0xF6BC99` |
+| `+0x006C` | 27 | `HamaFn_PreMidiLoad` | `0xFDB4A0` |
+| `+0x0070` | 28 | `HamaFn_PostMidiLoad` | `0xFDB4A1` |
+| `+0x0074` | 29 | `HamaFn_PreMidiSave` | `0xFDB4A2` |
+| `+0x0078` | 30 | `HamaFn_PostMidiSave` | `0xFDB4A3` |
+| `+0x007C` | 31 | `HamaFn_FlashWrite` | `0xEF3C3C` |
+| `+0x0080` | 32 | `HamaFn_GetResouceInfo` | `0xF1EA30` |
+| `+0x0084` | 33 | `HamaFn_SetSepaOutMode` | `0xF1EB30` |
+| `+0x0090` | 36 | `HamaFn_GetVolumeLabel` | `0xF527CE` |
+| `+0x0094` | 37 | `HamaFn__findfirst` | `0xF5298A` |
+| `+0x0098` | 38 | `HamaFn__findnext` | `0xF52AE8` |
+| `+0x009C` | 39 | `HamaFn__findclose` | `0xF52AAA` |
+| `+0x00A0` | 40 | `HamaFn_fopen_ext` | `0xF1ED24` |
+| `+0x00A8` | 42 | `HamaFn_fread_ext` | `0xF1ED2C` |
+| `+0x00AC` | 43 | `HamaFn_fclose_ext` | `0xF1ED30` |
+| `+0x00B0` | 44 | `HamaFn_rcm_ld_XAPR_j` | `0xF1EB28` |
+| `+0x00B4` | 45 | `HamaFn_rcm_sv_XAPR_j` | `0xF1EB2C` |
+| `+0x00B8` | 46 | `HamaFn_rot_rdq_X` | `0xF1ED38` |
+| `+0x00D0` | 52 | `HamaFn_ref_sem_X` | `0xF1ED50` |
+| `+0x00E4` | 57 | `HamaFn_pdly_tim_X` | `0xF1ED64` |
+| `+0x00E8` | 58 | `HamaFn_PlayHalt` | `0xF1ED68` |
+| `+0x00EC` | 59 | `HamaFn_PlayStandBy` | `0xF1EDA8` |
+| `+0x00F0` | 60 | `HamaFn_EditSwRefresh` | `0xF1EDBE` |
+| `+0x0100` | 64 | `HamaFn_GetAdr_sqbtof` | `0xF1EDE2` |
+| `+0x0104` | 65 | `HamaFn_GetAdr_sq_beadt` | `0xF1EDE7` |
+| `+0x0108` | 66 | `HamaFn_GetAdr_sqsrtc` | `0xF1EDEC` |
+| `+0x0114` | 69 | `HamaFn_sendCOMM` | `0xEF32F4` |
+| `+0x0120` | 72 | `HamaFn_SwbtWr` | `0xFDB255` |
+| `+0x012C` | 75 | `HamaFn_SetGlobalError` | `0xF1EDF6` |
+| `+0x0130` | 76 | `HamaFn_malloc_X` | `0xF1EDFB` |
+| `+0x0134` | 77 | `HamaFn_free_X` | `0xF1EE03` |
+| `+0x0138` | 78 | `HamaFn_ChangePalette` | `0xFAF2C7` |
+| `+0x013C` | 79 | `HamaFn_ChangeWall` | `0xFAF20B` |
+
+Entries 75-79 of table 0x109 lie past the count its registration gives (0x4B =
+75), yet the HD-AE5000 calls them (`SetGlobalError`, `malloc_X`, `free_X`,
+`ChangePalette`, `ChangeWall`). Both tables are still `.incbin` blobs in the
+main-CPU source.
 
 ### Boot_Init Calling Convention
 
@@ -373,11 +502,11 @@ The original HDAE5000 firmware performs extensive setup during Boot_Init before 
 
 1. **Clear work buffer** -- 62,762 bytes zeroed at `0x22A000`
 2. **Copy init data** -- 3,202 bytes from ROM `0x2F94B2` to RAM `0x23952A`
-3. **Register 11 handlers** -- via `workspace[0x0E0A][0x00E4]` (RegisterObjectTable)
+3. **Register 11 object tables and one title** -- via `workspace[0x0E0A][0x00E4]` (`RegisterObjectTable`) and `workspace[0x0E0A][0x0270]` (`RegisterTitle`)
 4. **Load VGA palette** -- 256 entries from ROM
 5. **Allocate DRAM and copy VRAM** -- 76,800 bytes to display areas
-6. *Then* **call `workspace[0x0E0A][0x02C4]`** -- DISK MENU slot registration
-7. **Set slot fields** -- `slot+0x00` = handler flags, `slot+0x2A` = display name string
+6. *Then* **call `workspace[0x0E0A][0x02C4]`** (`GetViewInstance`) for view object `0x00600002`, the DISK MENU's expansion item
+7. **Set that record's fields** -- `+0x00` = class id `0x016A0005`, `+0x2A` = display name string (see [below](#disk-menu-slot-registration-workspace0x0e0a0x02c4))
 
 For basic frame handler operation, handler registration is **not required**. The firmware calls the Frame_Handler entry point every frame regardless.
 
@@ -389,8 +518,8 @@ The Handler_Registration routine at `0x280020` (now fully disassembled) register
 
 ```
 Parameter block layout (14 bytes):
-  +0x00  4 bytes  Port address (identifies handler type)
-  +0x04  4 bytes  Handler function pointer (from workspace dispatch table)
+  +0x00  4 bytes  Class id of the table (e.g. 0x01600004 = class Class)
+  +0x04  4 bytes  The class's proc (read from the workspace function table)
   +0x08  2 bytes  Record count (number of sub-objects) ← 16-bit field!
   +0x0A  4 bytes  Data pointer → record table (RAM or ROM address)
 
@@ -437,7 +566,7 @@ The main CPU firmware uses two macro variants for handler registration:
 ; Variant 1: Data size read from ROM address
 RegObjTable MACRO ParamA, ParamB, ParamC, ParamD, ParamE
     LDA   XBC, XSP            ; XBC = param block ptr (ON STACK)
-    LD    XWA, ParamA          ; Port address (32-bit)
+    LD    XWA, ParamA          ; Class id (32-bit)
     LD    (XBC), XWA
     LDA   XWA, ParamB          ; Handler function (LEA, not LD)
     LD    (XBC + 004h), XWA
@@ -468,95 +597,190 @@ ENDM
 
 #### Firmware Registration Examples
 
-All built-in DISK MENU modules (port `0x01600004`) use `ClassProc` (0xFA44E2) as their handler function:
+Every module registers its **Class table** with class id `0x01600004` (the root
+class `Class`) and proc `ClassProc` (0xFA44E2), at object-table index 0x160 +
+its module number:
 
 ```
-RegObjTable 01600004h, 0FA44E2h, 0E0CDACh, 0E0CD94h, 0166h  ; InitializeScoop
-RegObjTable 01600004h, 0FA44E2h, 0E0E95Ch, 0E0E944h, 016Bh  ; InitializeKSS
-RegObjTable 01600004h, 0FA44E2h, 0E17322h, 0E16C86h, 0164h  ; InitializeSuna
-RegObjTable 01600004h, 0FA44E2h, 0E1F0BCh, 0E1F080h, 0169h  ; InitializeHama
-RegObjTable 01600004h, 0FA44E2h, 0E20CAEh, 0E208ECh, 0167h  ; InitializeKubo
-RegObjTable 01600004h, 0FA44E2h, 0E27596h, 0E27180h, 0168h  ; InitializeNaka
+RegObjTable 01600004h, 0FA44E2h, 0E0CDACh, 0E0CD94h, 0166h  ; InitializeScoop (module 6)
+RegObjTable 01600004h, 0FA44E2h, 0E0E95Ch, 0E0E944h, 016Bh  ; InitializeNaka  (module 0x0B)
+RegObjTable 01600004h, 0FA44E2h, 0E17322h, 0E16C86h, 0164h  ; InitializeSuna  (module 4)
+RegObjTable 01600004h, 0FA44E2h, 0E1F0BCh, 0E1F080h, 0169h  ; InitializeHama  (module 9)
+RegObjTable 01600004h, 0FA44E2h, 0E20CAEh, 0E208ECh, 0167h  ; InitializeYoko  (module 7)
+RegObjTable 01600004h, 0FA44E2h, 0E27596h, 0E27180h, 0168h  ; InitializeKubo  (module 8)
 ```
 
-Handler IDs `0x0160`-`0x016B` are all DISK MENU modules. The HDAE5000 claims `0x016A`.
+This page previously
+attributed the 0x16B, 0x167 and 0x168 lines to InitializeKSS, InitializeKubo
+and InitializeNaka. The v10 sources put them in `InitializeNaka`,
+`InitializeYoko` and `InitializeKubo`.
+
+Indices `0x0160`-`0x016B` are the modules' class tables, not DISK MENU
+entries. The HD-AE5000 is module 0x0A, so its class table is `0x016A`. See
+[UI Framework — Module numbers]({{ site.baseurl }}/ui-framework/#module-numbers-and-the-object-table).
 
 ### Complete Handler Table
 
-The HDAE5000 registers 11 handlers plus a final graphics initialization call:
+`HDAE5000_Handler_Registration` (0x280020) registers eleven object tables and
+then one title. The class ids, procs and index scheme are those of the main
+CPU's own `InitializeRoot` (module 0) and `InitializeHama` (module 9). The
+HD-AE5000 is module **0x0A**, so every per-module index is kind + 0x0A:
 
-| # | ID | Port | Table Offset | Size | Data Address | Description |
-|---|-----|------|------|------|------|-------------|
-| 1 | 0x016A | 0x01600004 | 0x0168 | variable | 0x29C0AA | UI config strings |
-| 2 | 0x01CA | 0x0160000C | 0x013C | variable | 0x2397EA | RAM data area A |
-| 3 | 0x01EA | 0x0160000D | 0x0140 | variable | 0x239824 | RAM data area B |
-| 4 | 0x012A | 0x01600002 | 0x0248 | 69 (0x45) | 0x23952A | Init data primary |
-| 5 | 0x042A | 0x01600002 | 0x0248 | 69 (0x45) | 0x239642 | Init data secondary |
-| 6 | 0x010A | 0x01600001 | 0x0244 | 13 (0x0D) | 0x239872 | Serial data primary |
-| 7 | 0x040A | 0x01600001 | 0x0244 | 13 (0x0D) | 0x2398AA | Serial data secondary |
-| 8 | 0x014A | 0x01600003 | 0x024C | 14 (0x0E) | 0x239FD2 | Parallel data primary |
-| 9 | 0x044A | 0x01600003 | 0x024C | 14 (0x0E) | 0x23A00E | Parallel data secondary |
-| 10 | 0x007F | 0x01600010 | 0x0280 | 789 (0x315) | 0x2A5D2C | ROM graphics primary |
-| 11 | 0x037F | 0x0160000F | 0x0148 | 789 (0x315) | 0x2A6984 | ROM graphics secondary |
+| # | Index | Class id | Proc (`workspace[0x0E0A]` offset) | Count | Data | Contents |
+|---|-------|----------|------|------|------|----------|
+| 1 | 0x016A | 0x01600004 | `ClassProc` (0x0168) | 13 | 0x29C0AA | the module's 13 class definitions |
+| 2 | 0x01CA | 0x0160000C | `ResEventProc` (0x013C) | 13 | 0x2397EA | `EV_*` event names (events `0x01CA000n`) |
+| 3 | 0x01EA | 0x0160000D | `ResMethodProc` (0x0140) | 18 | 0x239824 | `MT_*` method names |
+| 4 | 0x012A | 0x01600002 | `ApFunctionProc` (0x0248) | 69 (0x45) | 0x23952A | ApFunction table: code addresses |
+| 5 | 0x042A | 0x01600002 | `ApFunctionProc` (0x0248) | 69 (0x45) | 0x239642 | … their names |
+| 6 | 0x010A | 0x01600001 | `FunctionProc` (0x0244) | 13 (0x0D) | 0x239872 | Function table: the UI class procedures |
+| 7 | 0x040A | 0x01600001 | `FunctionProc` (0x0244) | 13 (0x0D) | 0x2398AA | … their names |
+| 8 | 0x014A | 0x01600003 | `MainFunctionProc` (0x024C) | 14 (0x0E) | 0x239FD2 | MainFunction table: screen procedures |
+| 9 | 0x044A | 0x01600003 | `MainFunctionProc` (0x024C) | 14 (0x0E) | 0x23A00E | … their names |
+| 10 | 0x007F | 0x01600010 | `ViewableProc` (0x0280) | 789 (0x315) | 0x2A5D2C | the UI objects (widget records) of Viewable table 0x7F |
+| 11 | 0x037F | 0x0160000F | `ResNameProc` (0x0148) | 789 (0x315) | 0x2A6984 | … their names |
 
-The final call uses dispatch table offset `0x0270` with additional parameters for graphics initialization.
+The counts of tables 2 and 3 are read at run time from the `.data` image
+(`HDAE5000_EventName_Count`, RAM `0x239822`, and `HDAE5000_MessageName_Count`,
+RAM `0x239870`). Tables 0x7F and 0x37F replace the
+empty tables `InitializeHama` registers at the same indices.
 
-**Port address pattern:** Handlers are grouped by port number. Pairs with the same port and table offset (e.g., 0x012A/0x042A on port 0x01600002) are primary/secondary instances of the same handler type.
+The final call is **`RegisterTitle`** (`workspace[0x0E0A][0x0270]`):
+title 0x7F, `XBC = 0x014A0000` (entry 0 of the module's MainFunction table),
+`XDE = 0x007F01EE` (UI object `IV_HDDMENU`, the title's view), name `"TT_HDDEXT"`
+(ROM `0x2A849A`), module 0x0A. `InitializeHama` registers title 0x7F with the
+same name as module 9, and the HD-AE5000 overrides it. Title 0x7F is the one
+the HD-AE5000 later requests with event `0x01C00016` / `0x01C00015` (see
+[Event Codes]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)).
 
-**Module naming pattern:** The main CPU firmware has similar registration routines named after developers: InitializeSuna (idx 4), InitializeScoop (6), InitializeKubo (8), InitializeHama (9), HDAE5000 (A), InitializeNaka (B). DISK MENU entries use object indices `0x0160`-`0x016B`.
+Earlier versions of this table called the class ids "port addresses" and
+described the tables as "UI config strings", "RAM data area A/B", "Init data",
+"Serial data", "Parallel data" and "ROM graphics". Those descriptions were
+wrong. A class id `0x016000nn` is entry *nn* of the root's class table; the
+[UI Framework page]({{ site.baseurl }}/ui-framework/#module-numbers-and-the-object-table)
+explains the scheme. Source: `HDAE5000_Handler_Registration`'s header in
+`hdae5000/hd-ae5000_v2_06i.s` and the hdae lane report.
 
-### Data Record Table (Handler 0x016A)
+### Data Record Table (Handler 0x016A): the Module's Classes
 
-The data pointer registered for handler `0x016A` (`0x29C0AA`) points to a table of **24-byte records**, one per UI component (sub-object). The HDAE5000 has 13 sub-objects (record count `+0x08` = 0x000D):
+The table registered at `0x016A` (`0x29C0AA`, `HDAE5000_RECORD_TABLE`) holds the
+HD-AE5000's **13 class definitions**, 24 bytes each. The layout is the one every
+module's classes use. Its field names are the firmware's own, from the root class
+`Class` (see [UI Framework — The class system describes itself]({{ site.baseurl }}/ui-framework/#the-class-system-describes-itself)):
 
 ```
-Record layout (24 bytes):
-  +0x00  4 bytes  Implementation function pointer (in ROM)
-  +0x04  4 bytes  Next handler ID (linked list chain, 0xFFFFFFFF = end)
-  +0x08  2 bytes  Config size (UI-specific parameter)
-  +0x0A  2 bytes  Config flags
-  +0x0C  4 bytes  ROM data pointer 1 (name/config strings)
-  +0x10  4 bytes  ROM data pointer 2 (secondary config)
-  +0x14  4 bytes  RAM workspace pointer
+Class definition (24 bytes):
+  +0x00  4 bytes  proc      the class procedure (called for every event)
+  +0x04  4 bytes  parent    class id of the parent class
+  +0x08  2 bytes  allsize   size of an instance record, inherited fields included
+  +0x0A  2 bytes  selfsize  bytes this class adds
+  +0x0C  4 bytes  name      -> class name
+  +0x10  4 bytes  propdata  -> one type letter per own field
+  +0x14  4 bytes  propname  -> the own fields' names (a RAM pointer here: the list
+                               lives in the .data image copied to 0x23952A)
 ```
 
-| Rec | Name | Func | Next | Size | Flags | Data1 | Data2 | RAM |
-|-----|------|------|------|------|-------|-------|-------|-----|
-| 0 | SelectList | 0x2807D9 | 0x01600011 | 0x3C | 0x20 | 0x29D972 | 0x29D966 | 0x23975A |
-| 1 | DbMemoCl | 0x28122A | 0x01600046 | 0x1A | 0x04 | 0x29D95C | 0x29D958 | 0x23978A |
-| 2 | TtlScreenR | 0x280489 | 0x01600034 | 0x2A | 0x00 | 0x29D94C | 0x29D94A | 0x239796 |
-| 3 | AcHddNamingWindow | 0x281411 | 0x01600035 | 0x24 | 0x00 | 0x29D938 | 0x29D936 | 0x23979A |
-| 4 | IvHddNaming | 0x282681 | 0x01600027 | 0x1A | 0x04 | 0x29D92A | 0x29D928 | 0x23979E |
-| **5** | **HDTitleMenu** | **0x2827A8** | **0x0160001D** | **0x36** | **0x00** | **0x29D91C** | **0x29D91A** | **0x2397A6** |
-| 6 | TtlScreenR2 | 0x280567 | 0x01600034 | 0x2A | 0x00 | 0x29D90E | 0x29D90C | 0x2397AA |
-| 7 | TtlScreenR3 | 0x280645 | 0x01600034 | 0x2A | 0x00 | 0x29D900 | 0x29D8FE | 0x2397AE |
-| 8 | AcWindowPage1 | 0x28043C | 0x01600025 | 0x24 | 0x00 | 0x29D8F0 | 0x29D8EE | 0x2397B2 |
-| 9 | IvScreenR2 | 0x280723 | 0x0160006A | 0x22 | 0x00 | 0x29D8E2 | 0x29D8E0 | 0x2397B6 |
-| 10 | AcLanguageText1 | 0x28B554 | 0x01600066 | 0x2A | 0x00 | 0x29D8D0 | 0x29D8CE | 0x2397BA |
-| 11 | LyricBox | 0x28CD08 | 0x01600011 | 0x2E | 0x12 | 0x29D8C4 | 0x29D8BC | 0x2397BE |
-| 12 | FDFileSelect | 0x28E61B | 0x01600027 | 0x20 | 0x0A | 0x29D8AE | 0x29D8AA | 0x2397DA |
+| Rec | Name | proc | parent (class) | allsize | selfsize | name | propdata | propname |
+|-----|------|------|----------------|---------|----------|------|----------|----------|
+| 0 | SelectList | 0x2807D9 | 0x01600011 `VwBox` | 0x3C | 0x20 | 0x29D972 | 0x29D966 | 0x23975A |
+| 1 | DbMemoCl | 0x28122A | 0x01600046 `DbMemo` | 0x1A | 0x04 | 0x29D95C | 0x29D958 | 0x23978A |
+| 2 | TtlScreenR | 0x280489 | 0x01600034 `TtlScreen` | 0x2A | 0x00 | 0x29D94C | 0x29D94A | 0x239796 |
+| 3 | AcHddNamingWindow | 0x281411 | 0x01600035 `Window` | 0x24 | 0x00 | 0x29D938 | 0x29D936 | 0x23979A |
+| 4 | IvHddNaming | 0x282681 | 0x01600027 `PsInvisibleBox` | 0x1A | 0x04 | 0x29D92A | 0x29D928 | 0x23979E |
+| **5** | **HDTitleMenu** | **0x2827A8** | **0x0160001D `AcTitleMenu`** | **0x36** | **0x00** | **0x29D91C** | **0x29D91A** | **0x2397A6** |
+| 6 | TtlScreenR2 | 0x280567 | 0x01600034 `TtlScreen` | 0x2A | 0x00 | 0x29D90E | 0x29D90C | 0x2397AA |
+| 7 | TtlScreenR3 | 0x280645 | 0x01600034 `TtlScreen` | 0x2A | 0x00 | 0x29D900 | 0x29D8FE | 0x2397AE |
+| 8 | AcWindowPage1 | 0x28043C | 0x01600025 `AcWindowPage` | 0x24 | 0x00 | 0x29D8F0 | 0x29D8EE | 0x2397B2 |
+| 9 | IvScreenR2 | 0x280723 | 0x0160006A `IvScreen` | 0x22 | 0x00 | 0x29D8E2 | 0x29D8E0 | 0x2397B6 |
+| 10 | AcLanguageText1 | 0x28B554 | 0x01600066 `AcLanguageText` | 0x2A | 0x00 | 0x29D8D0 | 0x29D8CE | 0x2397BA |
+| 11 | LyricBox | 0x28CD08 | 0x01600011 `VwBox` | 0x2E | 0x12 | 0x29D8C4 | 0x29D8BC | 0x2397BE |
+| 12 | FDFileSelect | 0x28E61B | 0x01600027 `PsInvisibleBox` | 0x20 | 0x0A | 0x29D8AE | 0x29D8AA | 0x2397DA |
 
-**Record 5 ("HDTitleMenu") is the DISK MENU entry handler.** Its sub-index (5) matches the low word in `slot+0x00 = 0x016A0005` (object index 0x016A, sub-index 0x0005). The "next" link chains each sub-object to a corresponding component in the Root module (object 0x0160), forming an **inheritance hierarchy** where HDAE5000 components extend base firmware components.
+The parent names are the root classes at those indices (0x11 = 17 `VwBox`,
+0x1D = 29 `AcTitleMenu`, 0x34 = 52 `TtlScreen`, and so on), printed by
+`python3 scripts/analysis/nakarest_objtab_map.py v10 --classes` in the disassembly
+repo. **All 13 HD-AE5000 classes satisfy the firmware's size rule,
+`allsize = parent.allsize + selfsize`.** For example, `SelectList` is
+`VwBox` 28 + 0x20 = 60 = 0x3C, `LyricBox` is 28 + 0x12 = 46 = 0x2E, and
+`FDFileSelect` is `PsInvisibleBox` 22 + 0x0A = 32 = 0x20. The classes that add
+nothing (selfsize 0) have exactly their parent's size. The HD-AE5000's
+init-data header reports that the signature string's length equals the
+parameter count for all 13 records. The letter sizes solved on the main CPU
+also give each class's `selfsize` exactly, for all 13. For example,
+`LyricBox`'s `"mc^^c^"` is 4+4+2+2+4+2 = 18 = 0x12, `FDFileSelect`'s `"Gnn"` is
+2+4+4 = 10 and `SelectList`'s `"c^ksAAnGGmA"` is 32 = 0x20. Check (in
+`kn5000-roms-disasm`):
 
-**Key observations from ROM data:**
-- All data pointer pairs (Data1/Data2) are adjacent ROM addresses 2 bytes apart (Data1 = Data2 + 2)
-- RAM workspace pointers are sequential in the 0x2397xx range (10 bytes apart)
-- Record 5 chains to Root module handler `0x0160001D`
-- Flags 0x04 appear on input-related records (1, 4); 0x12 on LyricBox; 0x0A on FileSelect
+```python
+import struct, importlib.util
+spec = importlib.util.spec_from_file_location('m', 'scripts/analysis/nakarest_objtab_map.py')
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)   # for SIG_SIZE
+d = open('original_ROMs/hd-ae5000_v2_06i.ic4', 'rb').read(); B = 0x280000
+for i in range(13):
+    _, parent, alls, selfs, name, sig, _ = struct.unpack_from('<IIHHIII', d, 0x29C0AA - B + 24 * i)
+    sg = d[sig - B:].split(b'\0')[0].decode('latin-1')
+    print(d[name - B:].split(b'\0')[0].decode(), sg, sum(m.SIG_SIZE[c] for c in sg) == selfs)
+```
+
+This replaces the older reading on this page, which took +0x04 for a "next
+handler ID" chaining to a "Root module handler", +0x08 for a "config size" and
++0x0A for "config flags". `InheritedProc` does follow the +0x04 link, because
+it is the **parent class**. That is how an event a class does not handle
+reaches the root class's behaviour. `HDTitleMenu` is a subclass of the root's
+`AcTitleMenu`, the class of the DISK MENU items that lead to a title (see
+below).
 
 ### DISK MENU Slot Registration (workspace[0x0E0A][0x02C4])
 
-After registering all 11 handlers, Boot_Init calls `workspace[0x0E0A][0x02C4]` with ID `0x00600002` to create a DISK MENU entry. The returned XHL points to a handler slot structure:
+After registering its tables, Boot_Init calls `workspace[0x0E0A][0x02C4]` with
+`0x00600002`. The firmware's name for that function is **`GetViewInstance`**. It
+returns XHL = the instance record of view object `0x00600002`, which is entry 2
+of Viewable table 0x60. The HD-AE5000 then writes two fields of that record:
 
-| Offset | Size | Value (HDAE5000) | Value (Mines) | Description |
+| Offset | Size | Value (HDAE5000) | Value (Mines) | Field (class `AcTitleMenu`) |
 |--------|------|-------------------|---------------|-------------|
-| +0x00 | 4 | `0x016A0005` | `0x016A0000` | Object ID (handler index + sub-index) |
-| +0x2A | 4 | `0x2F8DCE` → "HD-AE5000" | MENU_NAME → "Mines Game" | Display name string pointer |
-| +0x32 | 4 | *(from firmware)* | 176 | Icon ID (table_data ROM) |
+| +0x00 | 4 | `0x016A0005` | `0x016A0000` | `class`: the record's class id |
+| +0x2A | 4 | `0x2F8DCE` → "HD-AE5000" | MENU_NAME → "Mines Game" | `str`: the item's text |
+| +0x2E | 4 | *(left as is: `0x01A0007F`)* | — | `title`: the title the item opens |
+| +0x32 | 4 | *(left as is: `0x83`)* | 176 | `icon` |
 
-The `slot+0x00` field links the DISK MENU entry to a registered handler object. The high word (`0x016A`) is the object table index (handler ID), and the low word is the sub-object index. The Mines project uses `0x016A0000` (handler 0x016A, sub-index 0) with a single data record.
+**What the record is.** Viewable table 0x60 is registered by `InitializeCheap`
+(`RegObjTabl 0x1600010, ViewableProc, 0x4a, 0xea67b6, 0x60` in
+`v10/maincpu/file_io/medley.s`) and holds the DISK MENU screen. Entry 0 is a
+`TtlScreen`. Entries 1, 3 and 4 are ROM records of class `AcTitleMenu`:
+"STYLE CONVERT" (title 0x10), "PREFERENCES" (title 0x7E) and "SAVE" (title
+0x65). **Entry 2 is not in ROM.** Its table entry is `0x0003EEEE`, a RAM
+address inside the [work-RAM image]({{ site.baseurl }}/memory-map/#work-ram-initial-image),
+so its initial contents are the ROM bytes at `0xEED8C8 + (0x3EEEE - 0x3D524)` =
+`0xEEF292`. Decoded with the class model, they are an `AcTitleMenu` whose
+`str` is **"HARD DISK MAIN MENU"**, `title` is **`0x01A0007F`**, `icon` is
+0x83 and rectangle is (163, 198)-(311, 223). The firmware ships the expansion's
+DISK MENU entry pre-built, in RAM where an expansion can rewrite it, and already
+pointing at title 0x7F (`TT_HDDEXT`). The HD-AE5000 re-registers that title
+with its own view and re-classes the item as its own `HDTitleMenu`.
 
-The `slot+0x2A` field has been **confirmed** as a display name string pointer by verifying that address `0x2F8DCE` in the HDAE5000 ROM contains the null-terminated string "HD-AE5000".
+The ROM bytes can be checked with this snippet (run in `kn5000-roms-disasm`):
+
+```python
+import struct
+d = open('original_ROMs/kn5000_v10_program.rom', 'rb').read(); B = 0xE00000
+p = struct.unpack_from('<I', d, 0xEA67B6 - B + 4 * 2)[0]            # 0x0003EEEE
+r = d[0xEED8C8 + (p - 0x3D524) - B:][:54]                           # image 1
+cls, s, title, icon = struct.unpack_from('<I', r, 0)[0], *struct.unpack_from('<III', r, 42)
+print(hex(p), hex(cls), d[s - B:s - B + 20].split(b'\0')[0], hex(title), hex(icon))
+# 0x3eeee 0x160001d b'HARD DISK MAIN MENU' 0x1a0007f 0x83
+```
+
+This reading comes from combining the hdae lane's function names with the
+nakarest class model. It explains why writing `+0x00` "links the menu entry to a
+handler": the first word of every widget record is its class id. It also
+explains why `+0x32` is an icon id: `AcTitleMenu`'s `icon` field sits at +50.
+Nobody has yet traced whether the item's `flag` (0 here, 8 in the ROM items)
+controls its visibility.
+
+The `slot+0x2A` field was earlier **confirmed** as a display-name pointer:
+address `0x2F8DCE` in the HDAE5000 ROM holds the null-terminated string
+"HD-AE5000".
 
 ## Display Ownership Model
 
@@ -718,7 +942,9 @@ The main CPU firmware symbol table reveals the real names for these functions:
 | 0xFA42FB | **RegisterObjectTable** | "workspace[0x0E0A][0x00E4]" | Register handler in object table |
 | 0xFA431A | **RegisterObject** | (unnamed) | Register individual object entry |
 | 0xFA43B3 | **UnRegisterObject** | (unnamed) | Remove object entry |
-| 0xFA9752 | **PostEvent** | "ApPostEvent" | Queue event for asynchronous dispatch |
+| 0xFA9752 | **PostEvent** | (was confused with `ApPostEvent`) | Queue event for asynchronous dispatch (`workspace[0x0E0A][0x0104]`) |
+| 0xFA9D58 | **ApPostEvent** | "Display callback" | Queue event into the same ring; yields while the queue is full (`workspace[0x0E0A][0x0124]`) |
+| 0xFA9868 | **DeleteEvent** | (unnamed) | Remove queued events matching an object and event (`workspace[0x0E0A][0x0534]`) |
 
 ### Architecture Overview
 
@@ -726,14 +952,15 @@ The main CPU firmware symbol table reveals the real names for these functions:
 Object Table (0x027ED2)                  Data Record Table
  14-byte entries, max 1120               24-byte records per sub-object
 ┌──────────────────────────────┐       ┌────────────────────────────────┐
-│ +0x00: Port address (4)      │       │ +0x00: Impl function ptr (4)   │
-│ +0x04: Handler function (4)  │       │ +0x04: Next handler ID (4)     │
-│ +0x08: Data size (2)         │       │ +0x08: Size/count (2)          │
-│ +0x0A: Data pointer (4) ─────┼──────>│ +0x0A: Flags (2)               │
-└──────────────────────────────┘       │ +0x0C: ROM data ptr (4)        │
-                                       │ +0x10: ROM data ptr 2 (4)      │
-Global State (saved/restored           │ +0x14: RAM workspace ptr (4)   │
+│ +0x00: Class id (4)          │       │ +0x00: proc (4)                │
+│ +0x04: Proc (4)              │       │ +0x04: parent class id (4)     │
+│ +0x08: Count (2)             │       │ +0x08: allsize (2)             │
+│ +0x0A: Data pointer (4) ─────┼──────>│ +0x0A: selfsize (2)            │
+└──────────────────────────────┘       │ +0x0C: name (4)                │
+                                       │ +0x10: propdata (4)            │
+Global State (saved/restored           │ +0x14: propname (4)            │
  per dispatch call):                   └────────────────────────────────┘
+ (the right-hand box is a class definition, as registered by a ClassProc table)
   0x02BC14: Current object identity (SetCurrentTarget/GetCurrentTarget)
   0x02BC18-20: Root object/event/param (SetRootObject/GetRootObject etc.)
   0x02BC24-2C: Focus object/event/param (GetFocusObject/GetFocusEvent etc.)
@@ -851,16 +1078,21 @@ InheritedProc (0xFA4409): Handler chain traversal
 The HDAE5000's DISK MENU handler function at `0x2827A8` (Record 5) is minimal:
 
 ```
-0x2827A8(XWA=handler_id, XBC=request, XDE=param):
+HDAE5000_HDTitleMenuProc (0x2827A8)(XWA=object, XBC=request, XDE=param):
   if (request == 0x01C0000F):
-    call workspace[0x0E0A][0x00DC]  // Call default handler first
-    call workspace[0x0E0A][0x0100]  // Then post 0x01C0000D request
+    call workspace[0x0E0A][0x00DC]  // InheritedProc: the parent class (AcTitleMenu) first
+    SendEvent(0x007F01ED, 0x01C0000D, 0)  // workspace[0x0E0A][0x0100], object HD_MENU_BMP
     return 0
   else:
-    jp workspace[0x0E0A][0x00DC]    // Delegate to default handler
+    jp workspace[0x0E0A][0x00DC]    // InheritedProc: let AcTitleMenu handle it
 ```
 
-**The default handler at `workspace[0x0E0A][0x00DC]` manages the full DISK MENU lifecycle for most requests, including 0x01E0009C (activation).** The HDAE5000 only intercepts request `0x01C0000F` to perform additional initialization after the default handler runs.
+**The "default handler" at `workspace[0x0E0A][0x00DC]` is `InheritedProc`.**
+It runs the parent class's behaviour, here `AcTitleMenu`'s, and that manages
+the DISK MENU item for most requests, including 0x01E0009C (activation). The
+HD-AE5000 only intercepts `0x01C0000F`. It sends `0x01C0000D` synchronously
+(`SendEvent`, not a post) to its own UI object `HD_MENU_BMP` (`0x007F01ED`,
+entry 0x1ED of Viewable table 0x7F).
 
 ### Dispatch Flow for Activation Event (0x01E0009C)
 
@@ -921,8 +1153,8 @@ When `PostEvent(0x00600002, 0x01E0009C, 0)` is dispatched:
 8. Extracts sub_index = 5 from identity
 9. Reads record[5 * 24 + 0x00] → implementation function (0x2827A8)
 10. Calls 0x2827A8(0x016A0005, 0x01E0009C, 0)
-11. Handler delegates to workspace[0x0E0A][0x00DC] (default handler)
-12. Default handler manages the DISK MENU activation lifecycle
+11. Handler delegates to workspace[0x0E0A][0x00DC] (`InheritedProc`)
+12. `InheritedProc` runs the parent class (`AcTitleMenu`), which manages the DISK MENU activation lifecycle
 ```
 
 ### What Mines Needs for DISK MENU Activation
@@ -930,21 +1162,22 @@ When `PostEvent(0x00600002, 0x01E0009C, 0)` is dispatched:
 Based on the complete dispatch analysis, the Mines project needs:
 
 1. **Register handler `0x016A`** via `RegisterObjectTable` (workspace[0x0E0A][0x00E4]) with:
-   - Port: `0x01600004`
-   - Handler function: `ClassProc` (via workspace[0x0E0A][0x0168], resolves to 0xFA44E2)
-   - Record count: number of 24-byte records in the data table (e.g., 1 for a single sub-object)
-   - Data pointer: address of data record table in ROM
+   - Class id: `0x01600004` (a Class table)
+   - Proc: `ClassProc` (via workspace[0x0E0A][0x0168], resolves to 0xFA44E2)
+   - Count: number of 24-byte class definitions in the table (e.g., 1)
+   - Data pointer: address of the class-definition table
 
-2. **Provide a data record table** with at least one 24-byte record:
-   - `+0x00`: Implementation function pointer (our handler function)
-   - `+0x04`: Next handler ID (`0xFFFFFFFF` for end-of-chain, or chain to Root module e.g. `0x0160001D`)
-   - `+0x08-0x14`: Config fields (may need specific values for the default handler to work)
+2. **Provide a class-definition table** with at least one 24-byte class:
+   - `+0x00` `proc`: our handler function
+   - `+0x04` `parent`: the parent class id. The HD-AE5000 uses `0x0160001D` (`AcTitleMenu`), whose behaviour `InheritedProc` runs for everything the proc does not handle
+   - `+0x08` `allsize` / `+0x0A` `selfsize`: the parent's size (54 for `AcTitleMenu`) and 0, unless the class adds fields
+   - `+0x0C`-`+0x14` `name` / `propdata` / `propname`: name string, type letters (`""` for none), and a name list ending in `""`
 
-3. **Set `slot+0x00`** to `0x016A0005` (handler 0x016A, sub-index 5 matching the HDAE5000 convention) — or `0x016A0000` if using sub-index 0
+3. **Set `slot+0x00`** (the `class` field of view object `0x00600002`) to `0x016A0005` (class 5 of table 0x016A, matching the HD-AE5000) — or `0x016A0000` if the class table has one entry
 
 4. **Implement a handler function** that:
    - Intercepts `0x01C00008` (button-press activation) and `0x01E0009C` (programmatic activation) to set the `GAME_ACTIVE` flag — and **skips delegation** for these events
-   - Delegates all other requests to `workspace[0x0E0A][0x00DC]` (the default handler)
+   - Delegates all other requests to `workspace[0x0E0A][0x00DC]` (`InheritedProc`, i.e. the parent class)
    - Optionally intercepts `0x01C0000F` for custom initialization (as the original HDAE5000 does)
 
 ### Object System Initialization
@@ -966,7 +1199,7 @@ The Mines project demonstrates that full participation in the object dispatch sy
 1. Registers handler `0x016A` with a minimal 1-record data table
 2. Sets the record's implementation function to `Mines_Handler`
 3. `Mines_Handler` intercepts the activation event to set a `GAME_ACTIVE` flag in extension RAM
-4. All other requests are delegated to `workspace[0x0E0A][0x00DC]` (default handler)
+4. All other requests are delegated to `workspace[0x0E0A][0x00DC]` (`InheritedProc`)
 5. Frame_Handler checks `GAME_ACTIVE` and branches into the C game code when set
 
 **Key discovery:** When the user selects a DISK MENU entry via a physical button press, the firmware dispatches event code **`0x01C00008`** (not `0x01E0009C`) to the handler's record function. The activation event `0x01E0009C` is only used for direct `PostEvent` injection (e.g., from `FileIO_DiskRemoved`). The handler must intercept **both** codes to support both activation paths.
@@ -984,8 +1217,8 @@ See the [Event Codes Reference]({{ site.baseurl }}/event-codes/) for a complete 
 
 ### Open Questions
 
-- What specific record fields (`+0x08` through `+0x14`) does the default handler at `workspace[0x0E0A][0x00DC]` expect?
-- Can the "next" chain link (`record[+0x04]`) be `0xFFFFFFFF` for a standalone handler, or must it chain to a Root module component?
+- ~~What specific record fields (`+0x08` through `+0x14`) does the default handler at `workspace[0x0E0A][0x00DC]` expect?~~ **ANSWERED (2026-09-25):** the record is a class definition (`allsize`, `selfsize`, `name`, `propdata`, `propname`) and the "default handler" is `InheritedProc`; see [the class table above](#data-record-table-handler-0x016a-the-modules-classes).
+- Does anything besides `InheritedProc` read `allsize`/`selfsize` of a class that re-classes an existing record (as `HDTitleMenu` re-classes view object `0x00600002`)? A class with parent `0xFFFFFFFF` has no inherited behaviour; whether the view system tolerates that for a DISK MENU item is untested.
 - ~~How does the firmware route physical button presses (DISK MENU selection) to the `PostEvent(0x00600002, 0x01E0009C, 0)` call?~~ **RESOLVED:** The firmware does NOT use `PostEvent` for button-press activation. Instead, it dispatches event code `0x01C00008` directly via `SendEvent` to the handler's record function. The `0x01E0009C` event is only used for programmatic activation via `PostEvent`.
 
 ## Control Panel Input
@@ -1056,7 +1289,7 @@ The KN5000's audio subsystem is managed entirely by the SubCPU (a second TMP94C2
 
 ### What Extensions Can Do
 
-- **Trigger sounds via firmware callbacks:** The firmware's workspace contains callback pointers for triggering MIDI notes and sound effects. These are accessible through the handler table (workspace offsets in Handler Table A). This is unexplored territory — the exact API for triggering notes from extension code is not yet documented.
+- **Trigger sounds via firmware callbacks:** The firmware's workspace contains callback pointers for triggering MIDI notes and sound effects. The two function tables reachable from the workspace (see [Workspace Pointer](#workspace-pointer)) name some candidates: the HD-AE5000 calls `HamaFn_sendCOMM` and `HamaFn_SwbtWr` in table 0x109. What those calls send, and whether they can play notes, has not been traced. This is unexplored territory — the exact API for triggering notes from extension code is not yet documented.
 - **Write to shared DRAM:** The inter-CPU command buffer in DRAM could theoretically be used to send commands to the SubCPU, but the protocol is complex and interference with normal firmware operation is likely.
 
 ### What Extensions Cannot Do
@@ -1435,7 +1668,7 @@ The `-oslog` flag captures debug output, including any invalid instruction repor
 - [App Loader Tutorial]({{ site.baseurl }}/app-loader/) -- Load and run multiple apps from a FAT16 hard disk
 - [Event Codes Reference]({{ site.baseurl }}/event-codes/) -- Complete table of known firmware event codes
 - [HDAE5000 Hard Disk Expansion]({{ site.baseurl }}/hdae5000/) -- Original firmware documentation
-- [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) -- Custom proprietary filesystem (FSB/FGB/FEB)
+- [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) -- Custom filesystem (FAT, cluster chains, song records) and the lyric file format
 - [Display Subsystem]({{ site.baseurl }}/display-subsystem/) -- VGA controller and display architecture
 - [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/) -- Serial input protocol
 - [Memory Map]({{ site.baseurl }}/memory-map/) -- Full system address space

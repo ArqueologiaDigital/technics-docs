@@ -90,17 +90,19 @@ Based on firmware analysis at 0x2974C7-0x297924, disk access follows this patter
 ### 1. Wait for Drive Ready
 
 ```
-Wait_HD_Ready (0x297438):
+HDAE5000_ATA_WaitReady (0x297438):
     1. Read Status register (0x13001E)
     2. Check bits: BSY=0 (bit 7), DRDY=1 (bit 6)
     3. Mask with 0xC0, compare to 0x40
     4. Repeat until ready or timeout (0x3FFFFF iterations)
 ```
 
-### 2. Initialize Drive (0x2974C7)
+### 2. Standby (0x2974C7)
+
+This is `HDAE5000_ATA_Standby`. It spins the drive down, and `HDAE5000_HD_Init` ends with it; it does not initialise anything.
 
 ```
-Init_HD:
+HDAE5000_ATA_Standby:
     1. Wait for drive ready
     2. Write 0xFF to Features (0x130012)
     3. Write 0x00 to Sector Count (0x130014)
@@ -111,8 +113,10 @@ Init_HD:
 
 ### 3. Read Sectors (0x297788)
 
+`HDAE5000_ATA_ReadSector`: XHL = sector number, **1-based**, split head-major into CHS (see [HDAE5000 Filesystem — Sector Numbers]({{ site.baseurl }}/hdae5000-filesystem/#sector-numbers-and-chs)).
+
 ```
-Read_Sectors:
+HDAE5000_ATA_ReadSector:
     1. Wait for drive ready (Status & 0xC0 == 0x40)
     2. Write 0x01 to Sector Count (0x130014)
     3. Write (0xA0 | head) to Device/Head (0x13001C)
@@ -129,7 +133,7 @@ Read_Sectors:
 ### 4. Write Sectors (0x29769B)
 
 ```
-Write_Sectors:
+HDAE5000_ATA_WriteSector:
     1. Wait for drive ready
     2. Write 0x01 to Sector Count (0x130014)
     3. Write (0xA0 | head) to Device/Head (0x13001C)
@@ -144,20 +148,20 @@ Write_Sectors:
 ### 5. Identify Device (0x297884)
 
 ```
-Identify_Device:
+HDAE5000_ATA_IdentifyDevice:
     1. Wait for drive ready
     2. Write 0xFF to all address registers
     3. Write 0xA0 to Device/Head (0x13001C)
     4. Write 0xEC (Identify) to Command (0x13001E)
     5. Wait for DRQ
     6. Read 256 words from Data register to 0x200000
-    7. Parse CHS geometry from identification data
+    7. Parse CHS geometry from identification data (HDAE5000_HD_ParseIdentify)
 ```
 
 ### 6. Reset Controller (0x29747A)
 
 ```
-Reset_HD:
+HDAE5000_ATA_SoftReset:
     1. Write 0x0E to Device Control (0x130020) - SRST + nIEN
     2. Write 0x0A to Device Control (0x130020) - Clear reset, keep nIEN
     3. Wait for drive ready
@@ -181,28 +185,20 @@ These errors are also available in German and French translations.
 
 ## Filesystem Structure
 
-The HDAE5000 uses a **custom filesystem**, not FAT16 or FAT32. Key structures include:
+The HDAE5000 uses a **custom filesystem**, not FAT12/16/32, though it has a
+32-bit allocation table of its own. In firmware sector numbers (1-based,
+head-major CHS):
 
-### FSB (File System Block)
+| Sectors | Contents |
+|---------|----------|
+| 1 | signature longs `0xAA55AA55`, `0xF4F1F2F3`; six setting bytes at +0x78 |
+| 2 - 3907 | FAT: 32-bit entries, 0 = free, `0xFFFFFFFE` = end of chain |
+| 3908 - 4230 | 323 table sectors: 120 directory names, 1,920 song records, 120 FLS records |
+| 4231 on | data clusters (0x20 or 0x40 sectors each) |
 
-The master filesystem metadata block containing:
-- Volume information
-- Free space tracking
-- Directory pointers
-
-### FGB (File Group Block)
-
-Groups related files together:
-- File group pointer (`FGB ptr`)
-- Group width (`FGB wid`)
-- Number of entries (`FGB num`)
-
-### FEB (File Entry Block)
-
-Individual file metadata:
-- File entry pointer (`FEB ptr`)
-- Entry width (`FEB wid`)
-- Number of entries (`FEB num`)
+The PC link calls the three tables the "Dir block", "FileSystem block" and "Fls
+block". A debug trace calls the first two "FGB" and "FEB". The full description,
+with the evidence, is on [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/).
 
 ## PPORT Commands for Disk Operations
 
@@ -389,12 +385,16 @@ Key RAM locations used by disk routines:
 
 | Address | Name | Purpose |
 |---------|------|---------|
-| 0x229D90 | HD_STATUS_FLAG | Current drive status |
-| 0x229D92 | HD_RESULT_FLAG | Last operation result |
-| 0x229D99-0x229DAE | HD_CONFIG | Drive configuration flags |
-| 0x229DC8 | HD_CONTROL | Control register shadow |
-| 0x229DD9 | HD_ENABLE | Drive enabled flag |
-| 0x230EDA | HDAE5000_INIT_FLAG | 0=no HD, non-zero=HD present |
+| 0x200222 | `HDAE5000_RAM_AtaError` | drive error byte, 0 = ok; tested after every disk operation |
+| 0x229C32 / 0x229C34 / 0x200220 | — | cylinders / heads / sectors per track from IDENTIFY (`HDAE5000_HD_ParseIdentify`) |
+| 0x229C5C | `HDAE5000_RAM_SectorsPerCluster` | 0x20, or 0x40 on drives of at least 0x14DC93 sectors |
+| 0x229D92 | `HDAE5000_RAM_HdInitResult` | `HDAE5000_HD_Init`'s step code, 0 = ready and formatted |
+| 0x229D98 | `HDAE5000_RAM_HdSignatureOk` | 1 when sector 1 carries the signature |
+| 0x229D99 / 0x229D9A | `HDAE5000_RAM_WriteProtect` / `HDAE5000_RAM_WriteConfirm` | "WRITE PROTECTION" / "WRITE CONFIRM" settings |
+| 0x229DA9-0x229DAE | — | the six setting bytes from sector 1 +0x78 (quick load, load by number, jump after load, lyric jump, lyric colours) |
+| 0x230EDA | `HDAE5000_RAM_HdPresent` | `HDAE5000_Check_HD_Present`'s result (the step code above) |
+
+The older names in this table (HD_STATUS_FLAG, HD_CONFIG "drive configuration flags", "0=no HD, non-zero=HD present") did not survive the hdae lane's reading of the code. The full layout is on [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/).
 
 ## Design Considerations
 
@@ -428,7 +428,7 @@ For MAME emulation, the HDAE5000 disk interface requires:
 3. **IDE Drive Model**: CHS-addressed IDE drive simulation
 4. **Status Bits**: Proper BSY/DRDY/DRQ/ERR flag handling
 5. **PIO Mode**: All transfers are PIO (no DMA observed)
-6. **Custom Filesystem**: FSB/FGB/FEB structure parsing
+6. **Custom Filesystem**: only needed for tools outside the firmware (the firmware formats and reads its own layout; see [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/))
 
 ## Verified Implementation Details
 
@@ -444,7 +444,7 @@ The following details were confirmed through firmware analysis:
 ## Further Research
 
 Areas requiring additional investigation:
-- Filesystem structure details (FSB/FGB/FEB layout)
+- Which of a song record's ten first-cluster slots holds which part, and the FLS item bytes at +80/+112 ([HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/#open-questions))
 - Error recovery procedures
 - Exact timing requirements for real hardware
 

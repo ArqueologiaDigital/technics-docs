@@ -82,24 +82,76 @@ sub-category name fields -- verified for all 250 groups.
 | +0x2A | byte | display-string length -- **32** in every record |
 | +0x2B | 32 | display string: 29-char style name + 3-char right-aligned decimal number |
 | +0x4B | 2 | `0x00 0x00` terminator/pad for the display string |
-| +0x4D | 115 | parameter block -- the panel setup the Stylist applies (undecoded) |
-| +0xC0 | 5 | `FF FF FF FF FF`, constant in every record |
+| +0x4D | 113 | **parameter block** -- the panel setup the Stylist applies ([decoded below](#the-parameter-block)) |
+| +0xBE | 1 | no reader found (0x40 ×850, 0xAD ×95, 0x97 ×54, 0x99 ×1) |
+| +0xBF | 6 | `FF` ×6, constant in every record |
 | +0xC5 | 1 | grid padding, **not** part of the 197-byte record (93 distinct values across the grid) |
 
 Every invariant in that table (the two `.long`s, the printable name ranges, the constant
 `1`, the length byte 32, the `[ 0-9]\d\d` tempo pattern, the five `0xFF`) is asserted for
 all 1000 records by the generator before it emits a line.
 
-The 3-character number at +0x48 is read as the style's **tempo**: the Music Stylist
+The 3-character number at +0x48 is the style's **tempo** as displayed: the Music Stylist
 list-screen widget templates in `naka_perf_style.c` end their column header with `TEMPO`
 (e.g. `"Euro Pop Shuffle:              TEMPO"`), and the values span 62..235 with 98
-distinct settings. No code path that feeds the field to the tempo engine has been traced
-in the disassembly yet, so treat the *name* as well-supported and the *mechanism* as open.
+distinct settings. The tempo the firmware *applies* is a separate binary field in the
+parameter block (+0x97, below). The two agree in 991 of the 1000 records. Records 99, 379,
+538, 710, 711, 734, 865, 978 and 979 differ by 1-5 BPM.
 
-The 115-byte parameter block is still **undecoded**. It is byte-for-byte preserved in
-source, but no field map exists; the only thing established about it is its consumer,
-`EffectMode_ClampAndLookupPreset`, which returns `record + record[+4]` as a pointer for
-the caller to apply.
+## The parameter block
+
+Earlier versions of this page called the parameter block "115 bytes, undecoded". The
+`tonedb` lane read it from its three main-CPU readers in September 2026: it is **113 bytes**
+(+0x4D..+0xBD), and every byte has a destination in the live panel. The block is applied to
+the panel TLV stream at RAM `0xF9A0` (records `[tag][len][payload]`), through its mirror at
+RAM `0x03C2C4`:
+
+* `EffectMode_ClampAndLookupPreset` returns `record + 77`.
+  `EffectMode_ProcessPresetChange` stores it at RAM `0x8D60`.
+* `EffectMode_UpdateBitFlags` walks `WidgetStyleDataTable_0x2A8` (ROM `0xEB7BDA` in v7,
+  v9 and v10): 30 entries `{u32 panel offset from 0xF9A0, u8 sub-offset, u8 count}` ended
+  by `u32 0xFF`. It copies parameter bytes 0..112 in order. **That table is the record
+  layout.**
+* `BitMapOut_ByteData_PatchTable` is the unrolled variant used when RAM `0x8D52` bit 5 is
+  set. It copies 98 of the bytes, some under a mask, and leaves the style number and
+  tempo alone.
+* `EffectMode_CopyVoiceParams` then copies bytes 29..33 into part 03 when tag 70 +3 = 3.
+  For bytes 29/30 it disagrees with the walker table (part 03 +0/+1 versus +1/+2); the
+  source records the disagreement without resolving it.
+
+| record | bytes | destination | content |
+|:---|---:|:---|:---|
+| +0x4D | 10 | part 00 (RIGHT 1) +0..+9 | sound, bank, levels, reverb/chorus bits, pan |
+| +0x57 | 10 | part 01 (RIGHT 2) +0..+9 | same |
+| +0x61 | 9 | part 02 (LEFT) +0..+8 | same |
+| +0x6A | 5 | part 03 ("PART 4") | sound, bank, +3, +4, +8 |
+| +0x6F | 10 | parts 10..14 +3, +7 | ACC1, ACC2, ACC3, RHYTHM, BASS |
+| +0x79 / +0x81 / +0x89 | 8 each | tags 44 / 45 / 46 | RIGHT 1 / RIGHT 2 / LEFT drawbar registrations |
+| +0x91 | 2 | tag 48 +0/+1 | **style number** (11-bit) |
+| +0x93 | 3 | tag 48 +2, +3, +4 | +2 = 0 and +3 = 0xEA in all 1000 |
+| +0x96 | 1 | tag 48 +7 | bits 5:4 = the arrangement's slot in its style (record index mod 4, 998 of 1000) |
+| +0x97 | 2 | tag 48 +8/+9 | **tempo in BPM** |
+| +0x99 | 4 | tag 90 +0..+3 | |
+| +0x9D | 1 | tag 60 +1 | (bits 7:6 only on the PatchTable path) |
+| +0x9E | 18 | tag 61 +0..+17 | DSP-effect slot-0 block |
+| +0xB0 | 9 | tag 63 +0..+8 | the block `ReverbPreset_Load` sends |
+| +0xB9 | 2 | tag 65 +0, +1 | DSP-effect slot-2 block |
+| +0xBB | 3 | tag 70 +0, +3, +4 | digital-effect selection |
+
+Tags 00/01/02 are RIGHT 1 / RIGHT 2 / LEFT. Tags 10..14 are the accompaniment parts. Part
+03 is "PART 4" in the part-name table at `0xE9F374`; which panel part that is on the
+instrument is not established. Tags 0x90, 0x60 and 0x65, and most of tag 0x61's 18 bytes,
+are named only by their destination.
+
+Every record now has one source row per panel field (`table_data/style_records.s`,
+written by `scripts/tools/style_records_field_rows.py`). The field map and its census
+facts are re-derived, over all 1000 records and all three firmware versions, by
+`python3 notes/tonedb-2026-09-25/style_record_field_map.py` (needs a built tree).
+
+**A lead, not yet checked:** `EffEdit_ValidateAndReadParams` reads parameter id 0x4900
+(& 0x7F) into RAM `0x2976`, and `DspItem0_DisplayEffectName` uses that byte to index
+`DspEffectName_PtrTable`. If `DSPCfg_ReadParam_Map0(0x4900)` resolves to tag 0x61 +0 (record
++0x9E), every one of the 1000 styles has a named DSP effect.
 
 ## The ten categories
 
@@ -258,22 +310,18 @@ display string fit the narrow name box.
 only and copies the full string: it loads the length byte from `record + 42` and calls
 `Strncpy(dst, record + 43, that length)` = 32 characters.
 
-## After the grid: unreferenced residue
+## After the grid: a stale copy of the help databases
 
-`0x981570-0x983B39` is **not** part of the database. No pointer to any address in it
-exists in the v7, v9 or v10 program ROMs. It has two parts:
-
-* `StyleRecords_Residue`, `0x981570-0x983556` (8,167 bytes): high-entropy data with
-  LZSS-style text shreds -- most plausibly the torso of a discarded compressed block whose
-  header no longer exists. Kept as a raw slice of the dump.
-* `StyleRecords_ResidueRamp`, from `0x983557`: 16-bit little-endian values whose low byte
-  climbs by 10 (mod 256) and whose high byte climbs by 8 on each low-byte wrap, with a
-  lone separator byte after every eighth value. It runs into the stale German help
-  database at `0x983B3A`, which truncates it.
-
-The 96-byte residues at the ends of the two pointer pages belong to the same story: the
-0x986000 page's tail continues the same ramp family, while the 0x987000 page's tail is
-high-entropy like the first residue. All of it is preserved verbatim; nothing rebuilds it.
+`0x981570-0x983B39` is **not** part of the database, and no pointer to any address in it
+exists in the v7, v9 or v10 program ROMs. It was once read as two unrelated residues (a
+"discarded compressed block" and a "ramp"). It is one object: **`0x98156F-0x985FFF` is a
+byte-identical copy of the live help-database region `0x98956F-0x98DFFF`, written exactly
+0x8000 bytes lower.** A single byte differs in the whole 18 KB, at `0x983B39`, the pad
+between the two streams. So `0x98156F-0x983B38` is the tail of the English help database
+and `0x983B3A-0x985FFF` the German one, truncated at `0x986000` by the pointer tables. The
+"text shreds" are SLIDE8K output. The "ramp" is ordinary back-references whose ring offsets
+climb linearly. Reproduce: `scripts/analysis/verify_stale_band.py
+original_ROMs/kn5000_table_data.rom` (see the header of `table_data/style_records.s`).
 
 ## Build status
 
@@ -290,11 +338,11 @@ byte-identical on disk.
 
 Open items on this block:
 
-* the 115-byte parameter block at +0x4D is undecoded;
+* record byte +0xBE has no reader;
+* part 03's panel identity, and the two readers' disagreement on bytes 29/30;
 * the ordering rule behind `StyleRec_PtrTable_Default` is unknown, and its
   California Pop / Dancing Birdies anomaly is unexplained;
-* the tempo field's consumer has not been traced;
-* the residue after the grid is preserved but unidentified.
+* whether parameter id 0x4900 names each style's DSP effect (the lead above).
 
 ## Provenance
 
@@ -310,3 +358,6 @@ Open items on this block:
 * Help-text wording: `table_data/includes/help_databases/help_db_english.bin`.
 * Category counts, pointer-table permutations and the 996/1000 anomaly: recomputed from
   `original_ROMs/kn5000_table_data.rom` for this page.
+* Parameter-block field map (September 2026, lane `tonedb`): the `PARAMETER BLOCK` header
+  in `table_data/style_records.s`; probe `notes/tonedb-2026-09-25/style_record_field_map.py`;
+  lane report `notes/lanes/wave2-2026-09-25/lane-reports/tonedb.json`.

@@ -64,9 +64,14 @@ Record Function (implementation) ─── Layer 4: Handler-Specific
     │  This is where extension ROM handlers intercept events
     │
     ▼
-Default Handler (workspace[0x0E0A][0x00DC])
+Default Handler (workspace[0x0E0A][0x00DC] = InheritedProc)
     Handles remaining lifecycle management if delegated
 ```
+
+The "default handler" that extension ROMs delegate to, `workspace[0x0E0A][0x00DC]`,
+is the firmware's own `InheritedProc` (0xFA4409). The firmware's function-name
+table names the entry at that offset, as it does for every other offset an
+extension calls (see [HDAE5000 Homebrew — Workspace Pointer]({{ site.baseurl }}/hdae5000-homebrew/#workspace-pointer)).
 
 **Key insight:** The record function (Layer 4) receives ALL events, regardless of which layer processed them first. For extension ROMs, the record function is the primary interception point.
 
@@ -156,15 +161,103 @@ Used by the UI widget system for checkbox and grid controls:
 | `0x01E4000A` | `EVT_GRIDCHECK_RESP_B` | Grid/Check widget response variant B |
 | `0x01E4000B` | `EVT_GRIDCHECK_RESP_B2` | Grid/Check widget response variant B2 |
 
-### Initialization/Callback Events
+### Mode and Title Requests (0x01C00014-0x01C00016)
 
-Used in `Boot_Init` and `Frame_Handler` for display initialization:
+These three events switch the instrument's current **mode** and **title** (the
+top-level screen). The parameter is the id of the mode or title that is wanted,
+not a hard-disk parameter block:
 
-| Code | Name | Context | Description |
-|------|------|---------|-------------|
-| `0x01C00016` | `EVT_HD_INIT_PARAMS` | Boot_Init | Hard disk initialization parameters |
-| `0x01CA0000` | `EVT_DISPLAY_CALLBACK` | Frame_Handler | Display callback identifier |
-| `0x01CA0004` | `EVT_DISPLAY_UPDATE` | Frame_Handler | Display state update callback |
+| Code | Parameter | Main-CPU handler | Meaning |
+|------|-----------|------------------|---------|
+| `0x01C00014` | `0x0180nnnn` = mode id | `ModeProc`, case label `ObjectEnum_Close` | Mode request |
+| `0x01C00015` | `0x01A0nnnn` = title id | `TitleProc`, case label `EventDispatch_SelectMatch` | Title request |
+| `0x01C00016` | `0x01A0nnnn` = title id | `TitleProc`, case label `EventDispatch_OK` | Title request (second form) |
+
+`ModeProc` also has a case for `0x01C00013` (`EVT_CPANEL_EVENT` below), labelled
+`ObjectEnum_Default`.
+
+`ObjectEnum_Close`, `EventDispatch_SelectMatch` and `EventDispatch_OK` are the
+case labels the disassembly currently carries. Their names were given before
+anyone knew what these cases do.
+
+**Mode and title ids.** A mode id `0x0180nnnn` is entry *nnnn* of object table
+0x180. `InitializeObjectTable` registers that table with class id `0x01600006`,
+proc `ModeProc`, 0x20 entries at RAM `0x0328FC` (`RegisterMode` fills them). A title id
+`0x01A0nnnn` is entry *nnnn* of object table 0x1A0: class id `0x01600007`, proc
+`TitleProc`, 0x100 entries of 22 bytes at RAM `0x032ABC` (`RegisterTitle`). `GetModeNow`
+returns RAM `0x03EF82`, `GetModeOld` `0x03EF86`, `GetTitleNow` `0x03EF8A` and
+`GetTitleOld` `0x03EF8E`. The mode case (`ObjectEnum_Close`) updates those four
+variables. It then passes `0x01C00014` and `0x01C00015` on through `MainFuncCall`.
+
+Titles quoted by the code:
+
+| Title | Name (registered string) | Registered by | Requested by |
+|-------|--------------------------|---------------|--------------|
+| 0x7F | `TT_HDDEXT` | `InitializeHama` (module 9); **re-registered by the HD-AE5000** (module 0x0A) with its own view object | HD-AE5000 boot (`0x01C00016`), depending on `HDAE5000_Check_HD_Present`'s result ([note]({{ site.baseurl }}/boot-sequence/#hdae5000_boot_init-0x28f576)); `HDAE5000_RequestTitle15` from the frame handler |
+| 0xEE | `TT_MESAGE` | `drawbar_panel_ui.s` `RegTitle 0x1, ..., 0xee` | `HDAE5000_ShowErrorMessageTitle` (`0x01C00016`) |
+| 0xEF | `TT_WELCOM` | same block | `MainTitle_InitGraphicsAndEvents` at boot (`0x01C00016`) |
+| 0xF0 | `TT_SOFTVER` | same block | `CtrlPanel_PostScrollEvent` (`0x01C00016`), when the held-switch accumulator is 0xA1 |
+| 0xFC | `TT_EXTAPR` | `InitializeHama` | factory test entry — see [Test Modes]({{ site.baseurl }}/test-modes/) |
+| 0x00 | — | — | `CtrlPanel_PostDisplayEvent` (`0x01C00015`), accumulator 0x91 — the [memory dump screen]({{ site.baseurl }}/memory-dump-screen/) |
+
+**Dispatch path.** Requesters post to object `0xFFFFFFFF`. `SendEvent`
+replaces that id with the current target (`GetCurrentTarget`, RAM `0x02F83C`)
+before it looks up a proc. The `UI_Post*` and `HDAE5000_Request*` helpers below
+(and `HDAE5000_ShowErrorMessageTitle`) first cancel any request of the same kind
+that is still queued (`DeleteEvent` with the same object and event), then queue
+the new one with `ApPostEvent`. The other requesters do not cancel first: the
+boot request uses `PostEvent`, and the control-panel chords and the HD-AE5000
+boot request call `ApPostEvent` directly. The requesters are:
+
+- Main CPU: `UI_PostPartChangeEvent` (despite its name, it posts the **mode**
+  request `0x01C00014` with `0x01800000 + A`) and `UI_PostModeChangeEvent`
+  (despite *its* name, it posts the **title** request `0x01C00015` with
+  `0x01A00000 + A`). At boot, `MainTitle_InitGraphicsAndEvents` posts mode
+  `0x01800001` and then title 0xEF with plain `PostEvent`.
+  `CtrlPanel_PostDisplayEvent` (`0x01C00015`, title 0x00) and
+  `CtrlPanel_PostScrollEvent` (`0x01C00016`, title 0xF0) post with
+  `ApPostEvent`.
+- HD-AE5000: `HDAE5000_RequestMode` (twin of `UI_PostPartChangeEvent`, used
+  after a song load when JUMP AFTER LOAD is on), `HDAE5000_RequestTitle15` (twin
+  of `UI_PostModeChangeEvent`), `HDAE5000_RequestTitle16` (the same with
+  `0x01C00016`; no caller found), and `HDAE5000_ShowErrorMessageTitle`, all
+  through `RootFn_DeleteEvent` and `RootFn_ApPostEvent`. `HDAE5000_Boot_Init`
+  posts title 0x7F (`0x01C00016`) through `RootFn_ApPostEvent` alone, when
+  `HDAE5000_Check_HD_Present` finds a drive.
+
+**Not established:** what distinguishes `0x01C00015` from `0x01C00016`. Both
+reach `TitleProc` with a title id, but they take different cases. Listed on
+[Open Questions]({{ site.baseurl }}/questions/).
+
+Evidence: `hdae5000/hdae5000_ui_display.s` (the `HDAE5000_Request*` headers),
+`v10/maincpu/ui/ui_widget_defs.s` (`ModeProc`, `TitleProc`, `GetModeNow`,
+`RegisterTitle`, `SendEvent`), `v10/maincpu/ui/ui_control_panel.s`,
+`v10/maincpu/boot/main_title_ctrl_panel.s` and the `RegTitle` blocks in
+`v10/maincpu/ui/drawbar_panel_ui.s` and `v10/maincpu/factory_test/test_init.s`.
+The finding is the `hdae` lane's, in
+`notes/lanes/wave2-2026-09-25/lane-reports/hdae.json`.
+
+> **Stale constant name.** Both `hdae5000/shared/event_codes.s` and
+> `v10/maincpu/shared/event_codes.s` still define `0x01C00016` as
+> `EVT_HD_INIT_PARAMS` ("hard disk initialization parameters"). That reading is
+> wrong. Renaming the constant is a pending disassembly change.
+
+### HD-AE5000 Events (0x01CA0000-0x01CA000C)
+
+`0x01CA0000 + n` addresses entry *n* of object table 0x1CA, which the HD-AE5000
+registers with class id `0x0160000C` (`ResEventProc`). Its 13 entries are the
+names in `HDAE5000_EventName_Table`, in order. The code's own uses fit that
+reading:
+
+| Code | Entry name | Use in the code |
+|------|------------|-----------------|
+| `0x01CA0000` | `EV_SeqStop` | constant `EVT_DISPLAY_CALLBACK` in the sources (a misnomer) |
+| `0x01CA0002` | `EV_TimerBack` | error-message timers (`RootFn_SetApTimer` with event `0x01CA0002`) |
+| `0x01CA0004` | `EV_TICKS` | posted by `HDAE5000_Frame_Handler` to the open lyric box with the song position; `HDAE5000_LyricBoxProc` then runs `HDAE5000_Lyrics_PlayToPosition`. Constant `EVT_DISPLAY_UPDATE` in the sources (a misnomer) |
+| `0x01CA0008` / `0x01CA0009` | `EV_Alldraw` / `EV_Drawsyllable` | lyric-box redraw requests (`HDAE5000_Lyrics_PlayToPosition`) |
+
+`HDAE5000_LyricBoxProc` dispatches `0x01CA0003`-`0x01CA0009` through a 7-entry
+switch table. The table is typed in `hdae5000/hdae5000_data_tables.s`.
 
 ### Object State Query Events
 
@@ -176,7 +269,7 @@ Used in `Boot_Init` and `Frame_Handler` for display initialization:
 
 ## Event Queue (PostEvent)
 
-`PostEvent` (0xFAD61F) enqueues events for asynchronous dispatch:
+`PostEvent` (0xFA9752) enqueues events for asynchronous dispatch:
 
 ```
 Queue base:   0x02BC34
@@ -192,6 +285,16 @@ Entry layout:
 ```
 
 Events are dequeued by the main event loop and dispatched via `SendEvent`.
+
+`ApPostEvent` (0xFA9D58) writes the same 12-byte entries into the same ring. It
+differs in what it does when the queue is full: it yields to other tasks
+(`TaskSched_YieldToQueue`) and retries, or gives up, depending on
+`Boot_CheckConfigFlag7`. All the mode and title requests above use `ApPostEvent`
+except the boot-time pair from `MainTitle_InitGraphicsAndEvents`, which uses
+`PostEvent`.
+`DeleteEvent` (0xFA9868) removes queued entries that match an object and an
+event. (This page previously gave `PostEvent`'s address as 0xFAD61F. The
+firmware's own function-name table and the v10 build both put it at 0xFA9752.)
 
 ## DISK MENU Activation Flow
 

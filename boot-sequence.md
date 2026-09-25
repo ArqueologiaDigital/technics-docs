@@ -328,11 +328,12 @@ Only two callers use the heap: `Boot_DetectDiskType` (sector-signature buffer) a
 
 The divide runtime is the compiler's, not the bootloader's: the same routine is linked
 into the main CPU firmware (`DivMod32` / `Math_DivideU32`) and into the HD-AE5000
-extension ROM (`HDAE5000_Divide_Unsigned` / `HDAE5000_Divide_Signed` at 0x29B8BF /
+extension ROM (`HDAE5000_UMod32` / `HDAE5000_UDivMod32` at 0x29B8BF /
 0x29B8C5). The three copies share the algorithm and the entry structure but are not
-byte-identical — a few instruction encodings differ. The HD-AE5000 labels are also
-swapped with respect to what the code does: the routine labelled `_Signed` there is the
-unsigned core, and `_Unsigned` is its modulo entry.
+byte-identical — a few instruction encodings differ. The HD-AE5000 labels used to be
+`HDAE5000_Divide_Unsigned` / `HDAE5000_Divide_Signed`, swapped with respect to the code.
+The hdae lane renamed them in September 2026 (`scripts/renaming/rename_hdae5000_libc.sed`):
+0x29B8C5 is the unsigned core, and 0x29B8BF its modulo entry.
 
 The tail of the region ends in dead code: `Boot_free_DeadTail9998` (0xFFFD7D) is a
 byte-for-byte copy of `Boot_free` from its `extz xhl` onward with the list head address
@@ -397,6 +398,15 @@ The reset handler performs additional hardware setup (note: memory controller is
 | 5 | Initialize DRAM | DREFCR, DMEMCR |
 | 6 | Configure timers | T01MOD, T4MOD, etc. |
 | 7 | Initialize stack | XSP = stack address |
+| 8 | Initialize work DRAM | `Boot_InitWorkRAM` (called from `Boot_InitIOPorts` right after `ld xsp,0xc00`) |
+
+`Boot_InitWorkRAM` zero-fills DRAM `0x010000-0x03D523` and `0x000400-0x00E35C`.
+It then copies two ROM images of initialised RAM: ROM `0xEED8C8` → RAM `0x3D524`
+(0x219E bytes) and ROM `0xEEFA66` → RAM `0xE35E` (0x95B bytes; v7: 0x931 bytes to
+`0xE2C2`). Because the code reads these variables and tables at their **RAM**
+addresses, a search for readers of the ROM bytes must look for the RAM copy;
+see [Memory Map — Work-RAM initial image]({{ site.baseurl }}/memory-map/#work-ram-initial-image).
+It ends with `jrl Boot_RunSelfTest`.
 
 #### Sub CPU Payload Loading
 
@@ -493,7 +503,21 @@ CREATE event (0x1C00001):
     │                     (posts event 0x1E000B3)
 ```
 
-**Normal splash animation**: On a successful boot with no special buttons held, the firmware displays a splash screen with the Technics/KN5000 logo and animated palette effects (palette cycling, spotlight-like illumination). The animation uses region-specific data tables — Region 2 uses different graphics than other regions. The animation is rendered via `ScreenGroup_Dispatch` (0xFDDB46) which manages UI widget groups. The visual assets (Technics logo, world globe, "KN5000 IN COLOR" rendered text) are stored as pre-rendered bitmaps on the bootup floppy disk (files `FTBMP01`–`FTBMP06`), not in the ROM; the ROM contains only the animation control code.
+**Normal splash animation**: On a successful boot with no special buttons held, the firmware displays a splash screen with the Technics/KN5000 logo and animated palette effects (palette cycling, spotlight-like illumination). The animation uses region-specific data tables — Region 2 uses different graphics than other regions. The animation is rendered via `ScreenGroup_Dispatch` (0xFDDB46) which manages UI widget groups.
+
+The welcome screen's letters are **in the program ROM** (the nakarest lane, September 2026).
+`AcWelcomScreenProc` (0xF7F4A6) runs a small **welcome script**: 12-byte steps
+`{delay, x, y, op, arg}` interpreted by `AcWelcomScreen_RenderBytecode` through a 13-entry
+op table. There are two step tables: table A (186 steps) is used when `Get_Region_Code`
+returns 2, table B (191 steps) otherwise. The ops draw seven 16×17 1-bpp glyphs (C, I, L, N,
+O, R, U; rows stored bottom-up, drawn by `DrawBitmapSP2_Impl`) one letter at a time. Table A
+spells **IN COLOR**, table B **IN COLOUR**. The glyphs sit under older labels that predate this
+reading (`Bitmap_Digit1` is the I, `Bitmap_DigitD` the U). The Technics logo (312×45,
+`Bitmap_Technics_Logo`) and the KN-5000 logo (199×36, `Bitmap_KN5000_Logo`) are ROM bitmaps
+too. Source: the welcome-script headers in `v10/maincpu/ui_widgets/technichord_string_data.s`
+and `welcome_step_t` in `naka_technichord_strings.c`. This page used to say the assets were
+pre-rendered bitmaps on the boot floppy (`FTBMP01`–`FTBMP06`). Those six are the
+[Feature Demo]({{ site.baseurl }}/feature-demo/)'s slides, stored in the table-data ROM at `0x880418`-`0x8CE01B`.
 
 **"ALL INITIAL SETTING!" screen**: This appears when the firmware version button combo (GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR) is held at power-on, **not** because of NVRAM loss or factory reset detection. This is a diagnostic/service mode, not an error condition.
 
@@ -845,7 +869,7 @@ Format:  LZSS SLIDE4K compressed
 ```
 
 **Important Finding:** This compressed region does **NOT** contain the Sub CPU executable:
-- Decompresses to ~33KB of parameter-like data
+- Decompresses to 38,144 bytes (0x9500): demo-song preset 18, read by the demo code into main-CPU RAM `0x69800`
 - Sub CPU ROM (`kn5000_subprogram_v142.rom`) is ~192KB
 - Decompressed bytes are mostly MIDI-range values (0-127), not code
 
@@ -867,7 +891,14 @@ In normal factory boot, the LZSS decompression from 0x3E0000 likely fails (no va
    `SubCPU_Send_Payload`'s two source bases holds it in the images we have.
 3. Does the Sub CPU have its own ROM chip? **Yes** — the 128 KB Sub CPU Boot ROM (IC30)
    holds the boot loader. It does *not* hold the 192 KB runtime payload.
-4. What is the purpose of the preset data at 0x8E0000, and when is it used?
+4. ~~What is the purpose of the preset data at 0x8E0000, and when is it used?~~ **Answered
+   (September 2026):** it is demo-song preset 18, the Feature Demo's. `DemoSongPreset_PointerTable[18]`
+   points at it, and `Demo_ParseSlideHeader` decompresses it (38,144 bytes) into main-CPU RAM
+   `0x69800` like presets 0-17. `SubCPU_Send_Payload` does not read it.
+5. **What does the `0x800000` fallback ship?** `0x800000` is the section directory and a bank of
+   8bpp bitmaps whose transparent colour is `0xF7`, so the fallback sends picture data to the
+   Sub CPU. This is a strong lead on the "Preset Data Destination" dispute, not confirmed in
+   MAME; see [LZSS Compression]({{ site.baseurl }}/lzss-compression/#preset-data-destination-dispute).
 5. Under what conditions does the 0x3E0000 LZSS path succeed (firmware update mode)?
 
 See [LZSS Compression](lzss-compression.md) for decompression details.
@@ -1229,15 +1260,23 @@ The boot initialization performs these steps:
 |------|--------|---------|
 | 1 | Clear work buffer | Zero 0xF52A bytes at 0x22A000, copy the 0x0C82-byte initialised `.data` image from ROM 0x2F94B2 to 0x23952A |
 | 2 | Store workspace | Save workspace pointer (0x027ED2) at 0x23A1A2 |
-| 3 | Register 11 handlers | Via `workspace[0x0E0A][0x00E4]` (`RegisterObjectTable`), plus one final call through dispatch offset 0x0270 |
+| 3 | Register 11 object tables and title 0x7F | Via `workspace[0x0E0A][0x00E4]` (`RegisterObjectTable`), then `workspace[0x0E0A][0x0270]` = `RegisterTitle(0x7F, ..., "TT_HDDEXT", module 0x0A)` |
 | 4 | Load palette | Load 256-entry VGA palette from ROM at 0x2E5DCE |
 | 5 | Blit the boot splash | Copy the 320×240 8bpp splash at ROM 0x2E61CE into VRAM as two 0x9600-byte halves, to 0x1A0000 and 0x1A9600 — this is the "HD-AE5000 / Version 2 / Start-up ! / Please wait . . ." screen |
-| 6 | Register callback | Via `workspace[0x0E0A][0x02C4]` with ID 0x00600002 |
-| 7 | Init handler pointers | 3 functions from handler table B (offsets 0x0108, 0x0100, 0x0104) |
-| 8 | Check HD presence | Detect hard disk, store result at 0x230EDA |
-| 9 | Register frame handler | Set up periodic update callback at 0x2803C2 |
+| 6 | Claim the DISK MENU item | `workspace[0x0E0A][0x02C4]` = `GetViewInstance(0x00600002)`; write class id `0x016A0005` at +0 and the "HD-AE5000" string at +0x2A |
+| 7 | Fetch sequencer-variable addresses | `workspace[0x0E88]` offsets 0x0108, 0x0100, 0x0104 = `GetAdr_sqsrtc`, `GetAdr_sqbtof`, `GetAdr_sq_beadt`; results at 0x230ECC / 0x230ED2 / 0x230ED6 |
+| 8 | Check HD presence | `HDAE5000_Check_HD_Present`, result stored at 0x230EDA. If the result is **non-zero**, post `ApPostEvent(0xFFFFFFFF, 0x01C00016, 0x01A0007F)`, a request for title 0x7F (see note) |
+| 9 | Reset UI state | `HDAE5000_Finalize_Init` (a `ret`), then `HDAE5000_UiState_Reset` at 0x2803C2 |
 
-**Important:** Steps 1-5 must complete before step 6. The callback registration function at offset `0x02C4` depends on state established by the 12-handler registration at offset `0x00E4`.
+**Note on step 8.** `HDAE5000_Check_HD_Present`'s header says its result is
+`HDAE5000_HD_Init`'s step code: 0 = drive up and formatted, non-zero = the step
+that failed (1 unformatted, 3 no drive, …). Read that way, Boot_Init requests
+the HD title only when the drive is *not* ready. The comments at the call site
+("Skip if no HD", "drive present: go to the HD title") read the result the other
+way round. The two readings have not been reconciled. Listed on
+[Open Questions]({{ site.baseurl }}/questions/).
+
+**Important:** Steps 1-5 must complete before step 6. The record `GetViewInstance` returns is re-classed as the HD-AE5000's `HDTitleMenu`, which exists only after the class table `0x016A` has been registered in step 3.
 
 ### Frame Handler Dispatch
 
@@ -1258,32 +1297,46 @@ The frame handler is called **unconditionally** -- no registration is needed. Th
 The workspace pointer at `0x027ED2` provides access to the firmware's callback dispatch system:
 
 ```
-Workspace (0x027ED2)
+Workspace (0x027ED2) = the object table, 14-byte entries {class id, proc, count, data}
     |
-    +-- offset +0x0E0A --> Handler Table A pointer
-    |                        |
-    |                        +-- offset +0x00E4 --> Handler registration function
-    |                        +-- offset +0x02C4 --> Callback registration function
-    |                        +-- offset +0x0124 --> Display callback function
-    |                        +-- offset +0x0244, +0x0248, +0x024C --> UI callbacks
+    +-- +0x0E0A = data of table 0x100: InitializeRoot's Function table (0xEAFA6E)
+    |       +0x00DC InheritedProc      +0x00E4 RegisterObjectTable
+    |       +0x0100 SendEvent          +0x0104 PostEvent     +0x0124 ApPostEvent
+    |       +0x0168 ClassProc          +0x0244/0248/024C Function/ApFunction/MainFunctionProc
+    |       +0x0270 RegisterTitle      +0x02C4 GetViewInstance    ... (41 offsets used)
     |
-    +-- offset +0x0E88 --> Handler Table B pointer
-                             |
-                             +-- offset +0x0100 --> Init function 2
-                             +-- offset +0x0104 --> Init function 3
-                             +-- offset +0x0108 --> Init function 1
+    +-- +0x0E88 = data of table 0x109: InitializeHama's Function table (0xE1F0EC)
+            +0x0100 GetAdr_sqbtof      +0x0104 GetAdr_sq_beadt    +0x0108 GetAdr_sqsrtc
+            ... (58 offsets used)
 ```
 
-HDAE5000 registers 12 handlers using the function at offset `0x00E4`, each identified by a port address (0x0160000x) and handler ID. See [HDAE5000 Homebrew Development]({{ site.baseurl }}/hdae5000-homebrew/) for details on the workspace protocol and writing custom extension ROMs.
+The names are the firmware's own, read from the name tables the main CPU
+registers beside each function table (0x400 and 0x409). The HD-AE5000 source
+spells every call as `RootFn_<name>` / `HamaFn_<name>`. The earlier diagram here
+called `+0x0124` a "display callback", `+0x02C4` a "callback registration
+function" and table B's entries "init functions"; all three were wrong.
+
+HDAE5000 registers **11** object tables with `RegisterObjectTable` and one title
+with `RegisterTitle`. Each table is identified by a **class id** and an
+object-table index; `0x0160000n` is a class id, not a "port address". The
+module number is 0x0A. See
+[HDAE5000 Homebrew — Complete Handler Table]({{ site.baseurl }}/hdae5000-homebrew/#complete-handler-table). See [HDAE5000 Homebrew Development]({{ site.baseurl }}/hdae5000-homebrew/) for details on the workspace protocol and writing custom extension ROMs.
 
 ### Frame Handler (0x28F662)
 
 After initialization, the main CPU calls the frame handler periodically:
 
-1. Calculate display offset from handler states
-2. Check for state changes via callback dispatch
-3. Monitor status bit 2 for display refresh triggers
-4. Jump to PPORT handler for parallel port polling
+1. While a lyric box is open, read the main CPU's song position through the
+   `sqbtof` / `sq_beadt` addresses fetched at boot and post it to the box
+   (event `0x01CA0004`, `EV_TICKS`) when it changes
+2. When bit 2 of the main CPU's `sqsrtc` byte falls to 0 and
+   `HDAE5000_Get_Status_Byte` returns 1, either post the file-load events (if
+   the HD title 0x7F is current, `GetTitleNow` = `0x01A0007F`) or request title
+   0x7F (`HDAE5000_RequestTitle15`)
+3. Jump to the PC-link handler (`HDAE5000_PPORT_ServicePending`)
+
+(Details: `HDAE5000_Frame_Handler`'s header in `hdae5000/hdae5000_ui_display.s`
+and [HDAE5000 Filesystem — Lyric Files]({{ site.baseurl }}/hdae5000-filesystem/#lyric-files-tlx).)
 
 ---
 

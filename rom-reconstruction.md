@@ -437,8 +437,9 @@ Byte identity says the source reproduces the ROM. It says nothing about whether 
 can state what a given range of bytes *represents*. That is a separate measurement, and it
 is the one that decides whether "the ROMs are done" is true.
 
-**Of the 12,386,304 bytes across the twelve distinct images, about 93.8 % (≈11.61 MB) can
-be explained. The 95 % confidence interval is 86.7 % – 96.6 %.** Under the strictest
+**In the September 2 run, of the 12,386,304 bytes across the twelve distinct images, about
+93.8 % (≈11.61 MB) could be explained. The 95 % confidence interval was 86.7 % – 96.6 %.**
+(The Wave 2 re-run of 2026-09-25 is [below](#after-wave-2-2026-09-25).) Under the strictest
 reading — that a section header does not explain a 30 KB blob it happens to sit above — it
 falls to about 82 %. The raw census reports 99.78 %; that figure is wrong by construction
 and the corrections are itemised below.
@@ -450,6 +451,44 @@ and the corrections are itemised below.
 The run, target list and audit sample are committed in
 `notes/data-census-2026-09-02/`, with the full account in
 `notes/DATA-CENSUS-2026-09-02.md`.
+
+### After Wave 2 (2026-09-25)
+
+The figures below this subsection are the September 2 run. Wave 2 of the semantic push
+(twenty file-disjoint lanes, all merged to main at `5fc8d5bd`) re-ran the same instrument.
+Its per-image buckets, from `notes/lanes/wave2-2026-09-25/census-after-wave2.txt` (every
+byte of every image in exactly one bucket, total delta 0):
+
+| image | CODE | KNOWN-A | KNOWN-B | UNKNOWN | FILLER | strict |
+|---|---:|---:|---:|---:|---:|---:|
+| v10 | 995,508 | 917,658 | 108,608 | 16,943 | 58,435 | 94.01 % |
+| v9 | 995,358 | 917,199 | 109,203 | 16,943 | 58,449 | 93.98 % |
+| v7 | 985,895 | 915,445 | 114,755 | 20,662 | 60,395 | 93.54 % |
+| v142 sub-CPU | 128,860 | 65,969 | 1,687 | 44 | 48 | 99.12 % |
+| sub-CPU boot | 3,604 | 870 | 35 | 0 | 126,563 | 99.97 % |
+| table data | 19,426 | 1,800,585 | 95,143 | 0 | 181,998 | 95.46 % |
+| custom data | 0 | 660,657 | 0 | 0 | 387,919 | 100 % |
+| HD-AE5000 | 112,324 | 373,890 | 7,736 | 0 | 30,338 | 98.52 % |
+| `prom_a` | 324,950 | 107,566 | 24,023 | 1,355 | 66,394 | 95.16 % |
+| `prom_b` | 204,396 | 163,160 | 85,108 | 620 | 71,004 | 83.65 % |
+| `prom_c` | 207,511 | 177,152 | 10,409 | 0 | 129,216 | 98.01 % |
+| `prom_d` | 0 | 329,425 | 1,096 | 0 | 193,767 | 99.79 % |
+| **total** | **3,977,832** | **6,429,576** | **557,803** | **56,567** | **1,364,526** | **95.04 %** |
+
+*Strict* = CODE + KNOWN-A + FILLER: bytes that are either instructions, fill, or data
+whose header states what it is *and* cites evidence. Across the tree it went from 64.15 % to
+**95.04 %**. KNOWN-B (a name only) fell from 4,428,721 B to 557,803 B. UNKNOWN rose from
+12,357 B to 56,567 B. That rise is intended: the lanes replaced names that hid ignorance
+with headers that admit it, and the census counts an admission as UNKNOWN or as a research
+target (328,853 B in 5,077 ranges). Re-derive with
+`python3 scripts/analysis/data_range_census.py`; the toolchain for every figure is
+`tlcs900_backend@4d7fa4f6b37c`. The lane-by-lane account, including what each lane could not
+do, is in `notes/lanes/wave2-2026-09-25/` (`README.md`, `lane-reports/*.json`,
+`WAVE3-LEADS.md`).
+
+The hand audit that corrected the September 2 figure (40 size-weighted regions; below) has
+**not** been repeated on the Wave 2 buckets. So 95.04 % is a raw strict share, not an
+audited one.
 
 > The thirteenth gated image, `kn5000_subprogram_v142_compressed.rom`, is deliberately
 > outside the denominator: it is the v1.42 payload re-compressed, so its bytes are already

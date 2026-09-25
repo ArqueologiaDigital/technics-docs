@@ -248,14 +248,19 @@ Above the interrupt-driven byte-level I/O, `MidiSerial_ProcessInput` (`0xFCF9AE`
 
 ### Command Jump Table
 
-The 16-entry jump table at `MidiSerial_CmdJumpTable` dispatches to:
+The 16-entry jump table at `MidiSerial_CmdJumpTable` covers the **system** messages
+`F0`-`FF`, indexed by the status byte's low nibble (reader `MidiRx_SystemMsgDispatch`):
 
-| Index | Handler | Purpose |
-|-------|---------|---------|
-| 0-1 | `MidiSerial_HandleDefault_Data` | Default (pass-through) |
-| 2 | `MidiSerial_HandleSysReset_Data` | System Reset handling |
-| 3 | `MidiSerial_HandleSysCommon_Data` | System Common (Song Position, etc.) |
-| 4-15 | `MidiSerial_HandleDefault_Data` | Default (pass-through) |
+| Index | Status | Handler | Purpose |
+|-------|--------|---------|---------|
+| 0-1 | `F0`, `F1` | `MidiSerial_HandleDefault_Data` | sets bit 0 of RAM `0x428` |
+| 2 | `F2` | `MidiSerial_HandleSongPosition` | Song Position Pointer: data word to RAM `0x42D`/`0x42E` (bit 7 of the high byte set per `0xFD52` bit 2) |
+| 3 | `F3` | `MidiSerial_HandleSongSelect` | Song Select: data byte to RAM `0x42C` (bit 7 set per `0xFD51` bit 3) |
+| 4-15 | `F4`-`FF` | `MidiSerial_HandleDefault_Data` | sets bit 0 of RAM `0x428` |
+
+Slots 2 and 3 were earlier labelled `MidiSerial_HandleSysReset_Data` / `_HandleSysCommon_Data`.
+The midi lane renamed them in September 2026 from the status bytes that reach them
+(`scripts/renaming/rename_midi_syscommon.sed`).
 
 ## MIDI THRU
 

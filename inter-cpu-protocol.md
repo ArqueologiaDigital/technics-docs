@@ -62,7 +62,10 @@ The KN5000 uses two TMP94C241F CPUs that communicate via a pair of memory-mapped
 
 ### Lock Mechanism
 
-The Main CPU uses a semaphore system to serialize access to the inter-CPU latch:
+The Main CPU uses a semaphore system to serialize access to the inter-CPU latch. The two
+routines are the multitasking kernel's **generic** semaphore P/V: `Audio_Lock_Release` is a byte
+twin of the sub CPU's `TaskSem_Release`, and the "lock index" is a semaphore number. The names
+are historical; see [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/#the-two-kn5000-cpus-share-kernel-code-byte-for-byte).
 
 ```asm
 ; Acquire lock before sending
@@ -736,7 +739,7 @@ The following naming patterns are used consistently across both CPUs:
 
 | Main CPU Pattern | Sub CPU Pattern | Relationship |
 |-----------------|-----------------|--------------|
-| `Audio_Lock_*` | — | Serialization (Main CPU only, 8 lock slots) |
+| `Audio_Lock_*`, `AudioLock_*` | `TaskSem_*`, `TaskSched_Wait` | Kernel semaphores (the same code on both CPUs; the main-CPU names are historical) |
 | `Audio_DMA_Transfer` | `InterCPU_DMA_Send` | Core DMA routines (one per CPU direction) |
 | `InterCPU_E1_*` | `InterCPU_E1_DMA_Transfer` | E1 bulk transfer protocol (both sides) |
 | `InterCPU_E2_Send` | `Cmd_Check_E2_Pending` | E2 parameter transfer (send vs. deferred receive) |

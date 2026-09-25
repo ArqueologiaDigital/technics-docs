@@ -240,6 +240,40 @@ separate builds rather than copies, so the match is structural (decoded token se
 graded against a foil) and not a byte match. See
 [Shared Codebase Map]({{ site.baseurl }}/technics-shared-codebase/#-one-kernel-four-processors-two-products).
 
+### The two KN5000 CPUs share kernel code byte for byte
+
+Between the KN5000's own two processors the match is closer. 273 runs of at least 16 bytes
+(11,946 bytes in all) of the v1.42 Sub CPU payload occur verbatim in the v10 main-CPU ROM
+(`python3 scripts/analysis/v142_maincpu_shared_code_scan.py --min 16`, which needs both ELFs
+built). A run that starts at the same offset in both enclosing routines (ALIGNED) is the
+script's strongest sign that the two names label the same routine. That is how the subcpu lane (September 2026) found several
+main-CPU kernel names to be wrong. The main-CPU source still carries these names:
+
+| Sub CPU (v1.42, named from the code) | Main CPU (v10 label) | aligned run |
+|:---|:---|:---|
+| `TaskSched_SpawnTask` | `Show_ScreenGroup_Entry` (0xEF1B9C) | 63 B at +32 |
+| `TaskSched_ExitCurrentTask` | `Show_ScreenGroup_Entry_0x7A` | 20 B at +29 |
+| `TaskSched_PreemptiveYield` | `TaskSched_YieldToQueue` | 63 B at +21 |
+| `TaskSched_Block_Self` — blocks the **calling** task | `TaskSched_Resume` (0xEF1CEC) | 56 B at +15 |
+| `TaskEvent_Signal` / `TaskEvent_Wait_Block` | `TaskSched_SignalEvent` / `TaskSched_WaitForEvent_Block` | 38 B / 30 B |
+| `TaskSem_Release` (semaphore V) | `Audio_Lock_Release` (0xEF1F0F) | 44 B at +39 |
+| `TaskSem_Release_WakeWaiter` | `AudioLock_Release_WakeWaiter` | 16 B at +56 |
+| `TaskSem_TryDec` / `TaskSem_GetCount` | `AudioLock_TryAcquire` / `AudioLock_GetCount` | 22 B / 26 B |
+| `TaskMsgQ_Send` / `TaskMsgQ_Receive` | `TaskMsg_Send` / `TaskMsg_Receive` | 41 B at +37 and 54 B at +102 / 39 B at +23 |
+
+So **`Audio_Lock_Acquire` / `Audio_Lock_Release` are the kernel's generic semaphore P/V
+routines**, not an audio-specific lock. Their "lock index" is a semaphore number. The audio
+command path happens to use semaphore 7 (see
+[Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/#lock-mechanism)).
+`Show_ScreenGroup_Entry` spawns a task. `TaskSched_Resume` puts the calling task to sleep
+rather than resuming another. The run table also pairs the scheduler's init and dispatch
+(`TaskSched_Init_TaskDescriptors` / `TaskSched_InitTCBFields`,
+`TaskSched_Dispatch_ScanQueues` / `TaskSched_ScanPriorityQueues`) and the timer tick
+(`TaskSched_SoftTimer_Service` / `TaskSched_TimerTick`). The same scan shows that main-CPU
+`Free_ClearByte` (0xFF0BC3) is byte-identical to the sub CPU's `Int_SignedDiv` over 170 bytes.
+Source: `notes/lanes/wave2-2026-09-25/lane-reports/subcpu.json`, and the sub-CPU headers
+(`TaskSem_Release`'s says it was `TaskSched_PreemptiveYield_INT` until September 2026).
+
 ### Audio Processing Architecture
 
 The Sub CPU's primary role is real-time audio synthesis and effects processing. It manages:

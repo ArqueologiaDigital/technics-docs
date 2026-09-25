@@ -133,8 +133,11 @@ records store `0xCF`.
 ## How the firmware loads it
 
 Three main-CPU routines, cited at their v10 addresses; v7 and v9 carry the same code at
-shifted addresses. These addresses are still in an unconverted region of the program ROM,
-so the symbol table only has placeholder names for them.
+shifted addresses. The routines now carry names in the v10 source, but the names do not
+describe what they do here: `Display_CopyAndRenderBitmaps` (0xFC81EF),
+`VoiceData_ExtendedParamSetup` (0xFC7E82) and `VoiceData_InitAndCopyParams` (0xFC7DD8). The
+`tdata` lane recorded this in `table_data/panel_memory_presets.s` and left the rename to the
+file's owner.
 
 **`0xFC81EF` -- initialise everything.**
 
@@ -179,7 +182,7 @@ ld XIY,0x9B4000 / ld XIX,0x94800 / ld BC,0x8000 / ldirw   ; 0x8000 words = 64 KB
 
 That code is at main-CPU **0xF6413A** in v9 and v10 and **0xF63D36** in v7; the v7 source
 tree has it at `v7/maincpu/sequencer/accompaniment_engine.s:16703` under the placeholder
-label `AccWidget_DispatchTable`, which does not describe it (a rename is pending). Because
+label `AccWidget_DispatchTable` (the same label at 0xF6413A in v9 and v10), which does not describe it: it is the Composer image copier (a rename is pending). Because
 nothing addresses inside the image, the block stays a single labelled `.incbin` slice.
 
 Structure observed in the image (offsets are image-relative; add 0x9B4000 for ROM):
@@ -241,8 +244,8 @@ Open items on this block:
   `0x80`, `0x90`-`0x99`) is unknown;
 * the preset-15 `0x19`/`0xC0` outlier is unexplained;
 * the Composer image's header words and its 0x1300-0xAB00 span are undescribed;
-* the loader routines still carry placeholder `LABEL_*` names because that part of the
-  program ROM has not been converted.
+* the loader routines carry misleading names (`Display_CopyAndRenderBitmaps`,
+  `VoiceData_ExtendedParamSetup`, `VoiceData_InitAndCopyParams`); renaming them is pending.
 
 ## Provenance
 

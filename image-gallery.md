@@ -29,43 +29,43 @@ The Table Data ROM also contains 8 system update message bitmaps at address `0x9
 
 **Note:** The Table Data ROM uses 16-bit word-level interleaving (stored across two physical ROM chips: odd.ic1 and even.ic3). When properly combined, the bitmap data is byte-identical to the Main CPU versions. The disassembly source shares the same bitmap files between both ROMs.
 
-### FTBMP01 - Technics Logo + World Globe (`FTDEMO_SCREEN01_TECHNICS_GLOBE`)
+### FTBMP01 - Technics Logo + World Globe (`Feature_Bitmap_1`, 0x880418)
 
 ![FTBMP01]({{ "/assets/images/gallery/FTBMP01.png" | relative_url }})
 
 *320x240, 8-bit color* — The Technics brand logo overlaid on a world globe graphic. Used as the opening image of the Feature Demo presentation.
 
-### FTBMP02 - Subwoofers (`FTDEMO_SCREEN02_SUBWOOFERS`)
+### FTBMP02 - Subwoofers (`Feature_Bitmap_2`, 0x89344E)
 
 ![FTBMP02]({{ "/assets/images/gallery/FTBMP02.png" | relative_url }})
 
 *320x130, 8-bit color* — A showcase image of the KN5000's integrated subwoofer speakers.
 
-### FTBMP03 - Floppy Disks (`FTDEMO_SCREEN03_FLOPPY_DISKS`)
+### FTBMP03 - Floppy Disks (`Feature_Bitmap_3`, 0x89DB04)
 
 ![FTBMP03]({{ "/assets/images/gallery/FTBMP03.png" | relative_url }})
 
 *320x120, 8-bit color* — A collection of floppy disks, highlighting the keyboard's built-in floppy drive.
 
-### FTBMP04 - Disk Insertion (`FTDEMO_SCREEN04_DISK_INSERT`)
+### FTBMP04 - Disk Insertion (`Feature_Bitmap_4`, 0x8A753A)
 
 ![FTBMP04]({{ "/assets/images/gallery/FTBMP04.png" | relative_url }})
 
 *320x120, 8-bit color* — A floppy disk being inserted into the KN5000's drive slot.
 
-### FTBMP05 - 360° Surround Arrows (`FTDEMO_SCREEN05_SURROUND_ARROWS`)
+### FTBMP05 - 360° Surround Arrows (`Feature_Bitmap_5`, 0x8B0F70)
 
 ![FTBMP05]({{ "/assets/images/gallery/FTBMP05.png" | relative_url }})
 
 *320x125, 8-bit color* — Arrows arranged in a 360° pattern, representing the keyboard's surround sound capabilities.
 
-### FTBMP06 - KN5000 + Rainbow Comet (`FTDEMO_SCREEN06_KN5000_RAINBOW`)
+### FTBMP06 - KN5000 + Rainbow Comet (`Feature_Bitmap_6`, 0x8BAFE6)
 
 ![FTBMP06]({{ "/assets/images/gallery/FTBMP06.png" | relative_url }})
 
 *320x240, 8-bit color* — The KN5000 model name with a rainbow comet graphic. Used as the closing image of the Feature Demo presentation.
 
-**Note:** All six FTBMP images reside on floppy disk (not in ROM). The "IN COLOR" text visible in the Feature Demo splash screen is pre-rendered directly into these bitmap files. Disassembly symbols: `FTDEMO_SCREEN01_TECHNICS_GLOBE` through `FTDEMO_SCREEN06_KN5000_RAINBOW`.
+**Note:** All six FTBMP images are stored in the **table-data ROM** as ordinary BMP files (`Feature_Bitmap_1`..`6`, `0x880418` onward; see [Table Data ROM]({{ site.baseurl }}/table-data-rom/#feature-demo-assets-0x87fff0-0x8ce0c9)). They are the Feature Demo's slides. An earlier version of this note placed them on floppy disk. The welcome screen's "IN COLOR" / "IN COLOUR" lettering is not in these files: the program ROM draws it letter by letter from 16×17 glyphs ([Boot Sequence]({{ site.baseurl }}/boot-sequence/)). The headings above give each file's label in `table_data/kn5000_table_data.s`.
 
 ---
 
@@ -222,13 +222,13 @@ Small icon depicting a hard disk with magnetic head, used in UI elements. Its re
 
 *42x15, 8-bit indexed color - ROM offset: 0x63464 (CPU: 0x2E3464)* — not yet extracted as an asset.
 
-A raised button reading "STORE", provided by `HDAE5000_BitmapButt01` (0x28B527, registered as `BitmapButt01`) with its own greyscale-ramp palette at `0x2E3064`. It sits inside the range the disassembly still labels `HDAE5000_Path_Strings` / `HDAE5000_UI_Icons`, which is why those "strings" read as runs of `)BBBB…`, `BZZZZ…` and repeated brace characters — those are pixel values (0x29, 0x42, 0x5A, 0x7B), not text.
+A raised button reading "STORE", provided by `HDAE5000_BitmapButt01` (0x28B527, registered as `BitmapButt01`) with its own greyscale-ramp palette at `0x2E3064`. The disassembly labels the pair `HDAE5000_Palette_Button01` / `HDAE5000_Bitmap_Button01`. Older labels (`HDAE5000_Path_Strings`, `HDAE5000_UI_Icons`) once cut across it, which is why those "strings" read as runs of `)BBBB…`, `BZZZZ…` and repeated brace characters — those are pixel values (0x29, 0x42, 0x5A, 0x7B), not text.
 
 ---
 
 ## Preset Wallpapers (Table Data ROM)
 
-These background wallpapers are built into the firmware for the LCD display. Discovered via the `SetWallPaper` routine which references a wallpaper table at `0xEAAE62`.
+These background wallpapers are built into the firmware for the LCD display. The wallpaper table at `0xEAAE62` holds `{pixels, palette, 0}` records; `SetWallPaper` jumps to `ChangeWall`, whose `ChangeWall_Impl` selects the image and `ChangePalette_Impl` loads its palette from the 1 KB trailer after it (see [Table Data ROM]({{ site.baseurl }}/table-data-rom/#wallpapers-0x8ed000-0x900000)).
 
 **Technical details:**
 - Format: 320×240 pixels @ 8bpp (76,800 bytes each)

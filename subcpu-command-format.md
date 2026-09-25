@@ -226,7 +226,7 @@ Two shapes recur:
 
 | table | address | shape | dispatcher |
 |-------|---------|-------|------------|
-| `OFFSETS_F460` | `0x00F460` | 6 × `u16`, base `0x01FB76` | `Timer_AudioTick_Handler` round-robin (INTT1) |
+| `AudioTick_CaseOffsets` (was `OFFSETS_F460`) | `0x00F460` | 6 × `u16`, base `0x01FB76` | `Timer_AudioTick_Handler` round-robin (INTT1) |
 | `VOICEPARAM_TONE_OPTION_JUMPTABLE` | `0x00F965` | 7 × `u16`, base `0x02E89B` | `VoiceParam_Set_Tone_Option` (option 0-6) |
 | `AUDIO_CMD_TONEEDIT_JUMPTABLE` | `0x00F973` | 20 × `u16`, base `0x02EDB9` | `Audio_Cmd_ToneEdit_TableJump` (opcodes `0x00`-`0x13`) |
 | `DSP_EFFPARAM_APPLY_JUMPTABLE` | `0x00F99B` | 12 × `u16`, base `0x02F2D9` | `DSP_EffParam_Apply_By_AlgoType` (algorithm type 0-11) |
@@ -243,7 +243,7 @@ Two shapes recur:
 | `DSP_SETCOEFF_MASTERCONFIG_JUMPTABLE` | `0x00FAEE` | 24 × `u16`, base `0x0317CF` | `DSP_SetCoeff_MasterConfig` (selector 0-23; offset `0x0282` is the shared no-op arm) |
 | `VOICEPARAM_FINALIZE_QUERY_JUMPTABLE` | `0x00FB1E` | 8 × `u16`, base `0x031B5B` | `VoiceParamFinalize_SecondaryDispatch` (status bit 3 clear) |
 | `VOICEPARAM_FINALIZE_ACTION_JUMPTABLE` | `0x00FB2E` | 8 × `u16`, base `0x031AA1` | `Voice_ParamFinalize` (status bit 3 set) |
-| `AlgoJumpTable1`-`AlgoJumpTable6` | `0x00FB66`-`0x00FBE3` | 12/12/12/9/9/9 × `u16` | algorithm-type arms, bases `0x033812`, `0x0339DE`, `0x033E44`, `0x0340CC`, `0x0341BE`, `0x03429D` |
+| `DSP_AlgoType_Dispatch1_CaseOffsets`, `DSP_AlgoType_Dispatch2_CaseOffsets`, `DSP_AlgoType_Dispatch3_CaseOffsets`, `Algo_SubTable_DispatchB_CaseOffsets`, `Algo_SubTable_DispatchC_CaseOffsets`, `Algo_SubTable_Bit15Dispatch_CaseOffsets` (were `AlgoJumpTable1`-`6`) | `0x00FB66`-`0x00FBE3` | 12/12/12/9/9/9 × `u16` | algorithm-type arms, bases `0x033812`, `0x0339DE`, `0x033E44`, `0x0340CC`, `0x0341BE`, `0x03429D` |
 
 The same zone also holds `VoiceParamFinalize_HandlerParams` (`0x00FB3E`, 16 bytes), for
 which **no code reference has been found** — its "eight byte-pairs of handler operand sizes"
