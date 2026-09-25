@@ -48,9 +48,136 @@ purposes are read from what each module registers, not from an independent sourc
 
 Each module registers "object tables" that define UI component hierarchies using the `RegObjTable` / `RegObjTabl` macros.
 
+### Module numbers and the object table
+
+Every module registers its tables in one object table in RAM at `0x027ED2`.
+`RegisterObjectTable` copies a 14-byte record `{class id, proc, count, data}`
+to `0x027ED2 + 14 × index`. For most kinds of table the index is a **kind
+number plus the module number**:
+
+| Kind | Index | Class id | Proc | Holds |
+|------|-------|----------|------|-------|
+| Class table | 0x160 + module | `0x01600004` | `ClassProc` | the module's class definitions (see below) |
+| Function table | 0x100 + module | `0x01600001` | `FunctionProc` | code addresses; names at index + 0x300 |
+| ApFunction table | 0x120 + module | `0x01600002` | `ApFunctionProc` | code addresses; names at index + 0x300 |
+| MainFunction table | 0x140 + module | `0x01600003` | `MainFunctionProc` | code addresses; names at index + 0x300 |
+| ResEvent table | 0x1C0 + module | `0x0160000C` | `ResEventProc` | event names |
+| ResMethod table | 0x1E0 + module | `0x0160000D` | `ResMethodProc` | method names |
+
+The Class-table registrations in v10 give the module numbers: Root 0
+(`InitializeRoot`), Murai 1, Toshi 2, East 3, Suna 4, Cheap 5, Scoop 6, Yoko 7,
+Kubo 8, Hama 9 and Naka 0x0B. **The HD-AE5000 expansion ROM registers as module
+0x0A**, with the same class ids and procs, so its class table sits at 0x16A (see
+[HDAE5000 Homebrew]({{ site.baseurl }}/hdae5000-homebrew/#complete-handler-table)).
+Viewable tables (class id `0x01600010`, `ViewableProc`) and their name tables
+(`0x0160000F`, `ResNameProc`, index + 0x300) are numbered per screen family
+rather than per module. Examples are Naka's 0xFD, the HD-AE5000's 0x7F and
+Hama's 0xFC. Two further tables belong to the root: 0x180 holds the modes and
+0x1A0 the titles (see [Event Codes — Mode and Title Requests]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)).
+
+An **object id** is `index << 16 | entry`. `SendEvent` takes bits 16-27 of the
+id as the table index, so `0x016A0005` is entry 5 of table 0x16A and
+`0x007F01EE` is entry 0x1EE of Viewable table 0x7F. This is also why ids in the
+firmware so often begin `0x0160`: `0x016000nn` is entry *nn* of the root's class
+table, a class id. Several older pages called that value a "PPI port" or a "port
+address".
+
 ## Widget Type System (ClassProc Hierarchy)
 
 All UI widgets are implemented as "Proc" handlers — functions that receive events and respond based on their widget type. The framework uses a class hierarchy with inheritance.
+
+### The class system describes itself
+
+The NAKA object model is **self-describing**. Each module's Class table holds
+24-byte class definitions. The fields of a class definition are named by the
+root class that describes class definitions, `Class` (entry 4 of table 0x160):
+
+| Offset | Field | Size | Meaning |
+|--------|-------|------|---------|
+| +0 | `proc` | 4 | the class procedure (e.g. `ViewableProc`, `EffectBoxProc`) |
+| +4 | `parent` | 4 | class id of the parent class |
+| +8 | `allsize` | 2 | size of an instance record, inherited fields included |
+| +10 | `selfsize` | 2 | bytes this class adds to its parent's record |
+| +12 | `name` | 4 | → class name string |
+| +16 | `propdata` | 4 | → one type letter per own field |
+| +20 | `propname` | 4 | → one name pointer per letter, then a pointer to `""`, then the strings |
+
+**Class ids.** A class id is `0x016S_KKKK`, entry *KKKK* of the Class table at
+index 0x16S. `ClassProc` computes it with `srl 16; and 0xFFF` and a ×24 index.
+The C side calls the same record `naka_class_t` (members `proc`, `base_class`,
+`record_size`, `props_size`, `name`, `sig`, `props`) in
+`v10/maincpu/ui_widgets/naka_types.h`. The nakarest lane's typed copies use
+`naka_classdef_t`.
+
+**Every widget record starts with its class id.** The 4-byte "header"
+`TT 00 60 01` of older notes, read little-endian, is class id `0x016000TT`:
+entry *TT* of the root's class table. The "type byte" is therefore a class
+index: 0x2B `Label`, 0x2E `Line`, 0x31 `Box`, 0x34 `TtlScreen`, 0x35 `Window`,
+0x1D `AcTitleMenu`, 0x66 `AcLanguageText`, 0x6C `VwUserBitmapByName`. Records
+of classes defined by other modules carry 0x0161-0x0168 in the high half.
+
+**Field names come from the firmware.** The fields of every record are the
+concatenation of its class chain's own fields, and `propname` names each of
+them. The root of all widgets is `Viewable` (allsize 22):
+
+| Offset | Viewable field | What it holds (from the code) |
+|--------|----------------|-------------------------------|
+| +0 | `class` | the record's class id |
+| +4 | `super` | element index of the **parent** in the same Viewable table (0xFFFF = none) |
+| +6 | `sub` | index of the **first child** |
+| +8 | `next` | index of the **next sibling** |
+| +10 | `prev` | index of the **previous sibling** |
+| +12 | `flag` | |
+| +14 | `rect` | the screen rectangle x1, y1, x2, y2 (4 × 16 bits), inside the parent's |
+
+The ext lane established the four links and the rectangle by checking them
+against each other (`scripts/analysis/ext_lane_checks.py widgets` / `test1`).
+The nakarest lane found the firmware's own names for them. Subclasses append
+their fields. `Label` adds `str`, `font` and `fontcolor` (allsize 32).
+`TtlScreen` adds `title` and `icon` to `Screen`'s `exit` and `window` (allsize
+42). `AcTitleMenu` adds `str`, `title` and `icon` to `PsMenuBox`'s `font`,
+`fontcolor`, `align`, `editsw` and `selected` (allsize 54).
+
+**Type letters.** `propdata` has one letter per own field. The sizes were solved
+so that the letters' sizes sum to `selfsize` for all 292 classes:
+
+| Size | Letters |
+|------|---------|
+| 1 byte | `C` |
+| 2 bytes | `A` `B` `G` `[` `]` `^` `_` `d` `e` `f` `g` `h` `l` `u` `v` `w` |
+| 4 bytes | `F` `I` `J` `K` `L` `M` `N` `X` `` ` `` `a` `b` `c` `i` `j` `k` `m` `n` `r` `s` `t` |
+| 8 bytes | `P` (a rectangle) |
+
+The nakabig lane found one exception to its smaller letter table: `AcCmpRecBox`
+with `"CC"`. The nakarest table resolves it with `C` = 1 byte.
+
+**Measured invariants** (v10, v9 and v7 alike):
+
+- 292 classes in the 10 Class tables the main CPU registers. By table: 0x160
+  Root 109, 0x161 Murai 37, 0x162 Toshi 28, 0x163 East 16, 0x164 Suna 41, 0x165
+  Cheap 13, 0x167 Yoko 22, 0x168 Kubo 26.
+- `allsize = parent.allsize + selfsize` for all 291 classes that have a parent.
+  The root class `Object` (`0x01600000`) contributes no prefix.
+- All 3,340 widget records in the 209 registered Viewable tables resolve to a
+  class, and none lies closer to the next record than its `allsize`.
+- nakabig's independent count: 3,340 of the 3,367 Viewable-registered records
+  match a known class, and none overlaps the next record.
+
+Reproduce with `python3 scripts/analysis/nakarest_objtab_map.py v10 --classes`,
+which prints every class with its fields at their offsets, and with
+`--check-classes`, which asserts the invariants. Both need a built
+`rebuilt_ROMs/kn5000_v10_program.llvm.elf`. The nakabig lane's extractor is
+`scripts/analysis/naka_class_descriptors.py`.
+
+The widget records in the NAKA C blobs are now typed through this model. The
+nakarest lane typed 3,197 of 3,234 records in 14 C files as per-class
+`naka_cls_<Class>_t` structs, using the firmware's field names. The nakabig
+lane's three files are sized and headed by class, but their records are still
+byte/u16/u32 arrays. Generating one C struct per class for every NAKA file is
+open work (`notes/lanes/wave2-2026-09-25/WAVE3-LEADS.md`).
+
+The class-name lists below predate this model. They sort the procs by prefix
+and are not the class tree.
 
 ### Base Classes
 
@@ -214,10 +341,12 @@ Events use 32-bit codes divided into two spaces:
 | `EVT_POST_INIT` | 0x1C0000D | Post-initialization hook |
 | `EVT_INIT_HOOK` | 0x1C0000F | Custom initialization |
 | `EVT_CPANEL_EVENT` | 0x1C00013 | Control panel button/encoder event |
-| `EVT_HD_INIT_PARAMS` | 0x1C00016 | Hard disk parameter init |
+| — | 0x1C00014 | Mode request, parameter `0x0180nnnn` ([details]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)) |
+| — | 0x1C00015 | Title request, parameter `0x01A0nnnn` |
+| `EVT_HD_INIT_PARAMS` | 0x1C00016 | Title request, parameter `0x01A0nnnn`. The constant's name ("hard disk parameter init") is wrong |
 | `EVT_BUTTON_FOCUS` | 0x1C00039 | Button focus during selection |
-| `EVT_DISPLAY_CALLBACK` | 0x1CA0000 | Display update callback |
-| `EVT_DISPLAY_UPDATE` | 0x1CA0004 | Force display update |
+| `EVT_DISPLAY_CALLBACK` | 0x1CA0000 | HD-AE5000 event 0 (`EV_SeqStop`), not a display callback |
+| `EVT_DISPLAY_UPDATE` | 0x1CA0004 | HD-AE5000 event 4 (`EV_TICKS`): song position for the lyric box |
 
 **Getter events (0x1E0xxxx)** — Query widget state:
 

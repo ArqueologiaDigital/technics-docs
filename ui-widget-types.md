@@ -8,57 +8,79 @@ permalink: /ui-widget-types/
 
 The KN5000 firmware uses a widget object system (internally referred to as "NAKA") for structured UI elements. The **NAKA_UIObjectTable** at ROM address `0xE1344E` contains 478 `.long` pointers to widget structures, registered by `InitializeNaka` (`0xF165EB`) with handler `ViewableProc` at `0xFA5995`. Beyond this table, there are approximately **1,410 total widget structures** across the entire Program ROM using 9 distinct type bytes.
 
+> **Superseded model.** In September 2026 the firmware's own class definitions
+> were decoded (lanes nakabig and nakarest; see
+> [UI Framework — The class system describes itself]({{ site.baseurl }}/ui-framework/#the-class-system-describes-itself)).
+> The "type byte" on this page is the index of the record's **class** in the
+> root module's Class table. The "header" is the record's class id. The class
+> definitions name every field. The sections below keep the older field-analysis
+> names beside the firmware's names.
+
 ## Widget Structure Header
 
-All widget structures share a 4-byte header encoded as a 32-bit little-endian value:
+Every widget record starts with its **class id**, a 32-bit little-endian value:
 
 ```
-Byte 0: type_byte   (widget type identifier)
-Byte 1: 0x00        (always zero)
-Byte 2: 0x60        (fixed)
-Byte 3: 0x01        (fixed)
+Byte 0: class index (the "type byte" of older notes)
+Byte 1: high byte of the class index (0x00 in every record seen)
+Byte 2: low byte of the Class-table index (0x60 = root module, 0x61-0x68 = other modules)
+Byte 3: 0x01
 ```
 
-The 32-bit LE value is `0x01600000 | type_byte`. This header is immediately followed by type-specific fields.
+For the root module the value is `0x01600000 | index`: entry *index* of the
+Class table at object-table index 0x160. 2,869 of the 3,340 v10 records use a
+root class. The rest use classes of modules 1-8 (`0x0161KKKK`-`0x0168KKKK`).
 
 ## Type Byte Inventory
 
-| Type Byte | Count | Tentative Name | Key Characteristics |
-|-----------|-------|----------------|---------------------|
-| `0x16` | 3 | Diagnostic List | FD SAVE/LOAD TEST only, counter display with label string |
-| `0x1e` | 31 | Panel/Dialog | 4 sub-widget indices, full-screen bounding box |
-| `0x2b` | 765 | Label/Button | String pointer (e.g. "200 Preset"), bounding box |
-| `0x2e` | 148 | Value Display | Fixed 26 bytes, bounding box, no string pointer |
-| `0x2f` | 18 | Option/Choice | Similar to 0x2e but with different flags |
-| `0x30` | 16 | Slider/Range | Range parameters (min/max), data pointer |
-| `0x31` | 120 | Composite/Group | Links to child indices, bounding box, 22-26 bytes |
-| `0x34` | 196 | Container/Frame | Defines screen bounds, string pointer, 42-44 bytes |
-| `0x66` | 110 | List/Selector | Dual coordinate sets, count fields, 38-42 bytes |
-| `0x6c` | 6 | Bitmap/Image | FTDEMO_SCREEN only, references FTBMPXX strings |
+The class names in the second column are the firmware's own, read from the root
+Class table (`python3 scripts/analysis/nakarest_objtab_map.py v10 --classes`).
+The counts and characteristics are the older field analysis.
 
-**Note:** Type names are tentative, based on field analysis rather than complete dispatch tracing.
+| Type Byte | Count | Class (firmware name) | Key Characteristics |
+|-----------|-------|----------------|---------------------|
+| `0x16` | 3 | `PsNumEditBox` | FD SAVE/LOAD TEST only, counter display with label string |
+| `0x1e` | 31 | `PsEditSwBox` | 4 sub-widget indices, full-screen bounding box |
+| `0x2b` | 765 | `Label` | String pointer (e.g. "200 Preset"), bounding box |
+| `0x2e` | 148 | `Line` | Fixed 26 bytes, bounding box, no string pointer |
+| `0x2f` | 18 | `Frame` | Similar to 0x2e but with different flags |
+| `0x30` | 16 | `EditSw` | Range parameters (min/max), data pointer |
+| `0x31` | 120 | `Box` | Links to child indices, bounding box, 22-26 bytes |
+| `0x34` | 196 | `TtlScreen` | Defines screen bounds, string pointer, 42-44 bytes |
+| `0x66` | 110 | `AcLanguageText` | Dual coordinate sets, count fields, 38-42 bytes |
+| `0x6c` | 6 | `VwUserBitmapByName` | FTDEMO_SCREEN only, references FTBMPXX strings |
+
+The tentative names this table used to carry (Diagnostic List, Panel/Dialog,
+Label/Button, Value Display, Option/Choice, Slider/Range, Composite/Group,
+Container/Frame, List/Selector, Bitmap/Image) came from field analysis. The
+class names replace them.
 
 ## Common Structure Layout
 
-Widget structures share a common prefix after the 4-byte header:
+Every widget class descends from `Viewable`, so every record starts with
+`Viewable`'s 22 bytes. The names are the firmware's (`propname` of class
+`Viewable`); the meanings were established independently by the ext lane
+(`scripts/analysis/ext_lane_checks.py widgets` / `test1`):
 
 ```
-Offset  Size   Field
-------  ----   -----
- 0      1      type_byte         ; Widget type (see table above)
- 1      1      0x00              ; Always zero
- 2      1      0x60              ; Fixed
- 3      1      0x01              ; Fixed
- 4      2      index1 (16-bit LE); Primary parent/group index (0xFFFF = none)
- 6      2      index2 (16-bit LE); Related index (meaning varies by type)
- 8      2      index3 (16-bit LE); Related index
-10      2      index4 (16-bit LE); Related index (0xFFFF = none)
-12      1      flags_byte        ; 0x08 (most types) or 0x0A (type 0x34)
-13      1      0x00              ; Padding
-14+     ...    type-specific fields (coordinates, dimensions, pointers)
+Offset  Size   Field    Meaning
+------  ----   -----    -------
+ 0      4      class    class id (the "type byte" header)
+ 4      2      super    element index of the PARENT            (0xFFFF = none)
+ 6      2      sub      element index of the FIRST CHILD       (0xFFFF = none)
+ 8      2      next     element index of the NEXT SIBLING       (0xFFFF = none)
+10      2      prev     element index of the PREVIOUS SIBLING   (0xFFFF = none)
+12      2      flag     (0x08 in most records, 0x0A in TtlScreen records)
+14      8      rect     x1, y1, x2, y2: screen rectangle inside the parent's
+22+     ...    the fields each subclass adds, in class-chain order
 ```
 
-The index fields at offsets 4-11 are 16-bit little-endian indices into the NAKA_UIObjectTable. The sentinel value `0xFFFF` means "no reference."
+The indices are elements of the same Viewable table the record is registered
+in (for NAKA's own screens, `NAKA_UIObjectTable`). The older reading here, one
+"primary parent/group index" followed by three "related" indices, and the
+`naka_type_0x48_t` member names `parent_idx` / `prev_sibling` / `self_idx` /
+`next_sibling` in `naka_types.h`, are superseded. The "screen group / widget
+index" comments some sources still carry are also wrong.
 
 ## Dispatch Mechanism
 
@@ -170,6 +192,16 @@ All 26 NAKA widget data blocks have been converted from raw `.byte` assembly dir
 
 **Dispatch types** (0x00, 0x10, 0x12, 0x15, 0x20, 0x21, 0x22, 0x26, 0x27, 0x33, 0x40, 0x44, 0x45, 0x47, 0x54, and others) all share a compact 24-byte layout: 4-byte header + `field_04` (uint16) + `field_06` (uint16) + `name_ptr` + `inst_ptr` + `link_ptr` + `proc_addr` (four uint32 pointers).
 
+> **These are not widgets.** A `naka_dispatch_t` is a 24-byte **class
+> definition** read 4 bytes late. Its "header" is the class's `parent` id,
+> `field_04`/`field_06` are `allsize`/`selfsize`, `name_ptr` is `name`,
+> `inst_ptr` is `propdata` (the type letters) and `link_ptr` is `propname`.
+> `proc_addr` is the `proc` of the **next** class definition. The nakarest lane
+> retyped 151 whole class definitions (plus one split record) as
+> `naka_classdef_t {proc, parent, allsize, selfsize, name, propdata, propname}`.
+> The 27 class definitions in `naka_master_style.c` are still untyped. See
+> [UI Framework — The class system describes itself]({{ site.baseurl }}/ui-framework/#the-class-system-describes-itself).
+
 ### Pointer Resolution Macros
 
 | Macro | Purpose |
@@ -180,6 +212,18 @@ All 26 NAKA widget data blocks have been converted from raw `.byte` assembly dir
 | `ALIGNED_STRING(s)` | NUL-terminated string with 0xFF pad to even boundary |
 
 ### handler_table Field (CONTAINER / MENU_ITEM)
+
+> **Superseded.** The class definitions name these fields. In a CONTAINER
+> (class `TtlScreen`, 0x34) offset +30 is `window`, a field inherited from
+> `Screen` (`Screen` adds `exit` at +26 and `window` at +30). In a MENU_ITEM
+> (class `AcTitleMenu`, 0x1D) offset +38 is `selected`, inherited from
+> `PsMenuBox`. Both have 4-byte type letters (`r` and `m`). The +2 step from
+> one menu item to the next fits `selected` pointing at consecutive 16-bit RAM
+> cells. The values seen, 0x0003F434 and up, fall inside the work-RAM image that
+> `Boot_InitWorkRAM` copies to 0x3D524-0x3F6C1 at boot (see
+> [Memory Map — Work-RAM image]({{ site.baseurl }}/memory-map/#work-ram-initial-image)).
+> Nobody has yet traced how `InheritedProc` uses them. The earlier reading
+> follows, kept for its evidence.
 
 The `handler_table` field (offset +30 in CONTAINER, +38 in MENU_ITEM) is **not a function pointer** — it is a DRAM address pointing to an **event handler dispatch table**. The firmware's `InheritedProc` function:
 
