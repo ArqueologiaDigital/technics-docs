@@ -503,7 +503,21 @@ CREATE event (0x1C00001):
     │                     (posts event 0x1E000B3)
 ```
 
-**Normal splash animation**: On a successful boot with no special buttons held, the firmware displays a splash screen with the Technics/KN5000 logo and animated palette effects (palette cycling, spotlight-like illumination). The animation uses region-specific data tables — Region 2 uses different graphics than other regions. The animation is rendered via `ScreenGroup_Dispatch` (0xFDDB46) which manages UI widget groups. The visual assets (Technics logo, world globe, "KN5000 IN COLOR" rendered text) are stored as pre-rendered bitmaps on the bootup floppy disk (files `FTBMP01`–`FTBMP06`), not in the ROM; the ROM contains only the animation control code.
+**Normal splash animation**: On a successful boot with no special buttons held, the firmware displays a splash screen with the Technics/KN5000 logo and animated palette effects (palette cycling, spotlight-like illumination). The animation uses region-specific data tables — Region 2 uses different graphics than other regions. The animation is rendered via `ScreenGroup_Dispatch` (0xFDDB46) which manages UI widget groups.
+
+The welcome screen's letters are **in the program ROM** (the nakarest lane, September 2026).
+`AcWelcomScreenProc` (0xF7F4A6) runs a small **welcome script**: 12-byte steps
+`{delay, x, y, op, arg}` interpreted by `AcWelcomScreen_RenderBytecode` through a 13-entry
+op table. There are two step tables: table A (186 steps) is used when `Get_Region_Code`
+returns 2, table B (191 steps) otherwise. The ops draw seven 16×17 1-bpp glyphs (C, I, L, N,
+O, R, U; rows stored bottom-up, drawn by `DrawBitmapSP2_Impl`) one letter at a time. Table A
+spells **IN COLOR**, table B **IN COLOUR**. The glyphs sit under older labels that predate this
+reading (`Bitmap_Digit1` is the I, `Bitmap_DigitD` the U). The Technics logo (312×45,
+`Bitmap_Technics_Logo`) and the KN-5000 logo (199×36, `Bitmap_KN5000_Logo`) are ROM bitmaps
+too. Source: the welcome-script headers in `v10/maincpu/ui_widgets/technichord_string_data.s`
+and `welcome_step_t` in `naka_technichord_strings.c`. This page used to say the assets were
+pre-rendered bitmaps on the boot floppy (`FTBMP01`–`FTBMP06`). Those six are the
+[Feature Demo]({{ site.baseurl }}/feature-demo/)'s slides, stored in the table-data ROM at `0x880418`-`0x8CE01B`.
 
 **"ALL INITIAL SETTING!" screen**: This appears when the firmware version button combo (GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR) is held at power-on, **not** because of NVRAM loss or factory reset detection. This is a diagnostic/service mode, not an error condition.
 

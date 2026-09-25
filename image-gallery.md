@@ -65,7 +65,7 @@ The Table Data ROM also contains 8 system update message bitmaps at address `0x9
 
 *320x240, 8-bit color* — The KN5000 model name with a rainbow comet graphic. Used as the closing image of the Feature Demo presentation.
 
-**Note:** All six FTBMP images reside on floppy disk (not in ROM). The "IN COLOR" text visible in the Feature Demo splash screen is pre-rendered directly into these bitmap files. Disassembly symbols: `FTDEMO_SCREEN01_TECHNICS_GLOBE` through `FTDEMO_SCREEN06_KN5000_RAINBOW`.
+**Note:** All six FTBMP images are stored in the **table-data ROM** as ordinary BMP files (`Feature_Bitmap_1`..`6`, `0x880418` onward; see [Table Data ROM]({{ site.baseurl }}/table-data-rom/#feature-demo-assets-0x87fff0-0x8ce0c9)). They are the Feature Demo's slides. An earlier version of this note placed them on floppy disk. The welcome screen's "IN COLOR" / "IN COLOUR" lettering is not in these files: the program ROM draws it letter by letter from 16×17 glyphs ([Boot Sequence]({{ site.baseurl }}/boot-sequence/)). Disassembly symbols: `FTDEMO_SCREEN01_TECHNICS_GLOBE` through `FTDEMO_SCREEN06_KN5000_RAINBOW`.
 
 ---
 
