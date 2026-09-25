@@ -556,7 +556,8 @@ granularity of a whole blob. Its run is in `notes/data-census-2026-09-02/` and
 95.04 % together with that sentence.
 
 **Some of the grading is known to be wrong in both directions** (listed for Wave 3 in
-`notes/lanes/wave2-2026-09-25/WAVE3-LEADS.md`, "Instruments"): a `NAME = expr` line is
+`notes/lanes/wave2-2026-09-25/WAVE3-LEADS.md` — the first two below under "Instruments",
+the rest under "Open research"): a `NAME = expr` line is
 taken for an instruction owning the next line's bytes; a comment run is kept open across
 blank lines, so a file header can leak into the first object and flip it to "admits" (98 B
 of false research target at `0xED0008` in v10, v9 and v7); a banner is credited only to
