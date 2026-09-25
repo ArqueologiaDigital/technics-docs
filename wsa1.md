@@ -20,7 +20,7 @@ literal machine code** with the [KN5000]({{ site.baseurl }}/system-overview/).
 > three DSPs are not modelled, and **all six wave mask ROMs are undumped**. Since
 > 2026-09-01 the modelling window at `0x00104000` has a placeholder device that
 > models its register interface and synthesises nothing. A byte-exact disassembly of all four EPROM images exists;
-> every one rebuilds from source with **no `.incbin` at all**, and **78.2 %** of the
+> every one rebuilds from source with **no `.incbin` at all**, and **78.0 %** of the
 > 2,097,152 bytes is substantive source, the remainder being verified uniform filler
 > (`wsa1/scripts/analysis/source_coverage.py`). See
 > [Emulation Status]({{ site.baseurl }}/wsa1-emulation/) and
@@ -228,7 +228,7 @@ makes the *same* prediction on either timer tap scale — 2048/8 = 256 and
 |---|---|---|---|---|
 | `prom_a` | `qsigcwsa1ax.ic12` | IC12 | `0xF80000` on CPU 1 | **boot image of CPU 1**; reset vector at `0xFFFF00` |
 | `prom_b` | `qsigcwsa1bx.ic13` | IC13 | `0xF00000` on CPU 1 | the low half of the same 1 MiB space; most of the UI text (EN/DE/FR) and the service screens |
-| `prom_c` | `qsigcwsa1cx.ic28` | IC28 | `0xF80000` on CPU 2 | **boot image of CPU 2**; a `ZZZZ`-headed data bank at file `0x000000-0x0165BF`, code `0x018000-0x0621E4` |
+| `prom_c` | `qsigcwsa1cx.ic28` | IC28 | `0xF80000` on CPU 2 | **boot image of CPU 2**; the factory COMBINATION memory at file `0x000000-0x0165BF` (a `ZZZZ` header, 16 banks × 8 combinations and a `Clear` record, which CPU 1 reads over the link — see [Parameter Records]({{ site.baseurl }}/wsa1-parameters/#factory-defaults-and-the-combination-memory)), code `0x018000-0x0621E4` |
 | `prom_d` | `qsigcwsa1dx.bin` | *(designator not asserted)* | `0xF00000` on CPU 2 | **data only** — a tone database; no vector table, essentially no branch structure |
 
 CRC32 / SHA1 as declared in the MAME driver:
@@ -276,9 +276,47 @@ each with a **13**-byte printable name at its head (the 16-byte figure belongs
 to the *tone* records; `prom_d_tone_database.py` asserts 13 for these). The payload ends at `0x050B08`
 and the remaining `0x2F4E7` bytes are an unbroken run of `0xFF`.
 
-**No field meaning is established anywhere in this image.** Every *name* used for
-its structures is transplanted from the KN5000 slot at the same offset — a
-hypothesis with a stated basis, not a derivation. What *is* measured is that the
+**prom_d's structures are named from their readers in prom_c**, not only
+transplanted from the KN5000 slot at the same offset:
+
+* **Every directory slot that points at a structure has a prom_c reader**, including
+  the thirteen an earlier census listed as reader-less (the 43-byte wave-select
+  arrays, the index maps, the 14-byte descriptor arrays). That census matched the
+  pair "load the base; load (base + slot)", and `ToneDB_ResolveWaveSelectRecord`
+  (prom_c `0xFB82C3`) spills the directory base to its stack frame first, so the
+  pair never occurs at the indexing site.
+* **The twelve 1024-entry index maps.** A wave is named by a selector pair
+  (program, bank-family) — bytes +14/+15 of a 16-byte wave-catalogue row, bytes
+  +0x02/+0x03 of an element block — and every reader forms
+  `i = (bank & 0x0F) × 128 + (program & 0x7F)`, picking the map by the family's
+  bits 7:6. The wave-select maps (+0x0C/+0x10/+0x14) return a record of the 43-byte
+  arrays, the envelope maps (+0x24/+0x28/+0x2C) a 14-byte descriptor, and the name
+  maps (+0x44/+0x48/+0x4C/+0x58/+0x5C/+0x60) a catalogue row. ★ **The name maps are
+  exact inverses of their catalogues**: every row's own selector, looked up, returns
+  that row — 307/307, 314/314, 208/208 and 161/161 — and **the same holds on the
+  KN5000's table-data tone database**, 333/333, 339/339, 141/141 and 144/144, so the
+  index is the same thing on both models. Reproduce with
+  `notes/lanes/promcd-2026-09-25/prom_d_index_maps.py` in the disassembly repository.
+* **Which wave every element plays.** All 451 melodic element blocks resolve through
+  the maps to a named catalogue wave; for 213 of them the element's own wave-select
+  record equals that wave's default record in all 43 bytes but +0x0B, the tail
+  prom_c rewrites (`prom_d_tone_elements.py`).
+* **Drum kits.** The per-note map at the end of each 408-byte kit record is a
+  (program, bank) selector pair per note, not an LE16; `DrumKit_ResolveInstrumentRecord`
+  (prom_c `0xFB48F7`) turns it into one of the 150-byte drum-instrument records, which
+  prom_c reads as 0x40 bytes plus two 43-byte wave-select records (64 + 2 × 43 = 150).
+  Every note of all 18 kits now names its instrument (`prom_d_drumkits.py`).
+* **Fields.** Fourteen fields of the tone record, element block and wave-select record
+  are named from an instruction that reads them and graded PROVEN / STRONG / WEAK;
+  every other byte is spelled `unk_<offset>` (the block headed "wave 17" in
+  `wsa1/prom_d/wsa1_prom_d.s`). A PROVEN field is proven to be *read* that way, not
+  to mean anything musical.
+
+What is still open in this image is narrow: the program order of
+`ToneDB_ToneNumBanks` (the one admission the census still counts, on
+`ToneDB_ToneOffsetTable`), and the bytes still spelled `unk_`.
+
+What is measured across the two products is that the
 **81-byte per-element voice-parameter block is the KN5000's**: stacking every
 element block from both machines and comparing the modal byte of each of the 81
 columns gives **63 columns agreeing**, against byte-shift nulls of 18–29 and
@@ -508,9 +546,29 @@ Two things it also settles for the KN work:
   [programs byte-identical to NO OPERATION]({{ site.baseurl }}/dsp-effect-data-zone/)**
   — on the very same DSP part. Re-derive the WSA1 half with
   `tools/wsa1_effect_names_check.py` in this repository; the KN5000 half is on
-  the linked page. ⚠ Whether the WSA1's DSP microprograms are *usable* is **not
-  demonstrated**; the test is to find its uPD6383 upload routine and check its
-  tables against the grammar this site already documents.
+  the linked page.
+
+  **The upload path is found**: CPU 2's port-P7 module (`prom_c/p7/` in the
+  disassembly) plays length-prefixed streams out of port P7, which carries the
+  DSPs' data bus. A P7 unit's program 0–127 is a **DSP effect number** — its 56
+  directory records correspond one-to-one with the names in prom_b's
+  `EffectNames_F147AC` — and the stream program 5 (PHASER) resolves to is
+  byte-identical to the KN5000's `DSP_Eff05_Coef_Bytecode`. Each effect's editable
+  parameters are described by a type string, a digit string and 7-byte field
+  descriptors, and the type letters are decoded from their readers
+  (`P7Unit_EmitChangedParams`, `P7Unit_SendModulatedField`): `B` one byte
+  sign-extended, `c` two bytes big-endian, `h` one byte plus `0x500`, `w` two bytes
+  little-endian, any other letter one byte (for `v` and `s` only that width is
+  known; `s` occurs only in the two wah records, which take hand-coded paths). A
+  descriptor's `+5` byte says how a modulated field is sent (`' '` not at all, `B`,
+  `W`/`w`, `b`), and `P7Field_ModulateClamped` computes
+  `clamp(value + (max − min) · (amount − 64) · depth / 16256, min, max)`
+  (`notes/lanes/promcd-2026-09-25/p7_descriptor_letters.py`, which asserts 124 reader
+  instructions and, on the dump, 56/56 digit strings and 390/390 descriptor offsets).
+  ⚠ Whether the WSA1's streams for the four effects the KN5000 ships as NO OPERATION
+  are *usable* programs is **not demonstrated**: the test is to check those streams
+  against the grammar this site already documents, and nobody has done it. 24 of the
+  pool's streams have no reader at all.
 * **The MILK toolkit is absent** — zero `MT_` / `*Proc` hits across
   the full 2 MB, against working positive controls. So the WSA1 **predates** the
   KN line's application framework. What it shares is silicon and assets, not the
@@ -522,6 +580,7 @@ Two things it also settles for the KN work:
 | Page | Description |
 |------|-------------|
 | [Control Panel & Switch Matrix]({{ site.baseurl }}/wsa1-panel/) | The rack's 58 switches traced from the CP1/CP2 schematics, with a second witness in the ROM; lamps; the service chords; what the keyboard's panel is not known to be |
+| [Parameter Records & MIDI]({{ site.baseurl }}/wsa1-parameters/) | CPU 1's one parameter-number space: the four-byte record, MIDI-in and panel paths into it, the part and controller numbers, factory defaults and the combination memory |
 | [Acoustic Modelling LSI (L7A1429)]({{ site.baseurl }}/wsa1-modeling-lsi/) | The engine at `0x00104000`: the resonator topology, the nineteen-register map, the filter-cutoff and position units, the write sequencing, and what is still unknown |
 | [Emulation Status]({{ site.baseurl }}/wsa1-emulation/) | The MAME driver, the boot walkthrough, the four TLCS-900 core defects it exposed, and exactly what is and is not modelled |
 | [Disassembly]({{ site.baseurl }}/wsa1-disassembly/) | The byte-exact reassembly project, its gate, its coverage, and the rule the gate cannot enforce |
