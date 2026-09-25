@@ -521,13 +521,24 @@ repository, over `data_range_census.py --json OUT.json`):
 **Parts of these EPROMs are an earlier build's bytes, left where the new build did not
 overwrite them.** Three stretches of `prom_b` are proven to be relocated copies of live
 objects, each by its own script under `notes/promb-2026-09-25/` in the disassembly
-repository:
+repository (run from the repository root; one of the three needs the caveat below the
+table):
 
 | range | what it is | position | proof |
 |---|---|---|---|
-| `0xF0ED50`–`0xF0EFFF` (688 B) | the display-list interpreter's data block: the tail of its two handler tables, the value-glyph quantiser, the value-glyph table and the first four 24 × 24 value glyphs (`OldBuild_DLHandlerTables_Tail`, `OldBuild_ValueGlyph_*`) | live − `0x23001` | `stale_dl_tables_f0ed50.py` |
+| `0xF0ED50`–`0xF0EFFF` (688 B) | the display-list interpreter's data block: the tail of its two handler tables, the value-glyph quantiser, the value-glyph table and the first four 24 × 24 value glyphs (`OldBuild_DLHandlerTables_Tail`, `OldBuild_ValueGlyph_*`) | live − `0x23001` | `stale_dl_tables_f0ed50.py` (its byte checks — see below) |
 | `0xF17A5F`–`0xF17BFF` (417 B) | a second copy of the value-glyph data: quantiser tail, 29-word glyph table, glyphs 0–3 (`OldBuild2_ValueGlyph_*`) | live − `0x1A401` | `stale_value_glyphs_f17a5f.py` |
 | `0xF6F000`–`0xF6F3FF` (1,024 B) | **code**: the module whose live copy is `0xF7AA00`–`0xF7ADFF`, identical except for the nine bytes relocation changes (`OldCopy_*`) | live − `0xBA00` | `old_module_copy_f6f000.py` |
+
+⚠ `stale_value_glyphs_f17a5f.py` and `old_module_copy_f6f000.py` end `VERDICT: PASS` on the
+current tree. `stale_dl_tables_f0ed50.py` does not: it is also the script that rewrote the
+source (commit `37df48c0`, `--apply`), and it ends `VERDICT: FAIL (7)` on every tree from
+that commit on. Its byte checks all pass — each of the 39 old words is the live entry
+− `0x23000` or − `0x23001`, the quantiser, glyph table and glyphs 0–3 match at live
+− `0x23001`, the block is 688 B ending on the 4 KB boundary `0xF0F000`, and the old handler
+address `0xF0EA3A` lands at `Blink_Command_Table` + `0x26`. The seven failures are its label
+checks, which look for the `sub_F0EA9F_Arm` … `sub_F0F676_Arm` labels that its own `--apply`
+removed in `37df48c0`. Run against the `prom_b` source of `37df48c0^`, it passes in full.
 
 They share a signature: each runs from the end of this build's live code up to a 1 KB or
 4 KB boundary, nothing in `prom_a` or `prom_b` names any address inside it, and its own
