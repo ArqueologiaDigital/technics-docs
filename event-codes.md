@@ -202,19 +202,28 @@ Titles quoted by the code:
 
 **Dispatch path.** Requesters post to object `0xFFFFFFFF`. `SendEvent`
 replaces that id with the current target (`GetCurrentTarget`, RAM `0x02F83C`)
-before it looks up a proc. Requesters first cancel any request of the same kind
+before it looks up a proc. The `UI_Post*` and `HDAE5000_Request*` helpers below
+(and `HDAE5000_ShowErrorMessageTitle`) first cancel any request of the same kind
 that is still queued (`DeleteEvent` with the same object and event), then queue
-the new one with `ApPostEvent`. The requesters are:
+the new one with `ApPostEvent`. The other requesters do not cancel first: the
+boot request uses `PostEvent`, and the control-panel chords and the HD-AE5000
+boot request call `ApPostEvent` directly. The requesters are:
 
 - Main CPU: `UI_PostPartChangeEvent` (despite its name, it posts the **mode**
   request `0x01C00014` with `0x01800000 + A`) and `UI_PostModeChangeEvent`
   (despite *its* name, it posts the **title** request `0x01C00015` with
   `0x01A00000 + A`). At boot, `MainTitle_InitGraphicsAndEvents` posts mode
-  `0x01800001` and then title 0xEF.
+  `0x01800001` and then title 0xEF with plain `PostEvent`.
+  `CtrlPanel_PostDisplayEvent` (`0x01C00015`, title 0x00) and
+  `CtrlPanel_PostScrollEvent` (`0x01C00016`, title 0xF0) post with
+  `ApPostEvent`.
 - HD-AE5000: `HDAE5000_RequestMode` (twin of `UI_PostPartChangeEvent`, used
   after a song load when JUMP AFTER LOAD is on), `HDAE5000_RequestTitle15` (twin
   of `UI_PostModeChangeEvent`), `HDAE5000_RequestTitle16` (the same with
-  `0x01C00016`; no caller found), and `HDAE5000_ShowErrorMessageTitle`.
+  `0x01C00016`; no caller found), and `HDAE5000_ShowErrorMessageTitle`, all
+  through `RootFn_DeleteEvent` and `RootFn_ApPostEvent`. `HDAE5000_Boot_Init`
+  posts title 0x7F (`0x01C00016`) through `RootFn_ApPostEvent` alone, when
+  `HDAE5000_Check_HD_Present` finds a drive.
 
 **Not established:** what distinguishes `0x01C00015` from `0x01C00016`. Both
 reach `TitleProc` with a title id, but they take different cases. Listed on
@@ -280,7 +289,9 @@ Events are dequeued by the main event loop and dispatched via `SendEvent`.
 `ApPostEvent` (0xFA9D58) writes the same 12-byte entries into the same ring. It
 differs in what it does when the queue is full: it yields to other tasks
 (`TaskSched_YieldToQueue`) and retries, or gives up, depending on
-`Boot_CheckConfigFlag7`. The mode and title requests above use `ApPostEvent`.
+`Boot_CheckConfigFlag7`. All the mode and title requests above use `ApPostEvent`
+except the boot-time pair from `MainTitle_InitGraphicsAndEvents`, which uses
+`PostEvent`.
 `DeleteEvent` (0xFA9868) removes queued entries that match an object and an
 event. (This page previously gave `PostEvent`'s address as 0xFAD61F. The
 firmware's own function-name table and the v10 build both put it at 0xFA9752.)
