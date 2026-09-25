@@ -110,6 +110,13 @@ bytes. The remaining 75 bytes up to `0x8E6D3E` are real (non-0xFF) ROM content
 that the decoder never reads; they are preserved verbatim so the rebuilt ROM
 stays byte-identical.
 
+**Reader.** The block is demo-song preset 18: `DemoSongPreset_PointerTable[18]` (`0x9C4048`)
+points at it, and `Demo_ParseSlideHeader` hands it to `SLIDE_Parse_Header` with destination
+**main-CPU RAM `0x69800`**, exactly as for demo songs 0-17. The decompressed image begins
+"ZZZZ" like theirs, and `Seq_CopyResourcePtrs` pairs demo number 18 with the Feature Demo
+script. `SubCPU_Send_Payload` never reads `0x8E0000`. (Established in the source's header on
+this block, September 2026, `tdata` lane.)
+
 **Important Clarification:**
 
 > **This compressed region does NOT contain the Sub CPU ROM.** Decompression yields 38,144 bytes (~37KB) of parameter-like data, not the 192KB executable code found in `kn5000_subprogram_v142.rom`.
@@ -279,6 +286,37 @@ The addresses `0x3E0000` and `0x8E0000` are **NOT the same physical data** - the
 
 ---
 
+<a id="preset-data-destination-dispute"></a>
+
+## The "Preset Data Destination" Dispute: a Strong Lead
+
+The disassembly's `CLAUDE.md` lists **Preset Data Destination** under *Known Disputed
+Interpretations*. Claude's earlier view was that the LZSS preset data goes to Sub CPU `0xF000+`.
+The human concern was that the transfer sizes do not match and that the fallback to `0x800000`
+produces invalid data (mostly `0xF7`). Two findings from September 2026 bear on it. Both are
+read from the code and the ROM. **Neither has been confirmed in MAME.**
+
+1. **The SLIDE4K preset block at `0x8E0000` is not on this path at all.** Its reader is the
+   demo-song pointer table, and it decompresses to main-CPU RAM `0x69800` (see
+   [above](#compressed-presetparameter-data-slide4k-format)). `SubCPU_Send_Payload` knows
+   exactly two bases. It decompresses the SLIDE4K image at custom-data `0x3E0000` into RAM
+   `0x50000` (only when `ROM_PaddingFF_0x2` reads `0xFF`). Otherwise, or if that fails, it
+   uses `XIZ = 0x800000` raw. It then ships `XIZ + 0x100` onward to Sub CPU `0xF000`,
+   `0x1F000` and `0x2F000` (64 KB + 64 KB + 0xFF00 bytes) and `XIZ + 0..0xFF` to Sub CPU
+   `0x400` (`v10/maincpu/kn5000_v10_program.s`, `SubCPU_Send_Payload`).
+2. **`0x800000` is the section directory and a bank of 8bpp bitmaps**, whose transparent
+   palette index is **`0xF7`** (see [Table Data ROM]({{ site.baseurl }}/table-data-rom/#section-directory-and-bitmap-bank-0x800000)).
+   So the `0xF7` bytes the fallback sends are those bitmaps' transparent pixels. That
+   explains "why does fallback produce 0xF7 bytes": the fallback ships picture data, not a
+   payload.
+
+**Status: strong lead, not confirmed.** What would settle it: run the MAME driver with an
+erased custom-data flash (no SLIDE image at `0x3E0000`), log the E1 transfers
+`SubCPU_Send_Payload` makes, and check what reaches Sub CPU `0x400` and `0xF000+`. The
+dispute table in the disassembly's `CLAUDE.md` has not been updated yet. The source of the
+lead is `notes/lanes/wave2-2026-09-25/lane-reports/tdata.json` (the `tdata` lane) and the
+`table_data/preset_banks.s` header.
+
 ## Remaining Questions (Partially Disputed)
 
 While the 0x3E0000 address is now understood, some aspects of the preset data transfer remain unclear:
@@ -296,7 +334,7 @@ re-derivation.*
 
 **Outstanding questions:**
 - The bulk transfers send 64KB blocks (much larger than the ~37KB of meaningful data)
-- The fallback to `TABLE_DATA_ROM__BASE_ADDR` (0x800000) produces mostly 0xF7 padding bytes
+- The fallback to `TABLE_DATA_ROM__BASE_ADDR` (0x800000) produces mostly 0xF7 bytes — now read as the transparent pixels of the bitmap bank there ([strong lead](#preset-data-destination-dispute), not confirmed in MAME)
 - The exact purpose of the preset parameters at Sub CPU 0xF000+ is not fully understood
 
 **Main CPU Header (0x00-0xAF):**
@@ -336,7 +374,7 @@ The following questions remain open regarding where the LZSS preset data actuall
 1. **What does 0x3E0000 actually map to?** The memory bank configuration during boot needs investigation.
 2. **Are there other ~33KB transfers?** Search for data transfers matching the preset data size.
 3. **What happens to the "extra" bytes?** The 64KB transfer vs ~37KB data discrepancy is suspicious.
-4. **Why does fallback produce 0xF7 bytes?** This suggests the fallback path may never be intended to work.
+4. **Why does fallback produce 0xF7 bytes?** This suggests the fallback path may never be intended to work. *Lead (September 2026, not confirmed in MAME): `0x800000` is a bitmap bank whose transparent colour is `0xF7`; see [the dispute section](#preset-data-destination-dispute).*
 
 **Open Questions - Sub CPU Payload Transfer:**
 
@@ -775,7 +813,7 @@ prefix is compared in both cases — the variant character is checked separately
 During the boot sequence, the Main CPU's `SubCPU_Send_Payload` routine:
 1. Transfers the **tone database** from 0x830000-0x87FFFF to Sub CPU data RAM 0x050000 (five 64 KB bulk transfers) -- this is data, not the executable
 2. Attempts to decompress the SLIDE4K image at 0x3E0000 in Custom Data Flash
-3. If decompression fails (returns 0xFFFF), falls back to base 0x800000
+3. If decompression fails (returns 0xFFFF), falls back to base 0x800000 (the section directory and bitmap bank; see [the dispute section](#preset-data-destination-dispute))
 4. Transfers the code blocks (Sub CPU 0x400 and 0xF000-0x3EEFF) from whichever base survived step 2/3 -- and in the dumped images neither base holds the payload, so the actual factory source is **unresolved**
 
 See [Boot Sequence]({{ site.baseurl }}/boot-sequence/) for details.

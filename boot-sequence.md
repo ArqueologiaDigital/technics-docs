@@ -855,7 +855,7 @@ Format:  LZSS SLIDE4K compressed
 ```
 
 **Important Finding:** This compressed region does **NOT** contain the Sub CPU executable:
-- Decompresses to ~33KB of parameter-like data
+- Decompresses to 38,144 bytes (0x9500): demo-song preset 18, read by the demo code into main-CPU RAM `0x69800`
 - Sub CPU ROM (`kn5000_subprogram_v142.rom`) is ~192KB
 - Decompressed bytes are mostly MIDI-range values (0-127), not code
 
@@ -877,7 +877,14 @@ In normal factory boot, the LZSS decompression from 0x3E0000 likely fails (no va
    `SubCPU_Send_Payload`'s two source bases holds it in the images we have.
 3. Does the Sub CPU have its own ROM chip? **Yes** — the 128 KB Sub CPU Boot ROM (IC30)
    holds the boot loader. It does *not* hold the 192 KB runtime payload.
-4. What is the purpose of the preset data at 0x8E0000, and when is it used?
+4. ~~What is the purpose of the preset data at 0x8E0000, and when is it used?~~ **Answered
+   (September 2026):** it is demo-song preset 18, the Feature Demo's. `DemoSongPreset_PointerTable[18]`
+   points at it, and `Demo_ParseSlideHeader` decompresses it (38,144 bytes) into main-CPU RAM
+   `0x69800` like presets 0-17. `SubCPU_Send_Payload` does not read it.
+5. **What does the `0x800000` fallback ship?** `0x800000` is the section directory and a bank of
+   8bpp bitmaps whose transparent colour is `0xF7`, so the fallback sends picture data to the
+   Sub CPU. This is a strong lead on the "Preset Data Destination" dispute, not confirmed in
+   MAME; see [LZSS Compression]({{ site.baseurl }}/lzss-compression/#preset-data-destination-dispute).
 5. Under what conditions does the 0x3E0000 LZSS path succeed (firmware update mode)?
 
 See [LZSS Compression](lzss-compression.md) for decompression details.
