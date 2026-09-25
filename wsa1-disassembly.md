@@ -518,8 +518,9 @@ repository, over `data_range_census.py --json OUT.json`):
 
 ## Older-build remnants, and why unreached code can be correct
 
-**Parts of these EPROMs are an earlier build's bytes, left where the new build did not
-overwrite them.** Three stretches of `prom_b` are proven to be relocated copies of live
+**Parts of these EPROMs are relocated copies of live objects that nothing names — most
+likely an earlier build's bytes, left where the new build did not overwrite them.** Three
+stretches of `prom_b` are proven to be relocated copies of live
 objects, each by its own script under `notes/promb-2026-09-25/` in the disassembly
 repository (run from the repository root; one of the three needs the caveat below the
 table):
