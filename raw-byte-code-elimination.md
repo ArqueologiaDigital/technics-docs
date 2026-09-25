@@ -9,8 +9,8 @@ permalink: /raw-byte-code-elimination/
 **Status: IN PROGRESS.** All thirteen gated images are byte-identical to their physical
 dumps, but that is a build-match guarantee, not a disassembly guarantee: a `.byte` run that spells real
 code reassembles to the same bytes as an `.incbin` of those bytes, and passes the gate
-identically either way. Measured code-as-`.byte` remains in the Main CPU and HDAE5000 ROMs;
-the Sub CPU Payload reached zero.
+identically either way. Measured code-as-`.byte` remains in the Main CPU, HDAE5000 and SX-WSA1R
+`prom_a` ROMs; the Sub CPU Payload reached zero.
 **Goal:** Convert all executable code currently represented as raw `.byte` sequences to native TLCS-900 assembly mnemonics.
 
 ## Context
@@ -54,7 +54,8 @@ thirteen gated images. Data tables, strings, bitmaps, firmware bytecode for soft
 | Table Data | **0** | 5,758 | **Complete** |
 | Custom Data | **0** (data only) | 0 | **Complete** |
 | HDAE5000 | 13,168 B | 35,285 | **Not complete** |
-| SX-WSA1R `prom_a` / `prom_b` | **0** — byte runs audited and typed | 121,691 / 67,195 | **Complete** |
+| SX-WSA1R `prom_a` | 298 certified sites, 1,318 B in 89 forms that no spelling tried so far assembles back byte-identically | 119,235 | **Not complete** |
+| SX-WSA1R `prom_b` | **0** | 67,679 | **Complete** |
 | SX-WSA1R `prom_c` / `prom_d` | **0** — survived a falsification attack | 75,701 / 0 | **Complete** |
 
 The **instruction statements** column is, in the disassembly repository,
@@ -71,6 +72,18 @@ native instructions. Custom data's 0 is a fact about a pure data ROM, not a gap.
 figures cover the files under each `prom_*` root: the kernel and DSP-driver sources both
 processors share (`wsa1/kernel/`, 938 statements; `wsa1/dsp/`, 97) are assembled into `prom_a`
 and `prom_c` but live outside both roots.
+
+The SX-WSA1R code-as-`.byte` figures come from `wsa1/notes/sound/wsa1_unspellable_forms.py`
+(run from `wsa1/`, disassembly commit `be376096`), which counts a `.byte` line only when four
+gates agree — its comment echoes exactly its bytes, the ROM holds those bytes at the address
+it claims, MAME's committed `unidasm` listing frames them as one instruction, and a spelling
+route is tried and judged by the bytes it assembles to. `prom_a`'s commonest forms are
+`or (N),N` (26 sites) and `sub (N),N` (24). "No spelling" means no route produced the bytes,
+which is not the same as the backend being unable to encode them. The earlier "0 — byte runs
+audited and typed" for `prom_a` did not survive this census. Separately, the 2026-09-25 lanes
+retyped *data* framed as code in `prom_a` and `prom_b` — the opposite hazard — per their
+reports in `notes/lanes/wave2-2026-09-25/lane-reports/`. The SX-WSA1R instruction-statement
+figures were re-measured with the command below at the same commit.
 
 The misframed islands in the Main CPU rows are left as `.byte` on purpose: fixing one means
 re-framing an instruction already present in a neighbouring converted region, not filling a
