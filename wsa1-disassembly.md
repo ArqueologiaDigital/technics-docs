@@ -80,16 +80,22 @@ Every image's bytes fall into exactly three buckets, and they are not equivalent
   is territory, not understanding, and prom_c/prom_d are mostly this;
 * **verbatim `.incbin`** — a blob with no generating source. This is the debt.
 
-Snapshot from the two commands above, 2026-09-02 (span counts are
-`grep -rc '^\s*\.incbin' wsa1/prom_*/`):
+Snapshot from the first command at disassembly commit `be376096` (after the 2026-09-25
+semantic push; span counts are `grep -rc '^\s*\.incbin' wsa1/prom_*/`):
 
 | source | image | substantive | verified filler | still `.incbin` | `.incbin` spans |
 |---|---|---:|---:|---:|---:|
-| `prom_a` | `wsa1_prom_a.ic12` | 461,172 | 63,116 | **0** | 0 |
-| `prom_b` | `wsa1_prom_b.ic13` | 452,984 | 71,304 | **0** | 0 |
+| `prom_a` | `wsa1_prom_a.ic12` | 457,874 | 66,414 | **0** | 0 |
+| `prom_b` | `wsa1_prom_b.ic13` | 452,985 | 71,303 | **0** | 0 |
 | `prom_c` | `wsa1_prom_c.ic28` | 395,072 | 129,216 | **0** | 0 |
 | `prom_d` | `wsa1_prom_d.bin` | 330,521 | 193,767 | **0** | 0 |
-| **total** | | **1,639,749 (78.2 %)** | 457,403 | **0** | 0 |
+| **total** | | **1,636,452 (78.0 %)** | 460,700 | **0** | 0 |
+
+`prom_a`'s substantive count is 3,298 bytes *lower* than on 2026-09-02 and its filler 3,298
+higher, and that is correct: runs that had been framed as code were shown to be uniform pad
+and are now emitted as verified `.fill` — for instance the two `nop` runs that
+`notes/proma-2026-09-25/retire_zero_runs.py` (disassembly repository) proves unreached.
+Territory moved from one column to the other; nothing was lost.
 
 ⚠ **Quote substantive, not the ~99 % "incl. filler" total.** prom_c alone
 contributes a verified 118,298-byte run of `0x0E` pad; counting it as equal to
@@ -150,22 +156,35 @@ Run from the disassembly repo root; these are the definitions, and they drift
 with every merge:
 
 ```
-grep -rhoE '^sub_[0-9A-Fa-f]{6}:' wsa1/prom_*/*.s | sort -u | wc -l   # unnamed routines
-grep -rh 'Evidence:' wsa1/prom_*/*.s | wc -l                          # evidenced headers
-git ls-files 'wsa1/notes/*.md' | wc -l                                # notes documents
-git ls-files 'wsa1/*.py' | wc -l                                      # committed analysis scripts
+git ls-files 'wsa1/prom_*/*.s' | xargs cat | grep -aoE '^sub_[0-9A-Fa-f]{6}:' | sort -u | wc -l   # unnamed routines
+git ls-files 'wsa1/prom_*/*.s' | xargs cat | grep -ac 'Evidence:'                                 # evidenced headers
+git ls-files 'wsa1/notes/*.md' | wc -l                                                            # notes documents
+git ls-files 'wsa1/*.py' | wc -l                                                                  # committed analysis scripts
 ```
 
-2026-09-02: 4,752 unnamed routines, 7,561 `Evidence:` lines, 113 notes documents
-(86 of them `FINDINGS-*`), 410 committed Python analysis scripts.
+At disassembly commit `be376096`: **6,294 unnamed routines** (3,794 in `prom_a`, 2,328 in
+`prom_b`, 173 in `prom_c`'s sources), 8,578 `Evidence:` lines, 152 notes documents (110 of
+them `FINDINGS-*`), 543 committed Python analysis scripts.
+
+The command reads every source file under the `prom_*` roots: `prom_c` is now 26 subject
+files in subdirectories, which a one-level `wsa1/prom_*/*.s` glob silently skips. The unnamed
+count is *higher* than the 4,752 recorded on 2026-09-02 because conversion and the operand
+symbolisers keep giving previously unlabelled entry points a `sub_` label — the number that
+measures meaning is not one that only falls.
 
 ⚠ A label count depends on what you count — compiler-local `.L` labels in
 particular — so a figure without its command is meaningless here.
 
-### Two named subsystems of CPU 1
+### Named subsystems of CPU 1
 
-Against that backlog, two subsystems of CPU 1's `prom_a` are named as
-architecture rather than as addresses. The **UI screen-object system** —
+Against that backlog, three subsystems of CPU 1's `prom_a` are named as
+architecture rather than as addresses. The **parameter-number space** — one
+four-byte record `[number][class][value][mask]` that MIDI-in, the panel and the
+editors all produce, turned into the `0x2C00` queue by
+`List2030_TranslateToQueue2C00` and `Dispatch_By_60F080`, with the part records,
+their factory defaults in `prom_b` and the combination memory in `prom_c` all
+addressed by the same numbers — is on its own page,
+[Parameter Records & MIDI]({{ site.baseurl }}/wsa1-parameters/). The **UI screen-object system** —
 `PanelScreen_VtableTable` (`0xF86EC1`), 256 screen objects each a three-method
 Enter/Leave/Button vtable — is decoded, so a button press resolves to a named
 screen and its methods (see
@@ -175,9 +194,9 @@ stack above the FDC driver, carrying `Disk_ReadSectors`, `Disk_WriteSectors`,
 `Disk_RequestSenseDriveStatus`, `Disk_SetRequestGeometry` and
 `Disk_CommandDispatch` — is named at the command-issue seam (see
 [storage]({{ site.baseurl }}/wsa1/#storage-and-a-fixed-disk-that-may-never-have-shipped)).
-⚠ These are two named subsystems, not a finished CPU: most of `prom_a` is still
-`sub_XXXXXX`, including the screen-object system's own ENTER methods and the disk
-dispatcher's handlers.
+⚠ These are three named subsystems, not a finished CPU: most of `prom_a` is still
+`sub_XXXXXX`, including the screen-object system's own ENTER methods, the disk
+dispatcher's handlers and thirteen of the parameter dispatcher's handlers.
 
 ## ★★ ONE KERNEL, FOUR PROCESSORS, TWO PRODUCTS
 
@@ -382,9 +401,18 @@ not renames.**
 ## What is left
 
 **All four images are at zero verbatim debt.** None of them hands a byte back through an
-`.incbin`, and none carries a `.byte`-dressed remainder either — the byte runs are audited
-and typed, and `prom_c` and `prom_d` additionally survived a deliberate attack on the
-inverse hazard, code typed as data.
+`.incbin`. That is not the same as every byte being in its final form, in either direction:
+
+* **code still spelled as `.byte`** — `prom_a` carries **298 instructions (1,318 B)** as
+  `.byte` lines that no spelling tried so far assembles back byte-identically, in 89 forms;
+  the commonest are `or (N),N` (26 sites) and `sub (N),N` (24). `prom_b` and `prom_c` carry
+  none. Run `python3 notes/sound/wsa1_unspellable_forms.py` from `wsa1/` in the disassembly
+  repository; it counts a line only if its byte echo, the ROM at its address, MAME's
+  `unidasm` framing and a round trip all agree.
+* **data framed as code** — the earlier audit that called `prom_a` and `prom_b` clean did not
+  hold: the 2026-09-25 lanes found and retyped data decoded as instructions in both (in
+  `prom_a` 1,958 B plus eleven panel lookup tables and the LED wire maps; in `prom_b` nine
+  tables). `prom_c` and `prom_d` survived a deliberate attack on this hazard.
 
 | image | verbatim `.incbin` | source |
 |---|---:|---:|
@@ -396,9 +424,19 @@ inverse hazard, code typed as data.
 *(2026-09-02, `python3 scripts/analysis/kn5000_source_coverage.py`.)*
 
 ⚠ **Zero verbatim debt is a statement about `.incbin`, not about understanding.** The
-per-range data census still grades 9,034 B of `prom_b`, 8,772 B of `prom_d` and 2,295 B of
-`prom_a` as UNKNOWN — a label with no explanatory header — and much more than that rests
-on a descriptive name alone. See
+per-range data census, run after the 2026-09-25 push, gives these images:
+
+| image | strict (CODE + evidenced data + filler) | UNKNOWN | name-only (KNOWN-B) | research targets |
+|---|---:|---:|---:|---:|
+| `prom_a` | 95.16 % | 1,355 B | 24,023 B | 21,094 B |
+| `prom_b` | 83.65 % | 620 B | 85,108 B | 69,348 B |
+| `prom_c` | 98.01 % | 0 | 10,409 B | 9,588 B |
+| `prom_d` | 99.79 % | 0 | 1,096 B | 1,096 B |
+
+A research target is a range whose purpose is not established — no explanation, a header
+that admits a gap, or undocumented data between two instruction runs. `prom_b` is the
+image with the most left to say. What the grades mean, and why "strict" is the
+instrument's keyword grade rather than an audited figure, is on
 [how much of the data is actually explained]({{ site.baseurl }}/rom-reconstruction/#how-much-of-the-data-is-actually-explained).
 
 ★ The last spans to close were **not undecoded code**. Every one of `prom_b`'s final
@@ -440,19 +478,79 @@ The same script re-verifies prom_d's erased region independently: one 193,767-by
 run of `0xFF` at file `0x050B09`, ending at `0x07FFF0`, with sixteen bytes of
 content after it — the ASCII `wsad_54.ssf`. It is **not** a trailing tail.
 
-### The largest spans still unconverted
+### The largest open ranges
 
-* **prom_a** — `0xFE8000-0xFEB330` (13,104 B) and `0xFEF746-0xFF3800` (16,570 B),
-  the code halves of the sequencer/UI module. Deferred because about **15 string
-  constants sit inside the instruction stream** (`SEQUENCER`, `NOTE EDIT`,
-  `DRUM EDIT`, an 838-byte effect-name table at `0xFF047F`); their bounds must be
-  pinned first or the linear decode desynchronises. **That bounding is the next
-  pass's first job.**
-* **prom_b** — the top span is `0xF067A6-0xF0D79B` (28,662 B).
-* **prom_c** — `0xFCD0F7-0xFDD2AA` (65,972 B) is a byte-code/command stream left
-  **whole**, because the existing 16-bit big-endian framing desynchronises at the
-  fifth record. It needs its interpreter found first: *guessing a stride is this
-  project's known failure mode.*
+From the same census, merged the way its research-target list merges them
+(`tools/census_research_by_image.py OUT.json --ranges prom_a,prom_b,prom_c,prom_d` in this
+repository, over `data_range_census.py --json OUT.json`):
+
+* **`prom_b` `0xF212B0`–`0xF24DC0`** (15,120 B), fonts `Font_Svc16_8x14` … `Font_Svc1F_16x16`.
+  Their roles and metrics are established; each header keeps one open question, which is
+  enough for the census to list the whole range.
+* **`prom_b` `0xF06800`–`0xF08CD8`** (9,432 B), `ScaleTuningOffsets` … the
+  `SoundCodeByGroupMember_*` tables. The word encoding of those tables (6,660 B) is not
+  decoded; prom_a `sub_FAAF91` splits a low byte into kind bands (`≤0x0F`, `0x10`–`0x1F`,
+  `0x20`–`0x21`), and the consumers of parameter `0x98` were not traced.
+* **`prom_a` `0xFED90A`–`0xFEF746`** (7,740 B), `DrumKitNames_Block7` … `DrumKitNames_Block12`. No
+  reader: their 24-bit block and base addresses occur in none of the four images, and a
+  multiply by 1290 or 129 was ruled out in `prom_a`.
+* **`prom_b` `LinkTable_F4FF61`** (4,602 B) is the SysEx decode tree `prom_a` `sub_FB63D1`
+  walks (entered at its record 767, `0xF5115B`); every one of the 74 SysEx bodies the SMF
+  exporter writes is a complete seven-byte path through it
+  (`notes/promb-2026-09-25/sysex_decode_tree_probe.py`). What a leaf's result and pair bytes
+  select is still open.
+* **`prom_c` — the P7 stream pool** (`0xFCD0F7`–`0xFDD2AA`, 65,972 B) is no longer an
+  unframed stream: its 297 length-prefixed streams are what `P7Stream_Run` sends out of port
+  P7 to the DSPs, a unit's program 0–127 is a DSP effect number (56 directory records in
+  one-to-one correspondence with `prom_b`'s `EffectNames_F147AC`), and every directory
+  record, field array and stream is named by its effect. **24 streams (5,897 B) have no
+  reader** — searched through the directory records, `.long` words and operands, LE24/LE32
+  in `prom_c`, LE32 in `prom_a`/`prom_b` and pool-relative LE16 — and are stated as
+  unreferenced, not explained. The largest of them are the ~1 KB ranges on the census list.
+* **`prom_d`** — only `ToneDB_ToneOffsetTable` (1,096 B) remains, and its open question is
+  narrow: the program order of `ToneDB_ToneNumBanks`.
+
+## Older-build remnants, and why unreached code can be correct
+
+**Parts of these EPROMs are an earlier build's bytes, left where the new build did not
+overwrite them.** Three stretches of `prom_b` are proven to be relocated copies of live
+objects, each by its own script under `notes/promb-2026-09-25/` in the disassembly
+repository:
+
+| range | what it is | position | proof |
+|---|---|---|---|
+| `0xF0ED50`–`0xF0EFFF` (688 B) | the display-list interpreter's data block: the tail of its two handler tables, the value-glyph quantiser, the value-glyph table and the first four 24 × 24 value glyphs (`OldBuild_DLHandlerTables_Tail`, `OldBuild_ValueGlyph_*`) | live − `0x23001` | `stale_dl_tables_f0ed50.py` |
+| `0xF17A5F`–`0xF17BFF` (417 B) | a second copy of the value-glyph data: quantiser tail, 29-word glyph table, glyphs 0–3 (`OldBuild2_ValueGlyph_*`) | live − `0x1A401` | `stale_value_glyphs_f17a5f.py` |
+| `0xF6F000`–`0xF6F3FF` (1,024 B) | **code**: the module whose live copy is `0xF7AA00`–`0xF7ADFF`, identical except for the nine bytes relocation changes (`OldCopy_*`) | live − `0xBA00` | `old_module_copy_f6f000.py` |
+
+They share a signature: each runs from the end of this build's live code up to a 1 KB or
+4 KB boundary, nothing in `prom_a` or `prom_b` names any address inside it, and its own
+pointers are the live ones shifted by one constant — so in *this* build they point into
+unrelated bytes (the old handler addresses of the first land inside `Blink_Command_Table`
+and in the middle of instructions). The checks prove the correspondence; that the image was
+built over an older one is the natural reading, not something the bytes can prove.
+`relocated_copy_scan.py --boundaries` in the same directory is the lead finder that surfaced
+all three, and it is a lead list, not evidence: most of its hits are legitimate repetition.
+
+`prom_a` shows the same pattern, at a distance of about `0x400`:
+`PanelGroupQueue_ExpandToEvents_DeadCopy` (`0xF8A44B`), the `MessageScreenStale_*` tables
+at `0xF98DE5`, `ScreenButtonHandlers_StaleCopy` (`0xF95D95`), and a 1,000-byte veneer bank at
+`0xFAA018`–`0xFAA3FF` that differs from the live one at `0xFAA418`–`0xFAA7FF` in exactly ten
+bytes (`wsa1/notes/FINDINGS-prom_a-message-module.md` §3a) — among it
+`ParamRecord_WriteFieldAndStage_StaleCopy` and `Queue2C00_PublishStagedIfPending_StaleCopy`.
+Separately, `prom_b` holds 474 bytes of **unreached** code — five routines and a small RAM
+pointer table, decoded by round trip, that nothing branches to, calls or names
+(`unreached_code_f6ea57.py`); that one is stated as unreached, not as a proven copy.
+
+**Why it matters for emulation.** A routine the emulator never executes is not by itself
+evidence of a missing interrupt, device or call path: it may be stale. Before treating
+unreached code as a MAME defect, check whether it is a remnant — and never take a routine's
+address from the stale half of a pair. That mistake has already happened on this site: the
+tempo consumer on [System Exclusive Messages]({{ site.baseurl }}/sysex-messages/#the-one-traced-live-parameter-tempo-slot-9)
+was cited at `0xFAA350`, inside the stale veneer copy; the live routine is `sub_FAA742`,
+called from five places in `prom_a` and published through the `prom_b` thunk `T_F40794`.
+A tool that "follows every pointer" has the complementary problem: a remnant's pointers name
+unrelated live bytes, and walking them paints data as code.
 
 ## ⚠ Tools that mislead, named as such
 
@@ -470,7 +568,14 @@ There is a matching trap in the code tracer. A straight linear sweep of these
 images is worthless for a memory map: prom_c holds an IEEE-754 double table at
 file `0x4B27E` (the bytes at its head are π) which linearly disassembles into a
 tidy stride-4 register file **that does not exist** — 280 phantom "registers" came
-out of that before the recursive-descent walker was written. Even the walker's
+out of that before the recursive-descent walker was written. What the table really is:
+the constant pool of CPU 2's double-precision maths library (`prom_c/mathlib/mathlib.s`).
+Its coefficient sets are the Cody & Waite ones (*Software Manual for the Elementary
+Functions*, 1980), all 29 within one ulp of the printed values, and each set is loaded by
+exactly one routine — which is how `Double_Sin`, `Double_Cos`, `Double_Tan`, `Double_Exp`,
+`Double_Log`, `Double_Pow`, `Double_Abs` and `Double_MakeInfinity` got their names
+(`notes/lanes/promcd-2026-09-25/mathlib_names.py`, which asserts every coefficient and the
+instructions that load them). Four helpers beside them are still `sub_XXXXXX`. Even the walker's
 heuristic seeds drag data in as code, and three known false positives are named
 in its README.
 
