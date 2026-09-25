@@ -491,11 +491,15 @@ The same script re-verifies prom_d's erased region independently: one 193,767-by
 run of `0xFF` at file `0x050B09`, ending at `0x07FFF0`, with sixteen bytes of
 content after it — the ASCII `wsad_54.ssf`. It is **not** a trailing tail.
 
-### The largest open ranges
+### Among the largest open ranges
 
 From the same census, merged the way its research-target list merges them
 (`tools/census_research_by_image.py OUT.json --ranges prom_a,prom_b,prom_c,prom_d` in this
-repository, over `data_range_census.py --json OUT.json`):
+repository, over `data_range_census.py --json OUT.json`; re-run at `be376096`). The six
+largest are all in `prom_a` and `prom_b` and are the first six below; after them the list
+is a selection, one entry per image for `prom_c` and `prom_d`. Next in size after the six
+come `prom_b`'s `Font_Svc06_8x14` (2,800 B), `prom_a`'s `RecordTables_FB82A0` (2,566 B) and
+`prom_b`'s `EffectNames_F147AC` (2,048 B).
 
 * **`prom_b` `0xF212B0`–`0xF24DC0`** (15,120 B), fonts `Font_Svc16_8x14` … `Font_Svc1F_16x16`.
   Their roles and metrics are established; each header keeps one open question, which is
@@ -512,6 +516,21 @@ repository, over `data_range_census.py --json OUT.json`):
   exporter writes is a complete seven-byte path through it
   (`notes/promb-2026-09-25/sysex_decode_tree_probe.py`). What a leaf's result and pair bytes
   select is still open.
+* **`prom_b` `0xF7D2D8`–`0xF7E2D8`** (4,096 B), `ButtonTable_Edit_0C10Zero` …
+  `ButtonTable_SequencerMedley`: 32 tables of 32 panel-button handlers, indexed by the
+  button code of a class-`0xA9` UI event (`wsa1/notes/prom_b_screens_round8.py --layer2`).
+  What each table's selector byte means is not established; codes `0x0E` and `0x11`–`0x19`
+  are handled by some screen but emitted by no `prom_a` template, and their producer is
+  unfound; and the 124 handlers have no names.
+* **`prom_b` `RecordArray_F511DD`** (3,139 B): 110 variable-length records framed by
+  `RecordIndex_F51E8A` — 16 parameter bytes, then three `prom_a` pointers at `+0x10`,
+  `+0x14`, `+0x18`. What the 16 parameter bytes mean, and why 28 bytes precede the first
+  record, is open.
+* **`prom_c` `0xFDF7E0`–`0xFDFECC`** (1,772 B), `Curve_Fitting_Exp2Decay_256` …
+  `Dev104_Reg0100_Const_251` — `prom_c`'s largest research target. The four voice-driver
+  curve tables' fits and readers are established; their headers keep what is not, such as
+  the rate at which the sound LSI steps the fitting curve (not in this ROM) and the unit of
+  the constant `0x0100` that `Dev104_Reg0100_Const_251` feeds to register `0x0100`.
 * **`prom_c` — the P7 stream pool** (`0xFCD0F7`–`0xFDD2AA`, 65,972 B) is no longer an
   unframed stream: its 297 length-prefixed streams are what `P7Stream_Run` sends out of port
   P7 to the DSPs, a unit's program 0–127 is a DSP effect number (56 directory records in
@@ -519,7 +538,8 @@ repository, over `data_range_census.py --json OUT.json`):
   record, field array and stream is named by its effect. **24 streams (5,897 B) have no
   reader** — searched through the directory records, `.long` words and operands, LE24/LE32
   in `prom_c`, LE32 in `prom_a`/`prom_b` and pool-relative LE16 — and are stated as
-  unreferenced, not explained. The largest of them are the ~1 KB ranges on the census list.
+  unreferenced, not explained. The largest of them are ~1 KB ranges on the census list
+  (the biggest, `P7Stream_FCFA2A` …, 1,103 B), smaller than the curve tables above.
 * **`prom_d`** — only `ToneDB_ToneOffsetTable` (1,096 B) remains, and its open question is
   narrow: the program order of `ToneDB_ToneNumBanks`.
 
