@@ -971,7 +971,7 @@ The complete failure chain has been identified through 7 diagnostic trace sessio
 
 **The event IS generated correctly:**
 1. SwbtWr_DispatchLoop processes event code 0x10 from the tone gen parameter buffer
-2. Bank 2 callback chain calls `UIState_HandlerTable_05` → `UIState_KeyScan_Dispatch`
+2. Bank 2 listener list `SwbtB2_Code10_Listeners` → `UIState_KeyScan_Dispatch`
 3. At this moment, C080=0x10, C07D=0x00 — filter would match registration entry [10]
 4. `UIState_KeyScan_Dispatch` dispatches event 0x1C00038 via `EventDispatch_Direct`
 
@@ -1001,7 +1001,7 @@ Alternatively, the SSF presentation may require actual user button presses on re
 flowchart TD
     subgraph SWBWR["SwbtWr_DispatchLoop (Bank 2)"]
         E10["Event 0x10 processed"] --> C080W["C080 = 0x10, C07D = 0x00"]
-        C080W --> CB["Callback: UIState_HandlerTable_05"]
+        C080W --> CB["Listener list: SwbtB2_Code10_Listeners"]
         CB --> KSD["UIState_KeyScan_Dispatch<br/>(C080=0x10, state=0xE4, gate=0xFFFE)"]
         KSD --> EDD["EventDispatch_Direct<br/>event 0x1C00038, broadcast"]
         EDD --> RBCHECK{"Ring buffer<br/>empty?"}
@@ -1032,12 +1032,16 @@ Direct examination of the SwbtWr callback tables in ROM confirmed the full mecha
 
 | Event Code | Bank 2 Callback | Points To |
 |------------|----------------|-----------|
-| 0x10 | `0xEE81C0` | `UIState_HandlerTable_05` |
-| 0x10 | `0xEE81DC` | `UIState_HandlerTable_06` |
-| 0x11 | `0xEE81DC` | `UIState_HandlerTable_06` |
-| 0x11 | `0xEE81F8` | `UIState_HandlerTable_07` |
-| 0x12 | `0xEE81F8` | `UIState_HandlerTable_07` |
-| 0x12 | `0xEE8214` | `UIState_HandlerTable_08` |
+| 0x10 | `0xEE81C0` | `SwbtB2_Code10_Listeners` |
+| 0x11 | `0xEE81DC` | `SwbtB2_Code11_Listeners` |
+| 0x12 | `0xEE81F8` | `SwbtB2_Code12_Listeners` |
+| 0x13 | `0xEE8214` | `SwbtB2_Code13_Listeners` |
+
+(The labels are the uimisc lane's, September 2026. Each bank is a 192 × u32 table indexed by
+event code, pointing at listener lists of callbacks ended by `0xFFFFFFFF`; see the
+`SwbtWr EVENT-LISTENER BANKS` header in `v10/maincpu/ui_widgets/widget_dispatch.s`. The older
+version of this table listed each code twice with the next list's address, and used the names
+`UIState_HandlerTable_05`-`08`.)
 
 Each handler table contains the same 6-function chain (from `widget_dispatch.s`):
 
@@ -1051,17 +1055,19 @@ UIState_KeyScan_Dispatch        <- SSF trigger point
 0xFFFFFFFF                       (terminator)
 ```
 
-**`UIState_KeyScan_Dispatch` IS called from within SwbtWr_DispatchLoop** -- it's the last function in each handler table chain. When event code 0x10 is processed through Bank 2, the callback calls `UIState_HandlerTable_05`, which iterates through all 6 functions. At `UIState_KeyScan_Dispatch`, C080=0x10 and C07D=event_param.
+**`UIState_KeyScan_Dispatch` IS called from within SwbtWr_DispatchLoop** -- it's the last function in each handler table chain. When event code 0x10 is processed through Bank 2, `SwbtWr_DispatchLoop` walks `SwbtB2_Code10_Listeners` and calls all 6 functions. At `UIState_KeyScan_Dispatch`, C080=0x10 and C07D=event_param.
 
 **Bank 1 callback table entries** (for comparison):
 
 | Event Code | Bank 1 Callback | Points To |
 |------------|----------------|-----------|
-| 0x10 | `0xEE7AC7` | `UIState_ConfigA_016` |
-| 0x11 | `0xEE7ACB` | `UIState_ConfigA_017` |
-| 0x12 | `0xEE7ACF` | `UIState_ConfigA_018` |
+| 0x10 | `0xEE7AC7` | `SwbtB1_Code10_Listeners` |
+| 0x11 | `0xEE7ACB` | `SwbtB1_Code11_Listeners` |
+| 0x12 | `0xEE7ACF` | `SwbtB1_Code12_Listeners` |
 
-Bank 1 callbacks are configuration functions, not handler tables. Only Bank 2 routes through UIState_KeyScan_Dispatch.
+Bank 1's lists for these codes are **empty**: each is a lone `0xFFFFFFFF` terminator. (They were
+labelled `UIState_ConfigA_016`-`018` and read as "configuration functions".) Only Bank 2 routes
+through `UIState_KeyScan_Dispatch`.
 
 **Filter match analysis:**
 
@@ -1084,7 +1090,7 @@ Event 0x10 at buffer slot 13 had params `[00, 06, FF]`:
 ```mermaid
 flowchart TD
     LOOP["SwbtWr_DispatchLoop<br/>processing event 0x10"] --> WRITE["C080 = 0x10<br/>C07D = 0x00"]
-    WRITE --> BANK2["Bank 2 callback lookup<br/>-> UIState_HandlerTable_05"]
+    WRITE --> BANK2["Bank 2 listener lookup<br/>-> SwbtB2_Code10_Listeners"]
     BANK2 --> F1["UIState_ProcessKeyEvent"]
     F1 --> F2["UIState_UpdateControlBits"]
     F2 --> F3["UIState_ProcessMidiEvent"]

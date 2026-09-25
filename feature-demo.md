@@ -487,7 +487,7 @@ offers `35hd` and `35dd`, and `fdc:0` defaults to **`35hd`**.
 
 #### `UIState_KeyScan_Dispatch` — the event sender
 
-The function `UIState_KeyScan_Dispatch` (ROM `0xF98697`) is the code that sends event `0x1C00038`. It is **not called directly** — instead, it appears as a function-pointer entry in many UI widget handler chains (in the ROM pointer tables at `UIState_HandlerTable_WithProbe`, `UIState_HandlerTable_Standard`, `UIState_HandlerTable_Compact`, etc.). When any widget using one of these handler chains processes certain events (typically user interaction events), it walks its handler chain and calls `UIState_KeyScan_Dispatch`.
+The function `UIState_KeyScan_Dispatch` (ROM `0xF98697`) is the code that sends event `0x1C00038`. It is **not called directly** — instead, it appears as a function-pointer entry in many UI widget handler chains (in the SwbtWr bank-2 listener lists such as `SwbtB2_Code00_Listeners`, `SwbtB2_Code01_Listeners` and `SwbtB2_Code02_Listeners`, formerly labelled `UIState_HandlerTable_WithProbe` / `_Standard` / `_Compact`). When any widget using one of these handler chains processes certain events (typically user interaction events), it walks its handler chain and calls `UIState_KeyScan_Dispatch`.
 
 `UIState_KeyScan_Dispatch` logic:
 
