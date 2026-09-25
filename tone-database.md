@@ -333,8 +333,15 @@ for cat, n, fam in [(0x50, 333, {0x00: 0x44, 0xC0: 0x44, 0x80: 0x48}), (0x64, 33
   `ToneDB_Find_SubToneRecord` / `ToneDB_Resolve_NamedToneRecord` turn note *n*'s pair into a
   percussion record, `DrumKit_NoteMapA[slot][wave]`. The independent name path
   (`DSP_SetVoiceCoefficients`, through `DrumKit_NoteMapB` into `PercName_Pack`) names the
-  same instrument for 3,236 of the 3,328 kit notes. The rest differ only in numbering
-  ("Scratch 3" / "Scratch 2"). The source now names the instrument on every note.
+  same instrument for 3,236 of the 3,328 kit notes. The other 92 differ in numbering
+  ("Scratch 3" / "Scratch 2", 37 notes), in abbreviation ("SambaWhistleL" / "SambaWhiLo",
+  37), or outright ("Zap 1" / "High Q", 16), plus 2 notes of "DanceHHPedal" /
+  "HatPedal 5". The probe's reading is that `PercName_Pack` follows the wave-source list,
+  not the instrument list, so it names the wave an instrument plays; that is not checked
+  note by note. The probe prints only the first 12 misses and its summary line still says
+  "the rest differ in numbering"; the breakdown is from `tools/drum_name_path_misses.py` in
+  this site's repository, which reuses the probe's ROM readers. The source now names the
+  instrument on every note.
 * **General MIDI layout, but not everywhere.** Kits 14-17, 19 and 20 (bank selector 0x41) put
   hi-hats on notes 42/46 and a crash on 49, the GM layout. No bank-0x40 kit does. A MAME/HLE
   drum map should use the ROM's per-kit note table, not GM.
