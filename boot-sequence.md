@@ -328,11 +328,12 @@ Only two callers use the heap: `Boot_DetectDiskType` (sector-signature buffer) a
 
 The divide runtime is the compiler's, not the bootloader's: the same routine is linked
 into the main CPU firmware (`DivMod32` / `Math_DivideU32`) and into the HD-AE5000
-extension ROM (`HDAE5000_Divide_Unsigned` / `HDAE5000_Divide_Signed` at 0x29B8BF /
+extension ROM (`HDAE5000_UMod32` / `HDAE5000_UDivMod32` at 0x29B8BF /
 0x29B8C5). The three copies share the algorithm and the entry structure but are not
-byte-identical — a few instruction encodings differ. The HD-AE5000 labels are also
-swapped with respect to what the code does: the routine labelled `_Signed` there is the
-unsigned core, and `_Unsigned` is its modulo entry.
+byte-identical — a few instruction encodings differ. The HD-AE5000 labels used to be
+`HDAE5000_Divide_Unsigned` / `HDAE5000_Divide_Signed`, swapped with respect to the code.
+The hdae lane renamed them in September 2026 (`scripts/renaming/rename_hdae5000_libc.sed`):
+0x29B8C5 is the unsigned core, and 0x29B8BF its modulo entry.
 
 The tail of the region ends in dead code: `Boot_free_DeadTail9998` (0xFFFD7D) is a
 byte-for-byte copy of `Boot_free` from its `extz xhl` onward with the list head address
@@ -397,6 +398,15 @@ The reset handler performs additional hardware setup (note: memory controller is
 | 5 | Initialize DRAM | DREFCR, DMEMCR |
 | 6 | Configure timers | T01MOD, T4MOD, etc. |
 | 7 | Initialize stack | XSP = stack address |
+| 8 | Initialize work DRAM | `Boot_InitWorkRAM` (called from `Boot_InitIOPorts` right after `ld xsp,0xc00`) |
+
+`Boot_InitWorkRAM` zero-fills DRAM `0x010000-0x03D523` and `0x000400-0x00E35C`.
+It then copies two ROM images of initialised RAM: ROM `0xEED8C8` → RAM `0x3D524`
+(0x219E bytes) and ROM `0xEEFA66` → RAM `0xE35E` (0x95B bytes; v7: 0x931 bytes to
+`0xE2C2`). Because the code reads these variables and tables at their **RAM**
+addresses, a search for readers of the ROM bytes must look for the RAM copy;
+see [Memory Map — Work-RAM initial image]({{ site.baseurl }}/memory-map/#work-ram-initial-image).
+It ends with `jrl Boot_RunSelfTest`.
 
 #### Sub CPU Payload Loading
 
@@ -1229,15 +1239,15 @@ The boot initialization performs these steps:
 |------|--------|---------|
 | 1 | Clear work buffer | Zero 0xF52A bytes at 0x22A000, copy the 0x0C82-byte initialised `.data` image from ROM 0x2F94B2 to 0x23952A |
 | 2 | Store workspace | Save workspace pointer (0x027ED2) at 0x23A1A2 |
-| 3 | Register 11 handlers | Via `workspace[0x0E0A][0x00E4]` (`RegisterObjectTable`), plus one final call through dispatch offset 0x0270 |
+| 3 | Register 11 object tables and title 0x7F | Via `workspace[0x0E0A][0x00E4]` (`RegisterObjectTable`), then `workspace[0x0E0A][0x0270]` = `RegisterTitle(0x7F, ..., "TT_HDDEXT", module 0x0A)` |
 | 4 | Load palette | Load 256-entry VGA palette from ROM at 0x2E5DCE |
 | 5 | Blit the boot splash | Copy the 320×240 8bpp splash at ROM 0x2E61CE into VRAM as two 0x9600-byte halves, to 0x1A0000 and 0x1A9600 — this is the "HD-AE5000 / Version 2 / Start-up ! / Please wait . . ." screen |
-| 6 | Register callback | Via `workspace[0x0E0A][0x02C4]` with ID 0x00600002 |
-| 7 | Init handler pointers | 3 functions from handler table B (offsets 0x0108, 0x0100, 0x0104) |
-| 8 | Check HD presence | Detect hard disk, store result at 0x230EDA |
-| 9 | Register frame handler | Set up periodic update callback at 0x2803C2 |
+| 6 | Claim the DISK MENU item | `workspace[0x0E0A][0x02C4]` = `GetViewInstance(0x00600002)`; write class id `0x016A0005` at +0 and the "HD-AE5000" string at +0x2A |
+| 7 | Fetch sequencer-variable addresses | `workspace[0x0E88]` offsets 0x0108, 0x0100, 0x0104 = `GetAdr_sqsrtc`, `GetAdr_sqbtof`, `GetAdr_sq_beadt`; results at 0x230ECC / 0x230ED2 / 0x230ED6 |
+| 8 | Check HD presence | Detect hard disk, store result at 0x230EDA; if present, `ApPostEvent(0xFFFFFFFF, 0x01C00016, 0x01A0007F)`, a request for title 0x7F |
+| 9 | Reset UI state | `HDAE5000_Finalize_Init` (a `ret`), then `HDAE5000_UiState_Reset` at 0x2803C2 |
 
-**Important:** Steps 1-5 must complete before step 6. The callback registration function at offset `0x02C4` depends on state established by the 12-handler registration at offset `0x00E4`.
+**Important:** Steps 1-5 must complete before step 6. The record `GetViewInstance` returns is re-classed as the HD-AE5000's `HDTitleMenu`, which exists only after the class table `0x016A` has been registered in step 3.
 
 ### Frame Handler Dispatch
 
@@ -1258,32 +1268,46 @@ The frame handler is called **unconditionally** -- no registration is needed. Th
 The workspace pointer at `0x027ED2` provides access to the firmware's callback dispatch system:
 
 ```
-Workspace (0x027ED2)
+Workspace (0x027ED2) = the object table, 14-byte entries {class id, proc, count, data}
     |
-    +-- offset +0x0E0A --> Handler Table A pointer
-    |                        |
-    |                        +-- offset +0x00E4 --> Handler registration function
-    |                        +-- offset +0x02C4 --> Callback registration function
-    |                        +-- offset +0x0124 --> Display callback function
-    |                        +-- offset +0x0244, +0x0248, +0x024C --> UI callbacks
+    +-- +0x0E0A = data of table 0x100: InitializeRoot's Function table (0xEAFA6E)
+    |       +0x00DC InheritedProc      +0x00E4 RegisterObjectTable
+    |       +0x0100 SendEvent          +0x0104 PostEvent     +0x0124 ApPostEvent
+    |       +0x0168 ClassProc          +0x0244/0248/024C Function/ApFunction/MainFunctionProc
+    |       +0x0270 RegisterTitle      +0x02C4 GetViewInstance    ... (41 offsets used)
     |
-    +-- offset +0x0E88 --> Handler Table B pointer
-                             |
-                             +-- offset +0x0100 --> Init function 2
-                             +-- offset +0x0104 --> Init function 3
-                             +-- offset +0x0108 --> Init function 1
+    +-- +0x0E88 = data of table 0x109: InitializeHama's Function table (0xE1F0EC)
+            +0x0100 GetAdr_sqbtof      +0x0104 GetAdr_sq_beadt    +0x0108 GetAdr_sqsrtc
+            ... (58 offsets used)
 ```
 
-HDAE5000 registers 12 handlers using the function at offset `0x00E4`, each identified by a port address (0x0160000x) and handler ID. See [HDAE5000 Homebrew Development]({{ site.baseurl }}/hdae5000-homebrew/) for details on the workspace protocol and writing custom extension ROMs.
+The names are the firmware's own, read from the name tables the main CPU
+registers beside each function table (0x400 and 0x409). The HD-AE5000 source
+spells every call as `RootFn_<name>` / `HamaFn_<name>`. The earlier diagram here
+called `+0x0124` a "display callback", `+0x02C4` a "callback registration
+function" and table B's entries "init functions"; all three were wrong.
+
+HDAE5000 registers **11** object tables with `RegisterObjectTable` and one title
+with `RegisterTitle`. Each table is identified by a **class id** and an
+object-table index; `0x0160000n` is a class id, not a "port address". The
+module number is 0x0A. See
+[HDAE5000 Homebrew — Complete Handler Table]({{ site.baseurl }}/hdae5000-homebrew/#complete-handler-table). See [HDAE5000 Homebrew Development]({{ site.baseurl }}/hdae5000-homebrew/) for details on the workspace protocol and writing custom extension ROMs.
 
 ### Frame Handler (0x28F662)
 
 After initialization, the main CPU calls the frame handler periodically:
 
-1. Calculate display offset from handler states
-2. Check for state changes via callback dispatch
-3. Monitor status bit 2 for display refresh triggers
-4. Jump to PPORT handler for parallel port polling
+1. While a lyric box is open, read the main CPU's song position through the
+   `sqbtof` / `sq_beadt` addresses fetched at boot and post it to the box
+   (event `0x01CA0004`, `EV_TICKS`) when it changes
+2. When bit 2 of the main CPU's `sqsrtc` byte falls to 0 and
+   `HDAE5000_Get_Status_Byte` returns 1, either post the file-load events (if
+   the HD title 0x7F is current, `GetTitleNow` = `0x01A0007F`) or request title
+   0x7F (`HDAE5000_RequestTitle15`)
+3. Jump to the PC-link handler (`HDAE5000_PPORT_ServicePending`)
+
+(Details: `HDAE5000_Frame_Handler`'s header in `hdae5000/hdae5000_ui_display.s`
+and [HDAE5000 Filesystem — Lyric Files]({{ site.baseurl }}/hdae5000-filesystem/#lyric-files-tlx).)
 
 ---
 
