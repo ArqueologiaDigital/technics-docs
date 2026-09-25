@@ -245,8 +245,8 @@ graded against a foil) and not a byte match. See
 Between the KN5000's own two processors the match is closer. 273 runs of at least 16 bytes
 (11,946 bytes in all) of the v1.42 Sub CPU payload occur verbatim in the v10 main-CPU ROM
 (`python3 scripts/analysis/v142_maincpu_shared_code_scan.py --min 16`, which needs both ELFs
-built). When a run starts at the same offset in both enclosing routines (ALIGNED), the two
-names label the same routine. That is how the subcpu lane (September 2026) found several
+built). A run that starts at the same offset in both enclosing routines (ALIGNED) is the
+script's strongest sign that the two names label the same routine. That is how the subcpu lane (September 2026) found several
 main-CPU kernel names to be wrong. The main-CPU source still carries these names:
 
 | Sub CPU (v1.42, named from the code) | Main CPU (v10 label) | aligned run |
@@ -259,7 +259,7 @@ main-CPU kernel names to be wrong. The main-CPU source still carries these names
 | `TaskSem_Release` (semaphore V) | `Audio_Lock_Release` (0xEF1F0F) | 44 B at +39 |
 | `TaskSem_Release_WakeWaiter` | `AudioLock_Release_WakeWaiter` | 16 B at +56 |
 | `TaskSem_TryDec` / `TaskSem_GetCount` | `AudioLock_TryAcquire` / `AudioLock_GetCount` | 22 B / 26 B |
-| `TaskMsgQ_Send` / `TaskMsgQ_Receive` | `TaskMsg_Send` / `TaskMsg_Receive` | 41-54 B |
+| `TaskMsgQ_Send` / `TaskMsgQ_Receive` | `TaskMsg_Send` / `TaskMsg_Receive` | 41 B at +37 and 54 B at +102 / 39 B at +23 |
 
 So **`Audio_Lock_Acquire` / `Audio_Lock_Release` are the kernel's generic semaphore P/V
 routines**, not an audio-specific lock. Their "lock index" is a semaphore number. The audio
