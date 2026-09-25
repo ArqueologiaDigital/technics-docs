@@ -484,7 +484,9 @@ Every byte of every image lands in exactly one bucket:
   `DrumKitNames`), with or without a header, but with no evidence cited. Real understanding,
   resting on somebody's naming judgement and nothing else.
 - **UNKNOWN** — an address-derived or absent label with no explanatory header, **or a
-  header that admits the purpose is not established**.
+  header of fewer than 40 words that admits the purpose is not established**. (A longer
+  admitting header can still grade KNOWN-B; either way the admission puts the region on the
+  research-target list.)
 - **FILLER** — a fill directive whose ROM bytes are **verified uniform**, run ≥ 16 bytes.
 
 *Strict* is CODE + KNOWN-A + FILLER; *explained* adds KNOWN-B.
@@ -529,7 +531,8 @@ JSON this way, with the census's own target rule).
 ### Reading those numbers honestly
 
 **UNKNOWN went up, and that is the push working.** A header that says "purpose not
-established — searched X and Y" grades UNKNOWN, while a plausible name with no header
+established — searched X and Y" grades UNKNOWN (when it is under 40 words; a longer one is
+still listed as a research target), while a plausible name with no header
 grades KNOWN-B. The lanes' rule was to replace names that *hid* a gap with admissions that
 *state* it, so UNKNOWN rose from 12,357 B to 56,567 B while KNOWN-B fell by 3.87 MB — most
 of that into KNOWN-A, some of it, correctly, into UNKNOWN. Two examples from the lane
@@ -537,9 +540,13 @@ reports: `prom_a`'s MIDI-in tables for two unidentified controllers now say so (
 to research on purpose), and 24 streams in `prom_c`'s P7 pool are stated as unreferenced
 (5,897 B). The admission is the true statement; the name it replaced was not.
 
-**95.04 % is the instrument's grade, not an audited figure.** KNOWN-A is keyword-graded: a
-header of eight or more words carrying two evidence tokens (`read by`, `record`, `+0x`,
-`.py`, …) and no admission phrase earns it. The only check of whether a grade means a reader
+**95.04 % is the instrument's grade, not an audited figure.** KNOWN-A is keyword-graded
+(`grade_purpose()` in `scripts/analysis/data_range_census.py`), by either of two routes: a
+header of eight or more words carrying two evidence tokens, or a descriptive
+(non-address-derived) name with a header of six or more words carrying one — and in both
+cases no admission phrase. The evidence list holds specific tokens (`read by`, `call site`,
+`+0x`, `.py`, …) but also any `0x` and generic words such as `entry`, `header`, `format` and
+`see `, so a header can earn an evidence token without citing any evidence. The only check of whether a grade means a reader
 can say what the bytes are is a hand audit: 40 regions drawn from KNOWN-A ∪ KNOWN-B,
 size-weighted, seed 90902 (`--load … --sample 40 --seed 90902`). **That audit was run on the
 2026-09-02 tree and has not been repeated since Wave 2.** It found 3 of 40 failing outright —
