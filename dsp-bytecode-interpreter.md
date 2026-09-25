@@ -201,12 +201,13 @@ data zones turned up the whole supporting table family, all of which agree on th
 | `DSP_AlgoType_Dispatch2_CaseOffsets` | `0x00FB7E` | 12 × `u16`, base `0x0339DE` |
 | `DSP_AlgoType_Dispatch3_CaseOffsets` | `0x00FB96` | 12 × `u16`, base `0x033E44` |
 | `Algo_SubTable_DispatchB_CaseOffsets` / `Algo_SubTable_DispatchC_CaseOffsets` / `Algo_SubTable_Bit15Dispatch_CaseOffsets` | `0x00FBAE` / `0x00FBC0` / `0x00FBD2` | 9 × `u16`, bases `0x0340CC` / `0x0341BE` / `0x03429D` |
-
-(These were `AlgoJumpTable1`-`AlgoJumpTable6` until September 2026; each is now named after
-the dispatcher that reads it, `scripts/renaming/rename_v142_case_offset_tables.sed`.)
 | `DSP_EFFPARAM_APPLY_JUMPTABLE` | `0x00F99B` | 12 × `u16`, base `0x02F2D9` (`DSP_EffParam_Apply_By_AlgoType`) |
 | `DSP_AlgoChannel_SelectorRecords` | `0x010FCE` | 12 × 6 bytes — three 2-byte channel pairs per type, `0xFF` = no entry |
 | `DSP_AlgoDescriptor_Records` | `0x011E16` | 14 × 39-byte (`0x27`) records; types 12 and 13 are all zero |
+
+(The six `*_CaseOffsets` tables were `AlgoJumpTable1`-`AlgoJumpTable6` until September 2026;
+each is now named after the dispatcher that reads it,
+`scripts/renaming/rename_v142_case_offset_tables.sed`.)
 
 **Correction (2026-08).** An earlier revision of this page said `DSP_WriteEFFConfig` "looks
 up the algorithm type from a table at `0x1ED6D[wa]`". It does not: `0x01ED6D` is the 5-byte
