@@ -141,6 +141,14 @@ struct FeatureDemo_FileEntry {
 
 Six entries are stored contiguously at 0x8CE01C, referenced by the metadata header at 0x87FFF0 via `FeatureDemo_FileEntry1`.
 
+**Readers** (v10, from the source headers written by the `tdata` lane in September 2026):
+`FDemo_LinkedListSearch` (0xF8682F) starts its bitmap-name search at the metadata header's
+`+0x18` (`ld xiz,(0x880008)`), and `FDemo_LinkedListLookupField` (0xF868EF) returns an entry's
+data pointer. `VwUserBitmapByNameProc` (0xF9C5FC) appends ".BMP" to a widget's key ("FTBMP01")
+before the search, and `DrawBitmapFile` (0xFAC697) draws the result. `DrawBitmapFile_Impl`
+(0xFAC6F3) checks the BMP header: "BM", `biSize` 40, `biPlanes` 1, `biBitCount` ≤ 8, `biClrUsed`
+≤ 256, `bfOffBits − 54` ≤ 1024. All six files pass.
+
 ### Metadata Header (0x87FFF0)
 
 The presentation file metadata at 0x87FFF0 links the SSF script and asset index:
@@ -154,6 +162,13 @@ struct FeatureDemo_FileMetadata {
     uint32 entries_ptr;     // +0x18: pointer to file entries (FeatureDemo_FileEntry1 at 0x8CE01C)
 };
 ```
+
+Three readers use the header. `Boot_ParseSubCPUTimestamp` (0xEF07E6) parses the "55" in the
+filename as the table-data revision. `Seq_CopyResourcePtrs` (0xF862B5) loads `+0x14` as the
+SSF script position for demo number 18 only. `FDemo_LinkedListSearch` reads `+0x18`. Demo
+number 18 is also the Feature Demo's preset slot (`DemoSongPreset18` at 0x8E0000, decompressed
+to RAM 0x69800 through `DemoSongPreset_PointerTable[18]`). Fields `+0x0C` and `+0x10` have no
+reader.
 
 ### UI Objects (Program ROM)
 
