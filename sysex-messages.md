@@ -239,6 +239,18 @@ map**: each template embeds a 3-byte start address and a 3-byte length, and the
 banks seen are `0x20xxxx`, `0x40xxxx`, `0x50xxxx`, `0x60xxxx` and `0x62xxxx`
 (e.g. `40 00 00 · 00 00 20`, `40 00 20 · 00 12 60`, `50 06 00 · 05 40 00`).
 
+**Command `0x2C` also carries single-parameter changes.** The SMF writer holds 74
+nineteen-byte templates (`SmfExport_ParamSysExTemplates`, `prom_b 0xF74FCF`) of the form
+`F0 50 2C 04 00 11 00 <hi> <lo> 00 00 01 <nh> <nl> …`: a two-byte address, then the value
+as two nibbles. The SMF reader's `SmfEvent_SysEx` decodes exactly that shape back, besides
+GM System On/Off, and every one of the 74 bodies is a complete seven-byte path through the
+receive decoder's tree described below (`notes/promb-2026-09-25/smf_param_sysex_probe.py`,
+`smf_sysex_param_change.py` and `sysex_decode_tree_probe.py` in the disassembly repository).
+For address-hi `0x11`, templates 4–70 read RAM `0x7622 + lo` — the work-RAM parameter records
+([Parameter Records]({{ site.baseurl }}/wsa1-parameters/#factory-defaults-and-the-combination-memory));
+`11 20` is `0x7642`, DSP effect block 1. How this per-parameter use squares with the "open /
+begin a bulk transfer" reading of `0x2C` in the table above is not established.
+
 The transmit builders are `sub_FB6E7F` / `sub_FB6F24` / `sub_FB71BB` /
 `sub_FB8081`, feeding the byte-emit primitive `sub_FB7FEB` (`0xFB7FEB`).
 **Crucially, these are reached only from (i) request→response — a received dump
@@ -320,8 +332,15 @@ end-to-end (**PROVEN**):
 2. It range-checks the value to **`0x28`–`0x12C` (40–300 BPM)**.
 3. It passes the value to `sub_FB57ED` (`0xFB57ED`), which writes the 16-bit
    store **`(0x7EE2)`** (plus bit 0 of `(0x7EE3)`) — a 9-bit tempo.
-4. `TempoSetter` (`0xFAA350`) reads `(0x7EE2)`, clamps 40–300 (default 120), and
+4. `sub_FAA742` (`0xFAA742`) reads `(0x7EE2)`, clamps 40–300 (default 120), and
    programs the sequencer timer: `TREG5 = 140,000,000 / (BPM · 64)`.
+
+   ⚠ Earlier revisions of this page put this step at `0xFAA350`. That
+   address is inside a **stale copy** of the routine bank, `0xFAA018`–`0xFAA3FF`, which
+   differs from the live bank `0x400` higher in exactly ten bytes and which nothing
+   publishes or calls. The routine that runs is its live twin `sub_FAA742`, called from
+   five places in `prom_a` and published through the `prom_b` thunk `T_F40794`. See
+   [older-build remnants]({{ site.baseurl }}/wsa1-disassembly/#older-build-remnants-and-why-unreached-code-can-be-correct).
 
 This received-SysEx path and the **front-panel tempo dial** converge on one
 store, with byte-identical range logic:
@@ -331,7 +350,7 @@ store, with byte-identical range logic:
 | entry | `PanelEvent_Code21_Dial` `0xF86833` | `0xFB33FE` |
 | edit | `PanelDial_ApplyStep` `0xF8688E` (floor `0x0028`, cap `0x012C`) | value decoded, range-checked `0x0028`–`0x012C` |
 | write | class-`0x7A` event → sink `sub_F448A3` (`0xF448A3`) → `(0x7EE2)` | `sub_FB57ED` → `(0x7EE2)`/`(0x7EE3)` directly |
-| consumer | `TempoSetter` `0xFAA350` | `TempoSetter` `0xFAA350` |
+| consumer | `sub_FAA742` `0xFAA742` | `sub_FAA742` `0xFAA742` |
 
 Acceptance is gated at runtime (`0xFB33FE` checks `(0x207A)≠0x79`,
 `(0x7f32)&0x04==0`, `(0x7f38)&0x08` set; `sub_FB57ED` needs `(0x7f32)&0x10==0`),
@@ -340,7 +359,8 @@ i.e. only in certain transport/clock states.
 #### The tempo message on the wire
 
 The command byte that routes to the tempo handler is **`0x25`**, and it is a
-*leaf* of the receive decoder's trie (`0xF5115B`, record byte `0x25` → slot 9) —
+*leaf* of the receive decoder's trie (`LinkTable_F4FF61`, whose root record sits at
+`0xF5115B` and which `prom_a` `sub_FB63D1` walks; record byte `0x25` → slot 9) —
 so the tempo message carries **no `04 00 11` model bytes** (those belong to the
 transfer commands). The BPM is a 9-bit value split across the two data bytes as
 **low-nibble first, then the high part** — `value = (H<<4)|L`, range-checked
@@ -506,7 +526,7 @@ All addresses are on CPU 1 (`prom_a` = code @ `0xF80000`, `prom_b` = data @
 | `sub_FB21CB` | `0xFB21CB` | Live-MIDI dispatcher |
 | slot-9 handler | `0xFB33FE` | Live TEMPO change (decode + range-check) |
 | `sub_FB57ED` | `0xFB57ED` | Writes tempo store `(0x7EE2)`/`(0x7EE3)` |
-| `TempoSetter` | `0xFAA350` | `(0x7EE2)` → `TREG5` sequencer reload |
+| `sub_FAA742` | `0xFAA742` | `(0x7EE2)` → `TREG5` sequencer reload (its stale twin at `0xFAA342` never runs) |
 | Outgoing message templates | `prom_b 0xF4FEC8`–`0xF4FF60` | Literal `F0 50 …` / GM templates |
 | `MIDI_TX_Ready` | `0xFA542F` | `INTTX0`: real-time bytes, then the output ring → `SC0BUF` |
 | `Ring601432_PutBlock` | slot `0xF41DF8` → `0xF8481C` | append a block to the **MIDI OUT** ring at `0x601432` |
