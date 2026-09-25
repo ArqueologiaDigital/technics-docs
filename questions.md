@@ -56,7 +56,7 @@ Things we don't know yet and need to investigate.
 ### HDAE5000 Hard Disk Expansion
 - [x] What is the command interface via PPI at `0x160000`? **i8255 PPI for PC parallel port (LPT) communication** — used by HD-TechManager5000 Windows software for backup/restore. See [HDAE5000]({{ site.baseurl }}/hdae5000/) and [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/)
 - [x] How does it communicate file data to the keyboard? **IDE/ATA at 0x130010-0x130020** (CHS addressing, PIO mode, 4 ATA commands: Read Sectors, Write Sectors, Identify Device, Set Features). See [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/)
-- [x] What is the protocol for directory listing and file loading? **Custom FSB/FGB/FEB filesystem** — File System Block, File Group Block, File Entry Block hierarchy with sector-based allocation. See [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/)
+- [x] What is the protocol for directory listing and file loading? **A custom filesystem**: a 32-bit FAT of cluster chains, and 323 table sectors holding 120 directory names, 1,920 song records (each with first-cluster slots for its parts) and 120 FLS records. See [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/). (Earlier text here described an "FSB/FGB/FEB hierarchy"; that reading came from misnamed lyrics-player routines.)
 
 ## ROM Reconstruction
 

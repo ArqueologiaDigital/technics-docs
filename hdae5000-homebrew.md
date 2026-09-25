@@ -1659,7 +1659,7 @@ The `-oslog` flag captures debug output, including any invalid instruction repor
 - [App Loader Tutorial]({{ site.baseurl }}/app-loader/) -- Load and run multiple apps from a FAT16 hard disk
 - [Event Codes Reference]({{ site.baseurl }}/event-codes/) -- Complete table of known firmware event codes
 - [HDAE5000 Hard Disk Expansion]({{ site.baseurl }}/hdae5000/) -- Original firmware documentation
-- [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) -- Custom proprietary filesystem (FSB/FGB/FEB)
+- [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) -- Custom filesystem (FAT, cluster chains, song records) and the lyric file format
 - [Display Subsystem]({{ site.baseurl }}/display-subsystem/) -- VGA controller and display architecture
 - [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/) -- Serial input protocol
 - [Memory Map]({{ site.baseurl }}/memory-map/) -- Full system address space

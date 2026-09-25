@@ -127,7 +127,7 @@ and hardware have been reverse engineered in depth.
 | [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/) | MCU serial communication |
 | [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/) | Main/Sub CPU latch protocol |
 | [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/) | IDE/ATA and PC parallel port |
-| [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) | Custom FSB/FGB/FEB filesystem |
+| [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) | Custom filesystem and lyric files |
 
 ### Firmware Analysis
 

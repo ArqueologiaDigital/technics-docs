@@ -515,7 +515,7 @@ The App Loader source code is available at:
 
 - [HDAE5000 Homebrew Development]({{ site.baseurl }}/hdae5000-homebrew/) -- Extension ROM protocol, XAPR header, build pipeline
 - [HDAE5000 Hardware]({{ site.baseurl }}/hdae5000/) -- Extension board hardware details
-- [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) -- the *stock* firmware's custom filesystem (FSB/FGB/FEB, **not** FAT16; the App Loader above replaces that ROM and uses FAT16 on its own disk)
+- [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) -- the *stock* firmware's custom filesystem (its own 32-bit allocation table and song-record tables, **not** FAT16; the App Loader above replaces that ROM and uses FAT16 on its own disk)
 - [Storage Subsystem]({{ site.baseurl }}/storage-subsystem/) -- IDE/ATA hardware interface
 - [Event Codes]({{ site.baseurl }}/event-codes/) -- Firmware event dispatch system
 - [Memory Map]({{ site.baseurl }}/memory-map/) -- Full KN5000 address space

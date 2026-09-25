@@ -228,7 +228,7 @@ A raised button reading "STORE", provided by `HDAE5000_BitmapButt01` (0x28B527, 
 
 ## Preset Wallpapers (Table Data ROM)
 
-These background wallpapers are built into the firmware for the LCD display. Discovered via the `SetWallPaper` routine which references a wallpaper table at `0xEAAE62`.
+These background wallpapers are built into the firmware for the LCD display. The wallpaper table at `0xEAAE62` holds `{pixels, palette, 0}` records; `SetWallPaper` jumps to `ChangeWall`, whose `ChangeWall_Impl` selects the image and `ChangePalette_Impl` loads its palette from the 1 KB trailer after it (see [Table Data ROM]({{ site.baseurl }}/table-data-rom/#wallpapers-0x8ed000-0x900000)).
 
 **Technical details:**
 - Format: 320×240 pixels @ 8bpp (76,800 bytes each)

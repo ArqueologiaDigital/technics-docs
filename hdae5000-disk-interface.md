@@ -428,7 +428,7 @@ For MAME emulation, the HDAE5000 disk interface requires:
 3. **IDE Drive Model**: CHS-addressed IDE drive simulation
 4. **Status Bits**: Proper BSY/DRDY/DRQ/ERR flag handling
 5. **PIO Mode**: All transfers are PIO (no DMA observed)
-6. **Custom Filesystem**: FSB/FGB/FEB structure parsing
+6. **Custom Filesystem**: only needed for tools outside the firmware (the firmware formats and reads its own layout; see [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/))
 
 ## Verified Implementation Details
 
@@ -444,7 +444,7 @@ The following details were confirmed through firmware analysis:
 ## Further Research
 
 Areas requiring additional investigation:
-- Filesystem structure details (FSB/FGB/FEB layout)
+- Which of a song record's ten first-cluster slots holds which part, and the FLS item bytes at +80/+112 ([HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/#open-questions))
 - Error recovery procedures
 - Exact timing requirements for real hardware
 

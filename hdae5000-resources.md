@@ -445,7 +445,7 @@ From `0x2F9CA6` the block becomes a 40-byte-stride record array whose second wor
 ## Related Documentation
 
 - [HDAE5000 Hard Disk Expansion]({{ site.baseurl }}/hdae5000/) - Overview, ROM layout, graphics
-- [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) - FSB/FGB/FEB hierarchy
+- [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) - disk layout, song records, lyric files
 - [HDAE5000 Homebrew Development]({{ site.baseurl }}/hdae5000-homebrew/) - The main CPU's object dispatch system
 - [Image Gallery]({{ site.baseurl }}/image-gallery/#hdae5000-hard-disk-expansion-rom-images) - The extracted bitmaps
 - [UI Widget Types]({{ site.baseurl }}/ui-widget-types/) - The main firmware's equivalent widget vocabulary
