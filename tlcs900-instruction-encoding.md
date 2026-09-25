@@ -385,6 +385,21 @@ decoding](#register-indexed-and-extended-register-pair-decoding) below.
 
 6. **`(Xrr+Rn)` register-indexed operand is now refused, not silently mis-encoded:** `(Xrr+Rn)` (e.g. `(xix+iz)`) is a distinct addressing mode from `(Xrr+d16)` and is not accepted through the displacement operand syntax. It used to fall through to the expression parser, which treated the index register name as an undefined symbol — `ld wa,(xix+iz)` assembled to `d3 f1 00 00 20` instead of the hardware's `d3 07 f0 f8 20`, and was diagnosed (if at all) only at link time. This is now a parse-time error. The register-indexed forms the KN5000/WSA1R firmware actually uses (`ld`/`st` byte/word/long via `(Xrr+Rn)`, and the register-indexed immediate compare) have their own dedicated mnemonics — see the Backend Support Status table above — rather than reusing the displacement syntax.
 
+7. **`di` meant the opposite of DI (found 2026-09-25).** The backend defines
+   `di` as an alias of `EI 0` and prints the bytes `06 00` back as `di`. On the
+   TLCS-900, `EI n` loads the interrupt mask IFF with *n* and an interrupt is
+   accepted when its level is at least IFF (MAME `op_EI`:
+   `m_sr.b.h = (m_sr.b.h & 0x8f) | ((imm & 7) << 4)`), so `06 00` sets IFF = 0 and
+   **accepts every level**; the real DI is `EI 7` = `06 07`. The byte gate could
+   never notice, because `di` and `ei 0` assemble identically — every one of the
+   213 `di` lines in the KN5000 and SX-WSA1R sources therefore read as the
+   opposite of what the CPU does. The sources now spell all 213 as `ei 0`
+   (`scripts/tools/fix_di_ei_semantics.py` in the disassembly repo, same bytes,
+   gate green), together with nine same-line comments that stated the inverted
+   effect, such as HD-AE5000's `ei 0x07 ; enable interrupts`. The alias itself
+   still needs correcting in the backend (`EI 7`, plus the seven MC tests that
+   pin `06 00` as `di`), or the next machine lift will reintroduce it.
+
 ### Register-indexed and extended-register-pair decoding
 
 The encoder and disassembler are two separate hand-written implementations

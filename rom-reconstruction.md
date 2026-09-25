@@ -348,6 +348,39 @@ boot, table data, custom data, and all four SX-WSA1R images (`prom_a`/`prom_b`/`
 dispatch that static analysis cannot follow, so a census there cannot rule out further
 misdecoded spans.
 
+### A fourth, smaller kind: numeric cross-references
+
+A branch whose operand is a number (`jr z, 17`, `calr 2716`, `call 16569399`) assembles
+byte-exact but names nothing, which breaks the symbolic-cross-reference rule. Numeric
+`jr`/`jrl`/`calr` operands are raw PC-relative displacements, so each target can be computed
+from the address map, and `scripts/converters/symbolize_numeric_branches.py` does that,
+inserting a structurally named label (`_Return`, `_Loop`, `_Join`, `_Skip`, `_Helper`, …) at
+the target. Because the new label is used as an operand, a label placed even one byte wrong
+changes the assembled displacement, so the byte gate does check this edit.
+
+It deliberately leaves a residue numeric. A "branch" made of data decoded as code, or of
+the operand bytes of a mis-framed instruction, would plant a meaningless label that the
+gate cannot see. So every site must also be decoded identically by a second decoder (MAME's
+`unidasm`), and sites in text, pointer tables or absurd instruction neighbourhoods are refused.
+An eight-judge review of 360 accepted sites found two phantom branches, both of which that
+second-decoder rule now refuses. The review evidence is in `notes/branch-symbolization-2026-09-25/`.
+
+| tree | numeric branch operands | of all branches |
+|---|---:|---:|
+| maincpu v10 | 5,459 | 74,282 |
+| maincpu v9 | 6,374 | 75,164 |
+| maincpu v7 | 4,161 | 57,528 |
+| subcpu v142 | 24 | 6,997 |
+| HD-AE5000 | 2 | 7,146 |
+| SX-WSA1R `prom_a` | 3,695 | 25,208 |
+| SX-WSA1R `prom_b` | 2,381 | 18,411 |
+| SX-WSA1R `prom_c` | 29 | 10,241 |
+
+Before the pass these were 13,344 / 14,217 / 19,408 / 726 / 877 / 7,605 / 18,241 / ~3,970.
+What remains is mostly the refused residue, and that residue doubles as a list of places
+where a branch or its target is framed wrongly. In `prom_a`, 3,169 of the remaining sites
+are calls into `prom_b`, which is linked as a separate image.
+
 ## Verbatim debt across all thirteen gated images
 
 `scripts/analysis/kn5000_source_coverage.py` measures **verbatim debt** — bytes that enter
