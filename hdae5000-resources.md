@@ -109,7 +109,7 @@ Naming conventions visible in the list: `*Check` are validation callbacks, `*Cat
 
 Two entries in this list are bitmap resource descriptors rather than ordinary callbacks: `BitmapHdd_icon` (0x280395) is the routine this site used to call `HDAE5000_Alloc_Memory_4`, and `BitmapButt01` (0x28B527) provides a 42×15 "STORE" button. Their firmware names are what proves those routines return a **bitmap base**, not a palette pointer — see [Embedded Graphics]({{ site.baseurl }}/hdae5000/#embedded-graphics-rewritten).
 
-Three of the names in the registry disagree with the label the disassembly currently gives their target: `BitmapHdd_icon` vs `HDAE5000_Alloc_Memory_4`, `LanguageTextReturn` vs `HDAE5000_Dir_Event_Check` (0x28F2F7), and `SEL_DIR_Screen` vs `HDAE5000_HD_Format_Dispatch` (0x2837F2, in the screen table below). The firmware's own names should win; renaming them is a queued follow-up.
+Three names in the registry used to disagree with the disassembly's labels for their targets (`HDAE5000_Alloc_Memory_4`, `HDAE5000_Dir_Event_Check`, `HDAE5000_HD_Format_Dispatch`). The source now carries the firmware's names: `HDAE5000_BitmapHdd_icon` (0x280395), `HDAE5000_LanguageTextReturn` (0x28F2F7) and `HDAE5000_SEL_DIR_Screen` (0x2837F2).
 
 ## Screens and their procedures
 
@@ -136,14 +136,18 @@ The 14 name strings live at `0x2A849A`-`0x2A858D`, under the label `HDAE5000_GFX
 
 ## UI classes and their parameters
 
-Registration IDs 0x010A (procedures) and 0x040A (names), PPI port 0x01600001, count `0x0D` = 13. The same 13 classes are described by `HDAE5000_RECORD_TABLE` at `0x29C0AA` — 13 records of 24 bytes:
+Registration IDs 0x010A (procedures) and 0x040A (names), class id 0x01600001 (`FunctionProc`; not a "PPI port"), count `0x0D` = 13. The same 13 classes are described by `HDAE5000_RECORD_TABLE` at `0x29C0AA`: 13 **class definitions** of 24 bytes, in the main CPU's format (field names from the firmware's root class `Class`; see [UI Framework]({{ site.baseurl }}/ui-framework/#the-class-system-describes-itself)):
 
 | Record field | Contents |
 |--------------|----------|
-| +0x00 | Class procedure pointer (repeats the `.data` table entry) |
-| +0x0C | Pointer to the class name string |
-| +0x10 | Pointer to a per-parameter type-signature string |
-| +0x14 | Pointer to that class's parameter-name list, in the RAM copy of the `.data` image |
+| +0x00 `proc` | Class procedure pointer (repeats the `.data` table entry) |
+| +0x04 `parent` | Parent class id: a root class such as `0x0160001D` `AcTitleMenu` |
+| +0x08 `allsize` / +0x0A `selfsize` | Record size including inherited fields / bytes this class adds |
+| +0x0C `name` | Pointer to the class name string |
+| +0x10 `propdata` | Pointer to a per-parameter type-signature string |
+| +0x14 `propname` | Pointer to that class's parameter-name list, in the RAM copy of the `.data` image |
+
+Each class's parent and the size check are on [HDAE5000 Homebrew]({{ site.baseurl }}/hdae5000-homebrew/#data-record-table-handler-0x016a-the-modules-classes).
 
 The signature at +0x10 is one character per parameter, and its length equals the parameter-name count for all 13 records — which is how the boundaries of the 36-slot parameter-name area at `0x2F96E2` were fixed.
 
@@ -432,13 +436,11 @@ From `0x2F9CA6` the block becomes a 40-byte-stride record array whose second wor
 
 | Item | Status |
 |------|--------|
-| UI descriptor pool, 0x29DC12-0x2A5D2B (33,050 B, 769 descriptors) | **Still decoded as instructions.** The five labels inside it (`UI_Descriptors`, `UI_Page_Titles`, `Panel_Save_UI`, `Credits`, `Demo_Data`) sit at non-boundaries — none coincides with a descriptor start, and the pool really begins two bytes below the first of them. This is the next queued package |
-| Descriptor targets in `UiObject_PtrTable` | Emitted as absolute addresses, because the pool they point into has no labels yet |
-| Sixth palette/bitmap pair, 0x2E3064 / 0x2E3464 | Identified from `HDAE5000_BitmapButt01` and verified against the ROM, but the data-side labels are not split yet — `Path_Strings` and the head of `UI_Icons` still sit inside the picture |
-| `HDAE5000_Icon.bin` | 784 bytes, but the icon is 756 (27×27 with a 28-byte stride). The extra 28 bytes are the first bytes of `HDAE5000_Config_Strings` — literally the ASCII "V2.06i" |
+| UI object pool, 0x29DC12-0x2A5D2B (33,050 B, 769 records) | **Typed** (Wave 2, `scripts/generators/gen_hdae5000_ui_pool.py`): each record's class id, links, attribute word and box. 13,334 B of class-specific body is still undecoded; the main CPU's class layouts cover it. The five old labels inside it are kept as `.set` aliases |
+| Sixth palette/bitmap pair, 0x2E3064 / 0x2E3464 | Labelled: `HDAE5000_Palette_Button01` / `HDAE5000_Bitmap_Button01`. No code in this ROM reads the palette |
+| `HDAE5000_Icon.bin` | 784 bytes, but the icon is 756 (27×27 with a 28-byte stride). The extra 28 bytes are the first bytes of the C program's `.rodata` — literally the ASCII "V2.06i" (`HDAE5000_Str_V206i`) |
 | Gallery renders for Logo / Hands / FilePanel | `convert_images.py` gives all HD-AE5000 images the boot-splash palette; each bitmap actually has its own palette immediately above it in ROM |
 | `en_paradraw` include boundary | Split across two source files at 0x29BFE0 |
-| Registry names vs. source labels | `BitmapHdd_icon`, `LanguageTextReturn` and `SEL_DIR_Screen` disagree with `Alloc_Memory_4`, `Dir_Event_Check` and `HD_Format_Dispatch` |
 
 ## Related Documentation
 

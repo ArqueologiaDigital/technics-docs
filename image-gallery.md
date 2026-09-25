@@ -222,7 +222,7 @@ Small icon depicting a hard disk with magnetic head, used in UI elements. Its re
 
 *42x15, 8-bit indexed color - ROM offset: 0x63464 (CPU: 0x2E3464)* — not yet extracted as an asset.
 
-A raised button reading "STORE", provided by `HDAE5000_BitmapButt01` (0x28B527, registered as `BitmapButt01`) with its own greyscale-ramp palette at `0x2E3064`. It sits inside the range the disassembly still labels `HDAE5000_Path_Strings` / `HDAE5000_UI_Icons`, which is why those "strings" read as runs of `)BBBB…`, `BZZZZ…` and repeated brace characters — those are pixel values (0x29, 0x42, 0x5A, 0x7B), not text.
+A raised button reading "STORE", provided by `HDAE5000_BitmapButt01` (0x28B527, registered as `BitmapButt01`) with its own greyscale-ramp palette at `0x2E3064`. The disassembly labels the pair `HDAE5000_Palette_Button01` / `HDAE5000_Bitmap_Button01`. Older labels (`HDAE5000_Path_Strings`, `HDAE5000_UI_Icons`) once cut across it, which is why those "strings" read as runs of `)BBBB…`, `BZZZZ…` and repeated brace characters — those are pixel values (0x29, 0x42, 0x5A, 0x7B), not text.
 
 ---
 

@@ -2094,7 +2094,7 @@ A comprehensive analysis identified 200+ labels across 14 assembly files that ne
 | fdc_routines.asm | 15 | `FDC_Setup_DMA_Write_Mode`, `FDC_Exception_Status_Decoder` |
 | subcpu_boot.asm | 15 | `TONE_GEN_CHANNEL_INIT`, `DEBUG_OUTPUT_BYTE_HEX` |
 | subcpu_payload.asm | 20 | `Audio_DMA_RingBuffer_To_Maincpu`, `Voice_EnvelopeRate_Lookup` |
-| hdae5000.asm | 22 | `HDAE5000_Calculate_Row_Address`, `HDAE5000_PPORT_Cmd_LoadHDtoMemory` |
+| hdae5000.asm | 22 | `HDAE5000_SongRecord_Address` (then `HDAE5000_Calculate_Row_Address`), `HDAE5000_PPORT_Cmd12_Nothing` (then `HDAE5000_PPORT_Cmd_LoadHDtoMemory`) |
 | file_io/*.asm | 20 | `SelectPasswordMode`, `DisplaySmfFileList` |
 
 ### Naming Conventions
