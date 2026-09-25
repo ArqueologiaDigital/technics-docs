@@ -245,6 +245,15 @@ The cross-index bounds all check out, which is how the pairings were established
 A/B top out at 332/331 against a 333-entry list; C/D at 338/337 against 339; the percussion maps
 at 141/140 and 143 against lists of 141 and 144.
 
+Two of the three trailing bytes of a row are now read: **bytes +14/+15 are the row's own
+selector pair** (program, bank-family), and the name index maps are the **exact inverse** of
+their catalogue — look a row's own selector up as `(bank & 0x0F) × 128 + (program & 0x7F)` in
+the map its family's bits 7:6 pick, and the map returns that row, for 333/333, 339/339,
+141/141 and 144/144 rows. The same holds on the SX-WSA1R's tone database, where prom_c's
+readers compute exactly that index
+([SX-WSA1 overview]({{ site.baseurl }}/wsa1/#prom_d-is-a-tone-database-and-it-is-the-kn5000s-design)).
+Re-derive both with `tools/tone_db_index_map_inverse_check.py` in this repository.
+
 ### Drum kits and percussion
 
 * **26 drum-kit records**, 295 bytes each: 16-char name + 279 parameter bytes. Kits 0-13 are the

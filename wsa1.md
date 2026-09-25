@@ -295,8 +295,11 @@ transplanted from the KN5000 slot at the same offset:
   exact inverses of their catalogues**: every row's own selector, looked up, returns
   that row — 307/307, 314/314, 208/208 and 161/161 — and **the same holds on the
   KN5000's table-data tone database**, 333/333, 339/339, 141/141 and 144/144, so the
-  index is the same thing on both models. Reproduce with
-  `notes/lanes/promcd-2026-09-25/prom_d_index_maps.py` in the disassembly repository.
+  index is the same thing on both models. The prom_d half, with its readers, is proved by
+  `notes/lanes/promcd-2026-09-25/prom_d_index_maps.py` in the disassembly repository; that
+  script does not cover the KN5000, so `tools/tone_db_index_map_inverse_check.py` in this
+  repository re-derives both halves with one piece of code and a control (the same rows
+  through another catalogue's map reproduce at most 16 of them).
 * **Which wave every element plays.** All 451 melodic element blocks resolve through
   the maps to a named catalogue wave; for 213 of them the element's own wave-select
   record equals that wave's default record in all 43 bytes but +0x0B, the tail
