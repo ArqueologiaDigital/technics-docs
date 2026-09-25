@@ -40,6 +40,56 @@ two addresses: a ROM address `0x9Fxxxx` and a boot-time alias `0xFFxxxx` (+0x600
 > six chip-select blocks, the measured register values, and the caveat that the exact
 > MSAR/MAMR decode rule is reconstructed rather than documented.
 
+### Work-RAM initial image
+
+Work DRAM is volatile, so `Boot_InitWorkRAM` (called from `RESET_HANDLER`
+before anything else) prepares it. It zero-fills two blocks and then copies two
+**ROM images of initialised RAM**:
+
+| Step | Source (program ROM) | Destination (DRAM) | Length |
+|------|----------------------|--------------------|-------:|
+| zero | — | `0x010000 - 0x03D523` | 0x2D524 |
+| zero | — | `0x000400 - 0x00E35C` (v7: to `0x00E2C0`) | 0xDF5D (v7: 0xDEC1) |
+| image 1 | `0xEED8C8` (`WorkRamInit_Image`) | `0x03D524 - 0x03F6C1` | 0x219E (8,606) |
+| image 2 | `0xEEFA66` | `0x00E35E - 0x00ECB8` | 0x95B (2,395) |
+| image 2, **v7** | `0xEEFA66` | `0x00E2C2 - 0x00EBF2` | 0x931 (2,353) |
+
+The image-1 source address and length are the same in v7, v9 and v10. Image 2
+is where v7 differs: its destination is 0x9C lower and it is 42 bytes shorter.
+That fits the uiproc lane's measurement that v7's UI and panel RAM variables sit
+exactly 0x9C below v9/v10's.
+
+**Why this matters for reverse engineering:** byte `0xEED8C8 + k` is the
+power-on value of RAM `0x3D524 + k`, and byte `0xEEFA66 + k` that of
+`0xE35E + k`. The code reads the RAM copy, not the ROM bytes. A search for
+readers of ROM data inside these two ranges that looks only for the ROM address
+will therefore report "no reader" when the real readers use the RAM address.
+Examples:
+
+- RAM `0x3D528` / `0x3D52C` hold `Heap_Alloc`'s and `Free`'s variables.
+- 213 more cells up to `0x3D991` are named by 32-bit pointers in the NAKA widget
+  descriptors, i.e. per-widget state. The menu items' `selected` pointers
+  (`0x0003F434`, …) also fall in image 1's destination; see
+  [UI Widget Types]({{ site.baseurl }}/ui-widget-types/#handler_table-field-container--menu_item).
+- `SndParam_ValueMapGrid` (ROM `0xEF0319`, a 7×6 grid of 128-byte value maps)
+  is read from its RAM copy at `0xEC11` (v7 `0xEB4B`), through image 2.
+- The tail of image 2 (ROM `0xEEFF78 - 0xEF0318` → RAM `0xE870 - 0xEC10`) holds
+  voice link arrays and song-player variables
+  (`v10/maincpu/ui/char_encoding_naka_state.s`).
+- The wallpaper palettes read by `GetWallPaletteRGB` are part of image 1, under the misleading label `Naka_DrawbarReg_Table` (ROM `0xEEF588`).
+- The NAKA C files' `Naka_PresentationRootState` (`0x00EF013F`),
+  `NakaState_ZeroBlock_*` and `CharEncoding_*` values point into image 2. They
+  are RAM-image bytes (zeros, never read in ROM), not ROM routine pointers.
+
+`nakarest_refs.py`'s `ram_mirror()` (`scripts/analysis/nakarest_refs.py`) maps
+a ROM range to its RAM copy. Every "no reader found" verdict on data in
+`0xEED8C8 - 0xEF03C0` should be re-run through it. Evidence: the nakarest and
+uimisc lane reports (`notes/lanes/wave2-2026-09-25/lane-reports/`), the
+`WorkRamInit_Image` header in `v10/maincpu/ui_widgets/widget_dispatch.s`, and
+`Boot_InitWorkRAM` in `v7|v9|v10/maincpu/boot/system_handlers.s`. (The v7 file's
+own header block still quotes v10's image-2 values. The code below it uses
+`0xE2C2` / `0x931`.)
+
 ## Table Data ROM Internal Layout
 
 The 2MB table-data ROM is now source-built region by region. The table below is the
@@ -49,7 +99,7 @@ top-level map as recorded in `table_data/kn5000_table_data.s`; see
 
 | Address Range | Contents | Source module |
 |---------------|----------|---------------|
-| `0x800000 - 0x82FFFF` | Section directory (34 LE32 entries) + 27 in-half preset data banks | `preset_banks.s` |
+| `0x800000 - 0x82FFFF` | Section directory (34 LE32 entries: 33 targets + null) and 26 8bpp bitmaps, each byte-identical to a program-ROM image. Not preset data — see [Table Data ROM]({{ site.baseurl }}/table-data-rom/) | `preset_banks.s` |
 | `0x830000 - 0x8324D3` | Tone database directory, bank maps, 629-entry tone-record offset table | `tone_database_directory.s` |
 | `0x8324D4 - 0x855A47` | 579 tone/voice records | `tone_database_records.s` |
 | `0x855A48 - 0x87FFEF` | Drum kits, percussion and name lists, envelope data | `tone_database_aux.s` |
@@ -84,7 +134,7 @@ top-level map as recorded in `table_data/kn5000_table_data.s`; see
 
 | Address | Table |
 |---------|-------|
-| `0x800000` | Section directory — 33 entries indexing preset banks for floppy I/O |
+| `0x800000` | Section directory — 33 bitmap pointers. **No reader found** in any ROM held. Its accessor routines at `0x82F000` (`SectionInfo_SecNN`) return (base, width, height) |
 | `0x830000` | Tone database directory (see [Sub CPU](#tone-database-in-sub-cpu-ram) — the whole database is shipped to the sub CPU) |
 | `0x945C00` | Font descriptors — 10 fonts, 16 bytes each (w, h, descent, ascent, glyph ptr, kern ptr) |
 | `0x986000` / `0x987000` | Music Stylist preset pointers, selected by the current UI state ID (RAM `0x8D38`) |
@@ -603,6 +653,36 @@ The HD-AE5000 is a hard disk expansion system providing 1.08GB storage for music
 |---------|--------|-------------|
 | `0x280008` | JP 0x28F576 | Boot initialization |
 | `0x280010` | JP 0x28F662 | Frame handler (PPORT polling) |
+
+### HD-AE5000 RAM (0x200000-0x23FFFF)
+
+The expansion board's SRAM. Selected variables, named in
+`hdae5000/hd-ae5000_v2_06i.s` (`HDAE5000_RAM_*`, each `.equ` carrying its
+evidence):
+
+| Address | Name | Contents |
+|---------|------|----------|
+| `0x201632` | `HDAE5000_RAM_DirNames` | directory names, 16 B × 120 |
+| `0x201DB2` | `HDAE5000_RAM_SongRecords` | song records, 76 B × 1920 |
+| `0x2257B2` | `HDAE5000_RAM_FlsRecords` | FLS records, 144 B × 120 |
+| `0x22A000` | — | start of the 0xF52A-byte work area cleared at boot |
+| `0x22B430` | `HDAE5000_RAM_LyricBuffer` | the lyric file, 0x5000 bytes ([format]({{ site.baseurl }}/hdae5000-filesystem/#lyric-files-tlx)) |
+| `0x230884` | `HDAE5000_RAM_FdLyricNames` | 40 × 9-byte base names of the floppy's `*.TLX` files |
+| `0x230ECC` / `0x230ED2` / `0x230ED6` | `HDAE5000_RAM_SqSrtcPtr` / `_SqBtofPtr` / `_SqBeadtPtr` | addresses of the main CPU's sequencer variables `sqsrtc`, `sqbtof`, `sq_beadt` (RAM `0x0421` / `0x041C` / `0x041B`) |
+| `0x230EDA` | `HDAE5000_RAM_HdPresent` | result of `HDAE5000_Check_HD_Present` |
+| `0x23952A` | — | RAM copy of the 0x0C82-byte `.data` image (ROM `0x2F94B2`) |
+| `0x23A0AA` | `HDAE5000_RAM_LyricLines` | **six 40-byte text lines of the lyric window** |
+| `0x23A19C` | `HDAE5000_RAM_LyricLoaded` | 1 once a lyric file is loaded |
+| `0x23A19E` | `HDAE5000_RAM_LyricBoxObj` | **object id of the open lyric box**, `0xFFFFFFFF` when none is open |
+| `0x23A1A2` | `HDAE5000_RAM_MainWorkspacePtr` | the main CPU's object table (`0x027ED2`), passed to `Boot_Init` in XWA |
+
+Two of these were misread on earlier versions of the HD-AE5000 pages.
+`0x23A0AA` was called a "directory entry display (5 slots × 40 bytes)" and is
+the lyric window's six lines. `0x23A19E` was called a "secondary workspace
+pointer" and is the lyric box's object id. The frame handler posts the song
+position to that object, and redraws go to it. Source: the hdae lane report
+(`notes/lanes/wave2-2026-09-25/lane-reports/hdae.json`) and the `.equ` block
+at the top of `hdae5000/hd-ae5000_v2_06i.s`.
 
 ### Analyzed Firmware Version
 
