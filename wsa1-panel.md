@@ -435,11 +435,24 @@ A press reaches the rest of CPU 1 along two routes out of the panel's group queu
 button tables (`ScreenButtonHandlers_StaleCopy`, `0xF95D95`). Nothing reaches them — see
 [older-build remnants]({{ site.baseurl }}/wsa1-disassembly/#older-build-remnants-and-why-unreached-code-can-be-correct).
 
-The checks, all in `notes/proma-2026-09-25/` of the disassembly repository:
+The checks, all in `notes/proma-2026-09-25/` of the disassembly repository (run from its
+root, after `make gate-wsa1` has built `wsa1/rebuilt_ROMs/wsa1_prom_a.llvm.elf`):
 `retitle_panel_tables.py` (which handlers are live, the event classes of their groups, the
 dead copy), `gen_panel_actions.py` (the pool's handlers and the assignment byte),
-`gen_held_sets.py` (the held sets), `gen_button_selectors.py` (the button-code selector) and
-`gen_panel_test_tables.py` (the LED wire maps and test-mode tables).
+`gen_held_sets.py` (the held sets) and `gen_button_selectors.py` (the button-code selector)
+run to completion on the current tree.
+
+⚠ `gen_panel_test_tables.py` (the LED wire maps and test-mode tables) **fails on the current
+tree**: it stops with an `AssertionError` at line 84. It is the script that retyped those
+tables (commit `568b7b38`, which records its checks passing on the tree before its
+`--apply`), and line 84 is one of its preconditions — that the only labels inside the two
+spans are the three orphan `sub_` labels it was about to remove. It now finds the six names
+its own `--apply` gave them (`PanelLedWireMap_Variant1`/`2`,
+`TestMode_PanelWireGroupMap_Variant1`/`2`, `TestMode_SwitchLedCodes_Variant1`/`2`). Its byte
+checks come before that line and pass: the six reader instructions and their immediates,
+the map values, and the 11 + 9 rows that tile `0xF94ED8`–`0xF95117`. That 2026-09-25
+passing run has not been reproduced here: the sources before `568b7b38` do not assemble
+with the current toolchain.
 
 ## What is still open
 
