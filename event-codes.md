@@ -173,8 +173,8 @@ not a hard-disk parameter block:
 | `0x01C00015` | `0x01A0nnnn` = title id | `TitleProc`, case label `EventDispatch_SelectMatch` | Title request |
 | `0x01C00016` | `0x01A0nnnn` = title id | `TitleProc`, case label `EventDispatch_OK` | Title request (second form) |
 
-`0x01C00013` (`EVT_CPANEL_EVENT` below) is the fourth event `ModeProc` compares
-against. Its case is labelled `ObjectEnum_Default`.
+`ModeProc` also has a case for `0x01C00013` (`EVT_CPANEL_EVENT` below), labelled
+`ObjectEnum_Default`.
 
 `ObjectEnum_Close`, `EventDispatch_SelectMatch` and `EventDispatch_OK` are the
 case labels the disassembly currently carries. Their names were given before
