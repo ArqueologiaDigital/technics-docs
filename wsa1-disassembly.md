@@ -405,16 +405,23 @@ not renames.**
 **All four images are at zero verbatim debt.** None of them hands a byte back through an
 `.incbin`. That is not the same as every byte being in its final form, in either direction:
 
-* **code still spelled as `.byte`** — `prom_a` carries **298 certified `.byte` instruction
-  sites (1,318 B, 89 forms), of which 292 have no spelling found so far that reassembles
-  byte-identically; the other 6 are spellable and not yet respelled** (disassembly commit
-  `be376096`). The commonest unspelt forms are `or (N),N` (26 sites) and `sub (N),N` (24).
-  `prom_b` and `prom_c` carry none. Run `python3 notes/sound/wsa1_unspellable_forms.py` from
-  `wsa1/` in the disassembly repository; it counts a line only if its byte echo, the ROM at
-  its address, MAME's `unidasm` framing and a round trip all agree. Its "no spelling" count
-  depends on the toolchain as well as the sources: after `bc571542` moved the LLVM pin to
-  `8e188b215251`, the ten `mul WA,(XIZ+d)` sites became spellable too, and the same script
-  at `166c9dc3` reports 282 without a spelling and 16 spellable, of the same 298.
+* **code still spelled as `.byte`** — at disassembly commit `be376096`, `prom_a` carries
+  **298 certified `.byte` instruction sites (1,318 B, 89 forms)**; `prom_b` and `prom_c`
+  carry none. How many of the 298 have a spelling that reassembles byte-identically depends
+  on the assembler build as well as the sources. Under the build that commit was made with
+  (llvm-mc `da00420dba8d`, sha256 `a7ee33d53676`), none does. The toolchain work after it
+  changed that: under `910b50efab49` 292 have no spelling and 6 are spellable
+  (`ld a,(-xix)`, `ld (-xiy),a`, `ld (xix+),a`, `ld (xix+),wa`, `ld (xix+),e`,
+  `tset 0,(0x2a1b76)`); under `8e188b215251`, the pin since `bc571542`, the ten
+  `mul WA,(XIZ+d)` sites join them, **282 without a spelling and 16 spellable**. The sources
+  are being respelled to match — at `e5f6cea1` the five post-increment / pre-decrement sites
+  are instructions and 293 certified sites remain — so quote the figure with both the
+  revision and the assembler. The commonest unspelt forms are `or (N),N` (26 sites) and
+  `sub (N),N` (24). Run `python3 notes/sound/wsa1_unspellable_forms.py` from `wsa1/` in the
+  disassembly repository; it counts a line only if its byte echo, the ROM at its address,
+  MAME's `unidasm` framing and a round trip all agree, and it uses whatever llvm-mc the
+  shared build holds. `tools/wsa1_unspelt_by_toolchain.py` in this repository runs it at a
+  pinned revision under named llvm-mc binaries and prints each binary's sha256.
 * **data framed as code** — the earlier audit that called `prom_a` and `prom_b` clean did not
   hold: the 2026-09-25 lanes found and retyped data decoded as instructions in both (in
   `prom_a` 1,958 B plus eleven panel lookup tables and the LED wire maps; in `prom_b` nine
