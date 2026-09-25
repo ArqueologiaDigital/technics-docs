@@ -321,13 +321,22 @@ sits at +10, so:
   (`Hama_ModeParam_Table`, `0xE1F240`).
 
 An offset into either table is 4 × the function's index, and the firmware's name
-table gives the function's **own name** at the same index. The hdae lane read
-every offset the HD-AE5000 uses (100 functions at 953 call sites) out of the v10
-ROM with `scripts/converters/hdae5000_symbolize_fn_tables.py`. The disassembly
-now spells each call symbolically as `WS_RootFnTable` / `WS_HamaFnTable` plus a
-`RootFn_<name>` / `HamaFn_<name>` constant (`hdae5000/hd-ae5000_v2_06i.s`). The
-v10 build's label agrees with the firmware's name for all of them. The one
-exception, 0xFAA61D (`UpdateScreen`), has since been renamed in the build too.
+table gives the function's **own name** at the same index. The HD-AE5000 uses
+99 of these functions (41 in table 0x100, 58 in table 0x109) at 953 call sites.
+The disassembly spells each call symbolically as `WS_RootFnTable` /
+`WS_HamaFnTable` plus a `RootFn_<name>` / `HamaFn_<name>` constant
+(`hdae5000/hd-ae5000_v2_06i.s`), and the v10 build's label at each target
+agrees with the firmware's name for all 99.
+
+Evidence: `tools/hdae5000_fn_table_check.py` in this site's repository
+(`python3 tools/hdae5000_fn_table_check.py --repo ../kn5000-roms-disasm`)
+re-reads every constant's function pointer and name from
+`original_ROMs/kn5000_v10_program.rom` and counts the call sites. The
+disassembly's `scripts/converters/hdae5000_symbolize_fn_tables.py`, which
+generated the constants, no longer runs as a check: it refuses because the
+`InitializeHama` registration line it looks for now reads `HamaObj_109_Data`
+instead of `0xe1f0ec`. An earlier count of "100 functions" (the hdae lane
+report) is not reproduced: the sources define 99 constants and use all 99.
 
 **Earlier versions of this page guessed several of these wrong.** `+0x0100` is
 `SendEvent`, not a "secondary dispatch function". `+0x0124` is `ApPostEvent`,

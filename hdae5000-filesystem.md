@@ -318,8 +318,8 @@ cylinders/heads" reading of `0x229D99`/`0x229D9A` were wrong.
 
 `HDAE5000_RAM_MainWorkspacePtr` holds `0x027ED2`, the main CPU's object table.
 `+0x0E0A` and `+0x0E88` are the data pointers of its function tables 0x100 and
-0x109. The firmware's own name tables name every offset used: 100 functions at
-953 call sites. Examples: `+0x0100` `SendEvent`, `+0x0124` `ApPostEvent` and
+0x109. The firmware's own name tables name every offset used: 99 functions at
+953 call sites (`tools/hdae5000_fn_table_check.py` in this site's repository). Examples: `+0x0100` `SendEvent`, `+0x0124` `ApPostEvent` and
 `+0x050C` `GetNamingWindowID` in table 0x100, and `+0x0100` `GetAdr_sqbtof` in
 table 0x109. Earlier versions of this page called the first three
 "SetDisplayCell", "RegisterEventHandler" and "GetCurrentSelection". The full list is on
