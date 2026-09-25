@@ -465,9 +465,19 @@ that rests on a descriptive name alone as well, the census reports 99.54 %.
 
 The run after Wave 2 is committed as
 `notes/lanes/wave2-2026-09-25/census-after-wave2.txt` in the disassembly repository (at
-`5fc8d5bd`, toolchain `tlcs900_backend@4d7fa4f6b37c`), and re-running the command at
-`be376096` reproduces it figure for figure. The lanes' own before/after figures, and what
-each could not do, are in `lane-reports/*.json` beside it.
+`5fc8d5bd`, toolchain `tlcs900_backend@4d7fa4f6b37c`, llvm-mc sha256 `a7ee33d5…`). **That
+file is only the first part of the output**: it carries the reconciliation, the per-image
+table and the strict / explained lines, and stops at the heading of the purpose-unknown
+list. The research-target figures and the flag table further down this page are not in it.
+All of them come from the second command above, re-run at `be376096`: its report (less the per-image progress
+lines) matches the committed file line for line as far as the file goes, and the rest printed the research-target
+totals, their split by reason and the three flags exactly as quoted here. `be376096`'s
+sources no longer assemble with the current shared llvm-mc (they still use spellings such
+as `mul8rr` that the later toolchain retired), so that re-run was made in a `git archive`
+export of the commit, after `make all`, with `PROJECTS_ROOT` pointing at a directory whose
+`llvm-project/build/bin/llvm-mc` is the `a7ee33d5…` binary. The lanes' own before/after
+figures, and what each could not do, are in `lane-reports/*.json` beside the committed
+file.
 
 > The thirteenth gated image, `kn5000_subprogram_v142_compressed.rom`, is deliberately
 > outside the denominator: it is the v1.42 payload re-compressed, so its bytes are already
