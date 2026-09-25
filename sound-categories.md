@@ -6,166 +6,79 @@ permalink: /sound-categories/
 
 # Sound Categories
 
-The KN5000 organizes its sounds into 16 categories (plus 2 user memory slots), managed by a pointer table at `0xE023B0` in the Main CPU Program ROM.
+The KN5000 organizes its sounds into 16 categories (plus 2 user memory slots), 40 slots per category. The maps behind them hang off one descriptor at `0xE023A0` in the Main CPU Program ROM.
 
 ## Architecture
 
-```
-SOUND_DATA_SECTION_PTRS (0xE023B0)
-├─ [0]  → SOUND_DATA_PIANO          (0xE02510)  Binary block, 8320 bytes
-├─ [1]  → SOUND_DATA_GUITAR         (0xE04590)  Binary block, 1440 bytes
-├─ [2]  → SOUND_DATA_STRINGS_VOCAL  (0xE04B30)  Binary block, 8320 bytes
-├─ [3]  → SOUND_DATA_BRASS_PTRS     (0xE06BB0)  Pointer table → 3-byte patch entries
-├─ [4]  → SOUND_DATA_FLUTE          (0xE06F30)  Binary block, 2498 bytes
-├─ [5]  → SOUND_DATA_SAX_REED       (0xE08BB0)  Binary block, 1440 bytes
-├─ [6]  → SOUND_DATA_MALLET_ORCH_PERC (0xE09150) Binary block, 7296 bytes
-├─ [7]  → SOUND_DATA_WORLD_PERC     (0xE0ADCD)  Pointer table → 3-byte patch entries
-├─ [8]  → SOUND_DATA_ORGAN_ACCORDION (0xE0B190) Inline 2-byte pairs, 128 entries
-├─ [9]  → SOUND_DATA_ORCHESTRAL_PAD (0xE0B250)  Binary block, 128 bytes
-├─ [10] → SOUND_DATA_SYNTH          (0xE0B2D0)  Binary block, 256 bytes
-├─ [11] → SOUND_DATA_BASS           (0xE0B3D0)  Binary block, 18 bytes
-├─ [12] → SOUND_DATA_DIGITAL_DRAWBAR (0xE0B3E2) Binary block, 18 bytes
-├─ [13] → SOUND_DATA_ACCORDION_REG  (0xE0B3F4)  Binary block, 18 bytes
-├─ [14] → SOUND_DATA_GM_SPECIAL     (0xE0B406)  Binary block, 18 bytes
-└─ [15] → SOUND_DATA_DRUM_KITS      (0xE0B418)  Binary block, 213 bytes
+The sound-selection data in the Main CPU Program ROM is one **descriptor** at `0xE023A0`
+(`SoundData_CategoryDesc`) followed by sixteen table pointers at `+0x10..+0x4C`
+(`SOUND_DATA_SECTION_PTRS`, `0xE023B0`). The firmware reaches all of it through one RAM
+cell: `Param_SignExtendRetu_Block` copies the descriptor pointer to RAM `0xE14E` (v7:
+`0xE0B2`), and every reader does `ld xr,(0xe14e)` and reads its own fixed descriptor
+offset. No instruction indexes the sixteen pointers by category.
 
-SOUND_CATEGORY_NAMES (0xE023F0)
-├─ [0]  "PIANO"
-├─ [1]  "GUITAR"
-├─ [2]  "STRINGS & VOCAL"
-├─ [3]  "BRASS"
-├─ [4]  "FLUTE"
-├─ [5]  "SAX & REED"
-├─ [6]  "MALLET&ORCH PERC"
-├─ [7]  "WORLD PERC"
-├─ [8]  "ORGAN&ACCORDION"
-├─ [9]  "ORCHESTRAL PAD"
-├─ [10] "SYNTH"
-├─ [11] "BASS"
-├─ [12] "DIGITAL DRAWBAR"
-├─ [13] "ACCORDION REG."
-├─ [14] "GM SPECIAL"
-├─ [15] "DRUM KITS"
-├─ [16] "MEMORY A"         (user-stored, in DRAM)
-└─ [17] "MEMORY B"         (user-stored, in DRAM)
-```
+> **Corrected (September 2026, audio lane).** This page used to present the sixteen pointers
+> as "one per factory sound category", `SOUND_DATA_PIANO` … `SOUND_DATA_DRUM_KITS`. Those labels
+> were given by pairing pointer slot *k* with category name *k*. The readers show that the slots
+> are **not** per-category data. They are bank/program ↔ category/slot maps, voice-index maps,
+> per-category "last slot" tables and a program-change remap. The labels are kept in the source
+> for continuity and are historical. Evidence: the header of `v10/maincpu/audio/sound_data.s`
+> (reader addresses for v10/v9/v7), the `CORRECTED` blocks in the fifteen
+> `v10/maincpu/audio/sound_data_*.c` files, and `scripts/analysis/sound_data_map_proof.py`.
 
-## Pointer Table (0xE023B0)
+**The descriptor header:**
 
-The `SOUND_DATA_SECTION_PTRS` table contains 16 × 32-bit pointers, one per factory sound category. Each pointer references the start of that category's voice data in ROM.
+| Offset | Value | Reader |
+|--------|-------|--------|
+| +0x00 | → `SOUND_CATEGORY_NAMES` | `StoreDRAMInit_LoadDRAM` copies category A's 16-char name ("WRONG SW NUMBER!" when A is out of range) |
+| +0x04 | 18 | the category count (includes MEMORY A/B); a bound in `StoreDRAMInit_LoadDRAM` and `ApplyProgramChangeAs_DoLookupRe` |
+| +0x08 | 40 | **sounds per category**: `FetchOscTableEntry_Prologue` clamps the slot below it and computes `category × 40 + slot` |
+| +0x0C | `0xFFFFFFFF` | no reader found |
 
-A metadata record at `0xE023A0` precedes the pointer table:
+**The sixteen table slots** (label = the historical category name). A *selection record*
+`{+0 category, +1 slot (0..39), +2 voice index (0..127), +3 program, +4 bank, +5 part}` is
+passed between the readers. "Mode 1" is when `SndParam_LookupReadOnly(0xC0)` returns 1; in
+mode 1 the tables hold 128 sounds in 12 categories, which suggests General MIDI mode, but that
+is an inference from the counts.
 
-| Offset | Value | Description |
-|--------|-------|-------------|
-| +0 | Pointer to `SOUND_CATEGORY_NAMES` | Name string table |
-| +4 | 0x0012 | Number of name entries (18, includes MEMORY A/B) |
-| +8 | 0x0028 | Unknown (possibly record stride or count) |
-| +12 | 0xFFFFFFFF | Sentinel / end marker |
+| Slot | Label (historical) | What it is | Reader (v10) |
+|------|--------------------|------------|--------------|
+| +0x10 / +0x20 | `SOUND_DATA_PIANO` / `SOUND_DATA_FLUTE` | (bank, program) → (category, slot), mode 0 / mode 1 | `ApplyProgramChangeAs_LoadDRAM2` |
+| +0x14 / +0x24 | `SOUND_DATA_GUITAR` / `SOUND_DATA_SAX_REED` | (category, slot) grid → (program, bank), mode 0 / 1 (18 × 40 × 2 = 1,440 B) | `FetchOscTableEntry_Prologue` |
+| +0x18 / +0x28 | `SOUND_DATA_STRINGS_VOCAL` / `SOUND_DATA_MALLET_ORCH_PERC` | (bank, program) → voice index, mode 0 / 1 | `ApplyProgramChange_LoadDRAM` |
+| +0x1C / +0x2C | `SOUND_DATA_BRASS_PTRS` / `SOUND_DATA_WORLD_PERC` | voice index → (program, bank): 128 pointers to `{program, bank, 0xFF}` records; nothing found indexes +0x2C | `SndParam_LookupOscEnvelope` |
+| +0x30 | `SOUND_DATA_ORGAN_ACCORDION` | voice index → 2 bytes (0xF0-0xFD, 0), for part 15 or drawbar-type sounds | `SndParam_LookupOscEnvelope`, `SndParam_LookupAndDispatch` |
+| +0x34 | `SOUND_DATA_ORCHESTRAL_PAD` | voice index → a signed byte (0, +12, -12: octave-shift-shaped; its use is not traced) | `SndParam_LookupByPartAndNote` |
+| +0x38 | `SOUND_DATA_SYNTH` | **program-change remap**: a received `Cn p` is retransmitted as `Bn 00`, `Bn 20`, `Cn` from entry *p* | `SndParam_LookupFromPointerTable` |
+| +0x3C | `SOUND_DATA_BASS` | per-category **last slot index**, mode 0, ordinary parts (18 bytes, 0xFF = not offered); the values give 368 sounds | `CharMap_ActivePreamb_Prologue` |
+| +0x40 | `SOUND_DATA_DIGITAL_DRAWBAR` | the same for part 15 (only category 15, 16 drum kits) | same |
+| +0x44 | `SOUND_DATA_ACCORDION_REG` | the same for part 20 | same |
+| +0x48 | `SOUND_DATA_GM_SPECIAL` | the same in mode 1, ordinary parts (12 categories, 128 sounds) | same |
+| +0x4C | `SOUND_DATA_DRUM_KITS` | the same in mode 1 for part 15 (8 kits); only its first 18 bytes are this table | same |
 
-## Data Formats
+**The pairs are exact inverses.** `sound_data_map_proof.py` checks, on all three dumps:
+the +0x14 grid mapped through the +0x10 bank map returns all 368 populated cells to
+themselves; +0x24 through +0x20 does so for 136 of 136; the +0x1C list through +0x18 for 128
+of 128; and +0x2C through +0x28 for 128 of 128. The +0x3C table sums to 368 sounds and the
++0x48 table to 128, the same totals counted a different way.
 
-The 16 categories use three different data formats:
+**The category names** (18 × 16 characters at `SOUND_CATEGORY_NAMES`, `0xE023F0`) are real:
+PIANO, GUITAR, STRINGS & VOCAL, BRASS, FLUTE, SAX & REED, MALLET&ORCH PERC, WORLD PERC,
+ORGAN&ACCORDION, ORCHESTRAL PAD, SYNTH, BASS, DIGITAL DRAWBAR, ACCORDION REG., GM SPECIAL,
+DRUM KITS, MEMORY A, MEMORY B. A category's sounds are the 40 slots of its row in the
++0x14 grid (+0x24 in mode 1).
 
-### Format 1: Binary Block
-
-Used by most categories. Each block starts with a variable-length header followed by 2-byte records.
-
-**Large categories (PIANO, STRINGS & VOCAL):**
-
-| Offset | Size | Description |
-|--------|------|-------------|
-| 0x00-0x07 | 8 bytes | Sub-category index (sequential: 0,1,2,3,4,5,6,7) |
-| 0x08-0x7F | 120 bytes | Zero padding (alignment to 128 bytes) |
-| 0x80+ | Variable | 2-byte voice records: `{voice_id, variation}` |
-
-These have 8 sub-categories with up to 4096 voice records total (8320 bytes = 128 header + 8192 data).
-
-**Medium categories (GUITAR, SAX & REED, FLUTE, MALLET & ORCH PERC):**
-
-No 128-byte header. Data begins immediately with 2-byte records. FLUTE has a 10-entry sub-category index (bytes 0-9) before the voice data, suggesting 10 sub-groups.
-
-**Small categories (BASS, DIGITAL DRAWBAR, ACCORDION REG., GM SPECIAL):**
-
-Only 18 bytes each — likely 9 voice entries of 2 bytes.
-
-### Format 2: Pointer Table with 3-Byte Patch Entries
-
-Used by **BRASS** (128 entries) and **WORLD PERC** (128 entries).
-
-Each category contains:
-1. A table of 128 × 32-bit pointers (512 bytes)
-2. 128 × 3-byte patch entries, each referenced by one pointer
-
-**Patch entry format:**
-
-| Byte | Description |
-|------|-------------|
-| 0 | Voice/program number (0x00-0x7F) |
-| 1 | Bank/variation number (0x00-0x05) |
-| 2 | Terminator (always 0xFF) |
-
-**Example BRASS entries:**
-
-| Index | Bytes | Interpretation |
-|-------|-------|----------------|
-| 0 | `00 00 FF` | Program 0, bank 0 |
-| 1 | `01 00 FF` | Program 1, bank 0 |
-| 3 | `01 01 FF` | Program 1, bank 1 |
-| 31 | `26 01 FF` | Program 38, bank 1 |
-| 84 | `75 02 FF` | Program 117, bank 2 |
-
-**WORLD PERC** entries are simpler — mostly sequential program numbers with bank 0 (e.g., `00 00 FF`, `01 00 FF`, ... `7F 00 FF`).
-
-### Format 3: Inline 2-Byte Pairs
-
-Used by **ORGAN & ACCORDION** only. Contains 128 × 2-byte entries directly in the ROM (no pointer indirection, no binary include).
-
-Each entry is `{voice_id, 0x00}` with voice IDs in the 0xF0-0xFD range, suggesting organ voices use a separate synthesis mode (IDs ≥ 0xF0 may select drawbar/pipe organ algorithms instead of standard PCM voices).
-
-**Organ voice groups (by voice_id):**
-
-| Voice ID | Count | Likely Type |
-|----------|-------|-------------|
-| 0xF0 | 24 | Standard organ |
-| 0xF1 | 8 | Organ variant 1 |
-| 0xF2 | 8 | Organ variant 2 |
-| 0xF3 | 8 | Organ variant 3 |
-| 0xF5 | 8 | Organ variant 5 |
-| 0xF7 | 8 | Organ variant 7 |
-| 0xFC | 8 | Organ variant C |
-| 0xFD | 8 | Organ variant D |
-
-## Category Size Summary
-
-| Index | Category | Format | Size | Entries |
-|-------|----------|--------|------|---------|
-| 0 | PIANO | Binary block | 8,320 B | ~4,096 voice records |
-| 1 | GUITAR | Binary block | 1,440 B | ~720 voice records |
-| 2 | STRINGS & VOCAL | Binary block | 8,320 B | ~4,096 voice records |
-| 3 | BRASS | Pointer table | 896 B | 128 patch entries |
-| 4 | FLUTE | Binary block | 2,498 B | ~1,185 voice records |
-| 5 | SAX & REED | Binary block | 1,440 B | ~720 voice records |
-| 6 | MALLET & ORCH PERC | Binary block | 7,296 B | ~3,584 voice records |
-| 7 | WORLD PERC | Pointer table | 896 B | 128 patch entries |
-| 8 | ORGAN & ACCORDION | Inline pairs | 256 B | 128 entries |
-| 9 | ORCHESTRAL PAD | Binary block | 128 B | 64 voice records |
-| 10 | SYNTH | Binary block | 256 B | 128 voice records |
-| 11 | BASS | Binary block | 18 B | 9 voice records |
-| 12 | DIGITAL DRAWBAR | Binary block | 18 B | 9 voice records |
-| 13 | ACCORDION REG. | Binary block | 18 B | 9 voice records |
-| 14 | GM SPECIAL | Binary block | 18 B | 9 voice records |
-| 15 | DRUM KITS | Binary block | 213 B | ~106 voice records |
-
-**Total sound data in Program ROM:** ~31,745 bytes (0xE02510-0xE0B4EC)
+The older per-"category" format descriptions (a "sub-category index" header, "2-byte voice
+records `{voice_id, variation}`", "organ registration sets") had no reader behind them. The
+`CORRECTED` blocks in the C files mark which of their older comment lines are false.
 
 ## Sound Selection Flow
 
 When a user selects a sound:
 
 1. **UI event** — Sound button press generates a control panel event
-2. **Category lookup** — Main CPU reads `SOUND_DATA_SECTION_PTRS[category_index]` to get the data pointer
-3. **Voice lookup** — Within the category data, the selected voice index maps to a `{voice_id, bank}` pair
+2. **Category/slot → program** — `FetchOscTableEntry_Prologue` reads the descriptor's `+0x14` grid (`+0x24` in mode 1) at `category × 40 + slot` to get the sound's `{program, bank}`
+3. **Voice index** — `ApplyProgramChange_LoadDRAM` maps (bank, program) to a voice index through `+0x18` (`+0x28`); the reverse maps (`+0x10`/`+0x20`) take a received program change back to a category and slot
 4. **Command encoding** — a formatting routine builds a MIDI Program Change (or extended command) with the voice/bank parameters. ⚠ This step used to be attributed to `Audio_SendCommand`; that symbol was renamed in March 2026 to `Sprintf_Locked` once it was found to be a general sprintf()-style formatter (parses `%d`/`%x`/`%f`/`%s` format strings), not an audio-specific command sender — see the correction below.
 5. **Inter-CPU transfer** — Command sent via `sendCOMM` → `InterCPU_Send_Data_Block` → latch at 0x120000
 6. **Sub CPU processing** — `Audio_CmdHandler_00_1F` writes to ring buffer → `MIDI_Dispatch` routes to `Voice_ProgChange`
