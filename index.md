@@ -209,11 +209,12 @@ Choose based on your goal:
 file is a `BAD_DUMP`: 89% of IC30 was never read and is present in the file as assumed
 `0xFF`. See [Sub-CPU Boot ROM (IC30)]({{ site.baseurl }}/subcpu-boot-rom/).*
 
-*Rebuilding is not the same as understanding. Of the same bytes, about **93.8 %** can be
-explained — what the data represents, not merely that it reproduces — with a 95 %
-confidence interval of 86.7 % – 96.6 %. That covers the twelve distinct images; the
-thirteenth gated image is a compressed re-encoding of the sub-CPU payload. Measured by
-`scripts/analysis/data_range_census.py`; see
+*Rebuilding is not the same as understanding. Of the same bytes, **95.04 %** are code, data
+whose header states what it is and cites the evidence, or verified filler — the data
+census's strict grade after the September 25 semantic push, up from 64.15 %. The grade is
+keyword-based, and its hand-audited error sample predates the push and has not been
+redrawn. That covers the twelve distinct images; the thirteenth gated image is a compressed
+re-encoding of the sub-CPU payload. Measured by `scripts/analysis/data_range_census.py`; see
 [how much of the data is actually explained]({{ site.baseurl }}/rom-reconstruction/#how-much-of-the-data-is-actually-explained).*
 
 ### Homebrew Development
