@@ -695,8 +695,23 @@ repo. **All 13 HD-AE5000 classes satisfy the firmware's size rule,
 `VwBox` 28 + 0x20 = 60 = 0x3C, `LyricBox` is 28 + 0x12 = 46 = 0x2E, and
 `FDFileSelect` is `PsInvisibleBox` 22 + 0x0A = 32 = 0x20. The classes that add
 nothing (selfsize 0) have exactly their parent's size. The HD-AE5000's
-init-data header reports the other half of the rule: the signature string's
-length equals the parameter count for all 13 records.
+init-data header reports that the signature string's length equals the
+parameter count for all 13 records. The letter sizes solved on the main CPU
+also give each class's `selfsize` exactly, for all 13. For example,
+`LyricBox`'s `"mc^^c^"` is 4+4+2+2+4+2 = 18 = 0x12, `FDFileSelect`'s `"Gnn"` is
+2+4+4 = 10 and `SelectList`'s `"c^ksAAnGGmA"` is 32 = 0x20. Check (in
+`kn5000-roms-disasm`):
+
+```python
+import struct, importlib.util
+spec = importlib.util.spec_from_file_location('m', 'scripts/analysis/nakarest_objtab_map.py')
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)   # for SIG_SIZE
+d = open('original_ROMs/hd-ae5000_v2_06i.ic4', 'rb').read(); B = 0x280000
+for i in range(13):
+    _, parent, alls, selfs, name, sig, _ = struct.unpack_from('<IIHHIII', d, 0x29C0AA - B + 24 * i)
+    sg = d[sig - B:].split(b'\0')[0].decode('latin-1')
+    print(d[name - B:].split(b'\0')[0].decode(), sg, sum(m.SIG_SIZE[c] for c in sg) == selfs)
+```
 
 This replaces the older reading on this page, which took +0x04 for a "next
 handler ID" chaining to a "Root module handler", +0x08 for a "config size" and
