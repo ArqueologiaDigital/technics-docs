@@ -384,7 +384,9 @@ second-decoder rule now refuses. The review evidence is in `notes/branch-symboli
 Counted with the one-liner in `scripts/converters/README-symbolize-branches.md` (the
 "all branches" column drops the operand pattern), over the committed sources at `be376096`
 for the current columns and at the commit before the symboliser landed (`b0bfd371^`) for the
-last. Those "before" figures reproduce the ones in the tool's own docstring exactly. v7's
+last; `tools/branch_operand_counts.py <rev>` in this repository runs exactly that over the
+committed blobs. Those "before" figures reproduce the ones in the tool's own docstring
+exactly. v7's
 denominator grew by 16,320 branches during Wave 2 (`3958235e` → `5fc8d5bd`), as v7 regions
 were converted to instructions.
 
@@ -521,7 +523,8 @@ The research targets split by reason as 248,744 B self-admitted, 59,562 B with n
 explanation and 20,547 B embedded-in-code (apportioned where a range has more than one).
 By image: v10 70,509 B, v9 70,816, v7 77,018, v142 105, table data 7,999, HD-AE5000 1,280,
 `prom_a` 21,094, `prom_b` 69,348, `prom_c` 9,588, `prom_d` 1,096; sub-CPU boot and custom data
-none.
+none (`tools/census_research_by_image.py out.json` in this repository splits the census's
+JSON this way, with the census's own target rule).
 
 ### Reading those numbers honestly
 
