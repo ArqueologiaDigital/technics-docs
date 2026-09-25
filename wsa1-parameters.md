@@ -225,7 +225,13 @@ The song reader in `prom_b` handles two kinds of SysEx inside an SMF (`SmfEvent_
 General MIDI System On / Off (`7E 7F 09 01` / `02`), and the WSA1's own parameter change
 `50 2C 04 00 11 00 <hi> <lo> 00 00 01 <nh> <nl>`, whose two data nibbles form one byte. For
 address-hi `0x11` the low address byte indexes `SmfSysEx_Addr11_Targets`, a 118-entry table
-of RAM byte addresses bounded by `cp A,0x75`.
+of RAM byte addresses bounded by `cp A,0x75`. The writer side is
+`SmfExport_ParamSysExTemplates` (`prom_b` `0xF74FCF`, 74 templates of 19 bytes), and for
+address-hi `0x11` its templates 4–70 read RAM `0x7622 + lo` — the start of the parameter
+records above, so `11 20` is `0x7642`, DSP effect block 1
+(`notes/promb-2026-09-25/smf_param_sysex_probe.py`). Whether the SysEx reference's address
+map matches the combination layout field by field is an
+[open question]({{ site.baseurl }}/questions/#sx-wsa1r).
 
 ⚠ In `SmfSysEx_WriteAddr11` the unused-entry test `cp XDE,0xffffffff` runs *before*
 `ld XDE,(XDE)`, so it compares the entry's address, not the entry: as the instructions
