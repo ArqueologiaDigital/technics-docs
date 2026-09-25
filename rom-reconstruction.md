@@ -193,8 +193,9 @@ a second source would be a byte-match trap. `make audit-icons-blob` re-derives t
 from the tree and the factory dump and fails if any of it drifts. Details on the
 [Table Data ROM]({{ site.baseurl }}/table-data-rom/) page.
 
-Symbol counts follow: `symbols/table_data_symbols_reference.txt` holds **4,161** symbols, the
-sub-CPU payload's **4,338**, the HD-AE5000's **532** and the sub-CPU boot ROM's **63**.
+Symbol counts follow, from each file's generated header at `be376096`:
+`symbols/table_data_symbols_reference.txt` holds **4,759** symbols, the sub-CPU payload's
+**5,560**, the HD-AE5000's **3,932** and the sub-CPU boot ROM's **201**.
 
 ### Region-by-region source map
 
@@ -307,8 +308,6 @@ Additional known-unfinished items:
   the dump does not support.
 - The HD-AE5000 UI descriptor pool at 0x29DC12–0x2A5D2B is one 769-entry array currently cut
   into five pieces at non-boundaries — the next honest-data package.
-- `symbols/maincpu_symbols_reference.txt` is a pre-rename generation: **35,924 of its 39,449
-  rows are still `LABEL_*`**, while the built ELF has none. The file needs regenerating.
 - The v1.41 sub-CPU payload has no source tree; see
   [Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/).
 
@@ -340,13 +339,18 @@ confirmed instances exist in [HD-AE5000]({{ site.baseurl }}/hdae5000/) — a 309
 string disassembled as garbage instructions, and a 6,356-byte record table with zero call or
 jump sites anywhere in the tree, loaded only as an address.
 
-**All thirteen gated images have now been censused for data-as-code.** Seven come back
-clean, and for those the "every debt figure is a lower bound" caveat below is lifted: subcpu
-boot, table data, custom data, and all four SX-WSA1R images (`prom_a`/`prom_b`/`prom_c`/
-`prom_d`). The caveat survives for `v9`, `v7` and `v142`, whose seed-coverage gaps run
-51–74% — that much of their proven code is reached only through indirect or computed
-dispatch that static analysis cannot follow, so a census there cannot rule out further
-misdecoded spans.
+**All thirteen gated images have been censused for data-as-code, and a "clean" verdict has
+not held everywhere.** Sub-CPU boot, table data, custom data, `prom_c` and `prom_d` came
+back clean and nothing since has contradicted it; for those the "every debt figure is a
+lower bound" caveat below is lifted. (`prom_c`'s 84 remaining data-as-code markers are all
+five-`nop` device-settle delays in real code, per its Wave 2 lane.) `prom_a` and `prom_b`
+were reported clean as well, but the Wave 2 lanes then found and retyped data framed as code
+in both — 1,958 B, eleven panel lookup tables and the panel LED wire maps in `prom_a`, nine
+tables in `prom_b` — and the lanes' marker counts there still stand at 855 and 112, so the
+caveat applies to them again. It survives for `v9`, `v7` and `v142`, whose seed-coverage
+gaps run 51–74% — that much of their proven code is reached only through indirect or
+computed dispatch that static analysis cannot follow, so a census there cannot rule out
+further misdecoded spans.
 
 ### A fourth, smaller kind: numeric cross-references
 
@@ -365,21 +369,33 @@ gate cannot see. So every site must also be decoded identically by a second deco
 An eight-judge review of 360 accepted sites found two phantom branches, both of which that
 second-decoder rule now refuses. The review evidence is in `notes/branch-symbolization-2026-09-25/`.
 
-| tree | numeric branch operands | of all branches |
-|---|---:|---:|
-| maincpu v10 | 5,459 | 74,282 |
-| maincpu v9 | 6,374 | 75,164 |
-| maincpu v7 | 4,161 | 57,528 |
-| subcpu v142 | 24 | 6,997 |
-| HD-AE5000 | 2 | 7,146 |
-| SX-WSA1R `prom_a` | 3,695 | 25,208 |
-| SX-WSA1R `prom_b` | 2,381 | 18,411 |
-| SX-WSA1R `prom_c` | 29 | 10,241 |
+| tree | numeric branch operands | of all branches | before the pass |
+|---|---:|---:|---:|
+| maincpu v10 | 585 | 74,085 | 13,344 / 74,282 |
+| maincpu v9 | 611 | 74,085 | 14,217 / 75,164 |
+| maincpu v7 | 2,102 | 73,848 | 19,408 / 57,528 |
+| subcpu v142 | 0 | 7,049 | 726 / 6,997 |
+| HD-AE5000 | 1 | 7,146 | 877 / 7,146 |
+| table data | 0 | 1,331 | 83 / 1,280 |
+| SX-WSA1R `prom_a` | 197 | 25,232 | 7,605 / 25,208 |
+| SX-WSA1R `prom_b` | 206 | 18,516 | 18,241 / 18,411 |
+| SX-WSA1R `prom_c` | 6 | 10,241 | 2,479 / 10,241 |
 
-Before the pass these were 13,344 / 14,217 / 19,408 / 726 / 877 / 7,605 / 18,241 / ~3,970.
+Counted with the one-liner in `scripts/converters/README-symbolize-branches.md` (the
+"all branches" column drops the operand pattern), over the committed sources at `be376096`
+for the current columns and at the commit before the symboliser landed (`b0bfd371^`) for the
+last; `tools/branch_operand_counts.py <rev>` in this repository runs exactly that over the
+committed blobs. Those "before" figures reproduce the ones in the tool's own docstring
+exactly. v7's
+denominator grew by 16,320 branches during Wave 2 (`3958235e` → `5fc8d5bd`), as v7 regions
+were converted to instructions.
+
 What remains is mostly the refused residue, and that residue doubles as a list of places
-where a branch or its target is framed wrongly. In `prom_a`, 3,169 of the remaining sites
-are calls into `prom_b`, which is linked as a separate image.
+where a branch or its target is framed wrongly. In `prom_c` all six sit in the dead
+`UNREFERENCED_TRAMPOLINES` block and target mid-instruction addresses. `prom_a`'s own lane
+instrument (`notes/proma-2026-09-25/measure_proma.py`) counts 203 and splits them: 24 `call`s into `prom_a` and 9 into `prom_b`, 117 `calr`, 33
+`jr`, 9 `jrl`, 9 `jp` into `prom_a` and 2 elsewhere — some of them in genuinely stale code
+(see [SX-WSA1R older-build remnants]({{ site.baseurl }}/wsa1-disassembly/#older-build-remnants-and-why-unreached-code-can-be-correct)).
 
 ## Verbatim debt across all thirteen gated images
 
@@ -389,7 +405,7 @@ nine KN5000 images and the four SX-WSA1R images together (13 total, 12,386,304 B
 a narrower question than "is this region understood": a `.byte` run that spells real code
 (tracked separately per image — see the maincpu figures above), or a wrong disassembly that
 happens to re-assemble to the right bytes (see the data-as-code note above), is invisible to
-it. Outside the seven data-as-code-clean images above, every debt figure on this page is
+it. Outside the five data-as-code-clean images above, every debt figure on this page is
 therefore a lower bound.
 
 **Eleven of the thirteen images are at zero verbatim debt: 100% source.** Nothing in
@@ -437,20 +453,37 @@ Byte identity says the source reproduces the ROM. It says nothing about whether 
 can state what a given range of bytes *represents*. That is a separate measurement, and it
 is the one that decides whether "the ROMs are done" is true.
 
-**In the September 2 run, of the 12,386,304 bytes across the twelve distinct images, about
-93.8 % (≈11.61 MB) could be explained. The 95 % confidence interval was 86.7 % – 96.6 %.**
-(The Wave 2 re-run of 2026-09-25 is [below](#after-wave-2-2026-09-25).) Under the strictest
-reading — that a section header does not explain a 30 KB blob it happens to sit above — it
-falls to about 82 %. The raw census reports 99.78 %; that figure is wrong by construction
-and the corrections are itemised below.
+**Of the 12,386,304 bytes across the twelve distinct images, 95.04 % are CODE, evidenced
+data or verified filler** -- the census's *strict* figure, 11,771,934 bytes, after the
+September 25 semantic push (Wave 2), whose twenty lanes turned named-but-unevidenced data into
+data whose header cites its reader; it stood at 64.15 % before (details
+[below](#after-wave-2-2026-09-25)). Counting data that rests on a descriptive name alone as
+well, the census reports 99.54 %. ⚠ That is the instrument's grade, not an audited figure:
+the hand-audited false-positive sample was last drawn for the September 2 run, when about
+93.8 % (≈11.61 MB) could be explained, with a 95 % confidence interval of 86.7 % – 96.6 %
+(about 82 % under the strictest reading -- that a section header does not explain a 30 KB blob
+it happens to sit above). That day's raw census reported 99.78 %, a figure wrong by
+construction for the reasons itemised below.
 
-    python3 scripts/analysis/data_range_census.py --selftest
+    python3 scripts/analysis/data_range_census.py                     # the census, all 12 images
     python3 scripts/analysis/data_range_census.py --json out.json --targets 60
-    python3 scripts/analysis/data_range_census.py --load out.json --sample 40 --grade KNOWN-B
+    python3 scripts/analysis/data_range_census.py --selftest
 
-The run, target list and audit sample are committed in
-`notes/data-census-2026-09-02/`, with the full account in
-`notes/DATA-CENSUS-2026-09-02.md`.
+The run after Wave 2 is committed as
+`notes/lanes/wave2-2026-09-25/census-after-wave2.txt` in the disassembly repository (at
+`5fc8d5bd`, toolchain `tlcs900_backend@4d7fa4f6b37c`, llvm-mc sha256 `a7ee33d5…`). **That
+file is only the first part of the output**: it carries the reconciliation, the per-image
+table and the strict / explained lines, and stops at the heading of the purpose-unknown
+list. The research-target figures and the flag table further down this page are not in it.
+All of them come from the second command above, re-run at `be376096`: its report (less the per-image progress
+lines) matches the committed file line for line as far as the file goes, and the rest printed the research-target
+totals, their split by reason and the three flags exactly as quoted here. `be376096`'s
+sources no longer assemble with the current shared llvm-mc (they still use spellings such
+as `mul8rr` that the later toolchain retired), so that re-run was made in a `git archive`
+export of the commit, after `make all`, with `PROJECTS_ROOT` pointing at a directory whose
+`llvm-project/build/bin/llvm-mc` is the `a7ee33d5…` binary. The lanes' own before/after
+figures, and what each could not do, are in `lane-reports/*.json` beside the committed
+file.
 
 ### After Wave 2 (2026-09-25)
 
@@ -494,6 +527,98 @@ audited one.
 > outside the denominator: it is the v1.42 payload re-compressed, so its bytes are already
 > counted under `v142`. Counting it would inflate the total with a duplicate.
 
+### The grades
+
+Every byte of every image lands in exactly one bucket:
+
+- **CODE** — instruction statements.
+- **KNOWN-A** — data whose header says what it represents **and** cites evidence: a reader,
+  a call site, a record layout, a field, a findings file or script.
+- **KNOWN-B** — data under a descriptive, non-address-derived name (`Font_Svc07_8x16`,
+  `DrumKitNames`), with or without a header, but with no evidence cited. Real understanding,
+  resting on somebody's naming judgement and nothing else.
+- **UNKNOWN** — an address-derived or absent label with no explanatory header, **or a
+  header of fewer than 40 words that admits the purpose is not established**. (A longer
+  admitting header can still grade KNOWN-B; either way the admission puts the region on the
+  research-target list.)
+- **FILLER** — a fill directive whose ROM bytes are **verified uniform**, run ≥ 16 bytes.
+
+*Strict* is CODE + KNOWN-A + FILLER; *explained* adds KNOWN-B.
+
+Separately, the census lists **research targets**: ranges whose purpose is not
+established — UNKNOWN bytes, any region whose header self-admits a gap whatever its grade,
+and undocumented data sandwiched between two instruction regions ("embedded-in-code").
+
+### After Wave 2
+
+| image | CODE | KNOWN-A | KNOWN-B | UNKNOWN | FILLER | strict |
+|---|---:|---:|---:|---:|---:|---:|
+| v10 | 995,508 | 917,658 | 108,608 | 16,943 | 58,435 | 94.01 % |
+| v9 | 995,358 | 917,199 | 109,203 | 16,943 | 58,449 | 93.98 % |
+| v7 | 985,895 | 915,445 | 114,755 | 20,662 | 60,395 | 93.54 % |
+| v142 sub-CPU | 128,860 | 65,969 | 1,687 | 44 | 48 | 99.12 % |
+| sub-CPU boot | 3,604 | 870 | 35 | 0 | 126,563 | 99.97 % |
+| table data | 19,426 | 1,800,585 | 95,143 | 0 | 181,998 | 95.46 % |
+| custom data | 0 | 660,657 | 0 | 0 | 387,919 | 100.00 % |
+| HD-AE5000 | 112,324 | 373,890 | 7,736 | 0 | 30,338 | 98.52 % |
+| `prom_a` | 324,950 | 107,566 | 24,023 | 1,355 | 66,394 | 95.16 % |
+| `prom_b` | 204,396 | 163,160 | 85,108 | 620 | 71,004 | 83.65 % |
+| `prom_c` | 207,511 | 177,152 | 10,409 | 0 | 129,216 | 98.01 % |
+| `prom_d` | 0 | 329,425 | 1,096 | 0 | 193,767 | 99.79 % |
+| **total** | **3,977,832** | **6,429,576** | **557,803** | **56,567** | **1,364,526** | **95.04 %** |
+
+| | before Wave 2 (`3958235e`) | after (`5fc8d5bd`) |
+|---|---:|---:|
+| strict (CODE + KNOWN-A + FILLER) | 64.15 % | **95.04 %** |
+| KNOWN-A (evidence header) | 2,778,685 B | 6,429,576 B |
+| KNOWN-B (name only) | 4,428,721 B | 557,803 B |
+| UNKNOWN | 12,357 B | 56,567 B |
+| research targets | 395,986 B in 26,553 ranges | 328,853 B in 5,077 ranges |
+
+The research targets split by reason as 248,744 B self-admitted, 59,562 B with no
+explanation and 20,547 B embedded-in-code (apportioned where a range has more than one).
+By image: v10 70,509 B, v9 70,816, v7 77,018, v142 105, table data 7,999, HD-AE5000 1,280,
+`prom_a` 21,094, `prom_b` 69,348, `prom_c` 9,588, `prom_d` 1,096; sub-CPU boot and custom data
+none (`tools/census_research_by_image.py out.json` in this repository splits the census's
+JSON this way, with the census's own target rule).
+
+### Reading those numbers honestly
+
+**UNKNOWN went up, and that is the push working.** A header that says "purpose not
+established — searched X and Y" grades UNKNOWN (when it is under 40 words; a longer one is
+still listed as a research target), while a plausible name with no header
+grades KNOWN-B. The lanes' rule was to replace names that *hid* a gap with admissions that
+*state* it, so UNKNOWN rose from 12,357 B to 56,567 B while KNOWN-B fell by 3.87 MB — most
+of that into KNOWN-A, some of it, correctly, into UNKNOWN. Two examples from the lane
+reports: `prom_a`'s MIDI-in tables for two unidentified controllers now say so (192 B added
+to research on purpose), and 24 streams in `prom_c`'s P7 pool are stated as unreferenced
+(5,897 B). The admission is the true statement; the name it replaced was not.
+
+**95.04 % is the instrument's grade, not an audited figure.** KNOWN-A is keyword-graded
+(`grade_purpose()` in `scripts/analysis/data_range_census.py`), by either of two routes: a
+header of eight or more words carrying two evidence tokens, or a descriptive
+(non-address-derived) name with a header of six or more words carrying one — and in both
+cases no admission phrase. The evidence list holds specific tokens (`read by`, `call site`,
+`+0x`, `.py`, …) but also any `0x` and generic words such as `entry`, `header`, `format` and
+`see `, so a header can earn an evidence token without citing any evidence. The only check of whether a grade means a reader
+can say what the bytes are is a hand audit: 40 regions drawn from KNOWN-A ∪ KNOWN-B,
+size-weighted, seed 90902 (`--load … --sample 40 --seed 90902`). **That audit was run on the
+2026-09-02 tree and has not been repeated since Wave 2.** It found 3 of 40 failing outright —
+7.5 %, Wilson 95 % interval 2.6 %–19.9 % — and a further 8 of 40 passing only at the
+granularity of a whole blob. Its run is in `notes/data-census-2026-09-02/` and
+`notes/DATA-CENSUS-2026-09-02.md`. Until the sample is redrawn from the current tree, quote
+95.04 % together with that sentence.
+
+**Some of the grading is known to be wrong in both directions** (listed for Wave 3 in
+`notes/lanes/wave2-2026-09-25/WAVE3-LEADS.md` — the first two below under "Instruments",
+the rest under "Open research"): a `NAME = expr` line is
+taken for an instruction owning the next line's bytes; a comment run is kept open across
+blank lines, so a file header can leak into the first object and flip it to "admits" (98 B
+of false research target at `0xED0008` in v10, v9 and v7); a banner is credited only to
+objects within six lines, so about 86 KB of one-line icon and bitmap `.incbin` entries whose
+banner names their readers stay KNOWN-B; single-line headers are not credited; labels such
+as `F64_2376` are read as address-derived; and `m_ldc_*` macro lines are graded as data.
+
 ### The instrument
 
 Each image's source tree is mirrored with a synthetic label inserted in front of every
@@ -510,64 +635,7 @@ measurement rather than a tally:
 
 The CODE/DATA split is corroborated by a completely separate instrument,
 `scripts/analysis/l1_territory_map.py`, which flattens the maincpu images through
-`llvm-mc -show-encoding` and never sees a marker or a symbol table. The two agree to within
-9 bytes in 2 MB.
-
-### The buckets
-
-| image | CODE | KNOWN-A | KNOWN-B | UNKNOWN | FILLER |
-|---|---:|---:|---:|---:|---:|
-| v10 | 987,011 | 177,349 | 868,436 | 1,291 | 63,065 |
-| v9 | 1,013,313 | 157,943 | 860,586 | 1,277 | 64,033 |
-| v7 | 719,106 | 156,484 | 1,157,905 | 3,510 | 60,147 |
-| v142 sub-CPU | 127,464 | 47,291 | 21,797 | 8 | 48 |
-| sub-CPU boot | 3,604 | 868 | 37 | 0 | 126,563 |
-| table data | 18,676 | 716,439 | 1,164,976 | 0 | 197,061 |
-| custom data | 0 | 660,657 | 0 | 0 | 387,919 |
-| HD-AE5000 | 112,335 | 330,533 | 50,845 | 0 | 30,575 |
-| `prom_a` | 327,427 | 60,890 | 70,580 | 2,295 | 63,096 |
-| `prom_b` | 198,037 | 130,391 | 115,821 | 9,034 | 71,005 |
-| `prom_c` | 207,511 | 84,547 | 102,394 | 620 | 129,216 |
-| `prom_d` | 0 | 225,863 | 95,886 | 8,772 | 193,767 |
-| **total** | **3,714,484** | **2,749,255** | **4,509,263** | **26,807** | **1,386,495** |
-
-- **CODE** — instruction statements, 30.0 % of the tree.
-- **KNOWN-A** — the header states what the data represents **and** cites evidence: a
-  reader, a call site, a record layout, a field meaning, a findings file.
-- **KNOWN-B** — a descriptive, non-address-derived label, with or without a header
-  (`Font_Svc07_8x16`, `DrumKitNames`, `Wallpaper_0`). Real understanding, but resting on
-  somebody's naming judgement and nothing else.
-- **UNKNOWN** — an address-derived or absent label with no explanatory header, or a header
-  that admits the purpose is not established.
-- **FILLER** — a fill directive whose ROM bytes are **verified uniform**, run ≥ 16 bytes.
-
-**KNOWN-B is 36.4 % of the tree, and 4,151,831 B of it — 33.5 % of all 12.4 MB — is graded
-on a name with no header at all.** That is the honest weak point of any "we understand the
-ROMs" claim, and it is why the headline is corrected rather than quoted raw.
-
-### Why the corrected figure is 93.8 %, and its error bar
-
-The "known" figure is audited, not asserted. 40 regions were drawn from KNOWN-A ∪ KNOWN-B,
-size-weighted so every byte is equally likely to be drawn, seed 90902, reproducible with
-`--load … --sample 40 --seed 90902`. Each was read by hand against one test: *from the
-label and the header attached to it, can a reader say what these bytes represent?*
-
-**3 of 40 fail outright — 7.5 %, Wilson 95 % interval 2.6 % – 19.9 %.** A further 8 of 40
-(20 %) pass only at a coarse granularity: the label or section header explains the *blob*
-the range belongs to, not the range — for instance a 23,538 B region under a header that
-names a whole screen-widget source file.
-
-    explained by the raw census .......................... 12,359,497   99.78 %
-      minus  embedded-in-code counted as KNOWN (measured) .   -217,112
-      minus  7.5 % of the remaining 7,041,406 KNOWN bytes .   -528,105
-    corrected ............................................ 11,614,280   93.77 %
-
-      at the sample's 95 % upper bound (2.6 %) ........... 11,959,308   96.55 %
-      at the sample's 95 % lower bound (19.9 %) .......... 10,741,145   86.72 %
-      if the 8 coarse-granularity passes also fail (27.5 %) 10,205,998   82.40 %
-
-So the gap between the raw census and reality is roughly six points — about 772 KB — not
-the 0.2 % the raw figure suggests.
+`llvm-mc -show-encoding` and never sees a marker or a symbol table.
 
 ### What the census structurally cannot see
 
@@ -576,13 +644,14 @@ the 0.2 % the raw figure suggests.
    here even when it is a string. Both errors exist in this tree — see the three kinds of
    debt above.
 2. **A region is only as explained as the one label and header attached to it.** A
-   C-compiled struct enters the ROM as a *single* `.incbin` of 150,888 B and the labels
-   around it are offsets into it, so a region can be vastly larger than the object its
-   label names. **133 regions of ≥ 8 KiB carry 3,413,250 B — 47.0 % of the whole explained
-   figure — and 23 regions of ≥ 32 KiB carry 1,609,518 B.**
+   C-compiled struct can enter the ROM as a single large `.incbin` whose labels are offsets
+   into it, so a region can be much larger than the object its label names. **103 regions of
+   ≥ 8 KiB carry 3,014,878 B — 43.1 % of the explained figure — and 26 regions of ≥ 32 KiB
+   carry 1,703,154 B.**
 3. **A self-admitted open question is not the same as an unexplained region.** A header
-   asking why the firmware keeps two disjoint ideograph sets, about a font whose role,
-   metrics, cell count and loader address are all established, trips the flag anyway.
+   asking one question about an otherwise understood object — a font whose role, metrics
+   and loader are all established but whose encoding is not — trips the flag anyway. The
+   largest single research target, 15,120 B of `prom_b` fonts, is of that kind.
 4. **The FILLER rule is byte-verified but arbitrary at the edge**: uniform and ≥ 16 B.
    Shorter uniform runs are graded as data.
 
@@ -593,18 +662,14 @@ strength of them.
 
 | flag | regions | bytes | what it means |
 |---|---:|---:|---|
-| embedded-in-code | 34,999 | 222,810 | an undocumented data region with an *instruction* region on both sides in the same file |
-| code-shaped label | 26,853 | 542,405 | the label carries a routine token (`_Loop`, `_Prologue`, `_Dispatch`, `Initialize*`, …) |
-| code-suspect | 1,089 | 85,536 | a label at or inside the region is the target of a `call`/`jp`/`jr`/`jrl` somewhere in the tree |
+| embedded-in-code | 3,687 | 20,547 | an undocumented data region with an *instruction* region on both sides in the same file |
+| code-shaped label | 8,812 | 360,387 | the label carries a routine token (`_Loop`, `_Prologue`, `_Dispatch`, `Initialize*`, …) |
+| code-suspect | 1,100 | 25,424 | a label at or inside the region is the target of a `call`/`jp`/`jr`/`jrl` somewhere in the tree |
 
-The name-based flag comes with its null, because without one it would be worthless: 47.2 %
-of regions the source itself frames as CODE carry such a name, against 4.7 % in the three
-pure-data images (`table_data`, `custom_data`, `prom_d`) where a hit can only be a false
-positive. A 10× separation, with an expected ~4.7 % false-positive floor by region count.
-
-The confirmed worked examples are all in v7, all plainly instruction bytes under routine
-names, and they are the same 275,822 B of code-as-`.byte` debt seen from another angle —
-which is why v7's evidence-cited share is the tree's worst.
+The name-based flag comes with its null, because without one it would be worthless: 55.1 %
+of regions the source itself frames as CODE carry such a name, against 4.1 % of the data
+regions of the three pure-data images (`table_data`, `custom_data`, `prom_d`), where a hit
+can only be a false positive.
 
 ### Disassembly status diagram
 
@@ -855,8 +920,8 @@ grep -c LABEL_ symbols/maincpu_symbols_reference.txt   # 0
 ```
 
 The file's own header block carries the count, regenerated with it by
-`scripts/analysis/l2_symbol_reference.py --regen`: **39,393 symbols**, of which 35,765 (90.8 %)
-have semantic names and 3,628 are positional. No opaque `LABEL_XXXXXX` placeholders remain, in
+`scripts/analysis/l2_symbol_reference.py --regen` (last after Wave 2, at `be376096`):
+**47,836 symbols**, of which 43,656 (91.3 %) have semantic names and 4,180 are positional. No opaque `LABEL_XXXXXX` placeholders remain, in
 that file or in any of the other seven `symbols/*_symbols_reference.txt`. Note the file is
 **v10 only** — it agrees with the v7 ELF at 25.96 % — so each version also has its own.
 
@@ -1099,9 +1164,12 @@ ASL sometimes chooses different (but functionally equivalent) encodings than the
 
 Executable code is written as native TLCS-900 mnemonics wherever it has been identified as
 code. It is **not** true that no code remains as `.byte`: the sub-CPU payload, the sub-CPU
-boot ROM, table data, custom data and all four SX-WSA1R images are at zero, while v7 holds
-275,822 B and HD-AE5000 11,783 B of instructions still spelled as data. The per-image
-figures and the method that measures them are on
+boot ROM, table data, custom data, `prom_b` and `prom_c` are at zero, while v7, HD-AE5000
+and `prom_a` still hold instructions spelled as data — in `prom_a`, 298 certified `.byte`
+instruction sites (1,318 B, 89 forms) at disassembly commit `be376096`; under the current
+assembler pin (`8e188b215251`) 282 of them have no spelling found so far that reassembles
+byte-identically, and the other 16 are spellable and being respelled. The per-image figures and the method
+that measures them are on
 [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/).
 
 ### Data tables held as C

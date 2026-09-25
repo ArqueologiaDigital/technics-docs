@@ -324,6 +324,15 @@ for cat, n, fam in [(0x50, 333, {0x00: 0x44, 0xC0: 0x44, 0x80: 0x48}), (0x64, 33
     print(hex(cat), ok, '/', n)
 ```
 
+Two of the three trailing bytes of a row are now read: **bytes +14/+15 are the row's own
+selector pair** (program, bank-family), and the name index maps are the **exact inverse** of
+their catalogue — look a row's own selector up as `(bank & 0x0F) × 128 + (program & 0x7F)` in
+the map its family's bits 7:6 pick, and the map returns that row, for 333/333, 339/339,
+141/141 and 144/144 rows. The same holds on the SX-WSA1R's tone database, where prom_c's
+readers compute exactly that index
+([SX-WSA1 overview]({{ site.baseurl }}/wsa1/#prom_d-is-a-tone-database-and-it-is-the-kn5000s-design)).
+Re-derive both with `tools/tone_db_index_map_inverse_check.py` in this repository.
+
 ### Drum kits and percussion
 
 * **26 drum-kit records**, 295 bytes each: a kit is a tone record with part mode 0x80. Kits

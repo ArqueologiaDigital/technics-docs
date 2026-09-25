@@ -8,7 +8,7 @@ permalink: /help-wanted/
 
 This is a community reverse engineering project. Here's how you can contribute:
 
-**Current Progress:** thirteen ROM images — nine KN5000 and four SX-WSA1R — **rebuild byte-identically** from assembly source, gated by `make gate-all` and built with a custom LLVM TLCS-900 backend. Twelve of those images are 12,386,304 distinct bytes (the thirteenth is a compressed re-encoding of one of the others), and about 93.8 % of them can be *explained* — what the data represents, not merely that it reproduces — with a 95 % confidence interval of 86.7 – 96.6 %.
+**Current Progress:** thirteen ROM images — nine KN5000 and four SX-WSA1R — **rebuild byte-identically** from assembly source, gated by `make gate-all` and built with a custom LLVM TLCS-900 backend. Twelve of those images are 12,386,304 distinct bytes (the thirteenth is a compressed re-encoding of one of the others), and 95.04 % of them are code, data whose header states what it is and cites the evidence, or verified filler — the data census's strict grade after the September 25 semantic push (see [how much of the data is actually explained]({{ site.baseurl }}/rom-reconstruction/#how-much-of-the-data-is-actually-explained) for what that grade does and does not certify).
 
 Where to look for work: the open technical unknowns are on [Open Questions]({{ site.baseurl }}/questions/), the programme-level plan is on the [Roadmap]({{ site.baseurl }}/roadmap/), and what the emulator does not model yet is on [MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/).
 
@@ -32,7 +32,11 @@ match is preserved by construction and says nothing about how much of the build 
 rather than `.incbin` passthrough or code spelled as `.byte`. What is genuinely open:
 
 - **Code still written as `.byte`.** The v7 main-CPU tree holds 236,713 B in confirmed regions
-  plus 29,032 B in misframed islands; HD-AE5000 holds 13,168 B. Every other image is at zero.
+  plus 29,032 B in misframed islands; HD-AE5000 holds 13,168 B; SX-WSA1R `prom_a` holds 298
+  certified `.byte` instruction sites (1,318 B, 89 forms) at disassembly commit `be376096`;
+  under the current assembler pin (`8e188b215251`) 282 of them have no spelling found so far
+  that reassembles byte-identically, and the other 16 are spellable and being respelled.
+  Every other image is at zero.
   Method and per-image measurement on
   [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/).
 - **Two LLVM wrapper mnemonics.** `lda_dpi` (669 sites) and `bit_dri` (189) cannot be renamed

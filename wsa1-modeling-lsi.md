@@ -113,22 +113,22 @@ notes, its HLE guide or the MAME driver's `block_name()`.*
 | `0x0000` | <code>(R[+0x07]&lt;&lt;8) &#124; P[+0x07]</code>; bit 7 cleared when its own bits 6..4 are non-zero; bits 13..8 = the channel on the power-on path; bit 2 set by every note event, on *and* off | — | a mode / enable word.  Its **fields** are named — bits 15 and 14 are the MAIN and SUB `RESO MODE` flags, bits 6..4 a part-level enable that gates `0x0300`, bit 7 the sign of `SUB GAIN` — but the word as a whole is not, and bits 3, 1 and 0 are unaccounted for | **UNIDENTIFIED** |
 | `0x0040` | `SatAsym(P[+0x0A] + P[+0x12] + d1)`, saturating to `[0x0000, 0x7FFF]` | **MAIN RESONATOR `KEY SHIFT` + `DETUNE`** | a tuning offset in 1/256 semitone: `p29` whole semitones, `p30` ≈ 0.78 cent a step | **PROVEN** |
 | `0x0080` | the same, from `P[+0x0C] + P[+0x14]` and `d2` | **SUB RESONATOR `KEY SHIFT` + `DETUNE`** | as above, from `p41` / `p42` | **PROVEN** |
-| `0x00C0` | `Curve_Log2_251[clamp(R[+0x12]+R[+0x16]+R[+0x21], 0..250)] + (0x4280 − R[+0x0E]) − R[+0x0C]`, forced to `0x0000` / `0x7F00` on underflow | **resonator `P0SITI0N`**, with its `TOUCH` and its `P0SITI0N M0VEMENT` | a **log-domain period**, 3072 counts per octave = 1/256 semitone, pitch entering **negated**, pivot note 66.5, range `[0, 0x7F00]` = 10.58 octaves.  Its key-follow term is switched on and off by `FORMANT` (`FIX` / `MOVE`, p14 bit 7) | name **PROVEN**, unit and direction **STRONG**; **absolute scale UNIDENTIFIED** |
-| `0x0100` | `Const_0100_251[the same index as 0x00C0]` = `0x0100` in all 251 entries; `0x0000` on the ROM-image path | — | `0x00C0`'s table-pair companion | value **PROVEN**, unit **UNIDENTIFIED** |
-| `0x0140` | `Curve_Exp2Decay_256[clampU8(0xCF − g(v1) + (s8)(0x00E08C))] & 0xFFF8`, or `0x0000` on the gated arm; `g(v) = v<48 ? v/2+24 : v` | **MAIN `FITTING`**, decay form | a Q15 quantity on a 0.3763 dB/step exponential, 13 bits used, 78.6 dB span; `p21` value, `p23` touch | name **PROVEN**, role **UNIDENTIFIED** |
+| `0x00C0` | `Curve_Position_Log2Period_251[clamp(R[+0x12]+R[+0x16]+R[+0x21], 0..250)] + (0x4280 − R[+0x0E]) − R[+0x0C]`, forced to `0x0000` / `0x7F00` on underflow | **resonator `P0SITI0N`**, with its `TOUCH` and its `P0SITI0N M0VEMENT` | a **log-domain period**, 3072 counts per octave = 1/256 semitone, pitch entering **negated**, pivot note 66.5, range `[0, 0x7F00]` = 10.58 octaves.  Its key-follow term is switched on and off by `FORMANT` (`FIX` / `MOVE`, p14 bit 7) | name **PROVEN**, unit and direction **STRONG**; **absolute scale UNIDENTIFIED** |
+| `0x0100` | `Dev104_Reg0100_Const_251[the same index as 0x00C0]` = `0x0100` in all 251 entries; `0x0000` on the ROM-image path | — | `0x00C0`'s table-pair companion | value **PROVEN**, unit **UNIDENTIFIED** |
+| `0x0140` | `Curve_Fitting_Exp2Decay_256[clampU8(0xCF − g(v1) + (s8)(0x00E08C))] & 0xFFF8`, or `0x0000` on the gated arm; `g(v) = v<48 ? v/2+24 : v` | **MAIN `FITTING`**, decay form | a Q15 quantity on a 0.3763 dB/step exponential, 13 bits used, 78.6 dB span; `p21` value, `p23` touch | name **PROVEN**, role **UNIDENTIFIED** |
 | `0x0180` | the same, with `v2`, from `p31` / `p34` | **SUB `FITTING`**, decay form | as above | **PROVEN / UNIDENTIFIED** |
-| `0x01C0` | `high16( fold(reg 0x0400's word) × Curve_Exp2Rise_128[clamp(v1, 0..PART[+0x11])] )` | **MAIN `FITTING`**, rise form | section A's cutoff coefficient scaled by `1 − 2^(−v1/16)` ∈ [0, 0.996) = 0 to −4.56 octaves | name **PROVEN**; **STRONG** that it is the same quantity as `0x0400`; see [the one undecided reading](#the-one-arithmetic-that-reads-two-ways) |
+| `0x01C0` | `high16( fold(reg 0x0400's word) × Curve_Fitting_Exp2Rise_128[clamp(v1, 0..PART[+0x11])] )` | **MAIN `FITTING`**, rise form | section A's cutoff coefficient scaled by `1 − 2^(−v1/16)` ∈ [0, 0.996) = 0 to −4.56 octaves | name **PROVEN**; **STRONG** that it is the same quantity as `0x0400`; see [the one undecided reading](#the-one-arithmetic-that-reads-two-ways) |
 | `0x0200` | the same, with `v2` and reg `0x0440`'s word | **SUB `FITTING`**, rise form | as above | **PROVEN** |
-| `0x0240` | <code>( high16( fold(reg 0x0480's word) × Curve_Exp2Rise_128[clamp(R[+0x14]+R[+0x18]+abs(R[+0x21])/4, 0..0x7F)] ) &amp; 0xFFF8 ) &#124; 7</code> | the register **`DEPTH`** scales | section C's Rise-scaled coefficient.  Its index is `DEPTH` (p14 bits 0-6) plus `SUB GAIN` plus the `P0SITI0N M0VEMENT` term; low 3 bits a separate field | structure **PROVEN**, name **PROVEN** |
-| `0x0280` | `Curve_Exp2Decay_101[clamp(R[+0x10]+R[+0x23], 0..100)]` | **`SUB GAIN`** | a Q15 gain over a 0..100 percent control with an explicit OFF, 37.3 dB taper; `p33` value, `p36` touch | **PROVEN** |
+| `0x0240` | <code>( high16( fold(reg 0x0480's word) × Curve_Fitting_Exp2Rise_128[clamp(R[+0x14]+R[+0x18]+abs(R[+0x21])/4, 0..0x7F)] ) &amp; 0xFFF8 ) &#124; 7</code> | the register **`DEPTH`** scales | section C's Rise-scaled coefficient.  Its index is `DEPTH` (p14 bits 0-6) plus `SUB GAIN` plus the `P0SITI0N M0VEMENT` term; low 3 bits a separate field | structure **PROVEN**, name **PROVEN** |
+| `0x0280` | `Curve_Exp2Gain_Percent_101[clamp(R[+0x10]+R[+0x23], 0..100)]` | **`SUB GAIN`** | a Q15 gain over a 0..100 percent control with an explicit OFF, 37.3 dB taper; `p33` value, `p36` touch | **PROVEN** |
 | `0x02C0` | the literal `0xFF00`, always, on every path | — | — | **UNIDENTIFIED** |
-| `0x0300` | `b = ExpCurve_0_to_0x80[Q[+0x13]]`, written as <code>(b&lt;&lt;8) &#124; b</code>; `0x0000` when reg 0's bits 6..4 are clear | **`INTERACTION GAIN`** | an 8-bit gain over a 0..127 control, 42.1 dB, **duplicated into both halves**, and zero unless the part has layers grouped | **PROVEN** |
-| `0x0340` | `Curve_FE05C9[i3]` | **MAIN `MUTING`**, Q13 form | the Q13 companion of `0x0400`'s cutoff — **computable from it** | **PROVEN** |
-| `0x0380` | `Curve_FE05C9[i4]` | **SUB `MUTING`**, Q13 form | as above, of `0x0440` | **PROVEN** |
-| `0x03C0` | `Curve_FE05C9[i5]`, `i5 = clamp(Q[+0x0F], 44..96)` | — *no editor name exists* | section C's companion coefficient | table identity **PROVEN**; name **resolved, negatively** |
-| `0x0400` | `Curve_FE04C9[i3]` | **MAIN `MUTING`**, Q16 form | ★ a **one-pole lowpass cutoff**, index = MIDI note − 36; clamped `Table_FDFF96[zone] .. PART[+0x12]` = **466 Hz .. 16.7 kHz** | fit **PROVEN**, name **PROVEN** |
-| `0x0440` | `Curve_FE04C9[i4]` | **SUB `MUTING`**, Q16 form | as above | **PROVEN** |
-| `0x0480` | `Curve_FE04C9[i5]` | — *no editor name exists* | section C's cutoff, clamped 44..96 = **831 Hz .. 16.7 kHz** | fit **PROVEN**; name **resolved, negatively** |
+| `0x0300` | `b = Curve_Exp2Gain_U8_128[Q[+0x13]]`, written as <code>(b&lt;&lt;8) &#124; b</code>; `0x0000` when reg 0's bits 6..4 are clear | **`INTERACTION GAIN`** | an 8-bit gain over a 0..127 control, 42.1 dB, **duplicated into both halves**, and zero unless the part has layers grouped | **PROVEN** |
+| `0x0340` | `Curve_Muting_Cutoff_Q13_128[i3]` | **MAIN `MUTING`**, Q13 form | the Q13 companion of `0x0400`'s cutoff — **computable from it** | **PROVEN** |
+| `0x0380` | `Curve_Muting_Cutoff_Q13_128[i4]` | **SUB `MUTING`**, Q13 form | as above, of `0x0440` | **PROVEN** |
+| `0x03C0` | `Curve_Muting_Cutoff_Q13_128[i5]`, `i5 = clamp(Q[+0x0F], 44..96)` | — *no editor name exists* | section C's companion coefficient | table identity **PROVEN**; name **resolved, negatively** |
+| `0x0400` | `Curve_Muting_Cutoff_Q16_128[i3]` | **MAIN `MUTING`**, Q16 form | ★ a **one-pole lowpass cutoff**, index = MIDI note − 36; clamped `Table_Muting_CutoffFloor_ByKeyZone_256[zone] .. PART[+0x12]` = **466 Hz .. 16.7 kHz** | fit **PROVEN**, name **PROVEN** |
+| `0x0440` | `Curve_Muting_Cutoff_Q16_128[i4]` | **SUB `MUTING`**, Q16 form | as above | **PROVEN** |
+| `0x0480` | `Curve_Muting_Cutoff_Q16_128[i5]` | — *no editor name exists* | section C's cutoff, clamped 44..96 = **831 Hz .. 16.7 kHz** | fit **PROVEN**; name **resolved, negatively** |
 | `0x0800` *(no channel)* | the literal `0x1100`, once, at power-on | — | a 20th register number, outside the per-channel map | **UNIDENTIFIED** |
 
 Fourteen of the nineteen carry a name in the machine's own vocabulary, two are
@@ -152,8 +152,8 @@ in the ROM's own reset image and in the factory data.
 pair     0x0040  0x0080                        MAIN / SUB tuning
 pair     0x0140  0x0180                        MAIN / SUB FITTING, decay form
 triple   0x01C0  0x0200  0x0240                three Rise-scaled coefficients
-triple   0x0340  0x0380  0x03C0                three Curve_FE05C9 coefficients
-triple   0x0400  0x0440  0x0480                three Curve_FE04C9 coefficients
+triple   0x0340  0x0380  0x03C0                three Curve_Muting_Cutoff_Q13_128 coefficients
+triple   0x0400  0x0440  0x0480                three Curve_Muting_Cutoff_Q16_128 coefficients
 alone    0x0000  0x00C0  0x0100  0x0280  0x02C0  0x0300
 ```
 
@@ -167,7 +167,7 @@ pairs finds no other cross-half twinning outside the four envelope-descriptor
 parameters, which the firmware's own case table treats as a separate group.
 
 **The third instance is real, not an artefact of the addressing.**
-`Curve_FE04C9`, `Curve_FE05C9` and `Curve_Exp2Rise_128` are each cited **exactly
+`Curve_Muting_Cutoff_Q16_128`, `Curve_Muting_Cutoff_Q13_128` and `Curve_Fitting_Exp2Rise_128` are each cited **exactly
 three times in the whole 512 KB image**, at three independent indices: two
 key-scaled ones for MAIN and SUB, and a third, `i5 = clamp(Q[+0x0F], 44..96)`,
 computed and cached earlier. Two further ROM images agree from paths that never
@@ -317,7 +317,7 @@ exact closed form, and the closed forms name physical quantities.
 
 ### The storage format has to be undone first
 
-Read as `s16`, `Curve_FE04C9` is not monotone. Passed through the firmware's
+Read as `s16`, `Curve_Muting_Cutoff_Q16_128` is not monotone. Passed through the firmware's
 **own** `fold()` — the step the packer already applies on the way to register
 `0x01C0` —
 
@@ -336,8 +336,8 @@ Over the live band `k = 9..100`, with `g = tan(π·f_k/44100)` and
 `f_k = 440·2^((k−33)/12)`:
 
 ```
-fold(Curve_FE04C9)[k] = round(65536 · g/(1+g))          max |residual| = 1 count
-fold(Curve_FE05C9)[k] = round( 8192 · (1 − 1/(128·g)))  max |residual| = 5 counts
+fold(Curve_Muting_Cutoff_Q16_128)[k] = round(65536 · g/(1+g))          max |residual| = 1 count
+fold(Curve_Muting_Cutoff_Q13_128)[k] = round( 8192 · (1 − 1/(128·g)))  max |residual| = 5 counts
 ```
 
 `g/(1+g)` with `g = tan(π f/fs)` is **the coefficient of a one-pole lowpass under
@@ -404,7 +404,7 @@ static double cutoff_hz(uint16_t w, double fs) {
 ```
 
 Musical sanity, and the reason this is a filter and not a pitch: the readers
-clamp the index to `44..96` and to `Table_FDFF96[zone] .. PART[+0x12]`, i.e.
+clamp the index to `44..96` and to `Table_Muting_CutoffFloor_ByKeyZone_256[zone] .. PART[+0x12]`, i.e.
 **831 Hz to 16.7 kHz** and **466 Hz to 16.7 kHz**. A pitch parameter would not be
 clamped to start at 831 Hz.
 
@@ -450,15 +450,15 @@ All the exponential tables share one slope — **16 steps per doubling =
 
 | table | closed form | max residual | span |
 |---|---|---:|---|
-| `Curve_Exp2Decay_256` | `round(32768·2^((k−255)/16))` | 4 counts | `0` for `k ≤ 46`, then 78.6 dB |
-| `Curve_Exp2Rise_128` | `32768·(1 − 2^(−k/16))` | **0 — exact on all 128** | `0` .. `0x7F7A` |
-| `Curve_Exp2Decay_101` | `T[0]=0`; `round(32768·2^((k−100)/16))` | 4 counts | `0`, then **37.28 dB** |
-| `ExpCurve_0_to_0x80` | `T[0]=0`; `max(1, round(128·2^((k−127)/16)))` | **0 — exact on all 128** | `0`, then **42.1 dB** |
+| `Curve_Fitting_Exp2Decay_256` | `round(32768·2^((k−255)/16))` | 4 counts | `0` for `k ≤ 46`, then 78.6 dB |
+| `Curve_Fitting_Exp2Rise_128` | `32768·(1 − 2^(−k/16))` | **0 — exact on all 128** | `0` .. `0x7F7A` |
+| `Curve_Exp2Gain_Percent_101` | `T[0]=0`; `round(32768·2^((k−100)/16))` | 4 counts | `0`, then **37.28 dB** |
+| `Curve_Exp2Gain_U8_128` | `T[0]=0`; `max(1, round(128·2^((k−127)/16)))` | **0 — exact on all 128** | `0`, then **42.1 dB** |
 
 ★ **Two of them have index ranges that are UI controls, and say so.**
-`Curve_Exp2Decay_101` is indexed by a value clamped `0..100`: a **0..100 percent
+`Curve_Exp2Gain_Percent_101` is indexed by a value clamped `0..100`: a **0..100 percent
 control with an explicit OFF position**, given a 37 dB logarithmic taper — and it
-is exactly what `SUB GAIN` needs. `ExpCurve_0_to_0x80` is indexed by a record
+is exactly what `SUB GAIN` needs. `Curve_Exp2Gain_U8_128` is indexed by a record
 byte `0..127`: a **0..127 control** over 42 dB, written into register `0x0300` as
 one byte in **both halves**, which is the shape of a device with two 8-bit fields
 fed the same number.
@@ -482,7 +482,7 @@ the page captioned `TOUCH DEPTH`, plus `TOUCH` on `P0SITI0N M0VEMENT`.
 
 | table | law | Q5 range | destination, and therefore its unit |
 |---|---|---|---|
-| `LinCoef_Position_TouchRamp_Q5_128` | `2k − 128` | −4.000 .. +3.938 | the `Curve_Log2_251` index |
+| `LinCoef_Position_TouchRamp_Q5_128` | `2k − 128` | −4.000 .. +3.938 | the `Curve_Position_Log2Period_251` index |
 | `LinCoef_Fitting_TouchRamp_Q5_128` | `65k//128 − 32` | ±1.000, bipolar, single zero at `k=64` | an exp2 index — so one unit is **0.3763 dB** |
 | `LinCoef_Muting_TouchRamp_Q5_128` | `k//2 − 64`, `T[127]=0` | −2.000 .. −0.031 | **the cutoff index, in semitones** |
 | `LinCoef_SubGain_TouchRamp_Q5_128` | byte-identical to the `Muting` ramp | — | a percentage of `SUB GAIN`: one point = 0.376 dB |
@@ -506,14 +506,14 @@ multiple of ten, so the editor's control moves in steps of ten: 15.6% of cutoff
 follow per click. The `SUB GAIN` touch depth is zero in every factory record,
 which is what an unused control looks like.
 
-`Table_FDFF96` — 256 bytes, 27 distinct values `0x22..0x3C`, indexed by the key
+`Table_Muting_CutoffFloor_ByKeyZone_256` — 256 bytes, 27 distinct values `0x22..0x3C`, indexed by the key
 zone — is the **lower clamp** on the cutoff index, i.e. a **minimum cutoff of
 466 Hz to 2093 Hz per key zone**, a floor that keeps the filter above the zone's
 own band. It has no closed form; the values are data.
 
 ### ⚠ One table is musically absurd at the sample rate
 
-`Curve_Exp2Decay_256`'s two largest entries are `0x8000` (= 1.0) and `0x7A90`
+`Curve_Fitting_Exp2Decay_256`'s two largest entries are `0x8000` (= 1.0) and `0x7A90`
 (= 0.957520), with **nothing in between**. As a per-sample pole at 44.1 kHz,
 0.957520 is a time constant of **0.522 ms**, and even 1 ms is unrepresentable. A
 per-sample reading of that table is wrong.
@@ -886,6 +886,12 @@ Each script reads the ROM images and no `.s` file, and each carries a
 
 The register map's own prose lives in the disassembly beside the code it
 describes, in `wsa1/prom_c/devices/dev10c_dev104_drivers.s`.
+
+The curve tables carry their current source names throughout this page. The notes and
+probes written before those names existed (`FINDINGS-l7a1429-curve-tables.md` and its
+siblings, `HLE-GUIDE-l7a1429.md`) still use the earlier address-style ones —
+`Curve_FE04C9`, `Curve_Log2_251`, `Table_FDFF96` and so on; the index between the two is
+`wsa1/notes/w20-lsi-table-renames.map`.
 
 ## Related
 

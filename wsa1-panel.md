@@ -107,7 +107,8 @@ coincidence, and any off-by-one in the column mapping breaks the pattern.
 
 ### ★ A second witness, from the ROM, that never saw the schematic
 
-prom_a carries its **own** variant-2 switch → LED adjacency table at `0xF95088`,
+prom_a carries its **own** variant-2 switch → LED adjacency table at `0xF95088`
+(`TestMode_SwitchLedCodes_Variant2`),
 which stores `0x0000` for a position with no switch. Relabel its nine rows as the
 nine wired segments and **its zero pattern *is* the schematic**: the same 58
 populated cells, the same hole at SEG2/SW7, the same 11-vs-9 segment count.
@@ -169,10 +170,11 @@ the LEFT column.** Reproduce with
 
 There are **18 lamps on the rack**, and prom_a's table at `0xF95088` names **14 of
 them outright**. The word stored there is `(LED register << 8) | LED bit mask` —
-confirmed from the instructions rather than assumed: `sub_F94E1C` does
-`ld WA,(XHL)` and calls `0xF40670`, which reaches the unguarded entry of the LED
-register writer at prom_a `0xF8C846`, mapping `W` through the register → wire
-table and queueing `[wire][A]`. So the high byte is the register and the low byte
+confirmed from the instructions rather than assumed: `TestMode_PanelSwitchesToLeds`
+(`0xF94E1C`, the service test mode's switch echo) does `ld WA,(XHL)` and calls
+`0xF40670`, which reaches the unguarded entry of the LED register writer at prom_a
+`0xF8C846`, mapping `W` through the register → wire table (`PanelLedWireMap_Variant1/2`,
+`0xF8C8AC` / `0xF8C8B7`) and queueing `[wire][A]`. So the high byte is the register and the low byte
 is the data. `kn7000_mame/notes/wsa1-probes/wsa1_lamp_identification.py` reports
 **`FAILURES: 0`**.
 
@@ -191,13 +193,15 @@ recorded in `wsa1_cpanel.h` so that no layout ever wires a lamp to one of them.
 drawing carries 18 lamps, of which 14 are named by the ROM table above.)*
 
 What makes 47 a measurement rather than a reading: the union of every mask in the
-**two** switch → LED adjacency tables (`0xF94F58` variant 1, `0xF95088`
-variant 2) is a **subset** of that sweep, register by register. Two unrelated
+**two** switch → LED adjacency tables (`TestMode_SwitchLedCodes_Variant1` at `0xF94F58`,
+`TestMode_SwitchLedCodes_Variant2` at `0xF95088`) is a **subset** of that sweep, register
+by register. Two unrelated
 tables agree.
 
 ⚠ A near-miss worth recording: those adjacency tables carry their own wire →
-segment maps (`0xF94ED8` / `0xF95008`), and they are **not** byte-identical to
-the ones the driver already uses (`0xF8A109` / `0xF8A189`) — they are those maps
+segment maps (`TestMode_PanelWireGroupMap_Variant1/2`, `0xF94ED8` / `0xF95008`), and they
+are **not** byte-identical to the ones the driver already uses
+(`PanelWireGroupMap_Variant1/2`, `0xF8A109` / `0xF8A189`) — they are those maps
 **minus** the `0xD0`-block analogue wires (five for variant 1, two for variant 2).
 Over the switch segments `0xC0..0xCA` they agree exactly, including the 11-vs-9
 count and the `0xC6`/`0xCA` absence, so the corroboration is real — but the word
@@ -393,16 +397,76 @@ screen's LEAVE and BUTTON methods for free. Reproduce the table and its method
 offsets with `wsa1/notes/prom_a_naming_wave8_apply.py --screens` and
 `wsa1/notes/prom_a_screen_methods_wave29.py`.
 
+## From a switch to a parameter record
+
+A press reaches the rest of CPU 1 along two routes out of the panel's group queue at RAM
+`0x2000`, and each route has a table per model variant, chosen by the strap `(0xC4)`:
+
+* **As events.** `PanelGroupQueue_ExpandToEvents` (prom_a `0xF8A824`) walks the queue and,
+  for each group `0x00`–`0x18`, the list `PanelGroupEventLists_Variant1/2` gives it: a list
+  record's `[class]` and `[code]` are copied into a four-byte event, its `[mask]` picks the
+  bits of the wire byte the record owns and its `[shift]` normalises them, and a record whose
+  masked change is zero is dropped. The events go into the list at RAM `0x2030`, 15 at most —
+  the same four-byte records, in the same number space, as a MIDI-in parameter change (see
+  [Parameter Records]({{ site.baseurl }}/wsa1-parameters/)).
+* **As actions.** `PanelGroupActionTable_Variant1/2`, indexed by group, point into
+  `PanelGroupActionListPool`: 930 bytes of six-byte records `[group][mask][handler]`, keyed
+  on the 16-bit (mask, group) pair, whose handler fields are now written as `.long <label>`
+  so the byte gate checks every target. Fifteen distinct handlers are reached; six are named
+  (`PanelAction_SoundSelectOrKeypad_V1`, `PanelAction_Keypad_V2`,
+  `PanelAction_AssignableController`, `PanelAction_AssignableSwitch`,
+  `PanelAction_OrdinalToEventValue_A` / `_B`) and nine are still `sub_XXXXXX`. Four of them
+  keep two **held-button sets** at RAM `0x2252` / `0x2256`: bit *code* set on press and
+  cleared on release, a repeated press recorded as *code* + `0x11` at bit + 17 — the offset
+  `PanelButton_InterlockMask32` tests.
+* **The assignable controls** read an assignment byte at RAM `0x7F12 + slot` for panel
+  groups `0x0B`–`0x17`, and that byte is a **MIDI controller number**, mapped to a parameter
+  number exactly as MIDI-in maps the same controller (`0x81` = channel pressure). Details,
+  and what is still open about it, on
+  [Parameter Records]({{ site.baseurl }}/wsa1-parameters/#the-panels-assignable-controls-send-midi-controller-numbers).
+* **Screen BUTTON tables.** Ten UI tables whose selector had been left open are indexed by
+  the panel **button code**: each is read by the `+8` BUTTON method of a
+  `PanelScreen_VtableTable` object, which `PanelButton_Route` calls with the code in `HL` and
+  at `(XIZ+8)`. They now carry screen names such as `ScreenButtonHandlers_MidiTotalMode` and
+  `ScreenButtonHandlers_SineWaveCheckMode`.
+
+⚠ Stale twins sit about `0x400` lower: a never-relocated copy of the event walker
+(`PanelGroupQueue_ExpandToEvents_DeadCopy`, `0xF8A44B`) and an old copy of two screens'
+button tables (`ScreenButtonHandlers_StaleCopy`, `0xF95D95`). Nothing reaches them — see
+[older-build remnants]({{ site.baseurl }}/wsa1-disassembly/#older-build-remnants-and-why-unreached-code-can-be-correct).
+
+The checks, all in `notes/proma-2026-09-25/` of the disassembly repository (run from its
+root, after `make gate-wsa1` has built `wsa1/rebuilt_ROMs/wsa1_prom_a.llvm.elf`):
+`retitle_panel_tables.py` (which handlers are live, the event classes of their groups, the
+dead copy), `gen_panel_actions.py` (the pool's handlers and the assignment byte),
+`gen_held_sets.py` (the held sets) and `gen_button_selectors.py` (the button-code selector)
+run to completion on the current tree.
+
+⚠ `gen_panel_test_tables.py` (the LED wire maps and test-mode tables) **fails on the current
+tree**: it stops with an `AssertionError` at line 84. It is the script that retyped those
+tables (commit `568b7b38`, which records its checks passing on the tree before its
+`--apply`), and line 84 is one of its preconditions — that the only labels inside the two
+spans are the three orphan `sub_` labels it was about to remove. It now finds the six names
+its own `--apply` gave them (`PanelLedWireMap_Variant1`/`2`,
+`TestMode_PanelWireGroupMap_Variant1`/`2`, `TestMode_SwitchLedCodes_Variant1`/`2`). Its byte
+checks come before that line and pass: the six reader instructions and their immediates,
+the map values, and the 11 + 9 rows that tile `0xF94ED8`–`0xF95117`. That 2026-09-25
+passing run has not been reproduced here: the sources before `568b7b38` do not assemble
+with the current toolchain.
+
 ## What is still open
 
 1. **Which of the four REALTIME CREATOR ring lamps is which.** The set is pinned;
    the order is not. The layout draws all four and binds none.
 2. **The whole SX-WSA1 keyboard panel.** Different board, two extra scan columns,
    three extra pots, and no document. Its emulator ioports stay positional.
-3. **The `(segment, bit) → control index` map** at `0xF869F0-0xF86A23`. That is
-   the *dispatch* side rather than the identity side, and resolving its
-   `XIX`/`XIY` would turn all 88 positions into dispatch-matrix slots. It is the
-   highest-value next step.
+3. **What most panel actions do.** The dispatch side is now traced
+   ([above](#from-a-switch-to-a-parameter-record)): a group reaches
+   `PanelGroupEventLists_Variant1/2` and `PanelGroupActionListPool`, and the event list it
+   fills is run by `UiEventList_Run` through per-pass class tables. (The range
+   `0xF869F0-0xF86A23` this item used to name as a map is that runner's own code.) Nine of
+   the fifteen action handlers, the switch assignments `0x88`, `0x89` and `0x90`, and which
+   physical control each assignable group `0x0B`–`0x17` is, remain open.
 4. **A better scan of the self-diagnostic pages.** They map the wave-ROM tests
    onto buttons, and the OCR loses the circled digits. ⚠ It is **seven** tests,
    not six: `0xF95971` reads `H = (0x2267) & 0x0F` and rejects `H < 1` and

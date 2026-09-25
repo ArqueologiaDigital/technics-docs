@@ -175,8 +175,9 @@ Nothing else is safe until this is done, because these are the only **unrecovera
    without a valid table header), so it needs a decision, not a quiet edit.
 4. **Correct false completeness claims** on the three pages a newcomer reads first. `help-wanted.md`
    states all `.byte` code is eliminated (507 `.byte` lines still carry instruction comments, one of
-   them a called function) and all `LABEL_*` symbols are replaced (35,924 of 39,451 rows are still
-   `LABEL_*`). `issues.md` was last built **2026-03-27**.
+   them a called function) and all `LABEL_*` symbols are replaced (35,924 of 39,451 rows were
+   still `LABEL_*` when this was written; the maincpu symbol file regenerated at disassembly
+   `be376096` has none). `issues.md` was last built **2026-03-27**.
 5. **Fix the two standing autonomous authorisations. ✅ Done 2026-08-14.** `kn7000_disassembly/tools/coverage_score.py` now
    evaluates expression operands and asserts both that every directive parsed and that source bytes
    per instruction line fall in the 1–7 band MN10300 allows — the first assertion caught a bug in
