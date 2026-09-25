@@ -1244,8 +1244,16 @@ The boot initialization performs these steps:
 | 5 | Blit the boot splash | Copy the 320×240 8bpp splash at ROM 0x2E61CE into VRAM as two 0x9600-byte halves, to 0x1A0000 and 0x1A9600 — this is the "HD-AE5000 / Version 2 / Start-up ! / Please wait . . ." screen |
 | 6 | Claim the DISK MENU item | `workspace[0x0E0A][0x02C4]` = `GetViewInstance(0x00600002)`; write class id `0x016A0005` at +0 and the "HD-AE5000" string at +0x2A |
 | 7 | Fetch sequencer-variable addresses | `workspace[0x0E88]` offsets 0x0108, 0x0100, 0x0104 = `GetAdr_sqsrtc`, `GetAdr_sqbtof`, `GetAdr_sq_beadt`; results at 0x230ECC / 0x230ED2 / 0x230ED6 |
-| 8 | Check HD presence | Detect hard disk, store result at 0x230EDA; if present, `ApPostEvent(0xFFFFFFFF, 0x01C00016, 0x01A0007F)`, a request for title 0x7F |
+| 8 | Check HD presence | `HDAE5000_Check_HD_Present`, result stored at 0x230EDA. If the result is **non-zero**, post `ApPostEvent(0xFFFFFFFF, 0x01C00016, 0x01A0007F)`, a request for title 0x7F (see note) |
 | 9 | Reset UI state | `HDAE5000_Finalize_Init` (a `ret`), then `HDAE5000_UiState_Reset` at 0x2803C2 |
+
+**Note on step 8.** `HDAE5000_Check_HD_Present`'s header says its result is
+`HDAE5000_HD_Init`'s step code: 0 = drive up and formatted, non-zero = the step
+that failed (1 unformatted, 3 no drive, …). Read that way, Boot_Init requests
+the HD title only when the drive is *not* ready. The comments at the call site
+("Skip if no HD", "drive present: go to the HD title") read the result the other
+way round. The two readings have not been reconciled. Listed on
+[Open Questions]({{ site.baseurl }}/questions/).
 
 **Important:** Steps 1-5 must complete before step 6. The record `GetViewInstance` returns is re-classed as the HD-AE5000's `HDTitleMenu`, which exists only after the class table `0x016A` has been registered in step 3.
 

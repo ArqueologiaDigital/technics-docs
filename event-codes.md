@@ -193,7 +193,7 @@ Titles quoted by the code:
 
 | Title | Name (registered string) | Registered by | Requested by |
 |-------|--------------------------|---------------|--------------|
-| 0x7F | `TT_HDDEXT` | `InitializeHama` (module 9); **re-registered by the HD-AE5000** (module 0x0A) with its own view object | HD-AE5000 boot (`0x01C00016`) when a drive is present; `HDAE5000_RequestTitle15` from the frame handler |
+| 0x7F | `TT_HDDEXT` | `InitializeHama` (module 9); **re-registered by the HD-AE5000** (module 0x0A) with its own view object | HD-AE5000 boot (`0x01C00016`), depending on `HDAE5000_Check_HD_Present`'s result ([note]({{ site.baseurl }}/boot-sequence/#hdae5000_boot_init-0x28f576)); `HDAE5000_RequestTitle15` from the frame handler |
 | 0xEE | `TT_MESAGE` | `drawbar_panel_ui.s` `RegTitle 0x1, ..., 0xee` | `HDAE5000_ShowErrorMessageTitle` (`0x01C00016`) |
 | 0xEF | `TT_WELCOM` | same block | `MainTitle_InitGraphicsAndEvents` at boot (`0x01C00016`) |
 | 0xF0 | `TT_SOFTVER` | same block | `CtrlPanel_PostScrollEvent` (`0x01C00016`), when the held-switch accumulator is 0xA1 |
