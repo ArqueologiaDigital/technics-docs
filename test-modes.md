@@ -192,7 +192,7 @@ After the SubCPU payload is transferred and verified, the firmware calls `SelfTe
 | byte[4] bit 1 + byte[5] bit 5 | `0xF9` | `0x1A000F9` | Test 7: FDC IC |
 | byte[4] bit 3 + byte[5] bit 7 | `0xFC` | `0x1A000FC` | Test 8: FDD SAVE/LOAD (HAMA) |
 
-`UI_PostModeChangeEvent` sends event `0x1C00015` with the mode code in the low byte, which triggers a screen group transition to the corresponding test mode UI.
+`UI_PostModeChangeEvent` posts the title request `0x1C00015` with title id `0x01A00000 + code`. The code is a title number, not a mode (the mode request is `0x1C00014`). `TitleProc` handles the request. See [Event Codes — Mode and Title Requests]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016).
 
 > **Under MAME:** the `0xF002` reply comes from the sub-CPU's own firmware, which sees the keybed only through `kn5000_tonegen_device`'s event FIFO (`push_keybed_event`; `keybed_scan` in `kn5000.cpp` pushes into it every millisecond from machine start). Whether that reply reflects keys held from power-on has not been measured — see the status table above.
 

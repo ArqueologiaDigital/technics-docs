@@ -56,7 +56,7 @@ From the home screen, the correct sequence to reach the Feature Presentation:
 2. Press **LEFT 4** (4th soft button from top, mapped to `CPL_SEG9`) -- `0x8D38` transitions `0xE0` to `0xE4` (FEATURE PRESENTATION sub-menu appears)
 3. Press **LEFT 2** (2nd soft button from top, mapped to `CPL_SEG10`) -- `0x8D38` transitions `0xE4` to `0xE1` (demo begins playing)
 
-State transitions are routed through `UI_PostModeChangeEvent`, which sends event `0x1C00015` to `SeqState_TransitionMode`.
+`UI_PostModeChangeEvent` does not carry these transitions, despite what this page used to say. It posts the *title* request `0x01C00015` with title id `0x01A00000 + A` to the current target, not to `SeqState_TransitionMode` (see [Event Codes — Mode and Title Requests]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)).
 
 ### MAME Button Mapping Reference
 
@@ -552,9 +552,9 @@ When the timer reaches 10, song playback begins:
 | `IvDemofeature2Proc` | -- | (demo handlers) | Feature Demo event handler 2 |
 | `PostEvent` (`FA9752`) | 0xFA9752 | (event system) | Inserts events into circular queue at DRAM 0x02BC34 |
 | `SendEvent` | 0xFA9660 | (event system) | Direct (synchronous) event dispatch |
-| `PostEventWithParam` | 0xFA9D58 | (event system) | Queued (deferred) event dispatch with parameter |
+| `ApPostEvent` | 0xFA9D58 | (event system) | Queued event, same ring as `PostEvent`; the firmware's own function-name table names it |
 | `Boot_DisplayScreen` | -- | (boot sequence) | Sets DRAM[0x0406] bit 7 (boot-complete flag) |
-| `SeqState_TransitionMode` | -- | (sequencer) | Processes mode change event 0x1C00015 |
+| `SeqState_TransitionMode` | -- | `ui/ui_control_panel.s` | Writes `0x8D36`-`0x8D39`, which include the `0x8D38` state byte tracked above. It is not the handler of `0x1C00015`: `TitleProc` handles that title request |
 
 ---
 
@@ -817,7 +817,7 @@ The registered entries expect chain bytes `0x10`, `0x11`, `0x12` — which appea
 - GroupBoxProc is genuinely absent from the runtime — it's never instantiated
 - SSF workspace events `0x1C0001C` are registered (7 entries at slots 14-43), confirming the SSF system IS set up to receive workspace events
 - Widget init event `0x1C00001` is registered at slot 1
-- Mode change event `0x1C00015` is NOT in the first 50 entries
+- Title request event `0x1C00015` is NOT in the first 50 entries
 
 ### Revised Root Cause Theory
 

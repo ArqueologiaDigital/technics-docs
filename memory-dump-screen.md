@@ -94,5 +94,6 @@ The screen is the `MEMORY DUMP` entry of the factory *Panel Simulator* screen
 set (`FDTest_*` widgets in `v10/maincpu/factory_test/fd_test_data.s`), handled
 by `DbMemoryDumpProc` at 0xFA2EE6 (`v10/maincpu/ui/ui_widget_defs.s`). The
 entry chord is dispatched by `main_title_ctrl_panel.s` as
-`PostEvent(0x1C00015, 0x01A00000)` when the firmware's held-switch accumulator
-equals 0x91. The code and the entry path are byte-identical in v7, v9 and v10.
+`ApPostEvent(0xFFFFFFFF, 0x1C00015, 0x01A00000)`, a request for title 0, when the
+firmware's held-switch accumulator equals 0x91 (`CtrlPanel_PostDisplayEvent`; see
+[Event Codes — Mode and Title Requests]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)). The code and the entry path are byte-identical in v7, v9 and v10.
