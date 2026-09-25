@@ -397,8 +397,8 @@ through the [`extensions/`](#extensions--expansion-slot-devices-codename-toshi) 
 
 | File | Contents |
 |------|----------|
-| `hd-ae5000_v2_06i.s` | ROM header, entry vectors, handler registration, bitmap resource descriptors, `HDAE5000_Register_Frame` and its bitmap/palette copy code |
-| `hdae5000_hd_driver.s` | IDE/ATA driver: drive setup, identify, seek, read/write, error handling, CHS calculation, partition management |
+| `hd-ae5000_v2_06i.s` | ROM header, entry vectors, handler registration, bitmap resource descriptors, `HDAE5000_UiState_Reset` (0x2803C2, resets the browser selection and the save-option record) and the routines after it, among them the title screens (`HDAE5000_TtlScreenRProc`, `HDAE5000_TtlScreenR2Proc`, `HDAE5000_TtlScreenR3Proc`, which hold the bitmap/palette copy code), the select list, the naming window and the hardware test page |
+| `hdae5000_hd_driver.s` | Despite the file name, no ATA code (the driver is in `hdae5000_ui_display.s`). UI screens: the floppy list (`HDAE5000_FdList_Scan`), title info (`HDAE5000_TitleInfo_Build`), the directory and song screens (`HDAE5000_DirList_BuildPage`, `HDAE5000_SEL_DIR_Screen`, `HDAE5000_SongScreen_Refresh`), file load and naming, save and setup options, the format dialog, load-by-number, and the PC data-link page (`HDAE5000_PC_DATA_LINK_PAGE`) |
 | `hdae5000_filesystem.s` | FLS list and screens (`HDAE5000_FlsList_BuildPage`, `HDAE5000_FlsScreen_Refresh`), load-by-number, delete options, copy-to-HD. The old routine names (`FS_Init`, FSB read/write…) were misreadings; see [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/#routines-that-were-misnamed) |
 | `hdae5000_ui_display.s` | Title/mode requests, the lyrics player, Boot_Init and the frame handler, the song/FLS record layer, the ATA driver, FAT and cluster-chain I/O, the PC-link coroutine and its services, the C runtime library |
 | `hdae5000_utilities.s` | Memory copy/compare, multiply, signed/unsigned divide, string operations, and the registered-object name pool |
