@@ -101,6 +101,8 @@
       url: /wsa1/
     - title: Control Panel & Switch Matrix
       url: /wsa1-panel/
+    - title: Parameter Records & MIDI
+      url: /wsa1-parameters/
     - title: Acoustic Modelling LSI (L7A1429)
       url: /wsa1-modeling-lsi/
     - title: Emulation Status
