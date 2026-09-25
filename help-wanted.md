@@ -33,8 +33,9 @@ rather than `.incbin` passthrough or code spelled as `.byte`. What is genuinely 
 
 - **Code still written as `.byte`.** The v7 main-CPU tree holds 236,713 B in confirmed regions
   plus 29,032 B in misframed islands; HD-AE5000 holds 13,168 B; SX-WSA1R `prom_a` holds 298
-  certified instructions (1,318 B) in forms no spelling tried so far reproduces. Every other
-  image is at zero.
+  certified `.byte` instruction sites (1,318 B, 89 forms), of which 292 have no spelling
+  found so far that reassembles byte-identically; the other 6 are spellable and not yet
+  respelled (at disassembly commit `be376096`). Every other image is at zero.
   Method and per-image measurement on
   [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/).
 - **Two LLVM wrapper mnemonics.** `lda_dpi` (669 sites) and `bit_dri` (189) cannot be renamed

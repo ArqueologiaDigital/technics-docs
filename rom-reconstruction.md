@@ -1103,8 +1103,10 @@ ASL sometimes chooses different (but functionally equivalent) encodings than the
 Executable code is written as native TLCS-900 mnemonics wherever it has been identified as
 code. It is **not** true that no code remains as `.byte`: the sub-CPU payload, the sub-CPU
 boot ROM, table data, custom data, `prom_b` and `prom_c` are at zero, while v7, HD-AE5000
-and `prom_a` still hold instructions spelled as data — in `prom_a`, 298 certified sites
-(1,318 B) that the assembler has no spelling for yet. The per-image figures and the method
+and `prom_a` still hold instructions spelled as data — in `prom_a`, 298 certified `.byte`
+instruction sites (1,318 B, 89 forms), of which 292 have no spelling found so far that
+reassembles byte-identically; the other 6 are spellable and not yet respelled (disassembly
+commit `be376096`). The per-image figures and the method
 that measures them are on
 [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/).
 

@@ -54,7 +54,7 @@ thirteen gated images. Data tables, strings, bitmaps, firmware bytecode for soft
 | Table Data | **0** | 5,758 | **Complete** |
 | Custom Data | **0** (data only) | 0 | **Complete** |
 | HDAE5000 | 13,168 B | 35,285 | **Not complete** |
-| SX-WSA1R `prom_a` | 298 certified sites, 1,318 B in 89 forms that no spelling tried so far assembles back byte-identically | 119,235 | **Not complete** |
+| SX-WSA1R `prom_a` | 298 certified `.byte` instruction sites (1,318 B, 89 forms), of which 292 have no spelling found so far that reassembles byte-identically; the other 6 are spellable and not yet respelled | 119,235 | **Not complete** |
 | SX-WSA1R `prom_b` | **0** | 67,679 | **Complete** |
 | SX-WSA1R `prom_c` / `prom_d` | **0** — survived a falsification attack | 75,701 / 0 | **Complete** |
 
@@ -78,8 +78,14 @@ The SX-WSA1R code-as-`.byte` figures come from `wsa1/notes/sound/wsa1_unspellabl
 gates agree — its comment echoes exactly its bytes, the ROM holds those bytes at the address
 it claims, MAME's committed `unidasm` listing frames them as one instruction, and a spelling
 route is tried and judged by the bytes it assembles to. `prom_a`'s commonest forms are
-`or (N),N` (26 sites) and `sub (N),N` (24). "No spelling" means no route produced the bytes,
-which is not the same as the backend being unable to encode them. The earlier "0 — byte runs
+`or (N),N` (26 sites) and `sub (N),N` (24). The script prints the 298 as `298 certified
+site(s), 1318 byte(s), 89 form(s)` and the 292 as `292 of those site(s) have NO SPELLING`;
+the six it marks `spellable` are `ld a,(-xix)`, `ld (-xiy),a`, `ld (xix+),a`,
+`ld (xix+),wa`, `ld (xix+),e` and `tset 0,(0x2a1b76)`. "No spelling" means no route produced
+the bytes, which is not the same as the backend being unable to encode them, and the count
+moves with the toolchain: after `bc571542` moved the LLVM pin to `8e188b215251`, the ten
+`mul WA,(XIZ+d)` sites became spellable, and the same script at `166c9dc3` reports 282
+without a spelling and 16 spellable, of the same 298. The earlier "0 — byte runs
 audited and typed" for `prom_a` did not survive this census. Separately, the 2026-09-25 lanes
 retyped *data* framed as code in `prom_a` and `prom_b` — the opposite hazard — per their
 reports in `notes/lanes/wave2-2026-09-25/lane-reports/`. The SX-WSA1R instruction-statement
