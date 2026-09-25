@@ -478,10 +478,13 @@ dispatched to the CPU instead of the channel; see the keybed/link section above)
 A separate CPU 2 stall — its uPD6383 READY poll (below) — is a different problem
 and is not the inter-processor link.
 
-**Not every unreached routine is an emulation gap.** The disassembly has proven that parts of
-`prom_b` are an older build's code and data left in place — three relocated copies, at live
-− `0x23001`, − `0x1A401` and − `0xBA00` — and that `prom_a` carries stale twins of live
-routines and tables about `0x400` lower. Nothing reaches them on real hardware either. Before
+**Not every unreached routine is an emulation gap.** The disassembly has proven that three
+stretches of `prom_b` are relocated copies of live objects (at live − `0x23001`, − `0x1A401`
+and − `0xBA00`), and nothing in either image names them; `prom_a` carries copies of live
+routines and tables about `0x400` lower, labelled `*_StaleCopy` / `*_DeadCopy` in the
+sources. The natural reading, not proven, is that they are an older build's bytes left in
+place. What the checks establish is that no static reference reaches the `prom_b` copies,
+not that no runtime path ever could. Before
 treating "the driver never executes X" as a missing device, interrupt or call path, check X
 against [the remnant list]({{ site.baseurl }}/wsa1-disassembly/#older-build-remnants-and-why-unreached-code-can-be-correct).
 The same work produced one lead that does deserve a MAME trace: the SMF reader's SysEx writer
