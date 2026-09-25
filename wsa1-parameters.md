@@ -133,9 +133,15 @@ not established.
 ### The rest of the space
 
 `Dispatch_By_60F080` has 256 entries (its reader multiplies by an 8-bit operand); 168 of
-them are a lone `ret`. Beyond the parts and the controllers, thirteen numbers — `0x44`,
-`0x45`, `0x46`, `0x48`, `0x60`, `0x70`, `0x72`, `0x7A`, `0x90`, `0x91`, `0x98`, `0xA8`,
-`0xB0` — have one handler each that is not decoded yet.
+them point at the shared one-instruction handler `sub_FAC845`, a lone `ret`. Beyond the
+parts and the controllers, thirteen more numbers have entries of their own, and nine of
+those are no-ops as well: `0x44`–`0x46` share `sub_FABB5D`, and `0x48`, `0x60`, `0x70`,
+`0x72`, `0x90`, `0x91` go to `sub_FABB60`, `sub_FABBD2`, `sub_FABBD4`, `sub_FABBD5`,
+`sub_FABBCF` and `sub_FABBD0` — each of them a one-byte `ret` stub. So 177 of the 256
+numbers do nothing in this dispatcher. **Only four numbers — `0x7A` (`sub_FABB61`), `0x98`
+(`sub_FABBD7`), `0xA8` (`sub_FABCD7`) and `0xB0` (`sub_FABCEF`) — reach a handler with a
+body, and those four are not decoded yet.** (The entries are read from the ROM table at
+prom_a `0xFAC8EA`; the byte at each stub's address is `0x0E`, `ret`.)
 
 `ParamNumber_RecordPtrs` (prom_a `0xFACDEA`) gives a RAM record to 77 numbers, in
 `0x7622`–`0x7F5A`: the 64 part halves and `0x60`–`0x63`, `0x78`–`0x7A`, `0x80`,
@@ -255,8 +261,8 @@ The live-MIDI SysEx decoder is on [System Exclusive Messages]({{ site.baseurl }}
   — and the shared layout above makes those names a strong lead, not yet a reading of the
   code. (The `0x40`-byte step between part records, once called "a step, not a proof", is
   two chunks of 2 + 30 bytes.)
-* What the thirteen single-handler numbers of `Dispatch_By_60F080` do, and what the
-  default-module ids listed above mean in prom_a's own code.
+* What the four numbers of `Dispatch_By_60F080` with a real handler do (`0x7A`, `0x98`,
+  `0xA8`, `0xB0`), and what the default-module ids listed above mean in prom_a's own code.
 * Which controllers numbers `0xB6` and `0xB7` stand for; what bit 5 of `0x7F36` gates; the
   switch assignments `0x88`, `0x89`, `0x90`.
 * `Dispatch_By_60F080__Tail` (64 words after the reachable table) and the stale copies of

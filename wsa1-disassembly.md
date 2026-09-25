@@ -196,7 +196,9 @@ stack above the FDC driver, carrying `Disk_ReadSectors`, `Disk_WriteSectors`,
 [storage]({{ site.baseurl }}/wsa1/#storage-and-a-fixed-disk-that-may-never-have-shipped)).
 ⚠ These are three named subsystems, not a finished CPU: most of `prom_a` is still
 `sub_XXXXXX`, including the screen-object system's own ENTER methods, the disk
-dispatcher's handlers and thirteen of the parameter dispatcher's handlers.
+dispatcher's handlers and the four parameter-dispatcher handlers that have bodies (numbers
+`0x7A`, `0x98`, `0xA8`, `0xB0`; see
+[the rest of the space]({{ site.baseurl }}/wsa1-parameters/#the-rest-of-the-space)).
 
 ## ★★ ONE KERNEL, FOUR PROCESSORS, TWO PRODUCTS
 

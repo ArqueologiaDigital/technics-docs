@@ -90,9 +90,11 @@ lane's full list of what it could not do is in the disassembly repository,
 
 ### CPU 1's parameter-number space
 See [Parameter Records]({{ site.baseurl }}/wsa1-parameters/).
-- [ ] What do the thirteen single-handler numbers of `Dispatch_By_60F080` do (`0x44`,
-  `0x45`, `0x46`, `0x48`, `0x60`, `0x70`, `0x72`, `0x7A`, `0x90`, `0x91`, `0x98`, `0xA8`,
-  `0xB0`)?
+- [ ] What do the four numbers of `Dispatch_By_60F080` that reach a handler with a body do —
+  `0x7A` (`sub_FABB61`), `0x98` (`sub_FABBD7`), `0xA8` (`sub_FABCD7`) and `0xB0`
+  (`sub_FABCEF`)? (Nine further numbers with entries of their own — `0x44`–`0x46`, `0x48`,
+  `0x60`, `0x70`, `0x72`, `0x90`, `0x91` — point at one-byte `ret` stubs, so they are no-ops
+  here like the 168 that share `sub_FAC845`.)
 - [ ] Which controllers are numbers `0xB6` and `0xB7`? Two MIDI-in tables carry them for
   every part, but no controller number reaches their handlers.
 - [ ] What does bit 5 of RAM `0x7F36`, tested before every controller fan-out, switch off?
