@@ -58,9 +58,19 @@ This page documents the protocol used by the KN5000 Main CPU to send sound param
 
 When a reverb preset is selected on the REVERB & EQ PRESETS screen:
 1. `MainRevEqPresetLoad` (at F746F4) dispatches on preset type (reverb-only / EQ-only / combined)
-2. Calls `SoundPreset_Dispatch` which loads preset data from ROM at **0xEDB36C**
-3. A loop sends **24 commands** (code 0x63) via `AssswbWr`, one per MIDI channel
-4. Each command carries a parameter value from the preset data table
+2. `SoundPreset_Dispatch` → `ReverbPreset_Load` takes the preset index (0-9) through
+   `ReverbPreset_Table` (**0xEDB36C**, 10 pointers) to a **24-byte reverb record**, copies it to
+   RAM `0xFC8E`, and sends the 24 bytes to the Sub CPU with command `0x63`. EQ presets go the same
+   way: `EQPreset_Load`, `EQPreset_Table` (9 pointers), 24 bytes to `0xFCA8`, command `0x64`. A
+   combined preset is one reverb record followed by one EQ record (`CombinedPreset_Table`)
+3. The records (10 reverb, 9 EQ, 9 combined, at `0xEDA6EC-0xEDAA63`) carry the algorithm id in
+   byte 0 and `99` in byte 22; every EQ record starts `0x4F`. The `*_FindMatch` routines compare
+   the RAM copies with every record to show which preset is current
+
+(Earlier text here read step 3 as "a loop sending 24 commands, one per MIDI channel". It is one
+24-byte record sent with one command code. Source: the ext lane's header over the records in
+`v10/maincpu/extensions/extension_data.s` and `ReverbPreset_Load`'s header in
+`v10/maincpu/audio/audio_control_engine.s`.)
 
 ## What we have to work with
 
