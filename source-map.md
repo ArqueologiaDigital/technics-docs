@@ -117,7 +117,7 @@ boot code is the same code (see [Table data](#table-data-table_data)).
 
 | File | Contents |
 |------|----------|
-| `interrupt_vector_trampolines.s` | TMP94C241 hardware interrupt entry points |
+| `interrupt_vector_trampolines.s` | **Not interrupt vectors** (historical file name): in v9/v10, entries 61-191 of the 192-entry MIDI RX record-type handler table read by `MidiStream_DispatchLoop` (entries 0-60 end `audio/audio_control_engine.s`); in v7 the file holds displaced v10 sound-parameter code. The CPU's vector table is in `rom_end_structure.s` |
 | `system_handlers.s` | Interrupt handlers (NMI, timers), UI state machine, task scheduler, flash-memory update, LZSS decompression, the inter-CPU link (`InterCPU_E2_Send`) |
 | `main_title_ctrl_panel.s` | System initialisation (graphics, events, timers, LCD) and the main-title event loop |
 | `screen_group_dispatch.s` | Boot screen-group dispatcher (startup screens, error dialogs) |
@@ -130,7 +130,7 @@ boot code is the same code (see [Table data](#table-data-table_data)).
 |------|----------|
 | `graphics_text_vga.s` | Palette initialisation, text rendering, string layout, VRAM operations |
 | `scoop_display.s` | Display dirty-region tracking, performance-mode parameter handlers, scoop editor UI |
-| `scoop_editor_data.s` | Scoop editor and display parameter data, performance-mode parameter bytecode |
+| `scoop_editor_data.s` | **Code** (historical file name): the sound editor's title-function handlers, 3,422 instructions and no data directive, entered at `Scoop_SoundEditorData` and 15 interior offsets |
 
 ### `ui/` — UI framework and widgets
 
@@ -171,10 +171,10 @@ boot code is the same code (see [Table data](#table-data-table_data)).
 | `sndparam_routines.s` | Sound-parameter probe, match and heap allocation |
 | `sprintf_core.s` | `sprintf` — a general string formatter. It keeps the `audio/` path from before the routines were identified as `Sprintf_*` rather than an audio command encoder |
 | `voice_bank_defaults.s` | Voice bank default data: header, slot templates, bank name strings |
-| `sound_data.s` | The sound-data hub: region identifier, category descriptor, the 16-entry section pointer table, the category name table, then the per-category data — it `.incbin`s the fifteen compiled `sound_data_*.c` blocks and `.include`s `sound_data_brass.s` and `sound_data_world_perc.s` |
+| `sound_data.s` | The sound-data hub: region identifier, the sound-selection descriptor and its sixteen table slots, the category name table, then the tables — it `.incbin`s the fifteen compiled `sound_data_*.c` blocks and `.include`s `sound_data_brass.s` and `sound_data_world_perc.s`. The per-category file names are historical: the tables are maps, not per-category data ([Sound Categories]({{ site.baseurl }}/sound-categories/#architecture)) |
 | `sound_data_brass.s`, `sound_data_world_perc.s` | Brass and world-percussion patch data: a 128-entry pointer table plus `0xFF`-terminated patch entries, kept in assembly |
 | `sound_data_{piano, strings_vocal, mallet_orch_perc, flute, flute_extra, guitar, sax_reed, synth, drum_kits, orchestral_pad, accordion_reg, bass, digital_drawbar, organ_accordion, gm_special}.s` | The same fifteen categories in assembly form. **In no v10 build**: nothing `.include`s them; the image takes those bytes from the compiled `.c` twins |
-| `sound_data_{…}.c` (15 files) | The category data as typed C: tone-mapping pairs, patch reference grids, pitch-offset and drawbar registration tables. Compiled to `includes/generated/sound_data_*.bin` and `.incbin`'d by `sound_data.s` |
+| `sound_data_{…}.c` (15 files) | The descriptor's tables as typed C: bank/program ↔ category/slot maps, voice-index maps, per-category last-slot tables, a program-change remap (each file's `CORRECTED` block names its slot and reader). Compiled to `includes/generated/sound_data_*.bin` and `.incbin`'d by `sound_data.s` |
 | `tonegen_param_table.c` | Feature-demo text / sound-engine parameter table |
 | `voice_factory_presets.c` | Voice factory preset data |
 | `sndparam_records/` | Nine `run_*.c` files, one per contiguous ROM run of 18-byte sound-parameter descriptors (named by start address, `run_edbac0.c` … `run_ee0010.c`), and `sndparam_types.h` defining the descriptor |
@@ -279,7 +279,7 @@ Assembly files (region wrappers and the dispatch/pointer tables that stay in ass
 | File | Contents |
 |------|----------|
 | `widget_descriptors.s` | Widget descriptor tables and grid data (ROM 0xE30E60–0xE55BC7); hosts the DSP name tables (see [DSP Name Tables]({{ site.baseurl }}/dsp-name-tables/)) |
-| `widget_dispatch.s` | NAKA widget dispatch parameters and instruction data |
+| `widget_dispatch.s` | Data tables typed from their readers (uimisc lane): sound-parameter descriptors and the SndParam registry, MIDI/SysEx tables and the incoming-SysEx recognition trie, the DSP effect-parameter pointer tables and parameter-write lists (`DspFxRecs_*`), the three SwbtWr listener banks, audio/note/harmony tables, and the work-RAM initial image (`WorkRamInit_Image`) |
 | `naka_screen_dispatch.s` | Screen definition tables: SeqToComposer, SeqCopy, EasyComposer, ModeSelect, ExpandMode |
 | `naka_widget_tables_1.s`, `naka_widget_tables_2.s` | Widget pointer tables, parts 1 and 2 |
 | `naka_property_descriptors.s` | Widget property descriptor tables |
@@ -318,8 +318,9 @@ C files — one per block above where the block is descriptor data: `control_men
 `naka_style_bitmaps.c`, `naka_widget_names_charmap.c`, `naka_widget_tables_1.c`,
 `naka_widget_tables_2.c`, `naka_widget_descriptors.c`, `naka_accomp7_widgets.c`,
 `naka_block_007.c`, `naka_block_012.c` — plus two lookup tables, `sound_config_lookup.c`
-(`NakaInst_SoundConfig_LookupTable`) and `tonekit_param_blocks.c` (ToneKit sound-parameter
-blocks).
+(`NakaInst_SoundConfig_LookupTable`) and `tonekit_param_blocks.c` (labelled "ToneKit", but
+the blocks are the DSP effect-parameter defaults records that the `DSPCfg_*` routines read; see
+[DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/#the-main-cpu-holds-the-same-metadata-and-reads-it)).
 
 ### `style_ui/` — Style UI screen data (C)
 
@@ -398,8 +399,8 @@ through the [`extensions/`](#extensions--expansion-slot-devices-codename-toshi) 
 |------|----------|
 | `hd-ae5000_v2_06i.s` | ROM header, entry vectors, handler registration, bitmap resource descriptors, `HDAE5000_Register_Frame` and its bitmap/palette copy code |
 | `hdae5000_hd_driver.s` | IDE/ATA driver: drive setup, identify, seek, read/write, error handling, CHS calculation, partition management |
-| `hdae5000_filesystem.s` | The filesystem: initialisation (`FS_Init`), FSB read/write, directory scanning, entry lookup |
-| `hdae5000_ui_display.s` | File-manager UI: menu registration, display scrolling, cell rendering, palette setup, event dispatch |
+| `hdae5000_filesystem.s` | FLS list and screens (`HDAE5000_FlsList_BuildPage`, `HDAE5000_FlsScreen_Refresh`), load-by-number, delete options, copy-to-HD. The old routine names (`FS_Init`, FSB read/write…) were misreadings; see [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/#routines-that-were-misnamed) |
+| `hdae5000_ui_display.s` | Title/mode requests, the lyrics player, Boot_Init and the frame handler, the song/FLS record layer, the ATA driver, FAT and cluster-chain I/O, the PC-link coroutine and its services, the C runtime library |
 | `hdae5000_utilities.s` | Memory copy/compare, multiply, signed/unsigned divide, string operations, and the registered-object name pool |
 | `hdae5000_data_tables.s` | UI configuration, class records, the index-parallel UI object and name tables, localisation strings, the palette/bitmap slices |
 | `hdae5000_init_data.s` | The initialised `.data` image (ROM 0x2F94B2–0x2FA133) copied to RAM at boot: nine pointer tables, included from `hdae5000_data_tables.s` |
@@ -420,7 +421,7 @@ The 2 MB table-data ROM is labelled source end to end — no anonymous blob is p
 | File | Contents |
 |------|----------|
 | `kn5000_table_data.s` | The image: structure overview, `.include`s the modules below in address order, and the labelled `.incbin` slices |
-| `preset_banks.s` | Section directory and preset data banks (0x800000–0x82FFFF) |
+| `preset_banks.s` | Section directory and 26 bitmaps (0x800000–0x82FFFF); no preset data, despite the file name |
 | `tone_database_directory.s` | [Tone database]({{ site.baseurl }}/tone-database/): directory, program maps and tone-record offset table |
 | `tone_database_records.s` | The tone/voice parameter records (`ToneRec_000` … `ToneRec_628`) |
 | `tone_database_aux.s` | Tone database auxiliary tables (0x855A48–0x87FFEF) |
