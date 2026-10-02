@@ -100,6 +100,7 @@ firmware names those too, through the calls that register them:
 | `0x0140nnnn`-`0x014Fnnnn` | MainFunction | `RegObjTabl NAKA_CLASS_MainFunction, ...` | likewise | `NAKA_MAINFUNC_<name>` |
 | `0x01800000 + i` | Mode | `RegMode module, "MD_X", i, proc, home title` | the `MD_X` string | `NAKA_MODE_MD_X` |
 | `0x01A00000 + i` | Title (screen) | `RegTitle module, "TT_X", i, ...` | the `TT_X` string | `TITLE_X` |
+| `0x016Skkkk` | Class (widget class) | `RegObjTable NAKA_CLASS_Class, ClassProc, count, table, 0x16S` | the class definition's +12 name pointer | `NAKA_CLASS_<name>` |
 
 For example `RegMode 0x4, InitializeSuna_Str_MD_SND_ARG, 0x11, NAKA_MAINFUNC_SndArgModeFunc,
 TITLE_SNDARG` registers mode `0x01800011` ("MD_SND_ARG"), whose procedure is MainFunction
@@ -111,6 +112,15 @@ registration calls and the ROM: 1,395 ids, of which the 122 the 2026-10-02 event
 already named from handlers and senders all agree with the derived name. The other 1,273 are
 in `notes/event-codes-2026-10-02/object-ids/catalog_derived.json` and are `.equ` constants in
 every tree's `shared/event_codes.s`; the registration macros' arguments use them since then.
+
+A widget record's first word is its class id, and a class definition names its parent by
+class id, so the class constants also appear in data: the HD-AE5000's 13 own classes
+(`hdae5000/hdae5000_data_tables.s`, registered under ClassProc) derive from the root classes
+`NAKA_CLASS_VwBox`, `_DbMemo`, `_TtlScreen`, `_Window`, `_PsInvisibleBox`, `_AcTitleMenu`,
+`_AcWindowPage`, `_IvScreen` and `_AcLanguageText` (e.g. LyricBox: parent VwBox, allsize 46,
+selfsize 18). Their records follow the main CPU's class layout field for field -- proc,
+parent, allsize, selfsize, name, propdata, propname -- proved for all 13 by
+`notes/hdae-class-records-2026-10-02/hdae_class_fields_probe.py` (2026-10-02).
 
 ## Known Event Codes
 
