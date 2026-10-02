@@ -87,6 +87,31 @@ extension calls (see [HDAE5000 Homebrew — Workspace Pointer]({{ site.baseurl }
 
 **Key insight:** The record function (Layer 4) receives ALL events, regardless of which layer processed them first. For extension ROMs, the record function is the primary interception point.
 
+## Object ids: functions, modes and titles
+
+Not every value in `0x01000000..0x01FFFFFF` is an event. The same object system names its
+**objects** with the same layout, `0x01SSnnnn` = entry `nnnn` of registry slot `SS`, and the
+firmware names those too, through the calls that register them:
+
+| range | object | registered by | the firmware's name comes from | constant |
+|---|---|---|---|---|
+| `0x0100nnnn`-`0x010Fnnnn` | Function | `RegObjTabl NAKA_CLASS_Function, FunctionProc, n, table, 0x10m` | the same class registered at slot + 0x300: u32 pointers to strings | `NAKA_FUNC_<name>` |
+| `0x0120nnnn`-`0x012Fnnnn` | ApFunction | `RegObjTabl NAKA_CLASS_ApFunction, ...` | likewise | `NAKA_APFUNC_<name>` |
+| `0x0140nnnn`-`0x014Fnnnn` | MainFunction | `RegObjTabl NAKA_CLASS_MainFunction, ...` | likewise | `NAKA_MAINFUNC_<name>` |
+| `0x01800000 + i` | Mode | `RegMode module, "MD_X", i, proc, home title` | the `MD_X` string | `NAKA_MODE_MD_X` |
+| `0x01A00000 + i` | Title (screen) | `RegTitle module, "TT_X", i, ...` | the `TT_X` string | `TITLE_X` |
+
+For example `RegMode 0x4, InitializeSuna_Str_MD_SND_ARG, 0x11, NAKA_MAINFUNC_SndArgModeFunc,
+TITLE_SNDARG` registers mode `0x01800011` ("MD_SND_ARG"), whose procedure is MainFunction
+`0x01440016` -- entry 22 of Suna's MainFunction table (slot 0x144), named "SndArgModeFunc" by
+its name table at slot 0x444 -- and whose home title is `0x01A000DC` ("TT_SNDARG").
+
+`scripts/analysis/naka_object_id_names.py` derives all of them from the v10 source's
+registration calls and the ROM: 1,395 ids, of which the 122 the 2026-10-02 event catalog had
+already named from handlers and senders all agree with the derived name. The other 1,273 are
+in `notes/event-codes-2026-10-02/object-ids/catalog_derived.json` and are `.equ` constants in
+every tree's `shared/event_codes.s`; the registration macros' arguments use them since then.
+
 ## Known Event Codes
 
 ### ClassProc Getter Events (0x01E00000-0x01E00007)
