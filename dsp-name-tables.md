@@ -54,8 +54,10 @@ The DSP naming zone occupies blob offsets `+0x15B8` through `+0x2719` —
 between them. (The Main CPU program ROM maps at `0xE00000`, so the file offsets above are
 simply the ROM address minus `0xE00000`.)
 
-In assembly the four names are `.equ` aliases relative to `NakaData_WidgetDescriptors`;
-in the C source they are struct members of the same name. The 128 effect-name strings keep
+In assembly `DspParamUnit_Table`, `DspParamName_Table` and `DspEffectName_PtrTable` are
+labels of their own, where the blob's `.incbin` is cut (since 2026-10-02, with one
+`DspParamName_NN_<NAME>` label per parameter slot), and `DspEffectName_Strings` is an
+`.equ` alias of the first effect-name label, `NakaInst_FxReservedSlot_00`; in the C source they are struct members of the same name. The 128 effect-name strings keep
 their **pre-existing assembler labels** `NakaInst_<EFFECT>` (e.g. `NakaInst_NO_OPERATION`,
 `NakaInst_CHORUS`); the `EffectName_EffNNN_<NAME>` spellings are C struct members inside
 `naka_widget_descriptors.c` and are not linker symbols.
@@ -221,9 +223,11 @@ descriptor material.
 * **The blob is still one `.incbin`.** Only the naming zone has been identified; most of
   the 150,888-byte struct is still `field_XXXX` / `ptr_XXXX` members with no meaning
   attached. Naming 4,450 bytes does not make the widget-descriptor format understood.
-* **The rename landed in v9 and v10 only.** `v7/maincpu/sequencer/sequencer_ui.s` still
-  loads the table through the positional alias `NakaData_WidgetDescriptors_0x1C1A`. The
-  three aliases remain defined in `shared/positional_labels.s` in all three trees.
+* **All three trees name the table the same way now.** Until 2026-10-02
+  `v7/maincpu/sequencer/sequencer_ui.s` loaded it through the positional alias
+  `NakaData_WidgetDescriptors_0x1C1A`; v7 now has the `DspEffectName_PtrTable` label too
+  (`scripts/converters/split_blobs_at_far_pointers.py`), and the positional alias is gone
+  from all three trees.
 * **v7 does not compile this blob from its C source.** The v7 program build runs a second
   pass (`scripts/build/extract_v7_bins.py`) that re-extracts generated `.bin` files
   **from the original v7 ROM** whenever the compiled v9 version matches ≥50 % at the same
