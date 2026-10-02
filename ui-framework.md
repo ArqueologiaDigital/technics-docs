@@ -335,33 +335,33 @@ Events use 32-bit codes divided into two spaces:
 
 | Event | Code | Description |
 |-------|------|-------------|
-| `EVT_MENU_OPEN` | 0x1C00001 | Open DISK MENU display |
-| `EVT_SELECT_CONFIRM` | 0x1C00002 | Confirm current selection |
-| `EVT_ACTIVATE` | 0x1C00008 | Activate entry via button press |
-| `EVT_POST_INIT` | 0x1C0000D | Post-initialization hook |
-| `EVT_INIT_HOOK` | 0x1C0000F | Custom initialization |
-| `EVT_CPANEL_EVENT` | 0x1C00013 | Control panel button/encoder event |
+| `EVT_SHOW` | 0x1C00001 | View shown (firmware EV_SHOW). Sent to a title's view after it becomes current; ViewableProc broadcasts it down the ... |
+| `EVT_HIDE` | 0x1C00002 | View hidden/closed (firmware EV_HIDE); broadcast down the view tree like EV_SHOW. |
+| `EVT_SW_ON` | 0x1C00008 | Panel switch pressed (firmware EV_SWON), param = switch number. Not specific to DISK MENU. |
+| `EVT_DRAW` | 0x1C0000D | Draw this view only (firmware EV_DRAW); EV_PAINT and EV_REPAINT send it to self. |
+| `EVT_PARA_DRAW` | 0x1C0000F | Draw the parameter/value text (firmware EV_PARADRAW); param = string pointer, or 0 to fetch the text with 0x1E0003A. ... |
+| `EVT_ACTIVATE_STATE` | 0x1C00013 | Activation-state notification to a mode or title object (firmware EV_ACTIVATE). The param is a phase: 0 = mode ... |
 | — | 0x1C00014 | Mode request, parameter `0x0180nnnn` ([details]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)) |
 | — | 0x1C00015 | Title request, parameter `0x01A0nnnn` |
-| `EVT_HD_INIT_PARAMS` | 0x1C00016 | Title request, parameter `0x01A0nnnn`. The constant's name ("hard disk parameter init") is wrong |
-| `EVT_BUTTON_FOCUS` | 0x1C00039 | Button focus during selection |
-| `EVT_DISPLAY_CALLBACK` | 0x1CA0000 | HD-AE5000 event 0 (`EV_SeqStop`), not a display callback |
-| `EVT_DISPLAY_UPDATE` | 0x1CA0004 | HD-AE5000 event 4 (`EV_TICKS`): song position for the lyric box |
+| `EVT_INTERRUPT_TITLE` | 0x1C00016 | Show a title temporarily on top of the current one (firmware EV_INTERRUPT_TITLE), e.g. a message, error, welcome or ... |
+| `EVT_NEW_TITLE` | 0x1C00039 | Broadcast to the current view tree that a title has just become the new current title (firmware EV_NEW_TITLE). |
+| `EVT_HDAE_SEQ_STOP` | 0x1CA0000 | The sequencer stopped while HD-AE5000 song-list (FLS) playback is active. FlsLoadScreen reacts by arming a 0x53-tick AP ... |
+| `EVT_HDAE_TICKS` | 0x1CA0004 | Song-position tick for the open lyric box. The parameter points to HDAE5000_RAM_LyricPosEvt (sqbtof, step, position) ... |
 
 **Getter events (0x1E0xxxx)** — Query widget state:
 
 | Event | Code | Description |
 |-------|------|-------------|
-| `EVT_IDENTITY` | 0x1E00000 | Return widget identity |
-| `EVT_GET_HL` | 0x1E00001 | Return value in XHL |
-| `EVT_GET_IZ` | 0x1E00002 | Return value in XIZ |
-| `EVT_GET_CONFIG` | 0x1E00003 | Return config at XHL+0x0C |
-| `EVT_KEYPRESS` | 0x1E0000D | Keypress query |
-| `EVT_INPUT` | 0x1E0000E | Input event query |
-| `EVT_RETURN_ZERO` | 0x1E0000F | No-op (returns zero) |
-| `EVT_REDRAW` | 0x1E00014 | Request UI refresh |
-| `EVT_OBJECT_STATE_QUERY` | 0x1E0008F | Query object state |
-| `EVT_POST_ACTIVATE` | 0x1E0009C | Post-activation query |
+| `EVT_GET_CLASS_SP` | 0x1E00000 | MT_GetClassSp. Asks an object table's proc for the class id of the object. SendEvent asks this of every target first ... |
+| `EVT_GET_PARENT_CLASS_SP` | 0x1E00001 | MT_GetParentClassSp. Class-level query that returns the parent class id (Class record +4 'parent'). |
+| `EVT_GET_PROCEDURE_SP` | 0x1E00002 | MT_GetProcedureSp. Returns the class procedure pointer (Class record +0 'proc'). |
+| `EVT_GET_INSTANCE_SIZE_SP` | 0x1E00003 | MT_GetInstanceSizeSp. Returns the instance size of the class (WORD at Class record +8 'allsize'). Not *(XHL+0x0C), as ... |
+| `EVT_GET_PROP_DATA_SP` | 0x1E0000D | MT_GetPropDataSp. Returns entry #n of an ID-typed property's value domain: FontIDProc returns the n-th font from the ... |
+| `EVT_GET_PROP_DATA_COUNT_SP` | 0x1E0000E | MT_GetPropDataCountSp. Number of entries in an ID-typed property's value domain; FontIDProc returns the font count. It ... |
+| `EVT_GET_INSTANCE` | 0x1E0000F | MT_GetInstance. Returns a pointer to the object's instance record: the class record for a class, the mode or title ... |
+| `EVT_CHECK_CLASS` | 0x1E00014 | MT_CheckClass. Object-level is-a test: returns 1 if the object's class is, or derives from, the class id in the ... |
+| `EVT_GET_SELECTED_CEL` | 0x1E0008F | Firmware method MT_GetSelectedCel. It returns the selected cell packed as (col<<16)/row. |
+| `EVT_SET_VISIBLE` | 0x1E0009C | Firmware method MT_SetVisible. It shows or hides a view: parameter 0 sets bit 0 of the view flags at instance+12 ... |
 
 ### Event Dispatch Functions
 

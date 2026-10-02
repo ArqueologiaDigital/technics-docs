@@ -10,6 +10,18 @@ The KN5000 firmware uses a **hierarchical event dispatch system** to communicate
 
 > **Freshness policy**: This page must be updated whenever new event codes are discovered during reverse engineering or homebrew development. See [Documentation Freshness Policy](#documentation-freshness-policy) below.
 
+
+> **Corrected 2026-10-02.** The 26 `EVT_*` constants this page used to list were named from
+> one observed use each. The firmware names every code itself: NAKA registers a ResEvent
+> (`EV_*`) and a ResMethod (`MT_*`) name table beside each dispatch table, so `0x01Cm00nn` is
+> entry nn of module m's ResEvent table and `0x01Em00nn` of its ResMethod table. The constants
+> were renamed to those names (for example `EVT_IDENTITY` is `EVT_GET_CLASS_SP` = MT_GetClassSp,
+> `EVT_MENU_OPEN` is `EVT_SHOW` = EV_SHOW), and the rows below now carry the corrected meanings.
+> The full catalog -- 725 named codes and object ids, each with handler and sender evidence -- is
+> `notes/event-codes-2026-10-02/catalog.json` in the disassembly repository. Some of this page's
+> framing ("0x01E0 = lifecycle", "0x01E4 = widget responses") is superseded by it and awaits a
+> rewrite.
+
 ## Event Code Format
 
 Event codes are 32-bit values with a structured layout:
@@ -83,10 +95,10 @@ Handled by ClassProc's jump table at `0xEAA8F8`. These are fast property queries
 
 | Code | Name | Handler | Return Value |
 |------|------|---------|-------------|
-| `0x01E00000` | `EVT_IDENTITY` | ClassProc_Event_LoadFromWA | Returns XWA unchanged (identity query) |
-| `0x01E00001` | `EVT_GET_HL` | ClassProc_Event_LoadFromHL | Returns *(XHL) |
-| `0x01E00002` | `EVT_GET_IZ` | ClassProc_Event_LoadFromIZ | Returns *(XIZ) |
-| `0x01E00003` | `EVT_GET_CONFIG` | ClassProc_Event_LoadFromOffset | Returns *(XHL+0x0C) |
+| `0x01E00000` | `EVT_GET_CLASS_SP` | ClassProc_Event_LoadFromWA | MT_GetClassSp. Asks an object table's proc for the class id of the object. SendEvent asks this of every target first, then calls ... |
+| `0x01E00001` | `EVT_GET_PARENT_CLASS_SP` | ClassProc_Event_LoadFromHL | MT_GetParentClassSp. Class-level query that returns the parent class id (Class record +4 'parent'). |
+| `0x01E00002` | `EVT_GET_PROCEDURE_SP` | ClassProc_Event_LoadFromIZ | MT_GetProcedureSp. Returns the class procedure pointer (Class record +0 'proc'). |
+| `0x01E00003` | `EVT_GET_INSTANCE_SIZE_SP` | ClassProc_Event_LoadFromOffset | MT_GetInstanceSizeSp. Returns the instance size of the class (WORD at Class record +8 'allsize'). Not *(XHL+0x0C), as the ... |
 | `0x01E00004` | `EVT_GETTER_4` | (complex) | Linked object operation |
 | `0x01E00005` | `EVT_GETTER_5` | (complex) | Linked object operation |
 | `0x01E00006` | `EVT_GETTER_6` | (complex) | Linked object operation |
@@ -96,10 +108,10 @@ Handled by ClassProc's jump table at `0xEAA8F8`. These are fast property queries
 
 | Code | Name | Dispatch | Description |
 |------|------|----------|-------------|
-| `0x01E0000D` | `EVT_KEYPRESS` | ClassProc special | Keypress handling |
-| `0x01E0000E` | `EVT_INPUT` | ClassProc special | Other input event |
-| `0x01E0000F` | `EVT_RETURN_ZERO` | ClassProc special | Returns immediately (no-op) |
-| `0x01E00015` | `EVT_GET_CONFIG_2` | ClassProc special | Returns *(XHL+0x0C) |
+| `0x01E0000D` | `EVT_GET_PROP_DATA_SP` | ClassProc special | MT_GetPropDataSp. Returns entry #n of an ID-typed property's value domain: FontIDProc returns the n-th font from the table at ... |
+| `0x01E0000E` | `EVT_GET_PROP_DATA_COUNT_SP` | ClassProc special | MT_GetPropDataCountSp. Number of entries in an ID-typed property's value domain; FontIDProc returns the font count. It is not an ... |
+| `0x01E0000F` | `EVT_GET_INSTANCE` | ClassProc special | MT_GetInstance. Returns a pointer to the object's instance record: the class record for a class, the mode or title record, the ... |
+| `0x01E00015` | `EVT_GET_NAME` | ClassProc special | MT_GetName. Returns the object's name string pointer. For a class this is record+12; for Function, ApFunction, MainFunction ... |
 
 ### ObjectProc Lifecycle Events (0x01E00010-0x01E00023)
 
@@ -111,7 +123,7 @@ Handled by ObjectProc's jump table at `0xEAA8A4`. These manage object lifecycle 
 | `0x01E00011` | `EVT_LIFECYCLE_11` | Lifecycle phase 0x11 |
 | `0x01E00012` | `EVT_LIFECYCLE_12` | Lifecycle phase 0x12 |
 | `0x01E00013` | `EVT_LIFECYCLE_13` | Lifecycle phase 0x13 |
-| `0x01E00014` | `EVT_REDRAW` | UI redraw / refresh (observed during DISK MENU open and selection) |
+| `0x01E00014` | `EVT_CHECK_CLASS` | MT_CheckClass. Object-level is-a test: returns 1 if the object's class is, or derives from, the class id in the parameter. ObjectProc forwards it as ... |
 | `0x01E00015` | `EVT_LIFECYCLE_15` | Lifecycle phase 0x15 (also ClassProc special) |
 | `0x01E00016` | `EVT_LIFECYCLE_16` | Lifecycle phase 0x16 |
 | ... | ... | Phases 0x17-0x22 (not yet individually documented) |
@@ -123,18 +135,18 @@ These are **request/action events** that reach the record function directly. The
 
 | Code | Name | Context | Description |
 |------|------|---------|-------------|
-| `0x01C00001` | `EVT_MENU_OPEN` | DISK MENU opens | Sent when the DISK MENU screen is displayed |
-| `0x01C00002` | `EVT_SELECT_CONFIRM` | Entry selected | Part of the selection sequence after button press |
-| `0x01C00008` | **`EVT_ACTIVATE`** | **Entry selected** | **Primary activation event from button press. Intercept this to detect DISK MENU selection.** |
-| `0x01C0000F` | `EVT_INIT_HOOK` | Menu initialized | Custom initialization hook (HDAE5000 intercepts this specifically) |
-| `0x01C00039` | `EVT_BUTTON_FOCUS` | Entry selected | Button focus/navigation event during selection |
+| `0x01C00001` | `EVT_SHOW` | DISK MENU opens | View shown (firmware EV_SHOW). Sent to a title's view after it becomes current; ViewableProc broadcasts it down the view tree. ... |
+| `0x01C00002` | `EVT_HIDE` | Entry selected | View hidden/closed (firmware EV_HIDE); broadcast down the view tree like EV_SHOW. |
+| `0x01C00008` | `EVT_SW_ON` | firmware `EV_SWON` | Panel switch pressed (firmware EV_SWON), param = switch number. Not specific to DISK MENU. |
+| `0x01C0000F` | `EVT_PARA_DRAW` | Menu initialized | Draw the parameter/value text (firmware EV_PARADRAW); param = string pointer, or 0 to fetch the text with 0x1E0003A. Sibling ... |
+| `0x01C00039` | `EVT_NEW_TITLE` | Entry selected | Broadcast to the current view tree that a title has just become the new current title (firmware EV_NEW_TITLE). |
 
 ### Activation Events
 
 | Code | Name | Source | Description |
 |------|------|--------|-------------|
-| **`0x01C00008`** | **`EVT_ACTIVATE`** | Button press | Sent by firmware when user selects a DISK MENU entry via LCD panel button. **This is the event to intercept for button-press activation.** |
-| **`0x01E0009C`** | **`EVT_POST_ACTIVATE`** | PostEvent injection | Sent by `FileIO_DiskRemoved` via `PostEvent(0x00600002, 0x01E0009C, 0)`. Used for programmatic activation. Falls through ClassProc → ObjectProc → InheritedProc chain. |
+| **`0x01C00008`** | **`EVT_SW_ON`** | Button press | Sent by firmware when user selects a DISK MENU entry via LCD panel button. **This is the event to intercept for button-press activation.** |
+| `0x01E0009C` | `EVT_SET_VISIBLE` | firmware `MT_SetVisible` | Firmware method MT_SetVisible. It shows or hides a view: parameter 0 sets bit 0 of the view flags at instance+12 (hidden), and a non-zero parameter ... |
 
 ### Bitmap Resource Query Events
 
@@ -144,9 +156,9 @@ constant queries about one bitmap:
 
 | Code | Name | Return Value | Description |
 |------|------|-------------|-------------|
-| `0x01E000A1` | `EVT_ALLOC_DATA_PTR` | ROM pointer | Returns the **bitmap's** ROM base address. (The older reading, "palette pointer", was retracted in August 2026: the firmware's own registry name for the descriptor at 0x280395 is `BitmapHdd_icon`.) |
-| `0x01E000A2` | `EVT_ALLOC_WIDTH` | 0x140 (320), or 0x1B / 0x2A | Returns the bitmap width — 320 for the three full-screen images and the boot splash, 27 for the HD icon, 42 for the STORE button |
-| `0x01E000A3` | `EVT_ALLOC_HEIGHT` | 0xF0 (240), or 0x1B / 0x0F | Returns the bitmap height — 240, 27 or 15 respectively |
+| `0x01E000A1` | `EVT_GET_BITMAP_DATA` | ROM pointer | Firmware method MT_GetBitmapData. A bitmap resource answers it with the ROM address of its pixel data. |
+| `0x01E000A2` | `EVT_GET_BITMAP_WIDTH` | 0x140 (320), or 0x1B / 0x2A | Firmware method MT_GetBitmapWidth. A bitmap resource answers it with its width in pixels. |
+| `0x01E000A3` | `EVT_GET_BITMAP_HEIGHT` | 0xF0 (240), or 0x1B / 0x0F | Firmware method MT_GetBitmapHeight. A bitmap resource answers it with its height in pixels. |
 
 See [HDAE5000 — Embedded Graphics]({{ site.baseurl }}/hdae5000/#embedded-graphics-rewritten) for the six descriptors and the bitmaps they describe.
 
@@ -156,9 +168,9 @@ Used by the UI widget system for checkbox and grid controls:
 
 | Code | Name | Description |
 |------|------|-------------|
-| `0x01E40008` | `EVT_GRIDCHECK_RESP_A` | Grid/Check widget response variant A |
+| `0x01E40008` | `EVT_PAN_UP` | Firmware method MT_PanUp: composer-set grid: increment the pan byte (record +2, max 127) of part XDE, then MT_RequestGridDraw (0x01E0008D) to 0xB4000E |
 | `0x01E40009` | `EVT_GRIDCHECK_RESP_A2` | Grid/Check widget response variant A2 |
-| `0x01E4000A` | `EVT_GRIDCHECK_RESP_B` | Grid/Check widget response variant B |
+| `0x01E4000A` | `EVT_RLMT_UP` | Grid/Check widget response variant B |
 | `0x01E4000B` | `EVT_GRIDCHECK_RESP_B2` | Grid/Check widget response variant B2 |
 
 ### Mode and Title Requests (0x01C00014-0x01C00016)
@@ -173,7 +185,7 @@ not a hard-disk parameter block:
 | `0x01C00015` | `0x01A0nnnn` = title id | `TitleProc`, case label `EventDispatch_SelectMatch` | Title request |
 | `0x01C00016` | `0x01A0nnnn` = title id | `TitleProc`, case label `EventDispatch_OK` | Title request (second form) |
 
-`ModeProc` also has a case for `0x01C00013` (`EVT_CPANEL_EVENT` below), labelled
+`ModeProc` also has a case for `0x01C00013` (`EVT_ACTIVATE_STATE` below), labelled
 `ObjectEnum_Default`.
 
 `ObjectEnum_Close`, `EventDispatch_SelectMatch` and `EventDispatch_OK` are the
@@ -239,7 +251,7 @@ The finding is the `hdae` lane's, in
 
 > **Stale constant name.** Both `hdae5000/shared/event_codes.s` and
 > `v10/maincpu/shared/event_codes.s` still define `0x01C00016` as
-> `EVT_HD_INIT_PARAMS` ("hard disk initialization parameters"). That reading is
+> `EVT_INTERRUPT_TITLE` ("hard disk initialization parameters"). That reading is
 > wrong. Renaming the constant is a pending disassembly change.
 
 ### HD-AE5000 Events (0x01CA0000-0x01CA000C)
@@ -251,9 +263,9 @@ reading:
 
 | Code | Entry name | Use in the code |
 |------|------------|-----------------|
-| `0x01CA0000` | `EV_SeqStop` | constant `EVT_DISPLAY_CALLBACK` in the sources (a misnomer) |
+| `0x01CA0000` | `EV_SeqStop` | constant `EVT_HDAE_SEQ_STOP` in the sources (a misnomer) |
 | `0x01CA0002` | `EV_TimerBack` | error-message timers (`RootFn_SetApTimer` with event `0x01CA0002`) |
-| `0x01CA0004` | `EV_TICKS` | posted by `HDAE5000_Frame_Handler` to the open lyric box with the song position; `HDAE5000_LyricBoxProc` then runs `HDAE5000_Lyrics_PlayToPosition`. Constant `EVT_DISPLAY_UPDATE` in the sources (a misnomer) |
+| `0x01CA0004` | `EV_TICKS` | posted by `HDAE5000_Frame_Handler` to the open lyric box with the song position; `HDAE5000_LyricBoxProc` then runs `HDAE5000_Lyrics_PlayToPosition`. Constant `EVT_HDAE_TICKS` in the sources (a misnomer) |
 | `0x01CA0008` / `0x01CA0009` | `EV_Alldraw` / `EV_Drawsyllable` | lyric-box redraw requests (`HDAE5000_Lyrics_PlayToPosition`) |
 
 `HDAE5000_LyricBoxProc` dispatches `0x01CA0003`-`0x01CA0009` through a 7-entry
@@ -263,9 +275,9 @@ switch table. The table is typed in `hdae5000/hdae5000_data_tables.s`.
 
 | Code | Name | Description |
 |------|------|-------------|
-| `0x01E0008F` | `EVT_OBJECT_STATE_QUERY` | Queries object state, used by GridCheck widget system |
-| `0x01C0000D` | `EVT_POST_INIT` | Posted by HDAE5000 after `0x01C0000F` custom init |
-| `0x01C00013` | `EVT_CPANEL_EVENT` | Control panel event code (referenced in control-panel-protocol.md) |
+| `0x01E0008F` | `EVT_GET_SELECTED_CEL` | Firmware method MT_GetSelectedCel. It returns the selected cell packed as (col<<16)/row. |
+| `0x01C0000D` | `EVT_DRAW` | Draw this view only (firmware EV_DRAW); EV_PAINT and EV_REPAINT send it to self. |
+| `0x01C00013` | `EVT_ACTIVATE_STATE` | Activation-state notification to a mode or title object (firmware EV_ACTIVATE). The param is a phase: 0 = mode activated, 1 = mode deactivated, 2 = ... |
 
 ## Event Queue (PostEvent)
 
@@ -306,17 +318,17 @@ The complete sequence when a user selects a DISK MENU entry by pressing a panel 
 3. Firmware interprets button as DISK MENU selection
 4. SendEvent dispatches events to registered handler:
 
-   Step 1: EVT_ACTIVATE (0x01C00008)
+   Step 1: EVT_SW_ON (0x01C00008)
        → ClassProc → ObjectProc → InheritedProc → Record function
        → Mines_Handler intercepts: sets GAME_ACTIVE=1, skips delegation
 
-   Step 2: EVT_BUTTON_FOCUS (0x01C00039)
+   Step 2: EVT_NEW_TITLE (0x01C00039)
        → Delegated to default handler (Mines_Handler doesn't intercept)
 
-   Step 3: EVT_SELECT_CONFIRM (0x01C00002)
+   Step 3: EVT_HIDE (0x01C00002)
        → Delegated to default handler
 
-   Step 4: EVT_REDRAW (0x01E00014)
+   Step 4: EVT_CHECK_CLASS (0x01E00014)
        → Handled by ObjectProc lifecycle, then delegated
 
 5. Next Frame_Handler call detects GAME_ACTIVE=1

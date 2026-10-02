@@ -225,7 +225,7 @@ becomes an event; the event walks the class hierarchy until a handler claims it.
 <pre class="mermaid">
 flowchart TD
     BUTTON["Physical button press"] --> CPANEL_ISR["INTRX1_HANDLER<br/>serial packet decode"]
-    CPANEL_ISR --> EVT_GEN["Generate event ID<br/>(e.g. 0x01C00008 = EVT_ACTIVATE)"]
+    CPANEL_ISR --> EVT_GEN["Generate event ID<br/>(e.g. 0x01C00008 = EVT_SW_ON)"]
     EVT_GEN --> VIEWABLE["ViewableProc<br/>0xFA5995 — dispatch on 32-bit event ID"]
     VIEWABLE --> HANDLER_TABLE["handler_table lookup<br/>(DRAM dispatch table)"]
     HANDLER_TABLE --> INHERITED["InheritedProc<br/>0xFA4409 — walk parent chain"]

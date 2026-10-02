@@ -95,7 +95,7 @@ The firmware's own class definitions answered most of this section in September 
 
 - [ ] **`0x01C00015` versus `0x01C00016`.** Both are title requests carrying a `0x01A0nnnn` title id and reaching `TitleProc`, but they take different cases (`EventDispatch_SelectMatch` / `EventDispatch_OK`). What is the difference? `HDAE5000_RequestTitle16` has no caller. ([Event Codes]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016))
 - [ ] **HD-AE5000 boot title request.** `HDAE5000_Boot_Init` requests title 0x7F when `HDAE5000_Check_HD_Present` returns non-zero. Per its header, that means the drive is *not* ready. Per the call site's comments, it means it *is*. Which reading is right? ([Boot Sequence]({{ site.baseurl }}/boot-sequence/#hdae5000_boot_init-0x28f576))
-- [ ] Rename `EVT_HD_INIT_PARAMS` (0x01C00016), `EVT_DISPLAY_CALLBACK` (0x01CA0000) and `EVT_DISPLAY_UPDATE` (0x01CA0004) in both `event_codes.s` files. They are a title request and the HD-AE5000's `EV_SeqStop` / `EV_TICKS`.
+- [ ] Rename `EVT_INTERRUPT_TITLE` (0x01C00016), `EVT_HDAE_SEQ_STOP` (0x01CA0000) and `EVT_HDAE_TICKS` (0x01CA0004) in both `event_codes.s` files. They are a title request and the HD-AE5000's `EV_SeqStop` / `EV_TICKS`.
 
 ## Data Tables (September 2026 leads)
 
