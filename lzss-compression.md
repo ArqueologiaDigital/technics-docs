@@ -300,7 +300,7 @@ read from the code and the ROM. **Neither has been confirmed in MAME.**
    demo-song pointer table, and it decompresses to main-CPU RAM `0x69800` (see
    [above](#compressed-presetparameter-data-slide4k-format)). `SubCPU_Send_Payload` knows
    exactly two bases. It decompresses the SLIDE4K image at custom-data `0x3E0000` into RAM
-   `0x50000` (only when `ROM_PaddingFF_0x2` reads `0xFF`). Otherwise, or if that fails, it
+   `0x50000` (only when `SubCPU_Payload_DelayLoop_Short_Data` reads `0xFF`). Otherwise, or if that fails, it
    uses `XIZ = 0x800000` raw. It then ships `XIZ + 0x100` onward to Sub CPU `0xF000`,
    `0x1F000` and `0x2F000` (64 KB + 64 KB + 0xFF00 bytes) and `XIZ + 0..0xFF` to Sub CPU
    `0x400` (`v10/maincpu/kn5000_v10_program.s`, `SubCPU_Send_Payload`).

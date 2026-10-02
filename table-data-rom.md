@@ -262,7 +262,7 @@ ramp at trailer `+0x380` (`Wallpaper0_ShadeRamp`, the `WallpaperRamp_*` set in
 `ui_bitmaps.s`). The loader of entries 0xE0-0xEF (`ChangeWallPalette_Impl`, via the RAM
 table at `0x3F1E4`) has not been traced back to that slot. The older note that "no code
 reference to these ramps has been found" is superseded. The wallpaper table itself still
-sits under the positional labels `Str_No_0xB4C` / `Str_No_0xB50` in the main-CPU source.
+sits under the positional labels `ChangeWall_Impl_Data` / `ChangePalette_Impl_Data` in the main-CPU source.
 
 ## UI bitmaps, frames and icons (0x912C00-0x944D77)
 
