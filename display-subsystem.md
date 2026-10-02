@@ -285,9 +285,9 @@ Caller invokes DrawLine/DrawBox/DrawString/etc.
      │
      └── NO (other task context):
          Serialize parameters into DrawQueue (circular buffer)
-         Call DisplayCmd_DequeueAndExecute
-         → TaskSched_WaitForEvent(3) until draw task picks up command
-         → Draw task executes command and signals completion
+         Call DrawRing_Post: post the record to the draw ring at 0x03247C
+         (event 3 guards the ring), retrying while the ring is full
+         → the draw task later takes it (DrawRing_TryTake) and runs it
 ```
 
 This ensures all VRAM/buffer writes happen in a single task context, avoiding concurrency issues.
@@ -834,7 +834,7 @@ The display is one of the most complete subsystems in MAME emulation. The MN8930
 | `LcdOn` | `0xFAA5B6` | Enable LCD output |
 | `LcdOff` | `0xFAA5DB` | Disable LCD output |
 | `DrawQueue_Alloc` | `0xFAA4ED` | Allocate space in deferred draw queue |
-| `DisplayCmd_DequeueAndExecute` | `0xFAA36A` | Process queued draw command in draw task |
+| `DrawRing_Post` | `0xFAA36A` | Post a draw command to the draw task's ring (RAM 0x03247C), retrying while it is full (was `DisplayCmd_DequeueAndExecute`) |
 | `IS_XSP_INSIDE_4K_REGION_AT_1C032` | `0xFAA532` | Check if caller runs in draw task context |
 | `InitializeGraphics` | `0xFAA4FA` | Boot-time graphics initialization |
 | `DrawFunc` | `0xFAA48C` | Generic draw function dispatch with deferred support |
