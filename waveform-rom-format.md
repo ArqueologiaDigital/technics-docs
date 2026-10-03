@@ -145,6 +145,24 @@ Based on the DAC specification (PCM69AU, 18-bit stereo) and typical Matsushita t
 
 The waveform ROMs are separate from:
 - **Rhythm Data ROM** (IC14, 4 MB) -- Contains drum pattern sequencing data, not PCM audio. Uses a completely different format with 0x83 delimiter bytes.
+  The main CPU addresses it at `0x400000` and finds its data through two tables in its own ROM
+  (kn5000-roms-disasm, 2026-10-03):
+  - `RhythmROM_ValidateHeader` stores 0 in RAM `0x3277` when the ROM starts with the 12-byte
+    signature `00 01 04 05 83 00 01 04 05 83 00 01`, else `0xFFFFFFFF` (`RhythmROM_CheckValid`
+    tests it).
+  - `RhythmROM_BankProgramLocators` (8 banks x 128 programs x {u16 hi, u16 lo}) gives, per
+    (bank, program), an offset `(hi & 0xFF) << 16 | lo`; `VoiceAssign_Process_Return` reads
+    `0x400000 + (RAM 0x3277) + offset`.  201 locators are non-zero: 201 distinct, 2 KB-aligned
+    blocks `0x800`-`0x64800` of the corrected IC14 dump, each beginning with the same 12-byte
+    signature.
+  - `VoiceParam_BankProgramWords` (8 x 128 u16) first maps any requested (bank, program < 128)
+    onto a (bank', program') pair; 1,022 of its 1,024 entries land on one of those 201 blocks
+    (bank 0 programs 89 and 90 map to an empty slot).
+  - `RhythmDrum_Entries` (1718 x 4 bytes) feeds that path from the drum parts: bytes 0-1 are the
+    request, byte 2 selects a `RegPreset_LoadVoiceData` entry, byte 3 goes to RAM `0x3881 + drum`.
+
+  Probes: `notes/rhythm-rom-tables-2026-10-02/locator_targets_probe.py` and
+  `bank_program_map_probe.py` in kn5000-roms-disasm.
 - **Table Data ROM** (IC1/IC3, 2 MB) -- Contains voice parameter tables, pitch lookup tables, and other firmware data. Accessed by the SubCPU to configure tone generator registers.
 - **Waveform/sample RAM stub** (sub-CPU address `0x1E0000-0x1EFFFF`) -- still an unattributed `noprw()` stub in the MAME driver (`kn7000_mame`'s `src/mame/matsushita/kn5000.cpp`), not yet tied to a specific chip. **Correction:** earlier revisions of this page named this region "IC308/IC309, 2 x 4Mbit DRAM" — that attribution is wrong. IC308 and IC309 have since been identified (Felipe, reading the chips directly) as the DSP1/DSP2 *effect delay-line* DRAMs: IC309 (M5M44260AJ-7S, 4-Mbit) is IC311/DSP1's external delay memory, and IC308 (M5M418128AJ-6, a **1**-Mbit, byte-wide DRAM) is DSP2's. Neither is waveform/sample RAM, and IC308 is not 4 Mbit.
 
