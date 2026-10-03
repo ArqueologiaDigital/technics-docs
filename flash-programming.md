@@ -177,13 +177,15 @@ But for **command** addresses, the 32-bit values are:
 
 Located in `maincpu/kn5000_v10_program.asm`.
 
-### HDAE5000_Flash_Verify (0xEF38F0)
+### TableDataFlash_ChipErase (0xEF3DBB)
 
-**Purpose:** Erase Table Data ROM using 32-bit access
+**Purpose:** Erase Table Data ROM using 32-bit access -- the six-cycle CHIP ERASE command
+(FLASH_CMD_UNLOCK1, _UNLOCK2, _ERASE_SETUP, _UNLOCK1, _UNLOCK2, _CHIP_ERASE). Formerly labelled
+`HDAE5000_Flash_Verify`, a name that described it as an ID check.
 
 **Sequence:** Same as Flash_ChipErase_32bit in boot ROM
 
-### HDAE5000_Detect (0xEF3CD1)
+### HDAE5000_Detect (0xEF3D0E)
 
 **Purpose:** Detect presence of HDAE5000 expansion board
 
@@ -192,7 +194,7 @@ Located in `maincpu/kn5000_v10_program.asm`.
 **Exit:**
 - XWA at (XSP+8) = 0 if detected, 0xFFFFFFFF if not present
 
-### FlashWrite (0xEF3B6C)
+### FlashWrite (0xEF3C3C)
 
 **Purpose:** High-level flash write with sector management
 
@@ -256,7 +258,7 @@ The Table Data Boot ROM contains simplified FDC routines for firmware updates:
 |---------|----------|---------|
 | 0x9FBF07 | `FDC_Reset` | Initialize FDC controller for update mode |
 | 0x9FBF37 | `FDC_ReadSector` | Read a single sector from floppy |
-| 0x9FBF92 | `FDC_MultiSectorRead` | Read multiple sectors with retry loop |
+| 0x9FBF92 | `FDC_ReadSectorWrapper` | Read multiple sectors with retry loop |
 | 0x9FBFC4 | `Detect_Disk_Type` | Check disk header signatures |
 
 ### FDC_Reset (0x9FBF07)
@@ -273,7 +275,7 @@ Reads a single sector:
 - Calculates head/track from sector number
 - Uses parameters at RAM 0x0C10
 
-### FDC_MultiSectorRead (0x9FBF92)
+### FDC_ReadSectorWrapper (0x9FBF92)
 
 Multi-sector read with retry:
 - Calls FDC_ReadSector in a loop
