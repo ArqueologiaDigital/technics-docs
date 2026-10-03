@@ -101,6 +101,7 @@ firmware names those too, through the calls that register them:
 | `0x01800000 + i` | Mode | `RegMode module, "MD_X", i, proc, home title` | the `MD_X` string | `NAKA_MODE_MD_X` |
 | `0x01A00000 + i` | Title (screen) | `RegTitle module, "TT_X", i, ...` | the `TT_X` string | `TITLE_X` |
 | `0x016Skkkk` | Class (widget class) | `RegObjTable NAKA_CLASS_Class, ClassProc, count, table, 0x16S` | the class definition's +12 name pointer | `NAKA_CLASS_<name>` |
+| `0x00SSnnnn` | View (widget) | `RegObjTable NAKA_CLASS_Viewable, ViewableProc, count, table, SS` | the ResName table registered at `SS + 0x300`: u32 pointers to strings | `NAKA_VIEW_<name>` |
 
 For example `RegMode 0x4, InitializeSuna_Str_MD_SND_ARG, 0x11, NAKA_MAINFUNC_SndArgModeFunc,
 TITLE_SNDARG` registers mode `0x01800011` ("MD_SND_ARG"), whose procedure is MainFunction
@@ -112,6 +113,18 @@ registration calls and the ROM: 1,395 ids, of which the 122 the 2026-10-02 event
 already named from handlers and senders all agree with the derived name. The other 1,273 are
 in `notes/event-codes-2026-10-02/object-ids/catalog_derived.json` and are `.equ` constants in
 every tree's `shared/event_codes.s`; the registration macros' arguments use them since then.
+
+**View ids look like ROM addresses.** Viewable slots are `0x00`-`0xFF`, so a view id is
+`0x00SSnnnn`, and for `SS >= 0xE0` that is numerically a main-CPU ROM address. The object a
+`SendEvent` / `ApPostEvent` call addresses is in `XWA`, and a pass that symbolized ROM operands
+had taken such targets for pointers -- 81 in v10 and in v9, 68 in v7 (where 13 more were still
+bare numbers) -- e.g. `ld xwa, IvAccordion_ShowHide_Data`
+for view `0x00EB0009` ("Accordion1"), with labels created at those addresses, some inside the
+`"<PRESENTATION>"` string at `0xEA0008`. Since 2026-10-03 they are `NAKA_VIEW_<name>` constants
+(75 in v10 and v9, 67 in v7: `ld xwa, NAKA_VIEW_Accordion1`), as is the view argument of
+`RegTitle` (`RegTitle 0x1, ..._TT_MESAGE, 0xee, NAKA_APFUNC_DefaultFunction, NAKA_VIEW_Mesage`);
+`scripts/tools/name_naka_view_ids.py` finds them and retired the labels the misreading had made.
+A 32-bit value in `0xE00000-0xFFFFFF` handed to an event routine is a view id first.
 
 A widget record's first word is its class id, and a class definition names its parent by
 class id, so the class constants also appear in data: the HD-AE5000's 13 own classes
