@@ -458,6 +458,9 @@ Each chord map stores note-to-chord mappings that translate detected chord roots
 | Address | Purpose |
 |---------|---------|
 | 0x8D36 | `CURRENT_TITLE`, the current title id (formerly read as the sequencer's master state) |
+| 0x041B | `SEQ_BEAT_TICK` (firmware name `sq_beadt`): tick within the beat, 0..95 |
+| 0x041C | `SEQ_BEAT_COUNT` (`sqbtof`): beats since the start (word) |
+| 0x0421 | `SEQ_TRANSPORT_STATE` (`sqsrtc`): bit 0 start pending, bits 1-2 running (bit 2 gates the clock), bit 3 stop requested, bit 4 stopped |
 | 0x3277 | Rhythm ROM validation (0 = valid, 0xFFFFFFFF = invalid) |
 | 0x348D-0x348F | Pattern selectors (A/B/type) |
 | 0x3476 | Variation index (0-0x1E) |

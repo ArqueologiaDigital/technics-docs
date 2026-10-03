@@ -265,9 +265,21 @@ title (`0x2309F6`) and notes whether `<name>.MID` exists (`0x230E4A`).
 
 **Not established:** what the byte stored at `0x230882` (read at "next event +
 delta size + 4") is for, what meta type `0x7E` carries beyond its chord case,
-how the tempo and measure lyric objects work, and what the main-CPU variables
-`sqbtof`, `sq_beadt` and `sqsrtc` mean beyond these uses (they are named only
-by the firmware's function names `GetAdr_sqbtof` etc.).
+and how the tempo and measure lyric objects work.
+
+**The three main-CPU variables** (named in the maincpu source since 2026-10-03, each tree's
+`shared/ram_variables.s`; the same addresses in v7, v9 and v10) are the song clock:
+
+| firmware name | address | source name | meaning |
+|---|---|---|---|
+| `sq_beadt` | 0x041B | `SEQ_BEAT_TICK` | tick within the beat, 0..95 (96 per quarter note); at 96 it wraps to 0 and `sqbtof` counts up |
+| `sqbtof` | 0x041C | `SEQ_BEAT_COUNT` | beats since the start (word) |
+| `sqsrtc` | 0x0421 | `SEQ_TRANSPORT_STATE` | bit set: bit 0 start pending, bits 1-2 running (bit 2 gates the clock), bit 3 stop requested (the ISR then writes 16), bit 4 stopped; 0 when idle. Written whole as 0, 1, 6, 12 and 16, otherwise bit by bit |
+
+The timer ISR (`INTTR4_CheckAltSeqEnable`, `boot/system_handlers.s`) adds 1 per tick while bit 2 of
+`sqsrtc` is set; with an external MIDI clock `ClkTick_Src3ClickCheck` (`midi/midi_serial_routines.s`)
+adds 4 per clock (24 clocks per quarter note). So the lyric position `sqbtof × 12 + (sq_beadt >> 3) + 2`
+is in twelfths of a beat, and the frame handler's "bit 2 fell" is the song clock stopping.
 
 ### Lyric parser state (RAM)
 
