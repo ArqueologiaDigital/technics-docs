@@ -121,7 +121,7 @@ had taken such targets for pointers -- 81 in v10 and in v9, 68 in v7 (where 13 m
 bare numbers) -- e.g. `ld xwa, IvAccordion_ShowHide_Data`
 for view `0x00EB0009` ("Accordion1"), with labels created at those addresses, some inside the
 `"<PRESENTATION>"` string at `0xEA0008`. Since 2026-10-03 they are `NAKA_VIEW_<name>` constants
-(76 in v10 and v9, 68 in v7: `ld xwa, NAKA_VIEW_Accordion1`), as is the view argument of
+(76 in each of v10, v9 and v7, the same names and values: `ld xwa, NAKA_VIEW_Accordion1`), as is the view argument of
 `RegTitle` (`RegTitle 0x1, ..._TT_MESAGE, 0xee, NAKA_APFUNC_DefaultFunction, NAKA_VIEW_Mesage`);
 `scripts/tools/name_naka_view_ids.py` finds them and retired the labels the misreading had made.
 A 32-bit value in `0xE00000-0xFFFFFF` handed to an event routine is a view id first.
