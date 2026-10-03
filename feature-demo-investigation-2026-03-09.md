@@ -122,7 +122,7 @@ is `0x008E0000` and entry 19 is NULL, ending the list. The current index lives a
 | `0xC07D` | Param byte | Handler parameter |
 | `0x0251D8` | Demo state | SSF presentation state |
 | `0x28A4` | Demo entry index | Current song index |
-| `0x28B4` | Guard variable | Song list pointer |
+| `0x28B4` | Guard variable | ~~Song list pointer~~ -- the code disagrees (2026-10-03): it is a word of per-part bits the sequencer sets (`SeqReassign_OrPartBits`) and clears (`SeqCh_ClearActive_ShiftDone`, `PartDeact_*`), named `SEQ_ACTIVE_PARTS` in the source; the demo handlers test it with `cpw (..),0` |
 
 ## Related Pages
 

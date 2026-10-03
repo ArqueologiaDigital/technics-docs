@@ -511,7 +511,7 @@ When the timer reaches 10, song playback begins:
 | `0x28B4` | 10420 | Song list pointer / sequencer part active flags |
 | `0x8D34` | 36148 | UI state byte |
 | `0x8D38` | 36152 | UI sub-state byte (0x01=normal, 0xE0=demo menu, 0xE4=feature presentation) |
-| `0x8D3A` | 36154 | Part select index (used by `DemoMenu_BuildItemWorkspace`) |
+| `0x8D3A` | 36154 | Part select index (used by `DemoMenu_BuildItemWorkspace`); `PART_SELECT` in the source (v7 0x8C9E), read by `GetPartSelect` |
 | `0x8F4E` | 36686 | Playback state flag (0x04=playing, 0x06=done) |
 | `0xBD3C` | 48444 | Event dispatch circular buffer (4-byte entries) |
 | `0xC07D` | 49277 | Panel key param byte |
