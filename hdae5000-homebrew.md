@@ -301,6 +301,7 @@ RET
 **Key observations:**
 - The frame handler is called **unconditionally** every frame -- no registration needed
 - The XAPR detection flag at `0x03DD04` is the only gate
+  (`XAPR_PRESENT_FLAG` in the maincpu source, the same address in v7, v9 and v10)
 - Hardware presence is checked separately via Port E bit 0 (active low)
 
 ### Workspace Pointer

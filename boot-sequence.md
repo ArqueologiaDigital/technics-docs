@@ -1291,6 +1291,7 @@ RET
 ```
 
 The frame handler is called **unconditionally** -- no registration is needed. The flag at `0x03DD04` is the only gate.
+In the source it is `XAPR_PRESENT_FLAG` (each maincpu tree's `shared/ram_variables.s`, 0x03DD04 in v7, v9 and v10).
 
 ### Workspace Dispatch System
 

@@ -585,6 +585,9 @@ The bounding box is maintained at:
 | 0x03045C | Max Y (bottom edge) |
 | 0x03045E | Update flag (non-zero = needs refresh) |
 
+In the source (each maincpu tree's `shared/ram_variables.s`): `DIRTY_BBOX` (0x030456, the four words) and
+`DISPLAY_UPDATE_FLAG` (0x03045E).
+
 ### Offscreen Buffers
 
 | Buffer | Address | Size | Purpose |
@@ -734,6 +737,9 @@ This rotates all pixels one palette bank forward. Combined with palettes arrange
 | 0x03EF9E | Current palette index |
 | 0x03EFA0 | Previous palette index (for partial updates) |
 | 0x030460 | Palette update pending flag |
+
+In the source: `PALETTE_DATA_PTR_CACHED` (0x03EF94), `PALETTE_INDEX_CACHED` (0x03EF9E),
+`PALETTE_INDEX_PREVIOUS` (0x03EFA0) and `PALETTE_UPDATE_FLAG` (0x030460).
 
 ### Grid-Based Screen Transitions
 

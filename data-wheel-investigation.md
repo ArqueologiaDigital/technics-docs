@@ -171,6 +171,10 @@ Once event `0x1C0001F` is posted it reaches the focused widget through the NAKA 
 | 0x3EF66 | `SetDialDown` param | XDE component |
 | 0x3EF6A | Dial Focus | Currently focused UI object (32-bit) |
 
+Named in the source since 2026-10-03 (each maincpu tree's `shared/ram_variables.s`, the same addresses
+in v7, v9 and v10): `DIAL_ENABLE`, `DIAL_UP_CALLBACK`, `DIAL_DOWN_CALLBACK`, `DIAL_UP_EVENT`,
+`DIAL_DOWN_EVENT`, `DIAL_UP_PARAM`, `DIAL_DOWN_PARAM`, `DIAL_FOCUS`.
+
 `SetDialUp` / `SetDialDown` (`presentation_sound_nav.s:375-385`) are **setup** functions: they
 register workspace, event code and parameter into this table. The callbacks themselves fire
 when `0x1C0001F` reaches `GroupBox_HandleCursorNav`.

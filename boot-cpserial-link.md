@@ -162,6 +162,12 @@ Link state bytes worth knowing:
 | 0x0F6A | status/abort bits (bit 0 RX overflow, bit 1 TX arbitration failed, bit 3 frame discarded, bit 7 done/abort) |
 | 0x1022+ | decoded-packet buffer (also the XOR-scramble state) |
 
+Named in the source since 2026-10-03 (each maincpu tree's `shared/ram_variables.s`): `BOOTSERIAL_STATE`,
+`BOOTSERIAL_FLAGS` and `BOOTSERIAL_STATUS`, at the same addresses in v7, v9 and v10. The rings and
+transfer-control blocks have v10 names only (`BOOTSERIAL_RX_TAIL` .. `BOOTSERIAL_TX_TCB`): no v10
+instruction names those addresses directly, so `name_kn5000_ram.py` had no instruction to derive the
+v9/v7 addresses from.
+
 ## RX packet classes
 
 `BootSerial_RX_ParsePackets` (0xFFF6F6) drains the RX serial ring into the RX
