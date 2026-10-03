@@ -110,7 +110,7 @@ The tick dispatcher processes sequencer timing and loads song/pattern data. It r
 ### The current title (8D36h) -- formerly read as a "master sequencer state"
 
 `0x8D36` is the id of the **current title** (screen): `MainTitleControl` handles `EVT_CHANGE_TITLE`
-by jumping to `SeqState_TransitionMode` (0xF9936D), which saves the old value in `0x8D37`
+by jumping to `MainTitleCtrl_ChangeTitle` (0xF9936D), which saves the old value in `0x8D37`
 (`PREVIOUS_TITLE`) and stores the new one with `LD (8D36h), L`. The neighbours belong to the same
 object: `0x8D34` / `0x8D35` are the current / previous **mode** (`EVT_CHANGE_MODE`), `0x8D38` /
 `0x8D39` the title actually on screen (`EVT_RETURN_TITLE` and `EVT_INTERRUPT_TITLE` change only it)
@@ -537,7 +537,7 @@ See [Audio Subsystem - Feature Demo]({{ site.baseurl }}/audio-subsystem/#feature
 | `Seq_DispatcherEntry` | `0xF532E1` | Dispatcher entry point |
 | `Seq_DispatcherTick` | `0xF53318` | State guard (skip if 0x10-0x16) |
 | `Seq_RhythmProcessor` | `0xF5EC75` | Main rhythm/sequencer processing |
-| `SeqState_TransitionMode` | `0xF9936D` | State machine transition (writes 0x8D36) |
+| `MainTitleCtrl_ChangeTitle` | `0xF9936D` | State machine transition (writes 0x8D36) |
 | `sendCOMM` | `0xEF32F4` | Send MIDI event to Sub CPU via latch |
 
 ### Ring Buffers

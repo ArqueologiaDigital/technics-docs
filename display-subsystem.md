@@ -767,7 +767,7 @@ Animation timing is handled by the `IvOneShotTimerProc` (0xF8A122) event handler
 
 ### Screen Transition State Machine
 
-The `SeqState_TransitionMode` (0xF99579) handler manages full-screen mode transitions (e.g., switching between sequencer screens, entering demo mode). It coordinates state variables at:
+The `MainTitleCtrl_ChangeTitle` (0xF99579) handler manages full-screen mode transitions (e.g., switching between sequencer screens, entering demo mode). It coordinates state variables at:
 - `0x02749A` — transition progress counter
 - `0x02749E` — transition timer
 - `0x0274A2` — transition type/flags
@@ -901,7 +901,7 @@ The display is one of the most complete subsystems in MAME emulation. The MN8930
 | `ChangeWall` | `0xFAF21C` | Load wallpaper |
 | `PaletteBankRotation` | `0xFAF346` | Fade via palette bank rotation |
 | `AcFadeSetGridBoxProc` | `0xF7514A` | Grid dissolve transition |
-| `SeqState_TransitionMode` | `0xF99579` | Full-screen mode transition |
+| `MainTitleCtrl_ChangeTitle` | `0xF99579` | Full-screen mode transition |
 | `DrawProgressRectH` | `0xF99E75` | Horizontal progress bar |
 | `DrawProgressRectV` | `0xF99F7D` | Vertical progress bar |
 

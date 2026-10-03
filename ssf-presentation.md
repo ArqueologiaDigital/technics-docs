@@ -56,7 +56,7 @@ From the home screen, the correct sequence to reach the Feature Presentation:
 2. Press **LEFT 4** (4th soft button from top, mapped to `CPL_SEG9`) -- `0x8D38` transitions `0xE0` to `0xE4` (FEATURE PRESENTATION sub-menu appears)
 3. Press **LEFT 2** (2nd soft button from top, mapped to `CPL_SEG10`) -- `0x8D38` transitions `0xE4` to `0xE1` (demo begins playing)
 
-`UI_PostModeChangeEvent` does not carry these transitions, despite what this page used to say. It posts the *title* request `0x01C00015` with title id `0x01A00000 + A` to the current target, not to `SeqState_TransitionMode` (see [Event Codes — Mode and Title Requests]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)).
+`UI_PostModeChangeEvent` does not carry these transitions, despite what this page used to say. It posts the *title* request `0x01C00015` with title id `0x01A00000 + A` to the current target, not to `MainTitleCtrl_ChangeTitle` (see [Event Codes — Mode and Title Requests]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)).
 
 ### MAME Button Mapping Reference
 
@@ -554,7 +554,7 @@ When the timer reaches 10, song playback begins:
 | `SendEvent` | 0xFA9660 | (event system) | Direct (synchronous) event dispatch |
 | `ApPostEvent` | 0xFA9D58 | (event system) | Queued event, same ring as `PostEvent`; the firmware's own function-name table names it |
 | `Boot_DisplayScreen` | -- | (boot sequence) | Sets DRAM[0x0406] bit 7 (boot-complete flag) |
-| `SeqState_TransitionMode` | -- | `ui/ui_control_panel.s` | Writes `0x8D36`-`0x8D39`, which include the `0x8D38` state byte tracked above. It is not the handler of `0x1C00015`: `TitleProc` handles that title request |
+| `MainTitleCtrl_ChangeTitle` | -- | `ui/ui_control_panel.s` | Writes `0x8D36`-`0x8D39`, which include the `0x8D38` state byte tracked above. It is not the handler of `0x1C00015`: `TitleProc` handles that title request |
 
 ---
 
@@ -678,7 +678,7 @@ The full dispatch chain for event `0x1C00038` was traced through the firmware:
 
 **Key discovery:** `CurrentTarget` at `DRAM[0x02F83C]` is set by `SetCurrentTarget` during screen initialization (event `0x1C00001`). The Feature Presentation screen (`AcFdemoScreenProc`, type `0x69`) must receive event `0x1C00001` to become the `CurrentTarget`.
 
-**Root cause hypothesis:** `SeqState_TransitionMode` only writes the state byte to `DRAM[0x8D38]` -- it does NOT send event `0x1C00001` to the screen widget. The NAKA widget framework's screen management cycle must independently detect the state change and activate the screen. This cycle may be starved because `SwbtWr_ReinitBothBanks` blocks for ~16 seconds during tone generator initialization.
+**Root cause hypothesis:** `MainTitleCtrl_ChangeTitle` only writes the state byte to `DRAM[0x8D38]` -- it does NOT send event `0x1C00001` to the screen widget. The NAKA widget framework's screen management cycle must independently detect the state change and activate the screen. This cycle may be starved because `SwbtWr_ReinitBothBanks` blocks for ~16 seconds during tone generator initialization.
 
 ### Broadcast Event Resolution Flowchart
 
