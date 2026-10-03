@@ -57,7 +57,7 @@ These routines operate on HDAE5000 and Custom Data Flash using 16-bit bus access
 
 **Sequence:**
 ```
-; Wait for P3 bit 5 (flash ready)
+; Wait for P7 bit 5 (flash ready; SFR 0x1C)
 ; EI 6 - disable lower-priority interrupts
 (base+0xAAAA) = 0xAA
 (base+0x5554) = 0x55

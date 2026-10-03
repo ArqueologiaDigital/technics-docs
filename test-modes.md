@@ -37,7 +37,7 @@ The self-test runs automatically at boot **only when a CHECKING DEVICE is connec
 
 ### Detection
 
-The firmware reads Port C bit 0 (`PC.0`; `PC` is SFR `0x30` in `shared/sfr_tmp94c241.s`). If the checking device is not connected, `PC.0` reads high (pull-up) and the self-test returns immediately. With the checking device connected and its switch activated, `PC.0` reads low, and the self-test proceeds. The LED is `PC.1`, driven by `set_dd8 1, 0x30` / `res_dd8 1, 0x30` in `Report_test_result_by_blinking_LED`. The sub-CPU uses the same two bits of its own Port C for CN12.
+The firmware reads Port C bit 0 (`PC.0`; `PC` is SFR `0x30` in `shared/sfr_tmp94c241.s`). If the checking device is not connected, `PC.0` reads high (pull-up) and the self-test returns immediately. With the checking device connected and its switch activated, `PC.0` reads low, and the self-test proceeds. The LED is `PC.1`, driven by `set 1, (0x30:8)` / `res 1, (0x30:8)` (0x30 stays a number: the name `PC` would read as the program counter) in `Report_test_result_by_blinking_LED`. The sub-CPU uses the same two bits of its own Port C for CN12.
 
 ```
 PC.0 = 1 (pull-up)  → No checking device → skip self-test

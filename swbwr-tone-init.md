@@ -168,8 +168,8 @@ The status-checking routine on the SubCPU:
 ```asm
 DSP_Read_Status:
     calr DSP_Nop
-    set_dd8 0, 0x44      ; Set bit 0 of PH latch (direction/output)
-    ldcf_dd8 0, 0x44     ; Load carry from PH bit 0 (read external pin)
+    set 0, (PH:8)        ; Set bit 0 of PH latch (direction/output)
+    ldcf 0, (PH:8)       ; Load carry from PH bit 0 (read external pin)
     scc8 c, l            ; L = 1 if ready (carry set), 0 if busy
     extz hl
     ret

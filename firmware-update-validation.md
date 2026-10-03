@@ -161,12 +161,12 @@ For the main ROM path: if `0xEF3D0E` returns `0xFFFFFFFF`, the non-HDAE5000 eras
 
 ### Fatal: Flash Not Ready (Hang)
 
-**Trigger:** Port 3 bit 5 does not assert (flash busy/not responding).
+**Trigger:** Port 7 bit 5 does not assert (flash busy/not responding).
 
 **Behavior:** `Flash_ProgramWord` spins in a tight polling loop:
 ```asm
 Flash_ProgramWord_WaitReady:
-    bit_dd8 5, 0x1C    ; Check P3 bit 5 (flash ready)
+    bit 5, (P7:8)      ; Check P7 bit 5 (flash ready; SFR 0x1C is P7)
     jr z, Flash_ProgramWord_WaitReady  ; Spin until ready
 ```
 

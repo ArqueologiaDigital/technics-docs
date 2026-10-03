@@ -178,7 +178,7 @@ its body is a foot-switch and foot-controller scan.
 
 **PE.0 gates the whole HD-AE5000 initialisation.** On the normal boot path,
 `Boot_FlashAndExtensions` (`v10/maincpu/kn5000_v10_program.s:571`) tests
-`bit_dd8 0, 0x38` and skips the extension entirely when it reads 1; when it reads 0 — and
+`bit 0, (PE:8)` (SFR 0x38) and skips the extension entirely when it reads 1; when it reads 0 — and
 the region code is not 4 — it calls `HDAE5000_Parport_Setup`, which programs the uPD71055
 PPI and makes the hard disk reachable. The boot programs `PECR = 0x20`, so PE.0 is an
 input and the strap is genuinely external.
