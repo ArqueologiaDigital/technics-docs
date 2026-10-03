@@ -251,7 +251,7 @@ Since 2026-10-03 the code uses these names in every maincpu tree (`ld (CPANEL_TX
 each tree's constants carrying its own values -- v7's derived from the same instructions in the same
 routines (`scripts/tools/name_kn5000_ram.py`).
 The same -0x9C holds for every v7 variable derived so far between `0x3000` and `0xFFFF` (59 names): the master sequencer
-state (`SEQ_MASTER_STATE`, v10 `0x8D36`, v7 `0x8C9A`), the rhythm variation index, the medley state
+state (`CURRENT_TITLE`, v10 `0x8D36`, v7 `0x8C9A`), the rhythm variation index, the medley state
 (`MEDLEY_PLAY_FLAG` v7 `0x8462`), the SwbtWr event queue and payload (v7 `0xBCA0`, `0xBFE1`) -- and
 `RHYTHM_ROM_BASE` (`0x3277` / `0x31DB`). Below `0x1000` (`0x408`, `0x409`, `0xC9A`) and in the DRAM at
 `0x20000+` (`CPANEL_RX_EVENT_QUEUE` `0x200AD`, the `DISPLAY_*` flags at `0x205E4`) v7 is unchanged (16

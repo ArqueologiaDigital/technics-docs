@@ -103,29 +103,36 @@ The tick dispatcher processes sequencer timing and loads song/pattern data. It r
 | Routine | Address | Purpose |
 |---------|---------|---------|
 | `Seq_DispatcherEntry` | 0xF532E1 | Entry point from `Seq_TickWrapper` |
-| `Seq_DispatcherTick` | 0xF53318 | State guard: skips processing if `(8D36h)` is 0x10-0x16 |
+| `Seq_DispatcherTick` | 0xF53318 | Guard: skips processing while the current title (`CURRENT_TITLE`, 8D36h) is a style-conversion title, 0x10-0x16 |
 | `Seq_DispatcherTick_Process` | 0xF53328 | Rhythm ROM guard: calls `RhythmROM_CheckValid`, skips if validation fails |
 | `Seq_RhythmProcessor` | 0xF5EC75 | Main rhythm/sequencer processing after guards pass |
 
-### State Machine Variable (8D36h)
+### The current title (8D36h) -- formerly read as a "master sequencer state"
 
-The master sequencer state is stored in RAM at `0x8D36`. The state controls which processing paths are active:
+`0x8D36` is the id of the **current title** (screen): `MainTitleControl` handles `EVT_CHANGE_TITLE`
+by jumping to `SeqState_TransitionMode` (0xF9936D), which saves the old value in `0x8D37`
+(`PREVIOUS_TITLE`) and stores the new one with `LD (8D36h), L`. The neighbours belong to the same
+object: `0x8D34` / `0x8D35` are the current / previous **mode** (`EVT_CHANGE_MODE`), `0x8D38` /
+`0x8D39` the title actually on screen (`EVT_RETURN_TITLE` and `EVT_INTERRUPT_TITLE` change only it)
+and its previous value. Since 2026-10-03 the code names them `CURRENT_TITLE`, `PREVIOUS_TITLE`,
+`CURRENT_MODE`, `PREVIOUS_MODE`, `ACTIVE_TITLE`, `ACTIVE_TITLE_PREVIOUS` (v7: all 0x9C lower).
 
-| State Range | Behavior |
-|-------------|----------|
-| 0x10-0x16 | **Skip all** — `Seq_DispatcherTick` returns immediately |
-| 0x00-0x0F, 0x17+ | **Process** — dispatcher continues to tick processing |
+This page used to call `0x8D36` the master sequencer state. The evidence says title: its "skip
+range" is exactly the style-conversion titles:
 
-State transitions are written at a single location in the firmware: `SeqState_TransitionMode` (0xF9936D), which executes `LD (8D36h), L`.
+| Value | Title (`TITLE_*` in `shared/event_codes.s`) | `Seq_DispatcherTick` |
+|-------|----------|----------|
+| 0x10-0x16 | `TITLE_STYLCNVWAIT` .. `TITLE_STYLCNVCONT` (style conversion) | **skips** |
+| anything else | | processes |
 
-**Observed states during Feature Demo (from MAME log):**
+**Observed during Feature Demo (from MAME log)**, read as titles:
 
-| State | Meaning | When |
+| Value | Title | When |
 |-------|---------|------|
-| 0x00 | Idle/startup | Boot through initialization |
-| 0x01 | Pre-demo | Brief transition state |
-| 0xE0 | `DemoMode_Main_Operation` | Demo playback active (t=21s) |
-| 0xE4 | `DemoMode_Initialize` | Demo init complete (t=22.6s) |
+| 0x00 | (none yet) | Boot through initialization |
+| 0x01 | `TITLE_NORMAL`, the normal play screen | Brief transition state |
+| 0xE0 | `TT_DEMOMENU` (`RegTitle ..., 0xe0, ..., NAKA_VIEW_DemoMenu`) | Demo playback active (t=21s) |
+| 0xE4 | `TT_DEMOFEATURE` (`RegTitle ..., 0xe4, ..., NAKA_VIEW_Demofeature`) | Demo init complete (t=22.6s) |
 
 None of these values fall in the 0x10-0x16 skip range, confirming the sequencer dispatcher IS active during demo mode.
 
@@ -450,7 +457,7 @@ Each chord map stores note-to-chord mappings that translate detected chord roots
 
 | Address | Purpose |
 |---------|---------|
-| 0x8D36 | Sequencer state machine (master state) |
+| 0x8D36 | `CURRENT_TITLE`, the current title id (formerly read as the sequencer's master state) |
 | 0x3277 | Rhythm ROM validation (0 = valid, 0xFFFFFFFF = invalid) |
 | 0x348D-0x348F | Pattern selectors (A/B/type) |
 | 0x3476 | Variation index (0-0x1E) |
