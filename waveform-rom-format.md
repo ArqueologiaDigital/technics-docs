@@ -147,12 +147,12 @@ The waveform ROMs are separate from:
 - **Rhythm Data ROM** (IC14, 4 MB) -- Contains drum pattern sequencing data, not PCM audio. Uses a completely different format with 0x83 delimiter bytes.
   The main CPU addresses it at `0x400000` and finds its data through two tables in its own ROM
   (kn5000-roms-disasm, 2026-10-03):
-  - `RhythmROM_ValidateHeader` stores 0 in RAM `0x3277` when the ROM starts with the 12-byte
+  - `RhythmROM_ValidateHeader` stores 0 in `RHYTHM_ROM_BASE` (RAM `0x3277` in v10/v9, `0x31DB` in v7) when the ROM starts with the 12-byte
     signature `00 01 04 05 83 00 01 04 05 83 00 01`, else `0xFFFFFFFF` (`RhythmROM_CheckValid`
     tests it).
   - `RhythmROM_BankProgramLocators` (8 banks x 128 programs x {u16 hi, u16 lo}) gives, per
     (bank, program), an offset `(hi & 0xFF) << 16 | lo`; `VoiceAssign_Process_Return` reads
-    `0x400000 + (RAM 0x3277) + offset`.  201 locators are non-zero: 201 distinct, 2 KB-aligned
+    `0x400000 + RHYTHM_ROM_BASE + offset`.  201 locators are non-zero: 201 distinct, 2 KB-aligned
     blocks `0x800`-`0x64800` of the corrected IC14 dump, each beginning with the same 12-byte
     signature.
   - `VoiceParam_BankProgramWords` (8 x 128 u16) first maps any requested (bank, program < 128)
