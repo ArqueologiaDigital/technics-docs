@@ -244,6 +244,13 @@ DMA source (DMAS), destination (DMAD), count (DMAC), and mode (DMAM) registers a
 
 ## Control Panel Memory
 
+The addresses in this section are **v10 / v9**. In **v7** the whole panel, encoder and MIDI-CC block
+sits `0x9C` lower (`CPANEL_TX_RX_FLAGS` is `0x8CF0`, `MIDI_CC_MODWHEEL_VALUE` `0x8E48`); the low
+variables (`REGION_CODE_VAR` `0x408`, `SYSTEM_TIMESTAMP` `0x409`, `MSP_SETTINGS` `0xC9A`) do not move.
+Since 2026-10-03 the code uses these names in every maincpu tree (`ld (CPANEL_TX_RX_FLAGS:16), a`),
+each tree's constants carrying its own values -- v7's derived from the same instructions in the same
+routines (`scripts/tools/name_kn5000_ram.py`).
+
 ### Button State
 
 | Address | Variable | Description |
