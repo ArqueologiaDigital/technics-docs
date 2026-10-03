@@ -159,7 +159,7 @@ The waveform ROMs are separate from:
     onto a (bank', program') pair; 1,022 of its 1,024 entries land on one of those 201 blocks
     (bank 0 programs 89 and 90 map to an empty slot).
   - `RhythmDrum_Entries` (1718 x 4 bytes) feeds that path from the drum parts: bytes 0-1 are the
-    request, byte 2 selects a `RegPreset_LoadVoiceData` entry, byte 3 goes to RAM `0x3881 + drum`.
+    request, byte 2 selects a `VoiceAssign_PresetSelToCase` entry, byte 3 goes to RAM `0x3881 + drum`.
 
   Probes: `notes/rhythm-rom-tables-2026-10-02/locator_targets_probe.py` and
   `bank_program_map_probe.py` in kn5000-roms-disasm.
