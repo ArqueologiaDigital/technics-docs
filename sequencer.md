@@ -275,7 +275,7 @@ Internal medley songs are stored in battery-backed SRAM:
 
 | Address | Size | Description |
 |---------|------|-------------|
-| `0xAB000` | 20KB | 10 song slots (0x800 bytes each) |
+| `0xAB000` | 20KB | 10 song slots (0x800 bytes each) (`SEQ_SONG_SLOTS` in the source, the same address in v7 / v9 / v10) |
 | `0xF180` | 2KB | Current playback buffer |
 
 Each slot is 2048 bytes (0x800) and stores one user-recorded sequence.
