@@ -76,6 +76,10 @@ The firmware computes 8 section pointers at runtime (`Flash_InitExtMemAddrs` in 
 | 6 | 0x390000 | 0x0C8E | Custom accompaniment styles |
 | 7 | 0x3B0000 | 0x0C92 | SubCPU performance data |
 
+The RAM pointers are named in the source (each maincpu tree's `shared/ram_variables.s`, the same
+addresses in v7): `FLASH_SECTION_PTR_0` .. `FLASH_SECTION_PTR_7`. The same routine also sets
+`RHYTHM_PATTERN_BUF_PTR` (`0x0C6E`) to the rhythm pattern buffer A (`0x94800`).
+
 ## "HK" Header Format
 
 Style sections (0-7) begin with a 4-byte header using 16-bit character encoding:
