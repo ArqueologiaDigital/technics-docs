@@ -409,7 +409,7 @@ UI event buses.
 
 - **KN5000: viable.** A received Roland-GS voice parameter is applied through the
   *same* store and notifier as a front-panel edit (`SoundParam_NotifyChange`,
-  DRAM `0x34100`). An emulator that watches its own parameter store and emits the
+  DRAM `0x34100`, `SNDPARAM_HASH_TABLE`). An emulator that watches its own parameter store and emits the
   equivalent GS message drives the real unit's parameter identically.
 - **WSA1R: viable for TEMPO (proven), and for any parameter that has a dedicated
   receive slot.** The tempo example above is a complete, faithful sync channel:
