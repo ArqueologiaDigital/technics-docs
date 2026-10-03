@@ -119,6 +119,13 @@ Actual_delay_ms = WA / 2
 | 0x8B0C | 2 | FDC_MAX_TRACK | Maximum track number |
 | 0x8B10 | 2 | FDC_CURRENT_TRACK | Current track cache |
 
+Named in the source since 2026-10-03 (each maincpu tree's `shared/ram_variables.s`; v7 0x9C lower), only
+where the code agrees with this table: `FDC_SECTOR_COUNT` (0x8A1C, cleared per command, `incw` per
+sector), `FDC_ERROR_CODE` (0x8A24, set by `FDC_Set_Status`), `FDC_COMMAND_INDEX` (0x8A40, the 0..11
+dispatch index) and `FDC_TARGET_TRACK` (0x8A36 -- `fdc_routines.s` calls it the caller's target track,
+which this table's `FDC_MODE_PARAMS` range and reverse-engineering.md's "address register" contradict).
+`0x8A4A`, listed as the transfer pointer, is compared with constants (`cpw (0x8a4a),N`) and stays a number.
+
 ## Routine Addresses
 
 | Address | Name | Description |

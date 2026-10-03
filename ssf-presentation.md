@@ -522,6 +522,11 @@ When the timer reaches 10, song playback begins:
 | `0x02BC34` | 179252 | Event registration table (ring buffer, head/tail at 0x02EC34/0x02EC36) |
 | `0x10420` | 66592 | Sequencer part active flags (`0xFFFF` = all 16 parts active) |
 
+In the source (since 2026-10-03, `shared/ram_variables.s`): `DEMO_TIMER_COUNTDOWN` (0xD2F), `DEMO_TARGET_SONG`
+(0x1157), `DEMO_CURRENT_SONG` (0x1158), `DEMO_ACTIVE_ENTRY` (0x28A4), `DEMO_CONTROL_FLAGS` (0x28AD); the
+"UI state" and "UI sub-state" bytes are the current mode and the active title (`CURRENT_MODE` 0x8D34,
+`ACTIVE_TITLE` 0x8D38 -- the values 0x01 / 0xE0 / 0xE4 are TT_NORMAL / TT_DEMOMENU / TT_DEMOFEATURE).
+
 ---
 
 ## Key Routines

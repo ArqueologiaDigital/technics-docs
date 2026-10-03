@@ -968,6 +968,10 @@ The `*_PENDING` variants (e.g., `MIDI_CC_MODWHEEL_PENDING`) use bit 7 as a "valu
 | 0x9129 | Value | 0x00-0x7F |
 | 0x912A | Velocity/Range | 0x7F |
 
+In the source (since 2026-10-03): `MIDI_MSG_STATUS` / `MIDI_MSG_DATA1` / `MIDI_MSG_DATA2` / `MIDI_MSG_DATA3`
+-- generic names, because the writers stage more than Control Change here (statuses 0xB0-0xB3 and word
+stores of status + first data byte); v7 0x9C lower.
+
 ## 6. Memory Map
 
 ### Control Panel RAM Variables
