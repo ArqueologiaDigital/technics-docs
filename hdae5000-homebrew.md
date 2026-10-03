@@ -965,6 +965,7 @@ Global State (saved/restored           │ +0x14: propname (4)            │
   0x02BC14: Current object identity (SetCurrentTarget/GetCurrentTarget)
   0x02BC18-20: Root object/event/param (SetRootObject/GetRootObject etc.)
   0x02BC24-2C: Focus object/event/param (GetFocusObject/GetFocusEvent etc.)
+  (in the maincpu source: ROOT_OBJECT / ROOT_EVENT / ROOT_PARAM and FOCUS_OBJECT / FOCUS_EVENT / FOCUS_PARAM)
 ```
 
 ### Object Identifiers

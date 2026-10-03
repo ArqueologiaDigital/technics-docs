@@ -246,7 +246,8 @@ proc `ModeProc`, 0x20 entries at RAM `0x0328FC` (`RegisterMode` fills them). A t
 `0x01A0nnnn` is entry *nnnn* of object table 0x1A0: class id `0x01600007`, proc
 `TitleProc`, 0x100 entries of 22 bytes at RAM `0x032ABC` (`RegisterTitle`). `GetModeNow`
 returns RAM `0x03EF82`, `GetModeOld` `0x03EF86`, `GetTitleNow` `0x03EF8A` and
-`GetTitleOld` `0x03EF8E`. The mode case (`ObjectEnum_Close`) updates those four
+`GetTitleOld` `0x03EF8E` (`MODE_NOW`, `MODE_OLD`, `TITLE_NOW`, `TITLE_OLD` in the maincpu source).
+The mode case (`ObjectEnum_Close`) updates those four
 variables. It then passes `0x01C00014` and `0x01C00015` on through `MainFuncCall`.
 
 Titles quoted by the code:
