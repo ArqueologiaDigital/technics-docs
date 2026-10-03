@@ -250,6 +250,11 @@ variables (`REGION_CODE_VAR` `0x408`, `SYSTEM_TIMESTAMP` `0x409`, `MSP_SETTINGS`
 Since 2026-10-03 the code uses these names in every maincpu tree (`ld (CPANEL_TX_RX_FLAGS:16), a`),
 each tree's constants carrying its own values -- v7's derived from the same instructions in the same
 routines (`scripts/tools/name_kn5000_ram.py`).
+The same -0x9C holds for every other v7 variable derived so far above `0x3000`: the master sequencer
+state (`SEQ_MASTER_STATE`, v10 `0x8D36`, v7 `0x8C9A`), the rhythm variation index, the medley state
+(`MEDLEY_PLAY_FLAG` v7 `0x8462`), the SwbtWr event queue and payload (v7 `0xBCA0`, `0xBFE1`) -- and
+`RHYTHM_ROM_BASE` (`0x3277` / `0x31DB`). The page-named ones are in each tree's
+`shared/ram_variables.s`.
 
 ### Button State
 
