@@ -376,6 +376,41 @@ Events use 32-bit codes divided into two spaces:
 | `DispatchEvent` | Route by type |
 | `ApPostEvent` | Application-level post |
 
+### Sound-editor title functions (`DirmdEmulator`)
+
+Each of the 32 sound-editor titles has an event proc, `SeXxxTitleFunc` (the firmware's own names, e.g.
+`SeAmpEnv1TitleFunc`). The proc copies a 16-byte method table, `SeXxxTitleFunc_Methods`, to the stack and calls
+`DirmdEmulator` with the event in XBC and its parameter in XDE. `DirmdEmulator` subtracts `EVT_NONE` and rejects
+anything outside 0..15. It then looks up a 16-bit offset in `DirmdEmulator_Data`, one per event, and jumps to
+`DirmdEmulator_Dispatch` plus that offset. Only four events have a case:
+
+| event | case | method called |
+|---|---|---|
+| `EVT_HIDE` | `DirmdEmulator_Dispatch` | +4 `SeXxxTitleFunc_OnHide` (`SeMenu_SetCurrentStep(0)`, then `SeMenu_ResetSubIndex`) |
+| `EVT_SW_IN`, switch number ≤ 255 | `DirmdEmu_OnSwitchIn` | +8 `SeXxxTitleFunc_OnSwitchIn`, with (switch & 31, bit 7) pushed |
+| `EVT_ALL_PAINT` | `DirmdEmu_OnAllPaint` | +0 `SeXxxTitleFunc_OnDraw`, after the drawing state is reset |
+| `EVT_PARA_DRAW` | `DirmdEmu_OnParaDraw` | +0 `SeXxxTitleFunc_OnDraw`, with the redraw mode byte set to 16 |
+
+The fourth method, +12 `SeXxxTitleFunc_Nop`, is a `jp` to a bare `ret`, and `DirmdEmulator` never calls it. Every
+event, handled or not, then runs `DirmdEmu_DefaultCase`, which posts the part-change, mode-change, refresh and
+other events whose request flags a method left set.
+
+`OnSwitchIn` jumps to the title's `SeXxxTitleFunc_DispatchSwitch`, which calls `SeTitle_DecodeSwitch`:
+
+| switch number | handler index | bank byte |
+|---|---|---|
+| 0–16 | the switch number | 1 for the second bank, else 0 |
+| 17–24 | switch − 17 | bit 7 set |
+| 25 | 16 | as above |
+| anything else | not handled (HL = 0xFFFF) | |
+
+For 28 titles, `DispatchSwitch` then calls `SeXxxTitleFunc_SwitchHandlers[index]` with WA = the bank byte. In
+v10, 27 of those tables hold 17 code pointers (indices 0–16) and a zero. SeFilLfo1's runs 14 slots up to the next
+label. `SeMenu` and `SeDigEff` decode the switch the same way but act on
+it in code, with no table. Source: `audio/sound_editor_routines.s` (the stubs), `audio/presentation_sound_nav.s`
+(`DirmdEmulator`), `audio/semenu_routines.s` (`SeTitle_DecodeSwitch`), and the tables in `kn5000_v*_program.s`.
+The same in v7, v9 and v10.
+
 ## Drawing Primitives API
 
 The firmware provides a complete set of drawing primitives that render to the offscreen buffer (0x43C00) and VRAM (0x1A0000-0x1DFFFF). These are defined in `drawing_primitives.s`.
