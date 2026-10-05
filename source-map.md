@@ -365,7 +365,7 @@ LZSS "SLIDE4K" update image on the firmware-update disk (see
 | File | Contents |
 |------|----------|
 | `kn5000_subprogram_v142.s` | The engine: RESET handler, initialisation, main audio loop, voice-slot management, tone-generator command emission, pitch/envelope processing, DSP register writes, the keybed service (`Keybed_Read_Event`, `ToneGen_Process_Notes`) |
-| `subcpu_vectors.s` | The 45 entry stubs at 0x0400 (`INT_HANDLER_00` … `INT_HANDLER_2C`): slot 0 is the payload entry point the boot ROM `call`s, the rest are the interrupt entries the boot ROM's vector table reaches — `INT_HANDLER_09` is the inter-CPU latch receive. Also the latch and state-variable definitions |
+| `subcpu_vectors.s` | The 45 entry stubs at 0x0400: slot 0, `PAYLOAD_ENTRY`, is the payload entry point the boot ROM `call`s. The other 44 are the interrupt entries the boot ROM's `VECTOR_TABLE` reaches, each named for its TMP94C241F vector (`IntTramp_SWI1` … `IntTramp_INTTC7`, and `IntTramp_NMI` in the last slot). `IntTramp_INT0` is the inter-CPU latch receive. Also the latch and state-variable definitions |
 | `subcpu_data_tables.s` | Firmware configuration, floating-point constants, serial I/O buffers, command dispatch table, voice polyphony limits, pitch/MIDI lookup tables, the DSP data zones and the effects-DSP microprogram table |
 | `subcpu_fp_math.s` | IEEE 754 floating-point library: double/single arithmetic, mantissa operations, multiply-add, division, pitch-slide engine, amplitude convergence, NaN/overflow handling |
 | `shared/sfr_tmp94c241.s` | TMP94C241 SFR names (the sub-CPU is the same part as the main CPU) |
