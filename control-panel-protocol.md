@@ -1343,6 +1343,13 @@ The `CPanel_RX_MultiBytePacket` handler has complex decoding logic:
 - Left panel: rows 0xC0-0xC8
 - Full mapping extracted from MAME driver cpanel_leds_w function
 
+**Button → LED map (firmware side).** `PanelButton_LedMap` (352 bytes in the program ROM, 0xEB7E8C in v10) gives,
+for each of the 22 panel input segments and each of its 8 button bits, the `{LED row, LED pattern}` that
+`EffectMode_MidiSetLEDs` passes to `Set_LEDs`: the pattern while the button is down, 0 when released. The row
+indexes `Protocol_values_for_LED_rows` (0-5 left panel 0xC0-0xC8, 6-14 right panel 0x00-0x0C). Buttons without an
+LED of their own hold `{0x0E, 0x0F}`, which is row 14, the four START/STOP beat LEDs. Source:
+`scripts/converters/panel_led_map_retype.py` in the disassembly repository.
+
 ### Encoder Physical Mapping (RESOLVED)
 
 Six encoder IDs have dedicated processing handlers (all send **absolute 8-bit ADC values**, not deltas):
