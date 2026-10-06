@@ -197,12 +197,12 @@ The KN5000 supports 26 internal voice channels (0x00-0x19) mapped to 16 external
 
 ### Channel Lookup Functions
 
-**`VoiceData_LookupPtrByChannel`** (Main CPU, `audio/audio_control_engine.s`):
+**`PanelTlv_CompanionOfPart`** (Main CPU, `audio/audio_control_engine.s`):
 - Input: A = MIDI channel (0x00-0x1F standard, 0x48 = drum)
 - Looks up pointer at `0xEDB264 + channel * 4`
 - Returns pointer in XHL (or 0xFFFFFFFF if not found)
 
-**`VoiceData_LookupPtrByIndex`** (Main CPU, `audio/audio_control_engine.s`):
+**`PanelTlv_PayloadOfTag`** (Main CPU, `audio/audio_control_engine.s`):
 - Input: A = voice index
 - Looks up pointer at `0xEDAE64 + index * 4`
 - Returns pointer in XHL
@@ -293,12 +293,12 @@ The accompaniment engine has its own MIDI filter system:
 | `MIDI_DispatchCC` | `midi/midi_dispatch_handlers.s` | CC dispatch via jump table at 0xFD175E |
 | `MidiChannel_ConfigureController` | `midi/midi_dispatch_handlers.s` | Configure MIDI controller for voice channel |
 | `MIDI_DistributeParamToChannels` | `audio/audio_control_engine.s` | Distribute param to all active channels |
-| `VoiceData_LookupPtrByChannel` | `audio/audio_control_engine.s` | Channel → voice data pointer (0xEDB264) |
-| `VoiceData_LookupPtrByIndex` | `audio/audio_control_engine.s` | Index → voice data pointer (0xEDAE64) |
+| `PanelTlv_CompanionOfPart` | `audio/audio_control_engine.s` | Channel → voice data pointer (0xEDB264) |
+| `PanelTlv_PayloadOfTag` | `audio/audio_control_engine.s` | Index → voice data pointer (0xEDAE64) |
 | `NoteMap_LookupVoice` | `note_voice_mapping.s` | Find voice slot for note event |
 | `NoteMap_SetChannelParam` | `note_voice_mapping.s` | Set MIDI channel parameter in note map |
 | `Voice_DecodeNoteChannel` | `kn5000_v10_program.s` | Decode note channel to voice assignment |
-| `Voice_InitAllChannelEntries` | `kn5000_v10_program.s` | Initialize all 23 voice channel entries |
+| `PanelTlv_ResolvePartCompanions` | `kn5000_v10_program.s` | Initialize all 23 voice channel entries |
 
 ## Related Pages
 

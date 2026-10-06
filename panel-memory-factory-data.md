@@ -140,6 +140,14 @@ the chunks above:
 * **`0x61`, `0x63`-`0x66`, `0x68`** have no rules; `PanelTlv_ValidateBlock0` passes the five
   effect records to `DSPCfg_WriteAllSlots_Combined` as slots 0-4 (tags `0x61 0x63 0x65 0x66 0x64`).
 
+Two small tables follow the schema. `PanelTlv_ResetMasks` (`0xED92D8`) is five {RAM address, AND
+mask} pairs -- tag `0x80` payload byte 0 `&= 0xFB`, tag `0x98` payload bytes 1, 3, 2, 11 `&= 0x80, 0xFE,
+0x3F, 0x3F` -- which `PanelTlv_ApplyResetMasks` applies on a tone-generator reinit before it fills the
+panel name with spaces. `PanelTlv_CompanionPartTags` (`0xED92F2`) lists the 23 records (parts
+`0x00`-`0x14`, `0x17`, and the style record `0x48`) whose companion record (`0xC0` + part, or `0x49`)
+`PanelTlv_ResolvePartCompanions` recomputes from the record's sound. The reinit runs: reset masks,
+validate (which zeroes every companion), recompute the companions, rewrite every header.
+
 The lists, written out with one `RULE_*` macro per rule, are C:
 `v10/maincpu/ui_widgets/naka_extension_device.c` (`PanelTlv_Rules_<tag>`, `panel_tlv_layout_t`), by
 `scripts/converters/panel_tlv_schema_retype.py`; the routines are in
