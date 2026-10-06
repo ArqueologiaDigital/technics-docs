@@ -381,7 +381,7 @@ Events use 32-bit codes divided into two spaces:
 Each of the 32 sound-editor titles has an event proc, `SeXxxTitleFunc` (the firmware's own names, e.g.
 `SeAmpEnv1TitleFunc`). The proc copies a 16-byte method table, `SeXxxTitleFunc_Methods`, to the stack and calls
 `DirmdEmulator` with the event in XBC and its parameter in XDE. `DirmdEmulator` subtracts `EVT_NONE` and rejects
-anything outside 0..15. It then looks up a 16-bit offset in `DirmdEmulator_Data`, one per event, and jumps to
+anything outside 0..15. It then looks up a 16-bit offset in `DirmdEmulator_CaseTable`, one per event, and jumps to
 `DirmdEmulator_Dispatch` plus that offset. Only four events have a case:
 
 | event | case | method called |
