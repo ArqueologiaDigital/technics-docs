@@ -134,7 +134,7 @@ This range is reserved/unused. The Main CPU may send these commands for padding 
 
 **Algorithm:**
 1. For each byte in the payload:
-   - If DRAM 4148 bit 2 is clear: call `Serial1_CommandHandler_RX_F4F5` directly (synchronous TX)
+   - If DRAM 4148 bit 2 is clear: call `Serial1_HandleEnableCommand` directly (synchronous TX)
    - If DRAM 4148 bit 2 is set: write byte to SC1 ring buffer (`0x1016`) and enable TX interrupt (buffered TX)
 2. Return HL = 0
 
@@ -250,7 +250,7 @@ which **no code reference has been found** — its "eight byte-pairs of handler 
 reading is a content hypothesis only, and is flagged as such in the source.
 
 For the DSP-side counterparts of these tables — the bytecode-interpreter handler table
-`OFFSETS_14739` and the translator table `OFFSETS_14745` — see the
+`DSP_BytecodeInterpreter_CaseOffsets` and the translator table `DSP_Translator_CaseOffsets` — see the
 [DSP Bytecode Interpreter]({{ site.baseurl }}/dsp-bytecode-interpreter/) page, and for the
 effect programs they dispatch into, the
 [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/).

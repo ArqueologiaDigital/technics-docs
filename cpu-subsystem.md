@@ -255,7 +255,7 @@ main-CPU kernel names to be wrong. The main-CPU source still carries these names
 | `TaskSched_ExitCurrentTask` | `Show_ScreenGroup_Entry_0x7A` | 20 B at +29 |
 | `TaskSched_PreemptiveYield` | `TaskSched_YieldToQueue` | 63 B at +21 |
 | `TaskSched_Block_Self` — blocks the **calling** task | `TaskSched_Resume` (0xEF1CEC) | 56 B at +15 |
-| `TaskEvent_Signal` / `TaskEvent_Wait_Block` | `TaskSched_SignalEvent` / `TaskSched_WaitForEvent_Block` | 38 B / 30 B |
+| `TaskEvent_Signal` / `TaskEvent_Wait_SuspendTask` | `TaskSched_SignalEvent` / `TaskSched_WaitForEvent_Block` | 38 B / 30 B |
 | `TaskSem_Release` (semaphore V) | `Audio_Lock_Release` (0xEF1F0F) | 44 B at +39 |
 | `TaskSem_Release_WakeWaiter` | `AudioLock_Release_WakeWaiter` | 16 B at +56 |
 | `TaskSem_TryDec` / `TaskSem_GetCount` | `AudioLock_TryAcquire` / `AudioLock_GetCount` | 22 B / 26 B |

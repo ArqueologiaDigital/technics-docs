@@ -202,7 +202,7 @@ DMA registers are accessed via special `LDC` (Load Control) instructions. ASL do
 | Routine | Address | Size | Function |
 |---------|---------|------|----------|
 | SendData_Chunked | 0xFF8604 | 69B | Sends data in 32-byte chunks |
-| SendData_Block | 0xFF8649 | 99B | Single block with handshaking |
+| InterCPU_SendChunk | 0xFF8649 | 99B | Single block with handshaking |
 | SendCmd_E3 | 0xFF86AC | 48B | Payload ready signal |
 | SendParams_E2 | 0xFF86DC | 112B | Wait then send E2 command |
 | TwoPhase_Transfer | 0xFF874C | 211B | Two-phase transfer with E1 |

@@ -921,7 +921,7 @@ debug/diagnostic tail at 0xFFFE80.
 | Routine | Address | Size | Description |
 |---------|---------|------|-------------|
 | `SendData_Chunked` | 0xFF8604 | 69 bytes | Send data in 32-byte chunks via DMA |
-| `SendData_Block` | 0xFF8649 | 99 bytes | Send single data block via DMA |
+| `InterCPU_SendChunk` | 0xFF8649 | 99 bytes | Send single data block via DMA |
 | `SendCmd_E3` | 0xFF86AC | 48 bytes | Send E3 (payload ready) command |
 | `SendParams_E2` | 0xFF86DC | 112 bytes | Wait for DMA, then send E2 command |
 | `TwoPhase_Transfer` | 0xFF874C | 211 bytes | Two-phase DMA with E1 command, 200-cycle delays |

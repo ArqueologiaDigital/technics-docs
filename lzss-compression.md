@@ -200,7 +200,7 @@ ROMs, table data, custom data, Sub-CPU) — nothing references it.
 Its stream is not merely "corrupt": decoding it reproduces the live German
 database **byte-for-byte for exactly 0x55E0 output bytes**, and then diverges.
 The reason is visible in the ROM layout: the factory image wrote the two Music
-Stylist pointer tables (`StyleRec_PtrTable_C2C5` at 0x986000 and
+Stylist pointer tables (`StyleRec_PtrTable_CategoryOrder` at 0x986000 and
 `StyleRec_PtrTable_Default` at 0x987000) straight over this obsolete block's
 tail. The last element decoded entirely from surviving bytes ends at ROM
 0x985FFE; the very next element reads its two bytes at 0x985FFF/0x986000 —

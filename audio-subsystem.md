@@ -616,7 +616,7 @@ The `count` field gives the number of data bytes following the header (after sub
 
 **Opcodes 0-5 Detail (Native Code Handlers):**
 
-Opcodes 0-5 dispatch to native TLCS-900 machine code subroutines within the `DSP_Bytecode_Programs` block at 0x03C32E. The dispatch table at `OFFSETS_14739` (0x014739) contains 16-bit offsets from 0x03C32E:
+Opcodes 0-5 dispatch to native TLCS-900 machine code subroutines within the `DSP_Bytecode_Programs` block at 0x03C32E. The dispatch table at `DSP_BytecodeInterpreter_CaseOffsets` (0x014739) contains 16-bit offsets from 0x03C32E:
 
 | Opcode | Offset | Handler Address | Approximate Size |
 |--------|--------|----------------|-----------------|

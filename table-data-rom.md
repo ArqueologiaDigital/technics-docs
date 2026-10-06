@@ -83,7 +83,7 @@ canonical table of contents. Large regions live in their own modules:
 | `0x951000-0x98156F` | 193 KB | Music Stylist records — 1000 x 198 B |
 | `0x981570-0x983B39` | 9.4 KB | Unreferenced residue of an older flash generation |
 | `0x983B3A-0x985FFF` | 9.2 KB | Stale, truncated SLIDE8K German HELP database |
-| `0x986000-0x986FFF` | 4 KB | `StyleRec_PtrTable_C2C5` + residue |
+| `0x986000-0x986FFF` | 4 KB | `StyleRec_PtrTable_CategoryOrder` + residue |
 | `0x987000-0x987FFF` | 4 KB | `StyleRec_PtrTable_Default` + residue |
 | `0x988000-0x98868F` | 1.6 KB | HELP language index (2 x 6 pointers) + five intro strings |
 | `0x988690-0x9999CB` | 69 KB | Five live SLIDE8K HELP databases |

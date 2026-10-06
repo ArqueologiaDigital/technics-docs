@@ -249,14 +249,14 @@ Synth Reggae, Jamaican Swing
 
 | symbol | address | contents |
 |:---|:---|:---|
-| `StyleRec_PtrTable_C2C5` | `0x986000` | 1000 x 4-byte LE pointer, then 96 bytes of residue (`StyleRec_PtrTable_C2C5_Residue` @ `0x986FA0`) |
+| `StyleRec_PtrTable_CategoryOrder` | `0x986000` | 1000 x 4-byte LE pointer, then 96 bytes of residue (`StyleRec_PtrTable_CategoryOrder_Residue` @ `0x986FA0`) |
 | `StyleRec_PtrTable_Default` | `0x987000` | 1000 x 4-byte LE pointer, then 96 bytes of residue (`StyleRec_PtrTable_Default_Residue` @ `0x987FA0`) |
 
 Each occupies one 4 KB page; 1000 x 4 = 4000 bytes, leaving 96 bytes at the end of each
 page. Every pointer in both tables lands exactly on a grid record (verified:
 `(p - 0x951000) % 198 == 0` and in range for all 2000 entries).
 
-`StyleRec_PtrTable_C2C5` is the **identity** permutation: entry *n* points at record *n*,
+`StyleRec_PtrTable_CategoryOrder` is the **identity** permutation: entry *n* points at record *n*,
 so the order is the ten categories in sequence -- browsing by category, i.e. the STYLE
 EXPLORER order.
 

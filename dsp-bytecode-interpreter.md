@@ -92,7 +92,7 @@ door all do the same `byte(0x01ED6D + slot)` fetch.
 Opcodes `0x6`-`0xC` are consumed and ignored. Termination is by **peek**: the stream ends
 when the *next* byte's high nibble is `0xF`, so the `0xF0` terminator is not executed.
 
-Handler dispatch table: `OFFSETS_14739` at `0x014739` — 6 signed `u16` offsets relative to
+Handler dispatch table: `DSP_BytecodeInterpreter_CaseOffsets` at `0x014739` — 6 signed `u16` offsets relative to
 base `0x03C32E`, decoding to handlers at `0x03C32E`, `0x03C568`, `0x03C661`, `0x03C708`,
 `0x03C7A1`, `0x03C7BB`. Handler code: 1,613 bytes of embedded machine code at
 `DSP_Bytecode_Programs` (`0x03C32E`), still kept as raw bytes in the disassembly because of
@@ -132,7 +132,7 @@ unsupported addressing modes.
 | 0x7A | (end) | — | Terminate bytecode block |
 | 0xF0 | (separator) | — | Separator between parameter slots |
 
-Translator dispatch table: `OFFSETS_14745` at `0x014745` — 25 signed `u16` offsets relative
+Translator dispatch table: `DSP_Translator_CaseOffsets` at `0x014745` — 25 signed `u16` offsets relative
 to base `0x03CB8E`, indexed by `opcode - 0x61` for opcodes `0x61`-`0x79`. Opcodes `0x21`,
 `0x24` and `0x40` are special-cased *before* this table; anything else aborts via
 `DSP_Op_Unknown_Error`. Note that opcode `0x79` is a real entry (offset `0x88`, target

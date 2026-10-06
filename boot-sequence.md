@@ -1117,7 +1117,7 @@ Main CPU                          Sub CPU
 | Routine | Address | Size | Description |
 |---------|---------|------|-------------|
 | SendData_Chunked | 0xFF8604 | 69B | Break large transfers into 32-byte chunks |
-| SendData_Block | 0xFF8649 | 99B | Send single block with handshaking |
+| InterCPU_SendChunk | 0xFF8649 | 99B | Send single block with handshaking |
 | SendCmd_E3 | 0xFF86AC | 48B | Signal payload complete |
 | SendParams_E2 | 0xFF86DC | 112B | Send E2 parameter block |
 | TwoPhase_Transfer | 0xFF874C | 211B | Execute E1 two-phase sequence |

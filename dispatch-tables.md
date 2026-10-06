@@ -171,9 +171,9 @@ The following dispatch sites were labeled with semantic names:
 | `AccIll_Dispatch` | sequencer_ui.s | Accompaniment illustration dispatch |
 | `EffectBox_Dispatch` | sequencer_ui.s | Effect box dispatch |
 | `SeqAccomp_Dispatch` | sequencer_ui.s | Sequencer accompaniment dispatch |
-| `Sqedt_ParamDispatch` | sequencer_ui.s | Sequencer editor param dispatch |
-| `Sqedt_ValueDispatch` | sequencer_ui.s | Sequencer editor value dispatch |
-| `SeqFormat_DispatchA` | sequencer_ui.s | Sequencer format dispatch A |
+| `SqedtFunc_OnGetTrkString` | sequencer_ui.s | Sequencer editor param dispatch |
+| `SqedtFunc_OnCurToParam_CursorPos0` | sequencer_ui.s | Sequencer editor value dispatch |
+| `SqedtFunc_OnChkCur_AtCursorPos0` | sequencer_ui.s | Sequencer format dispatch A |
 | `SeqFormat_DispatchB` | sequencer_ui.s | Sequencer format dispatch B |
 | `DspItem0_TypeDispatch` | sequencer_ui.s | DSP item 0 type dispatch |
 | `Equalizer_DispatchA` | sequencer_ui.s | Equalizer dispatch A |

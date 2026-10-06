@@ -206,7 +206,7 @@ consumer at all.
 | zone | Sub CPU range | size | contents |
 |------|---------------|------|----------|
 | A0 | `0x00F7E6`-`0x012114` | 10,543 B | audio-command jump tables and opcode→case maps, TG power-up defaults, per-key bend/pan/level/EG curve families, the 12-row `DSP_ChanFreq_CurvePool` (`0x011016`), the 14 × 39-byte `DSP_AlgoDescriptor_Records` (`0x011E16`), TVF and envelope curves, two DSP1 image-header strings |
-| A | `0x012195`-`0x014738` | 9,636 B | `DSP_EQ_FreqHz_Table` (`0x012397`, 27 × f32 ISO ⅓-octave centres) and `DSP_EQ_Q_Table` (`0x012403`, 32 × f32), five Q23 coefficient ladders (`DSP_FreqParamCurve_Algo0/1/2` at `0x012483`/`0x012613`/`0x0127A3`, `DSP_OscParamCurve` at `0x0129A3`, `DSP_CoeffCurve_Op62` at `0x012B33`), `DSP_FP_ConstPool` (`0x012CD3`), `DSP_MixerGain_Curve` (`0x0131CF`), and the per-effect parameter metadata complex from `0x0133CF` — `EFF_ParamCount_Table` (`0x0143AD`), `EFF_ParamRanges_PtrTable` (`0x014411`), `EFF_ParamDefaults_PtrTable` (`0x0145A1`) — which is a byte- and relocation-identical copy of main-CPU `0xEE4FC6-0xEE636B`, read by the main CPU's `DSPCfg_*` routines and by nothing in this payload ([details]({{ site.baseurl }}/dsp-effect-data-zone/#the-main-cpu-holds-the-same-metadata-and-reads-it)), plus the two interpreter offset tables `OFFSETS_14739` and `OFFSETS_14745` |
+| A | `0x012195`-`0x014738` | 9,636 B | `DSP_EQ_FreqHz_Table` (`0x012397`, 27 × f32 ISO ⅓-octave centres) and `DSP_EQ_Q_Table` (`0x012403`, 32 × f32), five Q23 coefficient ladders (`DSP_FreqParamCurve_Algo0/1/2` at `0x012483`/`0x012613`/`0x0127A3`, `DSP_OscParamCurve` at `0x0129A3`, `DSP_CoeffCurve_Op62` at `0x012B33`), `DSP_FP_ConstPool` (`0x012CD3`), `DSP_MixerGain_Curve` (`0x0131CF`), and the per-effect parameter metadata complex from `0x0133CF` — `EFF_ParamCount_Table` (`0x0143AD`), `EFF_ParamRanges_PtrTable` (`0x014411`), `EFF_ParamDefaults_PtrTable` (`0x0145A1`) — which is a byte- and relocation-identical copy of main-CPU `0xEE4FC6-0xEE636B`, read by the main CPU's `DSPCfg_*` routines and by nothing in this payload ([details]({{ site.baseurl }}/dsp-effect-data-zone/#the-main-cpu-holds-the-same-metadata-and-reads-it)), plus the two interpreter offset tables `DSP_BytecodeInterpreter_CaseOffsets` and `DSP_Translator_CaseOffsets` |
 | B | `0x0147B3`-`0x01E17E` | 39,372 B | the DSP effect program + parameter zone: bytecode streams and parameter record tables for all 100 effect-algorithm numbers — documented on its own page, [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/) |
 
 Two readings the earlier raw-blob banners carried were **refuted** by the carve and are
@@ -414,7 +414,7 @@ The port_r fix affects BOTH Port D (PDCR=0x63: bits 0-1=output) AND Port Z (PZCR
 
 ### Fix 6: DMAR Software-Triggered Burst DMA
 
-Analysis of the SubCPU payload's main loop revealed that `InterCPU_DMA_Send_Chunk` (at `0x020CF3`) uses the `DMAR` register to trigger DMA channel 2 for sending data back to the Main CPU. After triggering, it waits in `DMA_Chunk_Wait` for `DMA_XFER_STATE` to be cleared by the `MICRODMA_CH2_HANDLER` interrupt (INTTC2 at vector `0x9C`).
+Analysis of the SubCPU payload's main loop revealed that `InterCPU_DMA_SendDataPacket` (at `0x020CF3`) uses the `DMAR` register to trigger DMA channel 2 for sending data back to the Main CPU. After triggering, it waits in `DMA_Chunk_Wait` for `DMA_XFER_STATE` to be cleared by the `MICRODMA_CH2_HANDLER` interrupt (INTTC2 at vector `0x9C`).
 
 **Bug:** The previous `dmar_w()` implementation called `process_hdma()`, which requires a matching interrupt flag to be pending. Software-triggered DMA via DMAR should bypass the interrupt check and perform a burst transfer (all DMAC units at once), then fire INTTC on completion.
 
@@ -663,7 +663,7 @@ This section captures the detailed reasoning process behind each investigation s
 5. Without port_r fix: `SET 1, (PZ)` reads PZ → bit 0 from callback (=0), losing the previously-written MSTAT0. This is WRONG.
 6. **Conclusion:** MSTAT 2↔3 means MSTAT1 is set (signaling "transfer complete") and MSTAT0 is toggling. This is correct protocol behavior that was masked before because SET/RES clobbered the other bit.
 
-**Verified DMA ch2 infrastructure:** The SubCPU's `InterCPU_DMA_Send_Chunk` configures DMA ch2 with Timer 2 triggering (DMA2V=0x16, T23MOD=0x1D with T1 clock, TREG2=0x14). Timer 2 fires INTT2 every 2560 cycles (128µs), each triggering one HDMA byte transfer from RAM to maincpu latch. INTTC2 fires on completion, dispatching to `MICRODMA_CH2_HANDLER` at 0x020F01. All infrastructure is correctly implemented — INTTC2=0 simply means the SubCPU hasn't reached `InterCPU_DMA_Send` yet during the interrupted test.
+**Verified DMA ch2 infrastructure:** The SubCPU's `InterCPU_DMA_SendDataPacket` configures DMA ch2 with Timer 2 triggering (DMA2V=0x16, T23MOD=0x1D with T1 clock, TREG2=0x14). Timer 2 fires INTT2 every 2560 cycles (128µs), each triggering one HDMA byte transfer from RAM to maincpu latch. INTTC2 fires on completion, dispatching to `MICRODMA_CH2_HANDLER` at 0x020F01. All infrastructure is correctly implemented — INTTC2=0 simply means the SubCPU hasn't reached `InterCPU_DMA_Send` yet during the interrupted test.
 
 ### DMA Macro Name Confusion (Side Investigation)
 
