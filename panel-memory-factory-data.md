@@ -178,7 +178,7 @@ parameter's key is `0x8000 + 0x400*tag + k`, with `k` the MIDI controller number
 | +0 | all | sound (CC 0) | `SndParam_Part00_Sound` |
 | +1 | 0-6 | bank (CC 32) | `SndParam_Part00_Bank` |
 | +3 | 0-6 | volume (CC 7) | `SndParam_Part00_Volume` |
-| +3 | 7 | `k = 0x08`, a 1-bit flag | |
+| +3 | 7 | mute (`k = 0x08`; the mixer draws "MUTE" when it is 1) | `SndParam_Part00_Mute` |
 | +4 | 3 | sustain (CC 64; the SUSTAIN button) | `SndParam_Part00_Sustain` |
 | +4 | 6 | digital effect (CC 94; the DIGITAL EFFECT button) | `SndParam_Part00_DigitalEffect` |
 | +5 | 0-6 | chorus send (CC 93) | `SndParam_Part00_ChorusSend` |
@@ -187,6 +187,17 @@ parameter's key is `0x8000 + 0x400*tag + k`, with `k` the MIDI controller number
 | +9 | 0-6 | `k = 0x82`, range 52-76 (64 +/- 12) | |
 | +10 / +11 | | `k = 0x81` / `0x80` (0-255 / 0-12) | |
 | +12 / +13 | | set by the sound-parameter banks, kept by panel-memory recall | |
+
+The mute row comes from the mixer widget (2026-10-06). `AcMixerVol_Channels` (28 entries, typed in
+`naka_disk_warning.c`) pairs each mixer channel's volume key with its mute key. `AcMixerVol_DrawChannel` prints the
+volume and draws "MUTE" when the mute value is 1, and for channels 0-22 the keys are `k = 0x07` / `0x08` of tag
+0-22. The same table's channel names give the tags their panel names:
+
+| tag | 0 | 1 | 2 | 3-15 | 16-18 | 19 | 20 | 21 | 22 |
+|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|
+| mixer channel | RT1 | RT2 | LEFT | PT4-PT16 | ACP1-ACP3 | BASS | DRUM | CHRD | RTBS |
+
+Evidence: `analysis/disk-format-probes/README-lsw-param-namespace-map.md`, section 6.
 
 So +9 is not the second half of a pan pair, as the cross-record table above guessed. Its range is 52-76, which
 is 64 +/- 12.
