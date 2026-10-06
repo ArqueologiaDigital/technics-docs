@@ -26,13 +26,12 @@ members, so nothing in the repository said what they were.
 
 ## 1. Where they live
 
-The whole zone is inside one binary include. `v10/maincpu/ui_widgets/widget_descriptors.s`
-contains a single directive:
-
-```
-NakaData_WidgetDescriptors:
-	.incbin "includes/generated/naka_widget_descriptors.bin"
-```
+The whole zone is inside one binary include. When this page was first written,
+`v10/maincpu/ui_widgets/widget_descriptors.s` held a single directive for it
+(`NakaData_WidgetDescriptors: .incbin "includes/generated/naka_widget_descriptors.bin"`).
+Since then the directive has been cut into labelled slices of the same file
+(`DspValueText_ReverbTime: .incbin "...", 0x0, 0x1F4` and so on), one per object other code
+reaches into.
 
 That 150,888-byte file (ROM `0xE30E60-0xE55BC7`) is a **build product**, not a dump slice:
 the Makefile compiles `v10/maincpu/ui_widgets/naka_widget_descriptors.c` with
@@ -187,13 +186,81 @@ ELF:
 | `DspItem0_DisplayParamNames` | `0xF3561F` | `DspParamName_Table` | param id × `0x11`, `Strncpy` 17 bytes, 8 rows per page |
 | `DspItem0_DisplayParamValues` | `0xF3566C` | `DspParamUnit_Table` | same param id × 2, `Strncpy` 2 bytes |
 | `EntertainerGridCheck` | `0xF30326` | `DspEffectName_PtrTable` | takes the table address into a stack slot |
+| `FormatParamValueStr` | `0xF35B02` | the 16 `DspValueText_*` tables | param id → value format, see [§6](#6-parameter-value-formats) |
 
 Both parameter routines get their id the same way: the per-effect ordered id list is a
 byte array whose base address is taken with `lda_d16 xbc, (0x29ac)`, and the row index of
 the first line on the current page is the byte at `0x021098`. The loop paints eight rows
 (`cpw (xsp + 18), 0x8`), so a screen is a sliding window into that id list.
 
-## 6. Cross-reference to the Sub-CPU algorithms
+## 6. Parameter value formats
+
+The value shown next to each parameter name is written by `FormatParamValueStr`
+(`sequencer/sequencer_ui.s`, called from the effect editor's `OnGetEffDltNStr` handlers). The
+routine reads two things for row *r*: the parameter id (the byte at RAM `0x29AC + r`, the same id
+that indexes the name and unit tables) and the value (the word at RAM `0x2978 + 2r`). It writes
+a 7-character cell: a space, five value characters, and another space.
+
+**The parameter id alone picks the format.** No per-effect format table is involved:
+
+| Parameter id | Format | Routine |
+|:---|:---|:---|
+| `0x00`, `0x55` (the blank slots) | five spaces | `DspParamFmt_Blank` |
+| `0x40`, `0x41`, `0x47` | LFO-speed text, tested directly | `DspParamFmt_LfoSpeed` |
+| `0x49` | rotor-speed text, tested directly | `DspParamFmt_RotorSpeed` |
+| `0x08`-`0x19`, `0x20`-`0x39` | byte `[id - 8]` / `[id - 14]` of `DspParamFmt_CaseByParamId` (44 bytes) selects one of 18 cases of `DspParamFmt_CaseTable` | `DspParamFmt_BySwitch` |
+| any other id | `sprintf("%5d", value)` | `DspParamFmt_Decimal` |
+
+Inside the switch:
+
+* case 1 is `"%5d"`;
+* case 12 is the signed form `" -%3d"` / `" +%3d"` / `"  %3d"` (`DspParamFmt_Signed`), used by
+  ids `0x0B` RESONANCE, `0x18` FEEDBACK L, `0x19` FEEDBACK R and `0x39` FEEDBACK;
+* every other case passes one value-text table to `DspParamFmt_CopyValueText`, which copies cell
+  `[value]` with `Strncpy(dst, table + 5*value, 5)`.
+
+That gives 16 tables of 5-character cells (space-padded, no terminator). They sit at the very
+start of the blob, before `DspParamUnit_Table`:
+
+| Table | Blob offset | Cells | First .. last | Unit | Parameter ids |
+|:---|:---|---:|:---|:---|:---|
+| `DspValueText_ReverbTime` | `+0x0000` | 100 | `0.10` .. `30.00` (+ two `.` cells) | s | `0x22` REVERB TIME |
+| `DspValueText_HighDampGain` | `+0x01F4` | 25 | `-24.0` .. `0.0` | - | `0x24` HIGH DAMP GAIN |
+| `DspValueText_GateTime` | `+0x0272` | 100 | `10` .. `2900` | ms | `0x2E` GATE TIME, `0x2F` MASK TIME |
+| `DspValueText_ReleaseRate` | `+0x0466` | 100 | `0.01` .. `1.00` | s | `0x2D` RELEASE RATE |
+| `DspValueText_AttackRate` | `+0x065A` | 100 | `0.2` .. `20.0` | s | `0x2C` ATTACK RATE |
+| `DspValueText_SensTime` | `+0x084E` | 100 | `0.001` .. `0.100` | s | `0x2A` ATTACK SENS., `0x2B` RELEASE SENS. |
+| `DspValueText_Pitch` | `+0x0A42` | 73 | `-1200` .. `+1200` | - | `0x26` PITCH L, `0x27` PITCH R |
+| `DspValueText_SlowFast` | `+0x0BB0` | 2 | `SLOW` .. `FAST` | - | `0x0D` SLOW/FAST |
+| `DspValueText_WindTime` | `+0x0BBA` | 100 | `1.0` .. `61.00` | s | `0x10` WIND UP, `0x11` WIND DOWN |
+| `DspValueText_RotorSpeed` | `+0x0DAE` | 100 | `0.0` .. `34.95` | Hz | `0x0E` TREBLE FAST, `0x0F` SLOW, `0x12` BASS   FAST, `0x13` BASS   SLOW, `0x49` FAST |
+| `DspValueText_OscSpeed` | `+0x0FA2` | 100 | `0` .. `19.6k` | Hz | `0x15` OSC SPEED |
+| `DspValueText_Waveform` | `+0x1196` | 3 | `SIN` .. `SQU` | - | `0x31` LFO WAVEFORM, `0x32` OSC WAVEFORM |
+| `DspValueText_LfoSpeed` | `+0x11A6` | 100 | `0.0` .. `40.2` | Hz | `0x08` LFO SPEED, `0x09` SLOW LFO SPEED, `0x40` FAST LFO SPEED L, `0x41` FAST LFO SPEED R, `0x47` FAST LFO SPEED |
+| `DspValueText_EqGain` | `+0x139A` | 49 | `-12.0` .. `+12.0` | - | `0x35` BAND EMPHASIS  G |
+| `DspValueText_EqQ` | `+0x1490` | 32 | `0.1` .. `20.0` | - | `0x34` BAND EMPHASIS  Q |
+| `DspValueText_EqFreq` | `+0x1530` | 27 | `40` .. `16k` | Hz | `0x20` HIGH EMPHASIS FC, `0x33` BAND EMPHASIS FC |
+
+Notes on the table:
+
+* The unit column is `DspParamUnit_Table`'s entry for those ids; every id that shares a table has
+  the same unit. A `-` means the entry is two spaces.
+* Fifty ids print their raw value with `"%5d"`. Among them are every VOLUME, DRY/WET, DEPTH and
+  PAN, and all the delay times in ms.
+* Two tables are also read outside the effect editor. The master equalizer screen
+  (`EqualizerCngFunc`) uses `DspValueText_EqGain` and `DspValueText_EqFreq` for its band gains and
+  frequencies, and `EntertainerGridCheck` loads the addresses of those two and of
+  `DspValueText_ReverbTime`.
+* Until 2026-10-06 the formatter was named as an "Equalizer" routine
+  (`Equalizer_FormatDispatch`, `Equalizer_FormatDefault`, `EqFormat_PositiveValue` ...). The
+  tables were named after whatever label preceded them (`Equalizer_FormatDefault_Data_5`,
+  `EntertainerGridCheck_Data_3`, `NakaData_WidgetDescriptors` ...), and in C they were
+  `DspValueText_<offset>`.
+
+`scripts/tools/name_dsp_param_value_formats.py` derives the id → format map from each tree's
+code and bytes and asserts it, in v10, v9 and v7 alike, before it names anything.
+
+## 7. Cross-reference to the Sub-CPU algorithms
 
 Every effect-name member in `naka_widget_descriptors.c` now carries a comment naming the
 `DSP_EffNN_*` / `DSP2_EffNN_*` blocks it labels in `v142/subcpu/subcpu_data_tables.s`.
@@ -218,7 +285,7 @@ bytes that differ between the v7 blob and the v9/v10 blob falls inside
 `+0x15B8`-`+0x2719`; the differences are relocated code pointers elsewhere in the
 descriptor material.
 
-## 7. Caveats and open items
+## 8. Caveats and open items
 
 * **The blob is still one `.incbin`.** Only the naming zone has been identified; most of
   the 150,888-byte struct is still `field_XXXX` / `ptr_XXXX` members with no meaning
