@@ -95,6 +95,56 @@ That adds up: 20 + 13x26 + 78 + 5x26 + 106 + 2 = 674.
 Note the chunk order in the stream is not tag order -- `0x44 0x45 0x46 0x47 0x43 0x48`
 is the literal sequence in every record.
 
+### The firmware's own schema: layout tables and field rules
+
+The main CPU carries the stream's layout and a validation rule for every byte of it, in the
+program ROM at `0xED8ADA`-`0xED92D7` (identical in v7, v9 and v10):
+
+| ROM | what | source name |
+|:---|:---|:---|
+| `0xED8ADA` | 32 field-rule lists, each ended by `0xFF` (plus one `0xFF` pad when odd) | `PanelTlv_FieldRules` |
+| `0xED8FE0` | 46 x 10-byte layout records of block 0 | `PanelTlv_Block0_Layout` |
+| `0xED91AC` | 30 x 10-byte layout records of block 1 | `PanelTlv_Block1_Layout` |
+
+A layout record is `{u32 offset of the record from the block base, u32 -> its rule list, u8 tag,
+u8 len}`. Block 0 is the live panel at RAM `0xF9A0` and each of the 80 panel memories at
+`0x1ED400 + 960*n`; block 1 is the live panel's second part at `0xFD60`. The records chain
+(`offset[i+1] = offset[i] + 2 + len[i]`, checked for all 76), and each block's last record is tag
+`0xFF`, length `0xFF`: the `FF FF` end mark. `PanelTlv_WriteRecordHeader` stores tag and length;
+`PanelTlv_ValidateRecord` applies the rules to the payload one at a time, through
+`PanelTlv_ApplyFieldRule`, whose type byte picks one of nine cases:
+
+| type | rule | effect on payload byte `off` |
+|:---|:---|:---|
+| 0 / 1 / 2 | `{t, off, mask}` | `&= mask` / `&= ~mask` / `\|= mask` |
+| 3 | `{3, off, mask, lo, hi, dflt}` | field (`byte & mask`) outside `lo..hi` -> `dflt` |
+| 4 | `{4, off, mask, lo, hi, dflt}` | field inside `lo..hi` -> `dflt` |
+| 5 | `{5, off, mask, n, dflt, v1..vn}` | field not among the `n` values -> `dflt` |
+| 6 | `{6, off, mask, n, dflt, v1..vn}` | field among the values -> `dflt` |
+| 7 | `{7, off, value}` | `= value` |
+| 8 | `{8, off}` | `= 0` |
+
+A reset keeps the bits outside the mask: `byte = (byte & ~mask) | dflt`. What the rules say about
+the chunks above:
+
+* **`0x78`**: bytes 0-15 must be `0x20..0x7D`, else a space; bytes 16 and 17 are zeroed (the
+  `00 00` in all 80 records). The list checks byte 13 twice and byte 14 never -- as in the ROM.
+* **Sound numbers** (`+0` of a part block): tags `0x10`-`0x12` reset anything above 167 to 21;
+  tag `0x13` resets to **40**, the bass part's default (slot 40 is *Electric Bass*). The drum
+  parts `0x15`, `0x16`, `0x19` (and `0x17`, `0x18` in block 1) reset only 168..239 to 1, so they
+  accept 0..167 and 240..255 -- the melodic sounds and the drum kits, rejecting the hole between.
+* **`0x48` byte 0** carries a type-3 and a type-4 rule on the same byte: it accepts 0..157 and
+  240..244, default 96.
+* **`0xC0`-`0xD4`, `0xD7`** (22 block-1 records of 18 bytes): every byte has a type-8 rule, so
+  validation clears them all.
+* **`0x61`, `0x63`-`0x66`, `0x68`** have no rules; `PanelTlv_ValidateBlock0` passes the five
+  effect records to `DSPCfg_WriteAllSlots_Combined` as slots 0-4 (tags `0x61 0x63 0x65 0x66 0x64`).
+
+The lists, written out with one `RULE_*` macro per rule, are C:
+`v10/maincpu/ui_widgets/naka_extension_device.c` (`PanelTlv_Rules_<tag>`, `panel_tlv_layout_t`), by
+`scripts/converters/panel_tlv_schema_retype.py`; the routines are in
+`v10/maincpu/audio/tonegen_fileio_handlers.s`.
+
 ### The 24-byte sound-part block
 
 Thirteen chunks per record carry a 24-byte sound-part payload (`0x00`-`0x03`, `0x0F`,
@@ -240,6 +290,8 @@ Open items on this block:
 
 * every chunk except the name chunk is undecoded at field level; the sound-part field
   guesses above have not been checked against the tone-generator command format;
+  the firmware's own per-byte validation rules are decoded (above), which constrains every
+  field but does not name it;
 * the meaning of the tags themselves (why `0x43`-`0x48`, `0x60`-`0x66`, `0x70`-`0x72`,
   `0x80`, `0x90`-`0x99`) is unknown;
 * the preset-15 `0x19`/`0xC0` outlier is unexplained;

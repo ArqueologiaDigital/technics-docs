@@ -44,8 +44,8 @@ Demo_SelectEntry_TimerTick
   -> Demo_ParseSlideHeader
   -> Demo_SelectEntry_PlaySong
        -> ToneGen_FileIO_SaveAndSync
-            -> ToneGen_Config_InitAllEntries
-                 -> DSPCfg_InitAllEntries (46 iterations)
+            -> PanelTlv_ValidateLivePanel
+                 -> PanelTlv_ValidateBlock0 (46 iterations)
                       -> DSPCfg_WriteAllSlots_Combined (x5 per iteration)
        -> SoundParam_NotifyMultipleChanges
             -> SoundParam_NotifyChange (x3 channels)
@@ -244,8 +244,8 @@ flowchart TD
     PARSE --> PLAY["Demo_SelectEntry_PlaySong"]
 
     PLAY --> SAVE["ToneGen_FileIO_SaveAndSync<br/>Save current tone gen state"]
-    SAVE --> INIT["ToneGen_Config_InitAllEntries"]
-    INIT --> DSP["DSPCfg_InitAllEntries<br/>(46 iterations)"]
+    SAVE --> INIT["PanelTlv_ValidateLivePanel"]
+    INIT --> DSP["PanelTlv_ValidateBlock0<br/>(46 iterations)"]
     DSP --> SLOTS["DSPCfg_WriteAllSlots_Combined<br/>(x5 per iteration = 230 writes)"]
     SLOTS --> NOTIFY["SoundParam_NotifyMultipleChanges"]
 
