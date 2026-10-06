@@ -360,10 +360,14 @@ Without filtering, these produce 2 INTA sessions per ghost toggle, flooding the 
 
 ### From a button change to an action (2026-10-06)
 
-A segment change becomes a 3-byte record `{event index, old byte, new byte}` in a queue at RAM `0x8E94`
+A segment change becomes a 3-byte record `{event index, new state, changed bits}` in a queue at RAM `0x8E94`
 (count at `0x8EC4`). The event index is the one above: 0-10 = left-panel segments 0-10,
-11-21 = right-panel segments 0-10, 22-25 = left-panel headers `0xD1`, `0xD2`, `0xD3`, `0xD7`, 26-30 = other
-inputs. For each record, `PanelButton_DispatchChange` walks one **action list**, chosen by the event
+11-21 = right-panel segments 0-10, 22-24 = left-panel headers `0xD1`, `0xD2`, `0xD3`, 25 = header `0xD7`, the TEMPO/PROGRAM data wheel (records
+`{0x19, ±delta, 0xFF}`: the kn7000_mame data-wheel patch feeds exactly these and was verified on screen, see its
+`notes/upstream-patches/README.md`, PR 9), 26 = the
+modulation wheel and 27 = the volume slider (`ENCODER_0` / `ENCODER_1`, queued by `PanelInput_QueueWheelChanges`),
+28 = foot switches FS1/FS2 (PG.2-3), 29 = foot controllers FC1-FC4 (PG.4-7), 30 = PD.6 (the pedal records of
+`PanelInput_ScanPedalPorts`; see [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/)). For each record, `PanelButton_DispatchChange` walks one **action list**, chosen by the event
 index from `PanelButton_ActionLists` (ROM `0xED9C1E`), or from `PanelButton_HelpModeActionLists`
 (`0xED9C9E`) in mode 20, `MD_HELP`. An action is 8 bytes:
 
@@ -375,9 +379,11 @@ index from `PanelButton_ActionLists` (ROM `0xED9C1E`), or from `PanelButton_Help
 | +3 | mask | the button bits of the segment byte |
 | +4 | handler | u32 code address |
 
-For each action, `old & mask` and `new & mask` are shifted by the count. When the new value is not 0, the
-handler is called with the frame `{event_id, event_arg, old, new}` and the raw `{0xAA, index, old byte,
-new byte}` after it. Most handlers filter on the mode or a panel parameter, then post one or both 4-byte
+For each action, `state & mask` and `changed & mask` are shifted by the count. When the masked changed bits
+are not 0, the handler is called with the frame `{event_id, event_arg, state, changed}` and the raw `{0xAA,
+index, state byte, changed byte}` after it. (Corrected the same day: the first version of this section read the
+record as `{old byte, new byte}`; the pedal scan, `PanelInput_UpdatePedalRecord`, writes `new ^ old` as the
+third byte, and `PanelButton_PairDown` tests the state byte for press or release.) Most handlers filter on the mode or a panel parameter, then post one or both 4-byte
 events with `PanelEvent_Post` (a 16-deep queue at `(0xC039)`). The event ids `0x48`, `0x60`, `0x70`,
 `0x90` and `0x98` are panel-record tags (see [Panel Memory Factory Data]({{ site.baseurl }}/panel-memory-factory-data/)).
 An id of `0x00`, used by the sound-group buttons, is replaced by the byte at RAM `0x8D3A` before posting
@@ -495,16 +501,16 @@ typed in `ui_widgets/naka_extension_device.c` (`panel_button_action_t`, `PanelAc
 | 22 | -- | -- (`0xFF`) | `0xB1`, `0x00` | `PanelAction_Event22` |
 | 23 | -- | -- (`0x7F`) | `0xB2`, `0x00` | `PanelAction_Event23` |
 | 24 | -- | -- (`0x7F`) | `0xB0`, `0x00` | `PanelEvent_Post` |
-| 25 | -- | -- (`0xFF`) | `0xA9`, `0x21` | `PanelAction_PostUnlessDemo` |
-| 26 | -- | -- (`0x7F`) | `0xB0`, `0x01` | `PanelAction_Event26` |
-| 27 | -- | -- (`0x7F`) | `0xB4`, `0x00` | `PanelAction_Event27` |
-| 28 | -- | -- (`0x01`) | `0xA9`, `0x32` | `PanelAction_Event28Bit0` |
-| 28 | -- | -- (`0x02`) | `0xA9`, `0x33` | `PanelAction_Event28Bit1` |
-| 29 | -- | -- (`0x01`) | `0xA9`, `0x34` | `PanelAction_Event29Bit0` |
-| 29 | -- | -- (`0x02`) | `0xA9`, `0x35` | `PanelAction_Event29Bit1` |
-| 29 | -- | -- (`0x04`) | `0xA9`, `0x36` | `PanelAction_Event29Bit2` |
-| 29 | -- | -- (`0x08`) | `0xA9`, `0x37` | `PanelAction_Event29Bit3` |
-| 30 | -- | -- (`0x01`) | `0xA8`, `0x41` | `PanelEvent_Post` |
+| 25 | -- | TEMPO/PROGRAM data wheel (header 0xD7; records {0x19, delta, 0xFF}, kn7000_mame PR 9) (`0xFF`) | `0xA9`, `0x21` | `PanelAction_PostUnlessDemo` |
+| 26 | -- | modulation wheel (ENCODER_0) (`0x7F`) | `0xB0`, `0x01` | `PanelAction_ModWheel` |
+| 27 | -- | volume slider (ENCODER_1) (`0x7F`) | `0xB4`, `0x00` | `PanelAction_Volume` |
+| 28 | -- | foot switch FS1 (PG.2) (`0x01`) | `0xA9`, `0x32` | `PanelAction_FootSwitch1` |
+| 28 | -- | foot switch FS2 (PG.3) (`0x02`) | `0xA9`, `0x33` | `PanelAction_FootSwitch2` |
+| 29 | -- | foot controller FC1 (PG.4) (`0x01`) | `0xA9`, `0x34` | `PanelAction_FootController1` |
+| 29 | -- | FC2 (PG.5) (`0x02`) | `0xA9`, `0x35` | `PanelAction_FootController2` |
+| 29 | -- | FC3 (PG.6) (`0x04`) | `0xA9`, `0x36` | `PanelAction_FootController3` |
+| 29 | -- | FC4 (PG.7) (`0x08`) | `0xA9`, `0x37` | `PanelAction_FootController4` |
+| 30 | -- | PD.6 (`0x01`) | `0xA8`, `0x41` | `PanelEvent_Post` |
 
 The `arg` of the LCD buttons is the sound editor's switch number (see [UI Framework]({{ site.baseurl }}/ui-framework/)):
 0-7 the bottom columns, 8-12 the side rows. The `PanelButton_PairDown` side (DOWN n, LEFT n, PAGE DOWN,

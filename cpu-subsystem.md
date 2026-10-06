@@ -166,8 +166,8 @@ addresses are `PD = 0x30`, `PE = 0x38`, `PG = 0x40`, `PZ = 0x68`.
 | PZ.7–PZ.4 | input | COM SELECT rotary switch — MIDI / MAC / PC1 / PC2 |
 | P7.5 | input | flash ready/busy, polled before every flash command |
 
-**Port G is the pedal port, and its pins are active low.** `MIDI_ProcessVoiceAssignment`
-(`v10/maincpu/audio/audio_control_engine.s:1848`, reached from `Audio_PeriodicUpdate`)
+**Port G is the pedal port, and its pins are active low.** `PanelInput_ScanPedalPorts`
+(`v10/maincpu/audio/audio_control_engine.s:1848`, reached from `PanelInput_Poll`)
 reads `PG` three times per periodic tick: bits 3:2 are shifted down and stored as the foot
 switch byte at DRAM `0x8EB6`, and bits 7:4 are shifted down and stored as the foot
 controller byte at `0x8EBA`. The polarity is not an inference — the firmware's own idle
