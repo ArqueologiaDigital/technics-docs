@@ -228,6 +228,30 @@ same `(tag, 24, payload)` grammar, tagged `0x04` through `0x0E`, and every one o
 factory presets gets the identical copy spliced in. The assembled RAM image is therefore a
 45-chunk stream of 960 bytes carrying 24 sound parts, with tags `0x17` and `0x18` unused.
 
+### How a panel memory is recalled
+
+`PanelMemory_SlotAddresses` (program ROM `0xEB7942`, typed in `ui_widgets/naka_style_bitmaps.c`) gives the RAM
+address of every slot: 0-79 are `0x1ED400 + 960*n`, and slot 80 is RAM `0x3C2C4`, the Music Stylist record's
+mirror of the panel stream (`EffectMode_ReinitSoundOutput` passes slot code `0x80`, which is read as 80).
+
+`PanelMemory_Recall` (`ui/bitmap_out_routines.s`) recalls a slot in five steps:
+
+1. It backs up the live panel block (`0xF9A0`, 960 bytes) to RAM `0x3C8E4`.
+2. It checks that the slot opens with a name record (tag `0x78`) of the live panel's length.
+3. It chooses one of three ways to copy the slot over the live panel:
+   - **all records** (`PanelMemory_RecallRecords`), when RAM `0x8D52` bit 2 is set. The records are copied
+     one by one, and each part record keeps its payload byte 13 and the low 3 bits of byte 12. These are the
+     bits the sound-parameter banks set;
+   - **keep the style** (`PanelMemory_RecallKeepStyle`), when bit 1 is set. Tag `0x48` bytes 0, 1 (the
+     style number) and 7, the low 3 bits of byte 4, and tag `0x72` bytes 8-10 are put back from the backup;
+   - **keep the accompaniment** (`PanelMemory_RecallKeepAccompaniment`), when panel parameter `0x302` is 1.
+     Part records `0x10`-`0x14` and fields of tags `0x48` and `0x72` are put back. Otherwise, all records.
+4. It calls `ToneGen_DispatchByMode`.
+5. It calls `BitMapOut_DetectChanges`, which starts with `PanelTlv_ResolvePartCompanions`.
+
+The routine names are from kn5000-roms-disasm `scripts/renaming/rename_panel_memory_recall.sed`. That file
+opens with a VGA palette loader, and its `BitMapOut_` prefix had spread over this code.
+
 ## Composer factory memory image (0x9B4000-0x9C3FFF)
 
 The 64 KB immediately after the Panel Memory fill is `Composer_FactoryMemoryImage`: the
