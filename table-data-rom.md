@@ -261,8 +261,11 @@ the DAC data port in that order. Every pixel of both images is in 0xE0-0xEF, the
 ramp at trailer `+0x380` (`Wallpaper0_ShadeRamp`, the `WallpaperRamp_*` set in
 `ui_bitmaps.s`). The loader of entries 0xE0-0xEF (`ChangeWallPalette_Impl`, via the RAM
 table at `0x3F1E4`) has not been traced back to that slot. The older note that "no code
-reference to these ramps has been found" is superseded. The wallpaper table itself still
-sits under the positional labels `ChangeWall_Impl_Data` / `ChangePalette_Impl_Data` in the main-CPU source.
+reference to these ramps has been found" is superseded. The wallpaper table itself is 5 records of
+`{u32 bitmap, u32 palette, u16 0}`. In the main-CPU source it sits under `ChangeWall_WallpaperTable` (record 0's
+bitmap pointer) and `ChangePalette_WallpaperPalettes` (`ChangePalette_Impl` indexes from there with stride 10).
+Those labels were named from their readers in 2026-10-06 (`analysis/nakarest-slices/` in the disassembly
+repository); they were the positional `ChangeWall_Impl_Data` / `ChangePalette_Impl_Data` before.
 
 ## UI bitmaps, frames and icons (0x912C00-0x944D77)
 

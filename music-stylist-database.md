@@ -108,7 +108,7 @@ RAM `0x03C2C4`:
 
 * `EffectMode_ClampAndLookupPreset` returns `record + 77`.
   `EffectMode_ProcessPresetChange` stores it at RAM `0x8D60`.
-* `EffectMode_UpdateBitFlags` walks `EffectMode_UpdateBitFlags_CheckCount_Data` (ROM `0xEB7BDA` in v7,
+* `EffectMode_UpdateBitFlags` walks `EffectMode_PresetFieldMap` (ROM `0xEB7BDA` in v7,
   v9 and v10): 30 entries `{u32 panel offset from 0xF9A0, u8 sub-offset, u8 count}` ended
   by `u32 0xFF`. It copies parameter bytes 0..112 in order. **That table is the record
   layout.**
