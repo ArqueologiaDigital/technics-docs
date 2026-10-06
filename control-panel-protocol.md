@@ -358,6 +358,159 @@ A state change must be stable for **2 consecutive scans (14 ms)** before being r
 
 Without filtering, these produce 2 INTA sessions per ghost toggle, flooding the firmware's event queue with phantom events.
 
+### From a button change to an action (2026-10-06)
+
+A segment change becomes a 3-byte record `{event index, old byte, new byte}` in a queue at RAM `0x8E94`
+(count at `0x8EC4`). The event index is the one above: 0-10 = left-panel segments 0-10,
+11-21 = right-panel segments 0-10, 22-25 = left-panel headers `0xD1`, `0xD2`, `0xD3`, `0xD7`, 26-30 = other
+inputs. For each record, `PanelButton_DispatchChange` walks one **action list**, chosen by the event
+index from `PanelButton_ActionLists` (ROM `0xED9C1E`), or from `PanelButton_HelpModeActionLists`
+(`0xED9C9E`) in mode 20, `MD_HELP`. An action is 8 bytes:
+
+| offset | field | use |
+|---:|:---|:---|
+| +0 | event_id | 0xFF ends the list |
+| +1 | event_arg | |
+| +2 | shift | bits 3-0 = count, bit 4 = shift left (else right) |
+| +3 | mask | the button bits of the segment byte |
+| +4 | handler | u32 code address |
+
+For each action, `old & mask` and `new & mask` are shifted by the count. When the new value is not 0, the
+handler is called with the frame `{event_id, event_arg, old, new}` and the raw `{0xAA, index, old byte,
+new byte}` after it. Most handlers filter on the mode or a panel parameter, then post one or both 4-byte
+events with `PanelEvent_Post` (a 16-deep queue at `(0xC039)`). The event ids `0x48`, `0x60`, `0x70`,
+`0x90` and `0x98` are panel-record tags (see [Panel Memory Factory Data]({{ site.baseurl }}/panel-memory-factory-data/)).
+An id of `0x00`, used by the sound-group buttons, is replaced by the byte at RAM `0x8D3A` before posting
+(`FileIO_BytecodeData_Code_Helper2`). `0xA8` / `0xA9` are not tags.
+
+For most actions `event_id` is a panel-record tag and `event_arg` a payload byte of it, and the shift
+moves the button bit onto the record bit:
+
+- VARIATION 1-4 → tag `0x48` byte 7, the variation slot of the style record (see
+  [Music Stylist Database]({{ site.baseurl }}/music-stylist-database/));
+- DIGITAL REVERB (`0x08` << 4) and ACOUSTIC ILLUSION (`0x10` << 2) → tag `0x60` byte 1, bits 7 and 6, the
+  effect-slot ON/OFF bits;
+- CONDUCTOR → tag `0x90` bytes 0-1, R1/R2 OCTAVE → tag `0x90` byte 4.
+
+Not every action fits. PART SELECT's `event_arg` is `0x10`, beyond tag `0x90`'s 6-byte payload.
+
+**The masks fall exactly on the buttons the MAME driver names per segment and bit**
+(`kn5000.cpp`, `PORT_START("CPL_SEGn")` / `("CPR_SEGn")`). For example, VARIATION 1-4 is one action with
+mask `0x0F`, the eight sound-group buttons one action with `0xFF`, and every UP / DOWN / LEFT / RIGHT
+button one action of its own. That agreement is the evidence for this reading, and it is what names the
+handlers.
+
+The table below is the ordinary table, `PanelButton_ActionLists`. In `MD_HELP`, every button but
+the LCD buttons and HELP goes to `PanelButton_HelpMode`. Produced by
+`python3 scripts/converters/panel_button_actions_retype.py --report` (kn5000-roms-disasm); the lists are
+typed in `ui_widgets/naka_extension_device.c` (`panel_button_action_t`, `PanelActions_*`).
+
+| index | segment | buttons (mask) | event id, arg | handler |
+|---:|:---|:---|:---|:---|
+| 0 | CPL 0 | STANDARD ROCK, R & ROLL & BLUES, POP & BALLAD, FUNK & FUSION, SOUL & MODERN DANCE, BIG BAND & SWING, JAZZ COMBO (`0x7F`) | `0x48`, `0x00` | `PanelButton_RhythmGroup` |
+| 1 | CPL 1 | MEMORY (`0x01`) | `0x48`, `0x00` | `PanelButton_RhythmGroup` |
+| 1 | CPL 1 | MENU (`0x02`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
+| 1 | CPL 1 | SET (`0x04`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
+| 1 | CPL 1 | ON/OFF (`0x08`) | `0xA8`, `0x06` | `PanelAction_PostUnlessDemoOrParamC0` |
+| 1 | CPL 1 | MUSIC STYLIST (`0x10`) | `0xA8`, `0x02` | `PanelAction_PostUnlessDemoOrParamC0` |
+| 1 | CPL 1 | FADE IN (`0x20`) | `0x98`, `0x0B` | `PanelAction_PostUnlessDemo` |
+| 1 | CPL 1 | FADE OUT (`0x40`) | `0x98`, `0x0B` | `PanelAction_PostUnlessDemo` |
+| 2 | CPL 2 | FILL IN 1 (`0x01`) | `0x48`, `0x05` | `PanelAction_PostUnlessDemo` |
+| 2 | CPL 2 | FILL IN 2 (`0x02`) | `0x48`, `0x05` | `PanelAction_PostUnlessDemo` |
+| 2 | CPL 2 | INTRO & ENDING 1 (`0x04`) | `0x48`, `0x05` | `PanelAction_PostUnlessDemo` |
+| 2 | CPL 2 | INTRO & ENDING 2 (`0x08`) | `0x48`, `0x06` | `PanelAction_PostUnlessDemo` |
+| 2 | CPL 2 | PAGE DOWN (`0x40`) | `0xA9`, `0x10` | `PanelButton_PairDown` |
+| 2 | CPL 2 | PAGE UP (`0x80`) | `0xA9`, `0x10` | `PanelButton_PairUp` |
+| 3 | CPL 3 | DEMO (`0x01`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
+| 3 | CPL 3 | MSP BANK (`0x02`) | `0xA8`, `0x09` | `PanelAction_PostUnlessDemoOrParamC0` |
+| 3 | CPL 3 | MSP MENU (`0x04`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
+| 3 | CPL 3 | MSP STOP/RECORD (`0x08`) | `0xA8`, `0x09` | `PanelAction_PostUnlessDemoOrParamC0` |
+| 4 | CPL 4 | VARIATION 1, VARIATION 2, VARIATION 3, VARIATION 4 (`0x0F`) | `0x48`, `0x07` | `PanelButton_Variation` |
+| 4 | CPL 4 | MUSIC STYLE ARRANGER (`0x10`) | `0x98`, `0x03` | `PanelButton_MusicStyleArranger` |
+| 4 | CPL 4 | SPLIT POINT (`0x20`) | `0x70`, `0x00` | `PanelButton_SplitPoint` |
+| 4 | CPL 4 | AUTO PLAY CHORD (`0x40`) | `0xA8`, `0x05` | `PanelButton_AutoPlayChord` |
+| 5 | CPL 5 | MSP 1, MSP 2, MSP 3, MSP 4, MSP 5, MSP 6 (`0x3F`) | `0xA8`, `0x09` | `PanelButton_MspNumber` |
+| 6 | CPL 6 | U.S. TRAD, COUNTRY, LATIN, MARCH & WALTZ, PARTY TIME, SHOWTIME & TRAD DANCE, WORLD, CUSTOM (`0xFF`) | `0x48`, `0x00` | `PanelButton_RhythmGroup` |
+| 7 | CPL 7 | RIGHT 5 (`0x01`) | `0xA9`, `0x0C` | `PanelButton_PairUp` |
+| 7 | CPL 7 | RIGHT 4 (`0x02`) | `0xA9`, `0x0B` | `PanelButton_PairUp` |
+| 7 | CPL 7 | DISPLAY HOLD (`0x04`) | `0xA8`, `0x03` | `PanelAction_PostUnlessDemo` |
+| 7 | CPL 7 | EXIT (`0x08`) | `0xA9`, `0x0F` | `PanelButton_PairUp` |
+| 7 | CPL 7 | DOWN 7 (`0x10`) | `0xA9`, `0x06` | `PanelButton_PairDown` |
+| 7 | CPL 7 | UP 7 (`0x20`) | `0xA9`, `0x06` | `PanelButton_PairUp` |
+| 7 | CPL 7 | DOWN 8 (`0x40`) | `0xA9`, `0x07` | `PanelButton_PairDown` |
+| 7 | CPL 7 | UP 8 (`0x80`) | `0xA9`, `0x07` | `PanelButton_PairUp` |
+| 8 | CPL 8 | RIGHT 3 (`0x01`) | `0xA9`, `0x0A` | `PanelButton_PairUp` |
+| 8 | CPL 8 | RIGHT 2 (`0x02`) | `0xA9`, `0x09` | `PanelButton_PairUp` |
+| 8 | CPL 8 | RIGHT 1 (`0x04`) | `0xA9`, `0x08` | `PanelButton_PairUp` |
+| 8 | CPL 8 | DOWN 5 (`0x10`) | `0xA9`, `0x04` | `PanelButton_PairDown` |
+| 8 | CPL 8 | UP 5 (`0x20`) | `0xA9`, `0x04` | `PanelButton_PairUp` |
+| 8 | CPL 8 | DOWN 6 (`0x40`) | `0xA9`, `0x05` | `PanelButton_PairDown` |
+| 8 | CPL 8 | UP 6 (`0x80`) | `0xA9`, `0x05` | `PanelButton_PairUp` |
+| 9 | CPL 9 | LEFT 5 (`0x01`) | `0xA9`, `0x0C` | `PanelButton_PairDown` |
+| 9 | CPL 9 | LEFT 4 (`0x02`) | `0xA9`, `0x0B` | `PanelButton_PairDown` |
+| 9 | CPL 9 | LEFT 3 (`0x04`) | `0xA9`, `0x0A` | `PanelButton_PairDown` |
+| 9 | CPL 9 | DOWN 3 (`0x10`) | `0xA9`, `0x02` | `PanelButton_PairDown` |
+| 9 | CPL 9 | UP 3 (`0x20`) | `0xA9`, `0x02` | `PanelButton_PairUp` |
+| 9 | CPL 9 | DOWN 4 (`0x40`) | `0xA9`, `0x03` | `PanelButton_PairDown` |
+| 9 | CPL 9 | UP 4 (`0x80`) | `0xA9`, `0x03` | `PanelButton_PairUp` |
+| 10 | CPL 10 | LEFT 2 (`0x01`) | `0xA9`, `0x09` | `PanelButton_PairDown` |
+| 10 | CPL 10 | LEFT 1 (`0x02`) | `0xA9`, `0x08` | `PanelButton_PairDown` |
+| 10 | CPL 10 | HELP (`0x04`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
+| 10 | CPL 10 | OTHER PARTS/TR (`0x08`) | `0xA9`, `0x0F` | `PanelButton_PairDown` |
+| 10 | CPL 10 | DOWN 1 (`0x10`) | `0xA9`, `0x00` | `PanelButton_PairDown` |
+| 10 | CPL 10 | UP 1 (`0x20`) | `0xA9`, `0x00` | `PanelButton_PairUp` |
+| 10 | CPL 10 | DOWN 2 (`0x40`) | `0xA9`, `0x01` | `PanelButton_PairDown` |
+| 10 | CPL 10 | UP 2 (`0x80`) | `0xA9`, `0x01` | `PanelButton_PairUp` |
+| 11 | CPR 0 | TRANSPOSE - (`0x20`) | `0xA9`, `0x0E` | `PanelButton_PairDown` |
+| 11 | CPR 0 | TRANSPOSE + (`0x40`) | `0xA9`, `0x0E` | `PanelButton_PairUp` |
+| 12 | CPR 1 | ORGAN & ACCORDION, ORCHESTRAL PAD, SYNTH, BASS, DIGITAL DRAWBAR, ACCORDION REGISTER, GM SPECIAL, DRUM KITS (`0xFF`) | `0x00`, `0x00` | `PanelButton_SoundGroup` |
+| 13 | CPR 2 | PIANO, GUITAR, STRINGS & VOCAL, BRASS, FLUTE, SAX & REED, MALLET & ORCH PERC, WORLD PERC (`0xFF`) | `0x00`, `0x00` | `PanelButton_SoundGroup` |
+| 14 | CPR 3 | SUSTAIN (`0x01`) | `0x00`, `0x04` | `PanelButton_Sustain` |
+| 14 | CPR 3 | DIGITAL EFFECT (`0x02`) | `0x00`, `0x04` | `PanelButton_DigitalEffect` |
+| 14 | CPR 3 | DSP EFFECT (`0x04`) | `0x00`, `0x05` | `PanelButton_DspEffect` |
+| 14 | CPR 3 | DIGITAL REVERB (`0x08`) | `0x60`, `0x01` | `PanelButton_DigitalReverb` |
+| 14 | CPR 3 | ACOUSTIC ILLUSION (`0x10`) | `0x60`, `0x01` | `PanelButton_AcousticIllusion` |
+| 15 | CPR 4 | LEFT, RIGHT 2, RIGHT 1 (`0x07`) | `0x90`, `0x10` | `PanelButton_PartSelect` |
+| 15 | CPR 4 | ENTERTAINER (`0x08`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
+| 15 | CPR 4 | CONDUCTOR: LEFT (`0x10`) | `0x90`, `0x01` | `PanelButton_Conductor` |
+| 15 | CPR 4 | CONDUCTOR: RIGHT 2 (`0x20`) | `0x90`, `0x00` | `PanelButton_Conductor` |
+| 15 | CPR 4 | CONDUCTOR: RIGHT 1 (`0x40`) | `0x90`, `0x00` | `PanelButton_Conductor` |
+| 15 | CPR 4 | TECHNI CHORD (`0x80`) | `0x48`, `0x04` | `PanelAction_PostUnlessDemoOrParamC0` |
+| 16 | CPR 5 | SEQUENCER: PLAY (`0x08`) | `0xA8`, `0x14` | `PanelButton_SequencerPlay` |
+| 16 | CPR 5 | SEQUENCER: EASY REC (`0x10`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
+| 16 | CPR 5 | SEQUENCER: MENU (`0x20`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
+| 17 | CPR 6 | PM 1, PM 2, PM 3, PM 4, PM 5, PM 6, PM 7, PM 8 (`0xFF`) | `0x98`, `0x01` | `PanelButton_PanelMemoryNumber` |
+| 18 | CPR 7 | PANEL MEMORY: SET (`0x01`) | `0x98`, `0x01` | `PanelButton_PanelMemorySet` |
+| 18 | CPR 7 | PANEL MEMORY: NEXT BANK (`0x02`) | `0xA8`, `0x04` | `PanelButton_PanelMemoryNextBank` |
+| 18 | CPR 7 | PANEL MEMORY: BANK VIEW (`0x04`) | `0xA8`, `0x05` | `PanelButton_PanelMemorySet` |
+| 19 | CPR 8 | R1/R2 OCTAVE -, R1/R2 OCTAVE + (`0x18`) | `0x90`, `0x04` | `PanelButton_Octave` |
+| 19 | CPR 8 | START/STOP (`0x20`) | `0x48`, `0x05` | `PanelButton_StartStop` |
+| 19 | CPR 8 | SYNCHRO & BREAK (`0x40`) | `0x48`, `0x05` | `PanelButton_SynchroBreak` |
+| 19 | CPR 8 | TAP TEMPO (`0x80`) | `0xA8`, `0x12` | `PanelAction_PostUnlessDemo` |
+| 20 | CPR 9 | MEMORY A, MEMORY B (`0xC0`) | `0x00`, `0x00` | `PanelButton_SoundGroup` |
+| 21 | CPR 10 | MENU: SOUND (`0x04`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
+| 21 | CPR 10 | MENU: CONTROL (`0x08`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
+| 21 | CPR 10 | MENU: MIDI (`0x10`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
+| 21 | CPR 10 | MENU: DISK (`0x20`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
+| 22 | -- | -- (`0xFF`) | `0xB1`, `0x00` | `PanelAction_Event22` |
+| 23 | -- | -- (`0x7F`) | `0xB2`, `0x00` | `PanelAction_Event23` |
+| 24 | -- | -- (`0x7F`) | `0xB0`, `0x00` | `PanelEvent_Post` |
+| 25 | -- | -- (`0xFF`) | `0xA9`, `0x21` | `PanelAction_PostUnlessDemo` |
+| 26 | -- | -- (`0x7F`) | `0xB0`, `0x01` | `PanelAction_Event26` |
+| 27 | -- | -- (`0x7F`) | `0xB4`, `0x00` | `PanelAction_Event27` |
+| 28 | -- | -- (`0x01`) | `0xA9`, `0x32` | `PanelAction_Event28Bit0` |
+| 28 | -- | -- (`0x02`) | `0xA9`, `0x33` | `PanelAction_Event28Bit1` |
+| 29 | -- | -- (`0x01`) | `0xA9`, `0x34` | `PanelAction_Event29Bit0` |
+| 29 | -- | -- (`0x02`) | `0xA9`, `0x35` | `PanelAction_Event29Bit1` |
+| 29 | -- | -- (`0x04`) | `0xA9`, `0x36` | `PanelAction_Event29Bit2` |
+| 29 | -- | -- (`0x08`) | `0xA9`, `0x37` | `PanelAction_Event29Bit3` |
+| 30 | -- | -- (`0x01`) | `0xA8`, `0x41` | `PanelEvent_Post` |
+
+The `arg` of the LCD buttons is the sound editor's switch number (see [UI Framework]({{ site.baseurl }}/ui-framework/)):
+0-7 the bottom columns, 8-12 the side rows. The `PanelButton_PairDown` side (DOWN n, LEFT n, PAGE DOWN,
+TRANSPOSE -, OTHER PARTS/TR) keeps a held-button mask at RAM `0x8E84`, and the `PanelButton_PairUp` side
+keeps one at `0x8E88`.
+
 ## 4. State Machine
 
 ### Serial Routine State Machine

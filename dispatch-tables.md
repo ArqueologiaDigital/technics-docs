@@ -309,7 +309,7 @@ During this sprint, **569 dispatch labels** were created or verified:
 | ui_widget_defs.s | 23 | ObjectProc, EventHandler/EventRoute, DrawTask/DrawFunc pipeline, ApTimer, RootContext, FunctionProc, MainSendEvent/PostEvent |
 | drawbar_panel_ui.s | 9 | PsMixer (ControlHelper, EventCallback, GridLoop), AudioCtrl (MixerDispatch, ArrayRead) |
 | note_voice_mapping.s | 7 | VoiceEvent_TypeDispatch, SeqEvtBuf_NoteDispatch, MidiSysMsg_Handler, HdaeRom handlers |
-| file_io_engine.s | 6 | FileIO_CallbackHandler, BitmaskDispatch, MidiCtrl/VoiceNote/Part dispatches |
+| file_io_engine.s | 6 | PanelButton_DispatchChange_Call, BitmaskDispatch, MidiCtrl/VoiceNote/Part dispatches |
 | dsp_config_sysex.s | 5 | VoiceInit, AudioModeChange, AudioSubsystem/Voice callbacks |
 | sound_editor_ui.s | 3 | FloppyDisk_LoadNoteEvents, ComputeToneParams, CopyNoteBuffers |
 | midi_voice_routing.s | 3 | FileData/MidiTable/SeqData dispatch handlers |
