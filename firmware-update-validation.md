@@ -125,18 +125,23 @@ Scans the Table Data ROM (`0x800000`-`0xA00000`) in 64-byte blocks, checking if 
 
 This is used at boot to detect whether the Table Data ROM has been erased (requiring re-programming from the staging area), not to verify the integrity of a completed update.
 
-### HDAE5000_ROM_Transfer (0xEF48CF)
+### HDAE5000_VerifyFlashAgainstWindow (0xEF48CF)
 
-Transfers data between Table Data ROM and HDAE5000 ROM via the PPI interface at `0x160000`. This routine **does** verify each word transferred matches the source:
+This routine was named `HDAE5000_ROM_Transfer` and described as a transfer. It writes nothing: it compares a
+flash with a 512 KB window, bank by bank. Each bank number is written to the port at `0x160000`, and the routine
+compares `0x40000` words. It returns `XHL = 0` when everything matches, and otherwise the flash address just
+after the first mismatch.
 
-```
-; Verify loop (simplified)
-read_word_from_destination
-compare_with_source
-if_mismatch: return error (XHL != 0)
-```
+`HDAE5000_TableData_Write` (`0xEF49A5`) uses it as the read-back check of its own programming. It runs:
 
-However, this is used for HDAE5000 ROM initialization at boot, not during the floppy update process.
+1. `HDAE5000_ProgramTableDataFlash` (`0xEF4953`): programs the 2 MB table-data flash at `0x800000` from the window
+   at `0x280000`, banks 0-3.
+2. `HDAE5000_ProgramCustomDataFlash` (`0xEF4901`): programs the custom-data flash at `0x300000` from the window
+   at `0x200000`, banks 0-1.
+3. This routine, on each of the two flashes. On a mismatch the firmware halts in `LED_BlinkBit2Forever` or
+   `LED_BlinkBit3Forever`.
+
+That path runs from the HD-AE5000 side at boot, not during the floppy update process.
 
 ## Error States
 
@@ -215,7 +220,7 @@ For a detailed analysis of the floppy update attack surface, see [Floppy Securit
 | `Flash_WaitUntilReady` | `0xEF3AED` | Flash ready polling |
 | `Erase_and_Burn____when_disk_is_valid` | `0xEF4745` | Type range validation + dispatch |
 | `TableData_ROM_Verify` | `0xEF48AE` | Boot-time ROM erasure check |
-| `HDAE5000_ROM_Transfer` | `0xEF48CF` | Verified ROM-to-ROM transfer |
+| `HDAE5000_VerifyFlashAgainstWindow` | `0xEF48CF` | Read-back compare of a programmed flash with its banked window |
 | `SHOW_ILLEGAL_DISK_MESSAGE` | `0xEF482A` | Fatal error display + halt |
 | `Detect_Region_Code` | `0xEF083E` | Hardware region detection |
 

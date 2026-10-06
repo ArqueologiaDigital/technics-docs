@@ -29,7 +29,7 @@ The `HdaeRom_DataHandler` and `HdaeRom_DataDispatch` routines — which manage c
 
 ### 3. Flash Memory Save/Restore Adjustments
 
-The `TmFlash_WriteRoutine` and `PostTmSave`/`PostTmLoad` functions received minor adjustments to their internal branch targets and parameter passing, likely to accommodate the SendPartDataBlock restructuring.
+The `TmFlash_WriteRoutine` (now `Flash_GetSlotAddressAndSize`) and `PostTmSave`/`PostTmLoad` functions received minor adjustments to their internal branch targets and parameter passing, likely to accommodate the SendPartDataBlock restructuring.
 
 ### 4. Debug Utility Code Changes
 
