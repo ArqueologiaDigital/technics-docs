@@ -175,20 +175,33 @@ touched by a disk install.
 |:---|:---|
 | `+0x000` | 16-byte header, starting `"HK "` |
 | `+0x010` / `+0x110` / `+0x210` | banks 0 / 1 / 2: 39 six-byte entries `{u32 RAM address, u8 b4, u8 b5}` = 234 (`0xEA`) bytes, padded with `0xFF` to the next 0x100 |
-| `+0x400` | a 0x50-byte block written with the defaults and read back by `ToneGen_FlashReadAndRestore` |
+| `+0x400` | a 0x50-byte block written with the defaults and read back by `SndParamBank_RestoreOptionBlock` |
 
 Readers and writers (v10):
 
 - `SndParam_GetBlockPointer` returns ROM records for parameter blocks 0..0x18 and
   `0x3D3010` / `0x3D3110` / `0x3D3210` for blocks 0x1B / 0x1C / 0x1D, the three user banks.
 - `SndParam_CopyPreset` writes 0xEA bytes to a bank with `FlashWrite`.
-- `ToneGen_FlashVerify` / `ToneGen_FlashWriteAll`: when the first 3 bytes differ from the ROM
+- `SndParamBank_CheckFlash` / `SndParamBank_WriteFlashDefaults`: when the first 3 bytes differ from the ROM
   default (`0xED933A`), they write the defaults (header + bank 0 from `0xED933A`, banks 1-2 from
   `0xED9434` / `0xED951E`) and the 0x50-byte block at `+0x400`.
 - `SndParam_ApplyBaseBlock` applies a bank's first 23 entries (RAM addresses `0xF9C2`,
   `0xF9DC`, … on a 0x1A stride), and `SndParam_ApplyMaskBlock` the other 16, as
   `*addr = (*addr & ~b4) | b5` (addresses `0xFD50`-`0xFD5C`). Both skip entries whose address
   is 0; in this dump entries 36-38 are unused.
+- *(Corrected 2026-10-06, from the code.)* The two halves are applied differently.
+  `SndParam_ApplyBaseBlock` (entries 0-22) does not mask: it writes `addr[0] = (addr[0] & 0xF8) | b4` and
+  `addr[1] = b5` -- the low 3 bits of payload byte 12 and the whole of byte 13 (the part/routing byte; see
+  [Panel Memory Factory Data]({{ site.baseurl }}/panel-memory-factory-data/)) of the 23 part records
+  `0x00`-`0x0F`, `0x19`, `0x10`-`0x15`. Only `SndParam_ApplyMaskBlock` (entries 23-38) is
+  `*addr = (*addr & ~b4) | b5`: tag `0x80` payload bytes 0-12, and in 9 of the 25 ROM presets also tag
+  `0x70` bytes 0-1 (`0xFD02`/`0xFD03`, entries 36-37).
+- The 25 ROM presets (`SndParam_PresetBanks`, `sound_config_lookup.c`) and the three factory defaults
+  (`SndParamBank_Default0`-`2`, `naka_extension_device.c`) are typed in C as `snd_param_base_entry_t[23]`
+  + `snd_param_mask_entry_t[16]`, each entry annotated with the record byte it sets
+  (`scripts/converters/sndparam_bank_retype.py`). The routines above are now `SndParamBank_CheckFlash` /
+  `SndParamBank_WriteFlashDefaults`; the 0x50-byte block at `+0x400` is copied to RAM `0x340E4`.. by
+  `SndParamBank_LoadOptionBlock` and rebuilt on a factory reset by `SndParamBank_RestoreOptionBlock`.
 
 In the IC19 dump the header and bank 0 differ from the ROM default in 14 of 0xFA bytes, values
 only: the unit's user had edited them. Source: the `CustomData_SndParamBanks` header in
