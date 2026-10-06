@@ -351,7 +351,7 @@ A property type is a procedure called with the event in XBC. It converts one pro
 Three storage shapes recur, and the labels inside each routine are named after these roles (`<Type>_OnSetPropertyEx`, `<Type>_SetProp_CompareName`, `<Type>_ForwardToCommon` ...):
 
 * **Plain value** (`ColorIDProc`, `BorderIDProc`, `AlignmentIDProc`, `EditSwStyleIDProc`, `EditSwIDProc`, `LineModeIDProc`, `FrameIDProc`, `UserIDProc`, `PartIDProc`, `TrackIDProc`, `IntTimeIDProc`, `ViewFlagProc`): GET/DUMP store the id, SET parses through `CommonIDProc`, and everything else is forwarded to it.
-* **Index into a name table** (`FontIDProc` uses the RAM table at `0x3EFAC`; `IconIDProc` uses `IconIDProc_PtrTable`; `BitmapIDProc` uses `BitmapIDProc_PtrTable`, which has 34 entries): SET searches the table with `Strcmp`, GET/DUMP copy `table[id]`, and the choice count is `<Type>_EntryCount`.
+* **Index into a name table** (`FontIDProc` uses the RAM table at `0x3EFAC`; `IconIDProc` uses `IconIDProc_NameTable`; `BitmapIDProc` uses `BitmapIDProc_PtrTable`, which has 34 entries): SET searches the table with `Strcmp`, GET/DUMP copy `table[id]`, and the choice count is `<Type>_EntryCount`.
 * **Object id** (`ApFuncIDProc`, `MainFuncIDProc`, `ClassIDProc`): first build a list of every object id in registry slots `0x120-0x13F`, `0x140-0x15F` or `0x160-0x17F` with `CountObject`, then search it by `EVT_GET_NAME`.
 
 `RectY2Proc` stores a rectangle's y2 but edits it as `"height"`: SET stores y1 + height - 1.

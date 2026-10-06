@@ -581,8 +581,11 @@ subsystem, and calls `table[WA]` of each, in list order. The boot code calls it 
 The audio subsystem's table confirms the reading: `Audio_InitAllDefaults`, `Audio_ReinitToneGenAndOutput`,
 `Audio_ResetAfterPayloadError`, `Audio_FullReinitWithPreset`. Older pages called WA a "screen group ID"
 (0 = initial boot screen, 2 = error screen, ...). The routine draws nothing itself. Several table names below
-predate this reading and say nothing about the subsystem (`WidgetStyleDataTable` is the VGA's,
-`SoundParam_EncoderMappingData` begins with the encoder's).
+predated this reading and said nothing about the subsystem. Since 2026-10-06 they are named after the subsystem
+they serve: `VGA_InitFuncTable` (was `WidgetStyleDataTable`), `PanelEvent_InitPhaseHandlers` (was
+`SoundParam_EncoderMappingData`; its phase-0 handler, still called `Encoder_MarkInvalid`, empties the panel event
+queue at RAM 0xC039), `FileIO_InitFuncTable` (was `DiskOp_ChannelCfgTable`) and `PanelInput_InitFuncTable` (was
+`EffectMode_DispatchTable`).
 
 | # | Table | Slot 0 | Slot 1 | Slot 2 | Slot 3 |
 |---|-------|--------|--------|--------|--------|
@@ -593,10 +596,10 @@ predate this reading and say nothing about the subsystem (`WidgetStyleDataTable`
 | 4 | `SeqFormat_HandlerTable` | `SoundMode_ResetJump2` | `SoundMode_RetStub_A` | `SoundMode_RetStub_B` | `SoundMode_RetStub_C` |
 | 5 | `NakaInst_SoundConfig_LookupTable` | `MIDI_INIT_SEQUENCES` | `MidiInit_Stub1` | `MidiInit_Stub2` | `MidiInit_Stub3` |
 | 6 | `SoundProgram_ParamPtrTable` | `Audio_InitAllDefaults` | `Audio_ReinitToneGenAndOutput` | `Audio_ResetAfterPayloadError` | `Audio_FullReinitWithPreset` |
-| 7 | `DiskOp_ChannelCfgTable` | `FileIO_DiskInserted` | `FileIO_DiskInserted_Stub1` | `FileIO_DiskInserted_Stub2` | `FileIO_DiskRemoved` |
-| 8 | `WidgetStyleDataTable` | `VGA_Initialize` | `VGA_Stub_1` | `VGA_Stub_2` | `VGA_Stub_3` |
-| 9 | `EffectMode_DispatchTable` | `PanelInput_InitPedalRecords` | `Audio_NullHandler_A` | `Audio_NullHandler_B` | `Audio_NullHandler_C` |
-| 10 | `SoundParam_EncoderMappingData` | `Encoder_MarkInvalid` | `Encoder_Stub1` | `Encoder_Stub2` | `Encoder_Stub3` |
+| 7 | `FileIO_InitFuncTable` | `FileIO_DiskInserted` | `FileIO_DiskInserted_Stub1` | `FileIO_DiskInserted_Stub2` | `FileIO_DiskRemoved` |
+| 8 | `VGA_InitFuncTable` | `VGA_Initialize` | `VGA_Stub_1` | `VGA_Stub_2` | `VGA_Stub_3` |
+| 9 | `PanelInput_InitFuncTable` | `PanelInput_InitPedalRecords` | `Audio_NullHandler_A` | `Audio_NullHandler_B` | `Audio_NullHandler_C` |
+| 10 | `PanelEvent_InitPhaseHandlers` | `Encoder_MarkInvalid` | `Encoder_Stub1` | `Encoder_Stub2` | `Encoder_Stub3` |
 | 11 | `Subsys_HandlerTable11` | `Param_SignExtendRetu_Block2` | `Param_SignExtendRetu_Return` | `Param_SignExtendRetu_Return` | `Param_SignExtendRetu_Return` |
 | 12 | `WidgetData_CharsetMappingTable` | `SeqInit_SetBaseAddress` | `SeqInit_ReturnStub` | `SeqInit_JumpToPartInit` | `SeqInit_FullReset` |
 | 13 | `SeqByteBlock_DispatchJumpTable` | `SeqDispatch_ResetAndValidate` | `SeqDispatch_ReturnNop` | `SeqDispatch_InitWithPayload` | `SeqDispatch_ReturnNop` |
