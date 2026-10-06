@@ -33,7 +33,7 @@ User_didnt_request_flash_mem_update (0xEF05E8)
   ├── EI 000h                  → Enable interrupts
   ├── SubCPU_Send_Payload      → Transfer 192KB firmware payload
   ├── SubCPU_Payload_Verify    → Verify checksums
-  ├── ScreenGroup_Dispatch(0)  → Display initial boot screen
+  ├── ScreenGroup_Dispatch(0)  → Init phase 0 of every subsystem (boot-sequence: Subsystem Init Phases)
   └── ... (continues boot)
 ```
 

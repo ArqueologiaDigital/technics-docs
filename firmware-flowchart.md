@@ -56,10 +56,10 @@ flowchart TD
         RESET_DRAM --> SUBCPU_INIT["SubCPU_Init_DMA_Channels"]
         SUBCPU_INIT --> PAYLOAD["SubCPU_Send_Payload<br/>192 KB over the 0x140000 latch"]
         PAYLOAD --> VERIFY["SubCPU_Payload_Verify<br/>checksum validation"]
-        VERIFY --> SCREEN0["ScreenGroup_Dispatch(0)<br/>initial boot screen"]
+        VERIFY --> SCREEN0["ScreenGroup_Dispatch(0)<br/>init phase 0 of every subsystem"]
         SCREEN0 --> CHECK_ERR{"Payload<br/>transfer OK?"}
-        CHECK_ERR -->|Error| ERR_SCREEN["ScreenGroup_Dispatch(2)<br/>'ERROR in CPU data'"]
-        CHECK_ERR -->|OK| BOOT_SCREEN["Boot_DisplayScreen<br/>ScreenGroup_Dispatch(1)"]
+        CHECK_ERR -->|Error| ERR_SCREEN["ScreenGroup_Dispatch(2)<br/>init phase 2 (payload error)"]
+        CHECK_ERR -->|OK| BOOT_SCREEN["Boot_DisplayScreen<br/>ScreenGroup_Dispatch(1), then (3)"]
     end
 
     BOOT_SCREEN --> MAIN_LOOP

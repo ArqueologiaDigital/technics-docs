@@ -503,7 +503,7 @@ CREATE event (0x1C00001):
     │                     (posts event 0x1E000B3)
 ```
 
-**Normal splash animation**: On a successful boot with no special buttons held, the firmware displays a splash screen with the Technics/KN5000 logo and animated palette effects (palette cycling, spotlight-like illumination). The animation uses region-specific data tables — Region 2 uses different graphics than other regions. The animation is rendered via `ScreenGroup_Dispatch` (0xFDDB46) which manages UI widget groups.
+**Normal splash animation**: On a successful boot with no special buttons held, the firmware displays a splash screen with the Technics/KN5000 logo and animated palette effects (palette cycling, spotlight-like illumination). The animation uses region-specific data tables — Region 2 uses different graphics than other regions. The boot code reaches it through `ScreenGroup_Dispatch` (0xFDDB46), which runs one init phase of every subsystem (see [Subsystem Init Phases](#subsystem-init-phases)); the drawing is done by the subsystems' phase handlers.
 
 The welcome screen's letters are **in the program ROM** (the nakarest lane, September 2026).
 `AcWelcomScreenProc` (0xF7F4A6) runs a small **welcome script**: 12-byte steps
@@ -565,6 +565,49 @@ The main CPU enters its event loop, handling:
 - MIDI I/O
 - Disk operations
 - Display updates
+
+### Subsystem Init Phases
+
+`ScreenGroup_Dispatch` (WA = slot 0-3) walks `Subsys_HandlerTableList`, 19 tables of four routine pointers, one per
+subsystem, and calls `table[WA]` of each, in list order. The boot code calls it four times:
+
+| Call | When | Slot |
+|------|------|------|
+| 1 | right after `SubCPU_Send_Payload` / `SubCPU_Payload_Verify` (also runs `ScreenGroup_InitState` before and `ScreenGroup_ReInit` after) | 0 |
+| 2 | `SubCPU_Payload_GetErrorFlag` = 0 | 1 |
+| 2 | `SubCPU_Payload_GetErrorFlag` != 0 (also `MainSysCtrl_DispatchTable` entry 0) | 2 |
+| 3 | after `(1024) = 6` | 3 |
+
+The audio subsystem's table confirms the reading: `Audio_InitAllDefaults`, `Audio_ReinitToneGenAndOutput`,
+`Audio_ResetAfterPayloadError`, `Audio_FullReinitWithPreset`. Older pages called WA a "screen group ID"
+(0 = initial boot screen, 2 = error screen, ...). The routine draws nothing itself. Several table names below
+predate this reading and say nothing about the subsystem (`WidgetStyleDataTable` is the VGA's,
+`SoundParam_EncoderMappingData` begins with the encoder's).
+
+| # | Table | Slot 0 | Slot 1 | Slot 2 | Slot 3 |
+|---|-------|--------|--------|--------|--------|
+| 0 | `Seq_InitFuncTable` | `Seq_FullInit` | `Seq_InitStub_Nop2` | `Seq_InitStub_Nop1` | `Seq_InitStub_Nop3` |
+| 1 | `Subsys_HandlerTable01` | `CommParam_SetComplete_Block` | `CommParam_SetComplete_Block2` | `CommParam_SetComplete_Return2` | `CommParam_SetComplete_Return3` |
+| 2 | `WidgetDispatch_FDTestPtrTable` | `LoadXaprInit_Entry` | `HamaStub1_Entry` | `HamaStub2_Entry` | `HamaStub3_Entry` |
+| 3 | `MIDI_SC0_DISPATCH_TABLE` | `SC0Init_Entry` | `SC0Init_PaddingStub` | `SC0Init_PaddingStub` | `SC0Init_PaddingStub` |
+| 4 | `SeqFormat_HandlerTable` | `SoundMode_ResetJump2` | `SoundMode_RetStub_A` | `SoundMode_RetStub_B` | `SoundMode_RetStub_C` |
+| 5 | `NakaInst_SoundConfig_LookupTable` | `MIDI_INIT_SEQUENCES` | `MidiInit_Stub1` | `MidiInit_Stub2` | `MidiInit_Stub3` |
+| 6 | `SoundProgram_ParamPtrTable` | `Audio_InitAllDefaults` | `Audio_ReinitToneGenAndOutput` | `Audio_ResetAfterPayloadError` | `Audio_FullReinitWithPreset` |
+| 7 | `DiskOp_ChannelCfgTable` | `FileIO_DiskInserted` | `FileIO_DiskInserted_Stub1` | `FileIO_DiskInserted_Stub2` | `FileIO_DiskRemoved` |
+| 8 | `WidgetStyleDataTable` | `VGA_Initialize` | `VGA_Stub_1` | `VGA_Stub_2` | `VGA_Stub_3` |
+| 9 | `EffectMode_DispatchTable` | `PanelInput_InitPedalRecords` | `Audio_NullHandler_A` | `Audio_NullHandler_B` | `Audio_NullHandler_C` |
+| 10 | `SoundParam_EncoderMappingData` | `Encoder_MarkInvalid` | `Encoder_Stub1` | `Encoder_Stub2` | `Encoder_Stub3` |
+| 11 | `Subsys_HandlerTable11` | `Param_SignExtendRetu_Block2` | `Param_SignExtendRetu_Return` | `Param_SignExtendRetu_Return` | `Param_SignExtendRetu_Return` |
+| 12 | `WidgetData_CharsetMappingTable` | `SeqInit_SetBaseAddress` | `SeqInit_ReturnStub` | `SeqInit_JumpToPartInit` | `SeqInit_FullReset` |
+| 13 | `SeqByteBlock_DispatchJumpTable` | `SeqDispatch_ResetAndValidate` | `SeqDispatch_ReturnNop` | `SeqDispatch_InitWithPayload` | `SeqDispatch_ReturnNop` |
+| 14 | `AccompSeq_InitFuncTable` | `AccompSeq_ResetToFactoryBanks` | `AccompSeq_VoiceResetStub` | `AccompSeq_InitBankIfNoError` | `AccompSeq_VoiceResetStub` |
+| 15 | `AccPatch_InitFuncTable` | `AccTone_StubReturn_B` | `AccTone_StubReturn_A` | `AccDemo_InitDone` | `AccPatch_InitAndCountSlots` |
+| 16 | `SoundRam_HandlerTable` | `SendPartDataBlock_ClearByte4` | `SendPartDataBlock_Return4` | `SendPartDataBlock_DoGetError` | `SendPartDataBlock_Return5` |
+| 17 | `FDemoText_InitFuncTable` | `FDemoText_StubReturn_A` | `FDemoText_StubReturn_B` | `FDemoText_StubReturn_C` | `FDemoText_RescanAllVoices` |
+| 18 | `CharMap_Preamble_Table` | `CharMap_NullPreamble_0` | `CharMap_NullPreamble_1` | `CharMap_NullPreamble_2` | `CharMap_ActivePreamble` |
+
+Source: `boot/screen_group_dispatch.s` and `ui_widgets/widget_dispatch.s` (`Subsys_HandlerTableList`);
+`scripts/tools/label_subsys_init_tables.py` in the disassembly repository.
 
 ### Complete Boot Flow Diagram
 
