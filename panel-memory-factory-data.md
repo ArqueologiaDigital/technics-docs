@@ -181,11 +181,11 @@ parameter's key is `0x8000 + 0x400*tag + k`, with `k` the MIDI controller number
 | +3 | 7 | mute (`k = 0x08`; the mixer draws "MUTE" when it is 1) | `SndParam_Part00_Mute` |
 | +4 | 3 | sustain (CC 64; the SUSTAIN button) | `SndParam_Part00_Sustain` |
 | +4 | 6 | digital effect (CC 94; the DIGITAL EFFECT button) | `SndParam_Part00_DigitalEffect` |
-| +5 | 0-6 | chorus send (CC 93) | `SndParam_Part00_ChorusSend` |
+| +5 | 0-6 | DSP effect (CC 93; the firmware's `LswDSPEffect`) | `SndParam_Part00_DspEffect` |
 | +7 | 0-6 | reverb send (CC 91) | `SndParam_Part00_ReverbSend` |
 | +8 | 0-6 | pan (CC 10) | `SndParam_Part00_Pan` |
-| +9 | 0-6 | `k = 0x82`, range 52-76 (64 +/- 12) | |
-| +10 / +11 | | `k = 0x81` / `0x80` (0-255 / 0-12) | |
+| +9 | 0-6 | key shift (`k = 0x82`, `LswKeyShift`), range 52-76 (64 +/- 12) | `SndParam_Part00_KeyShift` |
+| +10 / +11 | | tuning / bend range (`k = 0x81` / `0x80`, `LswTuning` / `LswBendRange`; 0-255 / 0-12) | `SndParam_Part00_Tuning` / `_BendRange` |
 | +12 / +13 | | set by the sound-parameter banks, kept by panel-memory recall | |
 
 The mute row comes from the mixer widget (2026-10-06). `AcMixerVol_Channels` (28 entries, typed in
