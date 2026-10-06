@@ -216,7 +216,7 @@ Each accompaniment part has parameters stored at calculated offsets:
 |-----------|----------|
 | Voice/Instrument | `AccVoice_SelectAndApplyPatch` |
 | Tuning | `AccTuning_SetAllFromLookup`, `AccTuning_CopyAllPartsFromStyle` |
-| Rhythm mapping | `AccVoice_LoadRhythmParams_Part3/4/5` |
+| Rhythm mapping | `RhythmPart3_ProcessAccentData/4/5` |
 | Channel assignment | `AccVoice_CheckChannelSetActive` |
 
 The `AccPart_*` functions manage part data access:

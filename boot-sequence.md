@@ -590,8 +590,8 @@ queue at RAM 0xC039), `FileIO_InitFuncTable` (was `DiskOp_ChannelCfgTable`) and 
 | # | Table | Slot 0 | Slot 1 | Slot 2 | Slot 3 |
 |---|-------|--------|--------|--------|--------|
 | 0 | `Seq_InitFuncTable` | `Seq_FullInit` | `Seq_InitStub_Nop2` | `Seq_InitStub_Nop1` | `Seq_InitStub_Nop3` |
-| 1 | `Subsys_HandlerTable01` | `CommParam_SetComplete_Block` | `CommParam_SetComplete_Block2` | `CommParam_SetComplete_Return2` | `CommParam_SetComplete_Return3` |
-| 2 | `WidgetDispatch_FDTestPtrTable` | `LoadXaprInit_Entry` | `HamaStub1_Entry` | `HamaStub2_Entry` | `HamaStub3_Entry` |
+| 1 | `Subsys_HandlerTable01` | `COMM_ResetSentValues` | `COMM_ResetSentValues_Phase1` | `CommParam_SetComplete_Return2` | `CommParam_SetComplete_Return3` |
+| 2 | `WidgetDispatch_FDTestPtrTable` | `Xapr_DetectOnInit` | `Xapr_InitPhase1_NullRet` | `Xapr_InitPhase2_NullRet` | `Xapr_InitPhase3_NullRet` |
 | 3 | `MIDI_SC0_DISPATCH_TABLE` | `SC0Init_Entry` | `SC0Init_PaddingStub` | `SC0Init_PaddingStub` | `SC0Init_PaddingStub` |
 | 4 | `SeqFormat_HandlerTable` | `SoundMode_ResetJump2` | `SoundMode_RetStub_A` | `SoundMode_RetStub_B` | `SoundMode_RetStub_C` |
 | 5 | `NakaInst_SoundConfig_LookupTable` | `MIDI_INIT_SEQUENCES` | `MidiInit_Stub1` | `MidiInit_Stub2` | `MidiInit_Stub3` |
@@ -600,7 +600,7 @@ queue at RAM 0xC039), `FileIO_InitFuncTable` (was `DiskOp_ChannelCfgTable`) and 
 | 8 | `VGA_InitFuncTable` | `VGA_Initialize` | `VGA_Stub_1` | `VGA_Stub_2` | `VGA_Stub_3` |
 | 9 | `PanelInput_InitFuncTable` | `PanelInput_InitPedalRecords` | `Audio_NullHandler_A` | `Audio_NullHandler_B` | `Audio_NullHandler_C` |
 | 10 | `PanelEvent_InitPhaseHandlers` | `Encoder_MarkInvalid` | `Encoder_Stub1` | `Encoder_Stub2` | `Encoder_Stub3` |
-| 11 | `Subsys_HandlerTable11` | `Param_SignExtendRetu_Block2` | `Param_SignExtendRetu_Return` | `Param_SignExtendRetu_Return` | `Param_SignExtendRetu_Return` |
+| 11 | `Subsys_HandlerTable11` | `SoundData_InitPhase0` | `Param_SignExtendRetu_Return` | `Param_SignExtendRetu_Return` | `Param_SignExtendRetu_Return` |
 | 12 | `WidgetData_CharsetMappingTable` | `SeqInit_SetBaseAddress` | `SeqInit_ReturnStub` | `SeqInit_JumpToPartInit` | `SeqInit_FullReset` |
 | 13 | `SeqByteBlock_DispatchJumpTable` | `SeqDispatch_ResetAndValidate` | `SeqDispatch_ReturnNop` | `SeqDispatch_InitWithPayload` | `SeqDispatch_ReturnNop` |
 | 14 | `AccompSeq_InitFuncTable` | `AccompSeq_ResetToFactoryBanks` | `AccompSeq_VoiceResetStub` | `AccompSeq_InitBankIfNoError` | `AccompSeq_VoiceResetStub` |
@@ -1277,7 +1277,7 @@ Main CPU checks PE.0
 
 The firmware passes workspace pointer **`0x027ED2`** in XWA. This is the base of the firmware's object table -- a structure with 14-byte entries spanning to `0x02BC12` (~1,118 entries) in main DRAM.
 
-The XAPR validation routine at `LoadAndRunXapr_Entry` handles detection and initialization:
+The XAPR validation routine at `Xapr_DetectAndCallBootInit` handles detection and initialization:
 
 ```asm
 ; Validate XAPR signature at 0x280000
@@ -1326,7 +1326,7 @@ way round. The two readings have not been reconciled. Listed on
 
 ### Frame Handler Dispatch
 
-The frame handler dispatcher at `CallExtIfActive_Entry` runs every main loop iteration:
+The frame handler dispatcher at `Xapr_CallFrameHandler` runs every main loop iteration:
 
 ```asm
 CP    (03DD04h), 000h           ; Check XAPR detection flag

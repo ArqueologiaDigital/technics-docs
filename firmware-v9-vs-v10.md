@@ -126,7 +126,7 @@ Five single-byte differences appear to be opportunistic fixes made during the sa
 
 2. **Data table prefix** (`demo/file_demo_proc.s`): byte `0xe5` changed to `0xf3`. In a bytecode/data table region surrounded by `swi` instructions, this changed a table entry from one addressing mode prefix to another.
 
-3. **32-bit constant** (`note_voice_mapping.s`): `0xe91e376f` changed to `0xe61e376f`. The high byte changed from `0xe9` to `0xe6` in a constant loaded during `TmFlashWrite_Block1_Entry` -- a flash memory write configuration value.
+3. **32-bit constant** (`note_voice_mapping.s`): `0xe91e376f` changed to `0xe61e376f`. The high byte changed from `0xe9` to `0xe6` in a constant loaded during `PostTmLoadEntry` -- a flash memory write configuration value.
 
 4. **Invalid opcode fix** (`note_voice_mapping.s`): `.byte 0xed` (not a valid TLCS-900 opcode) changed to `swi 3` (`0xfb`). Located in a jump table, this was likely a corrupted table entry in v9 that was corrected in v10.
 

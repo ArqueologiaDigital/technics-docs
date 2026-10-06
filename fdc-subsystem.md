@@ -493,7 +493,7 @@ FDC_INTERRUPT_HANDLER:      ; F97C7C
     CALR FDC_Wait_Ready_Timeout
     CP (8A24h), 0
     JR NZ, FDC_IH_EXIT
-    CALR FDC_Read_Data
+    CALR FDC_ReadDataRegister
     LD QIZH, L
     BIT 7, QIZH
     JR Z, FDC_IH_L1

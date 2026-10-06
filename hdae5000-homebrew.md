@@ -263,10 +263,10 @@ The `JP` instruction (opcode `0x1B`) is followed by a 24-bit little-endian targe
 
 ### Firmware XAPR Validation
 
-The main firmware validates the extension ROM and calls Boot_Init from routine `LoadAndRunXapr_Entry`:
+The main firmware validates the extension ROM and calls Boot_Init from routine `Xapr_DetectAndCallBootInit`:
 
 ```asm
-; At LoadAndRunXapr_Entry in kn5000_v10_program.rom:
+; At Xapr_DetectAndCallBootInit in kn5000_v10_program.rom:
 PUSHW 0004h                          ; Compare 4 bytes
 PUSHW 00e1h                          ; String compare flags
 PUSHW 0ffc6h                         ; Pointer to "XAPR" in firmware ROM
@@ -287,7 +287,7 @@ CALL  T, XHL                        ; Call Boot_Init(XWA = workspace_ptr)
 RET
 ```
 
-The frame handler dispatcher (`CallExtIfActive_Entry`) runs every iteration of the main event loop:
+The frame handler dispatcher (`Xapr_CallFrameHandler`) runs every iteration of the main event loop:
 
 ```asm
 ; Frame handler dispatcher:
@@ -1124,7 +1124,7 @@ The main firmware routine at `FileIO_DiskRemoved` handles extension board activa
 
 ```asm
 ; FileIO_DiskRemoved: Check if HDAE5000 extension is present
-CALL  GetAprStatus_Entry           ; Read XAPR detection flag from (0x03DD04)
+CALL  Xapr_GetPresentFlag           ; Read XAPR detection flag from (0x03DD04)
 CP    L, 0
 JR    Z, .no_extension       ; Skip if no extension ROM
 

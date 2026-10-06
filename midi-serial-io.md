@@ -253,10 +253,10 @@ The 16-entry jump table at `MidiSerial_CmdJumpTable` covers the **system** messa
 
 | Index | Status | Handler | Purpose |
 |-------|--------|---------|---------|
-| 0-1 | `F0`, `F1` | `MidiSerial_HandleDefault_Data` | sets bit 0 of RAM `0x428` |
+| 0-1 | `F0`, `F1` | `MidiRx_SystemMsg_MarkIgnored` | sets bit 0 of RAM `0x428` |
 | 2 | `F2` | `MidiSerial_HandleSongPosition` | Song Position Pointer: data word to RAM `0x42D`/`0x42E` (bit 7 of the high byte set per `0xFD52` bit 2) |
 | 3 | `F3` | `MidiSerial_HandleSongSelect` | Song Select: data byte to RAM `0x42C` (bit 7 set per `0xFD51` bit 3) |
-| 4-15 | `F4`-`FF` | `MidiSerial_HandleDefault_Data` | sets bit 0 of RAM `0x428` |
+| 4-15 | `F4`-`FF` | `MidiRx_SystemMsg_MarkIgnored` | sets bit 0 of RAM `0x428` |
 
 Slots 2 and 3 were earlier labelled `MidiSerial_HandleSysReset_Data` / `_HandleSysCommon_Data`.
 The midi lane renamed them in September 2026 from the status bytes that reach them
