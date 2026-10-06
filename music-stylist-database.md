@@ -306,6 +306,13 @@ checks for 0xC0, 0xC2 and 0xC5 -- 0xC0 taking the default table -- and renders t
 with `Strncpy(dst, record + 43, 16)`, i.e. only the first 16 characters of the 32-char
 display string fit the narrow name box.
 
+Before using the record's name, it looks the style up in a small override table in the program ROM
+(2026-10-06). The tables are `StyleNameOverride_C2C5` (22 entries, used for 0xC2/0xC5) and
+`StyleNameOverride_Default` (5 entries, used for 0xC0 and by `NormScreenProc`). Both hold `{u16 style index, char
+name[16]}` records, searched by `StyleName_FindOverride_*`. For example, index 0x249 is shown as "Modern Vibes" in the
+C2/C5 context and index 0x185 in the default one. The record's own name is used only when the style is not listed
+(`scripts/converters/style_name_override_retype.py` in kn5000-roms-disasm types them).
+
 `MssName_EventDispatch` (event `0x1c00013`, same file, line 10599) uses the default table
 only and copies the full string: it loads the length byte from `record + 42` and calls
 `Strncpy(dst, record + 43, that length)` = 32 characters.
