@@ -52,14 +52,38 @@ The chip is programmed from the "initial data disk" during factory setup.
 | `0x377000-0x378FFF` | 8KB | Erased sector gap |
 | `0x379000-0x3A6FFF` | 184KB | Sections 5-6: Custom Style Data |
 | `0x3A7000-0x3AFFFF` | 36KB | Unused (erased) |
-| `0x3B0000-0x3B0FFF` | 4KB | Section 7: SubCPU Performance Data |
-| `0x3B1000-0x3BFFFF` | 60KB | Unused (erased) |
+| `0x3B0000-0x3B0FFF` | 4KB | Section 7: block slot store — header and owner maps ([below](#section-7-block-slot-store)) |
+| `0x3B1000-0x3BFFFF` | 60KB | Section 7's slots (erased in the factory image) |
 | `0x3C0000-0x3D2FFF` | 78KB | LCD Wallpaper/Screenshot Storage |
 | `0x3D3000-0x3D3FFF` | 4KB | Sound-parameter user banks (`CustomData_SndParamBanks`) |
 | `0x3D4000-0x3DFFFF` | 48KB | Unused (erased) |
 | `0x3E0000-0x3FFFFF` | 128KB | SubCPU Payload Staging Area — **blank in our dump**, see below |
 
 The 8KB gaps between style sections correspond to flash boot block sector boundaries. The AM29F400/800B family has non-uniform sector sizes at whichever end carries the boot block.
+
+## Section 7: block slot store
+
+Section 7 (`FLASH_SECTION_PTR_7`, RAM `0x0C92` = `0x3B0000`) was long described as "SubCPU performance data".
+It is a slot store: the main CPU keeps blocks from its RAM work area at `0x1E0000` there, and the whole 64KB
+sector is used.
+
+| Offset | Contents |
+|:---|:---|
+| `+0x00` | `"H",0,"K",0` header; word `+0x08` = 40 and word `+0x0A` = 4, the slot counts |
+| `+0x10` | 40 owner bytes, one per small slot (0 = free) |
+| `+0x50` | 4 owner bytes, one per large slot |
+| `+0x410` | 40 small slots of 470 bytes |
+| `+0x4D80` | 4 large slots of 10,535 bytes (to `+0xF21C`) |
+
+The v10 routines (`storage/flash_floppy_handlers.s`):
+- `Flash_CountFreeOrOwnedSlots` counts the free or owned slots of each size.
+- `Flash_AssignSlotsToBlocks` builds the assignment list at RAM `0x7A0`.
+- `Flash_WriteSlotOwnerMap` writes the owner bytes.
+- `Flash_CopyBlocksToSlots` copies the blocks into the sector's RAM image and rewrites the sector.
+
+`FileIO_LoadRcmToFlash` loads the `.RCM` file's last `0xF400`-byte chunk over this sector, which covers every
+slot. The evidence is in `analysis/kn5000-naming/proposals-2026-10-06-helpers-g.json` in the disassembly
+repository. The factory image holds only the header; the slots are erased.
 
 ## Section Pointer Table
 
@@ -74,7 +98,7 @@ The firmware computes 8 section pointers at runtime (`Flash_InitExtMemAddrs` in 
 | 4 | 0x360000 | 0x0C86 | Custom accompaniment styles |
 | 5 | 0x379800 | 0x0C8A | Custom accompaniment styles |
 | 6 | 0x390000 | 0x0C8E | Custom accompaniment styles |
-| 7 | 0x3B0000 | 0x0C92 | SubCPU performance data |
+| 7 | 0x3B0000 | 0x0C92 | Block slot store ([below](#section-7-block-slot-store)) |
 
 The RAM pointers are named in the source (each maincpu tree's `shared/ram_variables.s`, the same
 addresses in v7): `FLASH_SECTION_PTR_0` .. `FLASH_SECTION_PTR_7`. The same routine also sets

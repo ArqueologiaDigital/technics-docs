@@ -148,7 +148,7 @@ boot code is the same code (see [Table data](#table-data-table_data)).
 | `drawing_primitives.s` | Line drawing, rectangle fill, reverse string rendering |
 | `psgridbox_routines.s` | PS Grid Box widget |
 | `rvari_routines.s` | RVari (rhythm variation) screen renderer and interaction |
-| `setwall_routines.s` | Wallpaper loading and wall display update |
+| `setwall_routines.s` | Sequencer TRACK ASSIGN page (SqTrAs) and the routines after it; not wallpaper code (historical `SetWall_` prefix) |
 | `password_slot_routines.s` | Password slot management stubs |
 | `char_encoding_naka_state.s` | Character encoding tables and NAKA state blocks |
 | `charmap_dispatch_table.s` | Character-map mode dispatch table |
