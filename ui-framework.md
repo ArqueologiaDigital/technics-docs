@@ -325,6 +325,17 @@ The framework includes a complete type system for widget properties with introsp
 
 **Resource types:** `ResourceProc`, `ResEventProc`, `ResMethodProc`, `ResNameProc`, `ResBitmapProc`, `ResFrameProc`, `ResIconProc`, `ResFontProc`, `ResStringProc`
 
+#### Where a widget's live values are kept (2026-10-06)
+
+Widget records are in ROM, so a widget cannot write its own state into the record. Instead, every mutable property
+holds the RAM address of a cell of its own. For example, `selected`, `onoff`, `page`, `selrow`/`selcol`, `window`,
+`parent`, `child`, `nowstyle`, `nowsong` and an edit box's `data` (its value) all work this way. Over all the
+in-ROM widgets of v10 there are 1,367 such fields and 1,367 distinct cells; no two widgets share one. The cells
+lie in the work-RAM image that `Boot_InitWorkRAM` copies from ROM to RAM `0x3DCD4` at boot
+(`naka_sequencer_channels.c` in kn5000-roms-disasm), so the image is also where each cell's initial value is
+set. The C source names each cell after its widget and field: `TrAsGrid_Selcol`, `SdpartMain_RevDepth_Value`,
+`STYLE2_AcMstStyle2GridBox_Nowstyle` (`scripts/converters/name_widget_value_cells.py`).
+
 #### The property-type protocol (2026-10-06)
 
 A property type is a procedure called with the event in XBC. It converts one property value between its stored form and its text form, for the dump and edit machinery. The ID types answer a common set of events, and `CommonIDProc` handles whatever a type leaves out:
