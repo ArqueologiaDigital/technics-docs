@@ -168,6 +168,29 @@ Field observations from cross-record diffs, all **tentative**:
 | +8 / +9 | a 0x40-centred pair (pan-like) |
 | +13 | part/routing byte -- **constant per tag** across all 80 records |
 
+**From the firmware's own parameter descriptors (2026-10-06).** The sound-parameter descriptors
+(`audio/sndparam_records/run_*.c` in kn5000-roms-disasm) say which byte and bits each part parameter edits, and the
+parameter's key is `0x8000 + 0x400*tag + k`, with `k` the MIDI controller number of that parameter (evidence:
+`analysis/disk-format-probes/README-lsw-param-namespace-map.md`, section 5). For every part record:
+
+| offset | bits | parameter (`k`) | descriptor name (part 0) |
+|:---|:---|:---|:---|
+| +0 | all | sound (CC 0) | `SndParam_Part00_Sound` |
+| +1 | 0-6 | bank (CC 32) | `SndParam_Part00_Bank` |
+| +3 | 0-6 | volume (CC 7) | `SndParam_Part00_Volume` |
+| +3 | 7 | `k = 0x08`, a 1-bit flag | |
+| +4 | 3 | sustain (CC 64; the SUSTAIN button) | `SndParam_Part00_Sustain` |
+| +4 | 6 | digital effect (CC 94; the DIGITAL EFFECT button) | `SndParam_Part00_DigitalEffect` |
+| +5 | 0-6 | chorus send (CC 93) | `SndParam_Part00_ChorusSend` |
+| +7 | 0-6 | reverb send (CC 91) | `SndParam_Part00_ReverbSend` |
+| +8 | 0-6 | pan (CC 10) | `SndParam_Part00_Pan` |
+| +9 | 0-6 | `k = 0x82`, range 52-76 (64 +/- 12) | |
+| +10 / +11 | | `k = 0x81` / `0x80` (0-255 / 0-12) | |
+| +12 / +13 | | set by the sound-parameter banks, kept by panel-memory recall | |
+
+So +9 is not the second half of a pan pair, as the cross-record table above guessed. Its range is 52-76, which
+is 64 +/- 12.
+
 The +13 byte is the strongest structural signal in the block. Its value per tag,
 measured over all 80 records:
 
