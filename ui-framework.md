@@ -404,6 +404,17 @@ other events whose request flags a method left set.
 | 25 | 16 | as above |
 | anything else | not handled (HL = 0xFFFF) | |
 
+The index names a control on the LCD. A button pair shares one switch number: the panel code posts
+`EVT_SW_IN` with the pair's number, or with the number OR 0x80 for the pair's other button.
+`GetEditSwPoint` places the numbers on screen:
+
+| handler index | switch number | control | handler label |
+|---|---|---|---|
+| 0–7 | 0–7 (17–24 also land here, with bank bit 7) | the eight button columns under the LCD (x = 20, 60 … 300) | `SeXxx_OnColumn1` … `8` |
+| 8–12 | 8–12, and 0x88–0x8C with bit 7 | side rows 1–5: RIGHT is the plain number, LEFT adds bit 7 | `SeXxx_OnSideRow1` … `5` |
+| 13–15 | 13–15 | not identified | `SeXxx_OnSwitch13` … `15` |
+| 16 | 25 | not identified | `SeXxx_OnSwitch25` |
+
 For 28 titles, `DispatchSwitch` then calls `SeXxxTitleFunc_SwitchHandlers[index]` with WA = the bank byte. In
 v10, 27 of those tables hold 17 code pointers (indices 0–16) and a zero. SeFilLfo1's runs 14 slots up to the next
 label. `SeMenu` and `SeDigEff` decode the switch the same way but act on
