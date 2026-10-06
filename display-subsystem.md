@@ -369,6 +369,8 @@ Several primitives support multiple drawing modes specified by a mode code:
 |----------|---------|-------------|
 | `VRAM_FillRect` | 0xEF50DF | Fill 6×12 pixel rect directly in VRAM with solid color |
 | `DrawWall` | 0xFABB74 | Fill entire screen from source buffer (wallpaper/splash) |
+| `DrawRect` | 0xFB0D14 | Rectangle outline: drawn at once when XSP is inside 0x1C032-0x1D032 (`IS_XSP_INSIDE_4K_REGION_AT_1C032`), otherwise queued as a `DrawRect_CallbackBlock` record (the same pattern as `ColorBlit` and `DrawText_QueueOrDirect`) |
+| `DrawRect_Impl` | 0xFB0D8C | The outline itself: clips the box to (0,0)-(319,239), then four `DrawLineWithMode_Impl` sides (one line when y0 = y1) and `SetChangeRect` |
 
 ### Line Drawing
 
@@ -541,6 +543,40 @@ The redraw functions delegate to specialized rendering helpers:
 | `Scoop_EventLoop_36Entry` | 0xF023CF | Dynamic value renderer |
 | `DrawFunc_Init` | 0xFB2044 | Parameter display renderer |
 | `ColorBlit_WithPaletteSave` | 0xFB24CB | Status indicator renderer |
+
+### Display-List Records (ScreenData)
+
+The sound editor and other screens draw from display lists in ROM: runs of records `{u8 op, u8 len, payload}`,
+where `len` is the whole record's size. `GraphicsRender_ProcessEntries` walks a list of **static** records and
+calls `GraphicsRender_ProcessEntries_PtrTable[op]` with each one. In the disassembly the records are written
+with the `sd_*` macros of `audio/sound_editor_ui.s`. Points are u16 pixel pairs at record +2/+4 (x0, y0) and
++6/+8 (x1, y1). A cell is u16 `y*40 + x/8`.
+
+| Op | Handler | Draws |
+|----|---------|-------|
+| 00, 01, 02 | `SeGfx_StaticOp00_Line` ... | `DrawLineWithMode` from (x0,y0) to (x1,y1) (three identical compiled bodies) |
+| 11, 12, 15 | `SeGfx_StaticOp11_DottedLine` ... | the same with `DrawDottedLineWithMode` |
+| 13 | `SeGfx_StaticOp13_DottedBox` | the dotted outline of the box (four dotted lines) |
+| 09 | `SeGfx_StaticOp09_Box` | `DrawRect` of the box |
+| 22 | `SeGfx_StaticOp22_ShadowBox1` | `DrawRect`, then lines offset +1 along the right and bottom sides (1-pixel drop shadow) |
+| 0A | `SeGfx_StaticOp0A_ShadowBox2` | the same with lines at +1 and +2 (2-pixel drop shadow) |
+| 05 | `SeGfx_StaticOp05_FillBoxMode1` | `ColorBlit` of the box with `COLORBLIT_MODE` forced to 1 (each pixel's bit 5 set or cleared by its bit 7: a highlight) |
+| 03 | `SeGfx_StaticOp03_Bitmap` | 1-bpp bitmap (u32 +2) at a cell (u16 +6), bytes per row +8, rows +10 |
+| 06, 07, 08, 20 | `SeGfx_StaticOp06_CellTextFont0` ... | text at the cell in u16 +2, in font 0, 1, 2, 6 |
+| 17, 1C | `SeGfx_StaticOp17_PixelTextFont3`, `SeGfx_StaticOp1C_PixelTextFont4` | text at pixel x = u16 +2, y = u16 +4, in font 3, 4 |
+| 23 | `SeGfx_StaticOp23_DesignBox` | `DrawDesignBox` + `DrawIcons` (u8 style +2, cell u16 +3) |
+| 0E, 1B | `ColorBlit_ComputeRectAndBlit`, `ColorBlit_ByteData` | `ColorBlit2` blits |
+| others | `GraphicsRender_RetStub` | nothing |
+
+The text handlers are one compiled body each. They differ only in the font index they pass to
+`DrawText_QueueOrDirect` (see [Font Catalog](#font-catalog)), and they clip to the full screen (0,0)-(319,239).
+
+`GraphicsRender_Start` walks **bound** records through `GraphicsRender_Start_PtrTable` (12 ops). Most of them
+first read `value = (RAM byte[u16 +2] & u8 +4) >> (u8 +5 & 15)` and then draw a number, a string from a table,
+or a box from a table, chosen by that value (the `sdb_*` macros). Ops 06 and 0A instead print a 16-bit RAM word.
+The record layouts of ops 08-0B are not derived yet.
+Source: `scripts/tools/label_segfx_ops.py` (the handler-by-handler reading) and the `SeGfx_*` header in
+`audio/sound_editor_ui.s`.
 
 ### Button Label Organization
 
