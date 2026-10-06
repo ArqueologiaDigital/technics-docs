@@ -318,7 +318,7 @@ sits at +10, so:
   table 0x400 (`WidgetName_InitPtrTable`, `0xEAFFF2`).
 - `workspace + 0x0E88` = `0x027ED2 + 14 × 0x109 + 10` is the data pointer of
   **object table 0x109**, the **Function table `InitializeHama` registers**
-  (`HamaObj_109_Data`, `0xE1F0EC`; 0x4B entries). Its names are table 0x409
+  (`Hama_FunctionTable_109`, `0xE1F0EC`; 0x4B entries). Its names are table 0x409
   (`Hama_ModeParam_Table`, `0xE1F240`).
 
 An offset into either table is 4 × the function's index, and the firmware's name
@@ -335,7 +335,7 @@ re-reads every constant's function pointer and name from
 `original_ROMs/kn5000_v10_program.rom` and counts the call sites. The
 disassembly's `scripts/converters/hdae5000_symbolize_fn_tables.py`, which
 generated the constants, no longer runs as a check: it refuses because the
-`InitializeHama` registration line it looks for now reads `HamaObj_109_Data`
+`InitializeHama` registration line it looks for now reads `Hama_FunctionTable_109`
 instead of `0xe1f0ec`. An earlier count of "100 functions" (the hdae lane
 report) is not reproduced: the sources define 99 constants and use all 99.
 

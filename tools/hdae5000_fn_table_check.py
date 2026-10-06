@@ -13,7 +13,7 @@ QUESTION ANSWERED
   check: it refuses when the literal line
     RegObjTablHama 0x1600001, FunctionProc, 0x4b, 0xe1f0ec, 0x109
   is missing from v10/maincpu/factory_test/test_init.s, and that line now
-  reads `... HamaObj_109_Data, 0x109`; its call-site scan also looks for the
+  reads `... Hama_FunctionTable_109, 0x109`; its call-site scan also looks for the
   numeric operands 0x0e0a / 0x0e88, which it itself replaced with
   WS_RootFnTable / WS_HamaFnTable.  This script starts from the constants
   instead.
@@ -21,11 +21,14 @@ QUESTION ANSWERED
 WHAT IT DOES
   1. Checks the four registration lines it relies on are in the main-CPU
      sources (spelled as they are now):
-       InitializeRoot  RegObjTabl ... 0x160, 0xeafa6e, 0x100            (functions)
-                       RegObjTabl ... 0x160, WidgetName_InitPtrTable, 0x400 (names)
-       InitializeHama  RegObjTablHama ... 0x4b, HamaObj_109_Data, 0x109    (functions)
-                       RegObjTablHama ... 0x4b, Hama_ModeParam_Table, 0x409 (names)
-     and resolves the three labels through the v10 ELF (llvm-nm).
+       InitializeRoot  RegObjTabl ... 0x160, Root_FunctionTable_100, 0x100   (functions)
+                       RegObjTabl ... 0x160, WidgetName_InitPtrTable, 0x400  (names)
+       InitializeHama  RegObjTablHama ... 0x4b, Hama_FunctionTable_109, 0x109 (functions)
+                       RegObjTablHama ... 0x4b, Hama_ModeParam_Table, 0x409   (names)
+     (class NAKA_CLASS_Function) and resolves the four labels through the v10 ELF (llvm-nm).
+     Updated 2026-10-06: the lines had been respelled (NAKA_CLASS_Function for 0x1600001; the tables
+     Root_FunctionTable_100 and Hama_FunctionTable_109 for 0xeafa6e and HamaObj_109_Data), which made
+     this script refuse.
   2. Reads every `.equ RootFn_<X>, off` / `.equ HamaFn_<X>, off` from
      hdae5000/hd-ae5000_v2_06i.s.
   3. For each: function pointer = u32 at (function table + off) and name =
@@ -56,13 +59,14 @@ import sys
 
 NM = os.path.expanduser("~/compartilhado/llvm-project/build/bin/llvm-nm")
 REGISTRATIONS = [
-    ("v10/maincpu/display/graphics_text_vga.s", "RegObjTabl 0x1600001, FunctionProc, 0x160, 0xeafa6e, 0x100"),
     ("v10/maincpu/display/graphics_text_vga.s",
-     "RegObjTabl 0x1600001, FunctionProc, 0x160, WidgetName_InitPtrTable, 0x400"),
+     "RegObjTabl NAKA_CLASS_Function, FunctionProc, 0x160, Root_FunctionTable_100, 0x100"),
+    ("v10/maincpu/display/graphics_text_vga.s",
+     "RegObjTabl NAKA_CLASS_Function, FunctionProc, 0x160, WidgetName_InitPtrTable, 0x400"),
     ("v10/maincpu/factory_test/test_init.s",
-     "RegObjTablHama 0x1600001, FunctionProc, 0x4b, HamaObj_109_Data, 0x109"),
+     "RegObjTablHama NAKA_CLASS_Function, FunctionProc, 0x4b, Hama_FunctionTable_109, 0x109"),
     ("v10/maincpu/factory_test/test_init.s",
-     "RegObjTablHama 0x1600001, FunctionProc, 0x4b, Hama_ModeParam_Table, 0x409"),
+     "RegObjTablHama NAKA_CLASS_Function, FunctionProc, 0x4b, Hama_ModeParam_Table, 0x409"),
 ]
 
 
@@ -87,8 +91,8 @@ def main():
             byname[p[2]] = int(p[0], 16)
             lab.setdefault(int(p[0], 16), p[2])
     tables = {  # prefix: (function table, name table)
-        "RootFn_": (0xEAFA6E, byname["WidgetName_InitPtrTable"]),
-        "HamaFn_": (byname["HamaObj_109_Data"], byname["Hama_ModeParam_Table"]),
+        "RootFn_": (byname["Root_FunctionTable_100"], byname["WidgetName_InitPtrTable"]),
+        "HamaFn_": (byname["Hama_FunctionTable_109"], byname["Hama_ModeParam_Table"]),
     }
 
     rom = (repo / "original_ROMs" / "kn5000_v10_program.rom").read_bytes()
