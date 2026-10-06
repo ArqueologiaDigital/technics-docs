@@ -387,7 +387,7 @@ third byte, and `PanelButton_PairDown` tests the state byte for press or release
 events with `PanelEvent_Post` (a 16-deep queue at `(0xC039)`). The event ids `0x48`, `0x60`, `0x70`,
 `0x90` and `0x98` are panel-record tags (see [Panel Memory Factory Data]({{ site.baseurl }}/panel-memory-factory-data/)).
 An id of `0x00`, used by the sound-group buttons, is replaced by the byte at RAM `0x8D3A` before posting
-(`FileIO_BytecodeData_Code_Helper2`). `0xA8` / `0xA9` are not tags.
+(`PanelEvent_FillSelectedPart`). `0xA8` / `0xA9` are not tags.
 
 For most actions `event_id` is a panel-record tag and `event_arg` a payload byte of it, and the shift
 moves the button bit onto the record bit:
