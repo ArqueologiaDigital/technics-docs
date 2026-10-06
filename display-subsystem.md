@@ -448,6 +448,16 @@ Characters use ASCII encoding with an offset of `0x20` (space). Before lookup in
 
 Hex digits support `0-9`, `a-f`, and `A-F`.
 
+**Character → glyph map:** text that goes through `FontGlyph_ByteData` is first translated by
+`Text_CharGlyphMap` (256 bytes in the program ROM, 0xEAB1B4 in v10). Printable ASCII maps to itself except `\`,
+which becomes 0xA5 (¥). Codes 0x10-0x1F map to UI-symbol glyphs, and 0x80-0xAB to the Latin-1 letters of the
+fonts' accent page (Ä Ö Ü ä ö ü ß ...). The routine after it searches the same table to convert a glyph back.
+
+**Text style → font:** display records and widgets carry a *style* byte rather than a font number.
+`TextStyle_FontTable` (64 × u32, 0xEAB004 in v10) maps `style & 0x3F` to the font passed to
+`DrawText_QueueOrDirect`: style 7 → font 1, style 8 → font 2, style 32 → font 6, every other style → font 0.
+Source: `scripts/converters/text_tables_retype.py` in the disassembly repository.
+
 ### Font Catalog
 
 The firmware contains **10 fonts** (IDs 0-9) in the Table Data ROM. Each font has 224 characters (ASCII 0x20-0xFF). All glyph data resides at `0x945C00`-`0x94FF00`.
