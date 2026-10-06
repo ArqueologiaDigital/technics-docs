@@ -325,6 +325,28 @@ The framework includes a complete type system for widget properties with introsp
 
 **Resource types:** `ResourceProc`, `ResEventProc`, `ResMethodProc`, `ResNameProc`, `ResBitmapProc`, `ResFrameProc`, `ResIconProc`, `ResFontProc`, `ResStringProc`
 
+#### The property-type protocol (2026-10-06)
+
+A property type is a procedure called with the event in XBC. It converts one property value between its stored form and its text form, for the dump and edit machinery. The ID types answer a common set of events, and `CommonIDProc` handles whatever a type leaves out:
+
+| Event | What the type does |
+|:---|:---|
+| `EVT_SET_PROPERTY_EX` | parse the text, store the value (via `IDCursorAdvance`) |
+| `EVT_GET_PROPERTY_EX` / `EVT_DUMP_PROPERTY_EX` | read the value at the cursor and write its text |
+| `EVT_MAKE_DUMP` | build the dump name: a prefix (`"id"`, `"idICON_"`, `"idf"`, `"idc"`) + the value's name |
+| `EVT_GET_PROP_DATA_COUNT_SP` / `EVT_GET_PROP_DATA_SP` | the number of choices, and choice *n*'s text |
+| `EVT_GET_PROP_MEMBER` / `EVT_CHECK_PROP_STRING` | the geometry types: the member name (`"x"`, `"y"`, `"height"`) and a check or rewrite of the text |
+
+Three storage shapes recur, and the labels inside each routine are named after these roles (`<Type>_OnSetPropertyEx`, `<Type>_SetProp_CompareName`, `<Type>_ForwardToCommon` ...):
+
+* **Plain value** (`ColorIDProc`, `BorderIDProc`, `AlignmentIDProc`, `EditSwStyleIDProc`, `EditSwIDProc`, `LineModeIDProc`, `FrameIDProc`, `UserIDProc`, `PartIDProc`, `TrackIDProc`, `IntTimeIDProc`, `ViewFlagProc`): GET/DUMP store the id, SET parses through `CommonIDProc`, and everything else is forwarded to it.
+* **Index into a name table** (`FontIDProc` uses the RAM table at `0x3EFAC`; `IconIDProc` uses `IconIDProc_PtrTable`; `BitmapIDProc` uses `BitmapIDProc_PtrTable`, which has 34 entries): SET searches the table with `Strcmp`, GET/DUMP copy `table[id]`, and the choice count is `<Type>_EntryCount`.
+* **Object id** (`ApFuncIDProc`, `MainFuncIDProc`, `ClassIDProc`): first build a list of every object id in registry slots `0x120-0x13F`, `0x140-0x15F` or `0x160-0x17F` with `CountObject`, then search it by `EVT_GET_NAME`.
+
+`RectY2Proc` stores a rectangle's y2 but edits it as `"height"`: SET stores y1 + height - 1.
+
+The names come from `scripts/renaming/gen_idproc_names.py`, `gen_name_table_idproc_names.py`, `gen_objlist_idproc_names.py` and `gen_point_class_idproc_names.py` in kn5000-roms-disasm. Each asserts the shape it relies on in v10, v9 and v7. The labels these routines had before (`FrameVariant_*`, `DrawHelper_*`, `SliderH_*`, `ShadowBox_*`, `EdgeVariant_*`) were borrowed from unrelated code.
+
 ## Event System
 
 ### Event Code Spaces
