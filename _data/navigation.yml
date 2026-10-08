@@ -25,6 +25,8 @@
       url: /kn7000-build-893-recovery/
     - title: "Reading ROM out of the Screen (dumpgrab)"
       url: /kn7000-rom-from-the-screen/
+    - title: "SD PLUG-iN (SP7001) & the reserved region"
+      url: /kn7000-sd-plugin/
     - title: Tasks & Scheduler
       url: /kn7000-task-scheduler/
     - title: Event & Dispatch System
