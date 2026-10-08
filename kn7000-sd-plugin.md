@@ -6,6 +6,22 @@ permalink: /kn7000-sd-plugin/
 
 # The SD PLUG-iN (SP7001), and the reserved plug-in region
 
+> ### Update, 2026-10-08 — the PLUG-iN firmware has now been found
+>
+> The SP7001 program ("v1.6 PLUG-iN") and table updates were located and
+> reconstructed from their update `.SLD` payloads. The customized **program**
+> image (CRC `7bc3e247`; flash halves ic17 `4c91678f` / ic16 `7a7990ec`) **does**
+> contain the `PLUG`/`SP700` strings that build 941 lacks, and the update also
+> ships **`BASEEXT.XAP`** — 0x1d000 bytes of MN10300 code (it begins `cf 30` =
+> `movm`), the plug-in program the firmware copies from the SD card into the
+> reserved region. So the reserved-region / SD-load path is no longer
+> hypothetical; it can now be reverse-engineered directly. ⚠ Provenance caveat:
+> the SP7001 program's shipped `SMCK` checksum does **not** verify the
+> reconstructed image (the shipped `.INF` predates the final `.SLD` rebuild);
+> the table verifies except its top two 256 KB blocks (the plug-in customization).
+> Hashes and the reproducer: `research-scratch/kn7000-sp7001/`.
+
+
 A commercial add-on sold for the KN7000 around 2002 — **KEY SOFT SERVICE's
 "SD PLUG-iN", product code SP7001** — extended the keyboard's software through the
 SD card. That is interesting for two reasons this project cares about:
