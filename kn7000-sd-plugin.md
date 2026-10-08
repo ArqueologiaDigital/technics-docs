@@ -20,6 +20,11 @@ permalink: /kn7000-sd-plugin/
 > reconstructed image (the shipped `.INF` predates the final `.SLD` rebuild);
 > the table verifies except its top two 256 KB blocks (the plug-in customization).
 > Hashes and the reproducer: `research-scratch/kn7000-sp7001/`.
+>
+> It is now a **MAME BIOS option** too: `kn7000 -bios sp7001` runs the SP7001
+> program/table, selectable independently of the custom-data set. See the
+> firmware PR (`technics-kn7000-firmware-bios`). The reserved region and the
+> SD-load protocol can be reverse-engineered from this image and `BASEEXT.XAP`.
 
 
 A commercial add-on sold for the KN7000 around 2002 — **KEY SOFT SERVICE's
