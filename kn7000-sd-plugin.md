@@ -25,6 +25,11 @@ permalink: /kn7000-sd-plugin/
 > program/table, selectable independently of the custom-data set. See the
 > firmware PR (`technics-kn7000-firmware-bios`). The reserved region and the
 > SD-load protocol can be reverse-engineered from this image and `BASEEXT.XAP`.
+>
+> The product's **licence activation** has since been reverse-engineered end to
+> end and a genuine password recovered for the emulator's serial — with an
+> in-browser key generator. See
+> [SP7001 Activation & Key Generator]({{ site.baseurl }}/kn7000-sp7001-activation/).
 
 
 A commercial add-on sold for the KN7000 around 2002 — **KEY SOFT SERVICE's
