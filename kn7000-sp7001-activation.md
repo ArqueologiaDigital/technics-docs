@@ -127,6 +127,10 @@ Putting it together for the emulator's fixed serial:
 | field 8 (from serial) | `hmd2r6w2` |
 | **Recovered password** | **`a19a-1s1d-jrdc-n1b2`** |
 
+(The SP7001's SYSTEM-INFO screen that shows this serial also reports the plug-in's
+own version — `SOFTWARE V1.0 Aug 23 2003` — now recorded in the `sp7001` MAME BIOS
+description; the date string lives in the table ROM at `0x483f8e88`.)
+
 This was **confirmed** in MAME: injected into the comparator, this key makes both
 the password check and the activation apply return "accepted" (the transform of
 `a19a1s1djrdcn1b2` is `amr7hmd2r6w21111`, whose `[1:12]` is exactly `mr7hmd2r6w2`).
