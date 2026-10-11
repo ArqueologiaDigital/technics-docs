@@ -253,6 +253,39 @@ emulator so it accepts **any** password — a one-click unlock for a defunct-ser
 DRM. The key generator above exists because it recovers a *genuine* password
 (proving the algorithm), not just a bypass.
 
+## Where the activation is remembered
+
+Once a correct password is accepted, the KN7000 does not ask again on later boots
+with the same SD card. The activation is remembered **on the SD card, not in the
+instrument** — the MAME `kn7000` driver has no non-volatile storage at all, so there
+is nowhere instrument-side for it to live.
+
+The record is the file **`C:\TECHNICS\DATA\CTDV10KL.CDF`** on the card. On a card
+that has been through the setup wizard but not yet activated, this file exists but
+is **empty (0 bytes)**. After a successful activation it holds **20 bytes**: a
+single `0x00` header byte followed by the accepted password, in its dashed ASCII
+form:
+
+```
+00 61 31 39 61 2d 31 73 31 64 2d 6a 72 64 63 2d 6e 31 62 32
+   a  1  9  a  -  1  s  1  d  -  j  r  d  c  -  n  1  b  2
+```
+
+So the firmware simply **caches the typed password on the card**. On boot it reads
+`CTDV10KL.CDF` and re-validates the cached password through the same comparator —
+re-deriving field8 from the card's CID (`hash275`) — so a stored, still-valid
+password means the licence screen is skipped. (This is why `build_param1` runs at
+boot: it is the boot-time re-check.)
+
+Three consequences worth noting:
+
+- The password is stored **in clear**, so it can be read straight off an activated
+  card's `CTDV10KL.CDF`.
+- A card can be **pre-activated** by writing `0x00` + the correct password into that
+  file — no on-screen entry needed.
+- The record is **card-bound**: copying `CTDV10KL.CDF` to a different SD card fails
+  the boot re-check, because that card's CID gives a different field8.
+
 ## Comparison with the original KEY SOFT SERVICE generator
 
 The activation scheme for the SP7001 was not written by Technics. It was supplied
