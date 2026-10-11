@@ -96,25 +96,35 @@ password is just inverting the transform** of any 16-character string whose wind
 `[1:12]` equals the required `field3 + field8` target: run the two passes
 backwards (undo pass 2, then pass 1) to obtain a password the device accepts.
 
-### Where the serial comes in
+### Where field8 comes from — the SD card's identity
 
 `field3` is the constant `mr7` (SP7001's plug-in type code; the ROM also holds
-`bwa`, `8he`, `nn2` for sibling plug-ins). `field8` is the serial-derived part. The
-dispatcher builds it as:
+`bwa`, `8he`, `nn2` for sibling plug-ins). `field8` is the per-unit part, and it is
+**not** derived from the on-screen "serial" at all — it is a hash of the **SD
+card's CID** (its identity register). The dispatcher at `0x483ee8e9` builds it as:
 
 ```
-buf16 = method_0x340(serial state)      # serial → 16-byte buffer (C++ method, see below)
-buf16 = right-pad to 16 with spaces     # 0x483ecc6d
-field8 = hash(buf16)                    # 0x483ef275, 16 chars → 8 chars
+cid16  = method_0x340()                 # the 16-byte card-ID buffer the firmware reads
+cid16  = right-pad to 16 with spaces    # 0x483ecc6d
+field8 = hash275(cid16)                 # 0x483ef275, 16 bytes → 8 base-35 chars
 ```
 
-The hash at `0x483ef275` is fully decoded (two 32-bit accumulators — a shift-xor
-hash and an ELF-style hash — emitted 5 bits at a time; see
-`research-scratch/kn7000-sp7001-activation/param1_hash.py`). The one step still
-captured at runtime rather than modelled from first principles is
-`method_0x340` — a C++ virtual call through a RAM object pointer (`0x50299298`),
-which turns the serial into the 16-byte hash input. For the emulator we read the
-resulting `field8` directly at the comparator: **`hmd2r6w2`**.
+`hash275` is fully decoded (two 32-bit accumulators — a shift-xor hash and an
+ELF-style hash — emitted 5 bits at a time: 6 characters from the first, 2 from the
+second; see `research-scratch/kn7000-sp7001-activation/param1_hash.py`). A runtime
+trace of `method_0x340` settled what feeds it: the 16-byte buffer is the card's CID
+rendered as `MMDMCARD` (the product-name field) followed by the CID bytes
+`10 12 34 56 78 01 59` — and `0x12345678` is exactly the product serial number
+MAME's `spi_sdcard` device writes. So **the activation is bound to the SD card, not
+the instrument**, and the whole chain is now modelled end to end:
+
+```
+SD card CID → hash275 → field8 → (with field3 "mr7") invert the transform → password
+```
+
+For MAME's emulated card the CID is fixed, so `hash275` gives **`hmd2r6w2`** and the
+key is the same for everyone. (A real, different SD card has a different CID and so a
+different key — the generator below computes it.)
 
 ## The emulator's serial → password
 
@@ -140,7 +150,7 @@ generator below picks one.
 ## Key generator
 
 <div id="sp7001-keygen" style="border:1px solid #bbb;border-radius:8px;padding:1em 1.2em;margin:1em 0;background:rgba(127,127,127,0.06)">
-  <p style="margin:0 0 .6em 0"><strong>SP7001 key generator.</strong> Runs entirely in your browser (no data leaves the page). For the MAME emulator the serial is always the same, so the key is fixed; the advanced box generates a key from a captured <code>field 8</code> target for any unit.</p>
+  <p style="margin:0 0 .6em 0"><strong>SP7001 key generator.</strong> Runs entirely in your browser (no data leaves the page). For the MAME emulator the SD card's identity is always the same, so the key is fixed; the advanced box computes the key from any SD card's CID.</p>
   <label>Serial (Software Code):
     <input id="kg-serial" type="text" value="gpcm_uwp5_namw_lud5" size="24" style="font-family:monospace">
   </label>
@@ -148,8 +158,12 @@ generator below picks one.
   <p id="kg-out" style="font-family:monospace;font-size:1.25em;margin:.6em 0"></p>
   <p id="kg-note" style="font-size:.9em;color:#777;margin:.2em 0"></p>
   <details style="margin-top:.6em">
-    <summary style="cursor:pointer">Advanced — generate from a captured target</summary>
-    <p style="font-size:.9em;color:#777">If you captured your unit's 8-character <code>field 8</code> target at the comparator (see the research scripts), enter it here. <code>field 3</code> is the constant <code>mr7</code>; first char and tail are free (unchecked).</p>
+    <summary style="cursor:pointer">Advanced — generate for any SD card</summary>
+    <p style="font-size:.9em;color:#777">The key is bound to the SD card's CID (its 16-byte identity buffer). Enter the card's CID bytes as hex — the default is MAME's emulated card (<code>MMDMCARD</code> + PSN 0x12345678). <code>hash275</code> turns it into <code>field&nbsp;8</code>; <code>field&nbsp;3</code> is the constant <code>mr7</code>; first char and tail are free (unchecked).</p>
+    <label>card CID (hex): <input id="kg-cid" type="text" value="4d4d444d4341524410123456780159" size="34" style="font-family:monospace"></label>
+    <button id="kg-gocid" type="button">Generate from CID</button>
+    <p id="kg-outcid" style="font-family:monospace;font-size:1.1em;margin:.5em 0"></p>
+    <p style="font-size:.85em;color:#777;margin-top:.8em">Or, if you already have the 8-char <code>field 8</code> target (e.g. captured at the comparator):</p>
     <label>field 8: <input id="kg-f8" type="text" value="hmd2r6w2" size="10" style="font-family:monospace"></label>
     <label>field 3: <input id="kg-f3" type="text" value="mr7" size="5" style="font-family:monospace"></label>
     <label>first: <input id="kg-fc" type="text" value="a" size="2" maxlength="1" style="font-family:monospace"></label>
@@ -174,7 +188,14 @@ var SP7001_RECORDS = [
   "ktk9d9frapb5j5gu4qrs", "j5guniuhum49uiuektk9", "m2ht1bvqgap26ucfj5gu"
 ];
 function kgDec(ch){var o=ch.charCodeAt(0);if(o>=0x31&&o<=0x39)return o-0x31;if(o>0x39)return o-0x58;return o-0x31;}
-function kgEnc(r){return String.fromCharCode(r<=8?r+0x31:r+0x58);}
+function kgEnc(r){r&=0x1f;return String.fromCharCode(r<=8?r+0x31:r+0x58);}
+/* field8 = hash275 of the SD card CID (firmware 0x483ecc6d pad + 0x483ef275 hash). */
+function kgDecH(c){return ((c>0x39)?(c-0x58):(c-0x31))&0x1f;}
+function kgPad16(b){var o=[],pad=false,i,x;for(i=0;i<16;i++){x=(i<b.length)?b[i]:0x20;if(x===0)pad=true;o.push(pad?0x20:x);}return o;}
+function kgHash275(b){var p=kgPad16(b),d2=0,a3=0,i,c,h,out="",acc;
+  for(i=0;i<16;i++){c=kgDecH(p[i]);d2=(((d2^((d2<<5)>>>0))>>>0)^c)>>>0;h=(((a3<<4)>>>0)+c)>>>0;a3=(h^((h>>>24)&0xf0))>>>0;}
+  acc=d2;for(i=0;i<8;i++){if(i===6)acc=a3;out+=kgEnc(acc&0x1f);acc=acc>>>5;}return out;}
+function kgHexToBytes(s){s=s.replace(/[^0-9a-fA-F]/g,"");var b=[],i;for(i=0;i+1<s.length;i+=2)b.push(parseInt(s.substr(i,2),16));return b;}
 function kgInvChar(outCh,keyCh,i){var r=kgDec(outCh)&0x1f;var m=r^(kgDec(keyCh)&0x1f);var din=(m+i)&0x1f;return kgEnc(din);}
 function kgInvert(target16,c0){var recA=SP7001_RECORDS[c0],recB=SP7001_RECORDS[c0+1];var x=target16.charAt(0),i;
   for(i=1;i<16;i++)x+=kgInvChar(target16.charAt(i),recB.charAt(i),i);
@@ -211,8 +232,17 @@ var SP7001_KNOWN = { "gpcm_uwp5_namw_lud5": "hmd2r6w2" };
       (document.getElementById("kg-tail").value||"1111"));
     document.getElementById("kg-out2").textContent = r.error ? ("error: "+r.error) : r.dashed;
   }
+  function runcid(){
+    var bytes=kgHexToBytes(document.getElementById("kg-cid").value||"");
+    var out=document.getElementById("kg-outcid");
+    if(bytes.length<4){ out.textContent="enter the card CID as hex bytes"; return; }
+    var f8=kgHash275(bytes);
+    var r=kgMake("a",f8,"mr7","1111");
+    out.textContent = (r.error?("error: "+r.error):r.dashed)+"   (field 8 = "+f8+")";
+  }
   document.getElementById("kg-go").addEventListener("click",run);
   document.getElementById("kg-go2").addEventListener("click",run2);
+  document.getElementById("kg-gocid").addEventListener("click",runcid);
   run();
 })();
 </script>
@@ -256,12 +286,14 @@ present anywhere in the KN7000 firmware: the checker stores no secret, it only
 recomputes the serial's target and compares, so `soerenberg` is internal to the
 vendor's generator.
 
-**What is not yet done.** We have the verify side, the full keystream, the decoded
-`field8` hash, and a confirmed working key for the emulator's serial. The only
-unmodelled link is the firmware method that turns the printed serial into the
-hash's 16-byte input (`method_0x340`); we currently read the resulting `field8`
-target at the comparator per unit. Their `KeyGenerator.exe` could in principle be
-disassembled to confirm the forward derivation end to end, which we have not done.
+**How complete it is.** The scheme is now modelled end to end: the SD card's CID →
+`hash275` → `field8` → invert the transform → password, all reproduced in the
+generator above (and confirmed against the firmware for the emulated card). The one
+thing we did *not* need, and did not fully decode, is the cosmetic encoding behind
+the human-readable "serial" the instrument prints on screen — the firmware hashes
+the raw CID, not that string, so it is not on the key-derivation path. Their
+`KeyGenerator.exe` could be disassembled to confirm the forward derivation from
+their side, which we have not done.
 
 ## Provenance & reproducibility
 
