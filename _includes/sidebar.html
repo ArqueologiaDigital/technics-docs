@@ -6,46 +6,17 @@
     Menu
   </button>
   <div class="sidebar-content">
+    {%- comment -%}
+      A root entry (and, in nav-items.html, a group) is opened when the current page's
+      URL appears anywhere inside it. jsonify writes each entry as "url":"/x/", so the
+      needle below matches whole URLs only, at any depth.
+    {%- endcomment -%}
+    {%- assign nav_needle = '"url":"' | append: page.url | append: '"' %}
     {%- for section in site.data.navigation %}
-    {%- assign section_active = false %}
-    {%- for item in section.pages %}
-      {%- assign item_url = item.url | relative_url %}
-      {%- if page.url == item_url or page.url == item.url %}
-        {%- assign section_active = true %}
-      {%- endif %}
-      {%- if item.children %}
-        {%- for child in item.children %}
-          {%- assign child_url = child.url | relative_url %}
-          {%- if page.url == child_url or page.url == child.url %}
-            {%- assign section_active = true %}
-          {%- endif %}
-        {%- endfor %}
-      {%- endif %}
-    {%- endfor %}
-    <details class="nav-section"{% if section_active %} open{% endif %}>
+    {%- assign nav_subtree = section | jsonify %}
+    <details class="nav-section"{% if nav_subtree contains nav_needle %} open{% endif %}>
       <summary class="nav-section-title">{{ section.title }}</summary>
-      <ul class="nav-items">
-        {%- for item in section.pages %}
-          {%- assign item_url = item.url | relative_url %}
-          {%- if item.children %}
-          <li class="nav-item has-children">
-            <span class="nav-group-label">{{ item.title }}</span>
-            <ul class="nav-subitems">
-              {%- for child in item.children %}
-                {%- assign child_url = child.url | relative_url %}
-                <li class="nav-subitem{% if page.url == child_url or page.url == child.url %} active{% endif %}">
-                  <a href="{{ child_url }}">{{ child.title }}</a>
-                </li>
-              {%- endfor %}
-            </ul>
-          </li>
-          {%- elsif item.url %}
-          <li class="nav-item{% if page.url == item_url or page.url == item.url %} active{% endif %}">
-            <a href="{{ item_url }}">{{ item.title }}</a>
-          </li>
-          {%- endif %}
-        {%- endfor %}
-      </ul>
+      {%- include nav-items.html items=section.pages depth=1 %}
     </details>
     {%- endfor %}
   </div>

@@ -1,15 +1,48 @@
+# Sidebar menu, rendered by _includes/sidebar.html and _includes/nav-items.html.
+#
+# Structure: one root entry for the project as a whole (Introduction), then ONE root
+# entry per model. Inside a root entry, an item is either a page (title + url) or a
+# group (title + children); groups nest. Groups directly under a root entry render as
+# collapsible sub-menus; deeper groups render as plain labels.
+#
+# Order: model entries are sorted by release year, NEWEST FIRST. `released` is the
+# year the entry's first model came out; the template ignores it, and
+# tools/check_nav.py checks the order. Sources for the years:
+#   2003  KN2400 / KN2600   unveiled at Summer NAMM 2003 (Harmony Central, 2003-07-24:
+#         https://web.archive.org/web/20241113144010/https://www.harmonycentral.com/news/keyboards-and-pianos/technics-launches-sx-kn2400-and-sx-kn2600-digital-keyboards-r3962/)
+#   2002  KN7000            demodb.org/en/technics; kn7000.md
+#   1999  KN6000 (KN6500 2001)  demodb.org/en/technics and Synth Site (sonicstate.com)
+#         give 1999; index.md said 2000
+#   1997  KN5000            demodb.org/en/technics; Sound On Sound review, early 1998
+#   1996  KN1500            demodb.org/en/technics; kn1500.md
+#   1995  SX-WSA1 / WSA1R   demodb.org/en/technics; wsa1.md
+#
+# Pages about the whole project, or about several models at once, go under
+# Introduction, not under one model.
+
 - title: Introduction
   pages:
     - title: Home
       url: /
-    - title: System Overview
-      url: /system-overview/
     - title: Project Roadmap (what's next)
       url: /roadmap/
     - title: ROM Dumping Roadmap
       url: /rom-dumping-roadmap/
+    - title: Shared Codebase Map
+      url: /technics-shared-codebase/
+    - title: Help Wanted
+      url: /help-wanted/
+    - title: Open Questions
+      url: /questions/
+
+- title: Technics KN2400 / KN2600
+  released: 2003
+  pages:
+    - title: KN2400 / KN2600 / PR54
+      url: /kn2400-kn2600/
 
 - title: Technics KN7000
+  released: 2002
   pages:
     - title: KN7000 Overview
       url: /kn7000/
@@ -73,14 +106,15 @@
       url: /kn7000-image-gallery/
     - title: Sound & Style Names
       url: /kn7000-sound-names/
-    - title: Shared Codebase Map
-      url: /technics-shared-codebase/
     - title: Determining Panel Bindings
       url: /kn7000-panel-mapping/
+    - title: MAME Driver Internals
+      url: /kn7000-driver-internals/
     - title: Roadmap (vs KN5000)
       url: /kn7000-roadmap/
 
 - title: Technics KN6000 / KN6500
+  released: 1999
   pages:
     - title: Hardware Architecture
       url: /kn6000-hardware/
@@ -89,17 +123,216 @@
     - title: Roadmap & Plan
       url: /kn6000-roadmap/
 
-- title: Technics KN2400 / KN2600
+- title: Technics KN5000
+  released: 1997
   pages:
-    - title: KN2400 / KN2600 / PR54
-      url: /kn2400-kn2600/
+    - title: KN5000 Overview
+      url: /system-overview/
+    - title: Hardware
+      children:
+        - title: Hardware Architecture
+          url: /hardware-architecture/
+        - title: CPU Subsystem
+          url: /cpu-subsystem/
+        - title: Memory Map
+          url: /memory-map/
+        - title: TMP94C241 Memory Controller
+          url: /tmp94c241-memory-controller/
+        - title: Display Subsystem
+          url: /display-subsystem/
+    - title: Firmware
+      children:
+        - title: Architecture Flowchart
+          url: /firmware-flowchart/
+        - title: Boot Sequence
+          url: /boot-sequence/
+        - title: Sub-CPU Boot ROM (IC30)
+          url: /subcpu-boot-rom/
+        - title: SubCPU Payload Loading
+          url: /subcpu-payload-loading/
+        - title: Sub-CPU Payload Provenance
+          url: /subcpu-payload-provenance/
+        - title: MEMORY DUMP Screen (built-in hex viewer)
+          url: /memory-dump-screen/
+        - title: Sub-CPU Firmware Images
+          url: /subcpu-firmware-images/
+        - title: ROM Reconstruction
+          url: /rom-reconstruction/
+        - title: Source Code Map
+          url: /source-map/
+        - title: Table Data ROM
+          url: /table-data-rom/
+        - title: Music Stylist Database
+          url: /music-stylist-database/
+        - title: Panel Memory Factory Data
+          url: /panel-memory-factory-data/
+        - title: Custom Data Flash
+          url: /custom-data-flash/
+        - title: Firmware Updates
+          children:
+            - title: Update Procedure
+              url: /firmware-update-procedure/
+            - title: Update Validation
+              url: /firmware-update-validation/
+            - title: Update Display
+              url: /firmware-update-display/
+            - title: System Update Discs
+              url: /system-update-discs/
+        - title: Firmware v9 vs v10
+          url: /firmware-v9-vs-v10/
+        - title: Test Modes
+          url: /test-modes/
+    - title: Subsystems
+      children:
+        - title: Audio Subsystem
+          url: /audio-subsystem/
+        - title: Effects DSP (NEC uPD6383GF)
+          url: /effects-dsp/
+        - title: Effects-DSP Flowcharts
+          url: /effects-dsp/flowcharts/
+        - title: uPD6383GF Unofficial Datasheet
+          url: /upd6383-datasheet/
+        - title: uPD6383GF Decode — State of Play
+          url: /upd6383-decode-status/
+        - title: DSP Bytecode Interpreter
+          url: /dsp-bytecode-interpreter/
+        - title: DSP Effect Data Zone
+          url: /dsp-effect-data-zone/
+        - title: DSP Name Tables (Main CPU)
+          url: /dsp-name-tables/
+        - title: Tone Generator
+          url: /tone-generator/
+        - title: Tone Database
+          url: /tone-database/
+        - title: Sound Categories
+          url: /sound-categories/
+        - title: Waveform ROM Format
+          url: /waveform-rom-format/
+        - title: Keybed Scanning
+          url: /keybed-scanning/
+        - title: Storage Subsystem
+          url: /storage-subsystem/
+        - title: FDC Subsystem
+          url: /fdc-subsystem/
+        - title: MIDI
+          children:
+            - title: MIDI Subsystem
+              url: /midi-subsystem/
+            - title: MIDI Serial I/O
+              url: /midi-serial-io/
+            - title: SysEx Messages
+              url: /sysex-messages/
+        - title: UI Framework
+          url: /ui-framework/
+        - title: UI Widget Types
+          url: /ui-widget-types/
+        - title: Sequencer
+          url: /sequencer/
+        - title: Accompaniment Engine
+          url: /accompaniment-engine/
+        - title: Tone Gen Init (SwbtWr)
+          url: /swbwr-tone-init/
+    - title: Protocols
+      children:
+        - title: Control Panel Protocol
+          url: /control-panel-protocol/
+        - title: Data Wheel (TEMPO/PROGRAM Encoder)
+          url: /data-wheel-investigation/
+        - title: Boot CP-Serial Link
+          url: /boot-cpserial-link/
+        - title: Inter-CPU Protocol
+          url: /inter-cpu-protocol/
+        - title: SubCPU Command Format
+          url: /subcpu-command-format/
+        - title: Sound Parameter Protocol
+          url: /sound-parameter-protocol/
+        - title: Serial Firmware Compat
+          url: /serial-firmware-compatibility/
+    - title: HDAE5000
+      children:
+        - title: HDAE5000 Overview
+          url: /hdae5000/
+        - title: Resources & Object Registry
+          url: /hdae5000-resources/
+        - title: Disk Interface
+          url: /hdae5000-disk-interface/
+        - title: Filesystem
+          url: /hdae5000-filesystem/
+        - title: MAME Setup Guide
+          url: /hdae5000-mame-setup/
+        - title: TechManager5000 Emulation Plan
+          url: /hdae5000-techmanager/
+    - title: Homebrew
+      children:
+        - title: Homebrew Development
+          url: /hdae5000-homebrew/
+        - title: App Loader
+          url: /app-loader/
+        - title: Event Codes
+          url: /event-codes/
+        - title: Playing Games in MAME
+          url: /playing-games/
+        - title: Another World VM
+          url: /another-world-vm/
+    - title: Analysis
+      children:
+        - title: Dispatch Tables
+          url: /dispatch-tables/
+        - title: Feature Demo
+          url: /feature-demo/
+        - title: SSF Presentation System
+          url: /ssf-presentation/
+        - title: Floppy Security Analysis
+          url: /floppy-security-analysis/
+        - title: LZSS Compression
+          url: /lzss-compression/
+        - title: LLVM Semantic Instructions
+          url: /llvm-semantic-instructions/
+        - title: TLCS-900 Instruction Encoding
+          url: /tlcs900-instruction-encoding/
+        - title: Cross-Version Diff Guidebook
+          url: /cross-version-diff-guidebook/
+        - title: Flash Programming
+          url: /flash-programming/
+    - title: Timing and Serial
+      children:
+        - title: Feature Demo Timer Behaviour
+          url: /feature-demo-investigation-2026-03-09/
+        - title: Timer 4/5 and the Sequencer Clock
+          url: /feature-demo-timer-bug-2026-03-09/
+        - title: Control-Panel Serial Timing
+          url: /serial-debugging/
+    - title: Resources
+      children:
+        - title: Image Gallery
+          url: /image-gallery/
+        - title: ROM Strings
+          url: /rom-strings/
+        - title: Disassembly Workflow
+          url: /disassembly-workflow/
+        - title: Raw Byte Code Elimination
+          url: /raw-byte-code-elimination/
+        - title: ScreenData C Conversion
+          url: /screendata-c-conversion/
+        - title: Reverse Engineering
+          url: /reverse-engineering/
+        - title: MAME Pull Requests
+          url: /mame-pull-requests/
+        - title: MAME Branch Review
+          url: /mame-branch-review/
+        - title: MAME Emulation Gaps
+          url: /mame-emulation-gaps/
+        - title: SNS NMI Emulation (power-off checksum)
+          url: /sns-nmi-emulation/
 
 - title: Technics KN1500
+  released: 1996
   pages:
     - title: KN1500 (TLCS-900)
       url: /kn1500/
 
 - title: Technics SX-WSA1 / SX-WSA1R
+  released: 1995
   pages:
     - title: SX-WSA1 / SX-WSA1R Overview
       url: /wsa1/
@@ -113,196 +346,3 @@
       url: /wsa1-emulation/
     - title: Disassembly
       url: /wsa1-disassembly/
-
-- title: KN5000 · Hardware
-  pages:
-    - title: Hardware Architecture
-      url: /hardware-architecture/
-    - title: CPU Subsystem
-      url: /cpu-subsystem/
-    - title: Memory Map
-      url: /memory-map/
-    - title: TMP94C241 Memory Controller
-      url: /tmp94c241-memory-controller/
-    - title: Display Subsystem
-      url: /display-subsystem/
-
-- title: KN5000 · Firmware
-  pages:
-    - title: Architecture Flowchart
-      url: /firmware-flowchart/
-    - title: Boot Sequence
-      url: /boot-sequence/
-    - title: Sub-CPU Boot ROM (IC30)
-      url: /subcpu-boot-rom/
-    - title: SubCPU Payload Loading
-      url: /subcpu-payload-loading/
-    - title: Sub-CPU Payload Provenance
-      url: /subcpu-payload-provenance/
-    - title: MEMORY DUMP Screen (built-in hex viewer)
-      url: /memory-dump-screen/
-    - title: Sub-CPU Firmware Images
-      url: /subcpu-firmware-images/
-    - title: ROM Reconstruction
-      url: /rom-reconstruction/
-    - title: Source Code Map
-      url: /source-map/
-    - title: Table Data ROM
-      url: /table-data-rom/
-    - title: Music Stylist Database
-      url: /music-stylist-database/
-    - title: Panel Memory Factory Data
-      url: /panel-memory-factory-data/
-    - title: Custom Data Flash
-      url: /custom-data-flash/
-    - title: Firmware Updates
-      children:
-        - title: Update Procedure
-          url: /firmware-update-procedure/
-        - title: Update Validation
-          url: /firmware-update-validation/
-        - title: Update Display
-          url: /firmware-update-display/
-        - title: System Update Discs
-          url: /system-update-discs/
-    - title: Firmware v9 vs v10
-      url: /firmware-v9-vs-v10/
-    - title: Test Modes
-      url: /test-modes/
-
-- title: KN5000 · Subsystems
-  pages:
-    - title: Audio Subsystem
-      url: /audio-subsystem/
-    - title: Effects DSP (NEC uPD6383GF)
-      url: /effects-dsp/
-    - title: Effects-DSP Flowcharts
-      url: /effects-dsp/flowcharts/
-    - title: uPD6383GF Unofficial Datasheet
-      url: /upd6383-datasheet/
-    - title: uPD6383GF Decode — State of Play
-      url: /upd6383-decode-status/
-    - title: DSP Effect Data Zone
-      url: /dsp-effect-data-zone/
-    - title: DSP Name Tables (Main CPU)
-      url: /dsp-name-tables/
-    - title: Tone Generator
-      url: /tone-generator/
-    - title: Tone Database
-      url: /tone-database/
-    - title: Sound Categories
-      url: /sound-categories/
-    - title: Waveform ROM Format
-      url: /waveform-rom-format/
-    - title: Keybed Scanning
-      url: /keybed-scanning/
-    - title: Storage Subsystem
-      url: /storage-subsystem/
-    - title: FDC Subsystem
-      url: /fdc-subsystem/
-    - title: MIDI
-      children:
-        - title: MIDI Subsystem
-          url: /midi-subsystem/
-        - title: MIDI Serial I/O
-          url: /midi-serial-io/
-        - title: SysEx Messages
-          url: /sysex-messages/
-    - title: UI Framework
-      url: /ui-framework/
-    - title: UI Widget Types
-      url: /ui-widget-types/
-    - title: Sequencer
-      url: /sequencer/
-    - title: Accompaniment Engine
-      url: /accompaniment-engine/
-    - title: Tone Gen Init (SwbtWr)
-      url: /swbwr-tone-init/
-
-- title: KN5000 · Protocols
-  pages:
-    - title: Control Panel Protocol
-      url: /control-panel-protocol/
-    - title: Data Wheel (TEMPO/PROGRAM Encoder)
-      url: /data-wheel-investigation/
-    - title: Boot CP-Serial Link
-      url: /boot-cpserial-link/
-    - title: Inter-CPU Protocol
-      url: /inter-cpu-protocol/
-    - title: SubCPU Command Format
-      url: /subcpu-command-format/
-    - title: Sound Parameter Protocol
-      url: /sound-parameter-protocol/
-    - title: Serial Firmware Compat
-      url: /serial-firmware-compatibility/
-
-- title: KN5000 · HDAE5000
-  pages:
-    - title: HDAE5000 Overview
-      url: /hdae5000/
-    - title: Resources & Object Registry
-      url: /hdae5000-resources/
-    - title: Disk Interface
-      url: /hdae5000-disk-interface/
-    - title: Filesystem
-      url: /hdae5000-filesystem/
-
-- title: KN5000 · Homebrew
-  pages:
-    - title: Homebrew Development
-      url: /hdae5000-homebrew/
-    - title: App Loader
-      url: /app-loader/
-    - title: Event Codes
-      url: /event-codes/
-    - title: Another World VM
-      url: /another-world-vm/
-
-- title: KN5000 · Analysis
-  pages:
-    - title: Dispatch Tables
-      url: /dispatch-tables/
-    - title: Feature Demo
-      url: /feature-demo/
-    - title: SSF Presentation System
-      url: /ssf-presentation/
-    - title: Floppy Security Analysis
-      url: /floppy-security-analysis/
-    - title: LZSS Compression
-      url: /lzss-compression/
-    - title: LLVM Semantic Instructions
-      url: /llvm-semantic-instructions/
-    - title: TLCS-900 Instruction Encoding
-      url: /tlcs900-instruction-encoding/
-    - title: Cross-Version Diff Guidebook
-      url: /cross-version-diff-guidebook/
-    - title: Flash Programming
-      url: /flash-programming/
-
-- title: KN5000 · Resources
-  pages:
-    - title: Image Gallery
-      url: /image-gallery/
-    - title: ROM Strings
-      url: /rom-strings/
-    - title: Disassembly Workflow
-      url: /disassembly-workflow/
-    - title: Reverse Engineering
-      url: /reverse-engineering/
-    - title: MAME Pull Requests
-      url: /mame-pull-requests/
-    - title: MAME Emulation Gaps
-      url: /mame-emulation-gaps/
-    - title: Help Wanted
-      url: /help-wanted/
-    - title: Open Questions
-      url: /questions/
-
-- title: KN5000 · Timing and Serial
-  pages:
-    - title: Feature Demo Timer Behaviour
-      url: /feature-demo-investigation-2026-03-09/
-    - title: Timer 4/5 and the Sequencer Clock
-      url: /feature-demo-timer-bug-2026-03-09/
-    - title: Control-Panel Serial Timing
-      url: /serial-debugging/

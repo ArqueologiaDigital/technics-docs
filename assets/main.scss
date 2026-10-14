@@ -94,11 +94,16 @@ $mobile-break: 768px;
   }
 }
 
-/* Item lists */
+/* Item lists. nav-items.html nests one list per level and tags it .nav-depth-N
+   (1 = directly under a root entry), so indentation follows the depth. */
 .nav-items {
   list-style: none;
   margin: 0;
   padding: 0 0 0.25rem 0;
+
+  .nav-items {
+    padding-bottom: 0;
+  }
 }
 
 .nav-item {
@@ -126,7 +131,51 @@ $mobile-break: 768px;
   }
 }
 
-/* Sub-groups (e.g., Firmware Updates, MIDI) */
+.nav-depth-2 > .nav-item > a {
+  padding: 0.25rem 1rem 0.25rem 3rem;
+}
+
+.nav-depth-3 > .nav-item > a {
+  padding: 0.25rem 1rem 0.25rem 3.8rem;
+}
+
+/* Collapsible groups directly under a root entry (e.g. KN5000 > Firmware) */
+.nav-group {
+  > summary {
+    cursor: pointer;
+    padding: 0.3rem 1rem 0.3rem 1.6rem;
+    color: $nav-text;
+    font-weight: 600;
+    list-style: none;
+    user-select: none;
+    border-left: 3px solid transparent;
+    transition: background 0.1s;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::before {
+      content: "\25B6"; /* right triangle */
+      display: inline-block;
+      width: 1em;
+      font-size: 0.6em;
+      vertical-align: middle;
+      transition: transform 0.15s;
+      margin-right: 0.3rem;
+    }
+
+    &:hover {
+      background: $nav-hover-bg;
+    }
+  }
+
+  &[open] > summary::before {
+    transform: rotate(90deg);
+  }
+}
+
+/* Labelled sub-groups deeper down (e.g. Firmware Updates, MIDI) */
 .nav-group-label {
   display: block;
   padding: 0.3rem 1rem 0.15rem 2.2rem;
@@ -137,35 +186,8 @@ $mobile-break: 768px;
   letter-spacing: 0.03em;
 }
 
-.nav-subitems {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.nav-subitem {
-  margin: 0;
-
-  > a {
-    display: block;
-    padding: 0.25rem 1rem 0.25rem 3rem;
-    color: $nav-text;
-    text-decoration: none;
-    border-left: 3px solid transparent;
-    transition: background 0.1s, border-color 0.1s;
-
-    &:hover {
-      background: $nav-hover-bg;
-      text-decoration: none;
-    }
-  }
-
-  &.active > a {
-    background: lighten($nav-active-bg, 40%);
-    border-left-color: $nav-active-bg;
-    color: $nav-active-bg;
-    font-weight: 600;
-  }
+.nav-depth-2 > .nav-item > .nav-group-label {
+  padding-left: 3rem;
 }
 
 /* ============================================================
