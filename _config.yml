@@ -11,6 +11,23 @@ theme: minima
 # Suppress the default flat header_pages list:
 header_pages: []
 
+# Repository files that are not part of the site. GitHub Pages renders a Markdown file
+# even without front matter (jekyll-optional-front-matter), so CLAUDE.md was being
+# published as a page, and Makefile and tools/*.py as raw files. Setting `exclude`
+# replaces Jekyll's default list, so the defaults are repeated. `technics-docs` and
+# `KN5000-docs` are the untracked local symlinks to _site/ (see .gitignore); without
+# them here, a local build copies the previous build into itself.
+exclude:
+  - CLAUDE.md
+  - Makefile
+  - tools
+  - technics-docs
+  - KN5000-docs
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+
 # Collections for organized content
 collections:
   findings:
