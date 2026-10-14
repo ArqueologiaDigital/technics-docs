@@ -12,6 +12,16 @@ There is no `issues.md` page and there should not be one. A dump of a tracker is
 
 **After meaningful work, agents MUST:** record follow-ups in this repository's own Markdown notes so the next session can pick them up.
 
+## Sidebar menu
+
+The menu is `_data/navigation.yml`, rendered by `_includes/sidebar.html` and the recursive
+`_includes/nav-items.html`. It has one root entry for the project as a whole (Introduction) and
+**one root entry per model**, ordered by release year, newest first (the `released:` key). A
+model with many pages groups them one level down (`children:`), as the KN5000 entry does; never
+add a second root entry for the same model. Pages about several models go under Introduction.
+Every new page gets a menu entry unless an index page links to it (`flowcharts/`, `effect-impl/`).
+Check with `python3 tools/check_nav.py` (dead entries, duplicates, order, unlisted pages).
+
 ## Policies
 
 - **Keep in sync** with reverse engineering discoveries across all subprojects (see Documentation Freshness policy in central CLAUDE.md).
