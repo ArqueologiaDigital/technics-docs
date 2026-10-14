@@ -20,3 +20,6 @@ service_manual/pages/
 #   git ls-files -s | awk '$1 == "120000"'
 KN5000-docs
 technics-docs
+
+# Bytecode left by tools/check_links.py importing tools/check_nav.py
+__pycache__/
