@@ -10,6 +10,10 @@ A step‑by‑step, non‑invasive way to dump the four undumped KN7000 PCM wave
 (**IC203 / IC204 / IC207 / IC208**, 16 MB each, 64 MB total) — no desoldering, no firmware
 changes, and **verifiable byte‑for‑byte** against checksums baked into the instrument's own firmware.
 
+**Status:** untested on hardware. No capture has been made with this method yet; the pin map comes from
+the service-manual schematic, and the timing and throughput figures are estimates to be confirmed by
+the trial capture described under Notes & troubleshooting.
+
 ## Why it works
 
 The service‑mode **§8.9 WAVE ROM test** makes the tone generator read *every word of every wave ROM
@@ -29,14 +33,15 @@ result against the golden checksum.
 - A **Raspberry Pi Pico** (RP2040) — any variant. Its 3.3 V logic matches the bus.
 - ~20 jumper wires and a way to tap an 80‑pin connector (a mating header, or fine probe wires).
 - A laptop with Python 3 (`pip install pyserial`).
-- Your KN7000 and the key sequence to enter service mode and run §8.9 (you have this).
+- Your KN7000 and the key sequence to enter service mode (hold **C#3 + D#3 + C#4** while switching on),
+  then PAGE to the WAVE ROM item (§8.9) and EXECUTE.
 
 > ⚠ **3.3 V only.** Power the Pico from your **laptop's USB**. **Do not** connect the connector's
 > `+5D` or `+3.3D` pins to the Pico. **Share ground.** Handle boards static‑safe.
 
 ## Step 1 — the connector and pin map
 
-Two connectors carry the wave bus, all four with the **same** layout:
+Four connectors carry the wave bus (two per tone-generator side), all with the **same** layout:
 
 | connectors | ROMs | service‑manual page |
 |---|---|---|
@@ -158,7 +163,8 @@ int main(void) {
 
 > The exact bit order inside the 23‑bit word (data in `[0:15]`, tag in `[16:22]`) depends on the ISR
 > shift direction — the **trial capture in Step 6 confirms it** (the tag must count up). If it comes out
-> reversed, flip the `shift_left` argument.
+> reversed, flip the `shift_right` argument (the second parameter of `sm_config_set_in_shift`, `false`
+> here).
 
 ## Step 4 — the laptop receiver
 

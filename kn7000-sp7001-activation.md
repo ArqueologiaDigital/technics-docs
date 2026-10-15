@@ -7,12 +7,13 @@ permalink: /kn7000-sp7001-activation/
 # SP7001 PLUG-iN activation — reverse engineering & key generator
 
 The [SP7001 "SD PLUG-iN"]({{ site.baseurl }}/kn7000-sd-plugin/) — KEY SOFT SERVICE's
-paid floppy→SD song-conversion add-on for the KN7000 — is gated behind a
+paid PLUG-iN base module for the KN7000 (its own SD file system and the base for
+further plug-ins) — is gated behind a
 **challenge/response licence check**. The instrument shows a per-unit *serial*
 (the "Software Code"); the owner typed a 16-character *password* (the "Liberation
 Key"); the firmware accepted it only if it matched a value computed from that
 serial. KEY SOFT SERVICE has ceased trading and
-[published its own key generator]({{ site.baseurl }}/kn7000-sd-plugin/#what-the-vendor-says),
+[published its own key generator](#comparison-with-the-original-key-soft-service-generator),
 so documenting the scheme here is uncontroversial preservation work.
 
 This page records the algorithm we reverse-engineered from the firmware's

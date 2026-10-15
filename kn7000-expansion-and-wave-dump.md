@@ -12,7 +12,8 @@ generator port the service-mode ROM test already drives.
 
 *Sources: the KN7000 service manual schematic sheets (pages read visually, not via the PDF text
 layer) and disassembly of the KN7000 / KN6000 / KN6500 program firmware (MN10300, CPU base
-`0x48400000`). Cross-checked against the MAME driver. Last reviewed 2026-08-03.*
+`0x48400000`). Cross-checked against the MAME driver (mainline since mamedev/mame#16250, and the
+research overlay). Last reviewed 2026-10-15.*
 
 ---
 
@@ -32,7 +33,8 @@ strobe signal lines"* — because both buses are involved. A SY-EW board is **du
 loads samples into it as *SOUND RAM* over the peripheral bus, and a tone generator plays them back
 over the wave bus.
 
-> **Correction to earlier notes:** `CN106` is the **SD-card connector** (`SDCS/SDSO/SDCLK/SDSI`), not
+> **Correction to earlier notes:** `CN106` is the 11-pin factory **test-jig** header (no cable fitted),
+> whose pins carry the SD card's SPI lines (`SDCS/SDSO/SDCLK/SDSI`) plus `SNS` and `JIGU.ON`, not
 > the expansion/HDD bus. The peripheral EXP.CS bus is the four 40-pin connectors above.
 
 ## The four EXP.CS "SOUND RAM" slots
@@ -97,10 +99,24 @@ read:
     checksum += (word>>8) + (word & 0xFF)   for every 16-bit word across 0x00FFFFFF
   ```
 
+⚠ The chip names here assume that side 0 (`0x9805`) is the A side (IC203/IC204). Mainline MAME assumes
+the opposite (its `0x98040000` port reads IC203/IC204), so which pair each port reaches, and therefore
+which golden checksum belongs to which chip, is not settled. A capture taken at a known connector (the
+[Pico tap]({{ site.baseurl }}/kn7000-wave-rom-dump/) on the A-side or B-side connectors) that matches
+one of the four checksums settles it.
+
 **The CPU reads every raw sample word itself.** So the wave ROMs — 64 MB, the bulk of what is missing
 — have a fully *software* dump route: walk `0x9804/0x9805 0006/08 → 000A` across the address space and
 stream the words out over MIDI or SD, exactly like any CPU-visible ROM. No bus snoop, no tri-stating,
 no soldering.
+
+The catch is running that loop: the stock KN7000 firmware never executes code from the SD card or an
+expansion board (see [Firmware Robustness & ROM Archival]({{ site.baseurl }}/kn7000-firmware-security/)),
+so the routine needs a carrier — a modified firmware-update disk, or a plug-in under the SP7001
+PLUG-iN release, which does load code from the SD card (see
+[SD PLUG-iN (SP7001)]({{ site.baseurl }}/kn7000-sd-plugin/)). Either replaces the instrument's
+firmware, so it is acceptable only on a unit whose build is already preserved, never on the build-893
+unit.
 
 **Golden checksums** (the firmware's own expected values, table `0x485CFD18`, = Σ(hi+lo) over all
 words) verify any dump before the chips are ever in hand:
@@ -109,13 +125,11 @@ words) verify any dump before the chips are ever in hand:
   IC203 = 0x8164C77C    IC204 = 0x815CFC83    IC207 = 0x8331EF0B    IC208 = 0x83254F9D
 ```
 
-⚠ **Updated — the port is now modelled in MAME** (see "MAME status" below); the paragraph
-below describes the state before that work landed, kept for the arithmetic detail.
-
-*Was still to pin down, and is now settled by the model below:* the exact (side, chip,
-address) → byte mapping inside the port (bank base `0x8000` plus the running hi/lo
-latches, and whether the two ROMs per side are a 32-bit-wide pair or a hi/lo bank). The
-software readout also runs unmodified on real hardware — this was never MAME-only.
+The port's arithmetic, from the checksum core and as modelled in MAME: `+6` latches a bank (bit 15 is
+an enable bit), bit 0 of the `+8` latch selects which of the side's two ROMs answers, and bits 1–14
+give the word within a `0x4000`-word bank, so the word address inside one ROM is
+`bank × 0x4000 + word`. The two ROMs per side are separately selected devices, not a 32-bit-wide pair.
+The software readout runs unmodified on real hardware — it was never MAME-only.
 
 ## Running code from a board — the KN6000/KN6500 XAPR route
 
@@ -132,13 +146,15 @@ with the signature **`"XAPR\0"`**, and once it validates:
 
 `calls (aN)` is the MN10300 indirect subroutine call. The `XAPR` header is an **export table of
 function pointers the firmware jumps into**. Present a board mapped there with the signature and valid
-vectors and the host CPU executes your code — over the firmware's existing MIDI/SD/floppy paths. Both
-machines' program ROMs are already dumped, so the value is the confirmed *mechanism*.
+vectors and the host CPU executes your code — over the firmware's existing MIDI/floppy paths (the
+KN6000 and KN6500 have no SD card). Both machines' program ROMs are already dumped, so the value is
+the confirmed *mechanism*.
 
 ## Does the KN5000 have the same wave-read port? No.
 
 The KN5000 is architecturally different, and the answer matters because its IC304–IC306 are currently
-only **BAD_DUMP copies of IC307** — a real read-out would fix them.
+undumped (`NO_DUMP` in mainline MAME; the research overlay fills their sockets with **BAD_DUMP copies
+of IC307**) — a real read-out would fix them.
 
 - Its tone generator **IC303** (`TC183C230002`) is driven by a **Sub CPU** via a register-indirect
   interface. The CPU-facing ports are a register-address latch / voice-status read (`0x100000`), a
@@ -147,11 +163,14 @@ only **BAD_DUMP copies of IC307** — a real read-out would fix them.
   and read the sample word back, the way the KN7000's `0x9805000A` does.
 - Consistent with that, the KN5000's **Wave ROM Check (Test 6)** is an **acoustic** test: the ROMs are
   made to output sine waves as keys are pressed and the technician listens for distortion (C keys →
-  IC304 & IC305, C#–B → IC306 & IC307). Disassembling its handler confirms it: `TEST6FUNC`
-  (`0xFB7E0E` → core `0xFB7C8F`) sends a single command byte (`0x0003`) toward the tone-generator sub-
-  CPU and polls a **status byte** (`(0x8A24) == 0xFC`), then reports OK/NG. There is **no read loop**
-  — nothing like the KN7000's 8-million-iteration sweep of `0x9805000A`. The main CPU never sees a
-  sample word; it triggers the sine-wave diagnostic and waits for a pass/fail.
+  IC304 & IC305, C#–B → IC306 & IC307). Disassembling its screen confirms it. The sine-wave check is
+  title `0xF6` (`TT_TEST3`): its view is a single `SineWaveScreen`, its main function `TEST3FUNC` only
+  reinitialises the voices on entry (`TEST3FUNC_InitVoicesOnEnter` → `Voice_InitializeAll`), and
+  `Voice_EmitNoteWithVelocity` turns key presses into note events only while that title is current.
+  There is **no read loop** — nothing like the KN7000's 8-million-iteration sweep of `0x9805000A`. The
+  main CPU never sees a sample word; it plays notes and the technician listens. (`TEST6FUNC`,
+  `0xFB7DE0`, belongs to title `0xF9`, the floppy-controller check: its `FDC_CommandAndPostEvent`,
+  `0xFB7C8F`, issues FDC command 3 and tests `FDC_ERROR_CODE`, `0x8A24`, for `0xFC`.)
 
 So the clean software route does **not** transfer to the KN5000. Its wave ROMs remain reachable only
 by an in-circuit snoop of IC303's bus while it plays, or by desoldering — see the
@@ -165,13 +184,15 @@ replacing an earlier 24 MiB RAM placeholder (the firmware only ever *reads* thes
 not a single store to any of the four bases). The machine boots to the play screen and reports "NO
 WAVE EXPANSION BOARD", the way real empty hardware does.
 
-The **tone-generator wave-read port is now modelled** for both tone generators: writes to `+6`/`+8`
-latch the bank and word address, and a read of `+A` returns the composed sample word. The address
-arithmetic follows the firmware's checksum core exactly — verified by driving the port from Lua and
-comparing the readback against the source bytes (address `0x8040` → word `0x20` → byte `0x40`, byte-
-for-byte). Sample data is sourced from the synthetic `wavepack` placeholder until the four real ROMs
-are dumped, at which point they drop straight in and the §8.9 checksum will match the golden values.
-The port is service-test-only, so boot is unaffected.
+The **tone-generator wave-read port is modelled** for both tone generators, in mainline MAME since
+[mamedev/mame#16250](https://github.com/mamedev/mame/pull/16250) (2026-10-07) and earlier in the
+research overlay: writes to `+6`/`+8` latch the bank and word address, and a read of `+A` returns the
+composed sample word. Mainline reads the four wave-ROM regions, which are `NO_DUMP`, so the §8.9 test
+cannot pass there. The research overlay instead feeds the port from its synthetic `wavepack`
+placeholder, and its address arithmetic was verified by driving the port from Lua (address `0x8040` →
+word `0x20` → byte `0x40`, byte-for-byte). When the four real ROMs are dumped they drop straight in,
+and the §8.9 checksum will match the golden values. The port is service-test-only, so boot is
+unaffected.
 
 ## See also
 

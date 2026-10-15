@@ -1,6 +1,6 @@
 ---
 layout: page
-title: "SD PLUG-iN (SP7001) — a code-load interface, in a firmware we don't have"
+title: "SD PLUG-iN (SP7001) and the reserved plug-in region"
 permalink: /kn7000-sd-plugin/
 ---
 
@@ -19,12 +19,14 @@ permalink: /kn7000-sd-plugin/
 > the SP7001 program's shipped `SMCK` checksum does **not** verify the
 > reconstructed image (the shipped `.INF` predates the final `.SLD` rebuild);
 > the table verifies except its top two 256 KB blocks (the plug-in customization).
-> Hashes and the reproducer: `research-scratch/kn7000-sp7001/`.
+> Hashes: MAME's `kn7000` ROM definitions (the `sp7001` BIOS). The reproducer
+> scripts are in the project's unpublished research notes (`kn7000-sp7001/`).
 >
 > It is now a **MAME BIOS option** too: `kn7000 -bios sp7001` runs the SP7001
-> program/table, selectable independently of the custom-data set. See the
-> firmware PR (`technics-kn7000-firmware-bios`). The reserved region and the
-> SD-load protocol can be reverse-engineered from this image and `BASEEXT.XAP`.
+> program/table, merged upstream as
+> [mamedev/mame#16394](https://github.com/mamedev/mame/pull/16394) on 2026-10-11.
+> The reserved region and the SD-load protocol can be reverse-engineered from
+> this image and `BASEEXT.XAP`.
 >
 > The product's **licence activation** has since been reverse-engineered end to
 > end and a genuine password recovered for the emulator's serial — with an
@@ -32,16 +34,21 @@ permalink: /kn7000-sd-plugin/
 > [SP7001 Activation & Key Generator]({{ site.baseurl }}/kn7000-sp7001-activation/).
 
 
-A commercial add-on sold for the KN7000 around 2002 — **KEY SOFT SERVICE's
-"SD PLUG-iN", product code SP7001** — extended the keyboard's software through the
-SD card. That is interesting for two reasons this project cares about:
+A commercial add-on sold for the KN7000 from about 2002 (the vendor's pages are
+© 2002; the PLUG-iN release preserved here is V1.0 of 23 August 2003) —
+**KEY SOFT SERVICE's "SD PLUG-iN", product code SP7001** — extended the keyboard's
+software through the SD card. That is interesting for two reasons this project
+cares about:
 
 1. It is direct, third-party evidence that the KN7000 OS has a **reserved region
    for plug-in code that is loaded from the SD card**. A legitimate SD *code-load*
    entry point therefore exists — somewhere.
-2. It is **not in the firmware we have.** Our dump ([program build 941]({{ site.baseurl }}/kn7000-soft-version/))
-   has no such path, verified by reverse engineering. The SP7001 shipped with a
-   Technics **"Update V2.0"**, a later firmware this project has never seen.
+2. It is **not in the stock firmware.** Program build 941
+   ([SOFT VERSION]({{ site.baseurl }}/kn7000-soft-version/)) has no such path,
+   verified by reverse engineering. The SP7001 shipped its own system update,
+   found and reconstructed in October 2026: program build 942 / table 83
+   ("v1.6 PLUG-iN", MAME BIOS `sp7001`), which does carry the plug-in code (see
+   the update above).
 
 This page records what the vendor documents say, what our own firmware analysis
 says, and — importantly, because it bears on
@@ -103,24 +110,26 @@ returns the software-version constant `0x00100000`; the
   the address it jumps to is a saved task PC, never a byte from the card.
 
 So build 941 **does not** contain the SP7001 reserved-region/SD-load hook. This is
-not a contradiction with the vendor: **SP7001 required Update V2.0**, and V2.0 is
-a *later* firmware than 941.
+not a contradiction with the vendor: the SP7001 came with its own system update,
+program build 942 / table 83, which is *later* than 941 and does contain it.
+(Whether that release is the "Update V2.0" named on the product page is not
+established.)
 
 ## The version picture — and why it matters for dumping
 
-| Firmware | How we know it | Has the SD PLUG-iN hook? |
-|---|---|---|
-| **PROGRAM 893** | the project owner's own instrument (read off its [SOFT VERSION screen]({{ site.baseurl }}/kn7000-soft-version/); partly [recovered by hand]({{ site.baseurl }}/kn7000-build-893-recovery/)) | almost certainly **no** — it is *earlier* than 941 |
-| **PROGRAM 941** | reconstructed from the public [system-update discs]({{ site.baseurl }}/kn7000-system-update-discs/); the only image we execute | **no** — verified (above) |
-| **"Update V2.0"** (SP7001) | KEY SOFT SERVICE product pages only; **never dumped** | **yes** — by the vendor's own description |
+| Firmware                                           | How we know it                                                                                                                                                                                                      | Has the SD PLUG-iN hook?                                                                                                                      |
+|----------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| **PROGRAM 893**                                    | the project owner's own instrument (read off its [SOFT VERSION screen]({{ site.baseurl }}/kn7000-soft-version/); partly [recovered by hand]({{ site.baseurl }}/kn7000-build-893-recovery/))                         | almost certainly **no** — it is *earlier* than 941                                                                                            |
+| **PROGRAM 941**                                    | reconstructed from the public [system-update discs]({{ site.baseurl }}/kn7000-system-update-discs/); one of four program builds now preserved (929, upper half only; 935; 941; 942) and MAME's default BIOS (`v16`) | **no** — verified (above)                                                                                                                     |
+| **PROGRAM 942 / TABLE 83** (SP7001 "v1.6 PLUG-iN") | reconstructed in October 2026 from the PLUG-iN update's `.SLD` payloads; MAME BIOS `sp7001` ([mamedev/mame#16394](https://github.com/mamedev/mame/pull/16394))                                                      | **yes** — the update ships `BASEEXT.XAP`, the table carries a PLUG-iN block headed `XAPR` at `0x483E8000`, and program 942 loads that address |
 
-The owner's instrument runs **893**, which is *older* than our 941 and older still
-than V2.0. That is the whole reason its firmware is worth archiving — and it is
+The owner's instrument runs **893**, which is *older* than 941 and than the SP7001
+build 942. That is the whole reason its firmware is worth archiving — and it is
 also why **SP7001's SD code-load path is not, by itself, a way to dump 893**:
 
-- The hook lives in V2.0, not in 893. Writing V2.0 onto the instrument to gain the
-  hook would **overwrite the 893 firmware we are trying to preserve** — the one
-  thing we must not do.
+- The hook lives in the SP7001 release (build 942), not in 893. Writing that
+  update onto the instrument to gain the hook would **overwrite the 893 firmware
+  we are trying to preserve** — the one thing we must not do.
 - So for build 893 the realistic non-destructive route is unchanged: the
   [built-in MEMORY DUMP viewer]({{ site.baseurl }}/kn7000-memory-dump-screen/),
   read [out of the screen]({{ site.baseurl }}/kn7000-rom-from-the-screen/), or a
@@ -128,28 +137,38 @@ also why **SP7001's SD code-load path is not, by itself, a way to dump 893**:
 
 Where the SP7001 interface *does* help the wider project:
 
-- If a **V2.0 image is ever obtained** (another preservation target — the update
-  exists on SP7001 start/boot cards), it would let us **characterise the reserved
-  region and the SD-load protocol exactly**: the reserved address range, the
-  on-card format of the loaded code, the signature the firmware checks, and the
-  routine that copies card bytes into the region and transfers control.
-- That documented path could then run a **dumper plug-in on a V2.0 unit** — a
-  clean way to read the still-undumped
-  [`0x4C000000` library/kernel ROM]({{ site.baseurl }}/kn7000-firmware/) and the
-  wave ROMs over the SD interface, without opening the case.
+- The SP7001 image (program 942 / table 83) is now in hand, so the reserved
+  region and the SD-load protocol can be **characterised exactly** from it and
+  from `BASEEXT.XAP`: the reserved address range, the on-card format of the
+  loaded code, the signature the firmware checks, and the routine that copies
+  card bytes into the region and transfers control. So far the card location is
+  known (the setup copies `BASEEXT.XAP` to `TECHNICS\DATA` on the card), and so
+  is the PLUG-iN block in the table flash (see the open questions below); the
+  loader itself has not been traced.
+- That documented path could then run a **dumper plug-in on an SP7001 unit** — a
+  clean way to read the still-undumped wave, rhythm and picture ROMs over the SD
+  interface, without opening the case. (The `0x4C000000` library is not a
+  separate ROM: it self-loads from program flash, as noted above.)
 
 ## Open questions
 
-1. **What build number is "Update V2.0"?** The KEY SOFT SERVICE name does not map
-   to a Technics `PROGRAM :` number yet. It is later than 941; by how much is
-   unknown.
+1. **Is the SP7001 release the "Update V2.0" of the product page?** The update
+   found is program build 942 / table 83 ("v1.6 PLUG-iN", PLUG-iN V1.0 of
+   2003-08-23). Whether the bundled "Update V2.0" is the same release is not
+   established.
 2. **Did Technics reserve the region broadly (dormant in 941/893), or only add the
-   loader in V2.0?** The 941 image shows no dormant signature-probe-and-jump, which
-   argues for "added in V2.0." A V2.0 dump would settle it.
-3. **Where is the reserved region?** Unknown until a V2.0 image exists. The vendor
-   says it is small (the leftover of "one-sixth of the original memory").
-4. **On-card format of the plug-in code and its signature** — unknown; this is what
-   a V2.0 dump would reveal.
+   loader for the SP7001?** The 941 image shows no dormant
+   signature-probe-and-jump. A diff of program 942 against 941 would settle it.
+3. **Where is the reserved region?** In the SP7001 image the top of the table half
+   holds the PLUG-iN: a block that begins with an `XAPR` header at `0x483E8000`
+   and runs to `0x483FB59F`, with erased flash on both sides. Program 942, which
+   carries `PLUGIN API` and `XAPR` strings that 941 lacks, loads that address.
+   Where `BASEEXT.XAP` is placed in RAM at run time has not been traced. The
+   vendor says the area is small (the leftover of "one-sixth of the original
+   memory").
+4. **On-card format of the plug-in code and its signature** — now recoverable from
+   `BASEEXT.XAP` and from the SP7001 setup code, which copies `BASEEXT.XAP` from
+   the update floppy to the card's `TECHNICS\DATA` directory. Not yet analysed.
 
 ## Sources
 
@@ -159,6 +178,6 @@ Where the SP7001 interface *does* help the wider project:
   [Firmware Images]({{ site.baseurl }}/kn7000-firmware/),
   [System Update Discs]({{ site.baseurl }}/kn7000-system-update-discs/).
 - Disassembly: `GetTtSoftverID` `0x48488AAC`, disk-file dispatcher `0x4852B6B0`,
-  `LibRomImageBase` `0x487B8FD1`, task context switch `0x487F46D8`
-  (see the [disassembly repository](https://github.com/)'s `kn7000_disassembly`,
-  `notes/sd-plugin-interface.md`).
+  `LibRomImageBase` `0x487B8FD1`, task switch `TaskYieldSwitch` `0x487F46D8`
+  (see `notes/sd-plugin-interface.md` in the `kn7000_disassembly` repository,
+  which is not published).

@@ -21,13 +21,13 @@ in §6. Verify the chip identity on your own board before you start.
 
 ## 1. What you are reading
 
-| | |
-|---|---|
-| **Program ROM** | **IC16 + IC17**, service part `RFKFXKN7000` ("FLASH MEMORY"), die silk `C3FBMD000016` ("32M FLASH") |
-| **Type** | 32 Mbit **×16 NOR flash**, 3.3 V, with `BYTE`, `RESET`, `CE`, `OE`, `WE`, `RY/BY` pins — almost certainly **TSOP-48** (the standard package for this class; confirm on your chip) |
-| **Bus** | The two chips form a **32-bit** word on the CPU bus: one carries `D[15:0]`, the other `D[31:16]` — exactly like the DRAM pair (IC12/IC13) and SRAM pair (IC14/IC15) |
-| **Host CPU** | **IC4 = MN103002A**, 32-bit micro-controller — drives the shared address/data bus |
-| **Neighbours on the same bus** | DRAM IC12/13, fast SRAM IC14/15, **table mask-ROM IC18/19**, custom flash IC21 — all share the address and data lines; each has its own chip-select from an on-board decoder |
+|                                |                                                                                                                                                                                                                                                                                                                       |
+|--------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Program ROM**                | **IC16 + IC17**, service part `RFKFXKN7000` ("FLASH MEMORY"), part code `C3FBNG000016` ("32M FLASH")                                                                                                                                                                                                                  |
+| **Type**                       | 32 Mbit **×16 NOR flash**, 3.3 V, with `BYTE`, `RESET`, `CE`, `OE`, `WE`, `RY/BY` pins — almost certainly **TSOP-48** (the standard package for this class; confirm on your chip)                                                                                                                                     |
+| **Bus**                        | The two chips form a **32-bit** word on the CPU bus: one carries `D[15:0]`, the other `D[31:16]` — exactly like the DRAM pair (IC12/IC13) and SRAM pair (IC14/IC15)                                                                                                                                                   |
+| **Host CPU**                   | **IC4 = MN103002A**, 32-bit micro-controller — drives the shared address/data bus                                                                                                                                                                                                                                     |
+| **Neighbours on the same bus** | DRAM IC12/13, fast SRAM IC14/15, rhythm mask ROM IC18 (rhythm flash IC20 on earlier units), picture ROM IC19, custom flash IC21 (the table data is not a separate chip: it is the A22-low half of IC16/IC17 themselves) — all share the address and data lines; each has its own chip-select from an on-board decoder |
 
 **Consequence for the dump:** the program image is *split across two chips*. You read **IC16** and
 **IC17** separately and **interleave** their 16-bit halves into 32-bit words (§5). Reading a NOR flash
@@ -37,7 +37,7 @@ the AMD/Fujitsu command set only matters for *writing*, which we never do.
 
 ## 2. The one real difficulty: a shared bus
 
-These are not standalone chips on a socket — they sit on the CPU's live 32-bit bus, and so do six other
+These are not standalone chips on a socket — they sit on the CPU's live 32-bit bus, and so do seven other
 memory devices. An in-circuit read only works if **nothing else drives those lines** while you read.
 Two things must be true:
 
@@ -74,7 +74,7 @@ there is real potential for **bus contention**. Respect it; verify the read (§7
 2. **Hold the CPU in reset.** Assert IC4's RESET and keep it asserted. Confirm the bus is quiet.
 3. **Clip IC16.** Seat the TSOP-48 clip squarely (pin-1 aligned). Provide 3.3 V per the programmer.
 4. **Read IC16** at full size and **save it** (`ic16.bin`). Note the size the programmer reports
-   (2 MB for a 32 Mbit ×16 part).
+   (4 MB for a 32 Mbit ×16 part).
 5. **Re-read IC16** and compare — an in-circuit read must be **identical twice** (this is exactly the
    consistency check the instrument's own §8.1 ROM test performs). If the two reads differ, stop and see
    §6.
@@ -90,8 +90,8 @@ by which interleave verifies (§7). The reassembly is a two-way byte interleave:
 ```python
 # reassemble.py — interleave the two 16-bit halves into the 32-bit program image
 import struct, sys
-lo = open("ic16.bin","rb").read()   # candidate D[15:0]
-hi = open("ic17.bin","rb").read()   # candidate D[31:16]
+lo = open("ic17.bin","rb").read()   # candidate D[15:0] (MAME loads IC17 as the even halfword)
+hi = open("ic16.bin","rb").read()   # candidate D[31:16]
 assert len(lo) == len(hi)
 out = bytearray()
 for i in range(0, len(lo), 2):
@@ -102,8 +102,10 @@ print("wrote", len(out), "bytes")
 # If verification (§7) fails, swap lo/hi and/or the two halfword lines and retry.
 ```
 
-The result should match the byte layout of the reference image (`kn7000_prog.bin`), where the program
-window is a stream of little-endian 32-bit words.
+The result is the whole 8 MB window `0x48000000`–`0x487FFFFF`, a stream of little-endian 32-bit words:
+the first 4 MB is the table half (CPU A22 low; its first `0x3E94D4` bytes correspond to
+`kn7000_table.rom`), the last 4 MB the program half (its first `0x3F6F01` bytes correspond to
+`kn7000_program.rom`).
 
 ## 6. Did it actually work? (and what if not)
 
@@ -129,9 +131,12 @@ If a read is inconsistent, the bus was contended. Options, least-invasive first:
 Two independent checks, both derived from the firmware itself:
 
 1. **The version cell.** In the reference image the PROGRAM build stamp is a little-endian `u16` at file
-   offset **`0x33660C`** (reads **941** there). In your rebuilt image, the value at the equivalent offset
-   should be a sensible small integer **equal to the `PROGRAM : NNNN` you photographed off the Version
-   screen** in the free first step. This simultaneously confirms the dump *and* the interleave order.
+   offset **`0x33660C`** of the 4 MB program image — **`0x73660C`** of the reassembled 8 MB image (reads
+   **941** there). The cell moves between builds (build 935: CPU `0x487365A8`; build 942: `0x48737630`),
+   so in your rebuilt image find the value through the instruction that loads it rather than at a fixed
+   offset; it should be a sensible small integer **equal to the `PROGRAM : NNNN` you photographed off
+   the Version screen** in the free first step. This simultaneously confirms the dump *and* the
+   interleave order.
 2. **The §8.1 fingerprint.** The instrument's ROM device test computes two 32-bit **additive** sums over
    the flash — over the halfword streams of the 8 MB window `0x48000000`–`0x487FFFFF` (table + program).
    You can compute the program-region contribution offline and record it as a revision fingerprint:
