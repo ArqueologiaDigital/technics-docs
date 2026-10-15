@@ -20,26 +20,40 @@ comparable drivers (`model2.h`, `model2.cpp`, `roland_d50.cpp`, `ctk551.cpp`,
 `ymmu100.cpp`, `gticlub.cpp`, `zr107.cpp`, `hornet.cpp`).
 
 A verbatim copy of every block, with its original line numbers, is kept in the
-project repository as `notes/kn7000-driver-source-annotations.md`.
+[MAME_Technics_Research](https://github.com/ArqueologiaDigital/MAME_Technics_Research)
+repository as `notes/kn7000-driver-source-annotations.md`.
+
+**Which driver this describes.** These notes come from the driver as it stood in
+September 2026, before it was cut down for merging. The driver merged into MAME as
+[mamedev/mame#16250](https://github.com/mamedev/mame/pull/16250) (2026-10-07) is
+smaller. Its tone generators only latch their registers and make no sound, and it
+has no effects DSP. The sections on the DSP frame tick, the audio path and the
+tone-generator voice engine (`kn7000_tonegen.*`, `kn6000_tonegen.*` and the
+synthesis half of `kn_tonegen.*`) describe code that is not in mainline MAME. That
+work continues outside it, in a different form, in the research overlay
+[MAME_Technics_Research](https://github.com/ArqueologiaDigital/MAME_Technics_Research).
+The custom-data and firmware-BIOS layout changed again in
+[#16394](https://github.com/mamedev/mame/pull/16394) (2026-10-11); see the note
+under the `custom_data` block.
 
 
 ## The driver: memory map, interrupts, peripherals
 
 *Source: `src/mame/matsushita/kn7000.cpp`*
 
->  license:GPL2+
+>  license:GPL-2.0+
 >  copyright-holders:Felipe Sanches
 > **************************************************************************
 >
 > Technics SX-KN7000 and related MN10300-based keyboards
 >
-> Emulated: the MN10300 CPU and its on-chip peripherals, the LCD, the control
-> panel, the floppy and SD interfaces, MIDI, the ADSP-21065L effects DSP, and a
-> tone generator that responds to the firmware but has no samples to play - the
-> wave ROMs are undumped, so its timbre is a placeholder.
+> All five machines are built around a Panasonic MN103002A (MN1030 series),
+> running Panasonic's "MILK" object framework. LCD, control panel, floppy, SD
+> and MIDI are emulated. The tone generators' registers are decoded, but they
+> produce no sound: the wave ROMs are undumped and the ADSP-21065L effects
+> DSP is not emulated.
 >
-> All five machines are built around a Panasonic MN103002A (MN10300 family,
-> AM33 core), running Panasonic's "MILK" object framework.
+> Design notes: https://arqueologiadigital.github.io/technics-docs/kn7000-driver-internals/
 >
 > Hardware inventory below is taken from the manufacturer's service manuals:
 >
@@ -82,6 +96,9 @@ project repository as `notes/kn7000-driver-source-annotations.md`.
 > - dump the wave, rhythm and picture ROMs listed as NO_DUMP below
 >
 > *************************************************************************
+
+*(The SX-KN2400 and SX-KN2600 service manuals are EMID0304001C0 and EMID0304002C0,
+both dated 2003; the driver's list does not give them yet.)*
 
 
 **`constexpr offs_t IRQ_VECTOR_BASE = 0x50000000;`**
@@ -183,16 +200,15 @@ project repository as `notes/kn7000-driver-source-annotations.md`.
 
 >  Front-panel volume sliders (the ESQ1-style slider script in kn7000.lay binds
 >  these; PORT_ADJUSTER gives a 0-100 value the layout knob animates). MAIN drives
->  the DSP bridge's master gain and APC/SEQ is sent to the panel as a CP 0xD2
+>  the tone generator's output gain and APC/SEQ is sent to the panel as a CP 0xD2
 >  frame; MIC and LINE-IN are read but reach no audio path yet.
 
 
 **`if (m_lib_mirror)`**
 
->  KN6000/KN6500: unlike the KN7000, which self-loads its library, these
->  firmwares read the library at 0x4C000000/0x8C000000 without ever writing
->  it. What backs that window on the board is not established; filling it from
->  the program ROM here is what makes the boot find what it reads.
+>  The KN6000 and KN6500 read their library at 0x4C000000 without writing it
+>  first. What answers there on the board is not established; a copy of the
+>  program flash is what the firmware finds. It is RAM: the KN6000 writes into it.
 
 
 **`void kn7000_state::kn6500(machine_config &config)`**
@@ -261,6 +277,14 @@ project repository as `notes/kn7000-driver-source-annotations.md`.
 >  byte-identical in all nine, so a third of the region is an invariant template.
 >  16_BE: intelfsh preloads a 16-bit part with m_region->as_u16(), a host-native
 >  read, so a byte-wide region would reach the device halfword-swapped.
+
+*Superseded by [mamedev/mame#16394](https://github.com/mamedev/mame/pull/16394)
+(2026-10-11). IC21 now preloads only the factory default, `01ctmini.ic21`, as a
+plain `ROM_LOAD` with no `BAD_DUMP` flag. The nine data sets are carried as three
+reconstructed floppies in the `kn7000_flop` software list: `idd7000` (the factory
+default), and `custom1` and `custom2` (four published sets each). The machine's
+BIOS axis now selects the program build: `sp7001`, `v16` (the default), `v15` or
+`v14`.*
 
 > **************************************************************************
 >
@@ -400,8 +424,9 @@ private detail of a device that does correspond to a part.
 > THE DECISIVE EVIDENCE:
 >
 >  The KN6000's tone-generator write primitive at 0x4849465B is
-> BYTE-IDENTICAL to the KN7000's TG-A leg at 0x4C036F7C -- the same 20
-> bytes, 81 f8c510 fc8700000598 fae0ffff fc8302000598. The KN7000's
+> BYTE-IDENTICAL to the KN7000's TG-A leg at 0x4C036FAB (inside
+> TgVoiceRegWrite, 0x4C036F98) -- the same 20 bytes,
+> 81 f8c510 fc8700000598 fae0ffff fc8302000598. The KN7000's
 > writer is that same routine with a chip-select branch (cmp 0x40,d0)
 > wrapped around it, so the KN7000's two-chip path is literally a
 > parameterised generalisation of the KN6000's one-chip path.

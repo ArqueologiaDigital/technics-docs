@@ -6,13 +6,15 @@ permalink: /kn7000-task-scheduler/
 
 # KN7000 Tasks & Scheduler
 
-The KN7000 firmware runs as **two cooperative tasks** on top of the MILK kernel:
+The KN7000 firmware's user interface runs as **two cooperative tasks** on top of the MILK kernel:
 a **main** task (the foreground UI / panel loop) and an **AP** ("application")
 task (background work — song/data processing, longer operations). They take turns
 by explicitly sleeping and waking each other through a small message API. This
 page documents that mechanism as decoded from `kn7000_program.rom`; it is the
 companion to the [Event & Dispatch System]({{ site.baseurl }}/kn7000-event-system/), which is what
-each task actually runs while awake.
+each task actually runs while awake. The kernel runs other tasks too, such as the
+disk worker (MILK task 8, created by `DiskInit`; see
+[Storage & File System]({{ site.baseurl }}/kn7000-storage-subsystem/#sd-subsystem-internals)).
 
 ## The two tasks
 
@@ -58,15 +60,18 @@ SleepMainTask:                   # CPU 0x48414B8D
 The opcode in `d0` is the constant `0x00020009` for all four; the **message id in
 `d1`** is what selects the action, and the ids form a small contiguous block:
 
-| Message id | Action |
-|------------|--------|
-| `0x0006009D` | sleep main |
-| `0x0006009E` | wake main |
-| `0x0006009F` | sleep AP |
-| `0x000600A0` | wake AP |
-| `0x000600A1` | (a fifth task-control message) |
+| Message id   | Action                                                                                                               |
+|--------------|----------------------------------------------------------------------------------------------------------------------|
+| `0x0006009D` | sleep main                                                                                                           |
+| `0x0006009E` | wake main                                                                                                            |
+| `0x0006009F` | sleep AP                                                                                                             |
+| `0x000600A0` | wake AP                                                                                                              |
+| `0x000600A1` | refresh: posted by `RefreshApTask` after its re-broadcast; `MainTaskControl` re-posts it, `ApTaskControl` ignores it |
 
-The handler at `0x48414A77` (with a sibling at `0x48414AFD` for the AP side) is a
+The main-task wrappers call `0x48414A77`, 3 bytes into `ApTaskControl`
+(`0x48414A74`), just past its stack-frame `add`. The AP-side wrappers call
+`0x48414AFD`, the same point in `MainTaskControl` (`0x48414AFA`). The names are
+crossed relative to their callers, exactly as on the KN5000. Each is a
 `switch` on `d1` that runs the matching sleep/wake code — from its first
 instructions:
 
@@ -79,8 +84,11 @@ cmp 0x600A1, d1 ; beq …
 ```
 
 The underlying context switch / run-queue lives in the **MILK kernel** (the
-banner `MILK MN10300 Ver1.0R1` at `0x3B8AAC`), part of which is in the
-still-[undumped library ROM]({{ site.baseurl }}/kn7000-firmware/) at `0x4C000000`.
+banner `MILK MN10300 Ver1.0R1` at program-file offset `0x3B8AAC`), part of which
+runs from the library at `0x4C000000`. That library is not a separate ROM: at boot
+`InitializeBlock27` (`0x484D7BBD`) copies it out of the program flash
+(`LibRomImageBase`, `0x487B8FD1`), so it is preserved inside the dumped program
+image.
 
 ## Task refresh
 
@@ -101,7 +109,7 @@ message-id block (`0x6009D…0x600A1`) and the handler entry points.
 
 ## The same kernel is in four processors, across two products
 
-The sharing reaches considerably further than the KN5000. The **SX-WSA1R**, a physical-modelling synthesiser built on a different
+This section concerns the KN5000's TLCS-900 kernel, not the KN7000's: between the KN5000 and the KN7000 the kernel was rewritten (see the [Shared Codebase Map]({{ site.baseurl }}/technics-shared-codebase/)). The KN5000's kernel, though, is shared well beyond the KN5000. The **SX-WSA1R**, a physical-modelling synthesiser built on a different
 CPU family (two TMP95C061s against the KN7000's MN10300), runs the **same
 multitasking kernel** — and so does each of the KN5000's two processors. One
 kernel, four processors, two products.
@@ -109,8 +117,9 @@ kernel, four processors, two products.
 The proof for the WSA1R pair is a build, not a resemblance: `wsa1/kernel/kernel.s`
 is a single source that assembles into **2,180 bytes of `prom_a` and 2,180 bytes of
 `prom_c`, both byte-identical to the real EPROMs**. Over the union of the two
-blocks there are 941 instruction slots; 735 needed no reconciliation, 129 differed
-only in house style, and the remaining 81 reduce to **21 named constants** (twelve
+blocks there are 941 instruction slots, 939 of them on both sides. 735 of those
+needed no reconciliation; of the other 204, 129 differ in house style and 81 name a
+per-CPU value (6 slots are both). Those 81 reduce to **21 named constants** (twelve
 RAM addresses, six array sizes, three ROM pointers) — with no conditional assembly
 anywhere in the file.
 
@@ -121,8 +130,10 @@ the same product, from the same build, running the same source, still differ in
 score is measured against a **foil control** of non-kernel code cut to the same
 instruction counts:
 
-| kernel routines (≥ 20 instr) | 20 | 1.000 | 0.909 | 20 |
-| non-kernel foils | 26 | 0.333 | 0.212 | 0 |
+|                              | routines | max   | median | min   | ≥ 0.70 |
+|------------------------------|----------|-------|--------|-------|--------|
+| kernel routines (≥ 20 instr) | 20       | 1.000 | 0.909  | 0.742 | 20     |
+| non-kernel foils             | 26       | 0.333 | 0.212  | 0.143 | 0      |
 
 No overlap, and a gap of 0.41.
 
@@ -130,7 +141,7 @@ No overlap, and a gap of 0.41.
 match them: the site that actually corresponds to `MsgQueue_Send` is labelled
 `TaskSched_Wait`, the one matching `Kernel_SemaSignal` is labelled
 `TaskEvent_Wait`, and on the main CPU the site matching `Kernel_StartTask` at 0.978
-is called `Show_ScreenGroup_Entry`. Several KN5000 kernel labels are simply wrong —
+is called `Show_ScreenGroup`. Several KN5000 kernel labels are simply wrong —
 a renaming pass waiting to happen, and a reminder that names point an instrument at
 a region without being evidence about it.
 

@@ -20,18 +20,24 @@ already programmed by the initial data disk" — one more piece of the
 
 ## The custom-data flash
 
-| Property | Value |
-|----------|-------|
-| **Read view** (CPU) | `0x56000000` — a `u32`-offset directory archive at flash offset `0x200` |
-| **Command/program window** | `0x96800000` — AMD/Fujitsu x16 command set (unlock writes to `0x9680AAAA` / `0x96805554`) |
-| **Chip** | 2 MB / 16 Mbit bottom-boot: MBM29LV160B, MX29LV160B or AT49BV16X4 (descriptor table at program `0x1CF9E0`) |
-| **Driver** | `FlashWordProgram` `0x4847F721`, `FlashSectorErase` `0x4847F75A`, `FlashReadAutoselect` `0x4847F980`, `FlashReset` `0x4847F6C7` |
+| Property                   | Value                                                                                                                                                                                                       |
+|----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Read view** (CPU)        | `0x96800000`, the same window: the firmware reads the data there too (e.g. the slot descriptors at `0x96820002`). `0x56000000` is not this chip: it is one of the four EXP.CS "SOUND RAM" expansion windows |
+| **Command/program window** | `0x96800000` — AMD/Fujitsu x16 command set (unlock writes to `0x9680AAAA` / `0x96805554`)                                                                                                                   |
+| **Chip**                   | IC21, 2 MB / 16 Mbit bottom-boot: MBM29LV160B, MX29LV160B or AT49BV16X4 (descriptor table `FlashChipIdTable`, program `0x1CF9E0`)                                                                           |
+| **Driver**                 | `FlashWordProgram` `0x4847F721`, `FlashSectorErase` `0x4847F75A`, `FlashReadAutoselect` `0x4847F980`, `FlashReset` `0x4847F6C7`                                                                             |
 
-A separate **factory read-only** data flash sits at `0x57000000` (rhythm/style data
-that extends the table ROM). In emulation both read as zero until dumped, so style
-names and Custom/Favorites content fall back to defaults.
+`0x57000000` is not a factory data flash either. Like `0x56000000`, it is one of the
+four EXP.CS "SOUND RAM" expansion windows, which read empty unless an SY-EW board is
+fitted (see [Expansion Bus & Wave-ROM Dump]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/)).
+MAME preloads IC21 with the factory default, the payload of the Initial Data Disk.
 
 ## The Initial Data disk (`idd7000`)
+
+MAME carries this disk as `idd7000` in the `kn7000_flop` software list
+([mamedev/mame#16394](https://github.com/mamedev/mame/pull/16394)), a FAT12
+reconstruction built from the archived installer, alongside two disks of published
+custom data (`custom1`, `custom2`).
 
 The disk carries four files. Each begins with a Technics tag matching the firmware's
 disk-file dispatch tables (`DiskFileTagTable` `0x48664090`, `DiskFileExtTable`
@@ -45,27 +51,26 @@ disk-file dispatch tables (`DiskFileTagTable` `0x48664090`, `DiskFileExtTable`
 | `04HPGINI.HMP` | battery **SRAM** | Home-Page (hotspots + an embedded BMP) |
 
 Only the `.AST` installs to flash; the rest go to battery-backed SRAM (favorites
-block `0x50083D72`, magic `"KN7000 SDDIR INF"`). The extractor
-(`extract_idd7000.py` in the [kn7000_extraction] tools) parses all four and now
-**decodes the `.AST`** (raw DEFLATE) to a `.flash.bin`.
+block `0x50083D72`, magic `"KN7000 SDDIR INF"`). The extractor (`extract_idd7000.py`
+in the kn7000_extraction tools, not yet published) parses all four and now **decodes
+the `.AST`** (raw DEFLATE) to a `.flash.bin`.
 
-**The `.AST` codec is plain zlib.** The firmware links **zlib 1.0.4** — its inflate
-error strings (`unknown compression method`, `invalid window size`, `incorrect header
-check`, `need dictionary`, `incorrect data check`) sit at `0x485CD20C`, right after the
-style-type name table (`8 Beat`, `16 Beat`, `Dance Pop`, … at `0x485CCF2C`). The payload
-is a *raw* DEFLATE stream (no 2-byte zlib header) at file offset `0x10`; inflating it with
+**The `.AST` codec is plain zlib.** The firmware links **zlib 1.0.4** — its inflate error
+strings (`unknown compression method`, `invalid window size`, `incorrect header check`,
+`need dictionary`, `incorrect data check`) sit at `0x485CD20C`, right after the style-type
+name table (`8 Beat`, `16 Beat`, `Dance Pop`, … at `0x485CCF2C`). The payload is a *raw*
+DEFLATE stream (no 2-byte zlib header) at file offset `0x10`; inflating it with
 `zlib.decompressobj(-15)` yields exactly `0x1E0000` bytes = the custom-flash region from
 offset `0x20000` to the 2 MB end. (The earlier "Huffman/LZH, not zlib" and "LZSS-variant"
 readings were wrong — pylzss's 1.1 MB partial was a false positive; the near-uniform byte
-histogram is just well-compressed DEFLATE output.) **However**, an empirical test (2026-07-07) showed that preloading the decoded image into the
-custom flash (dataflash `0x56020000`) does **not** change the style names, and a read-tap
-recorded **zero** reads from the custom data-flash (`0x56000000`–`0x561FFFFF`) while the style
-list is displayed. So the decoded image is genuine user data, but it is not the source of the
-"all 8 Beat 1" style-list bug. That bug's real mechanism — a different, undumped ~4.1 MB
-"Technics Rhythms" resource, with a shipped synthetic-ROM mitigation — is described under
-[How the rhythm menu resolves a style name](#how-the-rhythm-menu-resolves-a-style-name) below;
-an earlier "templated at boot by `0x484420CB`" theory was investigated and superseded by that
-finding.
+histogram is just well-compressed DEFLATE output.) The decoded image is genuine user data,
+but it is not the source of the "all 8 Beat 1" style-list bug. (An early test that preloaded
+it at `0x56020000` and saw no reads there proved nothing either way: `0x56000000` is an
+empty expansion window, not this flash.) That bug's real mechanism — a different, undumped
+~4.1 MB "Technics Rhythms" resource, with a shipped synthetic-ROM mitigation — is described
+under [How the rhythm menu resolves a style
+name](#how-the-rhythm-menu-resolves-a-style-name) below; an earlier "templated at boot by
+`0x484420CB`" theory was investigated and superseded by that finding.
 
 ### Favorites, decoded
 
@@ -114,10 +119,11 @@ Fixing it took untangling **two** independent bugs:
 
 2. **The JPEG decoder.** With the display fixed, the splash showed *noise* instead of
    green — the software JPEG decoder was producing garbage. The cause was a single
-   **unimplemented CPU instruction**: the MN10300/AM33 `udf07` op (a **bit-search**,
-   `BSCH`) used in the decoder's Huffman step. The CPU core was silently skipping it,
-   desyncing the entire bit stream. Implementing it (bit position of the most-significant
-   set bit) made the splash decode **pixel-clean** — verified against a reference decode
+   **unimplemented CPU instruction**: the MN103002A's user-defined `udf07` op, which the
+   firmware uses as a **bit-search** (the AM33's `BSCH`), in the decoder's Huffman step.
+   The CPU core was silently skipping it, desyncing the entire bit stream. Implementing it
+   (the position of the highest set bit below a given bit, searching from bit 31 by
+   default) made the splash decode **pixel-clean** — verified against a reference decode
    of the same table-ROM JPEGs.
 
 With both fixed, the emulated KN7000 now plays its real power-on splash — the chrome
@@ -138,24 +144,27 @@ program-ROM chain — all now named in the [disassembly]:
 3. Each style-ID's source bits pick built-in / MEMORY / CUSTOM; `ResolveStyleId`
    (`0x48435B33`) maps it through `StyleNumToBankSlotLUT` (`0x48734EE4`).
 4. The **display name** comes from a *different* resource than the custom-data flash
-   above: a "Technics Rhythms" name table that the selector `0x4843385E` probes across
-   six candidate windows (including the factory read-only flash at `0x57000000` and a
-   last-resort software window at `0x54E00000`), none of which is dumped. When every
-   probe misses, the resolver falls back to a program-ROM stub (`0x48729988`, header
-   `count = 1`), so every style row rendered as "8 Beat 1" regardless of its real
-   style-ID.
+   above: a "Technics Rhythms" name table that `StyleNameModuleBoot` (`0x4843385E`)
+   looks for through `StyleResourceWindowProbe` (`0x4843D6D7`). The probe tries five
+   windows — `0x48010000` (table ROM + `0x10000`), `0x40610000`, `0x40010000`,
+   `0x54E10000` and `0x40810000` — and otherwise returns `0x54E00000` as a last resort.
+   None of them holds the resource in the dumped images. When every probe misses, the
+   resolver falls back to a program-ROM stub (`0x48729988`, header `count = 1`), so
+   every style row rendered as "8 Beat 1" regardless of its real style-ID.
 
-So the "all 8 Beat 1" symptom was never the custom-data flash above (that theory —
-along with an earlier "templated at boot" theory — is superseded); it traces to the
-undumped ~4.1 MB rhythm-name flash (candidate chips: IC21 factory flash, or IC18+IC20
-custom flash). The current mitigation is a **synthetic ROM** (`kn7000_rhythms_synthetic.rom`,
-built by `tools/gen_technics_rhythms.py`, flagged `BAD_DUMP`) mapped at the firmware's
-own last-resort probe window `0x54E00000`: it reconstructs the real, intact directory
-prefix (a truncated copy survives in the dumped table ROM at `0x483E828C`) plus 52 real
-style names recovered from an intact secondary catalog, and honestly labels the
-remaining 168 factory names — which exist only on the undumped flash — as
-self-announcing placeholders (e.g. "BALLAD 04 ?"). The real fix is still a hardware
-dump of that flash.
+So the "all 8 Beat 1" symptom was never the custom-data flash above (that theory — along
+with an earlier "templated at boot" theory — is superseded); it traces to the undumped
+rhythm-data device, which holds the ~4.1 MB resource: IC18, a 64 Mbit mask ROM in later
+production, or IC20, a 32 Mbit flash in earlier production. (IC21 is the custom flash
+above.) The research overlay's mitigation is a **synthetic ROM**
+(`kn7000_rhythms_synthetic.rom`, built by `tools/gen_technics_rhythms.py`, flagged
+`BAD_DUMP`) mapped at the firmware's own last-resort probe window `0x54E00000`: it
+reconstructs the real, intact directory prefix (a truncated copy survives in the dumped
+table ROM at `0x483E828C`) plus 52 real style names recovered from an intact secondary
+catalog, and honestly labels the remaining 168 factory names — which exist only on the
+undumped flash — as self-announcing placeholders (e.g. "BALLAD 04 ?"). The real fix is
+still a hardware dump of that flash. Mainline MAME has no stand-in: it declares the
+rhythm ROM `NO_DUMP`, so the probe finds nothing and the firmware falls back to the
+program-ROM stub.
 
-[kn7000_extraction]: https://github.com/felipesanches/kn5000_homebrew
 [disassembly]: {{ site.baseurl }}/kn7000-firmware/

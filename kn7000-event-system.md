@@ -19,9 +19,14 @@ re-assemblable source in the [disassembly project]({{ site.baseurl }}/kn7000-fir
 
 The firmware embeds a 60-entry name table (program file `0x326BF0`) enumerating
 every event type. The **event code is the table index**, so `EV_NONE = 0`,
-`EV_SHOW = 1`, and so on. These are identical in spirit to the KN5000's
-[event codes]({{ site.baseurl }}/event-codes/) — the shared framework — with KN7000-specific
-additions (SD card, wallpaper preview, DSP sound names).
+`EV_SHOW = 1`, and so on. They are close kin of the KN5000's
+[event codes]({{ site.baseurl }}/event-codes/), the shared framework, but only the names
+carry across, not the numbers. 51 of the 60 names occur in both firmwares, yet only 4
+indices hold the same name: `EV_NEW_TITLE` is `0x31` here and `0x39` on the KN5000,
+and `0x0F` is `EV_INDEXSW_UP` here but `EV_PARADRAW` there. The nine KN7000-only
+names are `EV_MMMDATA`, `EV_MEMDUMP`, `EV_TRANSDRAW`, `EV_INDEXSW_ON`,
+`EV_INDEXSW_OFF`, `EV_SOUNDDSPNAME`, `EV_LARGECHANGE`, `EV_WALLPREVIEW` and
+`EV_WAITDRAW`; none of them is an SD-card event.
 
 | Code | Name | Code | Name |
 |------|------|------|------|
@@ -100,11 +105,11 @@ GetCurrentObjectId:               # CPU 0x48414A4F  (func_48414A4F)
     cmp     a1, a2
     bne     .ap                   # not the main task -> AP path
     movhu   (0x500d3c60), d0      # main task's focused-object id
-    mov     d0, (a0)
+    movhu   d0, (a0)
     bra     .done
 .ap:
     movhu   (0x500d3c5c), d0      # AP task's focused-object id
-    mov     d0, (a0)
+    movhu   d0, (a0)
 .done:
     clr     d0
     retf    [a2], 4
@@ -163,10 +168,12 @@ similarly argument-less `InitializeEventQueue`.
 
 ## Relationship to the KN5000
 
-The event **names, codes and dispatch shape are shared** with the KN5000 — both
-firmwares are re-targets of one MILK-based source tree (see the
-[Shared Codebase Map]({{ site.baseurl }}/technics-shared-codebase/)). What differs is machine-
-specific: the KN7000 adds SD-card, wallpaper and DSP-sound events, runs on the
-MN10300 rather than the TLCS-900, and keeps its object table at a different RAM
-address. The KN5000 [Event Codes]({{ site.baseurl }}/event-codes/) and [UI Framework]({{ site.baseurl }}/ui-framework/)
-pages remain the best conceptual companions to this one.
+The event **names and dispatch shape are shared** with the KN5000 (the code numbers
+are not; see above) — both firmwares are re-targets of one MILK-based source tree
+(see the [Shared Codebase Map]({{ site.baseurl }}/technics-shared-codebase/)). What
+differs is machine-specific: the KN7000 adds wallpaper, DSP-sound and drawing events
+(none for the SD card), runs on the MN10300 rather than the TLCS-900, and keeps its
+object table at a different RAM address. The KN5000 [Event
+Codes]({{ site.baseurl }}/event-codes/) and [UI
+Framework]({{ site.baseurl }}/ui-framework/) pages remain the best conceptual
+companions to this one.

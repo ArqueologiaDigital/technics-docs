@@ -99,7 +99,9 @@ from the song position.
 
 In MAME this timer was the last missing link for playback: with it modeled, the
 demo songs play end-to-end and the rhythm accompaniment starts and runs from
-START/STOP, at the displayed tempo.
+START/STOP, at the displayed tempo. This is audible only in the research overlay,
+whose tone generator plays placeholder waveforms; mainline MAME's KN7000 decodes the
+tone-generator registers but makes no sound.
 
 ## Relationship to the KN5000
 

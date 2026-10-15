@@ -16,14 +16,14 @@ file types, and the file-manager function family, all recovered by name from the
 
 ## Storage media
 
-| Medium | Hardware | Firmware |
-|--------|----------|----------|
-| **Floppy disk (FDD)** | FDC **IC103 / IC308** | `Disk*`, `Fmm*Disk*`, `FDCstop…`; formats FAT12/FAT16 |
-| **SD card** | SD-card slot (new) | `SdCard*` / `Sdc*` (folders, rename, delete, playlists) |
-| **USB** | USB port (new) | *Song Manager* PC software over a USB cable |
+| Medium                | Hardware                                                   | Firmware                                                |
+|-----------------------|------------------------------------------------------------|---------------------------------------------------------|
+| **Floppy disk (FDD)** | FDC **IC103** (custom `C1DB00000607`, N82077AA-compatible) | `Disk*`, `Fmm*Disk*`, `FDCstop…`; formats FAT12/FAT16   |
+| **SD card**           | SD-card slot (new)                                         | `SdCard*` / `Sdc*` (folders, rename, delete, playlists) |
+| **USB**               | USB port (new)                                             | *Song Manager* PC software over a USB cable             |
 
 The floppy formatter writes the standard Technics boot sector — the template
-string `Technics····NO NAME····FAT12···FAT16` sits at file `0x1BA4C7`, so media
+string `Technics····NO NAME····FAT12···FAT16` sits at file `0x1BA4BB`, so media
 are **FAT12/FAT16** and interchangeable with a PC. The on-screen prompts confirm
 the model: *"…work on Floppy Disk!"* (`0x1D8514`), *"…to the SD Card brings the
 total…"* (`0x1E4C33`), and *"…with a USB cable. Please connect… included Song
@@ -114,10 +114,11 @@ completion. The chip-select is a GPIO latch bit — `0x36008004` bit 1, active-l
 The firmware speaks **stock SD SPI** (the wake-up `0xFF` clocks with CS released,
 then `CMD0`/`CMD1`/`CMD59`/`CMD9`/`CMD16`/`CMD10`, CRC7-framed commands, `0xFE`
 data tokens, CRC16 data blocks), so MAME's generic `spi_sdcard` device serves it
-directly. Two CRC details are patched into an overlay of that device: the CSD block gets its
-CRC16 appended, and the SD **data-block CRC16 uses an init value of `0x0000`** where
-MAME's `util::crc16` starts from `0xFFFF`. With the `0xFFFF` init, every CSD read
-fails.
+directly. Two CRC details had to be right, and both are now in MAME's `spi_sdcard`
+itself. The SD **data-block CRC16 uses an init value of `0x0000`** (fixed upstream in
+September 2026), and the CSD block carries its CRC16
+([mamedev/mame#16394](https://github.com/mamedev/mame/pull/16394)). With a `0xFFFF`
+init, every CSD read fails.
 
 ### Emulation status: the card mounts, and load and save both round-trip
 
@@ -126,7 +127,7 @@ full init sequence and the mount chain reaches **state 3** with card-ready set �
 reaching that state reads the **boot sector and FAT from the host image**, so
 sector reads work against a real filesystem. From the **SD MENU** the **SD LOAD**
 browser is live: it reports the correct free space for the attached image
-(`123,552KB free` for the 121 MB card image the emulator ships with) and paints the
+(`123,552KB free` for the 121 MB card image used in testing) and paints the
 **FOLDER / SONG columns** with the FOLDER /
 ALPHABET / NUMBER sort options and PREV/NEXT navigation. The SD LOAD screen is a
 genuine **PAGE 1/3 → 2/3 → 3/3** multi-page screen (page 1 is the file browser,
@@ -139,9 +140,10 @@ emulator: SD MENU → SD SAVE MENU (TECHNICS FORMAT / SD-SOUND (SMF) FORMAT) →
 current panel to a slot rewrites 154 sectors in a textbook FAT pattern, the image's
 checksum changes, and loading the slot back restores the saved panel state.
 
-**A writable card image is attached by default.** `run.sh` copies
-`sdcard_from_real_kn7000.img` to `sdcard_work.img` on first use — the shipped image is
-read-only, and the save path needs a writable file — and passes
+**The research overlay's launcher attaches a writable card image by default.** Its
+`run.sh` copies a master card image, when one is present, to `sdcard_work.img` on
+first use — the master is kept read-only, and the save path needs a writable file —
+and passes
 `-harddisk sdcard_work.img`. Callers can substitute their own image, or pass
 `-harddisk ""` for an empty slot.
 This default exists because of a hardware **conflation of card-detect signals**:
@@ -167,18 +169,24 @@ The physical SD path is the byte-wide SPI mailbox described above; it is separat
 from the **floppy's FDC** (IC103, N82077AA-compatible, memory-mapped at
 `0x98020000`), though both share the disk-worker/VFS command layer higher up.
 
-The FDC is located, modelled and exercised at boot, but the floppy **FORMAT** path
-does not complete: it fails with **ERROR 08** ("an error has occurred while the disk
-was formatting") inside the RTOS class-5 disk-task dispatch, *before* the FDC is
-touched. This is an emulation timing defect, not a firmware or reverse-engineering
-gap, and it is observation-sensitive: with memory taps only, the disk task's
-command/FDC markers see zero writes; under a trace or breakpoints, the per-instruction
-overhead wins the event race and the format reaches the FDC (811 and 27,793 hits on the
-two markers). SHARC DRC, `-debug` itself, `set_perfect_quantum` and `-sound none` are
-all ruled out as causes. The full FORMAT navigation path is mapped and works —
-all ten LCD soft-keys are bound.
+The FDC (IC103) is located, modelled and exercised at boot. Its interrupt (INTRQ)
+reaches the CPU on IRQ2, interrupt group `0x19`, not group `0x18` as first modelled;
+the schematic and the firmware's own handler registration agree. In mainline MAME
+([mamedev/mame#16394](https://github.com/mamedev/mame/pull/16394)), INTRQ drives IRQ2
+and DRQ drives the MN103002A's on-chip DMA channel 0, which moves the sector data.
+The merged pull request reports that with this the firmware reads floppies: the
+SP7001 setup reads `BASEEXT.XAP` off its floppy and completes. With INTRQ on the
+right group but the sector data still moved by software on group `0x18`, the floppy
+controller is no longer polled, yet a DISK MENU → LOAD read no sector in the October
+2026 tests. FORMAT was last tested before either fix. It failed with **ERROR 08**
+("an error has occurred while the disk was formatting") inside the RTOS class-5
+disk-task dispatch, *before* the FDC was touched. That failure looked
+observation-sensitive, and SHARC DRC, `-debug`, `set_perfect_quantum` and
+`-sound none` were ruled out as causes. It has not been re-tested since, so it is no
+longer established as a timing defect. The full FORMAT navigation path is mapped and
+works — all ten LCD soft-keys are bound.
 
-⚠ **ERROR 08 identifies no decision point.** It is `FmmFormatFunc`'s *default* message number — any result code absent from the dispatch table at `0x00EA067C` produces it, and the format worker's own `-6` maps to 8 as well. The code means "the format returned failure", nothing more. Reasoning that treats 8 as naming a particular branch is unsound; several earlier notes did.
+⚠ **ERROR 08 identifies no decision point.** It is `FmmFormatFunc`'s *default* message number — any result code absent from the status-to-error table at `0x48663794` produces it (the KN5000's copy is `FileIO_StatusToErrorCode`, `0xEA067C`), and the format worker's own `-6` maps to 8 as well. The code means "the format returned failure", nothing more. Reasoning that treats 8 as naming a particular branch is unsound; several earlier notes did.
 
 ## Relationship to the KN5000
 

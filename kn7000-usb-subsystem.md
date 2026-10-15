@@ -79,24 +79,30 @@ The terminal takes a **type-AB USB cable** to a PC. The bundled CD-ROM carries t
    | KN as slave | the KN7000 is a slave (PC → MIDI) |
    | INTERFACE | the KN7000 bridges a USB-only PC to a MIDI-only instrument (a USB-MIDI adapter) |
 
+   The main CPU only stores the choice. The mode is the byte `0x5006CC6C`, and all 32 references to it are
+   inside this screen's own handlers (table `0x486280A4`). The routing itself is done by the USB controller
+   (IC408), which owns the USB-MIDI class.
+
 2. **USB audio recording** (the "Audio Recorder" app). Streams the instrument's audio to the PC and
    saves **WAV / WMA / MP3** files — the "make a CD from your playing" feature. Hardware path:
    instrument audio → PCM1800 ADC → USB controller → USB.
 3. **Data management** (the "Song Manager" app). Manage and transfer the instrument's data to and from
    the PC. The firmware warns not to unplug during a transfer or *"you may damage your SD Card"* — the
-   operation reaches the SD card by way of the main CPU and the SD µ-COM.
+   transfer is file I/O to the SD card, mediated by the main CPU, which drives the card itself over its SPI
+   link (see [Storage & File System]({{ site.baseurl }}/kn7000-storage-subsystem/#sd-subsystem-internals)).
 
 ## Emulation
 
 - **Have:** the *host* (main MN10300) side of the link, in the dumped program ROM — the firmware's
-  "USB driver / manager". Its interface is the `USB.SI/SO` serial pair plus a `WAIT` handshake, and
-  probably a mailbox in the `0x98050000` I/O window (compare the existing `0x9805000C` "SD mailbox").
+  "USB driver / manager". On the main-CPU side the link is a GPIO bit-bang (`USB.SD` data, `USB.ST`
+  clock/strobe, `USB.MAITU` and the `USB.WAIT*` handshake; see
+  [below](#which-main-cpu-register-is-the-link)), not an on-chip serial channel or a mailbox.
 - **Missing:** the USB controllers (IC407/IC408), the SD µ-COM (IC401) and its flash (IC414) — all
   undumped, all masked custom parts.
 - **Plan.**
-  1. **HLE the host link first.** Find where `USB.SI/SO` map, decode the command framing, and answer as
+  1. **HLE the host link first.** Find the port pins the bit-bang uses, decode the command framing, and answer as
      a "no PC attached" device so the Computer Connection menu and any USB status polling stay stable.
-     Pure disassembly, no hardware — the same shape as the SD-mailbox HLE already in the driver.
+     Pure disassembly, no hardware.
   2. **Present a USB device to a host — later, and optional.** Making the emulated KN7000 appear as a
      real USB-MIDI / USB-audio device to the host is beyond MAME's current USB-device support and needs
      the co-processor behaviour regardless; deferred until step 1 lands.
@@ -129,6 +135,6 @@ UI-navigation one.
 
 ## See also
 
-- [Storage & File System]({{ site.baseurl }}/storage-subsystem/) — the SD card sibling co-processor
-- [MIDI / Serial I/O]({{ site.baseurl }}/midi-serial-io/)
-- [Hardware Architecture]({{ site.baseurl }}/hardware-architecture/)
+- [KN7000 Storage & File System]({{ site.baseurl }}/kn7000-storage-subsystem/) — the SD card and its SPI link
+- [Technics SX-KN7000]({{ site.baseurl }}/kn7000/) — hardware overview
+- [MIDI Serial I/O]({{ site.baseurl }}/midi-serial-io/) and [Hardware Architecture]({{ site.baseurl }}/hardware-architecture/) — the KN5000 equivalents
