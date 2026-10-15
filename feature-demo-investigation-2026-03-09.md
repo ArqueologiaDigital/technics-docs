@@ -10,7 +10,7 @@ The Feature Demo has two independent subsystems:
 
 1. **Demo timer** — a countdown at DRAM `0x0D2F`. It is set to 15 and acts at three
    thresholds: at **10** it loads the next demo song, at **3** it starts playback, at **1** it
-   updates the display.
+   writes 0x85 to DRAM `0x2966`, which arms the sequencer transport.
 2. **SSF visual presentation** — renders FTBMP bitmaps to the LCD from XML-scripted actions.
    See [Feature Demo & Presentation System]({{ site.baseurl }}/feature-demo/).
 
@@ -86,7 +86,8 @@ Observable signature while the stall is in progress:
   requires a stopwatch on a real KN5000 entering the Feature Demo.
 - **SSF event routing.** Event `0x1C00038` requires `UIState_KeyScan_Dispatch` to be called
   with the right UI state. LEFT 2 produces param upper16 = `0xAA0A`, which matches none of the
-  five registered filters (`0x1000`–`0x1400`), and `demo_state` at `0x0251D8` stays `0x0000`.
+  five registered filters (`0x1000`–`0x1400`), and the presentation-loaded flag at `0x0251D8`
+  stays `0x0000` (expected: only a presentation started from disk sets it).
   This is independent of the timer stall.
 
 ## Demo Song Pointer Table
@@ -110,19 +111,19 @@ is `0x008E0000` and entry 19 is NULL, ending the list. The current index lives a
 
 ## Key DRAM Addresses
 
-| Address | Name | Purpose |
-|---------|------|---------|
-| `0x0D2F` | Demo timer | Countdown, set to 15; acts at 10 / 3 / 1 |
-| `0x8F4E` | Playback state | `PlaySong` sets it to 6; `0x04` means it has not returned |
-| `0x8D34` | UI state | Must be `0x13` for `PlaySong` to execute |
-| `0x8D38` | UI sub-state | `0xE4` = Feature Presentation mode |
-| `0xC07B` | SwbtWr buffer index | Current read position in the dispatch buffer |
-| `0xC089` | SwbtWr buffer base | Pointer to the event buffer |
-| `0xC080` | Chain byte | Handler chain selector |
-| `0xC07D` | Param byte | Handler parameter |
-| `0x0251D8` | Demo state | SSF presentation state |
-| `0x28A4` | Demo entry index | Current song index |
-| `0x28B4` | Guard variable | ~~Song list pointer~~ -- the code disagrees (2026-10-03): it is a word of per-part bits the sequencer sets (`SeqReassign_OrPartBits`) and clears (`SeqCh_ClearActive_ShiftDone`, `PartDeact_*`), named `SEQ_ACTIVE_PARTS` in the source; the demo handlers test it with `cpw (..),0` |
+| Address    | Name                     | Purpose                                                                                                                                                                                                                                                                              |
+|------------|--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x0D2F`   | Demo timer               | Countdown, set to 15; acts at 10 / 3 / 1                                                                                                                                                                                                                                             |
+| `0x8F4E`   | Playback state           | `PlaySong` sets it to 6; `0x04` means it has not returned                                                                                                                                                                                                                            |
+| `0x8D34`   | UI state                 | Must be `0x13` for `PlaySong` to execute                                                                                                                                                                                                                                             |
+| `0x8D38`   | UI sub-state             | `0xE4` = Feature Presentation mode                                                                                                                                                                                                                                                   |
+| `0xC07B`   | SwbtWr buffer index      | Current read position in the dispatch buffer                                                                                                                                                                                                                                         |
+| `0xC089`   | SwbtWr buffer base       | Pointer to the event buffer                                                                                                                                                                                                                                                          |
+| `0xC080`   | Chain byte               | Handler chain selector                                                                                                                                                                                                                                                               |
+| `0xC07D`   | Param byte               | Handler parameter                                                                                                                                                                                                                                                                    |
+| `0x0251D8` | Presentation-loaded flag | Set to 1 only by `Seq_InitializeAndStart` (a presentation started from disk); stays 0 while the ROM presentation runs                                                                                                                                                                |
+| `0x28A4`   | Demo entry index         | Current song index                                                                                                                                                                                                                                                                   |
+| `0x28B4`   | Guard variable           | ~~Song list pointer~~ -- the code disagrees (2026-10-03): it is a word of per-part bits the sequencer sets (`SeqReassign_OrPartBits`) and clears (`SeqCh_ClearActive_ShiftDone`, `PartDeact_*`), named `SEQ_ACTIVE_PARTS` in the source; the demo handlers test it with `cpw (..),0` |
 
 ## Related Pages
 

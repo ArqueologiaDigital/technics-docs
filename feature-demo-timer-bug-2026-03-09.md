@@ -23,16 +23,21 @@ T4FFCR (flip-flop control register)
 ```
 
 Boot (`v10/maincpu/shared/boot_hw_init.s:76-82`) starts **only timer 4** (T16RUN bit 0) with
-`T4MOD = 0x05`, `TREG4 = 1` and `TREG5 = 0x3D09`, and sets up the interrupts:
+`T4MOD = 0x05`, `T4FFCR = 0`, `TREG4 = 1` and `TREG5 = 0x3D09`. `Boot_InitPeripherals`
+(`v10/maincpu/kn5000_v10_program.s:1329-1333`) then sets the interrupt priorities:
 
-| Interrupt | Priority | Handler |
-|---|---|---|
-| INTTR5 | 3 (enabled) | `0xEF086A` |
-| INTTR4 | 0 (disabled) | `0xEF0E21` |
+| Interrupt | Priority     | Handler                       |
+|-----------|--------------|-------------------------------|
+| INTTR4    | 3 (enabled)  | `INTTR4_HANDLER` (`0xEF0E21`) |
+| INTTR5    | 0 (disabled) | `Empty_Handler` (`0xEF086A`)  |
 
-TREG5 is therefore the interval register, and **INTTR5 is the sequencer clock**. Its handler
-drives the tick counters at DRAM 1047, 1051 and 1052, which pace the accompaniment engine, the
-metronome and demo song cycling. If INTTR5 does not fire, demo songs never advance.
+TREG5 sets the interval (`T4MOD` bit 2, `CLE`, clears the counter on a TREG5 match), and the
+`TREG4 = 1` match raises INTTR4 once per interval, so **INTTR4 is the sequencer clock**. Its
+handler drives the tick counters at DRAM 1047, 1051 and 1052, which pace the accompaniment
+engine, the metronome and demo song cycling. If INTTR4 does not fire, demo songs never advance.
+(The March 2026 notes, and the description of
+[#15878](https://github.com/mamedev/mame/pull/15878), name INTTR5; the vector table and the boot
+priorities say INTTR4.)
 
 ## What a Compare Match Does
 
@@ -66,28 +71,29 @@ re-checkable with `notes/wsa1-probes/tlcs900_datasheet_quotes.py` in the MAME tr
 
 ## Source Locations
 
-| File | Location | Role |
-|------|-------------|------|
-| `tmp94c241.cpp` | `timer_16bits` lambda | 16-bit timer match handling for T4/T6/T8/TA |
-| `tmp94c241.h` | `INTET45 = 6` | Interrupt register index mapping |
-| ROM vector `0xFFFF64` | `0x00EF086A` | INTTR5 handler |
-| `system_handlers.s:626` | INTTR4 handler | Disabled at boot (priority 0) |
-| `system_handlers.s:387` | INTT1 handler | Internal clock, for comparison |
-| `sequencer_engine.s:18893` | AccPlayMode state 3 | Waits on tick counter 1052 |
-| `accompaniment_engine.s:8040` | `AccPlayMode_Dispatch` | Promotion chain endpoint |
+| File                          | Location               | Role                                            |
+|-------------------------------|------------------------|-------------------------------------------------|
+| `tmp94c241.cpp`               | `timer_16bits` lambda  | 16-bit timer match handling for T4/T6/T8/TA     |
+| `tmp94c241.h`                 | `INTET45 = 6`          | Interrupt register index mapping                |
+| ROM vector `0xFFFF60`         | `0x00EF0E21`           | INTTR4: `INTTR4_HANDLER`, the sequencer clock   |
+| ROM vector `0xFFFF64`         | `0x00EF086A`           | INTTR5: `Empty_Handler`                         |
+| `system_handlers.s:634`       | `INTTR4_HANDLER`       | Advances the tick counters (priority 3 at boot) |
+| `system_handlers.s:387`       | INTT1 handler          | Internal clock, for comparison                  |
+| `sequencer_engine.s:18893`    | AccPlayMode state 3    | Waits on tick counter 1052                      |
+| `accompaniment_engine.s:8040` | `AccPlayMode_Dispatch` | Promotion chain endpoint                        |
 
 ## Sequencer DRAM Counters
 
-| Address | Name | Purpose |
-|---------|------|---------|
-| 1047 | Metro sub-tick | Metronome timing (driven by INTTR5) |
-| 1050 | Internal clock | Internal clock counter (driven by INTT1) |
-| 1051 | Alt seq sub-tick | Alternate sequencer sub-tick |
-| 1052 | Alt seq tick | Alternate sequencer tick counter |
-| 1054 | Enable flags | Bit 2: sequencer enabled |
-| 1056 | Alt clock state | Promotion chain variable |
-| 1057 | Alt seq state | Promotion chain variable |
-| 8956 | AccPlayMode state | State machine index |
+| Address | Name              | Purpose                                  |
+|---------|-------------------|------------------------------------------|
+| 1047    | Metro sub-tick    | Metronome timing (driven by INTTR4)      |
+| 1050    | Internal clock    | Internal clock counter (driven by INTT1) |
+| 1051    | Alt seq sub-tick  | Alternate sequencer sub-tick             |
+| 1052    | Alt seq tick      | Alternate sequencer tick counter         |
+| 1054    | Enable flags      | Bit 2: sequencer enabled                 |
+| 1056    | Alt clock state   | Promotion chain variable                 |
+| 1057    | Alt seq state     | Promotion chain variable                 |
+| 8956    | AccPlayMode state | State machine index                      |
 
 ## Timer 4 SFR Addresses
 

@@ -603,7 +603,7 @@ Demo timer/sequencer
   -> DemoMenu_BuildItemWorkspace (0xF83CEA)
     -> reads table at 0xE9F88C: values in 0x82xx-0x82CC range
     -> workspace tag = 0x82xx + (part_select * 1024)  [WRONG]
-      -> event 0x1C0001C (queued PostEventWithParam)
+      -> event 0x1C0001C (queued ApPostEvent)
         -> AcPresentCtrl_CheckSSFStart: tag == 0xB80A? NO
           -> event 0x1C00006 NEVER SENT
             -> SSF parser never starts
@@ -1716,7 +1716,7 @@ The infrastructure was built (XML parser, event system, tag vocabulary, `EXEC` c
 ## Related Pages
 - [Feature Demo & Presentation System]({{ site.baseurl }}/feature-demo/) -- activation paths, assets and MAME status
 - [Feature Demo Timer Behaviour]({{ site.baseurl }}/feature-demo-investigation-2026-03-09/) -- the demo timer, the SwbtWr stall and the song pointer table
-- [Timer 4/5 and the Sequencer Clock]({{ site.baseurl }}/feature-demo-timer-bug-2026-03-09/) -- how INTTR5 paces the sequencer
+- [Timer 4/5 and the Sequencer Clock]({{ site.baseurl }}/feature-demo-timer-bug-2026-03-09/) -- how INTTR4 paces the sequencer
 - [UI Framework]({{ site.baseurl }}/ui-framework/) -- Widget system and event handling
 - [UI Widget Types]({{ site.baseurl }}/ui-widget-types/) -- NAKA widget descriptor format
 - [Display Subsystem]({{ site.baseurl }}/display-subsystem/) -- LCD controller, VRAM, and display architecture
