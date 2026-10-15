@@ -236,7 +236,6 @@ flowchart TD
     CPANEL_ISR --> EVT_GEN["Generate event ID<br/>(e.g. 0x01C00008 = EVT_SW_ON)"]
     EVT_GEN --> VIEWABLE["ViewableProc<br/>0xFA5995 — dispatch on 32-bit event ID"]
     VIEWABLE --> INHERITED["InheritedProc<br/>0xFA4409 — walk parent chain"]
-    VIEWABLE -.->|"rendering priority<br/>from the 8-bit type byte"| TYPE_CLASS["SeMenu_SetObjectFlags<br/>0xF06898"]
 
     subgraph WIDGETS ["Widget handlers"]
         CONTAINER["Container handler<br/>screen root, layout"]
