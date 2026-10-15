@@ -21,7 +21,7 @@ The KN5000 uses two TMP94C241F CPUs that communicate via a pair of memory-mapped
 │  └─────────────────┘    └────────┬────────┘    └─────────────────┘   │
 │                                  │                                    │
 │         Lock counter at (0x0532 + lock_index)                         │
-│         Linked list of waiting requests at 0x0487                     │
+│         Wait queue head at 0x04FF + 4 × lock_index                    │
 └──────────────────────────────────┬───────────────────────────────────┘
                                    │
                                    v
@@ -51,9 +51,9 @@ The KN5000 uses two TMP94C241F CPUs that communicate via a pair of memory-mapped
 │  │  0x20-0x3F: Audio_CmdHandler_20_3F (Stub)                     │  │
 │  │  0x40-0x5F: Audio_CmdHandler_40_5F (...)                       │  │
 │  │  0x60-0x7F: Audio_CmdHandler_60_7F (Audio/DSP → 0x3B60)      │  │
-│  │  0x80-0x9F: Serial port setup (38400 baud)                    │  │
-│  │  0xA0-0xBF: Audio_CmdHandler_A0_BF (System audio)             │  │
-│  │  0xC0-0xFF: Audio_CmdHandler_C0_FF (Extended system)          │  │
+│  │  0x80-0x9F: Serial1_DataTransmit_Loop (SC1 transmit)          │  │
+│  │  0xA0-0xBF: Audio_CmdHandler_A0_BF (keybed touch curve)       │  │
+│  │  0xC0-0xFF: Audio_CmdHandler_C0_FF (no-op)                    │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -72,7 +72,7 @@ are historical; see [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/#the-two-kn
     LD A, lock_index        ; Lock index 0-7
     CALL Audio_Lock_Acquire ; Decrements counter, waits if busy
 
-; ... send audio commands via DMA ...
+; ... send the command bytes to the latch at 0x140000 ...
 
 ; Release lock when done
     LD A, lock_index
@@ -81,11 +81,11 @@ are historical; see [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/#the-two-kn
 
 **Lock Variables:**
 - Counter: `(0x0532 + lock_index)` - Decremented on acquire, incremented on release
-- Wait List: `0x0487` - Linked list of pending requests
+- Wait queues: one per semaphore, head at `0x04FF + 4 × lock_index`. `(0x0487)` holds the current task, which `Audio_Lock_Acquire` moves onto that queue when the count is zero
 
 ### DMA Transfer
 
-The `Audio_DMA_Transfer` routine handles bulk data transfer:
+Despite its name, `Audio_DMA_Transfer` uses no micro-DMA. It is a software loop that writes one byte at a time to the latch at 0x140000, with a 3-iteration delay between bytes, and each write raises the Sub CPU's /INT0:
 
 ```asm
 Audio_DMA_Transfer:
@@ -178,10 +178,11 @@ When DMAC0 reaches 0:
 │  1. DMA0V cleared automatically (HDMA disabled)   │
 │                                                   │
 │  2. Dispatch based on CMD_PROCESSING_STATE:       │
-│     - State 0: Standard command → dispatch via    │
+│     - State 1: Standard command → dispatch via    │
 │       CMD_DISPATCH_TABLE (upper 3 bits)           │
 │     - State 2: E1 phase 1 → set up phase 2       │
 │     - State 3: E2 processing → handle ext. cmd    │
+│     - State 4: E1 phase 2 done → clear 0x04FE b7  │
 │                                                   │
 │  3. Process command data from receive buffer      │
 └──────────────────────────────────────────────────┘
@@ -204,11 +205,11 @@ Commands are dispatched based on upper 3 bits of the command byte:
 CMD_DISPATCH_TABLE:                         ; Address: 0x00F46C
     dd Audio_CmdHandler_00_1F   ; 0x00-0x1F: MIDI/note commands → ring buffer at 0x2B0D
     dd Audio_CmdHandler_20_3F   ; 0x20-0x3F: Stub (returns 0)
-    dd Audio_CmdHandler_40_5F   ; 0x40-0x5F: (line 9619)
+    dd Audio_CmdHandler_40_5F   ; 0x40-0x5F: data drain
     dd Audio_CmdHandler_60_7F   ; 0x60-0x7F: Audio/DSP commands → ring buffer at 0x3B60
     dd Serial1_DataTransmit_Loop ; 0x80-0x9F: Serial port 1 data
-    dd Audio_CmdHandler_A0_BF   ; 0xA0-0xBF: (line 51502)
-    dd Audio_CmdHandler_C0_FF   ; 0xC0-0xDF: (line 10951)
+    dd Audio_CmdHandler_A0_BF   ; 0xA0-0xBF: keybed touch curve / forwarding
+    dd Audio_CmdHandler_C0_FF   ; 0xC0-0xDF: no-op
     dd Audio_CmdHandler_C0_FF   ; 0xE0-0xFF: Same as 0xC0-0xDF
 ```
 
@@ -230,12 +231,12 @@ Commands 0x00-0x1F write MIDI-like data to a 4KB ring buffer:
 
 Commands 0x60-0x7F write audio config data to a 2KB ring buffer:
 
-| Variable | Address | Description |
-|----------|---------|-------------|
-| Write Pointer | 0x3B60 | 11-bit circular index (wraps at 0x800) |
-| (reserved) | 0x3B62 | Padding |
-| Available Count | 0x3B64 | Bytes queued for processing |
-| Buffer Base | 0x3B66 | 3-byte pointer to actual data area |
+| Variable        | Address | Description                                            |
+|-----------------|---------|--------------------------------------------------------|
+| Write Pointer   | 0x3B60  | 11-bit circular index (wraps at 0x800)                 |
+| Read Pointer    | 0x3B62  | 11-bit read index                                      |
+| Available Count | 0x3B64  | Bytes queued for processing                            |
+| Buffer Data     | 0x3B66  | 2KB data area, inline (indexed by the 11-bit pointers) |
 
 `Audio_Process_DSP` (called from main loop) reads commands from this buffer. The most important command is **0x2D** (DSP configuration change). See [Audio Subsystem — Command 0x2D Protocol]({{ site.baseurl }}/audio-subsystem/#inter-cpu-command-protocol-command-0x2d--dsp-configuration) for the full 4-layer protocol.
 
@@ -248,8 +249,8 @@ Bits 7-5: Handler index (0-7) → selects CMD_DISPATCH_TABLE entry
 Bits 4-0: Payload length - 1 (0-31 = 1 to 32 bytes)
 
 Examples:
-  0x02 = Handler 0 (MIDI), 3 bytes   → Note On/Off or Control Change
-  0x01 = Handler 0 (MIDI), 2 bytes   → Program Change
+  0x03 = Handler 0 (MIDI), 4 bytes   → one 4-byte record (e.g. Note On, Control Change)
+  0x04 = Handler 0 (MIDI), 5 bytes   → one Program Change record
   0x7F = Handler 3 (DSP config), 32 bytes
 ```
 
@@ -260,34 +261,34 @@ Special command bytes bypass this encoding:
 
 ### MIDI Message Format (Ring Buffer at 0x2B0D)
 
-The ring buffer contains standard MIDI messages parsed by `MIDI_Dispatch` (0x034D93):
+The ring holds fixed-width internal records, not MIDI wire bytes, and there is no running status. Each record is a status byte, then (in the 0x80-0xE0 classes) the part number (0x00-0x19), then data. `MIDI_Dispatch` (0x034D93) checks that the record is complete, copies it to a per-class staging buffer, and calls:
 
-| Status Byte | Length | Format | Handler |
-|-------------|--------|--------|---------|
-| 0x80-0x8F | 3 | `[0x8n] [note] [velocity]` | Note Off (→ `Voice_NoteOn` with vel=0) |
-| 0x90-0x9F | 3 | `[0x9n] [note] [velocity]` | Note On (`Voice_NoteOn` at 0x2CF97) |
-| 0xB0-0xBF | 3 | `[0xBn] [CC#] [value]` | Control Change (`Voice_CtrlChange` at 0x2A282) |
-| 0xC0-0xCF | 2 | `[0xCn] [program]` | Program Change (`Voice_ProgChange` at 0x34A4A) |
-| 0xD0-0xDF | 2 | `[0xDn] [pressure]` | Channel Pressure (`Voice_ChanPressure` at 0x2A4EA) |
-| 0xE0-0xEF | 3 | `[0xEn] [LSB] [MSB]` | Pitch Bend (`Voice_PitchBend` at 0x2A5E6) |
-| 0xF0-0xFF | var | `[0xF0] ... [0xF7]` | System Message (`Voice_SystemMsg` at 0x2A7AF) |
+| Status | Record bytes | Staging                                  | Handler                                                                           |
+|--------|--------------|------------------------------------------|-----------------------------------------------------------------------------------|
+| 0x80   | 6            | 0x2AE8 (0x2AEE when status bit 3 is set) | `Voice_ParamFinalize` (0x031A72)                                                  |
+| 0x90   | 4            | 0x2AF4                                   | `Voice_NoteOn` (0x02CF97), or `Voice_Poly_NoteOn` (0x0356C9) when byte +1 >= 0xF0 |
+| 0xB0   | 4            | 0x2AF8                                   | `Voice_CtrlChange` (0x02A282)                                                     |
+| 0xC0   | 5            | 0x2AFC                                   | `Voice_ProgChange` (0x034A4A)                                                     |
+| 0xD0   | 4            | 0x2B01                                   | `Voice_ChanPressure` (0x02A4EA)                                                   |
+| 0xE0   | 4            | 0x2B05                                   | `Voice_PitchBend` (0x02A5E6)                                                      |
+| 0xF0   | 4            | 0x2B09                                   | `Voice_SystemMsg` (0x02A7AF)                                                      |
 
-The channel number (`n`) is in the low nibble of the status byte (bits 3-0). The Sub CPU supports up to **26 channels** (0x00-0x19).
+The Sub CPU has 26 parts (0x00-0x19).
 
 ### Supported MIDI Control Changes
 
-| CC# | Name | Description |
-|-----|------|-------------|
-| 0x01 | Mod Wheel | Modulation depth |
-| 0x07 | Volume | Channel volume |
-| 0x0A | Pan | Stereo position |
-| 0x0B | Expression | Expression controller |
-| 0x40 | Sustain | Sustain pedal (on/off) |
-| 0x5B | Sostenuto | Sostenuto pedal |
-| 0x5D | Soft | Soft pedal |
-| 0x5E | Portamento | Portamento control |
-| 0x78-0x81 | Extended | Proprietary extended functions (lookup table dispatch) |
-| 0x91-0x9D | Effects | Proprietary effects depth control |
+| CC#       | Name                    | Description                                                                                                                |
+|-----------|-------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| 0x01      | Mod Wheel               | Modulation depth                                                                                                           |
+| 0x07      | Volume                  | Channel volume                                                                                                             |
+| 0x0A      | Pan                     | Stereo position                                                                                                            |
+| 0x0B      | Expression              | Expression controller                                                                                                      |
+| 0x40      | Sustain                 | Sustain pedal (on/off)                                                                                                     |
+| 0x5B      | Sostenuto               | Sostenuto pedal                                                                                                            |
+| 0x5D      | Soft                    | Soft pedal                                                                                                                 |
+| 0x5E      | Portamento              | Portamento control                                                                                                         |
+| 0x78-0x82 | Channel mode / extended | Table dispatch via `Voice_CC_Mode_CaseOffsets` (0x00F739): 0x78, 0x79, 0x7B, 0x80-0x82 act; 0x7A and 0x7C-0x7F are ignored |
+| 0x91-0x9D | Effects                 | Proprietary effects depth control                                                                                          |
 
 ### Voice Processing
 
@@ -296,9 +297,9 @@ Note On processing (`Voice_NoteOn` at 0x2CF97):
 2. If velocity = 0: triggers note off (voice release)
 3. If velocity > 0: allocates voice slot, sets pitch and velocity
 
-Voice parameters are stored in per-channel structures of **287 bytes** each at base address `0x041381`:
+Voice parameters are stored in per-part records of **287 bytes** each, starting at `Part_Record_Base` = `0x041368`. 0x041381 is field +0x19, the tone selector that `Voice_ProgChange` writes:
 ```
-channel_params[channel] = 0x041381 + channel * 0x11F
+part_record[part] = 0x041368 + part * 0x11F
 ```
 
 Pitch bend uses a **14-bit value** (MSB and LSB combined): `value = (MSB << 7) | LSB`, with bit 15 set as a sign marker.
@@ -329,7 +330,7 @@ During boot, the Main CPU loads the 192KB Sub CPU payload:
 
 ## Code References
 
-### Main CPU (`maincpu/kn5000_v10_program.asm`)
+### Main CPU (`v10/maincpu/boot/system_handlers.s`, `v10/maincpu/kn5000_v10_program.s`)
 
 | Routine | Address | Description |
 |---------|---------|-------------|
@@ -342,7 +343,7 @@ During boot, the Main CPU loads the 192KB Sub CPU payload:
 | `Audio_Lock_Acquire` | 0xEF1FEE | Acquire communication lock |
 | `Audio_Lock_Release` | 0xEF1F0F | Release communication lock |
 
-### Sub CPU (`subcpu/kn5000_subprogram_v142.asm`)
+### Sub CPU (`v142/subcpu/kn5000_subprogram_v142.s`)
 
 | Routine | Address | Description |
 |---------|---------|-------------|
@@ -418,10 +419,10 @@ InterCPU_RX_Handler:           ; 0xFF881F
 | 6 | Payload ready - triggers `call 0x000400` in boot ROM main loop |
 | 7 | Transfer active flag |
 
-### Boot ROM Main Loop (0xFF840C)
+### Boot ROM Main Loop (`MAIN_LOOP`, 0xFF840C)
 
 ```asm
-Boot_Main_Loop:                ; 0xFF840C
+MAIN_LOOP:                     ; 0xFF840C
     res  6, (0x04FE)           ; Clear payload-ready flag
 .poll:
     bit  6, (0x04FE)           ; Check if payload ready
@@ -470,7 +471,7 @@ Sends the 192KB payload to Sub CPU in chunks. This is the core routine for loadi
 > - [Boot Sequence: SubCPU_Send_Payload Details]({{ site.baseurl }}/boot-sequence/#subcpu_send_payload-details) - Transfer sequence table, timing, error handling
 > - [LZSS Compression]({{ site.baseurl }}/lzss-compression/) - Optional preset data decompression
 
-**Source:** `maincpu/kn5000_v10_program.asm:134212`
+**Source:** `v10/maincpu/kn5000_v10_program.s:1475`
 
 ```asm
 SubCPU_Send_Payload:           ; 0xEF068A
@@ -566,17 +567,16 @@ The Main CPU uses command 0x2B to query the Sub CPU for the display name of the 
 
 ### Request Format (10 bytes, Main CPU → Sub CPU)
 
-| Offset | Value | Description |
-|--------|-------|-------------|
-| 0 | 0x2B | Command: sound/voice query |
-| 1 | 0x30–0x3F | Voice slot (0x30 = slot 0, 0x3F = slot 15) |
-| 2 | 0x7F | Parameter selector |
-| 3 | 0x20 | Address/routing byte |
-| 4–5 | 0x00 0x00 | Reserved |
-| 6 | 0x02 | Sub-command group |
-| 7 | 0x12–0x16 | Part identifier (see table below) |
-| 8 | XX | Voice/sound index within bank |
-| 9 | 0x00 | Padding/terminator |
+| Offset | Value          | Description                                                                          |
+|--------|----------------|--------------------------------------------------------------------------------------|
+| 0      | 0x2B           | Command: sound/voice query                                                           |
+| 1      | 0x30–0x3F      | Voice slot (0x30 = slot 0, 0x3F = slot 15)                                           |
+| 2      | 0x7F           | Parameter selector                                                                   |
+| 3      | 0x20           | Sub-command 0x20: sound-name request (`DSP_Cmd2B_MixSendConfig`)                     |
+| 4–6    | 0x00 0x00 0x02 | 0x436C, then the 14-bit payload size (bytes 5-6): 2 payload bytes follow             |
+| 7      | seq            | Sequence number: the byte at Main CPU 0xE197, incremented per request, bit 7 cleared |
+| 8      | A              | First argument (`SubCPU_RequestSoundName` register A; the source calls it the bank)  |
+| 9      | C              | Second argument (register C, the program)                                            |
 
 ### Response Format (25 bytes, Sub CPU → Main CPU)
 
@@ -586,20 +586,12 @@ The Main CPU uses command 0x2B to query the Sub CPU for the display name of the 
 | 8–23 | ASCII | 16-character sound name (space-padded) |
 | 24 | 0x10/0x20 | Status/category byte |
 
-### Part Identifiers (byte 7)
-
-| Value | Part | Default Voice (from trace) |
-|-------|------|----------------------------|
-| 0x12 | Right 1 | Modern E.P.1 (idx 0x06) |
-| 0x13 | Right 2 | Bigband Brass (idx 0x38) |
-| 0x14 | Left | Piano (idx 0x00) |
-| 0x15 | Right 1 (conductor) | Modern E.P.1 (idx 0x06) |
-| 0x16 | Right 2 (conductor) | Bigband Brass (idx 0x38) |
+The values 0x12-0x16 in the trace are five successive sequence numbers, not part identifiers.
 
 ### Sub CPU Handling
 
-- Processed in `Audio_Process_DSP` (0x035AC8), not the standard command dispatch table
-- Sub-command 0x00 at offset 0x436B triggers sound name lookup from RAM tables at 0x041xxx
+- Sent with `sendCOMM` handler 3, i.e. inter-CPU command 0x69 (10 bytes) → `Audio_CmdHandler_60_7F` → DSP ring → `Audio_Process_DSP` (0x035AC8)
+- Sub-command 0x20 at 0x436B → `DSP_Cmd2B_MixSendConfig` → `DSP_MixSendConfig`, which copies 0x11 bytes (16-character name + category byte) from the record `ToneDB_Find_ToneRecord` returns. The Main CPU stores those 17 bytes (`SndParam_ApplyProgramChangeAsync`).
 - Names are pre-loaded during boot from Table Data ROM, not queried from tone generator
 - Response sent via `InterCPU_DMA_Send` with HDMA ch2
 
@@ -615,6 +607,8 @@ Response: 2B 30 7F 20 00 00 02 14 "Piano           " 10
 ### Latch Pending State and INT0
 
 The MAME `generic_latch_8_device` tracks a `data_pending` flag that drives the Sub CPU's INT0 input. Two emulation issues were discovered and fixed:
+
+> **Status (October 2026):** these fixes are in the kn7000_mame overlay build, not in upstream MAME. Since 2026-08-05 (overlay commit `3fd44f3`) the overlay core no longer re-asserts /INT0 at all. Without it, latch writes, INT0 dispatches and latch reads measure 1:1:1, and the play screen still shows voice names. Upstream `tmp94c241.cpp` keeps the re-assertion but skips it while a micro-DMA channel owns the INT0 vector, and upstream `kn5000.cpp` has neither the latch-read wrappers nor the latch-write scheduling described below.
 
 **Issue 1: Stale pending state blocking INT0 (latch write without read)**
 
@@ -638,14 +632,14 @@ The TMP94C241's `check_irqs()` contains a level-detect re-assertion path: after 
 7. Sub CPU never processes the E2 command → never responds to Main CPU
 8. Main CPU times out after 10 seconds waiting at `0xFB770F`
 
-**Failed first approach:** Removing the re-assertion code entirely fixed boot but broke button input — both CPUs' INT0 lines are driven by latches, and the Main CPU needs re-assertion for processing Sub CPU responses during normal operation.
+**First approach (February 2026):** removing the re-assertion appeared to break button input. The overlay later removed it after all (`3fd44f3`), once the latch reads cleared /INT0 synchronously.
 
 **Fix:** Added `clear_int0_level()` public method to `tmp94c241_device` that synchronously updates `m_level[INT0]` and clears the INT0 interrupt flag. The driver's latch-read wrappers (`subcpu_latch_r()`, `maincpu_latch_r()`) call this immediately after `generic_latch::read()`, bypassing the deferred `synchronize()` mechanism.
 
 This is safe because:
 1. **Same-CPU context** — the latch read occurs during the CPU's own memory read (HDMA or instruction), so we're modifying the CPU's own state within its execution context
 2. **Idempotent** — the deferred `set_input_line(CLEAR)` callback runs later but `m_level` is already `CLEAR_LINE`, so `execute_set_input()` becomes a no-op
-3. **Re-assertion preserved** — the level-detect re-assertion code in `check_irqs()` stays intact, but now checks the *correct* `m_level` value
+3. **Re-assertion (historical)** — at the time the re-assertion stayed and checked the corrected `m_level`. The overlay has since dropped it.
 4. **New ASSERT works normally** — when new data is written to the latch, `set_input_line(INT0, ASSERT)` fires through the normal deferred path
 
 ### CPU Scheduling for Latch Transfers
@@ -665,73 +659,70 @@ This table maps Main CPU sending routines to the Sub CPU handlers that process t
 ```
 Main CPU                          Sub CPU
 ────────                          ───────
-Audio_SendCommand
-  → Sprintf_Core (retired name: Audio_CommandEncoder)
-    → AssswbWr (ring buffer)
-      → sendCOMM
-        → InterCPU_Send_Data_Block  → INT0 / MICRODMA_CH0_HANDLER
-          (latch write @ 0x140000)     → CMD_DISPATCH_TABLE[bits 7-5]
+sendCOMM (WA = handler, XDE = buffer, BC = count)
+  → InterCPU_Send_Data_Block        → INT0 / MICRODMA_CH0_HANDLER
+    (latch write @ 0x140000)           → CMD_DISPATCH_TABLE[bits 7-5]
                                           → Audio_CmdHandler_XX_XX
                                             → MIDI_Dispatch (for 0x00-0x1F)
 ```
 
 ### Command Range Cross-Reference
 
-| Cmd Range | Main CPU Sender | Main CPU Address | Sub CPU Handler | Purpose |
-|-----------|----------------|-----------------|-----------------|---------|
-| 0x00-0x1F | `sendCOMM` (A=0) | 0xEF32F4 | `Audio_CmdHandler_00_1F` | MIDI/audio data → ring buffer → `MIDI_Dispatch` |
-| 0x20-0x3F | `sendCOMM` (A=1) | 0xEF32F4 | `Audio_CmdHandler_20_3F` | Tone generator (stub/reserved) |
-| 0x40-0x5F | `sendCOMM` (A=2) | 0xEF32F4 | `Audio_CmdHandler_40_5F` | Buffer drain/flush (skips data) |
-| 0x60-0x7F | `sendCOMM` (A=3) | 0xEF32F4 | `Audio_CmdHandler_60_7F` | DSP streaming state machine |
-| 0x80-0x9F | `sendCOMM` (A=4) | 0xEF32F4 | `Serial1_DataTransmit_Loop` | Serial/MIDI TX to external port |
-| 0xA0-0xBF | `sendCOMM` (A=5) | 0xEF32F4 | `Audio_CmdHandler_A0_BF` | Tone generator mode/config |
-| 0xC0-0xDF | `sendCOMM` (A=6) | 0xEF32F4 | `Audio_CmdHandler_C0_FF` | Reserved (stub) |
-| 0xE0-0xFF | `sendCOMM` (A=7) | 0xEF32F4 | `Audio_CmdHandler_C0_FF` | Reserved (stub); E1/E2/E3 handled separately |
+| Cmd Range | Main CPU Sender  | Main CPU Address | Sub CPU Handler             | Purpose                                                                      |
+|-----------|------------------|------------------|-----------------------------|------------------------------------------------------------------------------|
+| 0x00-0x1F | `sendCOMM` (A=0) | 0xEF32F4         | `Audio_CmdHandler_00_1F`    | MIDI/audio data → ring buffer → `MIDI_Dispatch`                              |
+| 0x20-0x3F | `sendCOMM` (A=1) | 0xEF32F4         | `Audio_CmdHandler_20_3F`    | No-op (returns HL = 0)                                                       |
+| 0x40-0x5F | `sendCOMM` (A=2) | 0xEF32F4         | `Audio_CmdHandler_40_5F`    | Buffer drain/flush (skips data)                                              |
+| 0x60-0x7F | `sendCOMM` (A=3) | 0xEF32F4         | `Audio_CmdHandler_60_7F`    | DSP streaming state machine                                                  |
+| 0x80-0x9F | `sendCOMM` (A=4) | 0xEF32F4         | `Serial1_DataTransmit_Loop` | Serial/MIDI TX to external port                                              |
+| 0xA0-0xBF | `sendCOMM` (A=5) | 0xEF32F4         | `Audio_CmdHandler_A0_BF`    | Keybed touch-curve index (0x4A48) and keybed→main forwarding enable (0x4A4A) |
+| 0xC0-0xDF | `sendCOMM` (A=6) | 0xEF32F4         | `Audio_CmdHandler_C0_FF`    | Reserved (stub)                                                              |
+| 0xE0-0xFF | `sendCOMM` (A=7) | 0xEF32F4         | `Audio_CmdHandler_C0_FF`    | Reserved (stub); E1/E2/E3 handled separately                                 |
 
 ### Special Command Cross-Reference
 
-| Command | Main CPU Routine | Main CPU Address | Sub CPU Handler | Purpose |
-|---------|-----------------|-----------------|-----------------|---------|
-| 0xE1 | `InterCPU_E1_Bulk_Transfer` | 0xEF3457 | `InterCPU_RX_Handler` (boot) / `CH0_State2_E1` | Two-phase bulk DMA (6-byte header + payload) |
-| 0xE2 | `InterCPU_E2_Send` | 0xEF33AA | `InterCPU_RX_Handler` (boot) / `CH0_State3_E2` | Extended parameter transfer (10-byte header) |
-| 0xE3 | `SubCPU_Send_Payload` | 0xEF068A | `InterCPU_RX_Handler` (boot) | Payload ready signal (sets bit 6 of 0x04FE) |
+| Command | Main CPU Routine                     | Main CPU Address | Sub CPU Handler                                | Purpose                                                                                                           |
+|---------|--------------------------------------|------------------|------------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
+| 0xE1    | `InterCPU_E1_Bulk_Transfer`          | 0xEF3457         | `InterCPU_RX_Handler` (boot) / `CH0_State2_E1` | Two-phase bulk DMA (6-byte header + payload)                                                                      |
+| 0xE2    | `InterCPU_E2_Send`                   | 0xEF33AA         | `InterCPU_RX_Handler` (boot) / `CH0_State3_E2` | Extended parameter transfer (10-byte header)                                                                      |
+| 0xE3    | (none: no Main CPU code writes 0xE3) | —                | `InterCPU_RX_Handler` (boot) / `INT0_HANDLER`  | Sets bit 6 of 0x04FE. Boot does not use it: the last E1 block (256 bytes to 0x0400-0x04FF) writes 0x04FE directly |
 
 ### Boot-Time Transfer Cross-Reference
 
-| Step | Main CPU Routine | Main CPU Address | Sub CPU Handler | Description |
-|------|-----------------|-----------------|-----------------|-------------|
-| 1 | `SubCPU_Send_Payload` | 0xEF068A | `InterCPU_RX_Handler` | Transfer 192KB firmware payload via E1 bulk transfers |
-| 2 | `SubCPU_Send_Payload` (E3) | 0xEF068A | `InterCPU_RX_Handler` | Signal payload ready → Sub CPU jumps to payload entry |
-| 3 | `SubCPU_Init_DMA_Channels` | 0xEF329E | `InterCPU_Latch_Setup` | Both CPUs configure DMA channels for runtime communication |
-| 4 | `SubCPU_Payload_Verify` | 0xEF092B | — | Main CPU verifies payload checksums (no Sub CPU involvement) |
+| Step | Main CPU Routine                      | Main CPU Address | Sub CPU Handler        | Description                                                                                             |
+|------|---------------------------------------|------------------|------------------------|---------------------------------------------------------------------------------------------------------|
+| 1    | `SubCPU_Send_Payload`                 | 0xEF068A         | `InterCPU_RX_Handler`  | Transfer 192KB firmware payload via E1 bulk transfers                                                   |
+| 2    | `SubCPU_Send_Payload` (last E1 block) | 0xEF068A         | `InterCPU_RX_Handler`  | The 256-byte block to 0x0400-0x04FF sets bit 6 of 0x04FE, and the boot ROM's `MAIN_LOOP` calls 0x000400 |
+| 3    | `SubCPU_Init_DMA_Channels`            | 0xEF329E         | `InterCPU_Latch_Setup` | Both CPUs configure DMA channels for runtime communication                                              |
+| 4    | `SubCPU_Payload_Verify`               | 0xEF092B         | —                      | Main CPU verifies payload checksums (no Sub CPU involvement)                                            |
 
 ### Audio Command Pipeline (Runtime)
 
-The Main CPU's `Audio_SendCommand` (called from 197+ locations) is the primary interface for sending audio parameters to the Sub CPU:
+Runtime commands go through `sendCOMM` (0xEF32F4). Its call sites pass a buffer (XDE), a byte count (BC) and the 3-bit handler number (WA: 0 = MIDI ring, 3 = DSP ring, 4 = SC1 transmit, 5 = keybed local control); `sendCOMM` takes semaphore #2 itself:
 
-| Stage | Routine | Address | CPU | Description |
-|-------|---------|---------|-----|-------------|
-| 1. Lock | `Audio_Lock_Acquire` | 0xEF1FEE | Main | Acquire lock #7 (serializes audio commands) |
-| 2. Format | `Sprintf_Core` | 0xFF1048 | Main | Printf-like formatter builds command packet (retired name: `Audio_CommandEncoder`) |
-| 3. Queue | `AssswbWr` | 0xFDB1F3 | Main | Write to ring buffer at 0xBD3C (max 0x1FC bytes) |
-| 4. Send | `sendCOMM` | 0xEF32F4 | Main | Chunk into ≤32-byte blocks, call `InterCPU_Send_Data_Block` |
-| 5. Transfer | `InterCPU_Send_Data_Block` | 0xEF3345 | Main | Handshake + DMA write to latch at 0x140000 |
-| 6. Receive | `MICRODMA_CH0_HANDLER` | 0x020F1F | Sub | DMA interrupt reads from latch, dispatches to handler |
-| 7. Parse | `MIDI_Dispatch` | 0x034D93 | Sub | Parse MIDI status bytes, route to voice handlers |
-| 8. Unlock | `Audio_Lock_Release` | 0xEF1F0F | Main | Release lock #7 |
+| Stage       | Routine                    | Address  | CPU  | Description                                                                                                            |
+|-------------|----------------------------|----------|------|------------------------------------------------------------------------------------------------------------------------|
+| 1. Lock     | `Audio_Lock_Acquire`       | 0xEF1FEE | Main | Acquire semaphore #2 (taken inside `sendCOMM`)                                                                         |
+| 2. Send     | `sendCOMM`                 | 0xEF32F4 | Main | Chunk into ≤32-byte blocks, call `InterCPU_Send_Data_Block`                                                            |
+| 3. Transfer | `InterCPU_Send_Data_Block` | 0xEF3345 | Main | Handshake, then `Audio_DMA_Transfer` writes the bytes to the latch at 0x140000 one at a time (a software loop, no DMA) |
+| 4. Receive  | `MICRODMA_CH0_HANDLER`     | 0x020F1F | Sub  | DMA interrupt reads from latch, dispatches to handler                                                                  |
+| 5. Parse    | `MIDI_Dispatch`            | 0x034D93 | Sub  | Handler 0 only: parse the ring's fixed-width records, route to voice handlers                                          |
+| 6. Unlock   | `Audio_Lock_Release`       | 0xEF1F0F | Main | Release semaphore #2                                                                                                   |
+
+`Sprintf_Locked` (formerly `Audio_SendCommand`) and `AssswbWr` are not on this path. `Sprintf_Locked` is a general sprintf() that takes semaphore #7 and formats text into a memory buffer through `Sprintf_OutputCallback`; it sends nothing to the Sub CPU. `AssswbWr` appends 4-byte events to `SWBTWR_EVENT_QUEUE` (0xBD3C), which `SwbtWr_DispatchLoop` delivers to listeners on the Main CPU.
 
 ### Sub CPU MIDI Voice Handlers
 
 After `MIDI_Dispatch` parses the ring buffer, it routes MIDI messages to these voice processing routines:
 
-| MIDI Status | Handler | Description |
-|-------------|---------|-------------|
-| 0x80/0x90 | `Voice_NoteOn` | Note On/Off (velocity 0 = Note Off) |
-| 0xB0 | `Voice_CtrlChange` | Control Change (CC0-CC127 + proprietary 0x78-0x9D) |
-| 0xC0 | `Voice_ProgChange` | Program Change (voice selection) |
-| 0xD0 | `Voice_ChanPressure` | Channel Pressure (aftertouch) |
-| 0xE0 | `Voice_PitchBend` | Pitch Bend (14-bit value) |
-| 0xF0 | `Voice_SystemMsg` | System messages (reset, timing, etc.) |
+| MIDI Status | Handler                                | Description                                        |
+|-------------|----------------------------------------|----------------------------------------------------|
+| 0x80 / 0x90 | `Voice_ParamFinalize` / `Voice_NoteOn` | 0x80-class records / Note On                       |
+| 0xB0        | `Voice_CtrlChange`                     | Control Change (CC0-CC127 + proprietary 0x78-0x9D) |
+| 0xC0        | `Voice_ProgChange`                     | Program Change (voice selection)                   |
+| 0xD0        | `Voice_ChanPressure`                   | Channel Pressure (aftertouch)                      |
+| 0xE0        | `Voice_PitchBend`                      | Pitch Bend (14-bit value)                          |
+| 0xF0        | `Voice_SystemMsg`                      | System messages (reset, timing, etc.)              |
 
 ### Naming Conventions
 
@@ -761,8 +752,8 @@ The following naming patterns are used consistently across both CPUs:
 - [x] Document MIDI message format in ring buffer (Note On/Off, CC, ProgramChange, PitchBend, etc.)
 - [x] Document command byte encoding (handler index in bits 7-5, length in bits 4-0)
 - [x] Document supported MIDI Control Changes (standard + proprietary 0x78-0x9D)
-- [x] Document voice processing architecture (26 channels, 287 bytes/channel at 0x041381)
+- [x] Document voice processing architecture (26 parts, 287 bytes per part at 0x041368)
 - [x] Cross-reference Main CPU and Sub CPU symbol names — Complete: see cross-reference tables above
-- [ ] Document handlers 2 (0x40-0x5F), 5 (0xA0-0xBF), 6-7 (0xC0-0xFF) — undocumented command ranges
+- [x] Document handlers 2 (0x40-0x5F), 5 (0xA0-0xBF), 6-7 (0xC0-0xFF) — see [Sub CPU Command Format]({{ site.baseurl }}/subcpu-command-format/)
 - [ ] Map status response message formats
-- [ ] Determine actual subprogram storage location (table_data vs custom_data flash)
+- [x] Determine where the payload is read from — see [Sub-CPU Payload Provenance]({{ site.baseurl }}/subcpu-payload-provenance/) (the mechanism is proven; the provenance of the IC19 dump is still open)

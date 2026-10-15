@@ -124,16 +124,18 @@ The MIDI RX handler maintains a full saved register context at DRAM 1080-1104. T
 
 ### Handler Jump Table
 
-| Status | Type | Handler |
-|--------|------|---------|
-| 0x80 | Note Off | Default handler |
-| 0x90 | Note On | Channel message handler |
-| 0xA0 | Poly Aftertouch | Default handler |
-| 0xB0 | Control Change | Channel message handler |
-| 0xC0 | Program Change | Channel message handler |
-| 0xD0 | Channel Pressure | Channel message handler |
-| 0xE0 | Pitch Bend | Default handler |
-| 0xF0 | System | System Exclusive handler |
+| Status | Type             | Handler                                         |
+|--------|------------------|-------------------------------------------------|
+| 0x80   | Note Off         | `ChanDisp_AwaitSecondDataByte` (two data bytes) |
+| 0x90   | Note On          | `ChanDisp_AwaitSecondDataByte`                  |
+| 0xA0   | Poly Aftertouch  | `ChanDisp_NoStatusReturn` (ignored)             |
+| 0xB0   | Control Change   | `ChanDisp_AwaitSecondDataByte`                  |
+| 0xC0   | Program Change   | `MIDI_QUEUE_EVENT_TO_SEQUENCER` (one data byte) |
+| 0xD0   | Channel Pressure | `MIDI_QUEUE_EVENT_TO_SEQUENCER`                 |
+| 0xE0   | Pitch Bend       | `ChanDisp_AwaitSecondDataByte`                  |
+| 0xF0   | System           | `MIDI_SYSTEM_EXCLUSIVE_HANDLER`                 |
+
+The table proper starts at `MIDI_CHANNEL_HANDLERS` (`0xFCF761`), after one pad byte.
 
 ### Channel Message Queueing
 
@@ -175,7 +177,7 @@ The TX interrupt fires when SC0BUF is ready for the next byte:
    - Bit 3: Send `0xFC` (Stop) — then clear flag
    - Bit 4: Send `0xFE` (Active Sense) — then clear flag
 
-2. **Dequeue next byte** from the TX queue via `SeqAlt1`. If the queue is empty, disable TX interrupt (INTES0 = 0xFD).
+2. **Dequeue next byte** from the MIDI OUT queue via `SeqBuf_MidiOut_ReadByte`. If nothing is pending (`SeqBuf_MidiOut_CheckEmpty`), disable the TX interrupt (INTES0 = 0xFD).
 
 3. **Write to SC0BUF** (register 0xD0) to transmit the byte.
 
@@ -183,7 +185,7 @@ The TX interrupt fires when SC0BUF is ready for the next byte:
 
 Called when new data is available for transmission:
 
-1. If MIDI is active (DRAM 1140 == 0x55): reinitialize `SeqAlt1` queue and clear flags.
+1. If MIDI is active (DRAM 1140 == 0x55): reinitialize the queue (`SeqBuf_MidiOut_Init`) and clear flags.
 2. Otherwise: set TX interrupt enable (INTES0 = 0xDD) to trigger the TX interrupt handler.
 
 ## System Real-Time Messages
@@ -324,4 +326,4 @@ Key MIDI state variables maintained in DRAM:
 
 ---
 
-*Last updated: March 2026*
+*Last updated: October 2026*

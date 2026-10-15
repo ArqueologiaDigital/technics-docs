@@ -15,17 +15,19 @@ This page documents the protocol used by the KN5000 Main CPU to send sound param
 │  LAYER 1: UI (Main CPU — NAKA Widget System)            │
 │                                                         │
 │  Widget event (e.g. slider changed)                     │
-│    → Lsw* handler function (e.g. LswReverb at F7CFA5)  │
-│    → AssswbWr (ring buffer write at FDB1F3)             │
+│    → Lsw* handler (e.g. LswReverb at F7CFA5):           │
+│      display text only                                  │
+│    → path to sendCOMM not traced (AssswbWr at FDB1F3    │
+│      queues SwbtWr events)                              │
 └──────────────────────┬──────────────────────────────────┘
-                       │ 4-byte command packets
-                       │ via ring buffer at RAM 0xBD3C
+                       │ caller's buffer (XDE), count (BC),
+                       │ handler number (WA)
                        ▼
 ┌─────────────────────────────────────────────────────────┐
 │  LAYER 2: Inter-CPU Transport                           │
 │                                                         │
-│  sendCOMM (EF32F4) → DMA latch at 0x140000             │
-│  Command byte: bits 7-5 = handler, bits 4-0 = count    │
+│  sendCOMM (EF32F4) → latch at 0x140000, byte by byte    │
+│  Command byte: bits 7-5 = handler, bits 4-0 = count-1   │
 └──────────────────────┬──────────────────────────────────┘
                        │
                        ▼
@@ -35,7 +37,8 @@ This page documents the protocol used by the KN5000 Main CPU to send sound param
 │  INT0 ISR → ring buffer 0x2B0D                          │
 │  CC dispatch → Voice_CC_91 (reverb depth, at 0x02A46C) │
 │    → Voice_CC_SetReverbDepth: store at voice[ch × 0x11F + 0x7F]   │
-│  Voice param structure: 287 bytes/voice at 0x041300     │
+│  Part records: 287 bytes/part from 0x041368             │
+│  (offsets on this page count from 0x041300)             │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -48,27 +51,28 @@ This page documents the protocol used by the KN5000 Main CPU to send sound param
 
 **For comparison, other CC handlers at nearby offsets:**
 
-| CC | Handler | Sub CPU function | Voice offset | Meaning |
-|----|---------|-----------------|-------------|---------|
-| 0x91 | Voice_CC_91 | Voice_CC_SetReverbDepth | +0x7F | Reverb depth |
-| 0x95 | Voice_CC_95 | Voice_CC_SetChorusEnable | +0x72 | Chorus depth |
-| (sustain) | Voice_CC_Sostenuto | Voice_CC_SetPortamentoTime | +0x7E | Sostenuto |
+| CC   | Handler            | Sub CPU function         | Voice offset | Meaning               |
+|------|--------------------|--------------------------|--------------|-----------------------|
+| 0x91 | Voice_CC_91        | Voice_CC_SetReverbDepth  | +0x7F        | Reverb depth          |
+| 0x95 | Voice_CC_95        | Voice_CC_SetChorusEnable | +0x72        | Chorus enable (bit 2) |
+| 0x5B | Voice_CC_Sostenuto | Voice_CC_SetSostenuto    | +0x77        | Sostenuto             |
 
 ## Reverb preset loading path
 
 When a reverb preset is selected on the REVERB & EQ PRESETS screen:
-1. `MainRevEqPresetLoad` (at F746F4) dispatches on preset type (reverb-only / EQ-only / combined)
+1. `MainRevEqPresetLoad` (at F746DD) dispatches on preset type (reverb-only / EQ-only / combined)
 2. `SoundPreset_Dispatch` → `ReverbPreset_Load` takes the preset index (0-9) through
    `ReverbPreset_Table` (**0xEDB36C**, 10 pointers) to a **24-byte reverb record**, copies it to
-   RAM `0xFC8E`, and sends the 24 bytes to the Sub CPU with command `0x63`. EQ presets go the same
-   way: `EQPreset_Load`, `EQPreset_Table` (9 pointers), 24 bytes to `0xFCA8`, command `0x64`. A
-   combined preset is one reverb record followed by one EQ record (`CombinedPreset_Table`)
+   RAM `0xFC8E`, and posts the 24 bytes as SwbtWr events with code `0x63` (`AssswbWr`), one per
+   byte. EQ presets go the same way: `EQPreset_Load`, `EQPreset_Table` (9 pointers), 24 bytes to
+   `0xFCA8`, event code `0x64`. A combined preset is one reverb record followed by one EQ record
+   (`CombinedPreset_Table`)
 3. The records (10 reverb, 9 EQ, 9 combined, at `0xEDA6EC-0xEDAA63`) carry the algorithm id in
    byte 0 and `99` in byte 22; every EQ record starts `0x4F`. The `*_FindMatch` routines compare
    the RAM copies with every record to show which preset is current
 
 (Earlier text here read step 3 as "a loop sending 24 commands, one per MIDI channel". It is one
-24-byte record sent with one command code. Source: the ext lane's header over the records in
+24-byte record, posted byte by byte under one event code. Source: the ext lane's header over the records in
 `v10/maincpu/extensions/extension_data.s` and `ReverbPreset_Load`'s header in
 `v10/maincpu/audio/audio_control_engine.s`.)
 
@@ -92,14 +96,14 @@ All reference the same parameter table at **0xE952AA** (per-channel config) and 
 
 ### Phase 1: Proof of concept — Reverb Depth end-to-end trace
 
-Fully trace LswReverb end-to-end — from the event `0x1E00042` through `Audio_SendCommand` → `Audio_CommandEncoder` → `AssswbWr` → `sendCOMM` → Sub CPU `Voice_CC_91` → voice param offset 0x7F. Verify the command byte encoding.
+Fully trace a reverb-depth edit end to end, from the LswReverb widget to Sub CPU `Voice_CC_91` and the field at 0x04137F (part record +0x17). The Sub CPU half is traced below. The Main CPU half is not: LswReverb's handling of event `0x1E00042` (`EVT_GET_LSW_STRING`) only formats the displayed value with `Sprintf_Locked` (formerly `Audio_SendCommand`), and how an edit reaches `sendCOMM` has not been traced.
 
-**Status:** Complete
+**Status:** Sub CPU half complete; the Main CPU half (widget edit → sendCOMM) is not traced
 
 ### Phase 2: Lsw\* function analysis
 
 For each of the 32 Lsw\* functions, identify:
-- Which command code it sends (e.g., 0x63 for reverb)
+- Which command code it sends
 - Which Sub CPU CC handler receives it
 - Which offset in the 287-byte voice structure it writes to
 - The valid value range
@@ -114,15 +118,15 @@ Decode the preset data tables, per-algorithm parameter config blocks, DSP comman
 
 ### Phase 4: DSP hardware commands
 
-Trace the DSP configuration path (0x130000 interface) to understand how the Sub CPU programs the actual DSP chips.
+How the Sub CPU programs the effects DSP is documented elsewhere. The uPD6383GF is reached through the PZ/P7 parallel host interface, not through 0x130000 — see [Effects DSP]({{ site.baseurl }}/effects-dsp/#2-how-programs-reach-the-chip), [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/#dsp-channel-register-map-memory-mapped-at-0x130000) and [DSP Bytecode Interpreter]({{ site.baseurl }}/dsp-bytecode-interpreter/).
 
-**Status:** Not started
+**Status:** Covered on those pages
 
 ---
 
 ## Phase 1 Results: Sub CPU Voice Parameter Structure
 
-### Voice_CtrlChange Dispatcher (Sub CPU 0x02A46C)
+### Voice_CtrlChange Dispatcher (Sub CPU 0x02A282)
 
 The Sub CPU function `Voice_CtrlChange` receives 4-byte command packets via the inter-CPU ring buffer and dispatches them to per-CC handler functions. The packet format is:
 
@@ -137,7 +141,7 @@ The channel number is validated: `cp (xiz + 1), 0x1A` — any channel >= 26 is r
 
 ### Per-Voice Parameter Structure
 
-Each voice has a **287-byte (0x11F)** parameter block, with 26 voices starting at base address **0x041300** in Sub CPU DRAM.
+Each part has a **287-byte (0x11F)** record; the 26 records start at `Part_Record_Base` = **0x041368** in Sub CPU DRAM. The offsets on this page are counted from 0x041300, 0x68 below the first record, so offset +0x7F is field +0x17 of the record.
 
 **Address formula:** `0x041300 + (channel × 0x11F) + offset`
 
@@ -165,11 +169,13 @@ Each voice has a **287-byte (0x11F)** parameter block, with 26 voices starting a
 
 CCs 0x78-0x82 are dispatched via a jump table at Sub CPU ROM 0x00F739 (11 word entries) with base 0x02A306. These include:
 
-| CC | Target | Voice Offset | Purpose |
-|----|--------|-------------|---------|
-| 0x7B | Voice_CC_SetPortamentoRate | +0x7B | Portamento amount |
-| 0x7C | Voice_CC_SetPortamentoDepth | +0x7C | Pitch bend (stores `(value - 0x80) × 2`) |
-| 0x7D | Voice_CC_SetPortamentoTime | +0x7E | Sostenuto depth (stores `value - 0x40`) |
+| CC   | Target                                            | Voice Offset | Purpose                                                                  |
+|------|---------------------------------------------------|--------------|--------------------------------------------------------------------------|
+| 0x80 | Voice_CC_SetPortamentoRate (via Voice_CC_Num128)  | +0x7B        | Stores the raw value                                                     |
+| 0x81 | Voice_CC_SetPortamentoDepth (via Voice_CC_Num129) | +0x7C        | Stores `(value - 0x80) × 2`, then refreshes the pitch of sounding voices |
+| 0x82 | Voice_CC_SetPortamentoTime (via Voice_CC_Num130)  | +0x7E        | Stores `value - 0x40`                                                    |
+
+0x78, 0x79 and 0x7B have their own arms (Voice_CC_Num120/121/123: Voice_PortamentoSlots_WriteHW, Voice_NoteState_Clear, and Voice_SetLFO_ActiveFlag/Voice_AllocateForRelease/Voice_ParamInit); 0x7A and 0x7C-0x7F are ignored.
 
 ### Flags Word at Offset +0x72
 
@@ -191,23 +197,25 @@ When CC value is 0, a special "mute" value 0xFE00 is stored instead.
 
 ```
 Main CPU UI:
-  LswReverb (F7CFA5) handles event 0x1E00042 (value changed)
-    → Audio_SendCommand: acquires audio lock #7, formats command
-      → Audio_CommandEncoder: command encoding engine (parses format string)
-        → AssswbWr (FDB1F3): writes 4-byte packet to ring buffer at 0xBD3C
-          Ring buffer: max 127 entries (508 bytes), 4 bytes each
+  LswReverb (F7CFA5) handles event 0x1E00042 (EVT_GET_LSW_STRING)
+    → bit 13 set: Sprintf_Locked (formerly Audio_SendCommand) formats "%3d"
+      under semaphore #7 into the caller's text buffer (display only)
+    → bit 13 clear: Strcpy of the inactive string
+  How a reverb-depth edit reaches sendCOMM has not been traced.
 
 Inter-CPU Transport:
-  sendCOMM (EF32F4): reads from ring buffer, acquires audio lock #2
+  sendCOMM (EF32F4): takes the caller's buffer (XDE), count (BC) and
+  handler number (WA; 0 = MIDI ring), acquires semaphore #2
     → InterCPU_Send_Data_Block (EF3345): encodes command byte
       Command byte = (handler_id << 5) | (byte_count - 1)
-    → Audio_DMA_Transfer (EF341B): writes payload to DMA latch at 0x140000
-      Handshake: wait SSTAT1 high → write → wait SSTAT1 low → DMA
+    → Audio_DMA_Transfer (EF341B): writes the payload to the latch at
+      0x140000 one byte at a time (a software loop, no DMA)
+      Handshake: wait SSTAT1 high → write command byte → wait SSTAT1 low → payload
 
 Sub CPU:
   INT0 ISR: receives from latch, HDMA transfers payload to ring buffer 0x2B0D
   Main loop: reads 4-byte packet [type, channel, cc#, value]
-    → Voice_CtrlChange (02A46C):
+    → Voice_CtrlChange (02A282):
       channel = (xiz+1) = 0x00-0x19
       cc# = (xiz+2) = 0x91
       value = (xiz+3) = 0x00-0x7F
@@ -227,7 +235,7 @@ When the user selects a reverb preset on the REVERB & EQ PRESETS screen:
 ```
 Main CPU:
   NAKA widget generates event 0x1E3000A/B/C (preset type: reverb/EQ/combined)
-    → MainRevEqPresetLoad (F746F4): dispatches on event
+    → MainRevEqPresetLoad (F746DD): dispatches on event
       → SoundPreset_Dispatch: selects preset handler by type
         type 0 (reverb): preset data from ROM 0xEDB36C
         type 1 (EQ):     preset data from ROM 0xEDB394
@@ -235,26 +243,26 @@ Main CPU:
 
   For type 0 (reverb preset):
     → 0xFF0D99: unpacks preset data (24 bytes) from ROM table
-    → Loop 24 times (iz = 0..23, one per MIDI channel):
+    → Loop 24 times (iz = 0..23, one per byte of the record at 0xFC8E):
         pushw 0xFF          ; target specifier
-        ldw wa, 0x63        ; command code 0x63
-        call AssswbWr       ; write to ring buffer
+        ldw wa, 0x63        ; SwbtWr event code 0x63
+        call AssswbWr       ; queue the event at 0xBD3C
     → SoundParam_NotifyChange: refresh UI display (event 0x4002, widget 0x7F)
 ```
 
 ### Key Addresses Summary
 
-| Address | CPU | Purpose |
-|---------|-----|---------|
-| 0xBD3C | Main (internal RAM) | Command ring buffer (127 × 4 bytes) |
-| 0x140000 | Shared (latch) | Inter-CPU DMA communication port |
-| 0x041300 | Sub (DRAM) | Voice parameter structure base |
-| 0x011D16 | Sub (ROM) | Volume/Expression lookup table |
-| 0x00F739 | Sub (ROM) | CC 0x78-0x82 jump table |
-| 0xE952AA | Main (ROM) | Per-channel config table (Lsw functions) |
-| 0xE953CE | Main (ROM) | Per-channel value lookup table |
-| 0xEDB36C | Main (ROM) | Reverb preset data table |
-| 0xEDB394 | Main (ROM) | EQ preset data table |
+| Address  | CPU            | Purpose                                                                                                                                               |
+|----------|----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0xBD3C   | Main (RAM)     | `SWBTWR_EVENT_QUEUE`: SwbtWr event queue (4-byte events; `AssswbWr` appends, `SwbtWr_DispatchLoop` delivers to listeners), not a Sub CPU command ring |
+| 0x140000 | Shared (latch) | Inter-CPU DMA communication port                                                                                                                      |
+| 0x041368 | Sub (DRAM)     | `Part_Record_Base`: 26 part records of 287 bytes (this page's offsets count from 0x041300)                                                            |
+| 0x011D16 | Sub (ROM)      | Volume/Expression lookup table                                                                                                                        |
+| 0x00F739 | Sub (ROM)      | CC 0x78-0x82 jump table                                                                                                                               |
+| 0xE952AA | Main (ROM)     | Per-channel config table (Lsw functions)                                                                                                              |
+| 0xE953CE | Main (ROM)     | Per-channel value lookup table                                                                                                                        |
+| 0xEDB36C | Main (ROM)     | Reverb preset data table                                                                                                                              |
+| 0xEDB394 | Main (ROM)     | EQ preset data table                                                                                                                                  |
 
 ---
 
@@ -280,46 +288,46 @@ NAKA Widget Config Data
     │
     ▼
 Lsw* Function (generic handler for widget type)
-  handles event 0x1E00042 (value changed)
+  handles event 0x1E00042 (EVT_GET_LSW_STRING: format the value as text)
     │
-    ├─ bit 13 set? → Audio_SendCommand (send command to Sub CPU)
+    ├─ bit 13 set? → Sprintf_Locked (formerly Audio_SendCommand)
     │                  │
-    │                  ├─ st32_24 0x03c21c, widget_data  (buffer the widget config)
-    │                  ├─ Audio_CommandEncoder (command encoder, reads template at 0x0AD8)
-    │                  └─ AssswbWr → ring buffer → sendCOMM → DMA → Sub CPU
+    │                  ├─ takes semaphore #7, stores the caller's buffer pointer at 0x03C21C
+    │                  ├─ Sprintf_Core (formerly Audio_CommandEncoder) formats the value
+    │                  └─ Sprintf_OutputCallback writes the characters (nothing goes to the Sub CPU)
     │
-    └─ bit 13 clear? → Strcpy (format display string only, no sound command)
+    └─ bit 13 clear? → Strcpy (copies the inactive string)
 ```
 
 The per-channel configuration table at **0xE952AA** contains 4-byte flag words. The bit tested by each Lsw function determines whether the parameter is "active" for that channel:
 
-| Lsw Function | Bit Tested | Display Format | Send Command? |
-|-------------|-----------|---------------|---------------|
-| LswVolume | bit 15 | `"%4d"` / `"MUTE"` | Yes |
-| LswMute | bit 15 | `"%4d"` / `"MUTE"` | Yes |
-| LswPan | bit 14 | `"CTR"` / `"L%2d"` / `"R%2d"` | Yes |
-| LswReverb | bit 13 | `"%3d"` | Yes |
-| LswDSPEffect | bit 12 | `"%3d"` | Yes |
-| LswSustain | bit 11 | `"ON "` / `"OFF"` | No (Strcpy only) |
-| LswSustainLength | bit 10 | `"%2d"` | Yes |
-| LswDigitalEffect | bit 3 | `"ON "` / `"OFF"` | No (Strcpy only) |
-| LswKeyShift | - | `"%+3d"` | Yes |
-| LswTuning | - | `"%+4d"` | Yes |
-| LswBendRange | - | `"%3d"` | Yes |
-| LswSound | - | `" ------"` | No (Strcpy only) |
-| LswGlidePedal | - | `"ON "` / `"OFF"` | No (Strcpy only) |
-| LswSustainPedal | - | `"ON "` / `"OFF"` | No (Strcpy only) |
-| LswAfterTouch | - | `"ON "` / `"OFF"` | No (Strcpy only) |
-| LswKeyScaling | - | `"ON "` / `"OFF"` | No (Strcpy only) |
-| LswOrchestrator | - | various | No (Strcpy only) |
-| LswLocalControl | - | various | No (special) |
-| LswMidiChannel | - | `"CH%2d"` / `"OFF"` | Yes (3 variants) |
-| LswMasterTuning | - | `"%+4d"` | Yes (loop-based) |
-| LswLeftHold | - | (format at E952A6) | Yes |
+| Lsw Function     | Bit Tested | Display Format                | Formats with `Sprintf_Locked`? |
+|------------------|------------|-------------------------------|--------------------------------|
+| LswVolume        | bit 15     | `"%4d"` / `"MUTE"`            | Yes                            |
+| LswMute          | bit 15     | `"%4d"` / `"MUTE"`            | Yes                            |
+| LswPan           | bit 14     | `"CTR"` / `"L%2d"` / `"R%2d"` | Yes                            |
+| LswReverb        | bit 13     | `"%3d"`                       | Yes                            |
+| LswDSPEffect     | bit 12     | `"%3d"`                       | Yes                            |
+| LswSustain       | bit 11     | `"ON "` / `"OFF"`             | No (Strcpy only)               |
+| LswSustainLength | bit 10     | `"%2d"`                       | Yes                            |
+| LswDigitalEffect | bit 3      | `"ON "` / `"OFF"`             | No (Strcpy only)               |
+| LswKeyShift      | -          | `"%+3d"`                      | Yes                            |
+| LswTuning        | -          | `"%+4d"`                      | Yes                            |
+| LswBendRange     | -          | `"%3d"`                       | Yes                            |
+| LswSound         | -          | `" ------"`                   | No (Strcpy only)               |
+| LswGlidePedal    | -          | `"ON "` / `"OFF"`             | No (Strcpy only)               |
+| LswSustainPedal  | -          | `"ON "` / `"OFF"`             | No (Strcpy only)               |
+| LswAfterTouch    | -          | `"ON "` / `"OFF"`             | No (Strcpy only)               |
+| LswKeyScaling    | -          | `"ON "` / `"OFF"`             | No (Strcpy only)               |
+| LswOrchestrator  | -          | various                       | No (Strcpy only)               |
+| LswLocalControl  | -          | various                       | No (special)                   |
+| LswMidiChannel   | -          | `"CH%2d"` / `"OFF"`           | Yes (3 variants)               |
+| LswMasterTuning  | -          | `"%+4d"`                      | Yes (loop-based)               |
+| LswLeftHold      | -          | (format at E952A6)            | No (Strcpy only)               |
 
-### Functions That Send Sub CPU Commands
+### Functions That Format Values with Sprintf_Locked
 
-18 of the 32 Lsw functions call `Audio_SendCommand` to send commands to the Sub CPU. The remaining 14 only update display strings via `Strcpy` — these handle parameters that are processed locally by the Main CPU (sustain toggle, digital effect on/off, sound name display, etc.).
+13 of the 32 Lsw functions (LswVolume, LswMute, LswPan, LswReverb, LswDSPEffect, LswSustainLength, LswKeyShift, LswTuning, LswBendRange, LswMidiChannel, LswMasterTuning, LswScalingKeyX, LswEditCheck) format their value with `Sprintf_Locked` (formerly `Audio_SendCommand`), a general sprintf() run under semaphore #7; the other 19 only copy fixed strings with `Strcpy`. Neither path sends anything to the Sub CPU, and this page has not traced how a widget edit reaches it.
 
 ### Remaining Work
 
@@ -337,23 +345,23 @@ The sound subsystem uses **two completely independent command paths** based on t
 CC Path (Voice Parameters):
   Command 0x00-0x1F → Audio_CmdHandler_00_1F
     → Voice ring buffer (0x2B0D)
-    → Voice_CtrlChange (02A46C)
+    → Voice_CtrlChange (02A282)
     → Per-voice parameter store at 0x041300 + ch × 0x11F + offset
 
 DSP Path (Effect Parameters):
   Command 0x60-0x7F → Audio_CmdHandler_60_7F
     → DSP ring buffer (0x3B60)
-    → Audio_Process_DSP (035AE5)
+    → Audio_Process_DSP (035AC8)
     → DSP algorithm configuration and parameter setting
 ```
 
-**Command byte encoding:** `(handler_id << 5) | payload_byte_count`
-- Reverb presets use **0x63** = handler 3 (DSP), count 3
-- EQ presets use **0x64** = handler 3 (DSP), count 4
+**Command byte encoding:** `(handler_id << 5) | (payload_byte_count - 1)`, as in Layer 2 above.
+
+The values 0x63 and 0x64 that the preset loaders use are not command bytes: `ReverbPreset_Load` and `EQPreset_Load` pass them to `AssswbWr` as SwbtWr event codes, one event per record byte, and listeners such as `SwbtB2_Code63_Listener` receive them.
 
 ### DSP Effect Name Table (ROM 0xE331E4)
 
-The firmware maintains a master table of **all DSP effect types** as 16-character display strings starting at 0xE331E4. Each entry is 18 bytes (16 chars + null + 0xFF pad). The full table has 51 entries covering all effect categories:
+Effect names are 18-byte entries (16 chars + NUL + 0xFF) in `DspEffectName_Strings` (0xE32C7A, 128 entries, stored in descending effect order). The rows below are the tail of that block, from 0xE331E4 (effect 50) on:
 
 | Flat Index | Address | Name | Category |
 |------------|---------|------|----------|
@@ -384,7 +392,7 @@ The firmware maintains a master table of **all DSP effect types** as 16-characte
 
 ### DSP Algorithm ID → Name Mapping (Pointer Table at 0xE32A7A)
 
-The firmware does NOT use the flat name table index as the DSP algorithm ID. Instead, it uses an **indirect pointer table** at `0xE32A7A` with **40 entries** (4 bytes each). This table maps DSP algorithm IDs (0-39) to name table entries in **reverse display order**:
+The firmware does NOT use the flat name table index as the DSP algorithm ID. Instead, it uses an **indirect pointer table** at `0xE32A7A` (`DspEffectName_PtrTable`, 128 entries of 4 bytes; algorithm IDs 0-39 are listed here). This table maps DSP algorithm IDs (0-39) to name table entries in **reverse display order**:
 
 | Algo ID | Name | Category |
 |---------|------|----------|
@@ -424,7 +432,7 @@ The firmware does NOT use the flat name table index as the DSP algorithm ID. Ins
 | 38 | NOISE FLANGER | Modulation |
 | 39 | PARAMETRIC EQ | EQ |
 
-The display code at `DspItem0CngFunc` (F355F3) resolves names by: `name_ptr = pointer_table[algo_id]`, then copies the 16-char string to the widget display buffer.
+The display code at `DspItem0_DisplayEffectName` (F355F3) resolves names by: `name_ptr = pointer_table[algo_id]`, then copies the 16-char string to the widget display buffer.
 
 The reverb algorithms occupy IDs **16-27** (12 types = 6 pairs of variant 1/variant 2).
 
@@ -458,7 +466,7 @@ Block layout (4 blocks × 128 bytes):
 3. **HIGH DAMP GAIN** (name index 0x24) — High-frequency absorption
 4. **ER.LEVEL** (name index 0x25) — Early reflections level
 
-The UI display loop at `DspItem0CngFunc` (F355F3) reads: `name_index = ROM[DRAM[10668] + DRAM[0x021098] + slot]`, then resolves the display string from the parameter name table at E324C4.
+The UI display loop `DspItem0_DisplayParamNames` (F3561F) reads `name_index = RAM[0x29AC + (0x021098) + slot]` (10668 = 0x29AC), then resolves the display string from the parameter name table at E324C4.
 
 The category offset in DRAM[0x021098] selects the row: 0x00 for distortion/dynamics, 0x20 for rotary treble, 0x40 for delay/chorus, **0x60 for reverb**, etc.
 
@@ -546,11 +554,11 @@ The four 16-bit values form a monotonically increasing sequence within each pres
 
 9 combined presets at 0xEDA8B4 (**48 bytes each** = 24 bytes reverb + 24 bytes EQ). The pointer table at 0xEDB3B8 indexes into this region.
 
-The combined preset loader (`CombinedPreset_Load`) reads the first 24 bytes as a reverb preset (sent with command 0x63) and computes `lda xwa, (xwa + 24)` to get the EQ portion's address (sent with command 0x64). Note: `lda` in TLCS-900 is an address calculation, not a memory dereference.
+The combined preset loader (`CombinedPreset_Load`) reads the first 24 bytes as a reverb preset (posted as SwbtWr events with code 0x63) and computes `lda xwa, (xwa + 24)` to get the EQ portion's address (event code 0x64). Note: `lda` in TLCS-900 is an address calculation, not a memory dereference.
 
 ### Sub CPU DSP Command Processing
 
-`Audio_Process_DSP` (035AE5) reads commands from the DSP ring buffer (2KB at 0x3B60) as a byte stream. Each message consists of a 1-byte framing code followed by a 7-byte header:
+`Audio_Process_DSP` (035AC8) reads commands from the DSP ring buffer (2KB at 0x3B60) as a byte stream. Each message consists of a 1-byte framing code followed by a 7-byte header:
 
 ```
 DSP Ring Buffer Message Format (8 bytes):
@@ -595,27 +603,25 @@ The 0x10-0x17 commands are dispatched via a **jump table at Sub CPU ROM 0x0121DB
 
 ### DSP Ring Buffer Control Structure (Sub CPU 0x3B60)
 
-| Offset | Address | Field |
-|--------|---------|-------|
-| +0 | 0x3B60 | Write pointer (16-bit, wraps at 0x800 = 2KB) |
-| +2 | 0x3B62 | Read pointer (16-bit) |
-| +4 | 0x3B64 | Available byte count (16-bit) |
-| +6 | 0x3B66 | Data area base address (32-bit pointer) |
+| Offset | Address | Field                                                    |
+|--------|---------|----------------------------------------------------------|
+| +0     | 0x3B60  | Write pointer (16-bit, wraps at 0x800 = 2KB)             |
+| +2     | 0x3B62  | Read pointer (16-bit)                                    |
+| +4     | 0x3B64  | Available byte count (16-bit)                            |
+| +6     | 0x3B66  | Data area (2 KB, inline; indexed by the 11-bit pointers) |
 
-### DSP Parameter Register Addresses
+### EffectBox Tables at 0xE3357A
 
-After the effect name table at 0xE3357A, a lookup table maps effect slots to DSP register addresses. The addresses increment by 0x10 per slot:
+The 8 bytes at 0xE3357A are `EffectBox_HandleInitEvent_Table` (read by `EffectBox_HandleInitEvent`), followed by `EffectBox_PostFillSetup_Table` at 0xE33582; their layout is not established:
 
 ```
 First set:  0x45, 0x55, 0x65, 0x75, 0x85, 0x95, 0xA5, 0xB5
 Second set: 0x47, 0x57, 0x67, 0x77, 0x87, 0x97, 0xA7, 0xB7
 ```
 
-These correspond to the DSP chip's register-indirect access via `0x130000`/`0x130002`, suggesting 8 effect processing slots with parameters addressable in 0x10-byte increments.
+### Extended Algorithm Table
 
-### Extended Algorithm Table (80 entries)
-
-The pointer table at 0xE32A7A actually contains **80 entries** (not just 40), covering additional algorithm types including combination effects and the graphic EQ:
+The pointer table at 0xE32A7A has **128 entries**; beyond the 40 above, the ones in use cover combination effects and the graphic EQ:
 
 | Algo ID Range | Category |
 |---------------|----------|
@@ -634,31 +640,31 @@ The pointer table at 0xE32A7A actually contains **80 entries** (not just 40), co
 
 ### Key Addresses Summary (DSP Path)
 
-| Address | CPU | Purpose |
-|---------|-----|---------|
-| 0xE324C4 | Main (ROM) | DSP parameter name table (86 × 17 bytes) |
-| 0xE32418 | Main (ROM) | DSP parameter unit suffix table (86 × 2 bytes) |
-| 0xE32A7A | Main (ROM) | `DspEffectName_PtrTable` — effect number → name pointer (**128** × 4 bytes) |
+| Address  | CPU        | Purpose                                                                                                                                                                                                             |
+|----------|------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0xE324C4 | Main (ROM) | DSP parameter name table (86 × 17 bytes)                                                                                                                                                                            |
+| 0xE32418 | Main (ROM) | DSP parameter unit suffix table (86 × 2 bytes)                                                                                                                                                                      |
+| 0xE32A7A | Main (ROM) | `DspEffectName_PtrTable` — effect number → name pointer (**128** × 4 bytes)                                                                                                                                         |
 | 0xE32C7A | Main (ROM) | `DspEffectName_Strings` — effect names (**128** × 18 bytes, stored in *descending* effect order; the address `0xE331E4` quoted in earlier revisions is where effect 50 lands, i.e. the tail half of the same block) |
-| 0xE34DA4 | Main (ROM) | DspItem0CngFunc dispatch table (17 × 2 bytes) |
-| 0xE4465C | Main (ROM) | DSP1 master parameter list (128 bytes) |
-| 0xE446DC | Main (ROM) | DSP1 per-category parameter name indices (128 bytes) |
-| 0xE4475C | Main (ROM) | DSP2 master parameter list (128 bytes) |
-| 0xE447DC | Main (ROM) | DSP2 per-category parameter name indices (128 bytes) |
-| 0xEDA6EC | Main (ROM) | Reverb preset data (10 × 24 bytes) |
-| 0xEDA7DC | Main (ROM) | EQ preset data (9 × 24 bytes) |
-| 0xEDA8B4 | Main (ROM) | Combined preset data (9 × 48 bytes) |
-| 0xEDB36C | Main (ROM) | Reverb preset pointer table (10 × 4 bytes) |
-| 0xEDB394 | Main (ROM) | EQ preset pointer table (9 × 4 bytes) |
-| 0xEDB3B8 | Main (ROM) | Combined preset pointer table (9 × 4 bytes) |
-| 0x3B60 | Sub (DRAM) | DSP command ring buffer control (2KB, at 15200) |
-| 0x0121DB | Sub (ROM) | DSP parameter 0-7 jump table (8 × 2 bytes) |
-| 0x041368 | Sub (DRAM) | Voice structure base + 0x68 (DSP algo config) |
-| 0x44FCE | Sub (DRAM) | Global DSP parameter storage table |
+| 0xE34DA4 | Main (ROM) | DspItem0CngFunc dispatch table (17 × 2 bytes)                                                                                                                                                                       |
+| 0xE4465C | Main (ROM) | DSP1 master parameter list (128 bytes)                                                                                                                                                                              |
+| 0xE446DC | Main (ROM) | DSP1 per-category parameter name indices (128 bytes)                                                                                                                                                                |
+| 0xE4475C | Main (ROM) | DSP2 master parameter list (128 bytes)                                                                                                                                                                              |
+| 0xE447DC | Main (ROM) | DSP2 per-category parameter name indices (128 bytes)                                                                                                                                                                |
+| 0xEDA6EC | Main (ROM) | Reverb preset data (10 × 24 bytes)                                                                                                                                                                                  |
+| 0xEDA7DC | Main (ROM) | EQ preset data (9 × 24 bytes)                                                                                                                                                                                       |
+| 0xEDA8B4 | Main (ROM) | Combined preset data (9 × 48 bytes)                                                                                                                                                                                 |
+| 0xEDB36C | Main (ROM) | Reverb preset pointer table (10 × 4 bytes)                                                                                                                                                                          |
+| 0xEDB394 | Main (ROM) | EQ preset pointer table (9 × 4 bytes)                                                                                                                                                                               |
+| 0xEDB3B8 | Main (ROM) | Combined preset pointer table (9 × 4 bytes)                                                                                                                                                                         |
+| 0x3B60   | Sub (DRAM) | DSP command ring buffer control (2KB, at 15200)                                                                                                                                                                     |
+| 0x0121DB | Sub (ROM)  | DSP parameter 0-7 jump table (8 × 2 bytes)                                                                                                                                                                          |
+| 0x041368 | Sub (DRAM) | `Part_Record_Base` (part p at +p × 0x11F)                                                                                                                                                                           |
+| 0x44FCE  | Sub (DRAM) | Global DSP parameter storage table                                                                                                                                                                                  |
 
 ### Remaining Questions
 
 1. **Main CPU dispatch formatting:** The function `HdaeRom_ProcessBlock` reformats the 4-byte AssswbWr entries into DMA payloads. Further analysis would reveal exactly how preset bytes map to DSP ring buffer message fields.
-2. **DSP hardware registers:** The exact register protocol for writing to the DSP chip at 0x130000/0x130002 requires tracing the Sub CPU's DSP parameter output functions (Phase 4).
+2. **DSP hardware path:** see the pages linked under Phase 4.
 3. **WAVE REVERB extra parameters:** Preset 9 (WAVE REVERB 2) has non-zero B7-B8 values (18, 84). These likely control waveform modulation parameters unique to the WAVE REVERB algorithm.
 4. **EQ crossover frequencies:** The 4 big-endian 16-bit values in EQ presets need verification as frequency values (Hz). The monotonic ordering suggests crossover points for a 4-band parametric EQ.

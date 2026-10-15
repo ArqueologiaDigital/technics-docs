@@ -11,104 +11,105 @@ This page documents the SysEx vocabularies of two Technics instruments: the
 It also analyzes whether a driver could keep a real unit live-synced to the
 emulated one.
 
-The **KN5000** uses two distinct SysEx formats: **Roland GS** for incoming voice parameter control, and **Technics proprietary** for outgoing mode commands. It also implements a bulk data transfer system for panel memory, sound memory, composer data, sequences, and music style programmer (MSP) data. The **WSA1R** shares Technics' `0x50` manufacturer id but uses model byte `0x11` and its own command set (see [SX-WSA1R System Exclusive](#sx-wsa1r-system-exclusive) below).
+The **KN5000** receives **Roland GS** SysEx for its reverb and chorus macros and levels, and builds a SysEx-shaped internal record, `F0 50 87 <param>`, that it sends to its own Sub CPU rather than to MIDI OUT. It also implements a bulk data transfer system for panel memory, sound memory, composer data, sequences, and music style programmer (MSP) data. The **WSA1R** shares Technics' `0x50` manufacturer id but identifies itself with `04 md 11` and has its own command set (see [SX-WSA1R System Exclusive](#sx-wsa1r-system-exclusive) below).
 
-## Outgoing: Technics SysEx
+## Technics-Shaped Record to the Sub CPU
 
-The KN5000 sends short proprietary SysEx messages via `MIDI_SendSysExCmd` (`0xFEBDA1`).
+`MIDI_SendSysExCmd` (`0xFEBDA1`) does not send SysEx on MIDI OUT. It builds a 4-byte record shaped like a Technics SysEx header, and `MIDI_SendCmdPacket` hands it to `sendCOMM` with handler 0, so it travels as an inter-CPU command into the Sub CPU's MIDI ring (see [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/)). There, `Voice_SystemMsg` reads byte +2 (`0x87`) as a sub-command and calls `Voice_SetRhythmMode` with the parameter byte.
 
 ### Packet Format
 
 ```
-F0 50 87 <param> F7
+F0 50 87 <param>
 ```
 
-| Byte | Value | Meaning |
-|------|-------|---------|
-| `F0` | SysEx start | Standard MIDI SysEx header |
-| `50` | Manufacturer ID | Technics/Panasonic (Matsushita) |
-| `87` | Model ID | KN5000 identifier |
-| `param` | Command byte | See table below |
-| `F7` | SysEx end | (implicit, appended by `MIDI_SendCmdPacket`) |
+| Byte    | Value                          | Meaning                                                                  |
+|---------|--------------------------------|--------------------------------------------------------------------------|
+| `F0`    | Record status                  | Routes the record to the `0xF0` class (`Voice_SystemMsg`) on the Sub CPU |
+| `50`    | Technics manufacturer-ID value | Not read on the `Voice_SetRhythmMode` path                               |
+| `87`    | Sub-command                    | `Voice_SystemMsg` index 7 → `Voice_SetRhythmMode` (not a model ID)       |
+| `param` | Rhythm-mode byte               | See table below                                                          |
+| (none)  | No `F7`                        | `MIDI_SendCmdPacket` sends exactly the 4 bytes (count byte = 4)          |
 
 ### Known Command Bytes
 
-| Param | Context | Description |
-|-------|---------|-------------|
-| `0x08` | Sequencer play/stop, drum voice changes, tempo changes, sound mode changes | Sound mode reset — signals downstream devices that the KN5000's sound configuration has changed |
-| `0x10` | Panel button press (specific modes) | Mode change notification — sent when switching between certain operating modes |
-| `0x68` | Sound initialization | Full sound reset — sent during major sound engine reconfiguration |
+| Param  | Context                                                                    | Description                                                                 |
+|--------|----------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| `0x08` | Sequencer play/stop, drum voice changes, tempo changes, sound mode changes | Rhythm-mode byte for `Voice_SetRhythmMode` (0x08: bit 3 set → 0x04135E = 3) |
+| `0x10` | Panel button press (specific modes)                                        | Rhythm-mode byte (bits 7-4 = 1 → word table 0x00F6F3 index 1 → 0x041360)    |
+| `0x68` | Sound initialization                                                       | Rhythm-mode byte (bits 7-4 = 6, bit 3 set)                                  |
 
-The `0x08` command is by far the most common, with 13 call sites across the firmware. It is sent after any operation that alters the active sound configuration (sequencer start/stop, drum kit selection, tempo changes, accompaniment mode switching).
+The `0x08` value is the most common, with 13 call sites; it is sent after operations that change the rhythm/sound configuration (sequencer start/stop, drum kit selection, tempo changes, accompaniment mode switching).
 
 ### Implementation
 
-`MIDI_SendSysExCmd` builds a 4-byte payload on the stack:
+`MIDI_SendSysExCmd` builds a counted 4-byte record on the stack:
 
 ```
-ld (xsp + 1), 0xF0    ; SysEx start
-ld (xsp + 2), 0x50    ; Manufacturer: Technics
-ld (xsp + 3), 0x87    ; Model: KN5000
-ld (xsp + 4), a       ; Command byte (from A register)
+ld (xsp + 0), 0x04    ; count byte
+ld (xsp + 1), 0xF0    ; record status (0xF0 class)
+ld (xsp + 2), 0x50    ; Technics manufacturer-ID value
+ld (xsp + 3), 0x87    ; Voice_SystemMsg sub-command (index 7)
+ld (xsp + 4), a       ; rhythm-mode byte (from A register)
 ```
 
-It then calls `MIDI_SendCmdPacket` to transmit the packet through the MIDI output port, followed by `MIDI_PostSendStub` (likely a post-send flush or delay).
+It then calls `MIDI_SendCmdPacket`, which copies the 4 bytes to `0xD090` and passes them to `sendCOMM` with handler 0 (inter-CPU command byte `0x03`), followed by `MIDI_PostSendStub`, a bare `ret`.
 
 ## Incoming: Roland GS SysEx
 
-The KN5000 receives and processes **Roland GS** System Exclusive messages for real-time voice parameter control. This is validated by `SysEx_ValidateRolandHeader` (`0xFDADF6`).
+The KN5000 receives and processes **Roland GS** System Exclusive messages that set its reverb and chorus (macro and level). This is validated by `SysEx_ValidateRolandHeader` (`0xFDADF6`).
 
 ### Expected Header
 
 ```
-F0 41 42 12 40 01 <cmd> <data> F7
+F0 41 <dev> 42 12 40 01 <cmd> <data> F7
 ```
 
-| Byte | Value | Meaning |
-|------|-------|---------|
-| `F0` | SysEx start | Standard MIDI SysEx header |
-| `41` | Manufacturer ID | Roland |
-| `42` | Device ID | Fixed device address |
-| `12` | Command ID | DT1 (Data Transfer 1) |
-| `40` | Model ID | GS (General Sound) |
-| `01` | Sub-category | Address high byte |
-| `cmd` | Address mid byte | Selects parameter group (see below) |
-| `data` | Parameter value | Written to DSP configuration |
-| `F7` | SysEx end | Standard MIDI SysEx terminator |
+| Byte    | Value              | Meaning                                       |
+|---------|--------------------|-----------------------------------------------|
+| `F0`    | SysEx start        | Standard MIDI SysEx header                    |
+| `41`    | Manufacturer ID    | Roland                                        |
+| `dev`   | Device ID          | Skipped by the validator (any value accepted) |
+| `42`    | Model ID           | GS                                            |
+| `12`    | Command ID         | DT1 (Data Set 1)                              |
+| `40 01` | Address high / mid | GS reverb and chorus block                    |
+| `cmd`   | Address low byte   | Selects the parameter (see below)             |
+| `data`  | Parameter value    | Macro number or level                         |
+| `F7`    | SysEx end          | Standard MIDI SysEx terminator                |
 
-The firmware validates all 6 header bytes sequentially, returning immediately if any mismatch occurs. A maximum of 10 data bytes are accepted (checked via `cp c, 0xA` at entry).
+The firmware checks `F0`, `41`, `42`, `12`, `40` and `01` in turn, stepping over the device-ID byte (and over one byte between `F0` and `41`), and returns at the first mismatch. The `cp c, 0xA` at entry bounds the target slot passed in C (0 = live area, 1-10 = a song slot), not a data-byte count.
 
 ### Command Dispatch
 
 After header validation, the firmware reads the command byte and dispatches to one of four parameter handlers:
 
-| Command | Handler | DSP Config | Voice Range | Description |
-|---------|---------|------------|-------------|-------------|
-| `0x30` | `SysEx_ApplyVoiceParam_4B` | `0x4B00` | 0-7 (8 voices) | Standard voice parameter, bank 4B |
-| `0x33` | `SysEx_ApplyVoiceParam_4B_128` | `0x4B00` | 0-127 (128 voices) | Extended voice parameter, bank 4B |
-| `0x38` | `SysEx_ApplyVoiceParam_49` | `0x4900` | 0-7 (8 voices) | Standard voice parameter, bank 49 |
-| `0x3A` | `SysEx_ApplyVoiceParam_49_128` | `0x4900` | 0-127 (128 voices) | Extended voice parameter, bank 49 |
+| Command | Handler                        | DSP Config | Value Range | Description                |
+|---------|--------------------------------|------------|-------------|----------------------------|
+| `0x30`  | `SysEx_ApplyVoiceParam_4B`     | `0x4B00`   | 0-7         | GS Reverb Macro (8 macros) |
+| `0x33`  | `SysEx_ApplyVoiceParam_4B_128` | `0x4B00`   | 0-127       | GS Reverb Level            |
+| `0x38`  | `SysEx_ApplyVoiceParam_49`     | `0x4900`   | 0-7         | GS Chorus Macro            |
+| `0x3A`  | `SysEx_ApplyVoiceParam_49_128` | `0x4900`   | 0-127       | GS Chorus Level            |
 
-Commands `0x30`/`0x33` control DSP parameter bank `0x4B` (likely mixer/effects), while `0x38`/`0x3A` control bank `0x49` (likely oscillator/filter). The `_128` variants allow addressing up to 128 voice slots instead of the standard 8.
+Commands `0x30`/`0x33` set the reverb (DSP parameter bank `0x4B`) and `0x38`/`0x3A` the chorus (bank `0x49`). The macro commands clamp to 0-7, one of the eight GS macros; the level commands clamp to 0-127. These are GS addresses `40 01 30`/`33`/`38`/`3A`.
 
-### Channel Routing
+### Target Slot
 
-The header's implicit channel (derived from the SysEx stream position) determines the target voice data base address:
+The caller passes a target slot in C (checked `<= 10` at entry), which selects the area the parameter is written to:
 
-- **Channel 0:** Base at `0x00F180 + 0x2E0` — main voice parameter area
-- **Channels 1-15:** Base at `0x0AB000 + (channel - 1) * 0x800 + 0x2E0` — per-channel voice areas (each channel gets a 2KB block)
+- **C = 0:** Base at `0x00F180 + 0x2E0` — the live area
+- **C = 1-10:** Base at `SEQ_SONG_SLOTS` (`0x0AB000`) `+ (C - 1) * 0x800 + 0x2E0` — one of the 10 song slots of 0x800 bytes
 
 ### Voice Parameter Application
 
 Each handler follows the same pattern:
 
-1. **Clamp** the voice index to valid range (0-7 or 0-127) via `SysEx_ClampVoiceIndex*`
-2. **Look up** the voice slot from a table (at `0xEE33A4` for 8-voice, `0xEE33AC` for 128-voice)
+1. **Clamp** the value to its range (0-7 for a macro, 0-127 for a level) via `SysEx_ClampVoiceIndex*`
+2. **Map** it through a table (`SysEx4B_VoiceIndexMap8` at `0xEE33A4` for a macro, `SysEx4B_LevelCurve128` at `0xEE33AC` for a level)
 3. **Write** the parameter value via `DSPCfg_WriteParamSimple`
-4. **Iterate** active voice slots (from `DSPCfg_ReadParam_Map0` at `0x4B04`/`0x4904`), applying the same parameter to all matching slots
+4. **Iterate** the effect's parameter slots (count from `DSPCfg_ReadParam_Map0` at `0x4B04`/`0x4904`), writing DSP params `0x4B10+i` / `0x4910+i`
 5. **Restore** the original slot ID if the base address was temporarily modified
 
-The per-channel dispatch tables (`SysEx_DispatchByChannel` at `0xFDACEA`, `SysEx_DispatchByChannel_49` at `0xFDAD71`) route parameters to up to 8 hardware channels, using jump tables at `0xEE3520`.
+The macro switches (`SysEx_DispatchByChannel` at `0xFDACEA`, chorus macros; `SysEx_DispatchByChannel_49` at `0xFDAD71`, reverb macros, labelled `SysEx_DispatchByChannel_49_ReverbMacroRoom1` … `SysEx_DispatchByChannel_49_ReverbMacroPanningDelay`) pick each macro's parameter words, which the callers write to DSP params `0x4910+i` / `0x4B10+i`.
 
 ## SysEx Parser State Machine
 
@@ -134,7 +135,7 @@ Data bytes (bit 7 clear) are accumulated via `VoiceQueue_Append`. The buffer lim
 
 ## Bulk Data Transfer (SysEx Exclusive Functions)
 
-The KN5000 supports bulk data transfer for six data types, each with a named handler function (names stored as ROM strings at `0xE555A4`-`0xE555EC`):
+The KN5000 supports bulk data transfer for six data types, each with a named handler function (widget instances `NakaInst_Exc*Func` at `0xE555A4`-`0xE555EC`):
 
 | Function | ROM String | Data Type | Jump Table Base |
 |----------|-----------|-----------|-----------------|
@@ -150,12 +151,12 @@ The KN5000 supports bulk data transfer for six data types, each with a named han
 
 Each `Exc*Func` handler (except `ExcSendFunc`) follows an identical pattern:
 
-1. Subtract `0x1E0003E` from the index parameter (XBC) to normalize
+1. Subtract `EVT_GET_LARGE_STEP` (`0x1E0003E`) from the event code (XBC) to normalize
 2. Validate range 0-9
 3. Look up a 16-bit handler offset from the type-specific jump table
-4. Dispatch via `jp_dri` (jump through indexed table)
+4. Dispatch via `jp t, (xix+bc)` into the `*_HandlerJumpTable`
 
-The handlers support 10 sub-operations (indices 0-9) per data type, covering operations like initiate transfer, send data block, receive data block, verify checksum, and complete transfer.
+The cases are NAKA widget events (in `ExcPmemFunc`: `ExcPmemFunc_OnGetLargeStep`, `ExcPmemFunc_OnGetMax`, `ExcPmemFunc_OnGetRamAddress`, with twins in the other handlers), plus a status-string formatter using `FileTransfer_Status_Table`. These are UI callbacks of the bulk-dump screen, not transfer steps.
 
 ### ExcSendFunc
 
@@ -176,24 +177,24 @@ When the mode is deactivated (bit 7 clear), it clears the SysEx flag and calls `
 
 The KN5000's acceptance of Roland GS SysEx (manufacturer `0x41`) provides compatibility with Roland-format MIDI files and sequencers. This allows:
 
-- **External sequencers** using Roland GS protocol to control the KN5000's voice parameters in real time
-- **GS-format MIDI files** to play back with correct voice assignments
-- **MIDI accompaniment files** that embed GS SysEx for voice setup
+- **External sequencers** using Roland GS protocol to set the KN5000's reverb and chorus in real time
+- **GS-format MIDI files** to play back with their GS reverb and chorus settings
+- **MIDI accompaniment files** that embed GS SysEx for effect setup
 
-The command mapping (`0x30`/`0x33` → bank 4B, `0x38`/`0x3A` → bank 49) corresponds to Roland GS address space `40 01 3x`, which covers Part parameters in the GS specification:
+The command mapping (`0x30`/`0x33` → bank 4B, `0x38`/`0x3A` → bank 49) corresponds to the Roland GS addresses `40 01 3x` for the reverb and chorus settings:
 
-| GS Address | Meaning |
-|-----------|---------|
-| `40 01 30` | Tone number (instrument) |
-| `40 01 33` | Rx. Note On |
-| `40 01 38` | Scale tuning |
-| `40 01 3A` | CAf Pitch Control |
+| GS Address | Meaning              |
+|------------|----------------------|
+| `40 01 30` | Reverb Macro (0-7)   |
+| `40 01 33` | Reverb Level (0-127) |
+| `40 01 38` | Chorus Macro (0-7)   |
+| `40 01 3A` | Chorus Level (0-127) |
 
 ## SX-WSA1R System Exclusive
 
 The **SX-WSA1** / **SX-WSA1R** "Advanced Acoustic Modeling" synthesizer shares
-Technics' `0x50` manufacturer ID with the KN5000 but uses a different model
-designation and a different (larger) command vocabulary. Everything in this
+Technics' `0x50` manufacturer ID with the KN5000 but has its own framing
+(`04 md 11`) and a different (larger) command vocabulary. Everything in this
 section was read directly from the WSA1R firmware disassembly
 (`kn5000-roms-disasm/wsa1/`); the tone-parameter and tempo paths were traced
 end-to-end, the bulk-dump command bytes are taken verbatim from the ROM message
@@ -202,18 +203,18 @@ templates, and each claim below carries a confidence grade.
 ### Packet shape
 
 ```
-F0 50 <cmd> 04 00 11 <address…> <data…> F7
+F0 50 <cmd> 04 <md> 11 [<adr×3> <siz×3> <data…> <cn> <sm>] F7
 ```
 
-| Byte | Value | Meaning |
-|------|-------|---------|
-| `F0` | SysEx start | Standard MIDI SysEx header |
-| `50` | Manufacturer ID | Technics/Panasonic (Matsushita) — **MEASURED**, `prom_a 0xF8AE7E` comments it as "the Matsushita manufacturer ID" |
-| `cmd` | Command byte | Selects the operation (see the tables below) |
-| `04 00 11` | Device / model | `0x11` is the SX-WSA1R model id (set as `ld (XIX-1),0x11` at `prom_a 0xF8AE7E`); `04 00` precede it in every template — **MEASURED** |
-| `address…` | Target address | Present on the transfer commands; 3 bytes in the bulk templates |
-| `data…` | Payload | Length depends on the command |
-| `F7` | SysEx end | Standard terminator |
+| Byte       | Value           | Meaning                                                                                                                                                                                      |
+|------------|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `F0`       | SysEx start     | Standard MIDI SysEx header                                                                                                                                                                   |
+| `50`       | Manufacturer ID | Technics/Panasonic (Matsushita) — `MIDI_SysExHeader`, `prom_a 0xFA5CB8`                                                                                                                      |
+| `cmd`      | Command byte    | Selects the operation (see the tables below)                                                                                                                                                 |
+| `04 md 11` | PC / MD / VER   | `04` = product, `md` = `00` on the SX-WSA1 keyboard and `01` on the SX-WSA1R rack (both are accepted), `11` = exclusive-spec version (`wsa1/docs/system-exclusive-reference/sec-glance.tex`) |
+| `address…` | Target address  | Present on the transfer commands; 3 bytes in the bulk templates                                                                                                                              |
+| `data…`    | Payload         | Length depends on the command                                                                                                                                                                |
+| `F7`       | SysEx end       | Standard terminator                                                                                                                                                                          |
 
 The WSA1R also accepts MIDI's **Universal Non-Real Time** id `0x7E` (used for GM
 System On/Off), exactly as the KN5000 does.
@@ -221,18 +222,18 @@ System On/Off), exactly as the KN5000 does.
 ### Transmit vocabulary (message templates)
 
 The firmware carries a table of literal outgoing-message templates at
-**`prom_b 0xF4FEC8`–`0xF4FF60`** (read verbatim from the ROM data — **MEASURED**):
+**`prom_b 0xF4FEB4`–`0xF4FF60`** (`SysExMessageStrings_F4FEB4`):
 
-| Template bytes | Command | Meaning |
-|----------------|---------|---------|
-| `F0 50 29 7E F7`, `F0 50 2A 7E F7` | `0x29`/`0x2A` + `7E` | Acknowledge (the `7E` before `F7` is the ACK marker) |
-| `F0 50 21 04 00 11 F7` | `0x21` | Request (dump request, form A) |
-| `F0 50 22 04 00 11 F7` | `0x22` | Request (dump request, form B) |
-| `F0 50 25 …` | `0x25` | (request/response family) |
-| `F0 7E 7F 09 01 F7` | GM | **General MIDI System ON** |
-| `F0 7E 7F 09 02 F7` | GM | **General MIDI System OFF** |
-| `F0 50 2C 04 00 11 …` | `0x2C` | Open / begin a bulk transfer |
-| `F0 50 2D 04 00 11 <addr3> <len3> …` | `0x2D` | Bulk **data dump** block |
+| Template bytes                       | Command       | Meaning                                                               |
+|--------------------------------------|---------------|-----------------------------------------------------------------------|
+| `F0 50 23/24/27/28/29/2A 7E F7`      | `0x23`…`0x2A` | ACK, NAK, end of category, end of dump, error/abort, destination full |
+| `F0 50 21 04 00 11 F7`               | `0x21`        | HRQ, handshake request (opens a bulk dump)                            |
+| `F0 50 22 04 00 11 F7`               | `0x22`        | HRT, handshake routine                                                |
+| `F0 50 25 …`                         | `0x25`        | TMP, tempo                                                            |
+| `F0 7E 7F 09 01 F7`                  | GM            | **General MIDI System ON**                                            |
+| `F0 7E 7F 09 02 F7`                  | GM            | **General MIDI System OFF**                                           |
+| `F0 50 2C 04 00 11 …`                | `0x2C`        | ITR, write one parameter                                              |
+| `F0 50 2D 04 00 11 <addr3> <len3> …` | `0x2D`        | Bulk **data dump** block                                              |
 
 The `0x2D` templates additionally pin down the WSA1R's **bulk-transfer memory
 map**: each template embeds a 3-byte start address and a 3-byte length, and the
@@ -248,16 +249,20 @@ receive decoder's tree described below (`notes/promb-2026-09-25/smf_param_sysex_
 `smf_sysex_param_change.py` and `sysex_decode_tree_probe.py` in the disassembly repository).
 For address-hi `0x11`, templates 4–70 read RAM `0x7622 + lo` — the work-RAM parameter records
 ([Parameter Records]({{ site.baseurl }}/wsa1-parameters/#factory-defaults-and-the-combination-memory));
-`11 20` is `0x7642`, DSP effect block 1. How this per-parameter use squares with the "open /
-begin a bulk transfer" reading of `0x2C` in the table above is not established.
+`11 20` is `0x7642`, DSP effect block 1. `0x2C` is ITR, the single-parameter write, so the two
+readings agree.
 
-The transmit builders are `sub_FB6E7F` / `sub_FB6F24` / `sub_FB71BB` /
-`sub_FB8081`, feeding the byte-emit primitive `sub_FB7FEB` (`0xFB7FEB`).
-**Crucially, these are reached only from (i) request→response — a received dump
-request — and (ii) explicit menu actions** (the ROM strings `"BULK DUMP"`,
-`"SYSEX BULK DUMP"`, `"GROUP DUMP"` exist in `prom_b`). No per-parameter edit
-handler calls any transmit builder (**STRONG**, from a caller census). The unit
-does **not** echo panel edits as SysEx.
+The transmit side is `SysExTx_Append` (append n bytes to the frame at 0x60FC88),
+`SysExTx_AppendAndSendOnF7`, `SysExTx_SendFrameBothPorts` and `SysExTx_SwapBuffers`;
+`SysExBuf_Reset` (`0xFB7FEB`) resets a frame buffer.
+**Crucially, these are reached only from (i) request→response (a received dump
+request), (ii) explicit menu actions** (the ROM strings `"BULK DUMP"`,
+`"SYSEX BULK DUMP"`, `"GROUP DUMP"` exist in `prom_b`), **and (iii) the SX-WSA1
+keyboard's tempo message**: `Tempo_ApplyBpm` calls `SysExTx_Tempo` on every tempo
+change unless `MidiCfg_ModeBits` bit 4 is set or the tempo came from SysEx, and the
+rack never sends it (see the acceptance gate below). No other per-parameter edit
+handler calls a transmit builder (**STRONG**, from a caller census). Apart from
+tempo, the unit does **not** echo panel edits as SysEx.
 
 ### Receive dispatch
 
@@ -269,7 +274,7 @@ loaded from file, one for live MIDI:
 | `PtrTable_F4F800` | `prom_b 0xF4F800` | File / load path |
 | `PtrTable_F4F888` | `prom_b 0xF4F888` | Live-MIDI path (a subset of the file path) |
 
-Dispatchers `sub_FB2160` (file) and `sub_FB21CB` (live) index these tables by a
+Dispatchers `SysExRx_ParseDispatch_Ring601646` (`0xFB2160`, file) and `SysExRx_PollRing601C6E` (`0xFB21CB`, live) index these tables by a
 command slot. **Slot 9** of *both* tables points at handler `0xFB33FE`.
 
 ### How a byte physically leaves on MIDI OUT — **MEASURED**
@@ -330,38 +335,41 @@ end-to-end (**PROVEN**):
 1. It reads two payload nibbles from the received-SysEx buffer
    (`(0x60fc80)+0x11` / `+0x12`) and reconstructs a value `(H<<4)|L`.
 2. It range-checks the value to **`0x28`–`0x12C` (40–300 BPM)**.
-3. It passes the value to `sub_FB57ED` (`0xFB57ED`), which writes the 16-bit
+3. It passes the value to `SysExRx_ApplyTempo` (`0xFB57ED`), which writes the 16-bit
    store **`(0x7EE2)`** (plus bit 0 of `(0x7EE3)`) — a 9-bit tempo.
-4. `sub_FAA742` (`0xFAA742`) reads `(0x7EE2)`, clamps 40–300 (default 120), and
+4. `Tempo_ApplyBpm` (`0xFAA742`) reads `(0x7EE2)`, clamps 40–300 (default 120), and
    programs the sequencer timer: `TREG5 = 140,000,000 / (BPM · 64)`.
 
    ⚠ Earlier revisions of this page put this step at `0xFAA350`. That
    address is inside a **stale copy** of the routine bank, `0xFAA018`–`0xFAA3FF`, which
    differs from the live bank `0x400` higher in exactly ten bytes and which nothing
-   publishes or calls. The routine that runs is its live twin `sub_FAA742`, called from
-   five places in `prom_a` and published through the `prom_b` thunk `T_F40794`. See
+   publishes or calls. The routine that runs is its live twin `Tempo_ApplyBpm`, called from
+   18 places and published through the `prom_b` thunk `T_Tempo_ApplyBpm`. See
    [older-build remnants]({{ site.baseurl }}/wsa1-disassembly/#older-build-remnants-and-why-unreached-code-can-be-correct).
 
 This received-SysEx path and the **front-panel tempo dial** converge on one
 store, with byte-identical range logic:
 
-| | Panel tempo dial | Received SysEx (slot 9) |
-|---|---|---|
-| entry | `PanelEvent_Code21_Dial` `0xF86833` | `0xFB33FE` |
-| edit | `PanelDial_ApplyStep` `0xF8688E` (floor `0x0028`, cap `0x012C`) | value decoded, range-checked `0x0028`–`0x012C` |
-| write | class-`0x7A` event → sink `sub_F448A3` (`0xF448A3`) → `(0x7EE2)` | `sub_FB57ED` → `(0x7EE2)`/`(0x7EE3)` directly |
-| consumer | `sub_FAA742` `0xFAA742` | `sub_FAA742` `0xFAA742` |
+|          | Panel tempo dial                                                                                                                                                      | Received SysEx (slot 9)                               |
+|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|
+| entry    | `PanelEvent_Code21_Dial` `0xF86833`                                                                                                                                   | `0xFB33FE`                                            |
+| edit     | `PanelDial_ApplyStep` `0xF8688E` (floor `0x0028`, cap `0x012C`)                                                                                                       | value decoded, range-checked `0x0028`–`0x012C`        |
+| write    | class-`0x7A` event → `(0x7EE2)` (the sink is not re-verified; `0xF448A3`, cited here before, is `Seq_ApplyStoredSongTempo`, which sets `(0x7EE2)` from a loaded song) | `SysExRx_ApplyTempo` → `(0x7EE2)`/`(0x7EE3)` directly |
+| consumer | `Tempo_ApplyBpm` `0xFAA742`                                                                                                                                           | `Tempo_ApplyBpm` `0xFAA742`                           |
 
-Acceptance is gated at runtime (`0xFB33FE` checks `(0x207A)≠0x79`,
-`(0x7f32)&0x04==0`, `(0x7f38)&0x08` set; `sub_FB57ED` needs `(0x7f32)&0x10==0`),
-i.e. only in certain transport/clock states.
+Acceptance is gated at runtime. `SysExCmd_TempoReceive` (`0xFB33FE`) first calls
+`SysEx_FeatureWordForVariant(5)`, which returns `0xFFFF` on the SX-WSA1R rack, so the
+rack refuses the message; it then checks `(0x207A)≠0x79`, `MidiCfg_ModeBits` (`0x7F32`)
+`&0x04==0` and `MidiFilter_Exclusive` (`0x7F38`) `&0x08` set, and `SysExRx_ApplyTempo`
+needs `MidiCfg_ModeBits` bit 4 clear. These are model and MIDI-configuration checks,
+not transport or clock states.
 
 #### The tempo message on the wire
 
 The command byte that routes to the tempo handler is **`0x25`**, and it is a
 *leaf* of the receive decoder's trie (`LinkTable_F4FF61`, whose root record sits at
-`0xF5115B` and which `prom_a` `sub_FB63D1` walks; record byte `0x25` → slot 9) —
-so the tempo message carries **no `04 00 11` model bytes** (those belong to the
+`0xF5115B` (`SysExDecodeTree_Root`) and which `prom_a` `SysExRx_MatchTrie` walks; record byte `0x25` → slot 9) —
+so the tempo message carries **no `04 md 11` bytes** (those belong to the
 transfer commands). The BPM is a 9-bit value split across the two data bytes as
 **low-nibble first, then the high part** — `value = (H<<4)|L`, range-checked
 40–300 — so the complete message is:
@@ -386,9 +394,12 @@ The tone-editing parameters (RESONATOR TYPE, POSITION, DEPTH, KEY SHIFT, DETUNE,
 key-follow, …) do **not** flow through the slot-9 style per-parameter SysEx
 path. They live in a different field array (`(u8*)0x27A6`) and are committed by
 `ToneEdit_CommitField` (`0xFD7435`) / `ToneEdit_CommitNoteField` (`0xFDA3E2`).
-The SysEx module never touches `0x27A6`. Received SysEx reaches these parameters
-only through a **whole-record bulk-dump load** (`0x2C`/`0x2D`), not addressable
-per field (**STRONG**).
+The SysEx module never touches `0x27A6` directly. Received SysEx reaches sound parameters
+through a bulk-dump load (`0x2D`) or through single-parameter writes (`0x2C` ITR) to the
+normal/drum sound areas (ADR `10 xx xx` / `18 xx xx`); the disassembly's SysEx reference
+lays those areas out (chapter "The sound areas": a 713-byte NORMAL SOUND of one GENERAL,
+four TONE and four MODELING blocks). How such a write reaches the tone-edit fields at
+`0x27A6` has not been traced.
 
 ## Live-Sync Between an Emulated Unit and Real Hardware
 
@@ -411,19 +422,22 @@ UI event buses.
   *same* store and notifier as a front-panel edit (`SoundParam_NotifyChange`,
   DRAM `0x34100`, `SNDPARAM_HASH_TABLE`). An emulator that watches its own parameter store and emits the
   equivalent GS message drives the real unit's parameter identically.
-- **WSA1R: viable for TEMPO (proven), and for any parameter that has a dedicated
-  receive slot.** The tempo example above is a complete, faithful sync channel:
-  `F0 50 <cmd→slot 9> 04 00 11 <addr> <val 40..300> F7` → `(0x7EE2)` → `TREG5`.
-  It does **not** extend to per-parameter *tone* editing, which is settable on
-  receive only via a whole-record bulk-dump load, not per field.
-- **In both cases the emulator must *originate* the messages.** Neither unit
-  emits SysEx when the operator turns a knob (see §2) — so you cannot rely on the
-  hardware echoing its own edits; the emulated side has to construct and send
-  them.
+- **WSA1R: viable for TEMPO towards the SX-WSA1 keyboard (proven); the SX-WSA1R
+  rack refuses it.** The tempo example above is a complete, faithful sync channel
+  to the keyboard: `F0 50 25 <BPM & 0x0F> <BPM >> 4> F7` → `(0x7EE2)` → `TREG5`.
+  The rack refuses the tempo message in both directions
+  (`SysEx_FeatureWordForVariant(5)`), so a tempo mirror cannot drive a real rack.
+  Per-parameter writes use ITR (`0x2C`) at the addresses given in the
+  disassembly's SysEx reference; this page has not traced them through the
+  firmware.
+- **In both cases the emulator must *originate* the messages.** Apart from the
+  SX-WSA1 keyboard's tempo message, neither unit emits SysEx when the operator
+  turns a knob (see §2) — so you cannot rely on the hardware echoing its own
+  edits; the emulated side has to construct and send them.
 
 ### 2. Reverse direction (real → emulator), per edit — **not viable**
 
-Neither machine transmits per-edit SysEx. The KN5000 does transmit real-time
+Apart from the SX-WSA1 keyboard's own tempo message (`Tempo_ApplyBpm` → `SysExTx_Tempo`), neither machine transmits per-edit SysEx. The KN5000 does transmit real-time
 **CC / aftertouch / pitch-bend** (config-gated), and both machines transmit
 SysEx **only** on explicit bulk/group-dump menu actions and as replies to a
 received dump request. So there is no per-edit source to drive a real→emulator
@@ -444,10 +458,10 @@ change (**STRONG→PROVEN**, from enumerated callers and enumerated ring writers
 
 ### 4. Two-way UI / screen-state sync — **not viable in general**
 
-- **WSA1R: not viable.** It fails on the transmit half — the unit emits neither
-  its cursor/screen state nor its parameters on edit — so the real→emulator
-  direction has no source, and buttons/screens cannot be driven the other way
-  (§3).
+- **WSA1R: not viable.** It fails on the transmit half: the rack emits neither
+  its cursor/screen state nor its parameters on edit (the keyboard sends only
+  tempo), so the real→emulator direction has no source, and buttons/screens
+  cannot be driven the other way (§3).
 - **KN5000: one-directional only.** An *inbound* MIDI parameter change posts a
   panel event (`0x570006` / `0x1e000a7`, `ParaLoadOpt` — commented as "bridges
   SysEx processing to the UI control panel") that repaints the affected control.
@@ -464,48 +478,51 @@ emits the corresponding SysEx out a MIDI-OUT port. Its correctness is argued
 a message the emulator builds and the real unit accepts changes the identical
 store.
 
-**This is implemented for the WSA1R.** Wiring the WSA1R's MIDI OUT (its SC0
+**This is implemented for the WSA1R in the kn7000_mame overlay build** (upstream
+MAME's `wsa1.cpp` has no such option). Wiring the WSA1R's MIDI OUT (its SC0
 transmit path had been a stub) already mirrors every *performance* parameter for
 free — the firmware transmits volume/pan/expression/modulation/sustain, pitch
 bend and aftertouch as ordinary CC/AT/bend as you play (confirmed by capturing
 the machine's own power-on MIDI). On top of that, a default-off **"Live parameter
-mirror"** driver option transmits the one proven *config* value the firmware
-never emits on edit: on a tempo change it sends `F0 50 25 <lo> <hi> F7` out MIDI
-OUT. Verified end to end by capturing MIDI OUT off an ALSA port — writing
-120/200/300 BPM emits `F0 50 25 08 07 F7` / `08 0C F7` / `0C 12 F7`, the exact
-bytes above.
+mirror"** driver option transmits tempo: on a tempo change it sends
+`F0 50 25 <lo> <hi> F7` out MIDI OUT. Verified end to end by capturing MIDI OUT off
+an ALSA port — writing 120/200/300 BPM emits `F0 50 25 08 07 F7` / `08 0C F7` /
+`0C 12 F7`, the exact bytes above. The SX-WSA1 keyboard firmware sends this message
+itself (`Tempo_ApplyBpm` → `SysExTx_Tempo`) unless `MidiCfg_ModeBits` bit 4 is set,
+and a real SX-WSA1R rack refuses it, so the mirror can drive only a real SX-WSA1
+keyboard.
 
 Button injection, per-edit reverse sync, and full bidirectional UI mirroring are
-ruled out by the firmware and are not implemented. (The KN5000 already has MIDI
-OUT wired and transmits its performance params the same way; a config mirror
-there would follow the same shape, once each parameter's receive address is
-mapped.)
+ruled out by the firmware and are not implemented. (In the kn7000_mame overlay the
+KN5000 also has MIDI OUT wired and transmits its performance params the same way;
+upstream `kn5000.cpp` has no MIDI port. A config mirror there would follow the
+same shape, once each parameter's receive address is mapped.)
 
 ## Code References
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| `MIDI_SendSysExCmd` | `0xFEBDA1` | Send Technics SysEx (F0 50 87 param) |
-| `MIDI_SendCmdPacket` | `0xFEBF48` | Low-level MIDI packet transmit |
-| `SysEx_ValidateRolandHeader` | `0xFDADF6` | Validate incoming Roland GS header |
-| `SysEx_ApplyVoiceParam_4B` | `0xFDAE7F` | Apply voice param, bank 4B, 8 voices |
-| `SysEx_ApplyVoiceParam_4B_128` | `0xFDAF32` | Apply voice param, bank 4B, 128 voices |
-| `SysEx_ApplyVoiceParam_49` | `0xFDAFD7` | Apply voice param, bank 49, 8 voices |
-| `SysEx_ApplyVoiceParam_49_128` | `0xFDB08A` | Apply voice param, bank 49, 128 voices |
-| `SysEx_DispatchByChannel` | `0xFDACEA` | Route param to channel (bank 4B) |
-| `SysEx_DispatchByChannel_49` | `0xFDAD71` | Route param to channel (bank 49) |
-| `SysEx_ClampVoiceIndex8` | `0xFDAB44` | Clamp voice index to 0-7 |
-| `SysEx_ClampVoiceIndex128` | `0xFDABC8` | Clamp voice index to 0-127 |
-| `SysEx_ParserLoop` | `0xFD8D33` | SysEx stream parser state machine |
-| `SysEx_InitiateSend` | `0xFD8CAE` | Initiate bulk SysEx send |
-| `MidiSysEx_CmdDispatchLoop` | `0xF2417E` | MIDI status byte dispatcher (0x81-0xF0) |
-| `ExcSendFunc` | `0xF7661B` | Main SysEx send handler |
-| `ExcDotFunc` | `0xF7666C` | Data Object Transfer handler |
-| `ExcPmemFunc` | `0xF766D9` | Panel Memory SysEx handler |
-| `ExcSmemFunc` | `0xF76737` | Sound Memory SysEx handler |
-| `ExcCompFunc` | `0xF76795` | Composer SysEx handler |
-| `ExcSeqFunc` | `0xF767F3` | Sequence SysEx handler |
-| `ExcMspFunc` | `0xF76851` | MSP SysEx handler |
+| Symbol                         | Address    | Purpose                                                         |
+|--------------------------------|------------|-----------------------------------------------------------------|
+| `MIDI_SendSysExCmd`            | `0xFEBDA1` | Build the `F0 50 87 param` record for the Sub CPU (rhythm mode) |
+| `MIDI_SendCmdPacket`           | `0xFEBF48` | Send a counted record to the Sub CPU via `sendCOMM` (handler 0) |
+| `SysEx_ValidateRolandHeader`   | `0xFDADF6` | Validate incoming Roland GS header                              |
+| `SysEx_ApplyVoiceParam_4B`     | `0xFDAE7F` | GS Reverb Macro (0-7), bank 4B                                  |
+| `SysEx_ApplyVoiceParam_4B_128` | `0xFDAF32` | GS Reverb Level (0-127), bank 4B                                |
+| `SysEx_ApplyVoiceParam_49`     | `0xFDAFD7` | GS Chorus Macro (0-7), bank 49                                  |
+| `SysEx_ApplyVoiceParam_49_128` | `0xFDB08A` | GS Chorus Level (0-127), bank 49                                |
+| `SysEx_DispatchByChannel`      | `0xFDACEA` | Chorus macro switch: a macro's parameter words                  |
+| `SysEx_DispatchByChannel_49`   | `0xFDAD71` | Reverb macro switch: a macro's parameter words                  |
+| `SysEx_ClampVoiceIndex8`       | `0xFDAB44` | Clamp a macro number to 0-7 and map it                          |
+| `SysEx_ClampVoiceIndex128`     | `0xFDABC8` | Clamp a level to 0-127 and map it                               |
+| `SysEx_ParserLoop`             | `0xFD8D33` | SysEx stream parser state machine                               |
+| `SysEx_InitiateSend`           | `0xFD8CAE` | Initiate bulk SysEx send                                        |
+| `MidiSysEx_CmdDispatchLoop`    | `0xF2417E` | MIDI status byte dispatcher (0x81-0xF0)                         |
+| `ExcSendFunc`                  | `0xF7661B` | Main SysEx send handler                                         |
+| `ExcDotFunc`                   | `0xF7666C` | Data Object Transfer handler                                    |
+| `ExcPmemFunc`                  | `0xF766D9` | Panel Memory SysEx handler                                      |
+| `ExcSmemFunc`                  | `0xF76737` | Sound Memory SysEx handler                                      |
+| `ExcCompFunc`                  | `0xF76795` | Composer SysEx handler                                          |
+| `ExcSeqFunc`                   | `0xF767F3` | Sequence SysEx handler                                          |
+| `ExcMspFunc`                   | `0xF76851` | MSP SysEx handler                                               |
 
 *(Addresses above were re-verified 2026-09 against `nm` on the rebuilt v10 ELF
 (`kn5000-roms-disasm/rebuilt_ROMs/kn5000_v10_program.llvm.elf`); every address in this table
@@ -518,31 +535,34 @@ label, e.g. the old `ExcPmemFunc` address was actually `ExcPmemFunc_HandlerJumpT
 All addresses are on CPU 1 (`prom_a` = code @ `0xF80000`, `prom_b` = data @
 `0xF00000`) and were read from `kn5000-roms-disasm/wsa1/`.
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| SysEx receive dispatch (file) | `prom_b 0xF4F800` | `PtrTable_F4F800`, indexed by command slot |
-| SysEx receive dispatch (live MIDI) | `prom_b 0xF4F888` | `PtrTable_F4F888`, live-MIDI subset |
-| `sub_FB2160` | `0xFB2160` | File-path dispatcher |
-| `sub_FB21CB` | `0xFB21CB` | Live-MIDI dispatcher |
-| slot-9 handler | `0xFB33FE` | Live TEMPO change (decode + range-check) |
-| `sub_FB57ED` | `0xFB57ED` | Writes tempo store `(0x7EE2)`/`(0x7EE3)` |
-| `sub_FAA742` | `0xFAA742` | `(0x7EE2)` → `TREG5` sequencer reload (its stale twin at `0xFAA342` never runs) |
-| Outgoing message templates | `prom_b 0xF4FEC8`–`0xF4FF60` | Literal `F0 50 …` / GM templates |
-| `MIDI_TX_Ready` | `0xFA542F` | `INTTX0`: real-time bytes, then the output ring → `SC0BUF` |
-| `Ring601432_PutBlock` | slot `0xF41DF8` → `0xF8481C` | append a block to the **MIDI OUT** ring at `0x601432` |
-| `Ring601432_Get` | slot `0xF41DF0` → `0xF847F7` | what `MIDI_TX_Ready` drains (`0xFFFF` = empty) |
-| `MIDI_PostSendWork` | `0xFA590F` | wake a transmitter that ran dry — `(0x77) = 0xDD` |
-| `Link_SendBlockIn32ByteChunks` | slot `0xF40ED4` → `0xF8E02C` | ⛔ **CPU1↔CPU2 link** at `0x007C0000`, *not* MIDI |
-| `MIDI_RX_Byte` / `MIDI_RX_SysExStart` / `MIDI_RX_SysExData` | `0xFA5496` / `0xFA584D` / `0xFA586E` | `INTRX0` and the SysEx parser; `(0xA9)` is its state byte |
-| `sub_FB7FEB` | `0xFB7FEB` | Byte-emit primitive |
-| `sub_FB6E7F`/`FB6F24`/`FB71BB`/`FB8081` | — | Transmit builders (bulk/group dump, replies) |
-| `PanelEvent_Code21_Dial` | `0xF86833` | Front-panel value/tempo dial |
-| `PanelDial_ApplyStep` | `0xF8688E` | Dial edit, floor `0x0028` / cap `0x012C` |
-| `sub_F448A3` | `0xF448A3` | Class-`0x7A` event sink → `(0x7EE2)` |
-| `ToneEdit_CommitField` | `0xFD7435` | Tone-parameter commit (separate `0x27A6` store) |
-| `UiEvent_RouteByCode` | `0xF8659B` | Routes class-`0xA9` UI events (button/screen/dial) |
-| `PanelButton_Accept` | `0xF86609` | Button-press handler (reached only from SC1 link) |
-| `SC1_RxOp0_ThreeByte` | `prom_b 0xF5B0D5` | Fills panel wire ring `0x2B40` from SC1 |
+| Symbol                                                      | Address                              | Purpose                                                                                                               |
+|-------------------------------------------------------------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| SysEx receive dispatch (file)                               | `prom_b 0xF4F800`                    | `PtrTable_F4F800`, indexed by command slot                                                                            |
+| SysEx receive dispatch (live MIDI)                          | `prom_b 0xF4F888`                    | `PtrTable_F4F888`, live-MIDI subset                                                                                   |
+| `SysExRx_ParseDispatch_Ring601646`                          | `0xFB2160`                           | File-path dispatcher                                                                                                  |
+| `SysExRx_PollRing601C6E`                                    | `0xFB21CB`                           | Live-MIDI dispatcher                                                                                                  |
+| `SysExCmd_TempoReceive` (slot 9)                            | `0xFB33FE`                           | Live TEMPO change (model gate, decode + range-check)                                                                  |
+| `SysExRx_ApplyTempo`                                        | `0xFB57ED`                           | Writes tempo store `(0x7EE2)`/`(0x7EE3)`                                                                              |
+| `Tempo_ApplyBpm`                                            | `0xFAA742`                           | `(0x7EE2)` → `TREG5` sequencer reload, then `SysExTx_Tempo` on the keyboard (its stale twin at `0xFAA342` never runs) |
+| `SysExMessageStrings_F4FEB4`                                | `prom_b 0xF4FEB4`–`0xF4FF60`         | Literal `F0 50 …` / GM templates                                                                                      |
+| `MIDI_TX_Ready`                                             | `0xFA542F`                           | `INTTX0`: real-time bytes, then the output ring → `SC0BUF`                                                            |
+| `Ring601432_PutBlock`                                       | slot `0xF41DF8` → `0xF8481C`         | append a block to the **MIDI OUT** ring at `0x601432`                                                                 |
+| `Ring601432_Get`                                            | slot `0xF41DF0` → `0xF847F7`         | what `MIDI_TX_Ready` drains (`0xFFFF` = empty)                                                                        |
+| `MIDI_PostSendWork`                                         | `0xFA590F`                           | wake a transmitter that ran dry — `(0x77) = 0xDD`                                                                     |
+| `Link_SendBlockIn32ByteChunks`                              | slot `0xF40ED4` → `0xF8E02C`         | ⛔ **CPU1↔CPU2 link** at `0x007C0000`, *not* MIDI                                                                     |
+| `MIDI_RX_Byte` / `MIDI_RX_SysExStart` / `MIDI_RX_SysExData` | `0xFA5496` / `0xFA584D` / `0xFA586E` | `INTRX0` and the SysEx parser; `(0xA9)` is its state byte                                                             |
+| `SysExBuf_Reset`                                            | `0xFB7FEB`                           | Reset a SysEx frame buffer                                                                                            |
+| `SysExTx_Append`                                            | `0xFB6F24`                           | Append n bytes to the frame at `0x60FC88` (transmit side: bulk/group dump, replies, keyboard tempo)                   |
+| `SysExTx_AppendAndSendOnF7`                                 | `0xFB6E7F`                           | Transmit side                                                                                                         |
+| `SysExTx_SendFrameBothPorts`                                | `0xFB71BB`                           | Transmit side                                                                                                         |
+| `SysExTx_SwapBuffers`                                       | `0xFB8081`                           | Transmit side                                                                                                         |
+| `PanelEvent_Code21_Dial`                                    | `0xF86833`                           | Front-panel value/tempo dial                                                                                          |
+| `PanelDial_ApplyStep`                                       | `0xF8688E`                           | Dial edit, floor `0x0028` / cap `0x012C`                                                                              |
+| `Seq_ApplyStoredSongTempo`                                  | `0xF448A3`                           | Song's stored tempo → `(0x7EE2)`, then `Tempo_ApplyBpm`                                                               |
+| `ToneEdit_CommitField`                                      | `0xFD7435`                           | Tone-parameter commit (separate `0x27A6` store)                                                                       |
+| `UiEvent_RouteByCode`                                       | `0xF8659B`                           | Routes class-`0xA9` UI events (button/screen/dial)                                                                    |
+| `PanelButton_Accept`                                        | `0xF86609`                           | Button-press handler (reached only from SC1 link)                                                                     |
+| `SC1_RxOp0_ThreeByte`                                       | `prom_b 0xF5B0D5`                    | Fills panel wire ring `0x2B40` from SC1                                                                               |
 
 ## References
 
@@ -553,6 +573,6 @@ All addresses are on CPU 1 (`prom_a` = code @ `0xF80000`, `prom_b` = data @
 
 ---
 
-*Last updated: September 2026 — added the SX-WSA1R SysEx vocabulary and the
+*Last updated: October 2026. September 2026: added the SX-WSA1R SysEx vocabulary and the
 emulator↔hardware live-sync viability analysis; KN5000 addresses re-verified
 against the symbol table September 2026.*

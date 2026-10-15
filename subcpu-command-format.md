@@ -33,16 +33,16 @@ The 8-entry jump table at `0x00F46C` dispatches commands to handlers. It is now 
 a symbolic `.long` table in `v142/subcpu/subcpu_data_tables.s`, so the entries below are the
 labels the assembler resolves, and the addresses are the bytes actually in the ROM:
 
-| Index | Command Range | Handler | Address | Purpose |
-|-------|--------------|---------|---------|---------|
-| 0 | `0x00`-`0x1F` | `Audio_CmdHandler_00_1F` | `0x034D5F` | MIDI/audio data to ring buffer |
-| 1 | `0x20`-`0x3F` | `Audio_CmdHandler_20_3F` | `0x01FC7C` | No-op (returns immediately) |
-| 2 | `0x40`-`0x5F` | `Audio_CmdHandler_40_5F` | `0x01FC7F` | Skip N bytes (data drain) |
-| 3 | `0x60`-`0x7F` | `Audio_CmdHandler_60_7F` | `0x035893` | DSP streaming data (enqueues into the DSP ring at `0x003B60`) |
-| 4 | `0x80`-`0x9F` | `Serial1_DataTransmit_Loop` | `0x01F890` | Serial port 1 (SC1) TX |
-| 5 | `0xA0`-`0xBF` | `Audio_CmdHandler_A0_BF` | `0x03CFEE` | Tone generator control |
-| 6 | `0xC0`-`0xDF` | `Audio_CmdHandler_C0_FF` | `0x020C12` | No-op (returns immediately) |
-| 7 | `0xE0`-`0xFF` | `Audio_CmdHandler_C0_FF` | `0x020C12` | No-op (returns immediately) |
+| Index | Command Range | Handler                     | Address    | Purpose                                                       |
+|-------|---------------|-----------------------------|------------|---------------------------------------------------------------|
+| 0     | `0x00`-`0x1F` | `Audio_CmdHandler_00_1F`    | `0x034D5F` | MIDI/audio data to ring buffer                                |
+| 1     | `0x20`-`0x3F` | `Audio_CmdHandler_20_3F`    | `0x01FC7C` | No-op (returns immediately)                                   |
+| 2     | `0x40`-`0x5F` | `Audio_CmdHandler_40_5F`    | `0x01FC7F` | Skip N bytes (data drain)                                     |
+| 3     | `0x60`-`0x7F` | `Audio_CmdHandler_60_7F`    | `0x035893` | DSP streaming data (enqueues into the DSP ring at `0x003B60`) |
+| 4     | `0x80`-`0x9F` | `Serial1_DataTransmit_Loop` | `0x01F890` | Serial port 1 (SC1) TX                                        |
+| 5     | `0xA0`-`0xBF` | `Audio_CmdHandler_A0_BF`    | `0x03CFEE` | Keybed touch curve / forwarding enable                        |
+| 6     | `0xC0`-`0xDF` | `Audio_CmdHandler_C0_FF`    | `0x020C12` | No-op (returns immediately)                                   |
+| 7     | `0xE0`-`0xFF` | `Audio_CmdHandler_C0_FF`    | `0x020C12` | No-op (returns immediately)                                   |
 
 Note: Ranges 6 and 7 share the same no-op handler. Special E1/E2/E3 commands bypass this table entirely (see Special Commands below) — they are intercepted in `INT0_HANDLER` itself and never reach entry 7.
 
@@ -82,7 +82,7 @@ eight of its targets are `lds hl,0 / ret` stubs**. See
 [cmd_byte] [midi_byte_1] [midi_byte_2] ... [midi_byte_N]
 ```
 
-Where `cmd_byte & 0x1F` = N (number of MIDI bytes following). The MIDI bytes are standard MIDI protocol messages (status + data bytes).
+Where `cmd_byte & 0x1F` = N − 1 (N bytes follow). The bytes are fixed-width internal records, not MIDI wire bytes: a status byte, then (in the 0x80-0xE0 classes) the part number (0x00-0x19), then data (4-6 bytes per record). There is no running status.
 
 ### 0x20-0x3F: No-Op (`Audio_CmdHandler_20_3F`)
 
@@ -142,9 +142,9 @@ This range is reserved/unused. The Main CPU may send these commands for padding 
 - **Direct mode** (bit 2 clear): Bytes are processed immediately by the serial command handler. Used during initialization or when real-time response is needed.
 - **Buffered mode** (bit 2 set): Bytes are queued in a ring buffer and transmitted asynchronously via SC1 TX interrupts. Used during normal operation.
 
-### 0xA0-0xBF: Tone Generator Control (`Audio_CmdHandler_A0_BF`)
+### 0xA0-0xBF: Keybed Local Control (`Audio_CmdHandler_A0_BF`)
 
-**Purpose:** Controls the tone generator subsystem state.
+**Purpose:** Sets the Sub CPU's two keybed 'local control' bytes.
 
 **Payload Format:**
 ```
@@ -153,16 +153,13 @@ This range is reserved/unused. The Main CPU may send these commands for padding 
 
 **Sub-commands:**
 
-| Byte 0 | Byte 1 | Action |
-|--------|--------|--------|
-| `0x00` | `0x01` | Set tone gen enable flag (DRAM 19018 = 1) |
-| `0x01` | `0x00`-`0x09` | Set tone gen mode (DRAM 19016 = byte 1) |
-| other | any | Ignored |
+| Byte 0 | Byte 1        | Action                                                                          |
+|--------|---------------|---------------------------------------------------------------------------------|
+| `0x00` | `0x01`        | Enable keybed→main forwarding (0x004A4A = 1, tested by `ToneGen_Process_Notes`) |
+| `0x01` | `0x00`-`0x09` | Touch-curve index (0x004A48 = byte 1, used by `Keybed_Decode_Event`)            |
+| other  | any           | Ignored                                                                         |
 
-**Tone Generator Modes** (DRAM 19016, aka address `0x4A48`):
-- Values 0-9 are accepted
-- Mode 6 is set during `ToneGen_Init`
-- The mode value controls the tone generator's processing behavior
+**Touch curve** (0x004A48): values 0-9; `ToneGen_Init` (a misnomer: it initialises the keybed) sets the default, 6; curve 0 gives a fixed velocity of 80 (touch off).
 
 ### 0xC0-0xFF: No-Op (`Audio_CmdHandler_C0_FF`)
 
@@ -172,7 +169,7 @@ These ranges (0xC0-0xDF and 0xE0-0xFF) share the same no-op handler. However, th
 
 ## Special Commands (E1/E2/E3)
 
-Commands `0xE1`, `0xE2`, and `0xE3` are handled by the `MICRODMA_CH0_HANDLER` state machine before the dispatch table is consulted. They use multi-phase DMA transfers:
+Commands `0xE1`, `0xE2` and `0xE3` are recognised by `INT0_HANDLER` (0x020E86) when the header byte arrives. E1 and E2 set `CMD_PROCESSING_STATE` to 2 or 3 and arm channel 0 for a 6- or 10-byte header; E3 only sets bit 6 of `PAYLOAD_LOADED_FLAG`. `MICRODMA_CH0_HANDLER` completes E1 and E2 once their header has arrived:
 
 ### State Machine (CMD_PROCESSING_STATE at DRAM 4330)
 
@@ -191,13 +188,13 @@ Commands `0xE1`, `0xE2`, and `0xE3` are handled by the `MICRODMA_CH0_HANDLER` st
 **Protocol:**
 1. Main CPU sends E1 command
 2. Sub CPU receives 6-byte setup: 4-byte destination address + 2-byte byte count (at DRAM 4374)
-3. Sub CPU configures DMA Channel 2 with the destination/count and starts transfer
+3. `MICRODMA_CH0_HANDLER` (state 2) loads the destination into DMAD0 and the count into DMAC0, then re-arms DMA0V, so micro-DMA **channel 0** receives the data
 4. Main CPU streams data through latch
 5. DMA completion triggers state 4, which signals ready for next command
 
 ### E2: Single-Phase Command
 
-**Purpose:** Short command with acknowledgment.
+**Purpose:** Remote read request. The 10 bytes are {destination in Main CPU memory (4), source in Sub CPU memory (4), count (2)}, i.e. `InterCPU_E2_Send`'s XWA, XDE and BC. The Sub CPU acknowledges at once, and later `Cmd_Check_E2_Pending` (Sub CPU main loop) sends that block back with its own E1 transfer (`InterCPU_E1_DMA_Transfer`).
 
 **Protocol:**
 1. Main CPU sends E2 command with payload
@@ -266,7 +263,7 @@ MicroDMA Ch0 interrupt fires
     v
 CMD_PROCESSING_STATE check
     |
-    ├── State 0: Store byte, set state=1, setup next DMA
+    ├── (INT0_HANDLER, header byte): store it, set state=1, arm DMA ch0
     ├── State 1: Decode command byte
     │       |
     │       v
@@ -289,20 +286,20 @@ Addresses re-verified 2026-08 against `symbols/subcpu_symbols_reference.txt` and
 raw pointer bytes at `0x00F46C` in `kn5000_subprogram_v142.rom`. **Eight of the entries in
 the previous revision of this table were stale** and are corrected here.
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| `CMD_DISPATCH_TABLE` | `0x00F46C` | 8-entry handler jump table |
-| `MICRODMA_CH0_HANDLER` | `0x020F1F` | Main command dispatcher |
-| `Audio_CmdHandler_00_1F` | `0x034D5F` | MIDI ring buffer writer |
-| `Audio_CmdHandler_20_3F` | `0x01FC7C` | No-op |
-| `Audio_CmdHandler_40_5F` | `0x01FC7F` | Data drain |
-| `Audio_CmdHandler_60_7F` | `0x035893` | DSP streaming |
-| `Serial1_DataTransmit_Loop` | `0x01F890` | SC1 serial TX |
-| `Audio_CmdHandler_A0_BF` | `0x03CFEE` | Tone gen control |
-| `Audio_CmdHandler_C0_FF` | `0x020C12` | No-op |
-| `InterCPU_Latch_Setup` | `0x020C15` | DMA and latch init |
-| `MIDI_Dispatch` | `0x034D93` | MIDI message parser |
-| `Audio_CmdHandler_ConstData` | `0x034D47` | Ring buffer write helper |
+| Symbol                      | Address    | Purpose                                                   |
+|-----------------------------|------------|-----------------------------------------------------------|
+| `CMD_DISPATCH_TABLE`        | `0x00F46C` | 8-entry handler jump table                                |
+| `MICRODMA_CH0_HANDLER`      | `0x020F1F` | Main command dispatcher                                   |
+| `Audio_CmdHandler_00_1F`    | `0x034D5F` | MIDI ring buffer writer                                   |
+| `Audio_CmdHandler_20_3F`    | `0x01FC7C` | No-op                                                     |
+| `Audio_CmdHandler_40_5F`    | `0x01FC7F` | Data drain                                                |
+| `Audio_CmdHandler_60_7F`    | `0x035893` | DSP streaming                                             |
+| `Serial1_DataTransmit_Loop` | `0x01F890` | SC1 serial TX                                             |
+| `Audio_CmdHandler_A0_BF`    | `0x03CFEE` | Keybed local control                                      |
+| `Audio_CmdHandler_C0_FF`    | `0x020C12` | No-op                                                     |
+| `InterCPU_Latch_Setup`      | `0x020C15` | DMA and latch init                                        |
+| `MIDI_Dispatch`             | `0x034D93` | MIDI message parser                                       |
+| `RingBuf_Write4K`           | `0x034D47` | 4 KB ring write helper (was `Audio_CmdHandler_ConstData`) |
 
 ## References
 
@@ -315,4 +312,4 @@ the previous revision of this table were stale** and are corrected here.
 
 ---
 
-*Last updated: August 2026*
+*Last updated: October 2026*
