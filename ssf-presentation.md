@@ -481,7 +481,7 @@ When the timer reaches 10, song playback begins:
 1. `Demo_SelectEntry_PlaySong` is called
 2. Song lookup via Table Data ROM: `0x9C4000 + (song_index * 4)` yields the song data pointer
 3. `SwbtWr_ReinitBothBanks` is called, which runs the SwbtWr dispatch loop inline
-4. The dispatch loop walks every buffered tone generator event before it returns, and the main loop waits for it
+4. The dispatch loop walks every buffered parameter-change event before it returns, and the main loop waits for it
 5. In the March 2026 MAME build that took about 16 seconds; in the August 2026 kn7000_mame build the countdown moves from 10 to 9 in about half a second (see [Feature Demo Timer Behaviour]({{ site.baseurl }}/feature-demo-investigation-2026-03-09/))
 6. After processing completes, `PlaySong` returns and sets `DRAM[0x8F4E]` from `0x04` to `0x06`
 
@@ -688,7 +688,7 @@ The full dispatch chain for event `0x1C00038` was traced through the firmware:
 
 **Key discovery:** `CurrentTarget` at `DRAM[0x02F83C]` is set by `SetCurrentTarget` during screen initialization (event `0x1C00001`). The Feature Presentation screen (`AcFdemoScreenProc`, type `0x69`) must receive event `0x1C00001` to become the `CurrentTarget`.
 
-**Root cause hypothesis:** `MainTitleCtrl_ChangeTitle` only writes the state byte to `DRAM[0x8D38]` -- it does NOT send event `0x1C00001` to the screen widget. The NAKA widget framework's screen management cycle must independently detect the state change and activate the screen. This cycle may be starved because `SwbtWr_ReinitBothBanks` blocks for ~16 seconds during tone generator initialization.
+**Root cause hypothesis:** `MainTitleCtrl_ChangeTitle` only writes the state byte to `DRAM[0x8D38]` -- it does NOT send event `0x1C00001` to the screen widget. The NAKA widget framework's screen management cycle must independently detect the state change and activate the screen. This cycle may be starved because `SwbtWr_ReinitBothBanks` blocks for ~16 seconds (MAME, March 2026) while it dispatches the queued parameter-change events.
 
 ### Broadcast Event Resolution Flowchart
 
