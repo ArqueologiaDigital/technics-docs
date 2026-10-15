@@ -8,25 +8,28 @@ permalink: /tone-generator/
 
 The KN5000's tone generator is a custom Matsushita LSI (TC183C230002, IC303) that provides 64-voice polyphonic wavetable synthesis. It is controlled by the Sub CPU via a register-indirect interface and reads waveform data from four 32Mbit ROMs (IC304-IC307).
 
-> **Status:** Register map reverse-engineered from the SubCPU firmware; the tone generator now **makes
-> sound in MAME** — real IC307 PCM, the firmware's software envelope, held-note sustain, per-semitone
-> pitch, velocity and polyphony all work (July 2026). Remaining gap: waveform *selection* (every voice
-> currently plays one fabricated sine). See [MAME Emulation Status](#mame-emulation-status) below and
-> [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) for the overall audio architecture.
+> **Status:** Register map reverse-engineered from the SubCPU firmware. The tone generator **makes sound only in the
+> `kn7000_mame` overlay driver**: mainline MAME maps IC303 (`0x100000`), the keybed port (`0x110000`) and `0x130000` as
+> `noprw()` stubs and flags the KN5000 `MACHINE_NO_SOUND`. In the overlay each voice plays the IC307 recording its `+0x040`
+> selector names. Voices that select the undumped IC304-IC306 are muted in the default PCM rendering, or sound as a sine
+> at their own pitch and envelope under the "PCM from wave ROM (with sine substitutes)" rendering; the wrong-instrument
+> copy of IC307 loaded in those sockets is heard only when the build is run with `KN5000_UNDUMPED=play`. See
+> [MAME Emulation Status](#mame-emulation-status) below and
+> [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/#mame-emulation-status).
 
 ## Hardware Overview
 
-| Property | Value |
-|----------|-------|
-| Chip | TC183C230002 (Matsushita custom) |
-| Package Location | IC303 |
-| Voice Count | 64 independent voices |
-| Parameters per Voice | 32 registers (8 groups × 4 banks, 44-byte firmware struct) |
-| Global Registers | 13 (system config + DSP/effects) |
-| Interface | Memory-mapped register-indirect (address/data pair) |
-| Address Lines | SubCPU memory bus + P6.7 chip-select |
-| Waveform ROMs | IC304 (QS6GU3C32375), IC305 (QS6GT3C33A01), IC306 (QS6GU3C32374), IC307 (QS6GX3C32008) |
-| Waveform RAM | *(none — see note)* IC303 has **no** external work RAM. IC308/IC309 are the two **effects DSPs'** delay DRAMs and are not connected to IC303 (corrected 2026-07-26 from the service-manual schematics). |
+| Property             | Value                                                                                                                                                                                                   |
+|----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Chip                 | TC183C230002 (Matsushita custom)                                                                                                                                                                        |
+| Package Location     | IC303                                                                                                                                                                                                   |
+| Voice Count          | 64 independent voices                                                                                                                                                                                   |
+| Parameters per Voice | 32 registers (8 groups × 4 banks), staged in a 34-word (68-byte) firmware record                                                                                                                        |
+| Global Registers     | 13 (system config + DSP/effects)                                                                                                                                                                        |
+| Interface            | Memory-mapped register-indirect (address/data pair)                                                                                                                                                     |
+| Address Lines        | SubCPU memory bus + P6.7 (A23, an inference)                                                                                                                                                            |
+| Waveform ROMs        | IC304 (QS6GU3C32375), IC305 (QS6GT3C33A01), IC306 (QS6GU3C32374), IC307 (QS6GX3C32008)                                                                                                                  |
+| Waveform RAM         | *(none — see note)* IC303 has **no** external work RAM. IC308/IC309 are the two **effects DSPs'** delay DRAMs and are not connected to IC303 (corrected 2026-07-26 from the service-manual schematics). |
 
 ## Memory-Mapped Interface
 
@@ -36,33 +39,33 @@ The tone generator uses two separate memory regions with different purposes:
 
 Used by the SubCPU to configure voice parameters, system settings, and effects:
 
-| Address | Width | Direction | Purpose |
-|---------|-------|-----------|---------|
-| 0x100000 | 16-bit | Write | Register address latch |
-| 0x100002 | 16-bit | Write/Read | Register data port |
+| Address  | Width  | Direction    | Purpose                                                                                                                                              |
+|----------|--------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0x100000 | 16-bit | Write / Read | Register address latch (write); status word (read: latch 0x0000-0x0003 → that bank's active-voice bitmap, 0x0180+ch → that channel's envelope level) |
+| 0x100002 | 16-bit | Write        | Register data port (the firmware never reads it)                                                                                                     |
 
-Every register write follows a strict bus protocol with chip-select timing:
+Every register write follows a strict bus protocol:
 
 ```asm
-RES 7, (P6)          ; Assert chip-select (active low)
+RES 7, (P6)          ; P6.7 low
 LD (100000h), WA     ; Write register address
 NOP                  ; Setup time
-SET 7, (P6)          ; Deassert chip-select (latches address)
+SET 7, (P6)          ; P6.7 high
 LD (100002h), data   ; Write data value
 JR T, next           ; Delay (unconditional jump)
 NOP; NOP; NOP        ; Hold time before next write
 ```
 
-P6 bit 7 is the chip-select / address-latch strobe. The address is latched while CS is asserted, then data is written after CS is deasserted.
+P6 bit 7 is driven LOW before every 0x100000 access and HIGH before every 0x100002 access. The disassembly reads it, as an inference, as the A23 line taken out of bus mode. The sub-CPU boot ROM performs the same burst without touching P6.7, so whether the chip needs it is unresolved.
 
 ### Keyboard Input Interface (0x110000)
 
-Used by the SubCPU to read voice events (note on/off) from the tone generator:
+Used by the SubCPU to read key events from the keybed scanner hosted on IC303 (`Keybed_Read_Event`; see [Keybed Scanning]({{ site.baseurl }}/keybed-scanning/)):
 
-| Address | Width | Direction | Purpose |
-|---------|-------|-----------|---------|
-| 0x110002 | 16-bit | Read | Status register (bit 0 = data ready) |
-| 0x110000 | 16-bit | Read | Voice data (low byte = note, high byte = velocity) |
+| Address  | Width  | Direction | Purpose                                                                                                                 |
+|----------|--------|-----------|-------------------------------------------------------------------------------------------------------------------------|
+| 0x110002 | 16-bit | Read      | Status register (bit 0 = event queued, bit 1 = release qualifier)                                                       |
+| 0x110000 | 16-bit | Read      | Key event: low byte bits 0-6 = key index, bit 7 = key down; high byte = raw touch reading, not a velocity (0xFF = none) |
 
 P6.7 (A23 address line) also controls which port is accessed: status reads go to 0x110002, data reads go to 0x110000.
 
@@ -83,98 +86,101 @@ This gives up to 256 register groups, each with 4 sub-banks of 64 channels.
 Each of the 64 voices has registers organized into groups. The register address for voice N is calculated as:
 `base_offset + (bank * 0x40) + channel_number`
 
-| Offset | Group | Banks | Struct Offset | Description |
-|--------|-------|-------|---------------|-------------|
-| +0x0000 | 0x00 | 0 | +0x00 | **Voice Control** -- key on/off/mode state machine |
-| +0x0040 | 0x00 | 1 | +0x02 | **Pitch increment** (semitone table lookup from ROM 0x01217D) |
-| +0x0080 | 0x00 | 2 | +0x04 | **Voice mode/velocity** (bit 15 = latch strobe; velocity OR'd in) |
-| +0x00C0 | 0x00 | 3 | +0x06 | **Waveform control** (cleared on note-off) |
-| +0x0100 | 0x01 | 0 | +0x08 | **Interpolated pitch** (16-bit signed, from portamento/legato) |
-| +0x0140 | 0x01 | 1 | +0x0A | **Secondary pitch offset** (portamento/detune amount) |
-| +0x0180 | 0x01 | 2 | +0x0C | **Velocity/expression coefficient** (8-bit signed, scaled) |
-| +0x01C0 | 0x01 | 3 | +0x38 | **Key-on flag** (hard-coded 0x8100 by firmware) |
-| +0x0400 | 0x04 | 0 | +0x0E | **Note key info** (note<<8, bit 15=active) |
-| +0x0440 | 0x04 | 1 | +0x10 | Level/key parameter bank 1 |
-| +0x0480 | 0x04 | 2 | +0x12 | Level/key parameter bank 2 |
-| +0x04C0 | 0x04 | 3 | +0x14 | Level/key parameter bank 3 |
-| +0x0500 | 0x05 | 0 | +0x16 | **Modulation param** (written just before KEY ON) |
-| +0x0540 | 0x05 | 1 | +0x3A | **Extended param 1** (bit 15 = latch strobe) |
-| +0x0580 | 0x05 | 2 | +0x3C | **Extended param 2** (bit 15 = latch strobe) |
-| +0x05C0 | 0x05 | 3 | +0x3E | **Extended param 3** (bit 15 = latch strobe) |
-| +0x0600 | 0x06 | 0 | +0x40 | **Aux routing param 0** |
-| +0x0640 | 0x06 | 1 | +0x42 | **Aux routing param 1** |
-| +0x0800 | 0x08 | 0 | +0x18 | **Main Volume** (0xFF80=mute, lower=louder) |
-| +0x0840 | 0x08 | 1 | +0x1A | **Pan Left** (0x00=silent, 0x3C=center, 0x78=full) |
-| +0x0880 | 0x08 | 2 | +0x1C | **Pan Right** (0x00=silent, 0x3C=center, 0x78=full) |
-| +0x08C0 | 0x08 | 3 | +0x1E | **DSP/Effects Send Level** |
-| +0x0900 | 0x09 | 0 | +0x20 | **DSP effects send 0** (4 independent aux sends) |
-| +0x0940 | 0x09 | 1 | +0x22 | **DSP effects send 1** |
-| +0x0980 | 0x09 | 2 | +0x24 | **DSP effects send 2** |
-| +0x09C0 | 0x09 | 3 | +0x26 | **DSP effects send 3** |
-| +0x0A00 | 0x0A | 0 | +0x28 | **Secondary aux param 0** (post-processing) |
-| +0x0A40 | 0x0A | 1 | +0x2A | **Secondary aux param 1** |
+| Offset  | Group | Banks | Struct Offset | Description                                                                                                                               |
+|---------|-------|-------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| +0x0000 | 0x00  | 0     | +0x00         | **Control / gate**: 0x8100 note-on gate, 0x7E00 free, 0xF0xx/0xFExx hand-off; latches 0x0000-0x0003 read back as the active-voice bitmaps |
+| +0x0040 | 0x00  | 1     | +0x02         | **Recording selector** `(class << 12) + entry` (voice-engine path)                                                                        |
+| +0x0080 | 0x00  | 2     | +0x04         | **Output level** (bits 11-0) + 3-bit per-recording field (bits 14-12); bit 15 = burst strobe                                              |
+| +0x00C0 | 0x00  | 3     | +0x06         | **Coarse level + expression** (cleared before a voice is freed)                                                                           |
+| +0x0100 | 0x01  | 0     | +0x08         | **TVF cutoff**                                                                                                                            |
+| +0x0140 | 0x01  | 1     | +0x0A         | **TVF depth / bias**                                                                                                                      |
+| +0x0180 | 0x01  | 2     | +0x0C         | **Pan** (0x0040 = centre); latch 0x0180+ch reads back that channel's envelope level                                                       |
+| +0x01C0 | 0x01  | 3     | +0x38         | Written by `EGEnv_Compute_B`; not in the note-on burst                                                                                    |
+| +0x0400 | 0x04  | 0     | +0x0E         | **Absolute log pitch** (`Pitch_Emit_Reg400`)                                                                                              |
+| +0x0440 | 0x04  | 1     | +0x10         | (no reading yet)                                                                                                                          |
+| +0x0480 | 0x04  | 2     | +0x12         | (no reading yet)                                                                                                                          |
+| +0x04C0 | 0x04  | 3     | +0x14         | **Oscillator config + slot**                                                                                                              |
+| +0x0500 | 0x05  | 0     | +0x16         | **Detune / bend pair**                                                                                                                    |
+| +0x0540 | 0x05  | 1     | +0x3A         | **Extended param 1** (bit 15 = latch strobe)                                                                                              |
+| +0x0580 | 0x05  | 2     | +0x3C         | **Extended param 2** (bit 15 = latch strobe)                                                                                              |
+| +0x05C0 | 0x05  | 3     | +0x3E         | **Extended param 3** (bit 15 = latch strobe)                                                                                              |
+| +0x0600 | 0x06  | 0     | +0x40         | **Aux routing param 0**                                                                                                                   |
+| +0x0640 | 0x06  | 1     | +0x42         | **Aux routing param 1**                                                                                                                   |
+| +0x0800 | 0x08  | 0     | +0x18         | **Amplitude envelope, segment 0**: `(target << 8) + rate`, target an attenuation (0xFF = silent; mute word 0xFF80)                        |
+| +0x0840 | 0x08  | 1     | +0x1A         | **Amplitude envelope, segment 1** (mute word 0xFF00)                                                                                      |
+| +0x0880 | 0x08  | 2     | +0x1C         | **Amplitude envelope, segment 2**                                                                                                         |
+| +0x08C0 | 0x08  | 3     | +0x1E         | **Amplitude envelope, segment 3**                                                                                                         |
+| +0x0900 | 0x09  | 0     | +0x20         | **Second envelope, segment 0**                                                                                                            |
+| +0x0940 | 0x09  | 1     | +0x22         | **Second envelope, segment 1**                                                                                                            |
+| +0x0980 | 0x09  | 2     | +0x24         | **Second envelope, segment 2**                                                                                                            |
+| +0x09C0 | 0x09  | 3     | +0x26         | **Third envelope, segment 0**                                                                                                             |
+| +0x0A00 | 0x0A  | 0     | +0x28         | **Third envelope, segment 1**                                                                                                             |
+| +0x0A40 | 0x0A  | 1     | +0x2A         | **Third envelope, segment 2**                                                                                                             |
 
 ### ToneGen_WriteVoiceParams Sequence
 
-The firmware's `ToneGen_WriteVoiceParams` function (at subcpu 0x02D0FD) writes 23 register/data pairs per voice from a 44-byte parameter struct. The write order is:
+The firmware's `ToneGen_WriteVoiceParams` function (at subcpu 0x02D101) writes 23 register/data pairs (22 distinct registers) per voice from a 34-word (68-byte) staging record, of which it sends words 1-21. The write order is:
 
-| Step | Register | Struct Offset | Notes |
-|------|----------|--------------|-------|
-| 1 | +0x040 | +2 | **Pitch increment** (semitone table, 0x8000=1.0x) |
-| 2 | +0x080 | +4 | **Voice mode/velocity** (bit 15 SET = latch strobe) |
-| 3 | +0x0C0 | +6 | **Waveform control** (cleared on note-off) |
-| 4 | +0x100 | +8 | Interpolated pitch (portamento/legato) |
-| 5 | +0x140 | +10 | Secondary pitch offset (detune) |
-| 6 | +0x180 | +12 | Velocity/expression coefficient |
-| 7 | +0x400 | +14 | **Note key info** (note<<8, bit 15=active) |
-| 8 | +0x440 | +16 | Level/key param bank 1 |
-| 9 | +0x480 | +18 | Level/key param bank 2 |
-| 10 | +0x4C0 | +20 | Level/key param bank 3 |
-| 11 | +0x500 | +22 | **Modulation param** |
-| 12 | +0x000 | — | Voice control = **0x8100** (KEY ON) |
-| 13 | +0x840 | +26 | **Pan left** (0-0x78, center=0x3C) |
-| 14 | +0x880 | +28 | **Pan right** (0-0x78, center=0x3C) |
-| 15 | +0x8C0 | +30 | **DSP/effects send level** |
-| 16 | +0x900 | +32 | DSP effects send 0 |
-| 17 | +0x940 | +34 | DSP effects send 1 |
-| 18 | +0x980 | +36 | DSP effects send 2 |
-| 19 | +0x9C0 | +38 | DSP effects send 3 |
-| 20 | +0xA00 | +40 | Secondary aux param 0 |
-| 21 | +0xA40 | +42 | Secondary aux param 1 |
-| 22 | +0x080 | +4 | Voice mode/velocity (bit 15 CLEAR = latch release) |
+| Step | Register | Struct Offset | Notes                                                                        |
+|------|----------|---------------|------------------------------------------------------------------------------|
+| 1    | +0x040   | +2            | **Recording selector** `(class << 12) + entry`, sent before the strobe rises |
+| 2    | +0x080   | +4            | **Output level** (bit 15 SET = strobe up)                                    |
+| 3    | +0x0C0   | +6            | Coarse level + expression                                                    |
+| 4    | +0x100   | +8            | TVF cutoff                                                                   |
+| 5    | +0x140   | +10           | TVF depth / bias                                                             |
+| 6    | +0x180   | +12           | Pan (0x0040 = centre)                                                        |
+| 7    | +0x400   | +14           | **Absolute log pitch**                                                       |
+| 8    | +0x440   | +16           | (no reading yet)                                                             |
+| 9    | +0x480   | +18           | (no reading yet)                                                             |
+| 10   | +0x4C0   | +20           | Oscillator config + slot                                                     |
+| 11   | +0x500   | +22           | Detune / bend pair                                                           |
+| 12   | +0x800   | +24           | Amplitude envelope, segment 0                                                |
+| 13   | +0x000   | —             | Control = **0x8100** (note-on gate, an immediate)                            |
+| 14   | +0x840   | +26           | Amplitude envelope, segment 1                                                |
+| 15   | +0x880   | +28           | Amplitude envelope, segment 2                                                |
+| 16   | +0x8C0   | +30           | Amplitude envelope, segment 3                                                |
+| 17   | +0x900   | +32           | Second envelope, segment 0                                                   |
+| 18   | +0x940   | +34           | Second envelope, segment 1                                                   |
+| 19   | +0x980   | +36           | Second envelope, segment 2                                                   |
+| 20   | +0x9C0   | +38           | Third envelope, segment 0                                                    |
+| 21   | +0xA00   | +40           | Third envelope, segment 1                                                    |
+| 22   | +0xA40   | +42           | Third envelope, segment 2                                                    |
+| 23   | +0x080   | +4            | Output level again (bit 15 CLEAR = strobe down)                              |
 
-Note: Step 12 writes the constant 0x8100 (key-on) to the voice control register, NOT from the struct. Steps 2 and 22 form a SET/CLEAR strobe pair on register +0x080 bit 15.
+Note: Step 13 writes the constant 0x8100 (key-on) to the voice control register, NOT from the struct. Steps 2 and 23 form a SET/CLEAR strobe pair on register +0x080 bit 15.
 
-### Voice Initialization Chain (Voice_Init_Type4)
+### Voice Register Build Chain (Voice_Build_Register_Set)
 
-When a voice is triggered, the firmware runs a 15-function initialization chain before writing registers:
-1. `Voice_Pitch_InterpDispatch` — pitch interpolation
-2. `Voice_Pitch_WriteOutputReg_Portamento` — portamento output
-3. `Voice_Pitch_WriteOutputReg_Legato` — legato output
-4. `Voice_Level_ComputeTriplet` — level computation
-5. `Voice_PitchPack_Dispatch` — pitch packing
-6. `Voice_PanReg_WriteDispatch` — pan register
-7. `Voice_StereoLevel_Compute` — stereo balance
-8. `Voice_PortaLevel_Compute` — portamento level
-9. `Voice_Chan_ComputeParams` — channel parameters
-10. `Voice_SubVoice_ComputeAndTrigger` — sub-voice trigger
-11. `Voice2_UpdatePitch` — secondary pitch update
-12. `Voice_ComputeExprPitchBend` — expression + pitch bend
-13. `Voice_SetPitchWord_Muted` — initial pitch (muted)
-14. `Voice_ComputeAndWritePan` — final pan
-15. `Voice_ComputePitch` — final pitch computation
+Before a voice's registers are written, `Voice_Build_Register_Set` (`0x02B4E3`) calls 17 routines in order, each filling part of the staging block at `0x0451CC`:
+1. `WaveSel_StageB_Build_Reg040` — recording selector for `+0x040`
+2. `Pitch_Apply_Partial_Detune` — per-partial detune
+3. `Pitch_Emit_Reg400` — absolute log pitch for `+0x400`
+4. `Voice_Level_ComputeTriplet` — second envelope (`+0x900`..`+0x980`)
+5. `TVF_Build_Dispatch` — filter
+6. `TVF_Emit_Registers` — filter registers (`+0x100`/`+0x140`)
+7. `Voice_StereoLevel_Compute` — third envelope (`+0x9C0`..`+0xA40`)
+8. `Voice_PortaLevel_Compute` — registers `+0x500` and `+0x8C0`
+9. `ExtVoice_Build_SlotRegisters`
+10. `Voice_SubVoice_ComputeAndTrigger`
+11. `Voice2_UpdatePitch`
+12. `Level_Build_Reg0C0` — coarse level + expression for `+0x0C0`
+13. `Voice_Build_GateCommand` — the hand-off control word
+14. `Voice_Calc_LevelPair_PatchAtk` — amplitude envelope (`+0x800`..`+0x880`)
+15. `Voice_WriteChPanShift` (BC = 0)
+16. `Voice_ComputePitch`
+17. `Voice_ApplyPortamento`
 
-This chain runs at voice allocation time (from `Voice_Allocate_Typed`), computing all parameters from MIDI data, instrument definitions, and performance state before calling `ToneGen_WriteVoiceParams`.
+Then `ToneGen_WriteVoiceParams` bursts the block to IC303. The only caller is `Voice_SetVelocity_Type0_BranchA`. (`Voice_Allocate_Typed` only builds a staging slot record for a note-on and touches no hardware.)
 
 ### Voice Control State Machine
 
-The voice control register at offset +0x0000 (group 0x00, bank 0) cycles through these states:
+The voice control register at offset +0x0000 (group 0x00, bank 0) receives these commands:
 
-| Value | State | Description |
-|-------|-------|-------------|
-| 0x7E00 | Idle | Voice released / available |
-| 0x8100 | Key-on | Bit 15 = active flag, bits 8-0 = voice mode |
-| 0x1200 | Transition | Sound sustaining / decaying |
+| Value           | State        | Description                                                                                                                                                                              |
+|-----------------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0x7E00          | Free         | Releases the voice (`ToneGen_SilenceChannel`, `ToneGen_Config_Init`)                                                                                                                     |
+| 0x8100          | Note-on gate | A literal, written mid-burst by `ToneGen_WriteVoiceParams`; never computed                                                                                                               |
+| 0xF0xx / 0xFExx | Hand-off     | Written once after the burst: routing fields in bits 14-9, output level in the low byte (measured values `F0FF`, `F000`, `F1D7`, `F187`); with bit 15 clear it updates without re-gating |
 
 ### Latched Parameter Updates
 
@@ -202,9 +208,9 @@ These system-wide registers configure overall synthesis and effects:
 
 ## Initialization Sequence
 
-The `ToneGen_Config_Init` routine (at `0x02DFCF`) performs the following sequence during boot:
+`DSP_Config_Init` (at `0x02DFA8`), whose per-channel body is `ToneGen_Config_Init` (`0x02DFCF`), performs the following sequence during boot:
 
-1. **Write global config** -- 13 registers (0x0200-0x0205, 0x0C00-0x0C05, 0x0E00) from config struct at RAM 0xF8BB
+1. **Write global config** -- 13 registers (0x0200-0x0205, 0x0C00-0x0C05, 0x0E00) from the ROM table `ToneGen_GlobalConfig_Defaults` (`0x00F8BB`)
 2. **Copy voice template** -- 68 bytes from ROM 0xF8D5 to RAM 0x2AA4 (per-voice parameter template)
 3. **For each of 64 channels** (0x00-0x3F):
    - Mute volume: register 0x0840 = 0xFF00, register 0x0800 = 0xFF80
@@ -215,8 +221,8 @@ The `ToneGen_Config_Init` routine (at `0x02DFCF`) performs the following sequenc
 
 This produces 2,317 register/data write pairs (confirmed in MAME log analysis).
 
-After configuration, `ToneGen_Poll_Init` runs a polling sequence:
-- For each of 16 hardware voice slots:
+After configuration, `ToneGen_Poll_Init` runs the keybed's power-on scan, once, from `ToneGen_Init`:
+- For each of 16 keybed scan groups:
   - Delay loop (10,000 iterations)
   - Read status from 0x110002
   - Read data from 0x110000
@@ -277,7 +283,7 @@ See [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/#dsp-preset-structure) 
 
 ## Serial Port 1 ("SA" Interface)
 
-The Sub CPU's serial port 1 (UART mode, ~500kHz clock) connects to an audio peripheral for control commands. The "SA" designation found in the service manual schematics refers to "Sub Address" bus lines, not a chip name. The serial device is likely the DAC (IC313, PCM69AU) or one of the DSP chips.
+The Sub CPU's serial port 1 (UART mode, ~500kHz clock) is the **Computer Interface** (TO HOST connector); in MAME it has been seen to transmit only `0xFE` (MIDI Active Sensing). The "SA" designation found in the service manual schematics refers to "Sub Address" bus lines, not a chip name.
 
 ### Serial Configuration
 
@@ -328,11 +334,11 @@ Waveform ROMs (IC304-307) ──> Tone Generator LSI (IC303)
                         │             │             │
                    [0x100000]     [Serial1]    [0x130000]
                     Register        UART           DSP
-                     Config        Control       Config
+                     Config        TO HOST       Config
                         │             │             │
                         v             v             v
-                    Tone Gen       DAC/DSP      DSP1/DSP2
-                     (IC303)       (IC313?)    (IC310/311)
+                    Tone Gen      Computer      DSP1/DSP2
+                     (IC303)      Interface    (IC310/311)
                                       │
                             [Serial Audio: BCK, SDOR/SDOF]
                                       │
@@ -348,21 +354,22 @@ Waveform ROMs (IC304-307) ──> Tone Generator LSI (IC303)
 
 ## MAME Emulation Status
 
-The KN5000 tone generator **makes sound** in MAME: a keyed note plays real PCM from the one
-dumped wave ROM (IC307), shaped by the firmware's own envelope, sustains while held, and responds
+The KN5000 tone generator **makes sound** in the `kn7000_mame` overlay driver (not in mainline MAME,
+where IC303 is a `noprw()` stub and the machine is flagged `MACHINE_NO_SOUND`): a keyed note plays real
+PCM from the one dumped wave ROM (IC307), shaped by the firmware's own envelope, sustains while held, and responds
 to velocity — verified in July 2026. The sub-CPU runs its **dumped ROM**, so the envelope, voice
 lifecycle and pitch math are executed as real firmware, not re-implemented; the emulation's job is
 to model the IC303 chip faithfully enough that those firmware writes produce the right audio.
 
-| Component | Address | Status |
-|-----------|---------|--------|
-| Register Config (0x100000) | Write **+ Read** | **Tone gen device** — register-address latch on write; **active-voice bitmap on read** (see below) |
-| Register Data (0x100002) | Read/Write | **Tone gen device** — data port, voice status readback |
-| Keyboard Input (0x110000) | Read-only | **Tone gen device** — keybed event queue (note/velocity) |
-| DSP Config (0x130000) | Read/Write | **DSP1 device** — `kn5000_dsp1_device`, 4 channels × 0x20 registers |
-| Serial1 (SA interface) | UART | **No receiver** — TX sends into void |
-| Waveform RAM (0x1E0000) | Read/Write | **Stub (`noprw`)** — no sample storage |
-| Sound output | Stereo 48kHz | **Audible PCM playback** — real IC307 samples, software envelope, sustain, per-semitone pitch, velocity, polyphony |
+| Component                   | Address          | Status                                                                                                                                                                                                                                                                       |
+|-----------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Register Config (0x100000)  | Write **+ Read** | **Tone gen device** — register-address latch on write; **active-voice bitmap on read** (see below)                                                                                                                                                                           |
+| Register Data (0x100002)    | Read/Write       | **Tone gen device** — data port, voice status readback                                                                                                                                                                                                                       |
+| Keyboard Input (0x110000)   | Read-only        | **Tone gen device** — keybed event queue (note/velocity)                                                                                                                                                                                                                     |
+| DSP Config (0x130000)       | Read/Write       | **Driver register file**: `dsp_reg_addr_w` / `dsp_reg_data_w` / `dsp_reg_data_r` on `kn5000_state`, a read-back model of the 4-channel × 8-register block. It is not the uPD6383GF host interface; the optional `upd6383_device`, off by default, takes that over Port PZ/P7 |
+| Serial1 (SA interface)      | UART             | **No receiver** — TX sends into void                                                                                                                                                                                                                                         |
+| 0x1E0000 (not waveform RAM) | —                | **Nothing there**: the sub CPU never accesses `0x1E0000` on its own bus. Its `0x1E0000` literals are DMA destinations in the main CPU's battery SRAM, and the `noprw()` line only documents the hole                                                                         |
+| Sound output                | Stereo 48kHz     | **Audible PCM playback** — real IC307 samples, software envelope, sustain, per-semitone pitch, velocity, polyphony                                                                                                                                                           |
 
 The `kn5000_tonegen_device` (in `kn5000_tonegen.cpp`) implements:
 - Register-indirect interface matching the hardware protocol (address latch at 0x100000, data at 0x100002)
@@ -376,11 +383,12 @@ The `kn5000_tonegen_device` (in `kn5000_tonegen.cpp`) implements:
   *window* of samples, never the first byte alone: real waveforms routinely start at a
   zero-crossing — IC307 index 0 is a sine beginning at sample 0 — so a first-byte test
   rejects them and the voice falls silent.
-- **The software envelope is honored.** The KN5000 has **no hardware EG** — the envelope is a *per-note,
-  multi-stage software* generator running in the SUB CPU (steppers `LABEL_026E5B`/`026EC3`), clocked by
-  the audio tick, that rewrites the voice's amplitude every tick to group 0/bank 0 as `0xF000|magnitude`
-  (low 9 bits = level). MAME now latches that per-tick magnitude and applies it, and gates key-on strictly
-  on the `0x8100` note-on command so the envelope writes no longer retrigger the voice. GUI editors
+- **Envelopes.** The firmware programs three envelopes per voice into IC303: registers `+0x800`..`+0x8C0` (amplitude,
+  four segments), `+0x900`..`+0x980` and `+0x9C0`..`+0xA40`. Each segment word is `(target << 8) | rate`, and the
+  amplitude target is an attenuation (`0xFF` = silent). The `0xF0xx` word written to group 0/bank 0 is a one-time
+  hand-off after the note-on burst (routing fields and output level), not a per-tick amplitude: a held note receives exactly
+  one. No rate-to-time law has been measured. The overlay driver runs these segments as an envelope generator inside its
+  IC303 model, with an exponential rate law whose two constants are calibrated, not measured. GUI editors
   `SEAMPENV/SEPITENV/SEFILENV` = amplitude/pitch/filter envelopes (same three domains as the KN7000).
 - **Held notes sustain.** The firmware polls an **active-voice bitmap by *reading* 0x100000** (it writes a
   bank index 0-3, then reads back a 16-bit "which voices are sounding" word); its software voice-manager
@@ -389,12 +397,12 @@ The `kn5000_tonegen_device` (in `kn5000_tonegen.cpp`) implements:
   active-voice bitmap, and note-off is detected from the firmware's release-envelope burst (a real key-up
   programs a release ramp rather than writing `0x7E00`).
 - **Per-semitone pitch.** The IC303 is a PCM **multisample** chip: `reg[8]` (group 4/bank 0) steps +0x100
-  per semitone *within* a sample zone and resets at zone boundaries, and `reg[1]`'s low nibble selects the
-  zone — so no single register holds an absolute note, and the per-zone sample roots are not in the chip
+  per semitone *within* a sample zone and resets at zone boundaries, and `reg[1]` (`+0x040`) names the
+  recording — so no single register holds an absolute note, and the per-zone sample roots are not in the chip
   registers. An earlier "reg[1] = semitone ratio, reg[8] = octave" model was wrong (every semitone
-  collapsed to one pitch). Because every voice currently renders the same fabricated sine (see wave-number
-  limitation below), MAME recovers the true played note from the input FIFO and drives equal temperament
-  directly — a faithful stand-in until real multisample tuning is wired in. Verified: a chromatic scale
+  collapsed to one pitch). MAME anchors each voice's absolute pitch on the key-bed or MIDI event that
+  started it. Demo and rhythm voices have no such event, so for them it uses a per-selector constant, built
+  at start-up from the firmware's own multisample SET descriptors. Verified: a chromatic scale
   produces 12 distinct rising pitches; octaves double.
 - **Velocity.** The firmware's per-voice loudness is a **log-domain attenuation** in the high byte of
   reg[20] (lower value = louder), velocity-scaled through a log table (`0x0118FE`). MAME expands it
@@ -411,16 +419,13 @@ The `kn5000_tonegen_device` (in `kn5000_tonegen.cpp`) implements:
   uses. See [Keybed Scanning]({{ site.baseurl }}/keybed-scanning/).
 
 **Open / honest limitations:**
-- **Waveform selection is unresolved** — *every* voice currently resolves to IC307 index 0 (a fabricated
-  sine), so notes are correctly *pitched* and *voiced* but timbrally identical. Which register selects the
-  waveform, and how it indexes IC307's 198-entry table, is under active investigation (an earlier static
-  guess of reg[9] was falsified by a live capture showing reg[9] = 0). A real KN5000's Piano/Guitar/etc.
-  sound different; this is the main remaining faithfulness gap.
-  One lead worth following: the [Tone Database]({{ site.baseurl }}/tone-database/) carries three
-  **wave-source name catalogues** (`ToneDB_SourceNameList1/2`, `ToneDB_DrumSourceNameList` — 333, 339 and
-  424 rows of a 13-character PCM source name plus three id/flag bytes), each reached from a tone record
-  through 1024-entry index maps. The id/flag bytes are not yet decoded, so this is a hypothesis about
-  where the real wave index lives, not a result.
+- **Waveform selection follows the firmware.** `+0x040` is decoded as `(class << 12) + entry`: the class picks a 1 MB page of
+  the 16 MB wave space, and the entry indexes that page's own directory ([Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/),
+  [Tone Database]({{ site.baseurl }}/tone-database/#wave-selection-end-to-end)). A voice whose selector lands on an undumped
+  socket (IC304-IC306) is muted in the default PCM rendering, or plays a sine at its own pitch and envelope under
+  "PCM from wave ROM (with sine substitutes)"; the `BAD_DUMP` copy of IC307 in those sockets is heard only with
+  `KN5000_UNDUMPED=play`. Still open: which physical socket is bank 0, and why `Voice_Init_Type1` adds `(tick & 7)`
+  to the whole selector.
 - **Waveform ROMs IC304-IC306 are NO_DUMP** (only IC307 is dumped). Whether per-waveform root note / tuning
   / loop points live in IC307's dumped parameter records or elsewhere is being decoded — *not* assumed to
   be in the undumped ROMs.
@@ -430,10 +435,12 @@ The `kn5000_tonegen_device` (in `kn5000_tonegen.cpp`) implements:
     checksum. This is unlike the KN7000, whose tone generators expose a wave-memory read port that its
     §8.9 test sweeps digitally — so the KN7000's clean software dump route does **not** transfer here.
     See [KN7000 Expansion Bus & Wave-ROM Dump Routes]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/).
-- **No DSP effects** (reverb, chorus, EQ) — the effects DSP (IC311) is a separate subsystem.
+- **No DSP effects in the default build** (reverb, chorus, EQ): the effects DSP (IC311) is a separate
+  subsystem. A build with `KN5000_ENABLE_DSP1=1` offers experimental HLE previews of the decoded effects
+  through the "Effects, HLE-audible" setting.
 
 The keybed scanner generates note-on/note-off events from MAME input ports. Events are queued in the tone
-gen device and read by `ToneGen_Read_Voice_Data` at 0x110000/0x110002. The full bidirectional note flow
+gen device and read by `Keybed_Read_Event` at 0x110000/0x110002. The full bidirectional note flow
 works: keybed (or MIDI bridge) → subcpu → maincpu (for display/chord detection) → subcpu → tone gen
 registers. See [Keybed Scanning]({{ site.baseurl }}/keybed-scanning/) for the note encoding format.
 
@@ -451,122 +458,61 @@ The SubCPU firmware provides two voice setup paths, both called via a dispatch t
 
 ### ToneGen_SetupPolyVoice (Melodic Voices)
 
-Called for standard polyphonic note-on events. Performs:
+Called through `Voice_PolyNoteOn_Setup_PtrTable` for the melodic entries of the auxiliary 8-voice pool (see below); ordinary note-ons do not use it. Performs:
 
-1. **Copy template**: Copies 34-byte (0x22) voice parameter template from ROM `0x012115` to working buffer at `0x3B1C`. Default values (uint16_t LE): `0x06FF` (header), then `0x0600, 0x0800, 0x0800, 0x0800, 0x0A00, 0x0A00, 0x0C00, 0x0C00, 0x0E00, 0x0E00, 0x0F00, 0x1100, 0x1300, 0x1300, 0x1500, 0x1700` (16 register defaults). An additional word `0x1900` at `+34` is read beyond the copied region.
+1. **Copy template**: Copies the 68-byte (0x22-word) template `ToneGen_Voice_Param_Template` from ROM `0x012115` to the working buffer at `0x3B1C`. Its first words (LE) are `0xF000, 0x0000, 0x8000, 0x0000, 0x017C, 0x7F7C, 0x0040, 0x0080`, then mostly zeros.
 2. **Compute pitch**: MIDI note lookup → octave calculation (`note / 12`), remainder used for fine pitch from table at `0x01217D`
-3. **Apply velocity**: `DSP_VelocityToVolume` converts MIDI velocity to volume level, OR'd into struct offset +24 (volume bank 0)
-4. **Apply effect routing**: `DSP_GetEffectRouting` determines reverb/chorus send levels, OR'd into struct offset +26
-5. **Write all parameters**: Calls `ToneGen_WriteVoiceParams` (22 register writes + key-on)
+3. **Apply velocity**: `DSP_VelocityToVolume` converts MIDI velocity to volume level, OR'd into struct offset +4 (staging `0x3B20`, register `+0x080`)
+4. **Apply effect routing**: `DSP_GetEffectRouting` determines reverb/chorus send levels, OR'd into struct offset +6 (staging `0x3B22`, register `+0x0C0`)
+5. **Write all parameters**: Calls `ToneGen_WriteVoiceParams` (23 writes: 21 block words, the `0x8100` gate and the strobe release)
 6. **Write control register**: `ToneGen_WriteSingleReg` writes the voice control word
 
 ### ToneGen_SetupPercussionVoice (Drum Voices)
 
 Similar to poly but with percussion-specific pitch handling:
 
-1. **Copy template**: Same 34-byte template from `0x012115` to `0x3B1C`
+1. **Copy template**: Same 68-byte template from `0x012115` to `0x3B1C`
 2. **Percussion pitch**: Uses `note / 12` for octave, `note % 12` as drum index (bit 7 cleared). Shifted left 8 bits and OR'd with key-on flag
 3. **Octave lookup**: Uses separate table at `0x012195` (vs `0x01217D` for melodic)
 4. **Effect routing**: Same `DSP_GetEffectRouting` call
 5. **Fixed velocity**: Volume set to 0x0FFF (maximum)
 6. **Write parameters**: Same `ToneGen_WriteVoiceParams` + `ToneGen_WriteSingleReg` sequence
 
-### ToneGen_WriteVoiceParams — Full Register Sequence
+The burst order is in [ToneGen_WriteVoiceParams Sequence](#tonegen_writevoiceparams-sequence) above. Every write is padded by a `jr` to the next instruction and three NOPs. The firmware never polls the chip during the burst.
 
-This routine writes 22 voice parameters from a 44-byte struct, in this exact order:
+## Keybed Event Decoding
 
-| Step | Register Offset | Struct Offset | Group | Bank | Notes |
-|------|----------------|---------------|-------|------|-------|
-| 1 | +0x0040 | +2 | 0 | 1 | **Pitch increment** (semitone table lookup) |
-| 2 | +0x0080 | +4 | 0 | 2 | **Voice mode/velocity** (**bit 15 SET** = latch strobe) |
-| 3 | +0x00C0 | +6 | 0 | 3 | **Waveform control** (cleared on note-off) |
-| 4 | +0x0100 | +8 | 1 | 0 | **Interpolated pitch** (portamento/legato) |
-| 5 | +0x0140 | +10 | 1 | 1 | **Secondary pitch offset** (detune) |
-| 6 | +0x0180 | +12 | 1 | 2 | **Velocity/expression coefficient** |
-| 7 | +0x0400 | +14 | 4 | 0 | **Note key info** (note value << 8, bit 15=active) |
-| 8 | +0x0440 | +16 | 4 | 1 | Filter/pitch param 1 |
-| 9 | +0x0480 | +18 | 4 | 2 | Filter/pitch param 2 |
-| 10 | +0x04C0 | +20 | 4 | 3 | Filter/pitch param 3 |
-| 11 | +0x0500 | +22 | 5 | 0 | Modulation param 0 |
-| 12 | +0x0800 | +24 | 8 | 0 | **Main volume** (0xFF80=mute, lower=louder) |
-| **KEY-ON** | +0x0000 | — | 0 | 0 | **0x8100** (active flag set) |
-| 13 | +0x0840 | +26 | 8 | 1 | **Pan left** (0-0x78, center=0x3C) |
-| 14 | +0x0880 | +28 | 8 | 2 | **Pan right** (0-0x78, center=0x3C) |
-| 15 | +0x08C0 | +30 | 8 | 3 | **DSP/effects send level** |
-| 16 | +0x0900 | +32 | 9 | 0 | Aux/send level 0 |
-| 17 | +0x0940 | +34 | 9 | 1 | Aux/send level 1 |
-| 18 | +0x0980 | +36 | 9 | 2 | Aux/send level 2 |
-| 19 | +0x09C0 | +38 | 9 | 3 | Aux/send level 3 |
-| 20 | +0x0A00 | +40 | A | 0 | Aux parameter 0 |
-| 21 | +0x0A40 | +42 | A | 1 | Aux parameter 1 |
-| 22 | +0x0080 | +4 | 0 | 2 | Same as step 2, **bit 15 CLEAR** (latch release) |
+`Keybed_Decode_Event` (at `0x03D11F`, formerly mis-named `ToneGen_Calc_Pitch`) turns a raw keybed event into a MIDI note and a velocity. It computes no tone-generator pitch.
 
-Key design points:
-- **Key-on is in the middle** (after volume, before pan/aux) — ensures volume is set before the voice starts sounding
-- **Latch strobe protocol**: Register +0x0080 is written twice — first with bit 15 SET to load waveform data, last with bit 15 CLEAR to release the latch
-- **NOP timing**: 3 NOPs between each register write for bus setup/hold times
+1. **Note**: `(key byte & 0x7F) + 0x24`, so key 0 is MIDI note 36. Bit 7 clear means key up: velocity 0, return.
+2. **Velocity**: the raw touch reading indexes `0x01F43E`. Subtract the word at `0x01F418`, multiply by `byte[0x01F420 + 3*curve]`, divide by the word at `0x01F41A`, and add `byte[0x01F421 + 3*curve]`.
+3. **Black-key trim**: for note mod 12 in {1, 3, 6, 8, 10}, subtract `byte[0x01F422 + 3*curve]` (`Keybed_Vel_BlackKey_Trim`).
+4. **Clamp** to 0-255, then look up `0x01F53E` for the final velocity.
 
-## Pitch Calculation
+`curve` is the touch-sensitivity byte at `0x004A48` (default 6). See [Keybed Scanning]({{ site.baseurl }}/keybed-scanning/).
 
-`ToneGen_Calc_Pitch` (at `0x03D11F`) converts MIDI note numbers to tone generator pitch values:
+## Freeing a Voice
 
-### Algorithm
+`ToneGen_SilenceChannel` (`0x02B4A1`, formerly `ToneGen_WriteNoteKey`) frees one voice with a two-step register write. Its only caller, `Voice_Manager_PollBank_SlotLoop`, calls it for each voice whose bit in the active-voice bitmap read back from `0x100000` has just gone from 1 to 0. A key-up does not call it directly:
+1. Write register `+0xC0` (group 0, bank 3) = `0x0000` — clear coarse level + expression
+2. Write register `+0x00` (group 0, bank 0) = `0x7E00` — FREE
 
-1. **Base pitch**: `pitch = (MIDI_note & 0x7F) + 36` — adds a 3-octave offset (0x24)
-2. **Release check**: Bit 7 of the note byte indicates note-off; if set, velocity = 0 and return
-3. **Velocity scaling**: MIDI velocity is processed through a multi-step lookup:
-   - Index into velocity table at `0x01F43E` (mode × 3 lookup)
-   - Compute delta from base reference at `0x01F418`
-   - Multiply by mode-specific scaling factor from `0x01F420`
-   - Divide by reference divisor at `0x01F41A`
-4. **Octave division**: `pitch / 12` gives octave, remainder gives semitone
-5. **Mode-specific adjustment**: For certain pitch modes (1, 3, 6, 8, 10), an additional offset from table `0x01F422` is subtracted
-6. **Clamping**: Final value clamped to 0-255 range
-7. **Velocity lookup**: Clamped value indexes into `0x01F53E` for final velocity byte
+## Auxiliary-Pool Note-On (Voice_Poly_NoteOn)
 
-### Note-Off Protocol
+`Voice_Poly_NoteOn` is not the instrument's general note-on path. It handles the internal pseudo-MIDI packets (status ≥ 0xF0) that the DSP code injects to make the tone generator sound a reference tone, and it drives an auxiliary pool of 8 voices:
 
-`ToneGen_WriteNoteKey` performs a two-step register write:
-1. Write register `+0xC0` (group 0, bank 3) = `0x0000` — clear waveform control
-2. Write register `+0x00` (group 0, bank 0) = `0x7E00` — set voice to idle state
+1. **Counter**: RAM `0x3B13` holds a 3-bit counter, incremented on each note-on and wrapped with `AND 0x7`. It is a pure round robin: the active-voice bitmap is never consulted
+2. **Mute**: on the selected slot, register `+0x840` = `0xFF00` and register `+0x800` = `0xFF80`
+3. **Dispatch**: the packet's channel (`status & 0x0F`, values above 5 forced to 0) indexes the 6-entry table `Voice_PolyNoteOn_Setup_PtrTable` (`0x012159`). Entry 1 is `ToneGen_SetupPercussionVoice`; the other five are `ToneGen_SetupPolyVoice`
+4. **Mark active**: `(0x3B14 + slot)` = note | 0x80
 
-## Note-On Voice Allocation
-
-`Voice_Poly_NoteOn` uses **round-robin allocation** across 8 voice slots per channel:
-
-1. **Counter**: RAM `15123` holds a 3-bit counter (0-7), incremented on each note-on, wrapping with `AND 0x7`
-2. **Slot search**: The selected slot is checked for availability
-3. **Mute existing**: If the slot is active, its current voice is muted:
-   - Register `+0x840` = `0xFF00` (mute volume bank 1)
-   - Register `+0x800` = `0xFF80` (mute volume bank 0)
-4. **Dispatch**: The voice type (from bits 4-7 of the event) selects a setup function via the dispatch table at `0x012159`:
-   - Entries include `ToneGen_SetupPolyVoice` (for standard melodic voices)
-   - Different entries handle split, layer, and percussion voices
-5. **Mark active**: The note number is stored in the voice allocation table (bit 7 set = active)
-
-### Voice Processing Pipeline
-
-After note-on, the ongoing voice processing (called from `Voice_Init_Type4`) runs a chain of 14 parameter computation functions:
-- `Voice_Pitch_InterpDispatch` — pitch interpolation
-- `Voice_Pitch_WriteOutputReg_Portamento` — portamento glide
-- `Voice_Pitch_WriteOutputReg_Legato` — legato transitions
-- `Voice_Level_ComputeTriplet` — 3-component level blending
-- `Voice_PitchPack_Dispatch` — pitch word assembly
-- `Voice_PanReg_WriteDispatch` — pan position
-- `Voice_StereoLevel_Compute` — stereo balance
-- `Voice_PortaLevel_Compute` — portamento level
-- `Voice_Chan_ComputeParams` — channel parameter merge
-- `Voice_SubVoice_ComputeAndTrigger` — sub-voice triggering (for layered sounds)
-- `Voice2_UpdatePitch` — secondary pitch update
-- `Voice_ComputeExprPitchBend` — expression + pitch bend
-- `Voice_SetPitchWord_Muted` — muted pitch override
-- `Voice_ComputeAndWritePan` — final pan write
+Ordinary note-ons go through the voice engine (`Voice_Build_Register_Set`, above).
 
 ## Research Needed
 
 - [x] ~~Determine exact register semantics~~ — Partially: voice control, volume, aux sends documented from write sequence
-- [x] ~~Decode voice parameter template at ROM 0xF8D5~~ — 34-word (68-byte) template at `0x012115`, copied to `0x3B1C` per voice setup
-- [ ] Map remaining per-voice register semantics (groups 4/5 = filter? pitch? modulation?)
+- [x] ~~Decode voice parameter template at ROM 0xF8D5~~ — two 34-word (68-byte) templates: `ToneGen_VoiceParamShadow_Defaults` (`0x00F8D5`, copied to `0x2AA4` by `DSP_Config_Init` to program all 64 voices at boot) and `ToneGen_Voice_Param_Template` (`0x012115`, copied to `0x3B1C` for each auxiliary-pool note)
+- [ ] Map the per-voice registers that still have no reading: `+0x440` and `+0x480`, plus the registers outside the note-on burst (`+0x1C0`, `+0x540`..`+0x5C0`, `+0x600`/`+0x640`)
 - [x] ~~Analyze waveform ROM format and sample addressing~~ -- Complete: IC307 format documented. See [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/)
 - [ ] Document DSP1/DSP2 command sets and processing algorithms
 - [ ] Trace the PCM audio serial bus (BCK/SDOR/SDOF) connections

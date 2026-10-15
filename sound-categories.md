@@ -92,7 +92,7 @@ The Table Data ROM contains the display names for all instrument patches, embedd
 
 The following catalog was extracted by scanning the Table Data ROM for ASCII name strings. Names are organized by approximate address region, which corresponds loosely to the 16 factory categories above. GM-compatible patches largely duplicate KN5000-specific patches with different parameter settings.
 
-**Total: ~303 unique instrument patches** (291 KN5000-specific + 12 GM-only)
+**Total: ~311 names found by the string scan** below. The tone database itself has 579 tone records with 367 distinct names; see [Tone Database]({{ site.baseurl }}/tone-database/).
 
 ### Piano (14)
 
@@ -102,7 +102,7 @@ Piano, Bright Piano, Mellow Piano, Piano 1 Octave, Piano 2 Octave, Rock Piano, H
 
 Modern E.P.1, Modern E.P.2, Harpsichord, Cembalo, Synth Clavi, Music Box
 
-### Mallet & Tuned Percussion (10)
+### Mallet & Tuned Percussion (12)
 
 Glockenspiel, Vibraphone, Vibes & Jazz Guitar, Marimba, Xylophone, Celesta, Tubular Bells, Carillon, Wind Chime, Bottle Marimba, African Mallet, Caribbean Mallet
 
@@ -126,7 +126,7 @@ Symphonic Strings, Concert Strings, Classical Strings, Marcato Strings, Violin E
 
 Tremolo Strings, Pizzicato Str., Synth Strings 1, Synth Strings 2, Bowed Bass, Country Fiddle
 
-### Strings — Solo (3)
+### Strings — Solo (4)
 
 Violin, Jazz Violin, Viola, Cello
 
@@ -146,7 +146,7 @@ Italian Acdn 1-8, Italian Acdn Bs1, Italian Acdn Bs2
 
 Bright Accordion, Mellow Accordion, Musette, Bandoneon, Folk Accordion
 
-### Organ (13)
+### Organ (14)
 
 Perc Organ, Full Drawbars, Jazz Drawbars, Accomp Drawbars, Pop Organ, Soul Organ, Rock Organ, Organ Bass, Chapel Organ, Full Organ, Cathedral Organ, Theatre Organ, Theatre Accomp, Theatre Novelty
 
@@ -154,7 +154,7 @@ Perc Organ, Full Drawbars, Jazz Drawbars, Accomp Drawbars, Pop Organ, Soul Organ
 
 Bigband Brass, Marching Brass, Brass & Synth, Octave Brass, Octave Horns, Brass Fall
 
-### Brass — Solo (10)
+### Brass — Solo (13)
 
 Trumpet, Solo Trumpet, Orchest. Trumpet, Harmon Mute Tpt, Straight Mute Tpt, Flugel Horn, Bright Trombone, Mellow Trombone, Cup Mute Trombone, Closed Fr.Horn, Open Fr.Horn, Marching Tuba, Orchestral Tuba
 
@@ -178,7 +178,7 @@ English Horn, Bassoon, Bagpipe
 
 Piccolo, Jazz Flute, Classical Flute, Alto Flute, Alto Ensemble, Flutter Flute, Pan Flute 1, Pan Flute 2, Recorder, Ocarina, Blown Bottle, Whistle
 
-### Flute — World & Special (6)
+### Flute — World & Special (8)
 
 Shakuhachi, Quena, Chopper Flute, Penny Whistle, Marching Whistle, Chiff Flute, Synth Calliope, Shanai
 
@@ -190,7 +190,7 @@ Acoustic Bass, Mellow Ac.Bass
 
 Electric Bass, Bright E.Bass, Fusion E.Bass, Funky E.Bass, Fretless Bass, Picked E.Bass, Mute Bass, Slap Bass 1, Slap Bass 2
 
-### Bass — Synth (7)
+### Bass — Synth (9)
 
 Killer Bass, Analog Bass, Soul Bass, Wow Bass, Dance Bass, House Bass, Plastic Bass, Basic Synth Bass, Techno Bass
 
@@ -198,11 +198,11 @@ Killer Bass, Analog Bass, Soul Bass, Wow Bass, Dance Bass, House Bass, Plastic B
 
 Kalimba, Metal Kalimba, Steel Drum, Bonang, Sarrons, Kenong, Slentem, Talking Drum
 
-### Percussion & SFX (10)
+### Percussion & SFX (11)
 
 Wood Block, Taiko Drum, Melodic Tom, Synth Drum, Sleigh Bell, Tinkle Bell, Agogo, Reverse Cymbal, Orchestra Hit, Dance Hit 1, Dance Hit 2
 
-### Sound Effects (7)
+### Sound Effects (8)
 
 Fret Noise, Breath Noise, Seashore, Bird Tweet, Telephone, Helicopter, Applause, Gun Shot
 
@@ -210,7 +210,7 @@ Fret Noise, Breath Noise, Seashore, Bird Tweet, Telephone, Helicopter, Applause,
 
 Square Lead, Saw Lead, Sine Lead, Chiffer Lead, Charang, Metallica Solo, Talking Lead, Digi Stack, 80's Solo, Steamy Keys, Olymp Synth, Voco Synth
 
-### Synth — Pad & Texture (20)
+### Synth — Pad & Texture (25)
 
 Block Synth, 5th Wave, Bass & Lead, Talking Synth, Synth Harp, Afro Dance, Digi Bells, Crystal, Mellow Ensemble, Warm Synth Pad, Spacy Pad, Metal Pad, Star Theme, Bowed Glass, Atmosphere, Fantasia, Bell Pad, Dream, Sweep Pad, Halo Pad, Echo Drops, Poly Synth, Warm Synth Brass, Ice Rain, Soundtrack
 
@@ -218,7 +218,7 @@ Block Synth, 5th Wave, Bass & Lead, Talking Synth, Synth Harp, Afro Dance, Digi 
 
 Multi Sweeper
 
-### Orchestra Combo (14)
+### Orchestra Combo (16)
 
 Goblins, Strings & Horns, Strings & Flutes, Piano & Strings, Heavenly Strings, Warm String Pad, Chamber Orch, Cathedral, Movie Musical, Field of Voices, Horns & Woods, Dark Movie Scene, Orchestral Sweep, Moonlight Pad, Orchestra Pizz, Synth Orchestra
 
@@ -236,26 +236,23 @@ Pipe Organ, Accordion, Jazz Guitar, Solid Guitar, Modern E.P., E.Piano (variant)
 
 ## Research Needed
 
-- [ ] Decode the exact binary format of large categories (PIANO, STRINGS & VOCAL, MALLET & ORCH PERC)
-- [ ] Determine meaning of sub-category indices in headers (bytes 0-7 or 0-9)
-- [x] ~~Map voice_id/bank pairs to actual sound names~~ — 303 patch names extracted from Table Data ROM
 - [ ] Trace UI event codes that trigger sound selection
 - [ ] Document MEMORY A/B user sound storage format in DRAM
-- [ ] Understand voice IDs ≥ 0xF0 (organ drawbar mode hypothesis)
-- [ ] Analyze relationship between these voice_id values and Table Data ROM waveform indices
-- [ ] Map exact voice_id/bank → Table Data ROM patch name correspondence
+- [ ] What the +0x30 bytes 0xF0-0xFD mean for part 15 and drawbar-type sounds, and what uses the +0x34 octave-shift-shaped byte
+- [x] ~~Map bank/program to a patch name~~ — each record header in `table_data/tone_database_records.s` names the bank selector and program that select it; see [Tone Database]({{ site.baseurl }}/tone-database/#program-change-lookup-bank-map--tone-number--offset-table)
+- [x] ~~Relate a sound to its wave-ROM recordings~~ — tone record → partial blocks → SET descriptor → zone record → `+0x040` selector; see [Tone Database]({{ site.baseurl }}/tone-database/#wave-selection-end-to-end)
 
 ## Code References
 
-| Symbol | Address | Description |
-|--------|---------|-------------|
-| `SOUND_DATA_SECTION_PTRS` | 0xE023B0 | 16-entry pointer table to category data |
-| `SOUND_CATEGORY_NAMES` | 0xE023F0 | 18 × padded ASCII category name strings |
-| `SOUND_DATA_PIANO` | 0xE02510 | Piano voice data (8320 bytes) |
-| `SOUND_DATA_BRASS_PTRS` | 0xE06BB0 | Brass pointer table (128 entries) |
-| `SOUND_DATA_WORLD_PERC` | 0xE0ADCD | World Perc pointer table (128 entries) |
-| `SOUND_DATA_ORGAN_ACCORDION` | 0xE0B190 | Organ inline 2-byte pairs (128 entries) |
-| `Voice_ProgChange` | Sub CPU | Sub CPU program change handler |
+| Symbol                       | Address  | Description                                                                    |
+|------------------------------|----------|--------------------------------------------------------------------------------|
+| `SOUND_DATA_SECTION_PTRS`    | 0xE023B0 | The 16 table pointers at descriptor +0x10..+0x4C (maps, not per-category data) |
+| `SOUND_CATEGORY_NAMES`       | 0xE023F0 | 18 × padded ASCII category name strings                                        |
+| `SOUND_DATA_PIANO`           | 0xE02510 | Slot +0x10: (bank, program) → (category, slot), mode 0 (8320 bytes)            |
+| `SOUND_DATA_BRASS_PTRS`      | 0xE06BB0 | Slot +0x1C: voice index → {program, bank, 0xFF} (128 pointers)                 |
+| `SOUND_DATA_WORLD_PERC`      | 0xE0ADD0 | Slot +0x2C: the mode-1 twin of +0x1C (128 pointers; no reader found)           |
+| `SOUND_DATA_ORGAN_ACCORDION` | 0xE0B150 | Slot +0x30: voice index → 2 bytes (128 entries)                                |
+| `Voice_ProgChange`           | Sub CPU  | Sub CPU program change handler                                                 |
 
 ⚠ **Removed 2026-09: `Audio_SendCommand` at `0xFF0B6B`.** Neither the name nor the address
 holds up. The routine this page meant is at `0x00FF0A72` and was renamed `Sprintf_Locked` in

@@ -6,7 +6,7 @@ permalink: /tone-database/
 
 # Tone Database (Table Data ROM 0x830000-0x87FFEF)
 
-The last 320 KB of the Table Data ROM's **first megabyte** — `0x830000`-`0x87FFEF` — hold the
+The last 320 KB of the Table Data ROM's **first 512 KB** — `0x830000`-`0x87FFEF` — hold the
 KN5000's **tone database**: every factory
 tone/voice parameter record, every drum kit, the percussion instrument bank, the wave-source
 name catalogues, the envelope data pool and the drawbar organ presets. It is the largest
@@ -24,10 +24,10 @@ used to be the right half of the raw blob `includes/initial_data.bin` (commit `f
 > Table Data ROM 0x830000. That is **refuted**. The region is tone *data*; the Sub CPU copies it
 > into its **data** window at RAM 0x50000, not into its code area at 0x400+. No byte of the Sub
 > CPU executable (`kn5000_subprogram_v142.rom`) has been found anywhere in the table-data or
-> custom-data images we hold. **How the Sub CPU code payload reaches the Sub CPU at runtime is
-> still unresolved** — the executable is known only from its own ROM dump and from the compressed
-> firmware-update image, which lands at Custom Data Flash 0x3E0000 only *after* a File Type 007
-> update. See [SubCPU Payload Loading]({{ site.baseurl }}/subcpu-payload-loading/).
+> custom-data images we hold. The transfer mechanism is closed: `SubCPU_Send_Payload` takes the
+> code from the SLIDE4K image at Custom Data Flash `0x3E0000`, which a File Type 007 update
+> writes, and otherwise from `0x800000`. What is open is why the IC19 dump holds only `0xFF` at
+> `0x3E0000`. See [SubCPU Payload Loading]({{ site.baseurl }}/subcpu-payload-loading/).
 
 ## Every address has a Sub-CPU alias
 
@@ -163,8 +163,8 @@ normal here (the 22 unused live slots above, plus GM duplicates such as six cons
 `21 + 81·N` bytes (102, 183, 264, 345 or 426). No explicit size field exists: the length is
 the distance to the next referenced offset.
 
-The layout below is read from the Sub CPU code that uses each field (Wave 2, lane `tonedb`;
-v1.42 addresses). Each record's header in `table_data/tone_database_records.s` names the
+The layout below is read from the Sub CPU code that uses each field (the 2026-09-25 Wave 2
+semantic push, lane `tonedb`; v1.42 addresses). Each record's header in `table_data/tone_database_records.s` names the
 bank/program that selects it.
 
 | offset | field | reader(s) |
@@ -275,7 +275,8 @@ the portamento stage ignores root and base pitch, so anything that computes
 341-486 percussion SETs (reached only from `ToneDB_DrumToneIndexMap`). Censuses:
 `analysis/wave7-probes/probe_set_descriptors.py`.
 
-Still unknown: what a selector's class nibble means at the chip; descriptor `+0x0E` and flags
+Still unknown: which wave socket each selector class maps to beyond IC307 (see
+[Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/)); descriptor `+0x0E` and flags
 bit 3 (the searches made are listed in the source header); which drawbar levels feed the three
 base-9 digits of the drawbar zone records. The same directory layout exists in the SX-WSA1's
 tone database (prom_d), and the velocity-split reading is a candidate framing to test there.
@@ -308,8 +309,8 @@ name maps answer "which catalogue row names this selector pair", and the catalog
 firmware names a wave. The promcd lane proved the same property on the SX-WSA1's tone database
 (prom_d: 307/307, 314/314, 208/208, 161/161) with
 `notes/lanes/promcd-2026-09-25/prom_d_index_maps.py`, and reported the KN5000 figures. That
-committed script covers prom_d only. The KN5000 figures above were re-derived for this page
-with the check below; it should be committed beside the prom_d one.
+committed script covers prom_d only; this site's `tools/tone_db_index_map_inverse_check.py`
+re-derives both halves. The check below is its core.
 
 ```python
 import struct   # run in kn5000-roms-disasm
@@ -376,14 +377,17 @@ four partial blocks mapped directly. They are followed by four SET descriptors o
 
 * **Unread tone-record bytes**, listed [above](#tonevoice-record-layout), and the meaning of
   the four 4-byte entries +0x2B.. (only entries 0-3 have a reader).
-* **Selector class nibble**: what the top four bits of a zone record's selector mean at the
-  tone generator.
+* **Selector class nibble**: classes 4, 5 and 7 match IC307's pages 0, 1 and 3 exactly (198,
+  168 and 57 directory entries), which suggests page = class & 3 and bank = class >> 2. Which
+  socket holds the other banks cannot be settled until IC304-IC306 are dumped. Also open: why
+  `Voice_Init_Type1` adds `(tick & 7)` to the whole selector.
 * **SET descriptor `+0x0E`** and flags bit 3 have no reader in v1.42.
 * **The third id byte** (`+13`) of each 16-byte catalogue row is unidentified. `+14`/`+15`
   are the selector pair, as above.
 * **Five directory scalar words and the directory tail `+0xD0..+0xE8`** have no reader in the
   v1.42 Sub CPU image.
-* **The Sub CPU code-payload source path** (see the correction at the top of this page).
+* **Why the IC19 dump lacks the Sub CPU payload** at `0x3E0000` (the mechanism is closed; see
+  [Sub-CPU Payload Provenance]({{ site.baseurl }}/subcpu-payload-provenance/)).
 
 ## Provenance
 
