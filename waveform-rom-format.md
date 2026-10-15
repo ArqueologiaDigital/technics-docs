@@ -21,7 +21,7 @@ The four ROMs form a contiguous 16 MB waveform address space, declared as `ROM_R
 
 ## IC307 Binary Layout
 
-IC307 (4,194,304 bytes) is **four independent 1 MB pages**, at `0x000000`, `0x100000`, `0x200000` and `0x300000`. Each page has the same three regions (a directory of `{param_ptr, wave_offset}` pairs, variable-length parameter records, then signed 16-bit PCM) and declares its own directory length: entry 0's `param_ptr` is 4 × N. N is 198, 168, 1,072 and 57, so the chip holds 1,495 directory slots and 1,413 distinct wave offsets. Offsets are relative to the page base, which is why `wave_offset` × 16 reaches exactly 1 MB. The sections below describe page 0:
+IC307 (4,194,304 bytes) is **four independent 1 MB pages**, at `0x000000`, `0x100000`, `0x200000` and `0x300000`. Each page has the same three regions (a directory of `{param_ptr, wave_offset}` pairs, variable-length parameter records, then signed 16-bit PCM) and declares its own directory length: entry 0's `param_ptr` is 4 × N. N is 198, 168, 1,072 and 57, so the chip holds 1,495 directory slots and 1,413 distinct wave offsets (`tools/ic307_wave_directory.py` in this repository measures these from the dump). Offsets are relative to the page base, which is why `wave_offset` × 16 reaches exactly 1 MB. The sections below describe page 0:
 
 ```
 Page-0 offset  Size        Contents

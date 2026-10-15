@@ -92,7 +92,7 @@ The Table Data ROM contains the display names for all instrument patches, embedd
 
 The following catalog was extracted by scanning the Table Data ROM for ASCII name strings. Names are organized by approximate address region, which corresponds loosely to the 16 factory categories above. GM-compatible patches largely duplicate KN5000-specific patches with different parameter settings.
 
-**Total: ~311 names found by the string scan** below. The tone database itself has 579 tone records with 367 distinct names; see [Tone Database]({{ site.baseurl }}/tone-database/).
+**Total: ~311 names found by the string scan** below (`tools/sound_categories_counts.py` in this repository recounts the lists). The tone database itself has 579 tone records with 367 distinct names; see [Tone Database]({{ site.baseurl }}/tone-database/).
 
 ### Piano (14)
 
