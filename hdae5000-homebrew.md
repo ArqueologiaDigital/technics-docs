@@ -811,7 +811,7 @@ Main Event Loop (MainLoop)
 
 ### Step-Record Display Flag (0x0D53, bit 3)
 
-Address `0x0D53` is a firmware flag byte in the TMP94C241F's internal RAM. Bit 3 is set on the path of `SqStep_SetupCursorTrack` (the second half of `SqStep_InitOnEnter`, which runs when the sequencer's step-record screen is entered) and cleared by `SqStep_RestoreOnLeave` when that screen is left. It is not a display-disable switch.
+Address `0x0D53` is a firmware flag byte in the main work DRAM (above the CPU's on-chip RAM at `0x0400`-`0x0BFF`). Bit 3 is set on the path of `SqStep_SetupCursorTrack` (the second half of `SqStep_InitOnEnter`, which runs when the sequencer's step-record screen is entered) and cleared by `SqStep_RestoreOnLeave` when that screen is left. It is not a display-disable switch.
 
 #### Firmware mechanism
 
