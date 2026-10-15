@@ -124,7 +124,7 @@ Some verification routines exist, but they belong to the HD-AE5000 programming p
 
 Scans the Table Data ROM (`0x800000`-`0xA00000`) in 64-byte blocks, checking if the first word of each block is `0xFFFFFFFF` (erased). Returns immediately (non-zero) if any non-erased block is found. Returns 0 if the entire ROM is erased.
 
-Its callers are `HDAE5000_Init_DetectAndVerify` (`0xEF4B54`) and `HDAE5000_Init_BytecodeBlock` (`0xEF49F7`, which has no direct caller in the source), both HD-AE5000 programming code. `HDAE5000_Init_DetectAndVerify` is entered from the bootloader's handoff stub at `0xFFFED8`, and from the program ROM's own boot when Port E bit 0 reads low and the region code is not 4: `HDAE5000_Parport_Setup` then never returns, but waits for bit 0 of the PPI's port C (`0x160002`) to clear and jumps there. If the table-data flash is not blank it is chip-erased first; it is then reprogrammed from the HD-AE5000 window at `0x280000`. It does not verify a floppy update.
+Its callers are `HDAE5000_Init_DetectAndVerify` (`0xEF4B54`) and `HDAE5000_Init_BytecodeBlock` (`0xEF49F7`, which has no direct caller in the source), both HD-AE5000 programming code. `HDAE5000_Init_DetectAndVerify` is entered from the bootloader's handoff stub at `0xFFFED8`, and from the program ROM's own boot when Port E bit 0 reads low and the region code is not 4: `HDAE5000_Parport_Setup` then never returns, but waits for bit 0 of the PPI's port B (`0x160002`) to clear and jumps there. If the table-data flash is not blank it is chip-erased first; it is then reprogrammed from the HD-AE5000 window at `0x280000`. It does not verify a floppy update.
 
 ### HDAE5000_VerifyFlashAgainstWindow (0xEF48CF)
 
