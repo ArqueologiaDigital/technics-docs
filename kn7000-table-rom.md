@@ -48,8 +48,12 @@ Example full-screen reference screens, extracted verbatim from the ROM:
 
 ![KN7000 ORGAN STYLIST style-list reference]({{ site.baseurl }}/assets/images/table-rom/organ-stylist.jpg)
 
-The ORGAN STYLIST list above shows real style names (`Swing Tonewheels`, `Classic B3 Jazz`, …) that
-match the [built-in Music Stylist catalog]({{ site.baseurl }}/kn7000-rhythm-catalog/) recovered from the program ROM.
+The ORGAN STYLIST screen above groups its styles under subcategory headings. The two shown,
+`Tonewheel Jazz` and `Organ A-Go-Go`, are the first two Organ Stylist entries of the
+[built-in Music Stylist catalog]({{ site.baseurl }}/kn7000-rhythm-catalog/) recovered from the
+program ROM, in the same order. The style names listed under them (`Swing Tonewheels`,
+`Classic B3 Jazz`, …) are not in that catalog, which lists only the headings; they are a separate
+list of strings in the program ROM.
 
 A smaller `240×160` panel graphic:
 
