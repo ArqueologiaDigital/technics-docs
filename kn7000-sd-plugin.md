@@ -11,7 +11,8 @@ permalink: /kn7000-sd-plugin/
 > The SP7001 program ("v1.6 PLUG-iN") and table updates were located and
 > reconstructed from their update `.SLD` payloads. The customized **program**
 > image (CRC `7bc3e247`; flash halves ic17 `4c91678f` / ic16 `7a7990ec`) **does**
-> contain the `PLUG`/`SP700` strings that build 941 lacks, and the update also
+> contain the `PLUGIN API` and `XAPR` strings that build 941 lacks (the `SP700`
+> strings are in the update's table, build 83), and the update also
 > ships **`BASEEXT.XAP`** — 0x1d000 bytes of MN10300 code (it begins `cf 30` =
 > `movm`), the plug-in program the firmware copies from the SD card into the
 > reserved region. So the reserved-region / SD-load path is no longer
@@ -158,7 +159,11 @@ Where the SP7001 interface *does* help the wider project:
    established.
 2. **Did Technics reserve the region broadly (dormant in 941/893), or only add the
    loader for the SP7001?** The 941 image shows no dormant
-   signature-probe-and-jump. A diff of program 942 against 941 would settle it.
+   signature-probe-and-jump, yet the stock table (build 84, used with programs
+   929, 935 and 941) already carries SD help text, in English, German, French and
+   Spanish, saying that *"Feature extension Plug-Ins by third-party companies can
+   also be installed on SD card"*. A diff of program 942 against 941 would settle
+   it.
 3. **Where is the reserved region?** In the SP7001 image the top of the table half
    holds the PLUG-iN: a block that begins with an `XAPR` header at `0x483E8000`
    and runs to `0x483FB59F`, with erased flash on both sides. Program 942, which

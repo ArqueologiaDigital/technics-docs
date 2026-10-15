@@ -49,8 +49,9 @@ Two things must be true:
    part that is *board-dependent and not guaranteed*. See §6 for how to tell whether it worked and what
    to do if it didn't.
 
-This is why in-circuit reads of *parallel* flash are more delicate than the serial-bus wave-ROM snoop:
-there is real potential for **bus contention**. Respect it; verify the read (§7) rather than trusting it.
+This is why an in-circuit read of this flash is more delicate than the wave-ROM snoop, which only listens
+to a bus the instrument drives itself: there is real potential for **bus contention**. Respect it; verify
+the read (§7) rather than trusting it.
 
 ## 3. Tools
 
@@ -67,10 +68,11 @@ there is real potential for **bus contention**. Respect it; verify the read (§7
 
 1. **Identify the die.** With the board unpowered, read the markings on IC16/IC17, or let the
    programmer's **autodetect** report the manufacturer/device ID once clipped. Expect a **32 Mbit ×16
-   3.3 V NOR flash** (the KN7000's custom flash IC21 identifies as Fujitsu/Macronix 29LV-series, so this
-   pair is most likely a **29LV320-class** part — MBM29LV320 / MX29LV320 / M29W320 or equivalent). If
-   the house number hides it, select a compatible 32 Mbit ×16 profile or the programmer's **generic
-   parallel-NOR ×16** read mode.
+   3.3 V NOR flash** (the firmware's ID table for the KN7000's custom flash IC21 accepts Fujitsu
+   MBM29LV160B, Macronix MX29LV160B and Atmel AT49BV16X4 parts, so this pair is most likely a
+   **29LV320-class** part — MBM29LV320 / MX29LV320 / M29W320 or equivalent). If the house number
+   hides it, select a compatible 32 Mbit ×16 profile or the programmer's **generic parallel-NOR ×16**
+   read mode.
 2. **Hold the CPU in reset.** Assert IC4's RESET and keep it asserted. Confirm the bus is quiet.
 3. **Clip IC16.** Seat the TSOP-48 clip squarely (pin-1 aligned). Provide 3.3 V per the programmer.
 4. **Read IC16** at full size and **save it** (`ic16.bin`). Note the size the programmer reports
@@ -88,7 +90,7 @@ schematic pairs them top/bottom, but rather than trust a silk label, determine t
 by which interleave verifies (§7). The reassembly is a two-way byte interleave:
 
 ```python
-# reassemble.py — interleave the two 16-bit halves into the 32-bit program image
+# reassemble.py — interleave the two 16-bit halves into the 32-bit image of the 8 MB flash window
 import struct, sys
 lo = open("ic17.bin","rb").read()   # candidate D[15:0] (MAME loads IC17 as the even halfword)
 hi = open("ic16.bin","rb").read()   # candidate D[31:16]
@@ -139,29 +141,31 @@ Two independent checks, both derived from the firmware itself:
    interleave order.
 2. **The §8.1 fingerprint.** The instrument's ROM device test computes two 32-bit **additive** sums over
    the flash — over the halfword streams of the 8 MB window `0x48000000`–`0x487FFFFF` (table + program).
-   You can compute the program-region contribution offline and record it as a revision fingerprint:
+   You can compute the same two sums offline over the rebuilt 8 MB image and record them as a revision
+   fingerprint:
 
 ```python
-# fingerprint.py — additive halfword sums over the program window, per the 8.1 ROM test
+# fingerprint.py — the two additive halfword sums over the 8 MB window, per the 8.1 ROM test
 import struct
 d = open("kn7000_program.rebuilt.bin","rb").read()
 s_lo = sum(struct.unpack_from("<H", d, i)[0] for i in range(0, len(d), 4)) & 0xFFFFFFFF
 s_hi = sum(struct.unpack_from("<H", d, i)[0] for i in range(2, len(d), 4)) & 0xFFFFFFFF
-print(f"program-window sums: lo=0x{s_lo:08X} hi=0x{s_hi:08X}")
+print(f"8 MB-window sums: lo=0x{s_lo:08X} hi=0x{s_hi:08X}")
 ```
 
-Also sanity-check that the first bytes disassemble as valid MN10300/AM33 code and that strings like the
-version format `PROGRAM : %4d` appear. When the version number matches and the image disassembles, you
-have an honest dump of that revision.
+Also sanity-check that the program half (offset `0x400000`, CPU `0x48400000`) starts with valid
+MN10300/AM33 code and that strings like the version format `PROGRAM : %4d` appear. When the version
+number matches and the image disassembles, you have an honest dump of that revision.
 
 ## 8. Advanced: a Pi Pico bit-bang reader
 
-The [wave-ROM tutorial]({{ site.baseurl }}/kn7000-wave-rom-dump/) used a Pico to snoop a *serial-ish*
-bus. A parallel ×16 flash needs ~22 address lines out, 16 data lines in, and `CE#`/`OE#` — more than the
-Pico's 26 GPIO. It is doable **one chip at a time** by (a) running the chip in **×8 mode** (`BYTE#` low,
-8 data lines) and reading it twice for the two byte lanes, or (b) driving the address through a couple of
-**74HC595** shift registers to free up GPIO. This is a real project in its own right; the
-programmer-plus-clip route above is strongly preferred unless you specifically want the Pico exercise.
+The [wave-ROM tutorial]({{ site.baseurl }}/kn7000-wave-rom-dump/) used a Pico only to *listen* (16 data
+lines, a 7-bit address tag and a strobe, all inputs) to a bus. A parallel ×16 flash needs ~22 address
+lines out, 16 data lines in, and `CE#`/`OE#` — more than the Pico's 26 GPIO. It is doable **one chip at
+a time** by (a) running the chip in **×8 mode** (`BYTE#` low, 8 data lines) and reading it twice for the
+two byte lanes, or (b) driving the address through a couple of **74HC595** shift registers to free up
+GPIO. This is a real project in its own right; the programmer-plus-clip route above is strongly
+preferred unless you specifically want the Pico exercise.
 
 ## 9. Safety
 

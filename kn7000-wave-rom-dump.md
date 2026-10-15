@@ -96,7 +96,7 @@ phase (which quarter) is seeded by the host into scratch register `X`.
 .wrap_target
     wait 1 gpio 26          ; resync: strobe idle (high)
     wait 0 gpio 26          ; strobe asserted (falling edge = ROM read)
-    nop            [10]     ; ~88 ns settle -- TUNE from the trial capture (Step 6 notes)
+    nop            [10]     ; ~88 ns settle -- TUNE from the trial capture (Notes & troubleshooting)
     in   pins, 23           ; latch GP0-22 : {WAX0-6 (7), WD0-15 (16)}
     jmp  x--, skip          ; decimate /4 : if X!=0 -> X--, drop
     push noblock            ; X==0 -> keep this sample
@@ -162,9 +162,9 @@ int main(void) {
 ```
 
 > The exact bit order inside the 23‑bit word (data in `[0:15]`, tag in `[16:22]`) depends on the ISR
-> shift direction — the **trial capture in Step 6 confirms it** (the tag must count up). If it comes out
-> reversed, flip the `shift_right` argument (the second parameter of `sm_config_set_in_shift`, `false`
-> here).
+> shift direction — the **trial capture (Notes & troubleshooting) confirms it** (the tag must count
+> up). If it comes out reversed, flip the `shift_right` argument (the second parameter of
+> `sm_config_set_in_shift`, `false` here).
 
 ## Step 4 — the laptop receiver
 
@@ -215,7 +215,8 @@ s = 0
 for i in range(WORDS):
     w = rom[i*2] | rom[i*2+1]<<8
     s = (s + (w>>8) + (w&0xFF)) & 0xFFFFFFFF
-print(f"checksum {s:#010x}  golden {GOLD[ROM]:#010x}  {'OK ✅' if s==GOLD[ROM] else 'MISMATCH ❌'}")
+hit = [k for k, g in GOLD.items() if g == s]   # the chip-to-checksum pairing is not settled (Step 6)
+print(f"checksum {s:#010x}  golden {GOLD[ROM]:#010x}  {'OK ✅' if s==GOLD[ROM] else f'matches {hit[0]} ✅' if hit else 'MISMATCH ❌'}")
 open(f"{ROM}.bin", "wb").write(rom)
 ```
 *(The pure‑Python checksum over 8 M words takes a few seconds; use `numpy` if you want it instant.)*
@@ -243,6 +244,14 @@ The golden checksums (Σ of `hi+lo` bytes over all words, straight from the firm
 | IC204 | `0x815CFC83` |
 | IC207 | `0x8331EF0B` |
 | IC208 | `0x83254F9D` |
+
+Which checksum belongs to which chip is not settled: the four values are stored per firmware test (port
+`0x9805` first, then `0x9804`; bit 0 = 0, then 1), and which chip each port and bit reach has not been
+confirmed (see the ⚠ note on the
+[expansion page]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/#-the-wave-roms-are-cpu-readable-through-the-tone-generator)).
+The chip names in this table and in `GOLD` follow that page's assumption. The connector and strobe you
+wired identify the chip: if its dump matches a *different* chip's value, the dump is still good, and the
+match settles the mapping.
 
 A match proves the *content* is right. It does **not** catch a whole‑ROM byte swap (`hi+lo` is
 order‑independent), so wire `WD0→GP0 … WD15→GP15` in order and keep the low byte low.

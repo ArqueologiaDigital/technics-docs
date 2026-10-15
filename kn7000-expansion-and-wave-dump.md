@@ -99,9 +99,11 @@ read:
     checksum += (word>>8) + (word & 0xFF)   for every 16-bit word across 0x00FFFFFF
   ```
 
-⚠ The chip names here assume that side 0 (`0x9805`) is the A side (IC203/IC204). Mainline MAME assumes
-the opposite (its `0x98040000` port reads IC203/IC204), so which pair each port reaches, and therefore
-which golden checksum belongs to which chip, is not settled. A capture taken at a known connector (the
+⚠ The chip names here rest on two assumptions that nothing confirms: that side 0 (`0x9805`) is the A
+side (IC203/IC204), and that bit 0 = 0 of the `+8` latch selects the side's `WAY`-bus ROM (IC203 or
+IC207), as mainline MAME also models it. For the side, mainline MAME assumes the opposite (its
+`0x98040000` port reads IC203/IC204). So which chip each port and bit reach, and therefore which golden
+checksum belongs to which chip, is not settled. A capture taken at a known connector (the
 [Pico tap]({{ site.baseurl }}/kn7000-wave-rom-dump/) on the A-side or B-side connectors) that matches
 one of the four checksums settles it.
 
@@ -134,8 +136,11 @@ The software readout runs unmodified on real hardware — it was never MAME-only
 ## Running code from a board — the KN6000/KN6500 XAPR route
 
 The KN7000 EW slots are data-only (above), but its siblings keep the HD-SX3 support the KN7000
-dropped, and that path **does** run board code. On the KN6000/KN6500 the board sits at `0x97800000`
-with the signature **`"XAPR\0"`**, and once it validates:
+dropped, and that path **does** run board code (the only board image held for it is Key Soft Service's
+HD-SX6, which runs this way in MAME with the still-open
+[mamedev/mame#16220](https://github.com/mamedev/mame/pull/16220); no HD-SX3 image has been found).
+On the KN6000/KN6500 the board sits at `0x97800000` with the signature **`"XAPR\0"`**, and once it
+validates:
 
 ```
   0x48572A15  memcmp(0x97800000, "XAPR", 4)          -> sets a present flag
@@ -191,8 +196,9 @@ composed sample word. Mainline reads the four wave-ROM regions, which are `NO_DU
 cannot pass there. The research overlay instead feeds the port from its synthetic `wavepack`
 placeholder, and its address arithmetic was verified by driving the port from Lua (address `0x8040` →
 word `0x20` → byte `0x40`, byte-for-byte). When the four real ROMs are dumped they drop straight in,
-and the §8.9 checksum will match the golden values. The port is service-test-only, so boot is
-unaffected.
+and the §8.9 checksum will match the golden values once the driver maps each port, and bit 0 of its
+`+8` latch, to the chips they really reach (the ⚠ note above). The port is service-test-only, so boot
+is unaffected.
 
 ## See also
 

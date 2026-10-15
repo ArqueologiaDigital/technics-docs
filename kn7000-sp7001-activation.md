@@ -11,8 +11,8 @@ paid PLUG-iN base module for the KN7000 (its own SD file system and the base for
 further plug-ins) — is gated behind a
 **challenge/response licence check**. The instrument shows a per-unit *serial*
 (the "Software Code"); the owner typed a 16-character *password* (the "Liberation
-Key"); the firmware accepted it only if it matched a value computed from that
-serial. KEY SOFT SERVICE has ceased trading and
+Key"); the firmware accepted it only if it matched a value computed from the
+SD card's identity (its CID; see below). KEY SOFT SERVICE has ceased trading and
 [published its own key generator](#comparison-with-the-original-key-soft-service-generator),
 so documenting the scheme here is uncontroversial preservation work.
 
@@ -36,14 +36,14 @@ entry shows *"Falsches Passwort"* (the string lives in the table ROM at
 At the firmware level the check is a small MN10300 call graph in the SP7001 table
 ROM:
 
-| Routine | Address | Role |
-|---|---|---|
-| OK-button handler | `0x483e9e1c` | runs the check, then an "apply" that re-validates |
-| check dispatcher | `0x483ee8e9` | builds the serial-derived target, calls the comparator |
-| comparator | `0x483ef0af` | transforms the typed key and compares it to the target |
-| per-char transform | `0x483ef234` | one reversible base-35 substitution step |
-| transform driver | `0x483ef1ad` | applies the transform across the 16 characters |
-| keystream table | `0x483f8b74` | 26 static 20-char records, one per first letter |
+| Routine            | Address      | Role                                                                                           |
+|--------------------|--------------|------------------------------------------------------------------------------------------------|
+| OK-button handler  | `0x483e9e1c` | runs the check, then an "apply" that re-validates                                              |
+| check dispatcher   | `0x483ee8e9` | builds the card-derived target (calls `build_param1`, `0x483eef21`), then calls the comparator |
+| comparator         | `0x483ef0af` | transforms the typed key and compares it to the target                                         |
+| per-char transform | `0x483ef234` | one reversible base-35 substitution step                                                       |
+| transform driver   | `0x483ef1ad` | applies the transform across the 16 characters                                                 |
+| keystream table    | `0x483f8b74` | 27 static 20-char records, one per first letter plus one more for pass 2                       |
 
 Both the password *check* and the activation *apply* run the comparator, and both
 must pass — forcing only one of them is not enough.
@@ -74,14 +74,14 @@ characters. Character 0 is copied through unchanged; characters 1-15 are
 transformed. (A character whose `dec` value exceeds 31 — `x`, `y`, `z` — is
 rejected.)
 
-The key stream is a **static ROM table**: 26 records of 20 base-35 characters
+The key stream is a **static ROM table**: 27 records of 20 base-35 characters
 each, starting at `0x483f8b74` with a stride of `0x15` bytes. One record is
 selected per transform pass by the password's first character
 (`c0 = firstchar − 'a'`), and the key for position `i` is simply the `i`-th
 character of that record. The driver (`0x483ef1ad`) applies the transform
-**twice**: pass 1 uses record `c0`, pass 2 uses record `c0 + 1`. (The 26 records
-tile one master keystream — each record's last four characters equal the previous
-record's first four.)
+**twice**: pass 1 uses record `c0`, pass 2 uses record `c0 + 1`, so a first
+letter `z` reaches the 27th. (The 27 records tile one master keystream — each
+record's last four characters equal the previous record's first four.)
 
 The comparator at `0x483ef0af` does **not** check the whole 16-character result.
 It verifies only an 11-character window, positions 1 through 11:
@@ -89,7 +89,8 @@ It verifies only an 11-character window, positions 1 through 11:
 - positions 1-3 (**field 3**) must equal a 3-character constant — for the SP7001
   this is the string `mr7`, stored in ROM at `0x483f8900`;
 - positions 4-11 (**field 8**) must equal an 8-character value derived from the
-  unit's serial number by the check dispatcher at `0x483ee8e9`.
+  SD card's identity (see below) and handed in by the check dispatcher at
+  `0x483ee8e9`.
 
 Position 0 and positions 12-15 are never checked. Because the substitution is
 reversible and its key stream is a fixed ROM constant, **recovering a valid
@@ -102,7 +103,8 @@ backwards (undo pass 2, then pass 1) to obtain a password the device accepts.
 `field3` is the constant `mr7` (SP7001's plug-in type code; the ROM also holds
 `bwa`, `8he`, `nn2` for sibling plug-ins). `field8` is the per-unit part, and it is
 **not** derived from the on-screen "serial" at all — it is a hash of the **SD
-card's CID** (its identity register). The dispatcher at `0x483ee8e9` builds it as:
+card's CID** (its identity register). The dispatcher at `0x483ee8e9` builds it by
+calling `build_param1` (`0x483eef21`), a routine that also runs at boot:
 
 ```
 cid16  = method_0x340()                 # the 16-byte card-ID buffer the firmware reads
@@ -112,12 +114,12 @@ field8 = hash275(cid16)                 # 0x483ef275, 16 bytes → 8 base-35 cha
 
 `hash275` is fully decoded (two 32-bit accumulators — a shift-xor hash and an
 ELF-style hash — emitted 5 bits at a time: 6 characters from the first, 2 from the
-second; see `research-scratch/kn7000-sp7001-activation/param1_hash.py`). A runtime
-trace of `method_0x340` settled what feeds it: the 16-byte buffer is the card's CID
-rendered as `MMDMCARD` (the product-name field) followed by the CID bytes
-`10 12 34 56 78 01 59` — and `0x12345678` is exactly the product serial number
-MAME's `spi_sdcard` device writes. So **the activation is bound to the SD card, not
-the instrument**, and the whole chain is now modelled end to end:
+second; modelled in `param1_hash.py` in the project's unpublished research
+notes). A runtime trace of `method_0x340` settled what feeds it: the 16-byte buffer
+is the card's CID rendered as `MMDMCARD` (the product-name field) followed by the
+CID bytes `10 12 34 56 78 01 59` — and `0x12345678` is exactly the product serial
+number MAME's `spi_sdcard` device writes. So **the activation is bound to the SD
+card, not the instrument**, and the whole chain is now modelled end to end:
 
 ```
 SD card CID → hash275 → field8 → (with field3 "mr7") invert the transform → password
@@ -131,16 +133,16 @@ different key — the generator below computes it.)
 
 Putting it together for the emulator's fixed serial:
 
-| | value |
-|---|---|
-| Serial (Software Code) | `gpcm_uwp5_namw_lud5` |
-| field 3 (constant) | `mr7` |
-| field 8 (from serial) | `hmd2r6w2` |
-| **Recovered password** | **`a19a-1s1d-jrdc-n1b2`** |
+|                                                | value                     |
+|------------------------------------------------|---------------------------|
+| Serial (Software Code)                         | `gpcm_uwp5_namw_lud5`     |
+| field 3 (constant)                             | `mr7`                     |
+| field 8 (`hash275` of the emulated card's CID) | `hmd2r6w2`                |
+| **Recovered password**                         | **`a19a-1s1d-jrdc-n1b2`** |
 
 (The SP7001's SYSTEM-INFO screen that shows this serial also reports the plug-in's
 own version — `SOFTWARE V1.0 Aug 23 2003` — now recorded in the `sp7001` MAME BIOS
-description; the date string lives in the table ROM at `0x483f8e88`.)
+description; the date string lives in the table ROM at `0x483f87c8`.)
 
 This was **confirmed** in MAME: injected into the comparator, this key makes both
 the password check and the activation apply return "accepted" (the transform of
@@ -210,7 +212,7 @@ function kgMake(firstChar,field8,field3,tail){
   var dashed=pw.substr(0,4)+"-"+pw.substr(4,4)+"-"+pw.substr(8,4)+"-"+pw.substr(12,4);
   return {password:pw,dashed:dashed};
 }
-/* Known serial → field8 targets (field8 is the serial hash; only captured ones are listed). */
+/* Known serial → field8 targets (field8 is hash275 of the SD card's CID, not of the serial; only the emulator's card is listed). */
 var SP7001_KNOWN = { "gpcm_uwp5_namw_lud5": "hmd2r6w2" };
 (function(){
   function run(){
@@ -222,7 +224,7 @@ var SP7001_KNOWN = { "gpcm_uwp5_namw_lud5": "hmd2r6w2" };
       note.textContent="Liberation Key for serial "+s+" (confirmed accepted by the firmware).";
     } else {
       out.textContent="—";
-      note.textContent="This serial's field-8 target is not on file. The serial→target step is a firmware hash whose input is captured at the comparator; use the advanced box with your unit's captured field-8 value.";
+      note.textContent="This serial's field-8 target is not on file. Field 8 is a hash of the SD card's CID, not of the serial: use the advanced box with the card's CID, or with a captured field-8 value.";
     }
   }
   function run2(){
@@ -248,11 +250,11 @@ var SP7001_KNOWN = { "gpcm_uwp5_namw_lud5": "hmd2r6w2" };
 })();
 </script>
 
-Prefer not to type a 16-character key? The research repository ships an autoboot
-Lua script, `unlock_plugin.lua`, that patches the comparator in the running
-emulator so it accepts **any** password — a one-click unlock for a defunct-service
-DRM. The key generator above exists because it recovers a *genuine* password
-(proving the algorithm), not just a bypass.
+Prefer not to type a 16-character key? The project's unpublished research notes
+hold an autoboot Lua script, `unlock_plugin.lua`, that patches the comparator in
+the running emulator so it accepts **any** password — a one-click unlock for a
+defunct-service DRM. The key generator above exists because it recovers a
+*genuine* password (proving the algorithm), not just a bypass.
 
 ## Where the activation is remembered
 
@@ -308,7 +310,7 @@ multiple KEY SOFT SERVICE products with the SP7001 as one case.
 **Our artifact.** Ours is an independent JavaScript reimplementation, derived by
 reverse-engineering the KN7000 firmware's **verification** side rather than
 disassembling their binary. It models the confirmed per-character transform, the
-26-record keystream recovered from the table ROM, and the comparator's field
+27-record keystream recovered from the table ROM, and the comparator's field
 checks, then *inverts* them to emit a password for a given unit.
 
 **Corroboration.** The two efforts meet from opposite directions. Their documented
@@ -317,8 +319,8 @@ value, shown as four groups of four). Their tool is the forward/generate side; o
 RE is the verify/invert side of the *same* scheme — strong mutual corroboration
 that we have modelled the real mechanism. The master password `soerenberg` is not
 present anywhere in the KN7000 firmware: the checker stores no secret, it only
-recomputes the serial's target and compares, so `soerenberg` is internal to the
-vendor's generator.
+recomputes the target from the SD card's CID and compares, so `soerenberg` is
+internal to the vendor's generator.
 
 **How complete it is.** The scheme is now modelled end to end: the SD card's CID →
 `hash275` → `field8` → invert the transform → password, all reproduced in the
@@ -333,8 +335,9 @@ their side, which we have not done.
 
 - Full write-up, the disassembly, the transform model and inverter, the live-trace
   capture scripts and the `field8` hash model:
-  `research-scratch/kn7000-sp7001-activation/` (`ALGORITHM.md`, `invert.py`,
-  `trace_activation.lua`, `inject_verify.lua`, `param1_hash.py`).
+  the project's unpublished research notes, `kn7000-sp7001-activation/`
+  (`ALGORITHM.md`, `invert.py`, `trace_activation.lua`, `inject_verify.lua`,
+  `param1_hash.py`).
 - The key generator on this page is a line-for-line port of `invert.py`, validated
   to reproduce the live comparator trace and to emit the confirmed key
   `a19a-1s1d-jrdc-n1b2` for the emulator serial.
