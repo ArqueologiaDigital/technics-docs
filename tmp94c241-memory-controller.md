@@ -208,14 +208,14 @@ Main CPU, after the handover:
 
 Sub CPU:
 
-| Block | MSAR/MAMR | Window (32 KB rule) | Believed to select |
-|---|---|---|---|
-| CS0 | `10`/`07` | 256 KB @ `0x100000` | — |
-| CS1 | `11`/`03` | 128 KB @ `0x110000` | — |
-| CS2 | `FF`/`01` | 64 KB @ `0xFF0000` | IC30 boot ROM |
-| CS3 | `00`/`1F` | 1 MB @ `0x000000` (strap) | DRAM IC28/IC29 |
-| CS4 | `12`/`01` | 64 KB @ `0x120000` | inter-CPU latches |
-| CS5 | `13`/`01` | 64 KB @ `0x130000` | tone-generator registers |
+| Block | MSAR/MAMR | Window (32 KB rule)       | Believed to select                                                                        |
+|-------|-----------|---------------------------|-------------------------------------------------------------------------------------------|
+| CS0   | `10`/`07` | 256 KB @ `0x100000`       | —                                                                                         |
+| CS1   | `11`/`03` | 128 KB @ `0x110000`       | —                                                                                         |
+| CS2   | `FF`/`01` | 64 KB @ `0xFF0000`        | IC30 boot ROM                                                                             |
+| CS3   | `00`/`1F` | 1 MB @ `0x000000` (strap) | DRAM IC28/IC29                                                                            |
+| CS4   | `12`/`01` | 64 KB @ `0x120000`        | inter-CPU latches                                                                         |
+| CS5   | `13`/`01` | 64 KB @ `0x130000`        | 4-channel register block (not the tone generator, which the firmware reaches at 0x100000) |
 
 **Which physical /CS pin drives which IC has never been read off the schematic.** The
 right-hand column is inference from firmware behaviour plus the MAME driver's own

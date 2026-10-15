@@ -138,9 +138,9 @@ Detailed hardware documentation extracted from the service manual schematics.
 **I/O Capabilities:**
 - 2 serial channels (SC0, SC1)
 - 4 8-bit timers (T0-T3)
-- 16-bit timer (T4)
+- Four 16-bit timers (T4, T6, T8, TA)
 - DMA controller (channels 0 and 2 used)
-- Multiple GPIO ports (P0-PB, PE, PF)
+- Multiple GPIO ports (P0-P8, PA-PH, PZ); the Sub CPU uses PD for the inter-CPU handshake and P7, PZ and PH for the DSP1 host port
 - DRAM controller with refresh
 
 **Role:** Controls the tone generator at 0x100000 and the DSPs, handles audio synthesis, and communicates with main CPU via the latch pair, which sits at 0x120000 on *this* bus and 0x140000 on the main CPU's. Receives 192KB payload from main CPU at boot.
@@ -179,7 +179,7 @@ The KN5000 uses different data organization depending on the ROM:
 |-------------------|------------------------|--------------------|-------|---------------------------------------|
 | Program ROM       | IC6 (even) + IC4 (odd) | 16-bit word-level  | 2MB   | 0xE00000-0xFFFFFF                     |
 | Table Data ROM    | IC3 (even) + IC1 (odd) | 16-bit word-level  | 2MB   | 0x800000-0x9FFFFF                     |
-| Sub CPU Boot ROM  | IC30 (internal)        | None (single chip) | 128KB | 0xFE0000-0xFFFFFF                     |
+| Sub CPU Boot ROM  | IC30 (mask ROM)        | None (single chip) | 128KB | 0xFE0000-0xFFFFFF                     |
 | Custom Data Flash | IC19                   | None (single chip) | 1MB   | 0x300000-0x3FFFFF                     |
 | HDAE5000 ROM      | IC4 (expansion)        | None (single chip) | 512KB | 0x280000-0x2FFFFF                     |
 | Sub CPU Payload   | Transferred via latch  | None (in-memory)   | 192KB | 0x000400-0x0004FF + 0x00F000-0x03EEFF |
@@ -202,12 +202,12 @@ This is **not** the same as byte-level interleaving (`even[0], odd[0], even[1], 
 
 ### Audio / Sound Generation
 
-| IC        | Part Number                                                        | Function                 | Interface                                                                                                                                                                                                                                                                                                            |
-|-----------|--------------------------------------------------------------------|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| IC303     | TC183C230002                                                       | Tone Generator           | Memory-mapped at 0x100000 (SubCPU)                                                                                                                                                                                                                                                                                   |
-| IC310     | MN19413                                                            | DSP2 (mixing/EQ)         | Serial GPIO bit-bang (SubCPU)                                                                                                                                                                                                                                                                                        |
-| IC311     | uPD6383GF-3BA                                                      | DSP1 (effects)           | Memory-mapped at 0x130000 + parallel port (P7/PZ)                                                                                                                                                                                                                                                                    |
-| IC304-307 | see [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/) | Waveform ROMs, 4 MB each | Connected to IC303. **IC307 is dumped; IC304-306 are not** — the development driver in the kn7000_mame overlay fills their banks with a `BAD_DUMP`-flagged copy of IC307, so voices selecting them play real-but-wrong PCM through the real paged datapath instead of silence; upstream MAME declares them `NO_DUMP` |
+| IC        | Part Number                                                        | Function                 | Interface                                                                                                                                                                                                                                                                                                             |
+|-----------|--------------------------------------------------------------------|--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| IC303     | TC183C230002                                                       | Tone Generator           | Memory-mapped at 0x100000 (SubCPU)                                                                                                                                                                                                                                                                                    |
+| IC310     | MN19413                                                            | DSP2 (mixing/EQ)         | Serial GPIO bit-bang (SubCPU)                                                                                                                                                                                                                                                                                         |
+| IC311     | uPD6383GF-3BA                                                      | DSP1 (effects)           | Parallel host port (SubCPU): data on PZ, strobes and C/D on P7, ready on PH.0. The 4-channel register block at 0x130000 is a separate register file, not its host interface; its chip is unidentified (see [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/#dsp-channel-register-map-memory-mapped-at-0x130000)) |
+| IC304-307 | see [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/) | Waveform ROMs, 4 MB each | Connected to IC303. **IC307 is dumped; IC304-306 are not** — the development driver in the kn7000_mame overlay fills their banks with a `BAD_DUMP`-flagged copy of IC307, so voices selecting them play real-but-wrong PCM through the real paged datapath instead of silence; upstream MAME declares them `NO_DUMP`  |
 
 The tone generator IC303 handles polyphonic synthesis with 64 voice channels, while IC311 (DSP1) provides digital effects (reverb, chorus, delay, distortion) and IC310 (DSP2) handles mixing and EQ. The SubCPU controls all three via dedicated interfaces.
 
@@ -226,10 +226,10 @@ See [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) for detailed protocol
 
 The HD-AE5000 is an optional expansion providing 1.08GB storage.
 
-| Component | Address | Description |
-|-----------|---------|-------------|
-| PPI (8255) | 0x160000-0x160006 | Programmable Peripheral Interface |
-| ROM | 0x280000 | 512KB firmware ROM |
+| Component                                                         | Address           | Description                       |
+|-------------------------------------------------------------------|-------------------|-----------------------------------|
+| PPI (NEC uPD71055 at IC9 on the expansion board; 8255-compatible) | 0x160000-0x160006 | Programmable Peripheral Interface |
+| ROM                                                               | 0x280000          | 512KB firmware ROM                |
 
 **PPI Port Mapping:**
 

@@ -25,7 +25,7 @@ permalink: /memory-map/
 | `0x200000 - 0x27FFFF` | 512KB | HDAE5000 SRAM (IC5/IC6, only with the board fitted)                                                                                                                                                                                                             |
 | `0x280000`            | 512KB | HDAE5000 ROM                                                                                                                                                                                                                                                    |
 | `0x300000 - 0x3FFFFF` | 1MB   | Custom Data Flash (User Storage) - see [Boot Sequence]({{ site.baseurl }}/boot-sequence/#lzss-preset-data-handling) for 0x3E0000 usage                                                                                                                          |
-| `0x400000`            | -     | Rhythm Data ROM                                                                                                                                                                                                                                                 |
+| `0x400000 - 0x7FFFFF` | 4MB   | Rhythm Data ROM (IC14)                                                                                                                                                                                                                                          |
 | `0x800000`            | 2MB   | Table Data ROM — see [internal layout](#table-data-rom-internal-layout) below                                                                                                                                                                                   |
 | `0xE00000`            | 2MB   | Program Flash (Main ROM)                                                                                                                                                                                                                                        |
 
@@ -380,29 +380,29 @@ See [Sequencer]({{ site.baseurl }}/sequencer/) for complete medley system docume
 
 The sub CPU (tone generator controller) has its own memory map, documented from boot ROM disassembly.
 
-| Address Range         | Size  | Description                                                                                      |
-|-----------------------|-------|--------------------------------------------------------------------------------------------------|
-| `0x000000 - 0x0FFFFF` | 1MB   | Work DRAM (IC28/IC29)                                                                            |
-| `0x0000 - 0x00FF`     | 256B  | Special Function Registers (SFR)                                                                 |
-| `0x0100 - 0x01FF`     | 256B  | Extended SFR / Memory Controller                                                                 |
-| `0x0400 - 0x04E0`     | 225B  | Interrupt vector trampolines (copied from boot ROM)                                              |
-| `0x04FE`              | 1B    | `PAYLOAD_LOADED_FLAG` - Payload ready indication (bit 7 set when payload loaded)                 |
-| `0x0500 - 0x05A2`     | ~160B | RAM / Stack area (stack init = 0x05A2)                                                           |
-| `0x0502`              | 12B   | `DMA_SETUP_PARAMS` - DMA parameter storage (XWA, XDE, BC values)                                 |
-| `0x0512`              | 4B    | `DMA_TARGET_ADDR` - Current DMA destination address                                              |
-| `0x0516`              | 2B    | `DMA_XFER_STATE` - DMA transfer state (0=idle, 1=single xfer, 2=two-phase E1 mode)               |
-| `0x0518`              | 2B    | `CMD_PROCESSING_STATE` - Command processing state (0-4)                                          |
-| `0x051A`              | 1B    | `LAST_CMD_BYTE` - Last received command byte from main CPU                                       |
-| `0x051E`              | 32B   | `CMD_DATA_BUFFER` - Variable-length command data buffer                                          |
-| `0x0544`              | 6B    | `CMD_E1_BUFFER` - E1 command data buffer                                                         |
-| `0x054A`              | 10B   | `CMD_E2_BUFFER` - E2 command data buffer                                                         |
-| `0x0556`              | 1B    | `MEMTEST_RESULT` - Memory test result flags                                                      |
-| `0x0558`              | 8B    | `SERIAL_STATUS` - Key-down bitmap, 64 bits (the equate keeps an older name; not a serial buffer) |
-| `0x100000`            | -     | Tone generator IC303 registers (address +0, data +2)                                             |
-| `0x110000`            | -     | Tone generator keybed data (+0) / status (+2)                                                    |
-| `0x120000`            | -     | Inter-CPU Communication Latch (the same pair of latches the main CPU reaches at `0x140000`)      |
-| `0x130000`            | -     | DSP1-associated register block (4 channels; address +0, data +2)                                 |
-| `0xFE0000 - 0xFFFFFF` | 128KB | Boot ROM                                                                                         |
+| Address Range         | Size  | Description                                                                                                                                                     |
+|-----------------------|-------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x000000 - 0x0FFFFF` | 1MB   | Work DRAM (IC28/IC29)                                                                                                                                           |
+| `0x0000 - 0x00FF`     | 256B  | Special Function Registers (SFR)                                                                                                                                |
+| `0x0100 - 0x01FF`     | 256B  | Extended SFR / Memory Controller                                                                                                                                |
+| `0x0400 - 0x04E0`     | 225B  | Interrupt vector trampolines (copied from boot ROM)                                                                                                             |
+| `0x04FE`              | 1B    | `PAYLOAD_LOADED_FLAG` (also `SUBCPU_STATUS_FLAGS`) - bit 6: payload ready (set by command 0xE3; the boot ROM's main loop waits on it), bit 7: transfer complete |
+| `0x0500 - 0x05A2`     | ~160B | RAM / Stack area (stack init = 0x05A2)                                                                                                                          |
+| `0x0502`              | 12B   | `DMA_SETUP_PARAMS` - DMA parameter storage (XWA, XDE, BC values)                                                                                                |
+| `0x0512`              | 4B    | `DMA_TARGET_ADDR` - Current DMA destination address                                                                                                             |
+| `0x0516`              | 2B    | `DMA_XFER_STATE` - DMA transfer state (0=idle, 1=single xfer, 2=two-phase E1 mode)                                                                              |
+| `0x0518`              | 2B    | `CMD_PROCESSING_STATE` - Command processing state (0-4)                                                                                                         |
+| `0x051A`              | 1B    | `LAST_CMD_BYTE` - Last received command byte from main CPU                                                                                                      |
+| `0x051E`              | 32B   | `CMD_DATA_BUFFER` - Variable-length command data buffer                                                                                                         |
+| `0x0544`              | 6B    | `CMD_E1_BUFFER` - E1 command data buffer                                                                                                                        |
+| `0x054A`              | 10B   | `CMD_E2_BUFFER` - E2 command data buffer                                                                                                                        |
+| `0x0556`              | 1B    | `MEMTEST_RESULT` - Memory test result flags                                                                                                                     |
+| `0x0558`              | 8B    | `SERIAL_STATUS` - Key-down bitmap, 64 bits (the equate keeps an older name; not a serial buffer)                                                                |
+| `0x100000`            | -     | Tone generator IC303 registers (address +0, data +2)                                                                                                            |
+| `0x110000`            | -     | Tone generator keybed data (+0) / status (+2)                                                                                                                   |
+| `0x120000`            | -     | Inter-CPU Communication Latch (the same pair of latches the main CPU reaches at `0x140000`)                                                                     |
+| `0x130000`            | -     | DSP1-associated register block (4 channels; address +0, data +2)                                                                                                |
+| `0xFE0000 - 0xFFFFFF` | 128KB | Boot ROM                                                                                                                                                        |
 
 ### Sub CPU SFR Addresses (Confirmed from Boot ROM)
 
@@ -557,7 +557,7 @@ as `CMD_DISPATCH_TABLE` at `0x00F46C`
 
 ```
 1. Sub CPU writes response to the latch (`0x120000` on its bus)
-2. Sub CPU sets appropriate flag bits in VAR_04FE
+2. Sub CPU sets flag bits in PAYLOAD_LOADED_FLAG (0x04FE)
 3. Main CPU polls or receives interrupt
 4. Main CPU reads response from latch
 ```
@@ -589,33 +589,33 @@ The boot ROM configures DMA for the inter-CPU latch:
 
 Key routines identified in the boot ROM at 0xFF8000+:
 
-| Address             | Routine                         | Description                                 |
-|---------------------|---------------------------------|---------------------------------------------|
-| `0xFF8290`          | `BOOT_INIT`                     | Hardware initialization entry point         |
-| `0xFF8432`          | `DEFAULT_HANDLER`               | Default interrupt handler (RETI)            |
-| `0xFF8433`          | `RESET_ENTRY`                   | Alternative reset/NMI handler               |
-| `0xFF8437`          | `TONE_GEN_CHANNEL_INIT`         | Tone generator channel init loop            |
-| `0xFF846D`          | `COPY_VECTORS`                  | Copy interrupt trampolines to RAM           |
-| `0xFF8490`          | `HALT_LOOP`                     | Error handler (halt and loop)               |
-| `0xFF84A8`          | `INIT_TONE_GEN`                 | Tone generator initialization               |
-| `0xFF84F1`          | `TONE_GEN_WRITE`                | Write data to tone generator                |
-| `0xFF850E`          | `WRITE_TONE_REG_MULTI_CHANNEL`  | Multi-register push/call wrapper            |
-| `0xFF853A`          | `WRITE_TONE_REG_SINGLE_CHANNEL` | Write register pairs to tone generator      |
-| `0xFF858B`          | `COPY_WORDS`                    | Word block copy (ldirw)                     |
-| `0xFF8594`          | `FILL_WORDS`                    | Memory fill with word values                |
-| `0xFF859B`          | `CHECKSUM_CALC`                 | Calculate checksum over memory range        |
-| `0xFF85AE`          | `INIT_DMA_SERIAL`               | DMA and serial initialization               |
-| `0xFF8604-0xFF881E` | *DMA routines*                  | 539 bytes, fully disassembled (5 routines)  |
-| `0xFF8956`          | `INIT_MEMORY_TEST`              | Memory test initialization                  |
-| `0xFF881F`          | `InterCPU_RX_Handler`           | Inter-CPU receive interrupt                 |
-| `0xFF889A`          | `DMA_Complete_Handler`          | DMA complete interrupt                      |
-| `0xFF88B8`          | `CMD_Dispatch_Handler`          | Command dispatch interrupt                  |
-| `0xFF89A9`          | `DELAY_ROUTINE`                 | Variable delay loop                         |
-| `0xFF89FC`          | `MEM_TEST_ROUTINE`              | RAM test routine                            |
-| `0xFF8AB4`          | `ROM_CHECKSUM`                  | Boot ROM integrity check                    |
-| `0xFF8B07`          | `SERIAL_INIT`                   | Serial communication init                   |
-| `0xFF8F6C`          | *Trampolines*                   | 45 interrupt vector trampolines (225 bytes) |
-| `0xFFFF00`          | *Vector Table*                  | Hardware interrupt vector table             |
+| Address             | Routine                         | Description                                                                |
+|---------------------|---------------------------------|----------------------------------------------------------------------------|
+| `0xFF8290`          | `BOOT_INIT`                     | Hardware initialization entry point                                        |
+| `0xFF8432`          | `DEFAULT_HANDLER`               | Default interrupt handler (RETI)                                           |
+| `0xFF8433`          | `RESET_ENTRY`                   | Alternative reset/NMI handler                                              |
+| `0xFF8437`          | `TONE_GEN_CHANNEL_INIT`         | Writes four channel configs to the 0x130000 block (not the tone generator) |
+| `0xFF846D`          | `COPY_VECTORS`                  | Copy interrupt trampolines to RAM                                          |
+| `0xFF8490`          | `HALT_LOOP`                     | Error handler (halt and loop)                                              |
+| `0xFF84A8`          | `INIT_TONE_GEN`                 | Test pattern and mode words to the 0x130000 block (not the tone generator) |
+| `0xFF84F1`          | `TONE_GEN_WRITE`                | Write 8 registers of one 0x130000 channel                                  |
+| `0xFF850E`          | `WRITE_TONE_REG_MULTI_CHANNEL`  | Multi-register push/call wrapper                                           |
+| `0xFF853A`          | `WRITE_TONE_REG_SINGLE_CHANNEL` | Write 8 registers of one 0x130000 channel from XBC/XDE                     |
+| `0xFF858B`          | `COPY_WORDS`                    | Word block copy (ldirw)                                                    |
+| `0xFF8594`          | `FILL_WORDS`                    | Memory fill with word values                                               |
+| `0xFF859B`          | `CHECKSUM_CALC`                 | Calculate checksum over memory range                                       |
+| `0xFF85AE`          | `INIT_DMA_SERIAL`               | DMA and serial initialization                                              |
+| `0xFF8604-0xFF881E` | *DMA routines*                  | 539 bytes, fully disassembled (5 routines)                                 |
+| `0xFF8956`          | `INIT_MEMORY_TEST`              | Memory test initialization                                                 |
+| `0xFF881F`          | `InterCPU_RX_Handler`           | Inter-CPU receive interrupt                                                |
+| `0xFF889A`          | `DMA_Complete_Handler`          | DMA complete interrupt                                                     |
+| `0xFF88B8`          | `CMD_Dispatch_Handler`          | Command dispatch interrupt                                                 |
+| `0xFF89A9`          | `DELAY_ROUTINE`                 | Variable delay loop                                                        |
+| `0xFF89FC`          | `MEM_TEST_ROUTINE`              | RAM test routine                                                           |
+| `0xFF8AB4`          | `ROM_CHECKSUM`                  | Boot ROM integrity check                                                   |
+| `0xFF8B07`          | `SERIAL_INIT`                   | Serial communication init                                                  |
+| `0xFF8F6C`          | *Trampolines*                   | 45 interrupt vector trampolines (225 bytes)                                |
+| `0xFFFF00`          | *Vector Table*                  | Hardware interrupt vector table                                            |
 
 ## Tone Generator
 
@@ -629,7 +629,7 @@ The tone generator (IC303) has a register window at `0x100000` (address) / `0x10
 | `0x110000`              | Data                    | 16-bit voice data (note in low byte, velocity in high byte) |
 | `0x110002`              | Status                  | Status register (bit 0: data ready, bit 1: mode flag)       |
 
-Port P6 bit 7 controls the A23 address line - SET for status read, RES for data read.
+The payload sets port P6 bit 7 before reading the status word (0x110002) and clears it before reading the data word (0x110000). The disassembly reads this, as an inference, as the A23 line; the sub-CPU boot ROM reads the same two ports without touching P6, so whether the chip needs it is unresolved (see [Tone Generator]({{ site.baseurl }}/tone-generator/)).
 
 **DSP-associated register block (not the tone generator):**
 
@@ -639,14 +639,14 @@ Port P6 bit 7 controls the A23 address line - SET for status read, RES for data 
 
 The boot ROM's `INIT_TONE_GEN` (0xFF84A8) writes initial patterns to this block; despite its name it does not touch the tone generator, whose 64 voices serve 26 MIDI channels (see [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/)).
 
-**Voice State Buffer (Sub CPU RAM):**
+**Keybed state (Sub CPU RAM):**
 
-| Address | Size | Description |
-|---------|------|-------------|
-| `0x4A42` | 3B | DMA command buffer (cmd, note, velocity) |
-| `0x4A48` | 1B | Tone generator mode (0-6) |
-| `0x4A4A` | 1B | DMA enabled flag |
-| `0x4A4C` | 16B | Voice slot table |
+| Address         | Size        | Description                                                                                                                                      |
+|-----------------|-------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x4A42`        | 3B          | DMA command buffer (cmd, note, velocity)                                                                                                         |
+| `0x4A48`        | 1B          | Touch-curve number (0-9, initialised to 6), read by `Keybed_Decode_Event`                                                                        |
+| `0x4A4A`        | 1B          | Keybed-to-main forwarding enable (`InterCPU_DMA_Send` is called only when it is 1)                                                               |
+| `0x4A4C` + note | 1B per note | Held-key map: 0xFF while the key is down (bytes in use start at 0x4A70; see [Keybed Scanning]({{ site.baseurl }}/keybed-scanning/#held-key-map)) |
 
 **DSP State Buffers:**
 
@@ -661,13 +661,13 @@ The HD-AE5000 is a hard disk expansion system providing 1.08GB storage for music
 
 ### Memory-Mapped Addresses
 
-| Address | Size | Description |
-|---------|------|-------------|
-| `0x160000` | 2B | PPI Port A (Data output) |
-| `0x160002` | 2B | PPI Port B (Status input) |
-| `0x160004` | 2B | PPI Port C (Control signals) |
-| `0x160006` | 2B | PPI Control Register |
-| `0x280000` | 512KB | HDAE5000 ROM |
+| Address    | Size  | Description                                                                                      |
+|------------|-------|--------------------------------------------------------------------------------------------------|
+| `0x160000` | 2B    | PPI Port A: data byte to or from the PC (bidirectional)                                          |
+| `0x160002` | 2B    | PPI Port B: handshake lines to the PC (output in PC-link mode)                                   |
+| `0x160004` | 2B    | PPI Port C: handshake lines from the PC (input in PC-link mode)                                  |
+| `0x160006` | 2B    | PPI control (0x82 at boot; 0x89 or 0x99 in PC-link mode; 0x90 in the hardware test's PPORT TEST) |
+| `0x280000` | 512KB | HDAE5000 ROM                                                                                     |
 
 ### ROM Entry Points
 
@@ -717,23 +717,27 @@ at the top of `hdae5000/hd-ae5000_v2_06i.s`.
 
 ### PPORT Commands (PC Parallel Port)
 
-| Code | Command | Description |
-|------|---------|-------------|
-| 01 | Send Infos About HD | Report HD info to PC |
-| 02 | Exit PPORT | End parallel port session |
-| 03 | Read FSB from HD | Read File System Block |
-| 04 | Sending FSB to PC | Transfer FSB to PC |
-| 05 | Rcv FSB from PC | Receive FSB from PC |
-| 06 | Writing FSB to HD | Write FSB to HD |
-| 07 | Load HD to Memory | Load file to KN5000 |
-| 08 | Send data to PC | Data transfer to PC |
-| 09 | Sending files to PC | File transfer to PC |
-| 10 | Rcv data from PC | Receive data from PC |
-| 11 | Save memory to HD | Save to hard disk |
-| 16 | Delete files | Delete HD files |
-| 17 | Formating HD | Format hard disk |
-| 18 | Switch HD-motor off | Spin down HD |
-| 20 | Send XapFile flash | XAP file transfer |
+| Code | Command             | Description                                     |
+|------|---------------------|-------------------------------------------------|
+| 01   | Send Infos About HD | Report HD info to PC                            |
+| 02   | Exit PPORT          | End parallel port session                       |
+| 03   | Read FSB from HD    | Read File System Block                          |
+| 04   | Sending FSB to PC   | Transfer FSB to PC                              |
+| 05   | Rcv FSB from PC     | Receive FSB from PC                             |
+| 06   | Writing FSB to HD   | Write FSB to HD                                 |
+| 07   | Load HD to Memory   | Load file to KN5000                             |
+| 08   | Send data to PC     | Data transfer to PC                             |
+| 09   | Sending files to PC | File transfer to PC                             |
+| 10   | Rcv data from PC    | Receive data from PC                            |
+| 11   | Save memory to HD   | Save to hard disk                               |
+| 13   | Rcv data from PC    | Receive data from PC (a second receive handler) |
+| 14   | Sending infos to PC | Send information to PC                          |
+| 16   | Delete files        | Delete HD files                                 |
+| 17   | Formating HD        | Format hard disk                                |
+| 18   | Switch HD-motor off | Spin down HD                                    |
+| 20   | Send XapFile flash  | XAP file transfer                               |
+
+Commands 12, 15 and 19 are empty entries ('nothing').
 
 ### Firmware Versions
 
@@ -744,6 +748,6 @@ at the top of `hdae5000/hd-ae5000_v2_06i.s`.
 | v2.01i  | 1999-01-15   | Added lyrics display (the installer calls it "v2.0i"; the ROM signature reads v2.01i) |
 | v2.06i  | unknown      | The version analysed on this page (`hd-ae5000_v2_06i.ic4`)                            |
 
-All versions archived at [archive.org](https://archive.org/details/technics-kn5000-system-update-disks).
+v1.10i, v1.15i and v2.01i (in the folder labelled "v2.0i") are archived at [archive.org](https://archive.org/details/technics-kn5000-system-update-disks). v2.06i, the version analysed here, is not in that item.
 
 **Reference:** [keysoftservice.ch/hdae5000-e.htm](https://www.keysoftservice.ch/hdae5000-e.htm)

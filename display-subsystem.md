@@ -234,7 +234,7 @@ Main Event Loop (MainLoop)
 This means:
 - Display updates happen at the main loop rate (not at a fixed refresh rate)
 - The HDAE5000 Frame_Handler runs **after** the firmware's display update
-- Any VRAM writes by extension code will be overwritten on the next loop iteration unless the firmware's drawing is disabled
+- The UI reaches VRAM through `UpdateScreen`, which copies only the dirty area of `OFFSCREEN_BUFFER_1` (see [Rendering Pipeline](#rendering-pipeline-1)), so a pixel an extension ROM writes straight to VRAM survives until the firmware next redraws that area. No flag that stops the firmware's drawing has been identified (`0x0D53` bit 3, below, is not one)
 
 ### Step-record display flag (`0x0D53` bit 3)
 
@@ -488,7 +488,7 @@ BDF (Bitmap Distribution Format) exports are available in the [roms-disasm repos
 
 ### Region Architecture
 
-The display is divided into 11 independently-tracked dirty regions. Each region has its own redraw function and dirty bit. The regions are not defined by hardcoded pixel coordinates — instead, each redraw function loads **ROM descriptor tables** that define the region geometry, content, and rendering parameters. These descriptors are passed to UI rendering helper functions.
+The sequencer's step-record screen (title id 0x8A, `TITLE_SQSTEP`) is divided into 11 independently-tracked dirty regions. This is that screen's layout, not the whole UI's. `Display_UpdateDirtyRegions` is called from two of that screen's title methods (`Display_InitScreenLayout`, run from its draw method, and `Display_PollAudioAndUpdate`). It is also called from `Display_DirtyRegionDispatch` and one SWBT listener, both of which run it only while `0x0D53` bit 3 is set, and from a second SWBT listener that marks regions dirty only when `ACTIVE_TITLE` is 0x8A. Seven of the eleven redraw routines also return at once unless `ACTIVE_TITLE` is 0x8A. The region names below come from the routine labels. Each region has its own redraw function and dirty bit. The regions are not defined by hardcoded pixel coordinates — instead, each redraw function loads **ROM descriptor tables** that define the region geometry, content, and rendering parameters. These descriptors are passed to UI rendering helper functions.
 
 ### Region Update Order
 
@@ -537,7 +537,7 @@ The byte at address `0x0D65` (decimal 3429 in the disassembly; a work-DRAM byte,
 | 2     | CONTROL track     |
 | 3     | RHYTHM track      |
 
-The state byte influences which ROM descriptors are selected by redraw functions, allowing the same regions to display different content based on the active screen mode.
+On the step-record screen the redraw routines read this byte to choose their descriptor tables (`Display_RedrawStatusBar` and `Display_RedrawSelection` branch on it), so the same regions show different content for each track type.
 
 ### UI Rendering Helpers
 
@@ -597,7 +597,7 @@ Region 6 (button labels) manages three rows of 8 soft-button labels, organized a
 
 ### Dirty Region Tracking
 
-The display update system tracks 11 independent screen regions. Each region has a dirty bit in the bitmap at `DISPLAY_DIRTY_FLAGS` (0x205E4):
+The step-record screen's update system tracks 11 independent regions. Each region has a dirty bit in the bitmap at `DISPLAY_DIRTY_FLAGS` (0x205E4):
 
 | Function | Address | Description |
 |----------|---------|-------------|
@@ -703,10 +703,10 @@ Many domain-specific widget types exist for the keyboard's various modes (arrang
 
 Images extracted from firmware ROMs:
 
-| Source | Count | Description |
-|--------|-------|-------------|
-| Main CPU ROM | 42 | UI elements, logos, demo graphics |
-| HDAE5000 ROM | 4 | Product logo, file panel graphics |
+| Source       | Count | Description                                                            |
+|--------------|-------|------------------------------------------------------------------------|
+| Main CPU ROM | 42    | UI elements, logos, demo graphics                                      |
+| HDAE5000 ROM | 5     | Boot splash, product logo, drive mechanism, file panel, hard-disk icon |
 
 See [Image Gallery]({{ site.baseurl }}/image-gallery/) for all extracted images.
 

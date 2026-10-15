@@ -22,7 +22,7 @@ The KN5000 uses a dual-CPU architecture with two identical TMP94C241F processors
 │  Role: System Controller        │     │  Role: Audio Processor               │
 │                                 │     │                                      │
 │  ┌───────────────────────────┐  │     │  ┌────────────────────────────────┐  │
-│  │ Program ROM: 2MB          │  │     │  │ Boot ROM: 128KB (internal)     │  │
+│  │ Program ROM: 2MB          │  │     │  │ Boot ROM: 128KB (IC30)         │  │
 │  │ @ 0xE00000-0xFFFFFF       │  │     │  │ @ 0xFE0000-0xFFFFFF            │  │
 │  └───────────────────────────┘  │     │  └────────────────────────────────┘  │
 │                                 │     │                                      │
@@ -100,25 +100,25 @@ The TMP94C241F is a Toshiba 32-bit microcontroller from the TLCS-900/H2 family.
 
 ### Memory Map
 
-| Address Range     | Size  | Description                                                  |
-|-------------------|-------|--------------------------------------------------------------|
-| 0x000000-0x0003FF | 1KB   | Special Function Registers                                   |
-| 0x000400-0x000BFF | 2KB   | On-chip RAM (takes priority over the external DRAM below)    |
-| 0x000000-0x0FFFFF | 1MB   | Work DRAM — 2 × 4 Mbit at IC9/IC10 on CS3, **volatile**      |
-| 0x110000-0x11FFFF | 64KB  | Floppy Disk Controller                                       |
-| 0x120000-0x12FFFF | 64KB  | Floppy DMA acknowledge (**not** the inter-CPU latch)         |
-| 0x140000-0x14FFFF | 64KB  | Inter-CPU Latch (IC22/IC23)                                  |
-| 0x150000-0x150003 | 4B    | Audio/mixer register file (address 0x150000, data 0x150002)  |
-| 0x130010-0x130020 | 16B   | HDAE5000 ATA                                                 |
-| 0x160000-0x160007 | 8B    | HDAE5000 PPI                                                 |
-| 0x170000-0x17FFFF | 64KB  | VGA Controller                                               |
-| 0x1E0000-0x1FFFFF | 128KB | Battery-backed SRAM (1 Mbit, IC21) — the only persistent RAM |
-| 0x200000-0x27FFFF | 512KB | HDAE5000 SRAM (only with the board fitted)                   |
-| 0x280000-0x2FFFFF | 512KB | HDAE5000 ROM                                                 |
-| 0x300000-0x3FFFFF | 1MB   | Custom Data Flash (IC19)                                     |
-| 0x400000-0x7FFFFF | 4MB   | Rhythm Data ROM (IC14)                                       |
-| 0x800000-0x9FFFFF | 2MB   | Table Data ROM                                               |
-| 0xE00000-0xFFFFFF | 2MB   | Program ROM                                                  |
+| Address Range     | Size  | Description                                                                       |
+|-------------------|-------|-----------------------------------------------------------------------------------|
+| 0x000000-0x0003FF | 1KB   | Special Function Registers                                                        |
+| 0x000400-0x000BFF | 2KB   | On-chip RAM (takes priority over the external DRAM below)                         |
+| 0x000000-0x0FFFFF | 1MB   | Work DRAM — 2 × 4 Mbit at IC9/IC10 on CS3, **volatile**                           |
+| 0x110000-0x11FFFF | 64KB  | Floppy Disk Controller                                                            |
+| 0x120000-0x12FFFF | 64KB  | Floppy DMA acknowledge (**not** the inter-CPU latch)                              |
+| 0x140000-0x14FFFF | 64KB  | Inter-CPU Latch (IC22/IC23)                                                       |
+| 0x150000-0x150003 | 4B    | Audio/mixer register file (address 0x150000, data 0x150002)                       |
+| 0x130010-0x13002F | 32B   | HDAE5000 ATA (the firmware uses 0x130010-0x13001E and device control at 0x130020) |
+| 0x160000-0x160007 | 8B    | HDAE5000 PPI                                                                      |
+| 0x170000-0x17FFFF | 64KB  | VGA Controller                                                                    |
+| 0x1E0000-0x1FFFFF | 128KB | Battery-backed SRAM (1 Mbit, IC21) — the only persistent RAM                      |
+| 0x200000-0x27FFFF | 512KB | HDAE5000 SRAM (only with the board fitted)                                        |
+| 0x280000-0x2FFFFF | 512KB | HDAE5000 ROM                                                                      |
+| 0x300000-0x3FFFFF | 1MB   | Custom Data Flash (IC19)                                                          |
+| 0x400000-0x7FFFFF | 4MB   | Rhythm Data ROM (IC14)                                                            |
+| 0x800000-0x9FFFFF | 2MB   | Table Data ROM                                                                    |
+| 0xE00000-0xFFFFFF | 2MB   | Program ROM                                                                       |
 
 See [Memory Map]({{ site.baseurl }}/memory-map/) for complete details.
 
@@ -357,7 +357,7 @@ ld.lld -T linker.ld output.o -o output.elf
 llvm-objcopy -O binary output.elf output.bin
 ```
 
-All nine KN5000 images (Main CPU v10/v9/v7, Sub CPU boot, Sub CPU payload and its recompressed form, Table Data, HDAE5000, Custom Data) and the four SX-WSA1R EPROMs rebuild **byte-identically** against the original dumps — 12,386,304 bytes, checked by `make gate-all`.
+All nine KN5000 images (Main CPU v10/v9/v7, Sub CPU boot, Sub CPU payload and its recompressed form, Table Data, HDAE5000, Custom Data) and the four SX-WSA1R EPROMs rebuild **byte-identically** against the original dumps (twelve distinct images, 12,386,304 bytes, plus the recompressed payload), checked by `make gate-all`.
 
 The ASL Macro Assembler (used historically) is archived in `archive/asl/`.
 

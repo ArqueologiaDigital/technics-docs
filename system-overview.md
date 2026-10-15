@@ -160,41 +160,41 @@ See [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/) for details.
 
 ## Memory Organization
 
-| Address Range     | Size  | Component                                                                                  |
-|-------------------|-------|--------------------------------------------------------------------------------------------|
-| 0x000000-0x0FFFFF | 1MB   | Work DRAM (IC9/IC10, volatile)                                                             |
-| 0x000400-0x000BFF | 2KB   | On-chip RAM (Main CPU; takes priority over the DRAM)                                       |
-| 0x110000-0x11FFFF | 64KB  | Floppy Disk Controller                                                                     |
-| 0x140000-0x14FFFF | 64KB  | Inter-CPU Communication Latch (0x120000 on the Sub CPU's bus)                              |
-| 0x150000-0x150003 | 4B    | Audio/mixer register file (address latch 0x150000, data 0x150002; chip not yet identified) |
-| 0x130010-0x130020 | 16B   | HDAE5000 ATA Registers                                                                     |
-| 0x160000-0x160007 | 8B    | HDAE5000 PPI (Parallel Port)                                                               |
-| 0x170000-0x17FFFF | 64KB  | VGA/LCD Controller                                                                         |
-| 0x1E0000-0x1FFFFF | 128KB | Battery-backed SRAM (IC21)                                                                 |
-| 0x200000-0x27FFFF | 512KB | HDAE5000 SRAM (only with the board fitted)                                                 |
-| 0x280000-0x2FFFFF | 512KB | HDAE5000 ROM                                                                               |
-| 0x300000-0x3FFFFF | 1MB   | Custom Data Flash                                                                          |
-| 0x400000-0x7FFFFF | 4MB   | Rhythm Data ROM (IC14)                                                                     |
-| 0x800000-0x9FFFFF | 2MB   | Table Data ROM                                                                             |
-| 0xE00000-0xFFFFFF | 2MB   | Main Program ROM                                                                           |
+| Address Range     | Size  | Component                                                                                   |
+|-------------------|-------|---------------------------------------------------------------------------------------------|
+| 0x000000-0x0FFFFF | 1MB   | Work DRAM (IC9/IC10, volatile)                                                              |
+| 0x000400-0x000BFF | 2KB   | On-chip RAM (Main CPU; takes priority over the DRAM)                                        |
+| 0x110000-0x11FFFF | 64KB  | Floppy Disk Controller                                                                      |
+| 0x140000-0x14FFFF | 64KB  | Inter-CPU Communication Latch (0x120000 on the Sub CPU's bus)                               |
+| 0x150000-0x150003 | 4B    | Audio/mixer register file (address latch 0x150000, data 0x150002; chip not yet identified)  |
+| 0x130010-0x13002F | 32B   | HDAE5000 ATA registers (the firmware uses 0x130010-0x13001E and device control at 0x130020) |
+| 0x160000-0x160007 | 8B    | HDAE5000 PPI (Parallel Port)                                                                |
+| 0x170000-0x17FFFF | 64KB  | VGA/LCD Controller                                                                          |
+| 0x1E0000-0x1FFFFF | 128KB | Battery-backed SRAM (IC21)                                                                  |
+| 0x200000-0x27FFFF | 512KB | HDAE5000 SRAM (only with the board fitted)                                                  |
+| 0x280000-0x2FFFFF | 512KB | HDAE5000 ROM                                                                                |
+| 0x300000-0x3FFFFF | 1MB   | Custom Data Flash                                                                           |
+| 0x400000-0x7FFFFF | 4MB   | Rhythm Data ROM (IC14)                                                                      |
+| 0x800000-0x9FFFFF | 2MB   | Table Data ROM                                                                              |
+| 0xE00000-0xFFFFFF | 2MB   | Main Program ROM                                                                            |
 
 See [Memory Map]({{ site.baseurl }}/memory-map/) for complete details.
 
 ## Documentation Status
 
-| Subsystem              | Status     | Notes                                                                                                                                   |
-|------------------------|------------|-----------------------------------------------------------------------------------------------------------------------------------------|
-| Main CPU Firmware      | 100%       | Byte-identical rebuild (v10: 329,465 instruction statements at disassembly `3417969c0`)                                                 |
-| Sub CPU Boot ROM       | 100%       | Byte-exact rebuild of a dump that is 97% `0xFF` and 89% never read — see [Sub-CPU Boot ROM (IC30)]({{ site.baseurl }}/subcpu-boot-rom/) |
-| Sub CPU Payload        | 100%       | Complete disassembly                                                                                                                    |
-| Control Panel Protocol | Documented | HLE upstream in MAME (#15143; data wheel #15919)                                                                                        |
-| HDAE5000               | 100%       | ROM complete, protocol documented                                                                                                       |
-| FDC Subsystem          | Partial    | Handler identified, needs integration                                                                                                   |
-| Audio Subsystem        | Documented | DSP effects, tone gen, voice management                                                                                                 |
-| Display Subsystem      | Documented | Framebuffer layout, palette, VGA registers                                                                                              |
-| MIDI Subsystem         | Documented | 26-channel voice routing, CC handlers, SysEx                                                                                            |
-| UI Framework           | Documented | 550+ widget handlers, event system, drawing API, property types                                                                         |
-| Sequencer              | Documented | 16-track engine, ring buffer pipeline, style system, medley playback                                                                    |
+| Subsystem              | Status         | Notes                                                                                                                                                                                                                                                                      |
+|------------------------|----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Main CPU Firmware      | Byte-identical | Byte-identical rebuild (v10: 329,465 instruction statements at disassembly `3417969c0`); short misframed code islands are still held as `.byte` (and v7 has regions not yet hand-audited) — see [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/) |
+| Sub CPU Boot ROM       | 100%           | Byte-exact rebuild of a dump that is 97% `0xFF` and 89% never read — see [Sub-CPU Boot ROM (IC30)]({{ site.baseurl }}/subcpu-boot-rom/)                                                                                                                                    |
+| Sub CPU Payload        | 100%           | Complete disassembly                                                                                                                                                                                                                                                       |
+| Control Panel Protocol | Documented     | HLE upstream in MAME (#15143; data wheel #15919)                                                                                                                                                                                                                           |
+| HDAE5000               | Byte-identical | Rebuilds with no raw `.incbin`; 1,713 B of undocumented `.byte` remain (`hdae5000/tools/measure_debt.py`) and 13,334 B of UI-object class body are undecoded (`hdae5000/hdae5000_data_tables.s`); PC-link protocol documented                                              |
+| FDC Subsystem          | Partial        | Handler identified, needs integration                                                                                                                                                                                                                                      |
+| Audio Subsystem        | Documented     | DSP effects, tone gen, voice management                                                                                                                                                                                                                                    |
+| Display Subsystem      | Documented     | Framebuffer layout, palette, VGA registers                                                                                                                                                                                                                                 |
+| MIDI Subsystem         | Documented     | 26-channel voice routing, CC handlers, SysEx                                                                                                                                                                                                                               |
+| UI Framework           | Documented     | 550+ widget handlers, event system, drawing API, property types                                                                                                                                                                                                            |
+| Sequencer              | Documented     | 16-track engine, ring buffer pipeline, style system, medley playback                                                                                                                                                                                                       |
 
 ## Learning Paths
 
