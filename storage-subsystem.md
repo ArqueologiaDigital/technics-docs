@@ -18,15 +18,16 @@ The KN5000 has multiple storage options for factory data, user data, and removab
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐
 │  TABLE DATA ROM │  │ CUSTOM DATA     │  │ FLOPPY DISK     │  │  HDAE5000    │
 │                 │  │ FLASH           │  │                 │  │  (Optional)  │
-│  2MB Read-Only  │  │ 1MB Read/Write  │  │ 1.44MB          │  │  1.08GB      │
+│  2MB (flash?)   │  │ 1MB Read/Write  │  │ 1.44MB          │  │  1.08GB      │
 │  @ 0x800000     │  │ @ 0x300000      │  │ Removable       │  │  @ 0x130010  │
 │                 │  │                 │  │ @ 0x110000      │  │              │
 │  Factory:       │  │  User:          │  │                 │  │  Expansion:  │
-│  ├─ Styles      │  │  ├─ Settings    │  │  ├─ Songs       │  │  ├─ Songs    │
-│  ├─ Sounds      │  │  ├─ Custom      │  │  ├─ Styles      │  │  ├─ Styles   │
-│  ├─ Demos       │  │  │   Sounds     │  │  ├─ Patches     │  │  ├─ Backups  │
-│  └─ Presets     │  │  └─ Sequences   │  │  └─ Sequences   │  │  └─ Quick    │
-│                 │  │                 │  │                 │  │     Load     │
+│  ├─ Stylist     │  │  ├─ Custom      │  │  ├─ Songs       │  │  ├─ Songs    │
+│  ├─ Sounds      │  │  │   styles     │  │  ├─ Styles      │  │  ├─ Styles   │
+│  ├─ Demos       │  │  ├─ Sound banks │  │  ├─ Patches     │  │  ├─ Backups  │
+│  └─ Presets     │  │  ├─ Wallpapers  │  │  └─ Sequences   │  │  └─ Quick    │
+│                 │  │  └─ Sub-CPU     │  │                 │  │     Load     │
+│                 │  │      payload    │  │                 │  │              │
 └─────────────────┘  └─────────────────┘  └─────────────────┘  └──────────────┘
 ```
 
@@ -36,12 +37,12 @@ The Table Data ROM contains factory-installed content.
 
 ### Specifications
 
-| Property | Value |
-|----------|-------|
-| Size | 2MB (2,097,152 bytes) |
-| Address | 0x800000-0x9FFFFF |
-| Type | Read-only mask ROM |
-| Organization | 16-bit word-level interleave (odd IC1 + even IC3) |
+| Property     | Value                                                                                                                                                                     |
+|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Size         | 2MB (2,097,152 bytes)                                                                                                                                                     |
+| Address      | 0x800000-0x9FFFFF                                                                                                                                                         |
+| Type         | Unresolved: mask ROM or flash (see [MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/)); the table update discs (types 3 and 8) program it with flash commands |
+| Organization | 16-bit word-level interleave (odd IC1 + even IC3)                                                                                                                         |
 
 ### Physical Layout
 
@@ -52,21 +53,25 @@ The Table Data ROM contains factory-installed content.
 
 ### Contents (Known)
 
-| Type | Description |
-|------|-------------|
-| Styles | Auto-accompaniment patterns |
-| Sound Data | Voice parameters |
-| Demo Songs | Factory demonstration sequences |
-| Presets | Factory sound combinations |
-| Graphics | UI images and icons |
+| Type          | Description                                          |
+|---------------|------------------------------------------------------|
+| Tone database | Voice parameter records, key maps, drum kits         |
+| Music Stylist | 1000 style-recommendation records                    |
+| Panel Memory  | 80 factory Panel Memory presets and their bank names |
+| HELP          | HELP index and SLIDE8K databases                     |
+| Demo songs    | Feature-demo assets and demo presets                 |
+| Graphics      | Fonts, wallpapers, icons, UI bitmaps                 |
+| Bootloader    | The first-stage bootloader and its floppy driver     |
+
+Auto-accompaniment patterns are not here: they are read from the Rhythm ROM at `0x400000`. See [Table Data ROM]({{ site.baseurl }}/table-data-rom/).
 
 ### Reconstruction Status
 
-| Metric | Value |
-|--------|-------|
-| Documented | 32.42% |
-| Binary Assets | 67.58% remaining |
-| Challenge | Complex data structures |
+| Metric              | Value                                                          |
+|---------------------|----------------------------------------------------------------|
+| Rebuild             | Byte-identical from `table_data/` (one of the 13 gated images) |
+| Census strict grade | 98.93 % (2026-10-06)                                           |
+| Verbatim `.incbin`  | 318,468 B, the six FTBMP bitmaps                               |
 
 ## Custom Data Flash
 
@@ -83,17 +88,19 @@ User-writable storage for personal settings and content.
 
 ### Contents
 
-| Type | Description |
-|------|-------------|
-| User Settings | System preferences |
-| Custom Sounds | User-created voices |
-| Custom Styles | User-created patterns |
-| Registration | Sound/style combinations |
-| Sequences | User compositions |
+| Type            | Description                                                                  |
+|-----------------|------------------------------------------------------------------------------|
+| Custom Styles   | Sections 0-6: user-created styles (`0x300000`)                               |
+| Slot store      | Section 7: blocks kept from the SRAM work area (`0x3B0000`)                  |
+| Wallpaper       | LCD wallpaper/screenshot storage (`0x3C0000`)                                |
+| Sound banks     | Three user banks of sound-parameter settings (`0x3D3000`)                    |
+| Sub-CPU payload | The compressed sub-CPU program, written by a type 7 update disc (`0x3E0000`) |
+
+Panel Memory (registration) lives in battery-backed SRAM, not here, and user songs are held in RAM. See [Custom Data Flash]({{ site.baseurl }}/custom-data-flash/).
 
 ### Reconstruction Status
 
-Not reconstructed - contains user data, varies per unit.
+Rebuilt byte-identically from `custom_data/kn5000_custom_data.s` (one of the 13 gated images). The image is a dump of one unit's IC19, a flash the user rewrites (custom styles, sound-parameter banks, wallpapers), so another unit's contents may differ. See [Custom Data Flash]({{ site.baseurl }}/custom-data-flash/).
 
 ## Floppy Disk Controller
 
@@ -110,30 +117,26 @@ The FDC handles 3.5" floppy disk I/O for data exchange.
 
 ### FDC Registers
 
-| Offset | Register | Description |
-|--------|----------|-------------|
-| 0x00 | Status A | Drive status |
-| 0x02 | Status B | Controller status |
-| 0x04 | DOR | Digital Output Register |
-| 0x06 | TDR | Tape Drive Register |
-| 0x08 | MSR | Main Status Register |
-| 0x0A | DSR | Data Rate Select |
-| 0x0C | Data FIFO | Data transfer |
-| 0x0E | DIR | Digital Input Register |
-| 0x10 | CCR | Configuration Control |
+| Address  | Register          | Description                                                                                                                                     |
+|----------|-------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0x110008 | MSR / aux command | Main status register (read); auxiliary command register (write): 36h reset, `0Bh` OR the rate bits for control internal mode, 4Fh select format |
+| 0x11000A | Data              | uPD765-style commands, parameters and result bytes                                                                                              |
+| 0x120000 | DMA acknowledge   | Data port for DMA channel 3 and the PIO fallback                                                                                                |
 
 ### File Formats
 
 The KN5000 uses these file types on floppy:
 
-| Extension | Type ID | Description |
-|-----------|---------|-------------|
-| .MID | - | Standard MIDI File |
-| .SQT | - | Sequencer Track |
-| .STY | - | Style Data |
-| .PMT | - | Performance Memory Track |
-| .RCM | - | Rhythm Composer Memory |
-| .TM | - | Technical MIDI |
+| Extension | Type ID | Description                          |
+|-----------|---------|--------------------------------------|
+| .MID      | -       | Standard MIDI File                   |
+| .SQT      | -       | Sequencer (firmware title SEQUENCER) |
+| .STY      | -       | Style Data                           |
+| .PMT      | -       | Panel Memory (PANEL MEMORY)          |
+| .RCM      | -       | Rhythm Custom (RHYTHM CUSTOM)        |
+| .TM       | -       | Sound Memory (SOUND MEMORY)          |
+
+The titles in capitals are the firmware's own; see [the nine data types]({{ site.baseurl }}/hdae5000-resources/#the-nine-kn5000-data-types-named-by-the-firmware).
 
 See [FDC Subsystem]({{ site.baseurl }}/fdc-subsystem/) for detailed handler documentation.
 
@@ -173,13 +176,7 @@ The HDAE5000 uses **CHS (Cylinder/Head/Sector)** addressing:
 
 ### File System
 
-The HDAE5000 uses a **custom filesystem** (not FAT):
-
-| Structure | Description |
-|-----------|-------------|
-| FSB | File System Block (master) |
-| FGB | File Group Block |
-| FEB | File Entry Block |
+The HD-AE5000 uses a **custom filesystem**: no boot sector or BPB, but its own file allocation table of 32-bit entries linking cluster chains. Files are parts of songs in a fixed table of 120 directories × 16 songs, each song record holding the first cluster of each part (see [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/)).
 
 See [HDAE5000]({{ site.baseurl }}/hdae5000/) and [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/) for details.
 
@@ -189,10 +186,10 @@ The KN5000 can receive firmware updates via floppy disk. See [System Update Disc
 
 ### Update File Format
 
-| Component | Header | Target Address | Size |
-|-----------|--------|----------------|------|
-| Main ROM | "Technics KN5000 FLASH DATA FILE" | 0xE00000 | 2MB |
-| HDAE5000 | "Technics KN5000 HD-AEPRG DATA FILE" | 0x280000 | 512KB |
+| Component | Header                                                                                             | Target Address | Size  |
+|-----------|----------------------------------------------------------------------------------------------------|----------------|-------|
+| Main ROM  | `Technics KN5000 Program  DATA FILE PCK` (type 7; two-disc sets use `... DATA FILE 1/2` and `2/2`) | 0xE00000       | 2MB   |
+| HDAE5000  | `Technics KN5000 HD-AEPRG DATA FILE    `                                                           | 0x280000       | 512KB |
 
 ### Update Process
 
@@ -218,24 +215,24 @@ The floppy subsystem is strictly a data transport. The firmware **never executes
 
 ### Floppy Disk Controller
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| `FDC_INIT` | `0xF96BBF` | FDC hardware initialization |
-| `FDC_CONFIG_VERIFY` | `0xF96BD0` | FDC configuration verification |
-| `FDC_CMD_EXEC` | `0xF976E4` | FDC command execution |
-| `FDC_ReadSectors` | `0xF96E00` | Read sectors from floppy disc |
-| `FDC_WriteSectors` | `0xF97000` | Write sectors to floppy disc |
-| `Check_for_Floppy_Disk_Change` | `0xEF4F5E` | Detect disc insertion/removal |
-| `Detect_Disk_Type` | `0xEF42FE` | Identify update disc type (38-byte signature) |
+| Symbol                         | Address    | Purpose                                       |
+|--------------------------------|------------|-----------------------------------------------|
+| `FDC_INIT`                     | `0xF96BBF` | FDC hardware initialization                   |
+| `FDC_CONFIG_VERIFY`            | `0xF96BD0` | Controller and drive (re)initialization       |
+| `FDC_CMD_EXEC`                 | `0xF976E4` | FDC command execution                         |
+| `FDC_ReadSectors`              | `0xEF42CC` | Read sectors from floppy disc                 |
+| `FDC_WriteSectors`             | `0xEF441B` | Write sectors to floppy disc                  |
+| `Check_for_Floppy_Disk_Change` | `0xF98001` | Detect disc insertion/removal                 |
+| `Detect_Disk_Type`             | `0xEF42FE` | Identify update disc type (38-byte signature) |
 
 ### Flash Memory
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| `Flash_IdentifyAndValidateChip` | `0xEF37A5` | Probe flash chip (AMD/Fujitsu ID) |
-| `Flash_ProgramWord` | `0xEF381A` | Program one word to flash |
-| `FLASH_MEM_UPDATE` | `0xEF4F6F` | Main firmware update entry point |
-| `Erase_and_Burn____when_disk_is_valid` | `0xEF4745` | Update type dispatcher |
+| Symbol                                 | Address    | Purpose                           |
+|----------------------------------------|------------|-----------------------------------|
+| `Flash_IdentifyAndValidateChip`        | `0xEF379A` | Probe flash chip (AMD/Fujitsu ID) |
+| `Flash_ProgramWord`                    | `0xEF3815` | Program one word to flash         |
+| `FLASH_MEM_UPDATE`                     | `0xEF4F6F` | Main firmware update entry point  |
+| `Erase_and_Burn____when_disk_is_valid` | `0xEF4745` | Update type dispatcher            |
 
 ### HDAE5000 Storage
 

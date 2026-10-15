@@ -10,10 +10,10 @@ This page documents the FDC (Floppy Disk Controller) handler routines from the K
 
 There are **two** FDC drivers in the machine, and they are different code:
 
-| driver | where | status |
-|--------|-------|--------|
-| runtime driver | Program ROM 0xF96B13-0xF97E80, `v10/maincpu/storage/fdc_routines.s` | partly symbolic; several routines are still emitted as raw bytes with inline-label comments |
-| first-stage bootloader driver | Table Data ROM 0x9FD8A5-0x9FEA9C, `table_data/boot_fdc_driver.s` | **fully labelled**: 84 labels, byte-matching rebuild |
+| driver                        | where                                                               | status                                                                                           |
+|-------------------------------|---------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
+| runtime driver                | Program ROM 0xF96B13-0xF97E80, `v10/maincpu/storage/fdc_routines.s` | fully disassembled (no `.byte` lines); several routines still carry their original guessed names |
+| first-stage bootloader driver | Table Data ROM 0x9FD8A5-0x9FEA9C, `table_data/boot_fdc_driver.s`    | **fully labelled**: 84 labels, byte-matching rebuild                                             |
 
 The bootloader driver is a compact port of the runtime one, and each of its routine
 headers names its runtime twin. That correspondence is what makes it valuable: it
@@ -60,13 +60,13 @@ SOME_DELAY_Loop:               ; Polling loop
 
 ```asm
 ; Timer configuration at EF042D
-LD (T01MOD), 01dh   ; Timer 0/1 mode: cascade mode, T32 source
+LD (T01MOD), 01dh   ; Timer 0/1 mode = 0x1D (timer 0 is never started; only timer 1 runs)
 LD (TREG0), 00ah    ; Timer 0 reload = 10
 LD (TREG1), 010h    ; Timer 1 reload = 16
 SET 1, (T8RUN)      ; Start Timer 1
 ```
 
-Each `SYSTEM_TIMESTAMP` tick represents approximately **1 millisecond** based on the Timer 0/1 cascade configuration with the 20 MHz system clock.
+Each `SYSTEM_TIMESTAMP` tick is one Timer 1 interrupt. Timer 0 is never started (the only `T8RUN` write at boot, in `shared/boot_hw_init.s`, starts timer 1), so the two 8-bit timers are not cascaded, and the clock is the main CPU's 16 MHz, not the sub CPU's 20 MHz (see [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/)). The tick period has not been measured on hardware: a MAME trace measured about 582 ticks per second, about 1.7 ms per tick (see [SSF Presentation]({{ site.baseurl }}/ssf-presentation/#timer-is-working--song-data-missing-trace-result)). The millisecond figures below assume a 1 ms tick.
 
 ### Delay Formula
 
@@ -76,18 +76,18 @@ Actual_delay_ms = WA / 2
 
 ### Common FDC Delay Values
 
-| WA Value | Effective Delay | Usage Context |
-|----------|-----------------|---------------|
-| 2        | ~1 ms           | Brief settling (FDC_INIT, FDC_STATUS_HANDLER) |
-| 10 (0x0A)| ~5 ms           | Hardware reset settle, FDC_CMD_ENABLE loop |
-| 16 (0x10)| ~8 ms           | Status handler secondary delay |
-| 200 (0xC8)| ~100 ms        | Motor spin-up, long operations |
+| WA Value   | Effective Delay | Usage Context                                             |
+|------------|-----------------|-----------------------------------------------------------|
+| 2          | ~1 ms           | Brief settling (FDC_INIT, FDC_CmdSeek)                    |
+| 10 (0x0A)  | ~5 ms           | Hardware reset settle, FDC_CMD_ENABLE loop                |
+| 16 (0x10)  | ~8 ms           | Seek/recalibrate settle (FDC_CmdSeek, FDC_CmdRecalibrate) |
+| 200 (0xC8) | ~100 ms         | Motor spin-up, long operations                            |
 
 ### Usage in FDC Code
 
 - **FDC_INIT (0xF96BBF)**: `WA=2` - 1ms delay after register setup
 - **FDC_CONFIG_VERIFY**: `WA=2` - Settling delays between operations
-- **FDC_STATUS_HANDLER**: `WA=2`, then `WA=0x10` - Status change delays
+- **FDC_CmdSeek**: `WA=2`, then `WA=0x10` - before and after the SEEK command
 - **FDC_CMD_ENABLE loop (0xF97C40)**: `WA=0x0A` - 5ms delay per ready-check iteration
 - **FDC Reset (0xF97ECF)**: `WA=0x0A` - Reset pulse timing
 
@@ -95,29 +95,29 @@ Actual_delay_ms = WA / 2
 
 ## FDC Memory Map
 
-| Address | Size | Name | Description |
-|---------|------|------|-------------|
-| 0x8A10 | 2 | FDC_DRIVE_TYPE | Drive type identifier |
-| 0x8A16 | 2 | FDC_STATUS_FLAG | Status/ready flag |
-| 0x8A1C | 2 | FDC_SECTOR_COUNT | Sector count register |
-| 0x8A1E | 2 | FDC_SECTOR_SIZE | Sector size (0x200 or 0x400) |
-| 0x8A20 | 1 | FDC_INIT_FLAG | Initialization flag (0xFF=init done) |
-| 0x8A24 | 1 | FDC_ERROR_CODE | Current error code |
-| 0x8A26 | 1 | FDC_CACHED_STATUS | Cached status value |
-| 0x8A28 | 1 | FDC_COMMAND_REG | Command register |
-| 0x8A2B-8A36 | - | FDC_MODE_PARAMS | Mode configuration parameters |
-| 0x8A40 | 2 | FDC_HANDLER_INDEX | Handler dispatch index |
-| 0x8A44 | 2 | FDC_OUTPUT_MODE | Output control mode |
-| 0x8A48 | 2 | FDC_TRACK_NUMBER | Current track number |
-| 0x8A4A | 2 | FDC_TRANSFER_PTR | Data transfer pointer |
-| 0x8A5C | 4 | FDC_XWA_SAVE | XWA register save area |
-| 0x8A68 | 1 | FDC_OPERATION_MODE | Current operation mode |
-| 0x8A6A | 1 | FDC_OUTPUT_FLAG | Output enable flag |
-| 0x8A6C | 1 | FDC_DRIVE_MODE | Drive mode (0-5) |
-| 0x8B00 | 1 | FDC_RESERVED_00 | Reserved |
-| 0x8B04 | 1 | FDC_LAST_STATUS | Last known status |
-| 0x8B0C | 2 | FDC_MAX_TRACK | Maximum track number |
-| 0x8B10 | 2 | FDC_CURRENT_TRACK | Current track cache |
+| Address     | Size | Name                                    | Description                                                         |
+|-------------|------|-----------------------------------------|---------------------------------------------------------------------|
+| 0x8A10      | 2    | FDC_DRIVE_TYPE                          | Drive type identifier                                               |
+| 0x8A16      | 2    | FDC_STATUS_FLAG                         | Status/ready flag                                                   |
+| 0x8A1C      | 2    | FDC_SECTOR_COUNT                        | Sector count register                                               |
+| 0x8A1E      | 2    | FDC_SECTOR_SIZE                         | Sector size (0x200 or 0x400)                                        |
+| 0x8A20      | 1    | FDC_INIT_FLAG                           | Initialization flag (0xFF=init done)                                |
+| 0x8A24      | 1    | FDC_ERROR_CODE                          | Current error code                                                  |
+| 0x8A26      | 1    | FDC_CACHED_STATUS                       | Cached status value                                                 |
+| 0x8A28      | 1    | FDC_COMMAND_REG                         | Command register                                                    |
+| 0x8A2B-8A36 | -    | FDC_MODE_PARAMS                         | Mode configuration parameters                                       |
+| 0x8A40      | 2    | FDC_HANDLER_INDEX                       | Handler dispatch index                                              |
+| 0x8A44      | 2    | FDC_OUTPUT_MODE                         | Output control mode                                                 |
+| 0x8A48      | 2    | FDC_TRACK_NUMBER                        | Current track number                                                |
+| 0x8A4A      | 2    | FDC_TRANSFER_PTR                        | Data transfer pointer                                               |
+| 0x8A5C      | 4    | FDC_XWA_SAVE                            | XWA register save area                                              |
+| 0x8A68      | 1    | FDC_OPERATION_MODE                      | Current operation mode                                              |
+| 0x8A6A      | 1    | FDC_OUTPUT_FLAG                         | Output enable flag                                                  |
+| 0x8A6C      | 1    | FDC_DRIVE_MODE                          | Drive mode (0-5)                                                    |
+| 0x8B00      | 1    | FDC_RESERVED_00                         | Reserved                                                            |
+| 0x8B04      | 1    | — (the source calls it the track cache) | Cylinder last sought to (0xFF = unknown); compared by `FDC_CmdSeek` |
+| 0x8B0C      | 2    | FDC_MAX_TRACK                           | Maximum track number                                                |
+| 0x8B10      | 2    | FDC_CURRENT_TRACK                       | Current track cache                                                 |
 
 Named in the source since 2026-10-03 (each maincpu tree's `shared/ram_variables.s`; v7 0x9C lower), only
 where the code agrees with this table: `FDC_SECTOR_COUNT` (0x8A1C, cleared per command, `incw` per
@@ -128,33 +128,33 @@ which this table's `FDC_MODE_PARAMS` range and reverse-engineering.md's "address
 
 ## Routine Addresses
 
-| Address | Name | Description |
-|---------|------|-------------|
-| 0xF96BBF | FDC_INIT | Basic FDC initialization |
-| 0xF96BD0 | FDC_CONFIG_VERIFY | Configuration and status verification |
-| 0xF96D95 | FDC_CMD_DISPATCH_SUB | Command handler subroutine |
-| 0xF97696 | FDC_STATUS_HANDLER | Status/interrupt handler |
-| 0xF976E4 | FDC_CMD_EXEC | Command execution handler |
-| 0xF97835 | FDC_SECTOR_XFER | Sector/data transfer handler |
-| 0xF97984 | FDC_MODE_CONFIG | Mode configuration (Handler 5) |
-| 0xF97C21 | FDC_CMD_ENABLE | Command enable setup |
-| 0xF97C4B | FDC_CMD_DISABLE | Command disable |
-| 0xF97C54 | FDC_STATUS_COPY | Copy cached status |
-| 0xF97C5B | FDC_OUTPUT_CTRL | Output control |
-| 0xF97C7C | FDC_INTERRUPT_HANDLER | Main interrupt handler |
+| Address  | Name                  | Description                                 |
+|----------|-----------------------|---------------------------------------------|
+| 0xF96BBF | FDC_INIT              | Basic FDC initialization                    |
+| 0xF96BD0 | FDC_CONFIG_VERIFY     | Controller and drive (re)initialization     |
+| 0xF96D95 | FDC_CMD_DISPATCH_SUB  | Command handler subroutine                  |
+| 0xF97696 | FDC_CmdSeek           | Seek to the target cylinder (FDC command 2) |
+| 0xF976E4 | FDC_CMD_EXEC          | Command execution handler                   |
+| 0xF97835 | FDC_SECTOR_XFER       | Sector/data transfer handler                |
+| 0xF97984 | FDC_MODE_CONFIG       | Mode configuration (Handler 5)              |
+| 0xF97C21 | FDC_CMD_ENABLE        | Command enable setup                        |
+| 0xF97C4B | FDC_CMD_DISABLE       | Command disable                             |
+| 0xF97C54 | FDC_STATUS_COPY       | Copy cached status                          |
+| 0xF97C5B | FDC_OUTPUT_CTRL       | Output control                              |
+| 0xF97C7C | FDC_INTERRUPT_HANDLER | Main interrupt handler                      |
 
 ## Helper Routine Addresses
 
-| Address | Name | Description | Status |
-|---------|------|-------------|--------|
-| 0xF97612 | SOME_DELAY | Millisecond delay using SYSTEM_TIMESTAMP | **Documented** |
-| 0xF97544 | FDC_DRIVE_DETECT | FDC drive detection routine | Raw bytes |
-| 0xF97592 | FDC_DRIVE_STATUS | FDC drive status routine | Raw bytes |
-| 0xF975AC | FDC_PRE_OP_CHECK | FDC pre-operation check | Raw bytes |
-| 0xF975DC | FDC_TIMING_DELAY | FDC timing/delay routine | Raw bytes |
-| 0xF975E2 | FDC_POST_OP | FDC post-operation routine | Raw bytes |
-| 0xF972F9 | FDC_CMD_SEND | FDC command send routine | Raw bytes |
-| 0xF974FE | FDC_DETECT_CHECK | FDC detection check routine | Raw bytes |
+| Address  | Name             | Description                                         | Status         |
+|----------|------------------|-----------------------------------------------------|----------------|
+| 0xF97612 | SOME_DELAY       | Millisecond delay using SYSTEM_TIMESTAMP            | **Documented** |
+| 0xF97544 | FDC_DRIVE_DETECT | FDC drive detection routine                         | Disassembled   |
+| 0xF97592 | FDC_DRIVE_STATUS | FDC drive status routine                            | Disassembled   |
+| 0xF975AC | FDC_PRE_OP_CHECK | No-op (a bare `ret`)                                | Disassembled   |
+| 0xF975DC | FDC_TIMING_DELAY | Marks the result buffer empty (`ld (0x8A60), 0xFF`) | Disassembled   |
+| 0xF975E2 | FDC_POST_OP      | FDC post-operation routine                          | Disassembled   |
+| 0xF972F9 | FDC_CMD_SEND     | FDC command send routine                            | Disassembled   |
+| 0xF974FE | FDC_DETECT_CHECK | FDC detection check routine                         | Disassembled   |
 
 ---
 
@@ -162,7 +162,7 @@ which this table's `FDC_MODE_PARAMS` range and reverse-engineering.md's "address
 
 ### FDC_INIT (0xF96BBF) - Basic FDC Initialization
 
-Sets up FDC control register to 0xFF.
+Sends auxiliary command 36h (software reset), waits, and marks the cached head cylinder at 0x8B04 unknown (0xFF), which forces the next seek.
 
 ```asm
 FDC_INIT:                   ; F96BBF
@@ -176,7 +176,7 @@ FDC_INIT:                   ; F96BBF
 
 ### FDC_CONFIG_VERIFY (0xF96BD0) - Configuration/Status Verification
 
-Complex routine that validates FDC status through multiple checks.
+(Re)initialises the controller and drive: software reset, drain pending interrupts, SPECIFY, select format, media-type configuration, motor on and recalibrate.
 
 ```asm
 FDC_CONFIG_VERIFY:          ; F96BD0
@@ -209,53 +209,33 @@ FDC_CONFIG_L1:              ; F96BEB
     JR Z, FDC_CONFIG_L3
     LD (8A20h), 0
     JRL T, FDC_CONFIG_EXIT
-FDC_CONFIG_L3:              ; F96C2A
+FDC_CONFIG_L3:              ; F96C2A - drain pending interrupts
     CALR FDC_Read_Status
-    BIT 7, L
-    JR NZ, FDC_CONFIG_L4
-    LD WA, 0032h
-    CALR FDC_Set_Status
-    JR T, FDC_CONFIG_L5
-FDC_CONFIG_L4:              ; F96C3A
-    LD WA, 0031h
-    CALR FDC_Set_Status
-FDC_CONFIG_L5:              ; F96C3F
-    CALR FDC_Read_Status
-    BIT 6, L
-    JR Z, FDC_CONFIG_L6
-    LD WA, 002Fh
-    CALR FDC_Set_Status
-FDC_CONFIG_L6:              ; F96C4C
-    CALR FDC_Read_Status
-    CP L, 0FFh
-    JR NZ, FDC_CONFIG_L7
-    LD WA, 00FCh
-    CALR FDC_Set_Status
-    JR T, FDC_CONFIG_EXIT
-FDC_CONFIG_L7:              ; F96C5C
-    LD WA, 0001h
-    CALR FDC_Set_Status
-    CALR FDC_DRIVE_DETECT
-    CP HL, 0FFFFh
-    JR Z, FDC_CONFIG_L2
-    LD WA, 0001h
-    CALR FDC_Set_Status
-    CALR FDC_DRIVE_STATUS
-    CP HL, 0FFFFh
-    JR NZ, FDC_CONFIG_L8
+    BIT 7, L                ; wait for RQM
+    JR Z, FDC_CONFIG_L3
+    ...                     ; if DIO=0: wait, then write 08h (SENSE INTERRUPT STATUS)
+    ...                     ; read the result bytes into 8A61h..
+    CALR FDC_Exception_Status_Decoder
+    CP (8A61h), 80h         ; ST0 = 80h: nothing pending
+    JR NZ, FDC_CONFIG_L3
 FDC_CONFIG_L2:              ; F96C7B
+    LD WA, 3                ; SPECIFY
+    CALR FDC_CMD_SEND
+    LD WA, 4Fh              ; aux: select format
+    CALR FDC_CMD_SEND
+    ...                     ; switch on (8A6Eh) & 0Fh via FDC_WaitReady_CaseTable:
+                            ; drive mode 0-5 -> (8A6Ch), rate bits
+    ...                     ; aux: rate | 0Bh (control internal mode)
+    CALR FDC_CMD_ENABLE     ; motor on
+    CALR FDC_CmdRecalibrate
     LD (8A20h), 0
-    LD (8B04h), 0FFh
-    JR T, FDC_CONFIG_EXIT
-FDC_CONFIG_L8:              ; F96C88
-    LD WA, 0036h
-    CALR FDC_Send_Command
-    LD WA, 2
-    CALR SOME_DELAY
 FDC_CONFIG_EXIT:            ; F96D93
     POP XIZ
     RET
 ```
+
+Each `FDC_CMD_SEND` call and the `FDC_CMD_ENABLE` call is followed by `CP (8A24h), 0`; on an
+error the routine clears `8A20h` and exits.
 
 ### FDC_CMD_DISPATCH_SUB (0xF96D95) - Command Handler Subroutine
 
@@ -278,12 +258,12 @@ FDC_H10_OK:                 ; F96DAE
     RET
 ```
 
-### FDC_STATUS_HANDLER (0xF97696) - Status/Interrupt Handler
+### FDC_CmdSeek (0xF97696) - Seek Handler
 
-Checks and updates FDC status, handles interrupts.
+Seeks the head to the target cylinder (0x8A36) unless the cached cylinder (0x8B04) already matches; on error invalidates the cache (0xFF). Renamed from the misnomer `FDC_STATUS_HANDLER` on 2026-08-21.
 
 ```asm
-FDC_STATUS_HANDLER:         ; F97696
+FDC_CmdSeek:                ; F97696
     LD A, (8A36h)
     CP A, (8B04h)
     RET Z
@@ -295,14 +275,14 @@ FDC_STATUS_HANDLER:         ; F97696
     CALR FDC_CMD_SEND
     CALR FDC_POST_OP
     CP (8A24h), 0
-    JR Z, FDC_SH_L1
+    JR Z, FDC_CmdSeek_Skip
     LD (8B04h), 0FFh
-FDC_SH_L1:                  ; F976C3
+FDC_CmdSeek_Skip:           ; F976C3
     LD WA, 0010h
     JRL T, SOME_DELAY
 
-; Secondary status handler
-FDC_STATUS_HANDLER_2:       ; F976C9
+; Submit MT|MF READ DATA (C6h), DMA3 armed
+FDC_SubmitReadDataCmd:      ; F976C9
     LD (8A28h), 0C6h
     CALR FDC_Setup_DMA_Mode
     CALR FDC_TIMING_DELAY
@@ -337,7 +317,7 @@ FDC_CE_L2:                  ; F97703
 
 FDC_CE_PROCESS:             ; F9770B
     LD (8A24h), 0
-    CALR FDC_STATUS_HANDLER
+    CALR FDC_CmdSeek
     CP (8A24h), 0
     JR Z, FDC_CE_L3
     LD A, (8A24h)
@@ -354,7 +334,7 @@ FDC_CE_L3:                  ; F97730
     LD (8A48h), 0001h
 FDC_CE_L4:                  ; F97740
     LDW (8B10h), (8A48h)
-    LD (001Ch), 0
+    LDW (8A1Ch), 0          ; FDC_SECTOR_COUNT
     ; ... continues with more sector handling
 ```
 
@@ -539,7 +519,7 @@ reached when DMA3 is not armed.
 ## Handler Dispatch Table (0xF97D8D)
 
 The runtime driver dispatches through the 12-entry `u16` offset table
-`FDC_HANDLER_OFFSETS` at **0xEA98CA**, whose entries are relative to
+`FDC_CommandEntry_CopyParams_CaseTable` (formerly `FDC_HANDLER_OFFSETS`) at **0xEA98CA**, whose entries are relative to
 `FDC_HANDLER_DISPATCH_BASE` at 0xF97D8D. The offsets in the ROM are
 `0, 5, 13, 21, 29, 37, 45, 50, 55, 60, 65, 70`, which gives the handler entry points
 below. These are the offsets read out of `kn5000_v10_program.rom`, and they agree with
@@ -548,20 +528,20 @@ below. These are the offsets read out of `kn5000_v10_program.rom`, and they agre
 The index is the **command number** of the request — the same numbering the bootloader
 driver uses, which is how the "Command" column below is known:
 
-| Cmd | Offset | Address | Handler | Body | Command meaning |
-|-----|--------|---------|---------|------|-----------------|
-| 0 | 0 | 0xF97D8D | `FDC_HANDLER_DISPATCH_BASE` | `FDC_InitSequence_Full` | initialize |
-| 1 | 5 | 0xF97D92 | `FDC_HANDLER_01` | `FDC_CMD_ENABLE` + `FDC_CmdRecalibrate` | recalibrate |
-| 2 | 13 | 0xF97D9A | `FDC_HANDLER_02` | `FDC_CMD_ENABLE` + `FDC_STATUS_HANDLER` | **seek** |
-| 3 | 21 | 0xF97DA2 | `FDC_HANDLER_03` | `FDC_CMD_ENABLE` + `FDC_CMD_EXEC` | **read sectors** |
-| 4 | 29 | 0xF97DAA | `FDC_HANDLER_04` | `FDC_CMD_ENABLE` + `FDC_SECTOR_XFER` | **write sectors** |
-| 5 | 37 | 0xF97DB2 | `FDC_HANDLER_05` | `FDC_CMD_ENABLE` + `FDC_MODE_CONFIG` | **format** |
-| 6 | 45 | 0xF97DBA | `FDC_HANDLER_06` | `FDC_CMD_ENABLE` only | motor on |
-| 7 | 50 | 0xF97DBF | `FDC_HANDLER_07` | `FDC_CMD_DISABLE` | motor off |
-| 8 | 55 | 0xF97DC4 | `FDC_HANDLER_08` | `FDC_STATUS_COPY` | get last error |
-| 9 | 60 | 0xF97DC9 | `FDC_HANDLER_09` | `FDC_OUTPUT_CTRL` | set disk-changed |
-| 10 | 65 | 0xF97DCE | `FDC_HANDLER_10` | `FDC_CMD_DISPATCH_SUB` | controller reset |
-| 11 | 70 | 0xF97DD3 | `FDC_HANDLER_11` | `FDC_CMD_ENABLE` + `FDC_INTERRUPT_HANDLER` | sense drive status |
+| Cmd | Offset | Address  | Handler                     | Body                                       | Command meaning    |
+|-----|--------|----------|-----------------------------|--------------------------------------------|--------------------|
+| 0   | 0      | 0xF97D8D | `FDC_HANDLER_DISPATCH_BASE` | `FDC_InitSequence_Full`                    | initialize         |
+| 1   | 5      | 0xF97D92 | `FDC_HANDLER_01`            | `FDC_CMD_ENABLE` + `FDC_CmdRecalibrate`    | recalibrate        |
+| 2   | 13     | 0xF97D9A | `FDC_HANDLER_02`            | `FDC_CMD_ENABLE` + `FDC_CmdSeek`           | **seek**           |
+| 3   | 21     | 0xF97DA2 | `FDC_HANDLER_03`            | `FDC_CMD_ENABLE` + `FDC_CMD_EXEC`          | **read sectors**   |
+| 4   | 29     | 0xF97DAA | `FDC_HANDLER_04`            | `FDC_CMD_ENABLE` + `FDC_SECTOR_XFER`       | **write sectors**  |
+| 5   | 37     | 0xF97DB2 | `FDC_HANDLER_05`            | `FDC_CMD_ENABLE` + `FDC_MODE_CONFIG`       | **format**         |
+| 6   | 45     | 0xF97DBA | `FDC_HANDLER_06`            | `FDC_CMD_ENABLE` only                      | motor on           |
+| 7   | 50     | 0xF97DBF | `FDC_HANDLER_07`            | `FDC_CMD_DISABLE`                          | motor off          |
+| 8   | 55     | 0xF97DC4 | `FDC_HANDLER_08`            | `FDC_STATUS_COPY`                          | get last error     |
+| 9   | 60     | 0xF97DC9 | `FDC_HANDLER_09`            | `FDC_OUTPUT_CTRL`                          | set disk-changed   |
+| 10  | 65     | 0xF97DCE | `FDC_HANDLER_10`            | `FDC_CMD_DISPATCH_SUB`                     | controller reset   |
+| 11  | 70     | 0xF97DD3 | `FDC_HANDLER_11`            | `FDC_CMD_ENABLE` + `FDC_INTERRUPT_HANDLER` | sense drive status |
 
 All handlers end by jumping to `FDC_Handler_ExitStatus`, which sets the status flag and returns.
 
@@ -571,22 +551,22 @@ The runtime driver's routine names were assigned before the command numbering wa
 and several of them describe the wrong thing. The bootloader twin (which *is* organised
 by command) settles them:
 
-| Runtime name | Actually | Bootloader twin |
-|--------------|----------|-----------------|
-| `FDC_STATUS_HANDLER` (0xF97696) | the **SEEK** handler — a misnomer | `FDC_CmdSeek` |
-| `FDC_CMD_EXEC` (0xF976E4) | read sectors | `FDC_CmdReadSectors` |
-| `FDC_SECTOR_XFER` (0xF97835) | write sectors | `FDC_CmdWriteSectors` |
-| `FDC_MODE_CONFIG` (0xF97984) | format | `FDC_CmdFormat` |
-| `FDC_CMD_ENABLE` (0xF97C21) | motor on | `FDC_CmdMotorOn` |
-| `FDC_CMD_DISABLE` (0xF97C4B) | motor off | `FDC_CmdMotorOff` |
-| `FDC_STATUS_COPY` (0xF97C54) | get last error | `FDC_CmdGetLastError` |
-| `FDC_OUTPUT_CTRL` (0xF97C5B) | set disk-changed | `FDC_CmdSetDiskChanged` |
-| `FDC_CMD_DISPATCH_SUB` (0xF96D95) | controller reset | `FDC_CmdControllerReset` |
-| `FDC_INTERRUPT_HANDLER` (0xF97C7C) | sense drive status | `FDC_CmdSenseDriveStatus` |
+| Runtime name                                            | Actually                                           | Bootloader twin           |
+|---------------------------------------------------------|----------------------------------------------------|---------------------------|
+| `FDC_CmdSeek` (0xF97696), formerly `FDC_STATUS_HANDLER` | the **SEEK** handler — the old name was a misnomer | `FDC_CmdSeek`             |
+| `FDC_CMD_EXEC` (0xF976E4)                               | read sectors                                       | `FDC_CmdReadSectors`      |
+| `FDC_SECTOR_XFER` (0xF97835)                            | write sectors                                      | `FDC_CmdWriteSectors`     |
+| `FDC_MODE_CONFIG` (0xF97984)                            | format                                             | `FDC_CmdFormat`           |
+| `FDC_CMD_ENABLE` (0xF97C21)                             | motor on                                           | `FDC_CmdMotorOn`          |
+| `FDC_CMD_DISABLE` (0xF97C4B)                            | motor off                                          | `FDC_CmdMotorOff`         |
+| `FDC_STATUS_COPY` (0xF97C54)                            | get last error                                     | `FDC_CmdGetLastError`     |
+| `FDC_OUTPUT_CTRL` (0xF97C5B)                            | set disk-changed                                   | `FDC_CmdSetDiskChanged`   |
+| `FDC_CMD_DISPATCH_SUB` (0xF96D95)                       | controller reset                                   | `FDC_CmdControllerReset`  |
+| `FDC_INTERRUPT_HANDLER` (0xF97C7C)                      | sense drive status                                 | `FDC_CmdSenseDriveStatus` |
 
-The maincpu source still carries the old names, and so do the tables earlier on this
-page; renaming them repo-wide is an open follow-up. `FDC_SeekRecalibrate` is already
-`FDC_CmdRecalibrate`.
+The maincpu source still carries the old names for all of these except the seek handler,
+which was renamed `FDC_CmdSeek` on 2026-08-21 (and `FDC_SeekRecalibrate`, now
+`FDC_CmdRecalibrate`); renaming the rest repo-wide is an open follow-up.
 
 ---
 
@@ -671,20 +651,20 @@ error 0xFF.
 
 ### Commands
 
-| Cmd | Handler (boot addr) | Runtime twin |
-|-----|---------------------|--------------|
-| 0 | `FDC_CmdInitialize` (0xFFE2BD) | `FDC_InitSequence_Full` |
-| 1 | `FDC_CmdRecalibrate` (0xFFE2D6) | `FDC_CmdRecalibrate` |
-| 2 | `FDC_CmdSeek` (0xFFE31A) | `FDC_STATUS_HANDLER` |
-| 3 | `FDC_CmdReadSectors` (0xFFE368) | `FDC_CMD_EXEC` |
-| 4 | `FDC_CmdWriteSectors` (0xFFE4AA) | `FDC_SECTOR_XFER` |
-| 5 | `FDC_CmdFormat` (0xFFE5FE) | `FDC_MODE_CONFIG` |
-| 6 | `FDC_CmdMotorOn` (0xFFE89B) | `FDC_CMD_ENABLE` |
-| 7 | `FDC_CmdMotorOff` (0xFFE8C5) | `FDC_CMD_DISABLE` |
-| 8 | `FDC_CmdGetLastError` (0xFFE8CE) | `FDC_STATUS_COPY` |
-| 9 | `FDC_CmdSetDiskChanged` (0xFFE8D5) | `FDC_OUTPUT_CTRL` |
-| 10 | `FDC_CmdControllerReset` (0xFFDA6A) | `FDC_CMD_DISPATCH_SUB` |
-| 11 | `FDC_CmdSenseDriveStatus` (0xFFE8F6) | `FDC_INTERRUPT_HANDLER` |
+| Cmd | Handler (boot addr)                  | Runtime twin            |
+|-----|--------------------------------------|-------------------------|
+| 0   | `FDC_CmdInitialize` (0xFFE2BD)       | `FDC_InitSequence_Full` |
+| 1   | `FDC_CmdRecalibrate` (0xFFE2D6)      | `FDC_CmdRecalibrate`    |
+| 2   | `FDC_CmdSeek` (0xFFE31A)             | `FDC_CmdSeek`           |
+| 3   | `FDC_CmdReadSectors` (0xFFE368)      | `FDC_CMD_EXEC`          |
+| 4   | `FDC_CmdWriteSectors` (0xFFE4AA)     | `FDC_SECTOR_XFER`       |
+| 5   | `FDC_CmdFormat` (0xFFE5FE)           | `FDC_MODE_CONFIG`       |
+| 6   | `FDC_CmdMotorOn` (0xFFE89B)          | `FDC_CMD_ENABLE`        |
+| 7   | `FDC_CmdMotorOff` (0xFFE8C5)         | `FDC_CMD_DISABLE`       |
+| 8   | `FDC_CmdGetLastError` (0xFFE8CE)     | `FDC_STATUS_COPY`       |
+| 9   | `FDC_CmdSetDiskChanged` (0xFFE8D5)   | `FDC_OUTPUT_CTRL`       |
+| 10  | `FDC_CmdControllerReset` (0xFFDA6A)  | `FDC_CMD_DISPATCH_SUB`  |
+| 11  | `FDC_CmdSenseDriveStatus` (0xFFE8F6) | `FDC_INTERRUPT_HANDLER` |
 
 `FDC_CmdInitialize` does a display refresh and a TC pulse, clears the disk-changed and
 media-removed flags, enables INT4/INTTC3, strobes a software reset and then runs
@@ -753,55 +733,56 @@ of `Check_for_Floppy_Disk_Change` and reads the same active-low Port D bit 6.
 
 ## Code References
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| `SOME_DELAY` | `0xF97612` | Millisecond-scale timing delay (polls SYSTEM_TIMESTAMP) |
-| `FDC_INIT` | `0xF96BBF` | Basic FDC initialization (set control to 0xFF) |
-| `FDC_CONFIG_VERIFY` | `0xF96BD0` | Configuration and multi-step status verification |
-| `FDC_CMD_DISPATCH_SUB` | `0xF96D95` | Primary command handler subroutine |
-| `FDC_STATUS_HANDLER` | `0xF97696` | Status/interrupt polling and update |
-| `FDC_CMD_EXEC` | `0xF976E4` | Command execution with detection/validation |
-| `FDC_SECTOR_XFER` | `0xF97835` | Sector/data transfer handler |
-| `FDC_MODE_CONFIG` | `0xF97984` | Mode configuration (modes 0-5) |
-| `FDC_CMD_ENABLE` | `0xF97C21` | Enable FDC command interface |
-| `FDC_CMD_DISABLE` | `0xF97C4B` | Disable FDC command interface |
-| `FDC_STATUS_COPY` | `0xF97C54` | Copy cached status register |
-| `FDC_OUTPUT_CTRL` | `0xF97C5B` | FDC output enable/disable control |
-| `FDC_INTERRUPT_HANDLER` | `0xF97C7C` | Main FDC interrupt handler |
-| `FDC_ByteTransfer_PIO` | `0xF97DEE` | PIO fallback byte transfer (see the '+2 quirk' above) |
-| `FDC_ReadSectors` | `0xF96E00` | Read sectors from floppy disc |
-| `FDC_WriteSectors` | `0xF97000` | Write sectors to floppy disc |
-| `Check_for_Floppy_Disk_Change` | `0xEF4F5E` | Detect disc insertion/removal (Port D bit 6) |
-| `FDC_InitRecalibrate` | `0xF97E00` | Recalibrate drive head to track 0 |
+| Symbol                         | Address    | Purpose                                                                                                      |
+|--------------------------------|------------|--------------------------------------------------------------------------------------------------------------|
+| `SOME_DELAY`                   | `0xF97612` | Millisecond-scale timing delay (polls SYSTEM_TIMESTAMP)                                                      |
+| `FDC_INIT`                     | `0xF96BBF` | Software reset (aux 36h); invalidates the track cache (0x8B04 = 0xFF)                                        |
+| `FDC_CONFIG_VERIFY`            | `0xF96BD0` | Controller and drive (re)initialization (reset, SPECIFY, media setup, recalibrate)                           |
+| `FDC_CMD_DISPATCH_SUB`         | `0xF96D95` | Primary command handler subroutine                                                                           |
+| `FDC_CmdSeek`                  | `0xF97696` | Seek to the target cylinder (FDC command 2)                                                                  |
+| `FDC_CMD_EXEC`                 | `0xF976E4` | Command execution with detection/validation                                                                  |
+| `FDC_SECTOR_XFER`              | `0xF97835` | Sector/data transfer handler                                                                                 |
+| `FDC_MODE_CONFIG`              | `0xF97984` | Mode configuration (modes 0-5)                                                                               |
+| `FDC_CMD_ENABLE`               | `0xF97C21` | Enable FDC command interface                                                                                 |
+| `FDC_CMD_DISABLE`              | `0xF97C4B` | Disable FDC command interface                                                                                |
+| `FDC_STATUS_COPY`              | `0xF97C54` | Copy cached status register                                                                                  |
+| `FDC_OUTPUT_CTRL`              | `0xF97C5B` | FDC output enable/disable control                                                                            |
+| `FDC_INTERRUPT_HANDLER`        | `0xF97C7C` | Main FDC interrupt handler                                                                                   |
+| `FDC_ByteTransfer_PIO`         | `0xF97DEE` | PIO fallback byte transfer (see the '+2 quirk' above)                                                        |
+| `FDC_ReadSectors`              | `0xEF42CC` | Read sectors from floppy disc (update path, command 3)                                                       |
+| `FDC_WriteSectors`             | `0xEF441B` | Write sectors to floppy disc                                                                                 |
+| `Check_for_Floppy_Disk_Change` | `0xF98001` | Detect disc insertion/removal (Port D bit 6)                                                                 |
+| `FDC_InitRecalibrate`          | `0xEF4241` | Re-initialize the drive (command 0, media code 0xD3, ending in a recalibrate); `FDC_ReadSectors`' retry path |
 
 ## MAME Emulation Status
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| FDC device | **Working** | UPD72067 at 0x110008/0x11000A, 32MHz clock |
-| DMA data port | **Working** | 0x120000 for software DMA channel 3 |
-| IRQ routing | **Working** | INT4 (command complete), INT5 (DRQ) |
-| Floppy connector | **Working** | 3.5" HD (1.44MB, default) and DD (720K), MFI format supported |
-| TC signal | **Working** | Timer 0 match output pulses FDC Terminal Count: `m_maincpu->to0_callback().set(m_fdc, FUNC(upd72067_device::tc_line_w))` |
-| Disk images | **Available** | v5-v10 firmware update disks from [archive.org](https://archive.org/details/technics-kn5000-system-update-disks) |
-| Disk change detect | **Working** | Port D bit 6 — `dskchg_r()` inverted for the active-low hardware signal |
+> This table describes the **kn7000_mame overlay** build. In mainline MAME the `UPD72067` is instantiated but not mapped (`//FIXME: map(0x110000, ...)`), Port D bit 6 is unimplemented and no TC is wired, so a floppy cannot be read there yet; mainline offers only the `35hd` drive (mamedev/mame#16415).
 
-**Test command:** `mame kn5000 -flop <disk_image.mfi>`
+| Component          | Status                     | Notes                                                                                                                                                                                                                                                                                        |
+|--------------------|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| FDC device         | **Working**                | UPD72067 at 0x110008/0x11000A, 32MHz clock                                                                                                                                                                                                                                                   |
+| DMA data port      | **Working**                | 0x120000 for software DMA channel 3                                                                                                                                                                                                                                                          |
+| IRQ routing        | **Working**                | INT4 (command complete), INT5 (DRQ)                                                                                                                                                                                                                                                          |
+| Floppy connector   | **Working**                | 3.5" HD (1.44MB, default) and DD (720K), MFI format supported                                                                                                                                                                                                                                |
+| TC signal          | **Working (overlay only)** | Port H bit 0, strobed by the firmware's `FDC_Pulse_PH0` (from `INTTC3_HANDLER` at each DMA-3 end, at the end of a PIO transfer, and in `FDC_InitSequence_Full`): `m_maincpu->porth_write().set([this] (u8 data) { m_fdc->tc_w(BIT(data, 0)); })` (kn7000_mame 240a41f). Mainline wires no TC |
+| Disk images        | **Available**              | v5-v10 firmware update disks from [archive.org](https://archive.org/details/technics-kn5000-system-update-disks); mainline also ships the `hash/kn5000_flop.xml` software list (14 FAT12 reconstructions, mamedev/mame#16415)                                                                |
+| Disk change detect | **Working**                | Port D bit 6 — `dskchg_r()` inverted for the active-low hardware signal                                                                                                                                                                                                                      |
+
+**Test command (overlay build):** `mame kn5000 -flop <disk_image.mfi>`
 
 ### Disk Change Signal (Port D Bit 6)
 
-The firmware's `Check_for_Floppy_Disk_Change` (at 0xEF4F5E) reads Port D bit 6 before issuing any FDC commands. This signal is active-low on the hardware (low = disk change detected). MAME's `floppy_image_device::dskchg_r()` returns active-high (1 = change detected), so the signal must be inverted: `(!floppy->dskchg_r()) << 6`. Without this inversion, the firmware always shows "ERROR 02! There is no disk in the disk drive."
+The firmware's `Check_for_Floppy_Disk_Change` (at 0xF98001) reads Port D bit 6 before issuing any FDC commands. This signal is active-low on the hardware (low = disk change detected). MAME's `floppy_image_device::dskchg_r()` returns active-high (1 = change detected), so the signal must be inverted: `(!floppy->dskchg_r()) << 6`. Without this inversion, the firmware always shows "ERROR 02! There is no disk in the disk drive."
 
 ### Terminal Count (TC)
 
-TC terminates a multi-sector FDC transfer. Without it, an FDC Read Data command never completes,
-because `upd765::tc_done` is never set. The Main CPU's Timer 0 match output drives it: the
-TMP94C241 device exposes `to0_callback()`, and the driver binds it to the FDC's TC input:
-
-```cpp
-// TC0: FDCTC — Timer 0 match output pulses FDC Terminal Count
-m_maincpu->to0_callback().set(m_fdc, FUNC(upd72067_device::tc_line_w));
-```
+TC terminates a multi-sector FDC transfer; without it a READ DATA never completes. The line
+is Port H bit 0 (IC5 pin 145, PH0/TC0): boot leaves PH.0 as plain GPIO (PHFC = 0x1E), and
+the firmware strobes it in `FDC_Pulse_PH0`, called from `INTTC3_HANDLER` when DMA channel 3
+finishes, at the end of a PIO transfer and during initialization. An earlier driver bound
+`to0_callback()`, the timer-0 match output, but this firmware never starts timer 0, so that
+TC never fired. The overlay binds bit 0 of `m_maincpu->porth_write()` to `m_fdc->tc_w()`
+(kn7000_mame 240a41f, 2026-09-03).
 
 ---
 
@@ -814,4 +795,4 @@ m_maincpu->to0_callback().set(m_fdc, FUNC(upd72067_device::tc_line_w));
 
 ---
 
-*Last updated: August 2026*
+*Last updated: October 2026*

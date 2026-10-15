@@ -174,12 +174,12 @@ Multiple ring buffer instances exist for different sequencer channels. The core 
 
 ### Additional Buffer Instances
 
-| Buffer | Base Address | Read Routine | Write Routine |
-|--------|-------------|--------------|---------------|
-| SeqAlt1 | 0x01F785 | `SeqAlt1_ReadByte` (0xEF280E) | — |
-| SeqAlt2 | 0x01FCA3 | — | `SeqAlt2_WriteByte` (0xEF2A25) |
-| SeqAlt3 | 0x0201C1 | `SeqAlt3_ReadByte` (0xEF2C22) | — |
-| SeqAlt4 | 0x0204DF | `SeqAlt4_ReadByte` (0xEF2E2C) | — |
+| Buffer    | Base Address | Read Routine                           | Write Routine                          |
+|-----------|--------------|----------------------------------------|----------------------------------------|
+| MidiOut   | 0x01F785     | `SeqBuf_MidiOut_ReadByte` (0xEF280E)   | —                                      |
+| DspSysEx  | 0x01FCA3     | —                                      | `SeqBuf_DspSysEx_WriteByte` (0xEF2A25) |
+| VoiceMap  | 0x0201C1     | `SeqBuf_VoiceMap_ReadByte` (0xEF2C22)  | —                                      |
+| SoundEdit | 0x0204DF     | `SeqBuf_SoundEdit_ReadByte` (0xEF2E2C) | —                                      |
 
 ### Event Processing
 
@@ -242,18 +242,18 @@ The Feature Demo uses the sequencer engine to play pre-recorded demonstration so
 
 ### Demo Mode State
 
-The demo mode handler `SeqState_DemoModeHandler` (0xF993AD) responds to event `0x01c00013`. During demo playback:
+The demo mode handler `SeqState_DemoModeHandler` (0xF993AD) responds to event `EVT_ACTIVATE_STATE` (`0x01c00013`). During demo playback:
 
-1. State transitions to 0xE0 (`DemoMode_Main_Operation` entry)
-2. State transitions to 0xE4 (`DemoMode_Initialize` completion)
+1. The current title (`CURRENT_TITLE`, 0x8D36) becomes 0xE0, `TT_DEMOMENU` (`DemoMode_Main_Operation` entry)
+2. The current title becomes 0xE4, `TT_DEMOFEATURE` (`DemoMode_Initialize` completion)
 3. Startup flag at `0x0251D8` controls whether `Seq_StartMainControlAlt` configures audio hardware
 
-### Demo Song Data
+### Built-in demo/default style image
 
-Style/rhythm preset data at `Demo_StyleRhythmData` (0xF5CFCC) contains:
+The built-in demo/default style image `Demo_StyleRhythmData` (0xF5CFCC, 0x674 bytes, copied to 0x94800 by the `AccDemo_*` loaders) contains:
 - Rhythm/style parameter bytes (96 bytes)
 - ASCII variation names: "a-variation1" through "c-variation4" (12 variations)
-- Section names: "a-intro 1", "a-fill in 1", "a-ending 1", etc. (24 sections)
+- Section names: " a-intro 1", " a-fill in 1", " a-ending 1", etc. (18 sections; 30 names with the variations)
 
 ## Medley Playback System
 
@@ -261,17 +261,17 @@ The KN5000 supports several medley playback modes for playing multiple songs in 
 
 ### Medley Types
 
-| Type | Function | Description |
-|------|----------|-------------|
-| Internal Medley | `FmmIntMedleyFunc` | Plays user-recorded sequences stored in SRAM |
-| Disk Medley | `FmmDiskMedleySelectFunc` | Plays sequences from floppy disk |
-| SMF Medley | `FmmSmfMedleyFunc` | Plays Standard MIDI Files |
-| Performance Data | `FmmPdMedleyFunc` | Plays performance data files |
-| Document Medley | `FmmDocMedleyFunc` | Plays document files |
+| Type             | Function                  | Description                                              |
+|------------------|---------------------------|----------------------------------------------------------|
+| Internal Medley  | `FmmIntMedleyFunc`        | Plays user-recorded sequences from the song slots in RAM |
+| Disk Medley      | `FmmDiskMedleySelectFunc` | Plays sequences from floppy disk                         |
+| SMF Medley       | `FmmSmfMedleyFunc`        | Plays Standard MIDI Files                                |
+| Performance Data | `FmmPdMedleyFunc`         | Plays performance data files                             |
+| Document Medley  | `FmmDocMedleyFunc`        | Plays document files                                     |
 
 ### Internal Medley Memory Layout
 
-Internal medley songs are stored in battery-backed SRAM:
+Internal medley songs are held in work DRAM (volatile; see [Memory Map]({{ site.baseurl }}/memory-map/)):
 
 | Address | Size | Description |
 |---------|------|-------------|
@@ -291,17 +291,17 @@ Each slot is 2048 bytes (0x800) and stores one user-recorded sequence.
 
 ### Medley State Variables
 
-| Address | Name | Description |
-|---------|------|-------------|
-| `0x84FE` | Play flag | 0=stopped, 1=playing |
-| `0x889A` | Song count | Number of songs in playlist |
-| `0x889C` | Current index | Currently playing song |
-| `0x889E` | Repeat flag | 0=no repeat, 1=repeat |
-| `0x8890` | Order array | 10-byte play order (0xFF=unused, 0xFE=marked) |
+| Address  | Name                   | Description                                   |
+|----------|------------------------|-----------------------------------------------|
+| `0x84FE` | `MEDLEY_PLAY_FLAG`     | 0=stopped, 1=playing                          |
+| `0x889A` | `MEDLEY_SONG_COUNT`    | Number of songs in playlist                   |
+| `0x889C` | `MEDLEY_CURRENT_INDEX` | Currently playing song                        |
+| `0x889E` | `MEDLEY_REPEAT_FLAG`   | 0=no repeat, 1=repeat                         |
+| `0x8890` | `MEDLEY_ORDER_ARRAY`   | 10-byte play order (0xFF=unused, 0xFE=marked) |
 
 ### Source Code
 
-The medley system is implemented in `maincpu/file_io/medley.asm` with ~4700 lines of disassembled code including:
+The medley system is implemented in `v10/maincpu/file_io/medley.s` (4,702 lines of disassembled code), including:
 - Song selection UI handlers
 - Playback state machine
 - Repeat/shuffle logic
@@ -311,40 +311,40 @@ The medley system is implemented in `maincpu/file_io/medley.asm` with ~4700 line
 
 ## Event Storage Format
 
-The sequencer stores events in a MIDI-like format with extensions. The `SeqEvent_GetParamLength` routine (0xF3E382) defines the event record sizes:
+The sequencer stores events in a MIDI-like format with extensions. The `SeqEvent_GetParamLength` routine (0xF3E37B) defines the event record sizes:
 
 ### Event Types and Sizes
 
-| Status Byte | Size (bytes) | Type | Description |
-|-------------|------|------|-------------|
-| 0x90+ch | 6 | Note On | Channel note-on with velocity |
-| 0xB0+ch | 6 | Control Change | Controller number + value |
-| 0xC0+ch | 6 | Program Change | Program number + bank info |
-| 0xA0 | 3 | Aftertouch | Channel pressure data |
-| 0xD0 | 3 | Channel Pressure | Mono aftertouch |
-| 0xD1 | 3 | Extended | Internal event type |
-| 0xD3 | 3 | Extended | Internal event type |
-| 0x80+ch | 4 | Note Off | Channel note-off |
-| 0xD2 | 4 | Extended | Internal event type |
-| 0x85 | 2 | Compact | Short internal event |
-| 0x86 | 2 | Compact | Short internal event |
-| 0x81 | 1 | Minimal | Single-byte internal event |
-| 0x82 | 1 | Minimal | Single-byte internal event |
+| Status Byte | Size (bytes) | Type             | Description                                                                                                        |
+|-------------|--------------|------------------|--------------------------------------------------------------------------------------------------------------------|
+| 0x90+ch     | 6            | Note On          | Channel note-on with velocity                                                                                      |
+| 0xB0+ch     | 6            | Control Change   | Controller number + value                                                                                          |
+| 0xC0+ch     | 6            | Program Change   | Program number + bank info                                                                                         |
+| 0xA0        | 3            | Aftertouch       | Channel pressure data                                                                                              |
+| 0xD0        | 3            | Channel Pressure | Mono aftertouch                                                                                                    |
+| 0xD1        | 3            | Extended         | Internal event type                                                                                                |
+| 0xD3        | 3            | Extended         | Internal event type                                                                                                |
+| 0x80        | 4            | Note Off         | Note-off (exactly 0x80; 0x81, 0x82, 0x85 and 0x86 are separate internal events below, and 0x83/0x84 return 0xFFFF) |
+| 0xD2        | 4            | Extended         | Internal event type                                                                                                |
+| 0x85        | 2            | Compact          | Short internal event                                                                                               |
+| 0x86        | 2            | Compact          | Short internal event                                                                                               |
+| 0x81        | 1            | Minimal          | Single-byte internal event                                                                                         |
+| 0x82        | 1            | Minimal          | Single-byte internal event                                                                                         |
 
-The format is optimized for storage efficiency — common MIDI events (Note On, CC, Program Change) use the standard 6-byte format while internal events use shorter encodings. Status bytes 0x81-0x86 are non-standard extensions used for compact representation of sequencer-internal control events.
+The format is optimized for storage efficiency — common MIDI events (Note On, CC, Program Change) use the standard 6-byte format while internal events use shorter encodings. Status bytes 0x81, 0x82, 0x85 and 0x86 are non-standard extensions used for compact representation of sequencer-internal control events.
 
 ### Ring Buffer Write Dispatch
 
-Events enter the ring buffer via dispatch table at ROM 0xE00012:
+Events enter the ring buffers via the dispatch table `SeqRingBuf_WriteDispatch_Table` at ROM 0xE00012:
 
-| Slot | Handler | Description |
-|------|---------|-------------|
-| 0 | `Seq_MultiWrite_Alt4` | Multi-byte write variant 4 |
-| 1 | `Seq_MultiWrite_Alt5` | Multi-byte write variant 5 |
-| 2 | `Seq_WriteMidi90` | Standard MIDI Note On (0x90) handler |
-| 3 | `Seq_MultiWrite_Alt3` | Multi-byte write variant 3 |
-| 4 | `Seq_MultiWrite_Alt1` | Multi-byte write variant 1 |
-| 5-7 | `Seq_RingBuf_Nop` | No-op (unused slots) |
+| Slot | Handler                       | Description          |
+|------|-------------------------------|----------------------|
+| 0    | `SeqDMA_MultiWrite_NoteEvent` | Block write          |
+| 1    | `SeqDMA_MultiWrite_SoundEdit` | Block write          |
+| 2    | `SeqDMA_WriteMidi_NoteOn`     | MIDI Note On (0x90)  |
+| 3    | `SeqDMA_MultiWrite_VoiceMap`  | Block write          |
+| 4    | `SeqDMA_MultiWrite_DspSysEx`  | Block write          |
+| 5-7  | `SeqDMA_Nop`                  | No-op (unused slots) |
 
 ### Playback Processing
 
@@ -378,7 +378,7 @@ Events use delta-time encoding relative to the previous event. The timing resolu
 
 ### Note Pool
 
-`SeqNotePool_Init` (0xF3E3E0) initializes a note tracking pool for managing active notes during playback. The pool uses a linked-list structure starting at DRAM address 7602, with entries containing note number (0xFF = empty), velocity, and status bytes.
+`SeqNotePool_Init` (0xF3E3D9) initializes a note tracking pool for managing active notes during playback. The pool uses a linked-list structure starting at DRAM address 7602, with entries containing note number (0xFF = empty), velocity, and status bytes.
 
 ## Known Information
 
@@ -386,27 +386,27 @@ Events use delta-time encoding relative to the previous event. The timing resolu
 
 Based on KN5000 specifications:
 
-| Feature | Description |
-|---------|-------------|
-| Tracks | 16 MIDI tracks |
-| Resolution | 96 PPQ (presumed) |
-| Recording | Real-time and step modes |
-| Playback | Variable tempo, loop |
-| Editing | Quantize, transpose, copy |
-| Storage | Save to floppy or HD |
+| Feature    | Description                                    |
+|------------|------------------------------------------------|
+| Tracks     | 16 MIDI tracks                                 |
+| Resolution | 96 PPQ (`SEQ_BEAT_TICK` counts 0..95 per beat) |
+| Recording  | Real-time and step modes                       |
+| Playback   | Variable tempo, loop                           |
+| Editing    | Quantize, transpose, copy                      |
+| Storage    | Save to floppy or HD                           |
 
 ### Style System
 
 #### Structure
 
-Each auto-accompaniment style contains **3 main variations** (A, B, C), each with **6 sections**:
+Each auto-accompaniment style has **3 variation groups** (A, B, C), each with **10 sections** (4 variations, 2 intros, 2 fill-ins, 2 endings), 30 in all:
 
-| Section Type | Count | Purpose |
-|-------------|-------|---------|
-| Intro | 2 per variation | Opening pattern (e.g., "a-intro 1", "a-intro 2") |
-| Main (Variation) | 4 per variation | Main accompaniment loops (e.g., "a-variation1" through "a-variation4") |
-| Fill-In | 2 per variation | Transition fills (e.g., "a-fill in 1", "a-fill in 2") |
-| Ending | 2 per variation | Closing pattern (e.g., "a-ending 1", "a-ending 2") |
+| Section Type     | Count       | Purpose                                                                |
+|------------------|-------------|------------------------------------------------------------------------|
+| Intro            | 2 per group | Opening pattern (e.g., "a-intro 1", "a-intro 2")                       |
+| Main (Variation) | 4 per group | Main accompaniment loops (e.g., "a-variation1" through "a-variation4") |
+| Fill-In          | 2 per group | Transition fills (e.g., "a-fill in 1", "a-fill in 2")                  |
+| Ending           | 2 per group | Closing pattern (e.g., "a-ending 1", "a-ending 2")                     |
 
 Variation names are stored as ASCII strings in ROM (e.g., at `Demo_StyleRhythmData` 0xF5CFCC).
 
@@ -487,11 +487,13 @@ Sequences and styles can be stored:
 ### What Works
 
 - Sequencer dispatcher runs and rhythm ROM is validated successfully
-- State machine transitions correctly (0x00 → 0x01 → 0xE0 → 0xE4 during demo)
+- The current title changes correctly (0x00 → 0x01 → 0xE0 → 0xE4 during demo)
 - Rhythm ROM data is read from 0x400000 during demo (1800-3800 reads/second)
 - Sequencer processing code executes (PCs in F5CFxx-F641xx range during demo)
 
 ### Known Issues
+
+> ⚠ These are the symptoms recorded in early 2026, before kn7000_mame `3fd44f3` (2026-08-05) fixed a duplicate `/INT0` dispatch in MAME's TMP94C241 core that wedged the sub→main link. Since that fix the demo runs well past 100 seconds with real voice names; see [Audio Subsystem - Feature Demo]({{ site.baseurl }}/audio-subsystem/#feature-demo). They are kept as the record of that investigation, not as current behaviour.
 
 - **Ring buffer never written**: The main sequencer ring buffer at 0x01F37B always has write position == read position (both 0x0000). The song engine never generates MIDI events into the buffer.
 - **Startup flag stuck at 0**: The flag at `0x0251D8` is always 0, which may cause `Seq_StartMainControlAlt` to skip audio hardware configuration.
@@ -510,7 +512,7 @@ See [Audio Subsystem - Feature Demo]({{ site.baseurl }}/audio-subsystem/#feature
 
 ## Research Needed
 
-- [ ] Identify why the song engine never writes MIDI events to the ring buffer
+- [ ] Re-measure the ring-buffer and startup-flag behaviour after the 2026-08-05 /INT0 fix
 - [ ] Investigate the startup flag at `0x0251D8` — what sets it on real hardware?
 - [ ] Trace the path from rhythm ROM data reading to ring buffer writing
 - [ ] Document sequence data structure format
@@ -519,7 +521,7 @@ See [Audio Subsystem - Feature Demo]({{ site.baseurl }}/audio-subsystem/#feature
 - [ ] Decode full pattern data format within 1024-byte pattern blocks
 - [ ] Map chord detection algorithm (chord maps 1-5)
 - [ ] Identify quantization algorithms
-- [x] ~~Understand style format in Rhythm ROM~~ — 3 variations × 6 sections, 5 channels per pattern, 1024-byte blocks
+- [x] ~~Understand style format in Rhythm ROM~~ — 3 groups × 10 sections (30), 5 channels per pattern, 1024-byte blocks
 - [x] ~~Document chord recognition~~ — Partial: 5 chord maps identified, chord detection modes documented
 - [x] Document medley playback system
 - [x] Document main loop and dispatcher architecture

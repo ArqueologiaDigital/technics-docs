@@ -68,11 +68,11 @@ The KN5000's accompaniment (auto-accompaniment) system automatically generates m
 
 The accompaniment engine is called from the main firmware loop in Phase 6 (Sequencer Finalization):
 
-| Function | Address | Purpose |
-|----------|---------|---------|
-| `AccWrap_FlagSync` | Phase 1 | Synchronize accompaniment wrapper flags |
-| `AccDir_PeriodicEntry` | Phase 5 | Accompaniment direction periodic processing |
-| `AccompSeq_PeriodicEntry` | `0xF6DCA9` | Main accompaniment sequencer tick |
+| Function                  | Address    | Main-loop phase / purpose                            |
+|---------------------------|------------|------------------------------------------------------|
+| `AccWrap_FlagSync`        | `0xF59B01` | Phase 1: synchronize accompaniment wrapper flags     |
+| `AccDir_PeriodicEntry`    | `0xF5BD7A` | Phase 5: accompaniment direction periodic processing |
+| `AccompSeq_PeriodicEntry` | `0xF6DCA9` | Phase 6: main accompaniment sequencer tick           |
 
 `AccompSeq_PeriodicEntry` is the primary entry point, called once per main loop iteration. It:
 
@@ -87,25 +87,26 @@ The accompaniment engine is called from the main firmware loop in Phase 6 (Seque
 
 The sequencer runs **two independent channels** (channel 0 and channel 1), each with its own:
 - Pattern data pointer (RAM 32332/32333)
-- Position counter - beat (RAM 32322) and tick (RAM 32324)
-- Status byte (RAM 32328)
+- Pattern read position (RAM 32322/32324): in pool mode a block number and an offset into a pool of 256-byte blocks at 0x1E8B00, in the battery-backed SRAM; otherwise a 32-bit address
+- Beat counter (RAM 32326), incremented at each 0x81 beat marker
+- Pointer at RAM 32328 (set at channel setup to 0x7E40 for the first channel, 0x7E41 for the second)
 - Pattern state (RAM 32372)
 
 Channel 0 uses state at offsets 32300-32302, channel 1 at 32304-32306. The `AccompSeq_InitEventDispatch` routine processes events for the current channel.
 
 ### Event Types
 
-The sequencer reads a stream of events from pattern data stored in VRAM/RAM. Each event starts with a type byte:
+The sequencer reads a stream of events from pattern data at the read position, which `ResolveVRAMAddressForVoice` turns into an address (in pool mode a block of the pool at 0x1E8B00, which is SRAM, not VRAM). Each event starts with a type byte:
 
-| Type | Name | Description |
-|------|------|-------------|
-| 0x81 | Beat marker | Advances beat counter, checks pattern end |
-| 0x83 | Control | Style control change |
-| 0x84 | Position | Update sequencer position |
-| 0x90 | Note (small) | Note-on/off event (compact format) |
-| 0x91 | Note (large) | Note-on/off event (extended format) |
-| 0xC0 | Program change | Change instrument patch |
-| 0xD1-D7 | Part control | Part-specific control (voice, volume, pan, etc.) |
+| Type          | Name            | Description                                                                                                              |
+|---------------|-----------------|--------------------------------------------------------------------------------------------------------------------------|
+| 0x81          | Beat marker     | Advances beat counter, checks pattern end                                                                                |
+| 0x83          | Part transition | Handled by `AccompSeq_HandlePartTransition` (immediate)                                                                  |
+| 0x84          | Position        | Update sequencer position                                                                                                |
+| 0x90          | Note (small)    | Note-on/off event (compact format)                                                                                       |
+| 0x91          | Note (large)    | Note-on/off event (extended format)                                                                                      |
+| 0xC0          | Program change  | Change instrument patch                                                                                                  |
+| 0xD1-D5, 0xD7 | Part control    | Part-specific control (voice, volume, pan, etc.); there is no 0xD6 case, so a 0xD6 byte is skipped like any unknown byte |
 
 ### Event Processing Loop
 
@@ -114,10 +115,10 @@ The sequencer reads a stream of events from pattern data stored in VRAM/RAM. Eac
 1. Read event type byte from pattern data (via `ResolveVRAMAddressForVoice`)
 2. Dispatch by type:
    - 0x84: Call `AccompSeq_UpdatePosition` (immediate, no timing)
-   - 0x83: Process control event (immediate)
+   - 0x83: Call `AccompSeq_HandlePartTransition` (immediate)
    - 0x81: Check beat boundary with delta time comparison
-   - 0x90/0x91/0xC0/0xD1-D7: Check timing via `AccompSeq_CalcDeltaTime`
-3. If delta time <= 24 ticks (one beat): process event via `AccompSeq_ParseEvents`
+   - 0x90/0x91/0xC0/0xD1-D5/0xD7: Check timing via `AccompSeq_CalcDeltaTime`
+3. If delta time <= 24 ticks (a sixteenth note at 96 ticks per beat): process event via `AccompSeq_ParseEvents`
 4. If delta time > 24 ticks: set wait flag (bit 0 of 32339) and exit loop
 
 ### Timing
@@ -128,22 +129,19 @@ The accompaniment uses a 96-tick-per-beat timing resolution (PPQN = 96), with ea
 - Delta <= 24: event is within tolerance (play now)
 - Delta > 24: event is in the future (wait)
 
-Beat boundaries (event type 0x81) trigger `AccompSeq_AdvancePosition`:
-1. Increment tick counter (32324)
-2. On tick overflow (wrap to 0), increment beat counter (32322)
-3. Check for pattern end marker (0x87) and handle looping
+A beat marker (event type 0x81) that falls due increments the beat counter (32326) and calls `AccompSeq_AdvancePosition`, which:
+1. Advances the read position by one byte (offset 32324, carrying into 32322)
+2. If the byte there is a block link (0x87), reads the next block number from the block header via `AccompSeq_ReadBeatHeader` and continues at offset 6 of that block
 
 ### Pattern End and Looping
 
-When the sequencer encounters a 0x87 marker at the next beat boundary, it reads the beat header via `AccompSeq_ReadBeatHeader` to determine whether to:
-- Loop back to the pattern start
-- Transition to the next variation/fill
+A 0x87 byte links to the next 256-byte block: `AccompSeq_ReadBeatHeader` reads the next block's number from the current block's header (the word at offset 3), and reading resumes at offset 6 of that block. The loop is the 0x83 event: `AccompSeq_HandlePartTransition` reloads the read position saved for the channel (RAM 32308/32310 for the first channel, 32312/32314 for the second) when bit 3 of RAM 32295 is set, and otherwise stops the part.
 
 ## Style Data Format
 
 ### Style Variation Groups
 
-Styles are organized into variation groups stored in the Table Data ROM. Each style has multiple variations:
+Styles are organized into variation groups; the factory patterns are read from the Rhythm ROM at 0x400000 (see [Sequencer]({{ site.baseurl }}/sequencer/#pattern-loading-pipeline)). Each style has multiple variations:
 
 | Variation | Description |
 |-----------|-------------|
@@ -152,30 +150,21 @@ Styles are organized into variation groups stored in the Table Data ROM. Each st
 | Int1-2 | Intro patterns |
 | End1-2 | Ending patterns |
 
-Each variation group has entries for three complexity levels (A, B, C). The `StyleVarGrp_*` labels in the data ROM map these entries:
-
-```
-StyleVarGrp_AVari1 → Variation A, pattern 1
-StyleVarGrp_BVari1 → Variation B, pattern 1
-StyleVarGrp_CVari1 → Variation C, pattern 1
-StyleVarGrp_AFill1 → Fill-in A, pattern 1
-StyleVarGrp_AEnd1  → Ending A, pattern 1
-StyleVarGrp_AInt1  → Intro A, pattern 1
-```
+Each variation group (A, B, C) has these sections. The `StyleVarGrp_*` labels are not pattern data: they are the one-letter group strings ("A", "B", "C") that the UI shows, in the Program ROM (`ui_widgets/naka_screen_dispatch.s`, listed by `PtrTbl_StyleVarGroupCodes`).
 
 ### Style Groups (Built-in Styles)
 
-The Table Data ROM contains style group tables for each style category:
+The Program ROM holds the style browser's group tables, one per category; each entry is a style-name pointer and a variation-table pointer (`ui_widgets/style_bitmaps.s`):
 
-| Table | Address | Style Category |
-|-------|---------|----------------|
-| `StyleGroup_ModernDance_Table` | Table Data | Modern Dance styles |
-| `StyleGroup_PopBallad_Table` | Table Data | Pop/Ballad styles |
-| `StyleGroup_Swing_Table` | Table Data | Swing/Jazz styles |
-| `StyleGroup_FunkFusion_Table` | Table Data | Funk/Fusion styles |
-| `StyleGroup_JazzCombo_Table` | Table Data | Jazz Combo styles |
-| `StyleGroup_WorldMusic_Table` | Table Data | World Music styles |
-| `StyleGroup_LatinDance_Table` | Table Data | Latin Dance styles |
+| Table                          | Address    | Style Category      |
+|--------------------------------|------------|---------------------|
+| `StyleGroup_ModernDance_Table` | `0xECE2F0` | Modern Dance styles |
+| `StyleGroup_PopBallad_Table`   | `0xECE980` | Pop/Ballad styles   |
+| `StyleGroup_Swing_Table`       | `0xECED38` | Swing/Jazz styles   |
+| `StyleGroup_FunkFusion_Table`  | `0xECEF18` | Funk/Fusion styles  |
+| `StyleGroup_JazzCombo_Table`   | `0xECF228` | Jazz Combo styles   |
+| `StyleGroup_WorldMusic_Table`  | `0xECF7E8` | World Music styles  |
+| `StyleGroup_LatinDance_Table`  | `0xECFCA8` | Latin Dance styles  |
 
 ## Chord Detection
 
