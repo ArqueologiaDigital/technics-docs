@@ -251,17 +251,17 @@ CALL Display_UpdateDirtyRegions
 
 v10 tests this bit at eight places: five in `display/scoop_display.s` (among them `Display_DirtyRegionDispatch`) and three in `sequencer/accompaniment_engine.s`. It is **not** a display-disable flag. It is clear in normal operation and the firmware's UI draws regardless, so neither setting nor clearing it hands the framebuffer to an extension ROM.
 
-### Workspace Display Callbacks
+### Workspace function-table entries
 
-The firmware's workspace dispatch system provides display-related callbacks accessible via Handler Table A:
+An extension ROM reaches main-CPU routines through function table 0x100 at `workspace + 0x0E0A`; see [HDAE5000 Homebrew — Workspace Pointer]({{ site.baseurl }}/hdae5000-homebrew/#workspace-pointer). Earlier versions of this page listed three of its offsets as display callbacks. The firmware's own name table says they are not:
 
-| Offset | Purpose | Notes |
-|--------|---------|-------|
-| +0x0124 | Display callback | Display state management |
-| +0x0278 | Display state | Display mode/state queries |
-| +0x0534 | Display update | Trigger display refresh |
+| Offset    | Function      | v10 address | What it does                                         |
+|-----------|---------------|-------------|------------------------------------------------------|
+| `+0x0124` | `ApPostEvent` | `0xFA9D58`  | queue an event; yields while the queue is full       |
+| `+0x0278` | `GetTitleNow` | `0xFA5867`  | return the current title id (`TITLE_NOW`)            |
+| `+0x0534` | `DeleteEvent` | `0xFA9868`  | remove queued events matching an object and an event |
 
-These callbacks are used by the original HDAE5000 firmware for integrating its UI with the main firmware's display system. Their exact protocols are under investigation.
+The entries that really are drawing routines are `+0x0084` `UpdateScreen`, `+0x009C` `DrawLine`, `+0x00A4` `DrawBox`, `+0x00A8` `DrawFrame`, `+0x00B0` `MovePixels`, `+0x00C4` `DrawString` and `+0x02DC` `DrawDesignBox` (see [Drawing Primitives](#drawing-primitives)).
 
 ## Drawing Primitives
 
@@ -838,10 +838,6 @@ UI element names "SlideMove" and "SlideBase" appear in the firmware's string tab
 | Page transitions       | **Partial** | Palette fade works                                        |
 
 The display is one of the most complete subsystems in MAME emulation. The MN89304 VGA controller is emulated as a custom device with the KN5000-specific RAMDAC and offset override behaviors.
-
-## Research Needed
-
-- [ ] Document workspace display callbacks (0x0124, 0x0278, 0x0534) protocols
 
 ## Code References
 
