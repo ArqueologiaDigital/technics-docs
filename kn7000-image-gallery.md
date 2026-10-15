@@ -9,8 +9,9 @@ permalink: /kn7000-image-gallery/
 The KN7000 firmware stores graphics in **two** ways:
 
 * **Standard file formats** — 169 images total (125 baseline JPEGs — photos,
-  demo art — and 44 Windows BMPs — UI graphics, the digital-drawbar caps and two
-  program-ROM icons), extracted with `image_extract.py` (in `kn7000_extraction`).
+  demo art — and 44 Windows BMPs — the 42 digital-drawbar caps, plus a treble-clef
+  icon and a photo in the program ROM), extracted with `image_extract.py` (in the
+  `kn7000_extraction` tools, not yet published).
   These are shown in the sections below; each caption gives the source ROM, byte
   offset, and dimensions.
 * **Raw palette-indexed bitmaps** — exactly like the [KN5000]({{ site.baseurl }}/image-gallery/):
@@ -247,7 +248,8 @@ Separately from the JPEGs/BMPs above, the table ROM holds **293 headerless
 palette-indexed bitmaps** — the same storage design the KN5000 uses. They are
 reached through a pointer hierarchy: a master directory at table file `0x200`
 points to sub-tables of `{width, height, pixel_ptr}` records; the pixel data is
-raw 4/8bpp palette indices. Extract them with `table_bitmaps.py` (in `kn7000_extraction`).
+raw 4/8bpp palette indices. Extract them with `table_bitmaps.py` (in the
+`kn7000_extraction` tools, not yet published).
 
 These are rendered in their **true display colours**, using the 256-entry
 `0x00BBGGRR` palette found in the **program ROM at file `0x32573C`** (a 16-colour

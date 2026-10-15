@@ -93,7 +93,8 @@ the driver's `notes/panel-matrix-service-manual.md`.
 
 Each `CP{board}_SEG{col}` port is one scan **column** (segment) that a panel sub-CPU
 strobes, and each of its bits is one **SW sense line** the sub-CPU reads on that column.
-Port → `normSeg` is a pure identity with the bit unchanged, because each scan column maps
+Each port feeds exactly one `normSeg`, with the bit unchanged (CPL and CPC column *n* is
+`normSeg` *n*; CPR column *n* is `normSeg` `0x0C` + *n*), because each scan column maps
 to exactly **one wire `ADDR`** (there is no per-bit repacking). Which button sits on which
 column and bit comes from **each button's firmware event code and argument**
 (`notes/panel-button-map.md`), not from the schematic transcription: where the two
@@ -248,7 +249,7 @@ register from the firmware:
 
 | Register     | Role                                                                                                                                    |
 |--------------|-----------------------------------------------------------------------------------------------------------------------------------------|
-| `0x34000800` | channel config/direction (low 3 bits: `\|0x07` = RX+clear, `\|0x04` = TX)                                                               |
+| `0x34000800` | channel config/direction (low 3 bits: `0x07` = RX+clear, `0x04` = TX)                                                                   |
 | `0x34000804` | channel control (set at init `0x484ABCBA`)                                                                                              |
 | `0x34000808` | **TX data** — LED/command bytes *out* to the sub-CPUs                                                                                   |
 | `0x34000809` | **RX data** — switch/panel bytes *in*                                                                                                   |

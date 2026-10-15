@@ -77,11 +77,12 @@ at `0x5006BE94` selects between them:
 | Flag                                                  | Normalise table                     | Dispatch table |
 |-------------------------------------------------------|-------------------------------------|----------------|
 | **0 — what the KN7000 runs** (tone generator present) | `PanelWireNormTable` (`0x486135A0`) | `0x48614978`   |
-| 1 (a sibling without SD)                              | `0x48613620`                        | `0x486149FC`   |
+| 1 (a variant with no tone generator)                  | `0x48613620`                        | `0x486149FC`   |
 
 `0x486149FC` is a real, fully decoded dispatch table, but it is the **inactive half** on this
-model: the firmware selects it only when no tone generator answers. Both tables agree on the
-mute part IDs, so the mute cross-check holds either way. The ADDR→normSeg formula is in
+model: the firmware selects it only when the strap at `0x98070000` reports no tone generator
+(`TgStrapProbe`, `0x484D7713`). Both tables agree on the mute part IDs, so the mute
+cross-check holds either way. The ADDR→normSeg formula is in
 `notes/panel-board-decode.md`, and which bank the KN7000 runs is settled in
 `notes/panel-bank-A-is-the-kn7000.md`.
 
