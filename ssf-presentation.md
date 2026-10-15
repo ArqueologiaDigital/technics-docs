@@ -73,6 +73,8 @@ Buttons are numbered top-to-bottom along the LCD edges.
 
 ## Event Dispatch Chain
 
+> **Correction (October 2026).** This chain is the March 2026 reading, made while the presentation did not run in MAME; since [#15878](https://github.com/mamedev/mame/pull/15878) it runs (see [Known Bug](#known-bug-mame-ssf-never-activates)). Three links disagree with the code. `0x02BC34` is the event queue that `PostEvent` fills, not a registration table (Stage 3 below). Event `0x1C0001C` is `EVT_LSW_DATA`, a panel-setting (LSW) record, and `0xB80A` is the LSW id for which `AcPresentCtrl_CheckSSFStart` sends itself `EVT_ACTION` (`0x1C00006`), with the record's value (`+4`) as the action number (`ui/drawbar_panel_ui.s:18662-18677`). `DemoMenu_BuildItemWorkspace` is on no demo path: its callers are `MainMemDrawControl` and `FDemoText_ParseControlMessage`.
+
 The SSF presentation activation involves a 7-stage event dispatch chain, from physical button press to bitmap rendering. Understanding this chain is critical to diagnosing the MAME activation bug.
 
 ### Stage 1: Button Press to DRAM
@@ -83,7 +85,7 @@ A physical button press on the control panel is detected by the **Control Panel 
 
 This function is the SSF event gatekeeper. It:
 
-1. Checks bit 7 of DRAM `0x0406` (a boot-complete flag set by `Boot_DisplayScreen`; cleared only during flash updates)
+1. Checks bit 7 of DRAM `0x0406` (a boot-complete flag: `Boot_InitPeripherals` clears it at the start of every boot and `Boot_DisplayScreen` sets it, so it stays clear during a flash update)
 2. Reads the current UI state byte `R` from DRAM `0x8D38`
 3. Loads a ROM pointer `P = SSF_PresentationGateTable[0xE01F80 + R * 4]`
 4. Walks the 16-bit state-value array at `P`, comparing each entry against the packed panel state `(DRAM[0xC080] << 8) | DRAM[0xC07D]`
@@ -93,7 +95,7 @@ The gate table entry for state `0xE4` (Feature Presentation) contains the **unco
 
 ### Stage 3: EventDispatch_Direct (0xFA9945)
 
-The broadcast event router. It maintains a registration table in a ring buffer at DRAM `0x02BC34` (head/tail pointers at `0x02EC34`/`0x02EC36`). For each registered entry matching event code `0x1C00038`, it forwards the event to the registered handler widget.
+Posts the key event. `0x02BC34` is the event queue that `PostEvent` and `ApPostEvent` fill (1,024 entries of 12 bytes; read and write indices at `0x02EC34`/`0x02EC36`; see [Event Queue]({{ site.baseurl }}/event-codes/#event-queue-postevent)). If the queue is empty, `EventDispatch_Direct` posts the event through `ApPostEvent`. Otherwise it first cancels every queued `0x1C00038` whose upper 16 bits match the new one, by overwriting its event code with `EVT_NONE`, and merges their low bytes into the new event before posting it (`ui/ui_widget_defs.s:18139-18257`). It keeps no registration table and picks no recipient: `GetEvent` replaces a broadcast target (`0xFFFFFFFF`) with the current target when it dequeues the event (`ui/ui_widget_defs.s:17959-17965`).
 
 ### Stage 4: GroupBoxProc Receives 0x1C00038
 
@@ -124,7 +126,7 @@ The main presentation controller. When it receives event `0x1C0001C`, sub-handle
 *(workspace_pointer) == 0xB80A ?
 ```
 
-If the tag matches, it sends **event `0x1C00006`** to begin SSF parsing. If the tag does not match (as happens with the automated demo path's `0x82xx` tags), the SSF never starts.
+If the tag matches, it sends **event `0x1C00006`** to begin SSF parsing. If the tag does not match (as with the `0x82xx` memory-drawbar records that `DemoMenu_BuildItemWorkspace` sends), the SSF never starts.
 
 ### Stage 7: SSF Parser and Bitmap Rendering
 
@@ -141,7 +143,7 @@ The parser reads `hkst_55.ssf` from ROM, processes `<SHOW OBJ="...">` actions, a
 
 ### Full System Flowchart
 
-The following flowchart shows the complete SSF activation path from button press to bitmap rendering, including all decision points and the two competing event paths (correct path via GroupBoxProc vs. automated path via DemoMenu). Red nodes indicate where the chain breaks in MAME.
+The following flowchart shows the activation path as the March 2026 reading had it, from button press to bitmap rendering, with its decision points and two of the senders of event `0x1C0001C` (`EVT_LSW_DATA`): `GroupBoxProc`, and `DemoMenu_BuildItemWorkspace`, which serves `MainMemDrawControl` and not the demo.
 
 ```mermaid
 flowchart TD
@@ -154,9 +156,8 @@ flowchart TD
     E -- "0xFFFE (unconditional)<br/>state = 0xE4" --> F["Pack key data into XDE<br/>Dispatch event 0x1C00038"]
     E -- "Match panel state" --> F
 
-    F --> G{"EventDispatch_Direct<br/>Registration table scan"}
-    G -- "No handler registered<br/>for 0x1C00038" --> G_FAIL["❌ Event has no recipient<br/>(MAME failure point #1)"]:::failnode
-    G -- "GroupBoxProc<br/>registered" --> H["GroupBoxProc<br/>receives 0x1C00038"]
+    F --> G["EventDispatch_Direct<br/>cancels queued duplicates,<br/>posts the event"]
+    G -- "GetEvent: current target" --> H["GroupBoxProc<br/>receives 0x1C00038"]
 
     H --> I["GroupBoxProc_StartSSFPresentation<br/>(0xF9A273)"]
     I --> J["Build workspace:<br/>tag = 0x0000B80A"]
@@ -176,8 +177,8 @@ flowchart TD
     T --> U["Copy to VIDEO_RAM<br/>(0x1A0000)"]
     U --> V[/"🖥️ FTBMP bitmap<br/>visible on LCD"/]
 
-    %% Competing path (automated demo)
-    DM["DemoMenu_BuildItemWorkspace<br/>(automated demo path)"] --> DM_WS["Build workspace:<br/>tag = 0x82xx"]
+    %% Another sender of 0x1C0001C (MainMemDrawControl, not the demo)
+    DM["DemoMenu_BuildItemWorkspace<br/>(MainMemDrawControl, not the demo)"] --> DM_WS["Build workspace:<br/>tag = 0x82xx"]
     DM_WS --> DM_POST["ApPostEvent (queued)<br/>event 0x1C0001C"]
     DM_POST --> L
 
@@ -222,12 +223,11 @@ flowchart TD
     RESET --> TICK["Timer tick<br/>DRAM[0x0D2F]--"]
     TICK --> CHK15{"DRAM[0x0D2F]<br/>== 10?"}
     CHK15 -- "No" --> TICK
-    CHK15 -- "Yes" --> PARSE["Demo_ParseSlideHeader<br/>Load slide data from 0x9C4000"]
+    CHK15 -- "Yes" --> PARSE["Demo_ParseSlideHeader<br/>decompress demo preset (SLIDE4K)<br/>from the 0x9C4000 table to 0x69800"]
     PARSE --> PLAY["Demo_SelectEntry_PlaySong"]
-    PLAY --> GUARD{"FDemo_MultiGuardCheck"}
-    GUARD -- "state != 0xE4" --> GUARD_FAIL["❌ Guard fails"]:::failnode
-    GUARD -- "DRAM[10420] != 0<br/>(seq parts active)" --> GUARD_FAIL2["❌ Guard fails<br/>(waveform ROMs missing<br/>→ parts never finish)"]:::failnode
-    GUARD -- "All checks pass" --> SWBT["SwbtWr_ReinitBothBanks<br/>(~16s blocking)"]
+    PLAY --> GUARD{"CURRENT_MODE (0x8D34)<br/>== 0x13?"}
+    GUARD -- "No" --> GUARD_FAIL["Return, no song loaded"]
+    GUARD -- "Yes" --> SWBT["SwbtWr_ReinitBothBanks"]
     SWBT --> SEQ["Seq_DispatcherEntry<br/>Start sequencer"]
     SEQ --> TEMPO["SeqTimer_UpdateTempoReg"]
     TEMPO --> PLAYING["DRAM[0x8F4E] = 6<br/>(playing)"]
@@ -237,7 +237,7 @@ flowchart TD
     CHK3 -- "No" --> CHK1{"== 1?"}
     CHK3 -- "Yes" --> STARTPB["Demo_SelectEntry_StartPlayback"]
     CHK1 -- "No" --> CHK0{"== 0?"}
-    CHK1 -- "Yes" --> SIG["DRAM[10598] = 133<br/>(transition signal)"]
+    CHK1 -- "Yes" --> SIG["DRAM[10598] = 133<br/>(arms the transport)"]
     CHK0 -- "No" --> NEXT_TICK
     CHK0 -- "Yes" --> IDLE["Timer idle<br/>Wait for song end"]
 
@@ -266,12 +266,12 @@ flowchart LR
 
 The SSF script is embedded in the Table Data ROM:
 
-| File | Metadata Address | XML Data Address | Purpose |
-|------|-----------------|------------------|---------|
-| `hkst_55.ssf` | 0x87FFF0 | 0x88000E | Feature Demo presentation script |
-| `hkt_87.ssf` | Near boot vectors | Unknown | Possibly a second presentation |
+| File          | Metadata Address     | XML Data Address | Purpose                                                                       |
+|---------------|----------------------|------------------|-------------------------------------------------------------------------------|
+| `hkst_55.ssf` | 0x87FFF0             | 0x88000E         | Feature Demo presentation script                                              |
+| `hkt_87.ssf`  | 0x9FFFC0 (name only) | none             | A name string with no script after it (`table_data/kn5000_table_data.s:5203`) |
 
-**Source file:** `roms-disasm/table_data/includes/hkst_55.ssf`
+**Source file:** `table_data/includes/hkst_55.ssf` in kn5000-roms-disasm
 
 ### Metadata Header (0x87FFF0)
 
@@ -299,7 +299,7 @@ The script uses an XML-like markup language with a defined tag vocabulary:
 </ACTION>
 ```
 
-The script defines **27 sequential actions**, each referencing a named NAKA widget object. Objects include `ftdemo01` through `ftdemo48` (bitmap resource references) plus interactive displays like `Accordion`, `Drawbar`, and `Sdmixer`.
+The script defines **27 sequential actions**, each referencing a named NAKA widget object. Objects include the slide screens `ftdemo01`–`ftdemo48` (`TtlScreen` objects, six of which show a BMP) plus interactive displays like `Accordion`, `Drawbar`, and `Sdmixer`.
 
 ### XML Tag Vocabulary
 
@@ -315,22 +315,22 @@ The firmware contains a complete XML tag name table in the Program ROM:
 
 #### Content Tags
 
-| Tag | Close Tag | Purpose |
-|-----|-----------|---------|
-| `SHOW` | -- | Show/display a named UI object |
-| `IMG` | -- | Display an image |
-| `SONG` | -- | Play a song or MIDI sequence |
-| `FONT` | `/FONT` | Font selection for text rendering |
-| `CENTER` | `/CENTER` | Text centering |
-| `BR` | -- | Line break |
+| Tag      | Close Tag | Purpose                           |
+|----------|-----------|-----------------------------------|
+| `SHOW`   | --        | Show/display a named UI object    |
+| `IMG`    | --        | Display an image                  |
+| `FONT`   | `/FONT`   | Font selection for text rendering |
+| `CENTER` | `/CENTER` | Text centering                    |
+| `BR`     | --        | Line break                        |
 
 #### Attribute and Command Tags
 
-| Tag | Purpose |
-|-----|---------|
-| `SRC` | Source reference (file/resource) |
-| `NAME` | Name identifier |
-| `EXEC` | Execute a command or routine |
+| Tag    | Purpose                          |
+|--------|----------------------------------|
+| `SONG` | Attribute of `EXEC`              |
+| `SRC`  | Source reference (file/resource) |
+| `NAME` | Name identifier                  |
+| `EXEC` | Execute a command or routine     |
 
 The `EXEC` tag is particularly notable -- it suggests the presentation format was designed for general-purpose use beyond simple slideshow display, supporting code execution as part of scripted presentations.
 
@@ -355,7 +355,7 @@ When `AcPresentationControlProc` processes a `<SHOW OBJ="...">` action:
 
 1. The XML parser extracts the OBJ name string
 2. The name is matched against the names of `NAKA_UIObjectTable` (478 entries; names in ResName table 0x3FD)
-3. For bitmap resources (`ftdemo01`-`ftdemo48`): extracts the filename pointer from the structure, looks up the file entry index, loads BMP data from ROM, renders to VRAM
+3. For the slide screens (`ftdemoNN`): shows the screen; six of them draw a BMP through a `VwUserBitmapByName` child, whose 8-byte key (`"FTBMP01"`–`"FTBMP06"`, plus `.BMP`) is looked up in the file entry index
 4. For container objects (`Accordion`, `Drawbar`, `Sdmixer`): activates the interactive UI handler
 
 The dispatch uses a **jump table at `0xE9F9B2`** indexed by event type. Event codes `0x1C00002` through `0x1C0000C` branch to specific handlers.
@@ -413,8 +413,8 @@ The bitmap rendering pipeline is entirely ROM-resident -- no disk I/O occurs. Th
 
 ```
 SSF <SHOW OBJ="ftdemo01">
-  -> NAKA_UIObjectTable lookup -> FTDEMO_SCREEN structure
-    -> filename pointer -> "FTBMP01"
+  -> NAKA_UIObjectTable lookup -> TtlScreen "ftdemo01"
+    -> VwUserBitmapByName child "ftdemobmptop" -> key "FTBMP01" + ".BMP"
       -> file entry index lookup at 0x8CE01C
         -> BMP data pointer (0x880418)
           -> DrawBitmapFile -> VRAM
@@ -454,7 +454,7 @@ VRAM occupies 256KB at 0x1A0000-0x1DFFFF. See [Display Subsystem]({{ site.baseur
 | `Gfx_DecodeImageToBuffer` | Color remapping through RAMDAC |
 | `AcPresentationBoxProc` (0xF842B4) | Visual frame rendering for presentation slides |
 
-`AcPresentationBoxProc` handles the visual frame, responding to message types `0x1E0003C`, `0x1E0003A`, `0x1C0001B` and calling display routines at `0xFA6266`, `0xFA4409`.
+`AcPresentationBoxProc` handles ten events, among them `EVT_CHECK_SELECTED` (`0x1E0003C`), `EVT_GET_STRING` (`0x1E0003A`), `EVT_INDEX_SELECT` (`0x1C0001B`), `EVT_SW_IN` and `EVT_DRAW` (`ui/drawbar_panel_ui.s:18322-18347`); the routines at `0xFA6266` and `0xFA4409` are `GetViewInstance` and `InheritedProc`, not display routines.
 
 ---
 
@@ -466,13 +466,13 @@ The Feature Demo uses a timer-driven state machine. The timer variable is at DRA
 
 **Timer countdown sequence:**
 
-| Timer Value | Action |
-|-------------|--------|
-| 15 | Initial countdown begins |
-| 10 | `Demo_ParseSlideHeader` + `Demo_SelectEntry_PlaySong` -- loads next slide and starts song playback |
-| 3 | `Demo_SelectEntry_StartPlayback` -- begins accompaniment |
-| 1 | Display state update |
-| 0 | Next demo item (but gets stuck here without waveform ROMs) |
+| Timer Value | Action                                                                                                                                                     |
+|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 15          | Initial countdown begins                                                                                                                                   |
+| 10          | `Demo_ParseSlideHeader` + `Demo_SelectEntry_PlaySong` -- decompresses the demo preset (a `SLIDE4K` LZSS block, not a slide) to 0x69800 and starts the song |
+| 3           | `Demo_SelectEntry_StartPlayback` -- begins accompaniment                                                                                                   |
+| 1           | Writes 0x85 to DRAM `0x2966`, which arms the sequencer transport                                                                                           |
+| 0           | The countdown stops (`Demo_SelectEntry_TimerTick` returns while it is 0)                                                                                   |
 
 ### Song Playback
 
@@ -481,8 +481,8 @@ When the timer reaches 10, song playback begins:
 1. `Demo_SelectEntry_PlaySong` is called
 2. Song lookup via Table Data ROM: `0x9C4000 + (song_index * 4)` yields the song data pointer
 3. `SwbtWr_ReinitBothBanks` is called, which runs the SwbtWr dispatch loop inline
-4. The dispatch loop processes ~450 buffered tone generator events
-5. Each callback takes ~35ms, causing a **~16 second blocking period** where the main loop is paused
+4. The dispatch loop walks every buffered tone generator event before it returns, and the main loop waits for it
+5. In the March 2026 MAME build that took about 16 seconds; in the August 2026 kn7000_mame build the countdown moves from 10 to 9 in about half a second (see [Feature Demo Timer Behaviour]({{ site.baseurl }}/feature-demo-investigation-2026-03-09/))
 6. After processing completes, `PlaySong` returns and sets `DRAM[0x8F4E]` from `0x04` to `0x06`
 
 ### Song List Processing
@@ -502,8 +502,8 @@ When the timer reaches 10, song playback begins:
 
 | Address (hex) | Address (dec) | Description                                                                                                                                                                                                                                 |
 |---------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `0x0406`      | 1030          | Boot-complete flag (bit 7 set by `Boot_DisplayScreen`, cleared during flash updates)                                                                                                                                                        |
-| `0x0420`      | 1056          | Display status flags (bit 2 = display busy)                                                                                                                                                                                                 |
+| `0x0406`      | 1030          | Boot-complete flag (bit 7: cleared at the start of `Boot_InitPeripherals`, set by `Boot_DisplayScreen`; stays clear during a flash update)                                                                                                  |
+| `0x0420`      | 1056          | Sequencer transport lane (bit 2 = running; gates the 1047/1048 counter in `INTTR4_HANDLER`)                                                                                                                                                 |
 | `0x0D2F`      | 3375          | Demo timer countdown value (15 -> 10 -> 0)                                                                                                                                                                                                  |
 | `0x0D33`      | 3379          | Debounce counter                                                                                                                                                                                                                            |
 | `0x1157`      | 4439          | Target song index                                                                                                                                                                                                                           |
@@ -516,12 +516,12 @@ When the timer reaches 10, song playback begins:
 | `0x8D3A`      | 36154         | Part select index (used by `DemoMenu_BuildItemWorkspace`); `PART_SELECT` in the source (v7 0x8C9E), read by `GetPartSelect`                                                                                                                 |
 | `0x8F4E`      | 36686         | Playback state flag (0x04 = stopped/idle, 0x06 = song started by `Demo_SelectEntry_PlaySong`)                                                                                                                                               |
 | `0xBD3C`      | 48444         | Event dispatch circular buffer (4-byte entries)                                                                                                                                                                                             |
-| `0xC07D`      | 49277         | Panel key param byte                                                                                                                                                                                                                        |
-| `0xC080`      | 49280         | Panel chain index byte                                                                                                                                                                                                                      |
+| `0xC07D`      | 49277         | SwbtWr event payload byte 1 (`SWBTWR_PAYLOAD_1`), copied by `SwbtWr_DispatchLoop`                                                                                                                                                           |
+| `0xC080`      | 49280         | SwbtWr event type (`SWBTWR_EVENT_TYPE`), copied by `SwbtWr_DispatchLoop`                                                                                                                                                                    |
 | `0x0249CC`    | 149964        | SSF parser state (internal)                                                                                                                                                                                                                 |
 | `0x0249D4`    | 149972        | SSF parser position (internal)                                                                                                                                                                                                              |
 | `0x0251D8`    | 152024        | Presentation-loaded flag: `Seq_InitializeAndStart` sets it to 1 when a presentation is started from disk, MT_InitPresentation and MT_ExitPresentation clear it, MT_ExistPresentation returns it; it stays `0x0000` for the ROM presentation |
-| `0x02BC34`    | 179252        | Event registration table (ring buffer, head/tail at 0x02EC34/0x02EC36)                                                                                                                                                                      |
+| `0x02BC34`    | 179252        | Event queue: 1,024 entries of 12 bytes {target, event, param}, filled by `PostEvent` and `ApPostEvent` (read index 0x02EC34, write index 0x02EC36)                                                                                          |
 
 In the source (since 2026-10-03, `shared/ram_variables.s`): `DEMO_TIMER_COUNTDOWN` (0xD2F), `DEMO_TARGET_SONG`
 (0x1157), `DEMO_CURRENT_SONG` (0x1158), `DEMO_ACTIVE_ENTRY` (0x28A4), `DEMO_CONTROL_FLAGS` (0x28AD); the
@@ -535,7 +535,7 @@ In the source (since 2026-10-03, `shared/ram_variables.s`): `DEMO_TIMER_COUNTDOW
 | Function                            | ROM Address | Source File                   | Purpose                                                                                                                                                     |
 |-------------------------------------|-------------|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `UIState_KeyScan_Dispatch`          | 0xF98697    | `ui_control_panel.s`          | SSF gate check: reads UI state, checks gate table, sends event 0x1C00038                                                                                    |
-| `EventDispatch_Direct`              | 0xFA9945    | `ui_widget_defs.s`            | Broadcast event router with registration table                                                                                                              |
+| `EventDispatch_Direct`              | 0xFA9945    | `ui_widget_defs.s`            | Posts a key event (`0x1C00038`), first cancelling queued events for the same key                                                                            |
 | `GroupBoxProc_StartSSFPresentation` | 0xF9A273    | `presentation_sound_nav.s:33` | Builds workspace with tag 0x0000B80A, sends event 0x1C0001C                                                                                                 |
 | `AcPresentationControlProc`         | 0xF8450B    | `drawbar_panel_ui.s:18544`    | Main presentation controller; dispatches via jump table at 0xE9F9B2                                                                                         |
 | `AcPresentCtrl_CheckSSFStart`       | 0xF84625    | `drawbar_panel_ui.s`          | Checks workspace tag == 0xB80A, gates SSF start                                                                                                             |
@@ -544,11 +544,11 @@ In the source (since 2026-10-03, `shared/ram_variables.s`): `DEMO_TIMER_COUNTDOW
 | `DemoModeFunc`                      | 0xF222CC    | `demo_routines.s`             | Main demo mode dispatcher (event 0x1C00013)                                                                                                                 |
 | `DemoMode_Initialize`               | 0xF869E3    | `file_demo_proc.s`            | First-time demo setup (voice save, audio init)                                                                                                              |
 | `DemoMode_Main_Operation`           | 0xF8696F    | `file_demo_proc.s`            | Main demo playback loop                                                                                                                                     |
-| `DemoMenu_BuildItemWorkspace`       | 0xF83CEA    | `drawbar_panel_ui.s:17734`    | Builds 0x82xx workspace (automated path -- wrong tag for SSF)                                                                                               |
+| `DemoMenu_BuildItemWorkspace`       | 0xF83CEA    | `drawbar_panel_ui.s:17734`    | Sends memory-drawbar LSW records (ids 0x82xx) for `MainMemDrawControl` and `FDemoText_ParseControlMessage`; not on the demo path                            |
 | `Demo_SelectEntry_TimerTick`        | 0xF86BE4    | `file_demo_proc.s`            | Timer-driven state machine entry point                                                                                                                      |
 | `Demo_SelectEntry_PlaySong`         | 0xF86CF7    | `file_demo_proc.s`            | Song loading and SwbtWr initialization                                                                                                                      |
 | `Demo_SelectEntry_ProcessSongList`  | 0xF86B7C    | `file_demo_proc.s`            | Song cycling and index management                                                                                                                           |
-| `Demo_WaitForDisplayBit`            | 0xF86F2E    | `file_demo_proc.s`            | Timeout-protected busy-wait for display ready                                                                                                               |
+| `Demo_WaitForDisplayBit`            | 0xF86F2E    | `file_demo_proc.s`            | Timeout-protected busy-wait until the sequencer transport stops (bit 2 of `0x0420`)                                                                         |
 | `FDemo_ProcessDisplayStateQuery`    | 0xF867B2    | `file_demo_proc.s`            | Processes display state after SSF event 0x1C00006                                                                                                           |
 | `FDemoText_ProcessTextMarkup`       | 0xF8541D    | `fdemotext_routines.s`        | Processes XML text markup for rendering                                                                                                                     |
 | `DrawBitmapFile`                    | 0xFAC697    | `drawing_primitives.s:3431`   | BMP header validation, palette load, pixel decode, VRAM blit                                                                                                |
@@ -601,6 +601,8 @@ Physical button press in state 0xE4
 
 #### Path 2: Automated Demo Timer/Sequencer (FAILS)
 
+> **Correction (October 2026).** No demo timer or sequencer code calls `DemoMenu_BuildItemWorkspace`. Its only callers are `MainMemDrawControl` (`ui/drawbar_panel_ui.s:17596-17684`) and `FDemoText_ParseControlMessage` (`demo/fdemotext_routines.s:506-598`, title 0xEA), and its `0x82xx` values are memory-drawbar LSW ids (`MemDraw_LswIdTable`), not a wrong workspace tag. This is not a path into the presentation (see [Feature Demo]({{ site.baseurl }}/feature-demo/#two-distinct-activation-paths)).
+
 ```
 Demo timer/sequencer
   -> DemoMenu_BuildItemWorkspace (0xF83CEA)
@@ -648,16 +650,16 @@ The gate table at ROM address `0xE01F80` is a 256-entry array of pointers to sta
 
 ### Known Entries
 
-| Entry | Address | Content | Used by State |
-|-------|---------|---------|---------------|
-| `SSF_GateStates_Mode00` | 0xE014CE | `{0xFFFF}` -- disabled | 0x00 (boot/init) |
-| `SSF_GateStates_Mode01` | 0xE014D0 | ~215 entries (chains 0x00-0x0C, 0x91) | 0x01 (normal) |
-| `SSF_GateStates_Mode03` | 0xE01580 | ~215 entries (chains 0x00-0x0C, 0x43, 0x48, 0x70, 0x80, 0x91, 0x98) | 0x03 |
-| `SSF_GateStates_Mode04` | 0xE0174A | 1 entry (chain 0x91, param 0x00) | 0x04 |
-| `SSF_GateStates_Mode05` | 0xE0174E | 14 entries (chain 0x92, params 0x00-0x0D) | 0x05 |
-| State 0xE4 entry | -- | `{0xFFFE}` -- **unconditional** (all keys pass) | 0xE4 (Feature Presentation) |
+| Entry                   | Address  | Content                                                                 | Used by State               |
+|-------------------------|----------|-------------------------------------------------------------------------|-----------------------------|
+| `SSF_GateStates_Mode00` | 0xE014CE | `{0xFFFF}` -- disabled                                                  | 0x00 (boot/init)            |
+| `SSF_GateStates_Mode01` | 0xE014D0 | 86 entries (chains 0x00-0x18, 0x43, 0x48, 0x70, 0x72, 0x80, 0x91, 0x98) | 0x01 (normal)               |
+| `SSF_GateStates_Mode03` | 0xE01580 | 228 entries (chains 0x00-0x18, 0x43, 0x72, 0x98)                        | 0x03                        |
+| `SSF_GateStates_Mode04` | 0xE0174A | 1 entry (chain 0x91, param 0x00)                                        | 0x04                        |
+| `SSF_GateStates_Mode05` | 0xE0174E | 14 entries (chain 0x92, params 0x00-0x0D)                               | 0x05                        |
+| `SSF_GateStates_ModeE4` | 0xE01EA0 | `{0xFFFE}` -- **unconditional** (all keys pass)                         | 0xE4 (Feature Presentation) |
 
-The unconditional `0xFFFE` marker for state `0xE4` confirms that any key press in the Feature Presentation sub-menu should trigger SSF -- the gate is wide open. The failure in MAME is not due to gating, but due to no key events being generated.
+The unconditional `0xFFFE` marker for state `0xE4` lets `UIState_KeyScan_Dispatch` broadcast `0x1C00038` for every panel state in the Feature Presentation sub-menu. The March 2026 reading concluded that the failure in MAME was not due to gating but to no key events being generated; the presentation now runs in MAME (see [Known Bug](#known-bug-mame-ssf-never-activates)).
 
 ---
 
@@ -908,7 +910,7 @@ If the events are never generated, the root cause is in `ToneGen_DiffScanAndUpda
 ```mermaid
 flowchart TD
     SONG["Song playback starts"] --> DIFF["ToneGen_DiffScanAndUpdate<br/>scans 606-byte parameter space"]
-    DIFF --> BUFFER["Fill SwbtWr event buffer<br/>(~450 events per preset change)"]
+    DIFF --> BUFFER["Fill SwbtWr event buffer"]
     BUFFER --> LOOP["SwbtWr_DispatchLoop<br/>processes events sequentially"]
     LOOP --> WRITE["Write event code to C080<br/>Write params to C07D-C07F"]
     WRITE --> CALLBACK["Execute callback<br/>(tone gen register writes)"]
@@ -1485,6 +1487,8 @@ T4MOD=0x05 (clock_source=1 T1) T16RUN=0x81(timer4_running=1) TREG4=0x0000 TREG5=
 
 The issue may be that INTTR5 fires correctly but the firmware's INTTR5 handler doesn't advance the beat state because of a dependency on another hardware feature (e.g., the tone gen, DSP, or SubCPU state).
 
+> **Correction (October 2026).** The sequencer clock is INTTR4, not INTTR5: boot gives INTTR4 priority 3 and the INTTR5 vector (`0xFFFF64`) holds `Empty_Handler`. TREG5 sets the period and the `TREG4 = 1` match raises INTTR4 once per period; `INTTR4_HANDLER` advances the beat counters. MAME's 16-bit timer raised neither interrupt, because it gated each compare match on a `T4FFCR` bit and the firmware writes `T4FFCR = 0`; [#15878](https://github.com/mamedev/mame/pull/15878) fixed it. See [Timer 4/5 and the Sequencer Clock]({{ site.baseurl }}/feature-demo-timer-bug-2026-03-09/).
+
 ### Timer IS Working — Song Data Missing (Trace Result)
 
 The timer trace produced a breakthrough finding:
@@ -1663,7 +1667,7 @@ The SSF investigation is paused to address driver stability concerns. Here is a 
 
 **Confirmed (high confidence):**
 1. The SSF event chain is fully mapped: SwbtWr Bank 2 callbacks → `SwbtB2_Code10_Listeners`–`SwbtB2_Code12_Listeners` → UIState_KeyScan_Dispatch → event 0x1C00038 → EventDispatch_Direct → ApPostEvent (async)
-2. The event registration table HAS entries for 0x1C00038 (slots 10-12) with filter params 0x10/0x11/0x12
+2. (Retracted) `0x02BC34` is the event queue, not a registration table: slots 10-12 held `0x1C00038` key packets posted earlier, not filters (see *Stage 3* above).
 3. The SwbtWr event buffer DOES contain events 0x10/0x11/0x12 during demo init
 4. The firmware's sequencer IS started (play=6) and timer IS working (INTT1 accumulator advances, beat_flags set)
 5. `SeqPlay_PreparePlaybackState` DOES copy pending→parts (0xFFFF appears briefly)

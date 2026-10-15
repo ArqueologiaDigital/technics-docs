@@ -55,9 +55,10 @@ matches them. TREG_HIGH must raise the upper flag (`0x80`), not the lower one.
 
 ## Two Documented Gaps in the 16-Bit Path
 
-`timer_16bits` in `src/devices/cpu/tlcs900/tmp94c241.cpp` deliberately leaves two datasheet
-behaviours unmodelled. The sibling `tmp95c061.cpp` implements both in its `run16()` lambda;
-port that if a driver ever needs them.
+`timer_16bits` in `src/devices/cpu/tlcs900/tmp94c241.cpp` leaves two datasheet behaviours
+unmodelled; the kn7000_mame overlay's copy documents both as left alone on purpose. The overlay's
+`tmp95c061.cpp` implements both in its `run16()` lambda (mainline's does not); port that if a
+driver ever needs them.
 
 1. **`CLE` is assumed set.** `T4MOD`/`T5MOD` bit 2 chooses whether a TREG_HIGH match clears the
    up counter; `CLE = 0` means a free-running counter. The code always clears.
@@ -73,29 +74,29 @@ re-checkable with `notes/wsa1-probes/tlcs900_datasheet_quotes.py` in the
 
 ## Source Locations
 
-| File                          | Location                 | Role                                                                                          |
-|-------------------------------|--------------------------|-----------------------------------------------------------------------------------------------|
-| `tmp94c241.cpp`               | `timer_16bits` lambda    | 16-bit timer match handling for T4/T6/T8/TA                                                   |
-| `tmp94c241.cpp`               | `INTET45 = 6`            | Interrupt register index mapping                                                              |
-| ROM vector `0xFFFF60`         | `0x00EF0E21`             | INTTR4: `INTTR4_HANDLER`, the sequencer clock                                                 |
-| ROM vector `0xFFFF64`         | `0x00EF086A`             | INTTR5: `Empty_Handler`                                                                       |
-| `system_handlers.s:634`       | `INTTR4_HANDLER`         | Advances the tick counters (priority 3 at boot)                                               |
-| `system_handlers.s:392`       | `INTT1_HANDLER`          | Internal clock, for comparison                                                                |
-| `sequencer_engine.s:19587`    | `SeqPlay_AdvanceMeasure` | State 3 of 8956 (via `SeqStep_TimerDispatchA`): waits on tick counter 1052 (`SEQ_BEAT_COUNT`) |
-| `accompaniment_engine.s:8398` | `AccPlayMode_Dispatch`   | Promotion chain endpoint                                                                      |
+| File                          | Location                 | Role                                                                                                         |
+|-------------------------------|--------------------------|--------------------------------------------------------------------------------------------------------------|
+| `tmp94c241.cpp`               | `timer_16bits` lambda    | 16-bit timer match handling for T4/T6/T8/TA                                                                  |
+| `tmp94c241.cpp`               | `INTET45 = 6`            | Interrupt register index mapping                                                                             |
+| ROM vector `0xFFFF60`         | `0x00EF0E21`             | INTTR4: `INTTR4_HANDLER`, the sequencer clock                                                                |
+| ROM vector `0xFFFF64`         | `0x00EF086A`             | INTTR5: `Empty_Handler`                                                                                      |
+| `system_handlers.s:634`       | `INTTR4_HANDLER`         | Advances the tick counters (priority 3 at boot)                                                              |
+| `system_handlers.s:392`       | `INTT1_HANDLER`          | Internal clock, for comparison                                                                               |
+| `sequencer_engine.s:19587`    | `SeqPlay_AdvanceMeasure` | States 2, 3, 10 and 14 of 8956 (via `SeqStep_TimerDispatchA`): waits on tick counter 1052 (`SEQ_BEAT_COUNT`) |
+| `accompaniment_engine.s:8398` | `AccPlayMode_Dispatch`   | Dispatches on bit 2 (running) of the transport bytes 1054, 1057 and 1056                                     |
 
 ## Sequencer DRAM Counters
 
-| Address | Name                  | Purpose                                                            |
-|---------|-----------------------|--------------------------------------------------------------------|
-| 1047    | Metro sub-tick        | Metronome timing (driven by INTTR4)                                |
-| 1050    | Internal clock        | Internal clock counter (driven by INTT1)                           |
-| 1051    | `SEQ_BEAT_TICK`       | Tick within the beat, 0–95 (INTTR4; +4 per MIDI clock when synced) |
-| 1052    | `SEQ_BEAT_COUNT`      | Beats since the start (word, 1052–1053)                            |
-| 1054    | Enable flags          | Bit 2: sequencer enabled                                           |
-| 1056    | Alt clock state       | Promotion chain variable                                           |
-| 1057    | `SEQ_TRANSPORT_STATE` | Transport state; bit 2 gates the beat clock                        |
-| 8956    | AccPlayMode state     | State machine index                                                |
+| Address | Name                  | Purpose                                                                                                                                                                                                               |
+|---------|-----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1047    | Metro sub-tick        | Metronome timing (driven by INTTR4)                                                                                                                                                                                   |
+| 1050    | Internal clock        | Internal clock counter (driven by INTT1)                                                                                                                                                                              |
+| 1051    | `SEQ_BEAT_TICK`       | Tick within the beat, 0–95 (INTTR4; +4 per MIDI clock when synced)                                                                                                                                                    |
+| 1052    | `SEQ_BEAT_COUNT`      | Beats since the start (word, 1052–1053)                                                                                                                                                                               |
+| 1054    | Enable flags          | Bit 2: sequencer enabled                                                                                                                                                                                              |
+| 1056    | Transport state       | Transport of the 1047/1048 lane, coded like 1057 (1 start pending, 6 running, 0x0C stop requested, 0x10 stopped); bit 2 gates counter 1047 and lets `INTTR4_MetroPhaseSync` promote a pending 1054 or 1057 to running |
+| 1057    | `SEQ_TRANSPORT_STATE` | Transport state; bit 2 gates the beat clock                                                                                                                                                                           |
+| 8956    | AccPlayMode state     | State machine index                                                                                                                                                                                                   |
 
 ## Timer 4 SFR Addresses
 

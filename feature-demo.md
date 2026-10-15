@@ -215,7 +215,7 @@ AcPresentationControlProc:
     ; ... dispatch to handler
 ```
 
-`AcPresentationBoxProc` (0xF842B4) handles the visual frame rendering, responding to message types 0x1E0003C, 0x1E0003A, 0x1C0001B and calling display routines at 0xFA6266, 0xFA4409.
+`AcPresentationBoxProc` (0xF842B4, `ui/drawbar_panel_ui.s:18322`) handles `EVT_CHECK_SELECTED` (0x1E0003C), `EVT_GET_STRING` (0x1E0003A), `EVT_INDEX_SELECT` (0x1C0001B), `EVT_END_SONG`, `EVT_START_SONG`, `EVT_SW_IN`, `EVT_SET_SELECTED`, `EVT_SELE_DRAW`, `EVT_DRAW` and `EVT_SHOW`. On its own switch's `EVT_SW_IN` (`PresBox_OK`, :18408-18424) it stores the entry index held in its view instance in `DEMO_ACTIVE_ENTRY` and calls `Demo_SelectEntry_ProcessSongList`. The routines at 0xFA6266 and 0xFA4409 are `GetViewInstance` and `InheritedProc`, not display routines.
 
 ---
 
@@ -306,7 +306,7 @@ The correct button sequence to activate the Feature Demo from the home screen:
 
 > **Correction (October 2026).** `DemoMenu_BuildItemWorkspace` is not called by the demo timer or by `DemoMode_Main_Operation`. Its only callers are `MainMemDrawControl` and `FDemoText_ParseControlMessage` (title 0xEA), and its `0x82xx` values are LSW (panel-setting) ids, not a wrong workspace tag. "Path 2" below is therefore not a path into the presentation.
 
-The Feature Demo's visual SSF presentation has TWO completely different activation paths. Understanding the distinction is critical to diagnosing why the automated demo fails in MAME.
+The March 2026 notes described two activation paths for the visual presentation, and their diagnosis of why it did not start in MAME rested on this distinction (see [MAME Emulation Status](#mame-emulation-status)).
 
 ### Path 1 — Manual (Physical Button Press): WORKS
 
@@ -479,7 +479,7 @@ Expected (but missing in MAME):
 
 ### Why GroupBoxProc doesn't receive 0x1C00038 in MAME
 
-`UIState_KeyScan_Dispatch` IS called during boot initialization — approximately 900+ times — but all calls occur when DRAM `0x8D38 = 0x00`. This maps to ROM table entry[0] at `0xE014CE`, which contains the sentinel array `{0xFFFF}` (immediately terminating). Every boot-time call returns immediately with no event sent.
+March 2026, superseded (see [MAME Emulation Status](#mame-emulation-status)): `UIState_KeyScan_Dispatch` IS called during boot initialization — approximately 900+ times — but all calls occur when DRAM `0x8D38 = 0x00`. This maps to ROM table entry[0] at `0xE014CE`, which contains the sentinel array `{0xFFFF}` (immediately terminating). Every boot-time call returns immediately with no event sent.
 
 The dispatcher mechanism consists of:
 - **FDB3D1** (event buffer writer): fills a circular buffer at DRAM `0xBD3C` with 4-byte entries encoding chain index (`C080`) and param (`C07D`)
@@ -524,9 +524,9 @@ The function `UIState_KeyScan_Dispatch` (ROM `0xF98697`) is the code that sends 
 4. Walks the array at `P`, comparing each entry to the current selection state built from DRAM bytes `0xC07D` and `0xC080` (packed as `(0xC080 << 8) | 0xC07D`).
 5. If a match is found (or if the first array entry is `0xFFFE`, indicating "always send"), builds a 32-bit XDE parameter from `0xC07D`–`0xC080` and sends event `0x1C00038` to `XWA=0xFFFFFFFF` via `FA9945`.
 
-#### `FA9945` — the broadcast event router
+#### `FA9945` (`EventDispatch_Direct`) — posts the key event
 
-`FA9945` is the intermediate event-routing function called by `UIState_KeyScan_Dispatch`. It checks a dynamic routing table in DRAM at `0x02BC34` (populated at runtime by `FA9752`). For each registered entry, it checks whether the entry's event code matches `0x1C00038` **and** whether the entry's "match value" equals the upper 16 bits of the XDE parameter. If a match is found, the event is forwarded to the registered handler (GroupBoxProc instance).
+`FA9945` (`EventDispatch_Direct`) is called by `UIState_KeyScan_Dispatch` to post the key event. `0x02BC34` is not a routing table but the event queue that `FA9752` fills (below; see also [Event Queue]({{ site.baseurl }}/event-codes/#event-queue-postevent)). If the queue is empty (read index `0x02EC34` equal to write index `0x02EC36`), it posts the event through `ApPostEvent` (`FA9D58`). Otherwise it first cancels every queued `0x1C00038` whose upper 16 bits match the new event's, by overwriting its event code with `EVT_NONE`, merges their low bytes into the new event and then posts it (`ui/ui_widget_defs.s:18139-18257`). It forwards nothing to a registered handler: `GetEvent` replaces the broadcast target `0xFFFFFFFF` with the current target when it dequeues the event (`ui/ui_widget_defs.s:17959-17965`).
 
 #### `FA9752` — the event queue writer (`PostEvent`)
 
@@ -538,13 +538,9 @@ entry[4..7]  = event code (XBC)
 entry[8..11] = param (XDE)
 ```
 
-`FA9945` is the queue **processor/router**: it reads pending entries from `0x02BC34`, and for each entry with event code `0x1C00038`, checks whether the upper 16 bits of the parameter match a value stored in the entry. If the queue is empty, it posts the new event directly via `FA9D58`.
-
 The event routing for `0x1C00038` therefore works through the standard event queue. `UIState_KeyScan_Dispatch` acts as the PRODUCER: it checks state bytes, then pushes `0x1C00038` + packed XDE into the queue via `FA9945`. The CONSUMER is whichever widget handler receives the queued event — presumably GroupBoxProc, once it has received its own event setup during initialization.
 
-For GroupBoxProc to receive the queued `0x1C00038`, it must either:
-- Be the current "active" widget receiving events from the queue, OR
-- Have registered via some dispatch mechanism that routes `0x1C00038` to it specifically
+For GroupBoxProc to receive the queued `0x1C00038`, it must be the current target when `GetEvent` dequeues the event, or be reached from the current target's handler.
 
 ### Instrumentation pitfalls
 
@@ -609,7 +605,7 @@ SSF_PresentationGateTable:
    - `{0xFFFF}` — **never match**: the entry is disabled, no event sent
    - `{val1, val2, ..., 0xFFFF}` — **conditional**: each value is compared to the packed state; if any matches, the event fires
 
-4. **Event dispatch:** When a match is found, `UIState_KeyScan_Dispatch` sends event `0x1C00038` via the broadcast router at `0xFA9945`, which forwards it to registered widgets (typically `GroupBoxProc`).
+4. **Event dispatch:** When a match is found, `UIState_KeyScan_Dispatch` sends event `0x1C00038` via `EventDispatch_Direct` (`0xFA9945`), which posts it to the event queue; `GetEvent` later delivers it to the current target.
 
 ### Role in Feature Demo Activation
 
@@ -703,11 +699,11 @@ It waits for the sequencer transport to stop before `Banner_Loop_Check` silences
 
 ### Demo Timer Behavior in MAME
 
-When the timer reaches 10, `Demo_SelectEntry_PlaySong` is called. This function calls `SwbtWr_ReinitBothBanks`, which runs the SwbtWr dispatch loop inline — processing 450+ buffered tone generator events. Each callback takes ~35ms, causing a **~16 second blocking period** where the main loop is paused.
+When the timer reaches 10, `Demo_SelectEntry_PlaySong` is called. It calls `SwbtWr_ReinitBothBanks`, which runs the SwbtWr dispatch loop inline, so the main loop and the countdown wait until every buffered tone generator event has been dispatched. In the March 2026 MAME build that took about 16 seconds; in the August 2026 kn7000_mame overlay build the countdown goes from 10 to 9 in about half a second (kn7000_mame `notes/p9-countdown-2026-08-15.log`).
 
-After SwbtWr processing completes (~960 frames), PlaySong returns (sets `DRAM[0x8F4E]` from `0x04` to `0x06`), and the timer resumes counting down from 10. The tone generator hold timer (2 seconds per voice) then controls the pacing of subsequent song transitions.
+`PlaySong` then sets `DRAM[0x8F4E]` to `0x06` and returns, and the countdown resumes from 10. In the overlay build one song plays to a correct STOP at about 139 s and the countdown is not re-armed, so nothing follows (see [MAME Emulation Status](#mame-emulation-status)).
 
-**Note:** The 16-second initial delay may differ from real hardware, where the tone generator writes go to hardware registers rather than through HLE. See [Feature Demo Timer Behaviour]({{ site.baseurl }}/feature-demo-investigation-2026-03-09/) for the frame-by-frame measurement.
+**Note:** Neither duration need match real hardware, where the tone generator writes go to hardware registers rather than through HLE. See [Feature Demo Timer Behaviour]({{ site.baseurl }}/feature-demo-investigation-2026-03-09/) for both measurements.
 
 The sequencer tick counters are driven by **INTTR4** (`INTTR4_HANDLER`, 0xEF0E21). Boot gives INTTR4 priority 3, and the INTTR5 vector holds `Empty_Handler`. TREG5 sets the period (T4MOD clears the counter on a TREG5 match), and the TREG4 = 1 match raises INTTR4 once per period. MAME's old `timer_16bits` code in `tmp94c241.cpp` never raised it: it processed a compare match only when the matching `T4FFCR` flip-flop bit was set, and the firmware writes `T4FFCR` = 0. It also raised the lower flag (`0x08`) for a TREG5 match. Both are fixed upstream in [#15878](https://github.com/mamedev/mame/pull/15878). See [Timer 4/5 and the Sequencer Clock]({{ site.baseurl }}/feature-demo-timer-bug-2026-03-09/).
 

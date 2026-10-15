@@ -99,8 +99,9 @@ Observable signature while the stall is in progress:
 - **Does anything follow the first song?** Since
   [#15878](https://github.com/mamedev/mame/pull/15878) (merged 2026-08-17) the presentation
   runs in mainline MAME (DEMO, LEFT 4, LEFT 2), so the `0x1C00038` filter mismatch recorded in
-  March (LEFT 2 gave param upper16 = `0xAA0A`, which matches none of the five registered
-  filters `0x1000`–`0x1400`) was not what kept it from starting. In the kn7000_mame overlay
+  March (LEFT 2 gave param upper16 = `0xAA0A`, which matches none of the five `0x1C00038`
+  packets `0x1000`–`0x1400` found in the event queue's ring buffer, which March read as
+  registered filters) was not what kept it from starting. In the kn7000_mame overlay
   build (2026-08-15) one song plays to a correct STOP at about 139 s, and the countdown at
   `0x0D2F` is armed once and not re-armed (kn7000_mame `notes/FINDINGS-p9-demo-stops.md`).
   Whether anything should follow is open: the owner describes the presentation as one
@@ -118,16 +119,16 @@ entry, when a presentation loaded from disk starts.
 
 ## Source Files
 
-| File | Key Functions | Relevance |
-|------|---------------|-----------|
-| `file_demo_proc.s` | `Demo_SelectEntry_TimerTick`, `Demo_SelectEntry_PlaySong`, `Demo_SelectEntry_ProcessSongList` | Timer state machine and song loading |
-| `dsp_config_sysex.s` | `SwbtWr_DispatchLoop`, `SwbtWr_QueueMainEvent` | The non-yielding dispatch loop |
-| `system_handlers.s` | `SwbtWr_ReinitBothBanks`, main loop Phase 4 | The initialisation that triggers the stall |
-| `ui_control_panel.s` | `UIState_KeyScan_Dispatch` | Button event routing |
-| `ui_widget_defs.s` | `EventDispatch_Direct` (0xFA9945) | Event filter matching |
-| `cpanel_constants.s` | Button mapping tables | Physical button → event param |
-| `cpanel_routines.s` | `CPanel_RX_ButtonPacket` | Control panel ISR |
-| `smf_event_processor.s` | `Seq_DispatcherEntry`, `Seq_DispatcherTick` | Sequencer task scheduling |
+| File                    | Key Functions                                                                                 | Relevance                                                 |
+|-------------------------|-----------------------------------------------------------------------------------------------|-----------------------------------------------------------|
+| `file_demo_proc.s`      | `Demo_SelectEntry_TimerTick`, `Demo_SelectEntry_PlaySong`, `Demo_SelectEntry_ProcessSongList` | Timer state machine and song loading                      |
+| `dsp_config_sysex.s`    | `SwbtWr_DispatchLoop`, `SwbtWr_QueueMainEvent`                                                | The non-yielding dispatch loop                            |
+| `system_handlers.s`     | `SwbtWr_ReinitBothBanks`, main loop Phase 4                                                   | The initialisation that triggers the stall                |
+| `ui_control_panel.s`    | `UIState_KeyScan_Dispatch`                                                                    | Button event routing                                      |
+| `ui_widget_defs.s`      | `EventDispatch_Direct` (0xFA9945)                                                             | Posts key events, cancelling queued ones for the same key |
+| `cpanel_constants.s`    | Button mapping tables                                                                         | Physical button → event param                             |
+| `cpanel_routines.s`     | `CPanel_RX_ButtonPacket`                                                                      | Control panel ISR                                         |
+| `smf_event_processor.s` | `Seq_DispatcherEntry`, `Seq_DispatcherTick`                                                   | Sequencer task scheduling                                 |
 
 ## Key DRAM Addresses
 
