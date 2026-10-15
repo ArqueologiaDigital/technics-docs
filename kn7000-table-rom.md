@@ -34,7 +34,7 @@ archive**. It opens with a table of little-endian u32 chunk offsets, and each en
 ## The UI graphics are standard JPEGs
 
 Scanning for JPEG streams recovers **119 images, 117 of which decode cleanly with an ordinary JFIF
-decoder** — 52 are `160×120` icons/thumbnails and twelve are full-screen `640×240` reference/help
+decoder** (`tools/kn7000_table_jpegs.py` in this repository) — 52 are `160×120` icons/thumbnails and twelve are full-screen `640×240` reference/help
 screens. In other words the KN7000 stores its on-screen artwork as ordinary JPEGs and decodes them
 in firmware. (A long-standing emulation note that "the boot-splash JPEG decodes to garbage" was
 therefore an **emulation bug**, not a bad dump or an exotic format: the source stream is valid
