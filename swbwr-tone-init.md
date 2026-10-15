@@ -1,14 +1,14 @@
 ---
 layout: page
-title: Tone Generator Initialization (SwbtWr)
+title: SwbtWr Event Dispatch
 permalink: /swbwr-tone-init/
 ---
 
-# Tone Generator Initialization (SwbtWr)
+# SwbtWr Event Dispatch
 
-During Feature Demo, `SwbtWr_ReinitBothBanks` blocks the CPU while reinitializing the tone generator with new sound preset parameters. In MAME the stall lasted about 16 seconds (measured 2026-03-09, see [Feature Demo Timer Behaviour]({{ site.baseurl }}/feature-demo-investigation-2026-03-09/)). Later builds do not reproduce it. On the kn7000_mame overlay of 2026-08-15, the demo countdown at DRAM `0x0D2F` went from 10 to 9 in 0.51 s, against 0.07 to 0.10 s for every other step ([`notes/p9-countdown-2026-08-15.log`](https://github.com/ArqueologiaDigital/MAME_Technics_Research/blob/main/notes/p9-countdown-2026-08-15.log)). Ten is the value at which `Demo_ParseSlideHeader` and `Demo_SelectEntry_PlaySong` run, so the slide parse and the whole song setup, `SwbtWr_ReinitBothBanks` included, took at most half a second. An earlier version of this page blamed it for the SSF presentation never starting; that failure was later traced to event routing and is independent of the stall (see [SSF Presentation System]({{ site.baseurl }}/ssf-presentation/)).
+During Feature Demo, `SwbtWr_ReinitBothBanks` holds up the main loop while it hands the change events of the newly loaded song panel data to their listeners. In MAME the stall lasted about 16 seconds (measured 2026-03-09, see [Feature Demo Timer Behaviour]({{ site.baseurl }}/feature-demo-investigation-2026-03-09/)). Later builds do not reproduce it. On the kn7000_mame overlay of 2026-08-15, the demo countdown at DRAM `0x0D2F` went from 10 to 9 in 0.51 s, against 0.07 to 0.10 s for every other step ([`notes/p9-countdown-2026-08-15.log`](https://github.com/ArqueologiaDigital/MAME_Technics_Research/blob/main/notes/p9-countdown-2026-08-15.log)). Ten is the value at which `Demo_ParseSlideHeader` and `Demo_SelectEntry_PlaySong` run, so the slide parse and the whole song setup, `SwbtWr_ReinitBothBanks` included, took at most half a second. An earlier version of this page blamed it for the SSF presentation never starting; that failure was later traced to event routing and is independent of the stall (see [SSF Presentation System]({{ site.baseurl }}/ssf-presentation/)).
 
-This page documents the full initialization call graph, the event buffer system, the dispatch loop internals, and the impact on the main loop.
+This page documents the full song-setup call graph, the event buffer system, the dispatch loop internals, and the impact on the main loop.
 
 ---
 
@@ -29,7 +29,7 @@ This page documents the full initialization call graph, the event buffer system,
 
 ## Overview
 
-When the Feature Demo transitions to song playback, the firmware must reinitialize the tone generator hardware with the new sound preset's parameters. This is handled by `SwbtWr_ReinitBothBanks`, which processes two banks of tone generator events sequentially via `SwbtWr_DispatchLoop`. The entire operation is synchronous and blocking -- interrupts stay enabled, but there are no cooperative yield points, so the main loop does not advance for the duration.
+When the Feature Demo transitions to song playback, the firmware copies the panel data stored with the song into the live panel block and announces every changed parameter to its listeners. `SwbtWr_ReinitBothBanks` does the announcing: it runs the queued change events through two listener banks in turn, via `SwbtWr_DispatchLoop`. The entire operation is synchronous and blocking -- interrupts stay enabled, but there are no cooperative yield points, so the main loop does not advance for the duration.
 
 While the loop runs, the rest of the main loop (UI dispatch, display rendering, the demo timer) does not advance.
 
@@ -37,7 +37,7 @@ While the loop runs, the rest of the main loop (UI dispatch, display rendering, 
 
 ## Call Graph
 
-The full call hierarchy from the demo timer tick through the tone generator reinitialization:
+The full call hierarchy from the demo timer tick through the event dispatch:
 
 ```
 Demo_SelectEntry_TimerTick
@@ -59,13 +59,13 @@ Demo_SelectEntry_TimerTick
                  -> SwbtWr_DispatchLoop
 ```
 
-The initialization begins when the demo timer reaches value 10, triggering `Demo_ParseSlideHeader` and `Demo_SelectEntry_PlaySong`. The song setup path first saves current tone generator state, reinitializes all DSP configuration entries (46 record validations, then one write per effect slot, 5 in all), then performs a diff scan of the 606-byte parameter space to determine which tone generator registers need updating.
+The song setup begins when the demo timer reaches value 10, triggering `Demo_ParseSlideHeader` and `Demo_SelectEntry_PlaySong`. `ToneGen_FileIO_SaveAndSync` first copies the panel data stored with the song into the live panel block at RAM 0xF9A0 and validates it (46 record validations, then one DSP-configuration write per effect slot, 5 in all). `ToneGen_DiffScanAndUpdate` then compares the 606-byte block at RAM 0xFD60 with its shadow copy at 0x3CCA4 and queues one event for each byte that differs.
 
 ---
 
 ## Event Buffer System
 
-The event buffer is a central staging area for tone generator parameter changes:
+The event buffer is the staging area for parameter-change events:
 
 | Property                               | Value                                                        |
 |----------------------------------------|--------------------------------------------------------------|
@@ -229,7 +229,7 @@ The main loop (`MainLoop`, `v10/maincpu/boot/system_handlers.s:1115-1248`) calls
 - **No display updates** occur during blocking -- the LCD shows a frozen frame
 - **No input polling** occurs -- button presses during the blocking window are lost
 
-This is the mechanism by which the tone generator initialization starves the NAKA widget framework and prevents the SSF presentation from activating. See [SSF Presentation System]({{ site.baseurl }}/ssf-presentation/#known-bug-mame-ssf-never-activates) for the full analysis of this failure mode.
+This is the mechanism by which the SwbtWr dispatch starves the NAKA widget framework and prevents the SSF presentation from activating. See [SSF Presentation System]({{ site.baseurl }}/ssf-presentation/#known-bug-mame-ssf-never-activates) for the full analysis of this failure mode.
 
 ---
 
@@ -242,7 +242,7 @@ flowchart TD
     TICK["Demo_SelectEntry_TimerTick<br/>(timer reaches 10)"] --> PARSE["Demo_ParseSlideHeader<br/>Load slide data from 0x9C4000"]
     PARSE --> PLAY["Demo_SelectEntry_PlaySong"]
 
-    PLAY --> SAVE["ToneGen_FileIO_SaveAndSync<br/>Save current tone gen state"]
+    PLAY --> SAVE["ToneGen_FileIO_SaveAndSync<br/>Copy song panel data into live panel (0xF9A0)"]
     SAVE --> INIT["PanelTlv_ValidateLivePanel"]
     INIT --> DSP["PanelTlv_ValidateBlock0<br/>(46 iterations)"]
     DSP --> SLOTS["DSPCfg_WriteAllSlots_Combined<br/>(x5, effect slots 0-4)"]
@@ -314,13 +314,13 @@ flowchart LR
 
 ## Key Source Files
 
-| Source File                 | Key Functions                                                                                    | Purpose                                                 |
-|-----------------------------|--------------------------------------------------------------------------------------------------|---------------------------------------------------------|
-| `system_handlers.s`         | `SwbtWr_ReinitBothBanks` (line 1419), main loop (line 1115), `MainLoop_ReinitSwbtWr` (line 1271) | Main loop and SwbtWr entry points                       |
-| `dsp_config_sysex.s`        | `SwbtWr_InitBank1`, `SwbtWr_InitBank2`, `SwbtWr_InitBank3`, `SwbtWr_DispatchLoop`                | Bank initialization and event dispatch loop             |
-| `audio_control_engine.s`    | `SwbtWr_FlushAndAppendParams`, `SwbtWr_WriteParamBlock`                                          | Event buffer management and parameter writes            |
-| `tonegen_fileio_handlers.s` | `ToneGen_FileIO_SaveAndSync`, `ToneGen_DiffScanAndUpdate`                                        | Tone gen state save/restore and parameter diff scanning |
-| `file_demo_proc.s`          | `Demo_SelectEntry_TimerTick`, `Demo_SelectEntry_PlaySong`                                        | Demo timer state machine and song playback initiation   |
+| Source File                 | Key Functions                                                                                    | Purpose                                                        |
+|-----------------------------|--------------------------------------------------------------------------------------------------|----------------------------------------------------------------|
+| `system_handlers.s`         | `SwbtWr_ReinitBothBanks` (line 1419), main loop (line 1115), `MainLoop_ReinitSwbtWr` (line 1271) | Main loop and SwbtWr entry points                              |
+| `dsp_config_sysex.s`        | `SwbtWr_InitBank1`, `SwbtWr_InitBank2`, `SwbtWr_InitBank3`, `SwbtWr_DispatchLoop`                | Bank initialization and event dispatch loop                    |
+| `audio_control_engine.s`    | `SwbtWr_FlushAndAppendParams`, `SwbtWr_WriteParamBlock`                                          | Event buffer management and parameter writes                   |
+| `tonegen_fileio_handlers.s` | `ToneGen_FileIO_SaveAndSync`, `ToneGen_DiffScanAndUpdate`                                        | Song panel data load, restore from backup, parameter diff scan |
+| `file_demo_proc.s`          | `Demo_SelectEntry_TimerTick`, `Demo_SelectEntry_PlaySong`                                        | Demo timer state machine and song playback initiation          |
 
 All source files are in kn5000-roms-disasm's `v10/maincpu/` tree: `boot/system_handlers.s`, `audio/dsp_config_sysex.s`, `audio/audio_control_engine.s`, `audio/tonegen_fileio_handlers.s` and `demo/file_demo_proc.s`.
 
@@ -333,7 +333,7 @@ All source files are in kn5000-roms-disasm's `v10/maincpu/` tree: `boot/system_h
 - [Tone Generator]({{ site.baseurl }}/tone-generator/) -- Tone gen hardware registers and voice management
 - [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) -- Audio architecture overview
 - [Sound Parameter Protocol]({{ site.baseurl }}/sound-parameter-protocol/) -- Parameter change notification system
-- [UI Framework]({{ site.baseurl }}/ui-framework/) -- NAKA widget framework (starved by blocking)
+- [UI Framework]({{ site.baseurl }}/ui-framework/) -- NAKA widget framework
 
 ---
 
