@@ -25,7 +25,8 @@ settled by a per-byte disassembly attempt (Step 1's method, below), not by count
 currently finds, ROM by ROM.
 
 **The sub-CPU payload is down to twelve single instructions spelled as `.byte`** (46 B in
-`kn5000_subprogram_v142.s`: ten `minc1` and two `ldc` to DMA control registers), each
+`kn5000_subprogram_v142.s`: ten `minc1` and two `ldc` to DMA control registers;
+`tools/annotated_insn_bytes.py v142/subcpu` in this repository lists them), each
 commented "no llvm-mc spelling" although the pinned backend spells them as `minc1_16`,
 `ldc_cr32` and `ldc_cr16`. Its last two blocked families are both closed:
 `DSP_Bytecode_Op01/02/03` (569 B) needed a decoder fix before the encoder's own output could
@@ -107,7 +108,8 @@ At disassembly `3417969c0`, under the current pin `a3a81863f87d` (llvm-mc sha256
 `118bb4d6766e`), the same tool reports `prom_a: 82 certified sites, 226 B, 42 forms; 81 with
 NO SPELLING`; the one spellable form is `decf`. The 2026-10-03 respells `7a9cf4ff8`
 (150 instructions) and `09cc4ae4d` (53) converted most of the 298. The 81 overstate what is
-unspellable: for the thirteen shift-by-A forms (34 sites, among them the commonest,
+unspellable: for the thirteen shift-by-A forms (34 sites, counted by
+`tools/wsa1_shift_by_a_spellings.py` in this repository; among them the commonest,
 `srl A,C` with 7 and `sla A,C` with 6) the script tries only unidasm's spelling `srl a,c`,
 which llvm-mc rejects, but the backend spells these `slaa`, `slla` and `srla` (`SLA_A_8` …
 `SRL_A_32` in `TLCS900InstrInfo.td`), and the pinned llvm-mc emits their bytes exactly
@@ -190,7 +192,8 @@ register named by code (`c7 f8 04`, `push IZL`) and ALU operations on an `(xrr+r
 `hdae5000/tools/measure_debt.py` counts **1,713 B** of undocumented `.byte`/`.word` operand
 bytes — 1,654 B of it in two contiguous blocks whose headers say what they are, the palette
 `HDAE5000_Palette_Button01` (1,024 B) and the bitmap `HDAE5000_Bitmap_Button01` (630 B;
-`hdae5000/hdae5000_data_tables.s:14772-14865`), the other 59 B in 15 short runs — plus
+`hdae5000/hdae5000_data_tables.s:14772-14865`), the other 59 B in 15 short runs
+(`tools/hdae5000_byte_runs.py` in this repository) — plus
 **373 B** more that carries a decoding comment but has not been converted to real
 instructions. Against a 512 KB ROM that is 0.327 % debt and 99.602 % real source
 (disassembly `3417969c0`). Most remaining `.byte` in the tree is genuine data
