@@ -38,18 +38,18 @@ The class names in the second column are the firmware's own, read from the root
 Class table (`python3 scripts/analysis/nakarest_objtab_map.py v10 --classes`).
 The counts and characteristics are the older field analysis.
 
-| Type Byte | Count | Class (firmware name) | Key Characteristics |
-|-----------|-------|----------------|---------------------|
-| `0x16` | 3 | `PsNumEditBox` | FD SAVE/LOAD TEST only, counter display with label string |
-| `0x1e` | 31 | `PsEditSwBox` | 4 sub-widget indices, full-screen bounding box |
-| `0x2b` | 765 | `Label` | String pointer (e.g. "200 Preset"), bounding box |
-| `0x2e` | 148 | `Line` | Fixed 26 bytes, bounding box, no string pointer |
-| `0x2f` | 18 | `Frame` | Similar to 0x2e but with different flags |
-| `0x30` | 16 | `EditSw` | Range parameters (min/max), data pointer |
-| `0x31` | 120 | `Box` | Links to child indices, bounding box, 22-26 bytes |
-| `0x34` | 196 | `TtlScreen` | Defines screen bounds, string pointer, 42-44 bytes |
-| `0x66` | 110 | `AcLanguageText` | Dual coordinate sets, count fields, 38-42 bytes |
-| `0x6c` | 6 | `VwUserBitmapByName` | FTDEMO_SCREEN only, references FTBMPXX strings |
+| Type Byte | Count | Class (firmware name) | Key Characteristics                                                                                                      |
+|-----------|-------|-----------------------|--------------------------------------------------------------------------------------------------------------------------|
+| `0x16`    | 3     | `PsNumEditBox`        | FD SAVE/LOAD TEST only, counter display with label string                                                                |
+| `0x1e`    | 31    | `PsEditSwBox`         | 4 sub-widget indices, full-screen bounding box                                                                           |
+| `0x2b`    | 765   | `Label`               | String pointer (e.g. "200 Preset"), bounding box                                                                         |
+| `0x2e`    | 148   | `Line`                | Fixed 26 bytes, bounding box, no string pointer                                                                          |
+| `0x2f`    | 18    | `Frame`               | Similar to 0x2e but with different flags                                                                                 |
+| `0x30`    | 16    | `EditSw`              | Range parameters (min/max), data pointer                                                                                 |
+| `0x31`    | 120   | `Box`                 | Links to child indices, bounding box, 22-26 bytes                                                                        |
+| `0x34`    | 196   | `TtlScreen`           | Defines screen bounds, string pointer, 42-44 bytes                                                                       |
+| `0x66`    | 110   | `AcLanguageText`      | Dual coordinate sets, count fields, 38-42 bytes                                                                          |
+| `0x6c`    | 6     | `VwUserBitmapByName`  | Feature Demo slides only (children of six `ftdemoNN` screens in Viewable slot 0xFD), 8-byte keys `"FTBMP01"`–`"FTBMP06"` |
 
 The tentative names this table used to carry (Diagnostic List, Panel/Dialog,
 Label/Button, Value Display, Option/Choice, Slider/Range, Composite/Group,
