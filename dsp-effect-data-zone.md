@@ -31,8 +31,9 @@ Everything is reached through four 100-entry `u32` arrays indexed by effect numb
 | parameter VALUE tables | `0x01F09C` | `DSP_WriteParam_Generic` -> `DSP_ParameterWriteEngine` |
 | parameter DESCRIPTOR tables | `0x01F22C` | passed in XDE to `DSP_ParameterWriteEngine` |
 
-Slot-1 effects 9/10 bypass the arrays with hard-coded streams (`DSP_Eff09_Slot1_*`,
-`0x01E1DE`/`0x01E342`) and the fixed `DSP_Eff9_*`/`DSP_EffA_*` pairs after the zone.
+Slot-1 effects 9/10 bypass the arrays with hard-coded streams: `DSP_Eff09_Slot1_*`
+(`0x01DFA5`/`0x01E0B9`, inside the zone) and `DSP_Eff10_Slot1_*` (`0x01E1DE`/`0x01E342`, just
+after it). The fixed `DSP_Eff9_*`/`DSP_EffA_*` parameter pairs also follow the zone.
 
 ## Grammar 1: bytecode streams
 
@@ -82,8 +83,9 @@ this page gave `0x0324D5` / `0x03241A` and a count of 85; those addresses are sl
 of each table. Slot 0 and slot 85 are blank spares.)* The per-effect ordered name list
 was captured live per effect
 (`kn7000_mame/notes/kn5000-dsp-paramlist.md`) and is quoted in the per-effect banners of
-`subcpu_data_tables.s`. The two trailing UI controls of every effect are VOLUME and
-REV SEND, landing on cells `0x90`/`0x06` (which is which is not forced by record order).
+`subcpu_data_tables.s`. The two trailing UI controls of every DSP-EFFECT-page effect are
+VOLUME and REV SEND (the DIGITAL REVERB page's twelve reverbs and two delays end with VOLUME
+alone), landing on cells `0x90`/`0x06` (which is which is not forced by record order).
 
 ## The main CPU holds the same metadata, and reads it
 

@@ -10,7 +10,8 @@ The KN5000's dual DSP chips (IC310 MN19413 and IC311 NEC uPD6383GF) are programm
 
 > **Status:** Architecture and opcode tables decoded from SubCPU firmware. The programs
 > themselves — every bytecode stream and parameter record for all 100 effect numbers — are
-> now carved and labelled in the disassembly (Wave 3a, 2026-08-07). Register-to-effect
+> now carved and labelled in the disassembly (the August 2026 binary-include-elimination
+> Wave 3a, 2026-08-07). Register-to-effect
 > parameter mapping is still incomplete: eight translator opcodes have measured semantics,
 > the rest are named from their code shape only.
 
@@ -77,60 +78,64 @@ door all do the same `byte(0x01ED6D + slot)` fetch.
 
 ## Level 1 Opcodes (Low-level)
 
-| Opcode | Handler | Description |
-|--------|---------|-------------|
-| 0x0N | Handler 0 | CMD + preamble + groups-of-5 (3-way branch: 0x00=static, 0x0A=raw, else=param-modified) |
-| 0x1N | Handler 1 | CMD + preamble + groups-of-5 (12-bit address computation) |
-| 0x2N | Handler 2 | CMD + preamble + groups-of-3 (pure raw data writes) |
-| 0x3N | Handler 3 | CMD + 16-bit address + raw tail |
-| 0x4N | Handler 4 | Single command byte only |
-| 0x5N | Handler 5 | CMD + preamble + groups-of-5 (variant with IZH mask) |
-| 0x0D | Op0D | SPI bus idle + state change notification |
-| 0x0E | Op0E | DispatchCommand + DispatchData loop (register write) |
-| 0xFN | End | Terminate program |
+| Opcode | Handler                                | Description                                                                             |
+|--------|----------------------------------------|-----------------------------------------------------------------------------------------|
+| 0x0N   | Handler 0                              | CMD + preamble + groups-of-5 (3-way branch: 0x00=static, 0x0A=raw, else=param-modified) |
+| 0x1N   | Handler 1                              | CMD + preamble + groups-of-5 (12-bit address computation)                               |
+| 0x2N   | Handler 2                              | CMD + preamble + groups-of-3 (pure raw data writes)                                     |
+| 0x3N   | Handler 3                              | CMD + 16-bit address + raw tail                                                         |
+| 0x4N   | Handler 4                              | Single command byte only                                                                |
+| 0x5N   | Handler 5                              | CMD + preamble + groups-of-5 (variant with IZH mask)                                    |
+| 0xDN   | Op0D (`DSP_Bytecode_Op0D_StateChange`) | SPI bus idle + state change notification                                                |
+| 0xEN   | Op0E (`DSP_Bytecode_Op0E_SendCommand`) | DispatchCommand + DispatchData loop (register write)                                    |
+| 0xFN   | End                                    | Terminate program                                                                       |
 
 Opcodes `0x6`-`0xC` are consumed and ignored. Termination is by **peek**: the stream ends
 when the *next* byte's high nibble is `0xF`, so the `0xF0` terminator is not executed.
 
 Handler dispatch table: `DSP_BytecodeInterpreter_CaseOffsets` at `0x014739` — 6 signed `u16` offsets relative to
 base `0x03C32E`, decoding to handlers at `0x03C32E`, `0x03C568`, `0x03C661`, `0x03C708`,
-`0x03C7A1`, `0x03C7BB`. Handler code: 1,613 bytes of embedded machine code at
-`DSP_Bytecode_Programs` (`0x03C32E`), still kept as raw bytes in the disassembly because of
-unsupported addressing modes.
+`0x03C7A1`, `0x03C7BB`. Handler code: 1,613 bytes of TLCS-900 code at `0x03C32E`-`0x03C97A`,
+disassembled as instructions since 2026-09-25. The six handlers are
+`DSP_Bytecode_Op00_Groups5_ParamMix`, `DSP_Bytecode_Op01_Groups5_Addr12`,
+`DSP_Bytecode_Op02_Groups3_Raw`, `DSP_Bytecode_Op03_Addr16_RawTail`,
+`DSP_Bytecode_Op04_CommandOnly` and `DSP_Bytecode_Op05_Groups5_Masked`. Opcodes `0xD`/`0xE` go
+to `DSP_Bytecode_Op0D_StateChange` and `DSP_Bytecode_Op0E_SendCommand`.
 
 ## Level 2 Opcodes (Translator)
 
-| Opcode | Handler | Output | Purpose |
-|--------|---------|--------|---------|
-| 0x21 | ParamInterp_2Point | WriteOscParam | 2-point linear interpolation |
-| 0x24 | ParamInterp_MultiStep | WriteOscParam | Multi-step interpolation |
-| 0x40 | PanScale_Simple | WriteOscParam | Pan position scaling |
-| 0x61 | ParamFetch_SingleTable | WriteOscParam | Direct parameter lookup |
-| 0x62 | ParamFetch_AlgoTypeTable | WriteFreqParam_AlgoType | Algorithm-dependent freq param |
-| 0x63 | AlgoParam_Decode | WriteOscParam | Algorithm parameter decode |
-| 0x64 | PitchParam_Scale | WriteFreqParam | Pitch scaling with freq write |
-| 0x65 | VolumeParam_Scale | WriteOscParam | Volume scaling |
-| 0x66 | ParamInterp_2Point | WriteOscParam | 2-point interpolation (oscillator) |
-| 0x67 | ParamInterp_FPScale | WriteOscParam_Offset | FP scale with offset |
-| 0x68 | ParamInterp_Div0xB4 | WriteFreqParam | Frequency interp (divide by 0xB4) |
-| 0x69 | VolumeCurve_FP | WriteOscParam | Fixed-point volume curve |
-| 0x6A | FreqCurve_FP | WriteFreqParam | Fixed-point frequency curve |
-| 0x6B | FreqInterp_2Point | WriteFreqParam | 2-point frequency interp |
-| 0x6C | ParamInterp_3Point_WithOffset | WriteFreqParam | 3-point interp with offset |
-| 0x6D | ReverbCurve_FP | WriteOscParam | Reverb-specific curve |
-| 0x6E | ParamInterp_FPComplex | WriteOscParam | Complex FP interpolation |
-| 0x6F | PanCurve_PiecewiseLin | WriteOscParam | Piecewise-linear pan curve |
-| 0x70 | BiquadCoeff_Compute | (direct) | Biquad IIR filter coefficient |
-| 0x71 | DetuneCurve_SignedFP | WriteOscParam | Signed FP detune curve |
-| 0x72 | BiquadWarp_FP | (direct) | Bilinear transform warping |
-| 0x73 | ParamInterp_Div0xC6 | WriteOscParam | Interpolation (divide by 0xC6) |
-| 0x74 | WriteLUTParamSet | (direct) | Lookup table parameter set |
-| 0x75 | ParamEQ_Curve_FP | WriteOscParam | Parametric EQ curve |
-| 0x76 | SOS_Coeff_Compute | (direct) | Second-order section coefficient |
-| 0x77 | ParamInterp_2Point_B | WriteOscParam | 2-point interp variant B |
-| 0x78 | VolScale_B | WriteOscParam | Volume scaling variant B |
-| 0x7A | (end) | — | Terminate bytecode block |
-| 0xF0 | (separator) | — | Separator between parameter slots |
+| Opcode | Handler                       | Output                  | Purpose                                          |
+|--------|-------------------------------|-------------------------|--------------------------------------------------|
+| 0x21   | ParamInterp_2Point            | WriteOscParam           | 2-point linear interpolation                     |
+| 0x24   | ParamInterp_MultiStep         | WriteOscParam           | Multi-step interpolation                         |
+| 0x40   | PanScale_Simple               | WriteOscParam           | Pan position scaling                             |
+| 0x61   | ParamFetch_Op61Table          | WriteOscParam           | Table lookup in `DSP_OscParamCurve` (`0x0129A3`) |
+| 0x62   | ParamFetch_SingleTable        | WriteOscParam           | Single-table lookup (CURVE_D volume law)         |
+| 0x63   | ParamFetch_AlgoTypeTable      | WriteFreqParam_AlgoType | Algorithm-dependent table (A/B/C curve select)   |
+| 0x64   | PitchParam_Scale              | WriteFreqParam          | Pitch scaling with freq write                    |
+| 0x65   | VolumeParam_Scale             | WriteOscParam           | Volume scaling                                   |
+| 0x66   | ParamInterp_2Point            | WriteOscParam           | 2-point interpolation (oscillator)               |
+| 0x67   | ParamInterp_FPScale           | WriteOscParam_Offset    | FP scale with offset                             |
+| 0x68   | ParamInterp_Div0xB4           | WriteFreqParam          | Frequency interp (divide by 0xB4)                |
+| 0x69   | VolumeCurve_FP                | WriteOscParam           | Fixed-point volume curve                         |
+| 0x6A   | FreqCurve_FP                  | WriteFreqParam          | Fixed-point frequency curve                      |
+| 0x6B   | FreqInterp_2Point             | WriteFreqParam          | 2-point frequency interp                         |
+| 0x6C   | ParamInterp_3Point_WithOffset | WriteFreqParam          | 3-point interp with offset                       |
+| 0x6D   | ReverbCurve_FP                | WriteOscParam           | Reverb-specific curve                            |
+| 0x6E   | ParamInterp_FPComplex         | WriteOscParam           | Complex FP interpolation                         |
+| 0x6F   | PanCurve_PiecewiseLin         | WriteOscParam           | Piecewise-linear pan curve                       |
+| 0x70   | BiquadCoeff_Compute           | (direct)                | Biquad IIR filter coefficient                    |
+| 0x71   | DetuneCurve_SignedFP          | WriteOscParam           | Signed FP detune curve                           |
+| 0x72   | BiquadWarp_FP                 | (direct)                | Bilinear transform warping                       |
+| 0x73   | ParamInterp_Div0xC6           | WriteOscParam           | Interpolation (divide by 0xC6)                   |
+| 0x74   | WriteLUTParamSet              | (direct)                | Lookup table parameter set                       |
+| 0x75   | ParamEQ_Curve_FP              | WriteOscParam           | Parametric EQ curve                              |
+| 0x76   | SOS_Coeff_Compute             | (direct)                | Second-order section coefficient                 |
+| 0x77   | ParamInterp_2Point_B          | WriteOscParam           | 2-point interp variant B                         |
+| 0x78   | VolScale_B                    | WriteOscParam           | Volume scaling variant B                         |
+| 0x79   | AlgoParam_Decode              | WriteOscParam           | Algorithm parameter decode                       |
+| 0x7A   | (end)                         | —                       | Terminate bytecode block                         |
+| 0xF0   | (separator)                   | —                       | Separator between parameter slots                |
 
 Translator dispatch table: `DSP_Translator_CaseOffsets` at `0x014745` — 25 signed `u16` offsets relative
 to base `0x03CB8E`, indexed by `opcode - 0x61` for opcodes `0x61`-`0x79`. Opcodes `0x21`,
@@ -154,7 +159,7 @@ Physical layer: GPIO bit-banging on SubCPU ports.
 | SCLK | Port F (0x3C) | bit 2 |
 | CS2 | Port E (0x38) | bit 6 |
 
-Each SPI transaction produces **9 SCLK rising edges** (confirmed by `DSP2_Send_Command` at subcpu line 32980).
+Each SPI transaction produces **9 SCLK rising edges** (confirmed by `DSP2_Send_Command`, `0x03666B`).
 
 ### CMD 0x30 Register Write Sequence
 
@@ -174,36 +179,35 @@ A register write sends 5 SPI transactions:
 | 0xD3 | 0x0000 | Initialization |
 | 0x3C | 0x4000 | Configuration |
 
-## DSP Register Address Space
+## Parameter Routing and Algorithm Types
 
-Registers use a structured addressing scheme:
+### Parametric EQ (opcode 0x70 = BiquadCoeff_Compute)
 
-### Parametric EQ (detected from opcode 0x70 = BiquadCoeff_Compute)
+The PARAMETRIC EQ (effect 39) runs on IC311, so the CMD 0x30 register writes above do not
+apply to it. Its `0x70` descriptor (`DSP_Eff39_Param_Descriptors`, `0x0153AB`) sends the
+output of the biquad designer (`DSP_BiquadCoeff_Compute`) to ten IC311 C-RAM cells:
 
-5-band parametric EQ, each band with 3 coefficients:
+- `0x00`, `0x06`, `0x0C`, `0x12`, `0x18` — the five bands' coefficient blocks, six cells apart;
+- `0x64`, `0x68`, `0x6C`, `0x70`, `0x74` — the five bands' state-pointer cells, stride 4.
 
-| Band | Frequency | Q Factor | Gain |
-|------|-----------|----------|------|
-| 0 | 0x0000 | 0x0010 | 0x0020 |
-| 1 | 0x0100 | 0x0110 | 0x0120 |
-| 2 | 0x0200 | 0x0210 | 0x0220 |
-| 3 | 0x0300 | 0x0310 | 0x0320 |
-| 4 | 0x0400 | 0x0410 | 0x0420 |
+The designer itself is described on the
+[Effects DSP]({{ site.baseurl }}/effects-dsp/#parametric-eq--a-bilinear-transform-biquad-proven-by-construction)
+page.
 
 ### Effect Algorithm Types
 
-The firmware supports 12 algorithm types (indices 0-11). The Wave-3a carve of the sub-CPU
-data zones turned up the whole supporting table family, all of which agree on that count:
+The firmware supports 12 algorithm types (indices 0-11). The August 2026 (Wave 3a) carve of
+the sub-CPU data zones turned up the whole supporting table family, all of which agree on that count:
 
-| table | address | shape |
-|-------|---------|-------|
-| `DSP_AlgoType_Dispatch1_CaseOffsets` | `0x00FB66` | 12 × `u16` offsets, base `0x033812` (`DSP_AlgoType_Dispatch1_Arms`) |
-| `DSP_AlgoType_Dispatch2_CaseOffsets` | `0x00FB7E` | 12 × `u16`, base `0x0339DE` |
-| `DSP_AlgoType_Dispatch3_CaseOffsets` | `0x00FB96` | 12 × `u16`, base `0x033E44` |
-| `Algo_SubTable_DispatchB_CaseOffsets` / `Algo_SubTable_DispatchC_CaseOffsets` / `Algo_SubTable_Bit15Dispatch_CaseOffsets` | `0x00FBAE` / `0x00FBC0` / `0x00FBD2` | 9 × `u16`, bases `0x0340CC` / `0x0341BE` / `0x03429D` |
-| `DSP_EFFPARAM_APPLY_JUMPTABLE` | `0x00F99B` | 12 × `u16`, base `0x02F2D9` (`DSP_EffParam_Apply_By_AlgoType`) |
-| `DSP_AlgoChannel_SelectorRecords` | `0x010FCE` | 12 × 6 bytes — three 2-byte channel pairs per type, `0xFF` = no entry |
-| `DSP_AlgoDescriptor_Records` | `0x011E16` | 14 × 39-byte (`0x27`) records; types 12 and 13 are all zero |
+| table                                                                                                                     | address                              | shape                                                                                                    |
+|---------------------------------------------------------------------------------------------------------------------------|--------------------------------------|----------------------------------------------------------------------------------------------------------|
+| `DSP_AlgoType_Dispatch1_CaseOffsets`                                                                                      | `0x00FB66`                           | 12 × `u16` offsets, base `0x033812` (`DSP_AlgoType_Dispatch1_Arms`)                                      |
+| `DSP_AlgoType_Dispatch2_CaseOffsets`                                                                                      | `0x00FB7E`                           | 12 × `u16`, base `0x0339DE`                                                                              |
+| `DSP_AlgoType_Dispatch3_CaseOffsets`                                                                                      | `0x00FB96`                           | 12 × `u16`, base `0x033E44`                                                                              |
+| `Algo_SubTable_DispatchB_CaseOffsets` / `Algo_SubTable_DispatchC_CaseOffsets` / `Algo_SubTable_Bit15Dispatch_CaseOffsets` | `0x00FBAE` / `0x00FBC0` / `0x00FBD2` | 9 × `u16`, bases `0x0340CC` / `0x0341BE` / `0x03429D`                                                    |
+| `DSP_EFFPARAM_APPLY_JUMPTABLE`                                                                                            | `0x00F99B`                           | 12 × `u16`, base `0x02F2D9` (`DSP_EffParam_Apply_T0`, the first arm of `DSP_EffParam_Apply_By_AlgoType`) |
+| `DSP_AlgoChannel_SelectorRecords`                                                                                         | `0x010FCE`                           | 12 × 6 bytes — three 2-byte channel pairs per type, `0xFF` = no entry                                    |
+| `DSP_AlgoDescriptor_Records`                                                                                              | `0x011E16`                           | 14 × 39-byte (`0x27`) records; types 12 and 13 are all zero                                              |
 
 (The six `*_CaseOffsets` tables were `AlgoJumpTable1`-`AlgoJumpTable6` until September 2026;
 each is now named after the dispatcher that reads it,
@@ -226,31 +230,31 @@ Addresses, not source line numbers — the disassembly moved from `.asm` to `.s`
 the old line references were stale. These are the current entries in
 `symbols/subcpu_symbols_reference.txt`.
 
-| Function | Address | Purpose |
-|----------|---------|---------|
-| `DSP_BytecodeInterpreter_Init` | `0x03C259` | Low-level interpreter entry |
-| `DSP_BytecodeInterpreter_Loop` | `0x03C2CB` | Fetch/decode/dispatch loop |
-| `DSP_Bytecode_Programs` | `0x03C32E` | 1,613 bytes of handler machine code |
-| `DSP_Bytecode_NotifyStateChange` | `0x03C253` | Tail-jumps into the scheduler (yields between register groups) |
-| `DSP_ParameterWriteEngine` | `0x03C9E6` | Translator entry point |
-| `DSP_PerParameterTranslator` | `0x03CAAE` | Walks one value record to its `0x7A` |
-| `DSP_Translator_ReadOpcode` | `0x03CB18` | Opcode decode + dispatch |
-| `DSP_TableWalk_Search` | `0x03CF53` | Finds the descriptor record with a given id |
-| `DSP_TableWalk_SearchWithState` | `0x03CFA5` | Same, stateful variant |
-| `DSP_DispatchCommand` | `0x036A2E` | Route command to DSP1/DSP2 |
-| `DSP_DispatchData` | `0x036A4F` | Route data to DSP1/DSP2 |
-| `DSP2_Send_Command` | `0x03666B` | SPI bit-bang: 9 SCLK rising edges |
-| `DSP2_SPI_BusIdle` | `0x0364C4` | SPI CS deassert + state change |
-| `DSP_WriteGlobalConfig` | `0x03C181` | Global config via bytecode (descriptor table `0x0147B3`) |
-| `DSP_WriteEFFConfig` | `0x03C161` | Effect config via bytecode (descriptor table `0x014777`) |
-| `DSP_WriteParameter` | `0x03C190` | "Write parameter set N of effect M" front door |
-| `DSP_WriteParam_Generic` | `0x03C20E` | Generic arm: descriptors from `0x01F22C`, values from `0x01F09C` |
-| `DSP_MixerCoeff_Compute` | `0x03C067` | Two-stage mixer gain via `DSP_MixerGain_Curve` |
-| `DSP_WriteParamCmd30` | `0x038439` | CMD 0x30 register write (5 SPI transactions) |
-| `DSP_WriteOscParam` | `0x0387E6` | Write oscillator/effect parameter |
-| `DSP_WriteFreqParam` | `0x038539` | Write frequency parameter |
-| `DSP_Read_Status` | `0x0383F7` | Poll DSP1 ready via Port PH bit 0 |
-| `EFF_Change_WithDebug` | `0x0380EC` | Uploads algorithm then coefficients for one slot |
+| Function                             | Address    | Purpose                                                                 |
+|--------------------------------------|------------|-------------------------------------------------------------------------|
+| `DSP_BytecodeInterpreter_Init`       | `0x03C259` | Low-level interpreter entry                                             |
+| `DSP_BytecodeInterpreter_Loop`       | `0x03C2CB` | Fetch/decode/dispatch loop                                              |
+| `DSP_Bytecode_Op00_Groups5_ParamMix` | `0x03C32E` | Handler 0; first of the six opcode handlers (1,613 bytes to `0x03C97A`) |
+| `DSP_Bytecode_NotifyStateChange`     | `0x03C253` | Tail-jumps into the scheduler (yields between register groups)          |
+| `DSP_ParameterWriteEngine`           | `0x03C9E6` | Translator entry point                                                  |
+| `DSP_PerParameterTranslator`         | `0x03CAAE` | Walks one value record to its `0x7A`                                    |
+| `DSP_Translator_ReadOpcode`          | `0x03CB18` | Opcode decode + dispatch                                                |
+| `DSP_TableWalk_Search`               | `0x03CF53` | Finds the descriptor record with a given id                             |
+| `DSP_TableWalk_SearchWithState`      | `0x03CFA5` | Same, stateful variant                                                  |
+| `DSP_DispatchCommand`                | `0x036A2E` | Route command to DSP1/DSP2                                              |
+| `DSP_DispatchData`                   | `0x036A4F` | Route data to DSP1/DSP2                                                 |
+| `DSP2_Send_Command`                  | `0x03666B` | SPI bit-bang: 9 SCLK rising edges                                       |
+| `DSP2_SPI_BusIdle`                   | `0x0364C4` | SPI CS deassert + state change                                          |
+| `DSP_WriteGlobalConfig`              | `0x03C181` | Global config via bytecode (descriptor table `0x0147B3`)                |
+| `DSP_WriteEFFConfig`                 | `0x03C161` | Effect config via bytecode (descriptor table `0x014777`)                |
+| `DSP_WriteParameter`                 | `0x03C190` | "Write parameter set N of effect M" front door                          |
+| `DSP_WriteParam_Generic`             | `0x03C20E` | Generic arm: descriptors from `0x01F22C`, values from `0x01F09C`        |
+| `DSP_MixerCoeff_Compute`             | `0x03C067` | Two-stage mixer gain via `DSP_MixerGain_Curve`                          |
+| `DSP_WriteParamCmd30`                | `0x038439` | CMD 0x30 register write (5 SPI transactions)                            |
+| `DSP_WriteOscParam`                  | `0x0387E6` | Write oscillator/effect parameter                                       |
+| `DSP_WriteFreqParam`                 | `0x038539` | Write frequency parameter                                               |
+| `DSP_Read_Status`                    | `0x0383F7` | Poll DSP1 ready via Port PH bit 0                                       |
+| `EFF_Change_WithDebug`               | `0x0380EC` | Uploads algorithm then coefficients for one slot                        |
 
 ## Related Pages
 

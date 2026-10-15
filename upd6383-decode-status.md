@@ -12,12 +12,13 @@ the rest — **what to do next, why each experiment should work, and what it cos
 
 > **Status.** Pooled decode coverage is **80.8 %** — 5876 of 7273 distinct microcode words across
 > the SX-KN5000 and the SX-WSA1R, leaving **1397 undecoded**. The word format, the datapath and
-> two whole algorithms are decoded; most individual instruction codes are not.
+> the parametric EQ's biquad are decoded; the reverb's coefficient map is complete but its
+> micro-topology is open. Most individual instruction codes are not decoded.
 >
 > **The headline for planning: no hardware is on the critical path to 95 %.** Closing the
 > questions already answerable from the corpus and the emulator would take coverage to **95.2 %**
 > without touching an instrument. The hardware routes matter for the last few points, and one of
-> them got considerably more attractive today.
+> them got considerably more attractive on 2026-09-15.
 
 Confidence is labelled **MEASURED / PROVEN BY CONSTRUCTION**, **INFERRED**, or **OPEN**, matching
 the research notes. Where a claim needs real hardware, it says so.
@@ -41,8 +42,9 @@ manual, where the same part is IC302.
 So every statement about this instruction set comes from one of: the ROM corpus, the Sub CPU code
 that assembles the words, an exhaustive constraint search, or a live emulator trace.
 
-⚠ **The project's own standing rule is that a wrong decode costs more than a missing one.** Six
-readings have been retracted, two of them within hours of being committed. The
+⚠ **The project's own standing rule is that a wrong decode costs more than a missing one.** The
+instruction-set reference's corrections table alone withdraws twenty-five readings, two of them
+within hours of being committed. The
 [instruction set reference](https://github.com/ArqueologiaDigital/kn5000-roms-disasm) opens with
 its own list of corrections, and that list is part of the result.
 
@@ -77,8 +79,11 @@ opaque, 18 of 70 not yet decoded"*. A zero in the first column is not a finished
   a **single adder with two selectors**, not a sequence; the store is `datum = acc >> 16`. Bit-exact
   on the parametric EQ (27/27 MACs), and the multiplier generalises to SINGLE DELAY 16/16,
   CHORUS 5/5, FLANGER 11/11.
-- **Two algorithms end to end** — the parametric EQ and the reverb diffuser, reconstructed to
-  **0.094 dB** worst case over 8 coefficient banks, 11 biquad sections and 4 programs.
+- **One algorithm end to end** — the parametric EQ's biquad, reconstructed to **0.094 dB**
+  worst case over 8 coefficient banks, 11 biquad sections and 4 programs. The reverb's
+  coefficient map is complete, but its micro-topology is still open: the first-order all-pass
+  reading was rejected
+  ([Effects DSP §19]({{ site.baseurl }}/effects-dsp/#19-the-reverb--audible-from-the-decoded-coefficients-2026-09-12)).
 - **All four memory spaces** — coefficient RAM (the whole 256-cell map), the state D-RAM (origin
   pinned, 85/85 streams), the external delay DRAM (`address = (descriptor[cursor] + G) mod 2^N`,
   PROVEN BY CONSTRUCTION, validated against a ROM shipping `15 435 = 350 × 44100/1000` exactly),
@@ -88,7 +93,7 @@ opaque, 18 of 70 not yet decoded"*. A zero in the first column is not a finished
   an exhaustive scan for a branch instruction is negative, and there is a positive reason for it.
 - **The store gate**, settled 2026-09-14 after months as a two-way tie. See §3.
 
-### And the [pinout]({{ site.baseurl }}/upd6383-datasheet/), as of today
+### And the [pinout]({{ site.baseurl }}/upd6383-datasheet/), as of 2026-09-15
 
 The 100-pin package has never been documented in one place. It is now, read at 400 dpi off the
 WSA1R schematic — which turned out to draw the chip more clearly than the CDJ-500 manual we
@@ -131,14 +136,14 @@ The three worth knowing:
 The 1397 undecoded words are blocked on **54 distinct open axes** — but not evenly, and not
 deeply: **591 of them are blocked on exactly one axis.**
 
-| if this question were answered… | words unlocked | coverage |
-|---|---|---|
-| `f31` 3/4/5/7 — the five unknown accumulator operations | 189 | 83.4 % |
-| `ACT 0x0B` off class A | 159 | 83.0 % |
-| `SRC 0x11` — the second accumulator `accb` | 139 | 82.7 % |
-| addressing classes 0/1/4 | 99 | 82.2 % |
-| class 6 + `SRC 0x13` — the table-lookup idiom | 90 | 82.0 % |
-| `SRC 0x1C` + the store gate at `f31 1` | 89 | 82.0 % |
+| if this question were answered…                           | words unlocked | coverage |
+|-----------------------------------------------------------|----------------|----------|
+| `f31` 3/4/5/6/7 — the five unknown accumulator operations | 189            | 83.4 %   |
+| `ACT 0x0B` off class A                                    | 159            | 83.0 %   |
+| `SRC 0x11` — the second accumulator `accb`                | 139            | 82.7 %   |
+| addressing classes 0/1/4                                  | 99             | 82.2 %   |
+| class 6 + `SRC 0x13` — the table-lookup idiom             | 90             | 82.0 %   |
+| `SRC 0x1C` + the store gate at `f31 1`                    | 89             | 82.0 %   |
 
 Closing them in the best order cascades, because most words are blocked on two axes and free up
 only when both fall:
@@ -198,8 +203,10 @@ idiom reads — which a relocation-style test can attack).
 ### R2 — A Pioneer CDJ-500 firmware dump · a cheap second-hand player · **+2.9 points, but only after R1**
 
 The CDJ-500 uses the same chip as IC302, and unlike the KN1500 its DSP-shaped feature is genuinely
-different: **Master Tempo**, key-lock pitch shifting. The KN5000 ships PITCH SHIFTER as a
-byte-identical copy of NO OPERATION, so this is microcode neither existing corpus contains.
+different: **Master Tempo**, key-lock pitch shifting. The KN5000 points PITCH SHIFTER at
+its shared NO OPERATION program. The WSA1R does carry a real, 108-word PITCH SHIFTER body
+(`wsa1/dsp/disasm/eff54_pitch_shifter.dsm`), so Master Tempo would be a second, independent
+pitch-shifting program.
 
 The project's strategic review names it as *the only route* to the six `SRC` hapaxes, the
 kernel-only classes 9/C/D, and the bit-11 drought.
@@ -371,7 +378,7 @@ Reaching a true 100 % needs at least one of:
 | **6** | Extend the debug monitor across the CPU-2 mailbox | substantial | medium | Nothing can be uploaded to the DSP without it |
 | **7** | The emulator mode (`SETRDY` / `BR-RQ`) | board modification | **high** | Only after everything above |
 
-⛔ **And one route that closed today.** The `RQ`/`GF` flag experiments — using the chip's
+⛔ **And one route that closed on 2026-09-15.** The `RQ`/`GF` flag experiments — using the chip's
 host-visible flags to read results back — are **dead on the SX-WSA1R**. On IC30, `RQ1`–`RQ3`
 (pins 86-88) are strapped to ground, so the host can never vary them; `GF1`–`GF3` (pins 83-85) are
 unconnected stubs, so the host can never read them. The honest report is *"not available on this

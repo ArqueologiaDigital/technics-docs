@@ -29,16 +29,16 @@ A fixed-point audio effects DSP, part of NEC's µPD638x consumer-audio line. Its
 predecessor by part number, the µPD6382GF, is listed by distributors as a *"19-Bit Digital Signal
 Processor, QFP-80"*; no databook covers either.
 
-| | |
-|---|---|
-| Package | **100-pin QFP**. Pin 1 bottom-left, numbering counter-clockwise — MEASURED |
-| Clock | **25 MHz** (KN5000, X301) — MEASURED |
-| Frame rate | **44.1 kHz**, hardware-restarted — MEASURED four ways |
-| Cycles per frame | 25 MHz / 44.1 kHz = **567**, against 384 words of instruction RAM |
-| Instruction word | **36 bits**, in a 5-byte big-endian right-aligned container; bits 36-39 always zero — MEASURED |
-| Data width | **24-bit**; coefficients signed **Q0.23** — MEASURED |
-| External memory | **17 address lines, 16 data lines** for delay DRAM — MEASURED from the pinout |
-| Known part suffixes | `µPD6383GF-3BA`; a dealer lists it against Panasonic house number `GGC1163` |
+|                     |                                                                                                |
+|---------------------|------------------------------------------------------------------------------------------------|
+| Package             | **100-pin QFP**. Pin 1 bottom-left, numbering counter-clockwise — MEASURED                     |
+| Clock               | **25 MHz** (KN5000, crystal X303) — MEASURED                                                   |
+| Frame rate          | **44.1 kHz**, hardware-restarted — MEASURED four ways                                          |
+| Cycles per frame    | 25 MHz / 44.1 kHz = **567**, against 384 words of instruction RAM                              |
+| Instruction word    | **36 bits**, in a 5-byte big-endian right-aligned container; bits 36-39 always zero — MEASURED |
+| Data width          | **24-bit**; coefficients signed **Q0.23** — MEASURED                                           |
+| External memory     | **17 address lines, 16 data lines** for delay DRAM — MEASURED from the pinout                  |
+| Known part suffixes | `µPD6383GF-3BA`; a dealer lists it against Panasonic house number `GGC1163`                    |
 
 **Known applications.** Technics SX-KN5000 (IC311), SX-KN1500 (IC3), SX-WSA1 / SX-WSA1R (IC5,
 IC6, IC30 — three per machine), Pioneer CDJ-500 / CDJ-500G (IC302).
@@ -110,13 +110,17 @@ run 15/16/[17]/18 is otherwise unbroken at uniform pitch. Every other cell was r
 
 ### 3.1 Host interface — two of them, selected by `/P/S`
 
-The chip offers a **serial** and a **parallel** host port, and the two known Technics designs use
-different ones — which is how we know the pin is a selector.
+The chip offers a **serial** and a **parallel** host port; `/P/S` (89) is read as the selector
+from its name. Both Technics boards studied here use the **parallel** port. On the KN5000 the
+sub-CPU writes whole bytes to IC311 through its port Z (nets `DSP1D0-7`) and drives `/WRITE`,
+`/READ`, `/CS` and `/C/D` from port 7 (`DSP_Set_Command_Mode` … `DSP_Select_Chip`, sub-CPU
+`0x0383A7`-`0x0383BF`) — MEASURED, firmware and schematic nets agreeing.
 
-| | serial | parallel |
-|---|---|---|
-| pins | `/CS` 1, `/C/D` 2, `/SCK` 3, `SI` 4, `SO` 5, `RDY` 8 | `D0-D7` 92-99, `/WRITE` 90, `/READ` 91 |
-| used by | **SX-KN5000** (IC311) | **SX-WSA1R** (IC30, with `/P/S` tied to +5 V) |
+|         | serial                                                                 | parallel                                                                |
+|---------|------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| pins    | `/SCK` 3, `SI` 4, `SO` 5                                               | `D0-D7` 92-99, `/WRITE` 90, `/READ` 91                                  |
+| shared  | `/CS` 1, `/C/D` 2, `RDY` 8 — used with the parallel port on the KN5000 |                                                                         |
+| used by | neither board studied here                                             | **SX-KN5000** (IC311) and **SX-WSA1R** (IC30, with `/P/S` tied to +5 V) |
 
 `/C/D` selects command versus data. `RDY` is open-drain — on the KN5000 it is pulled up by a 4.7 kΩ
 to +5 V and leaves the sheet as the net `DSPRDY`.
@@ -144,13 +148,19 @@ So on the machines we can reach, the host can neither vary `RQ` nor read `GF`. �
 ### 3.3 Clock, reset and frame timing
 
 `XI`/`XO` (39/40) are the oscillator pins and `EOSC` (37) is an external-oscillator input.
-`/RST` (9) and `/RST2` (10) are two resets. **`/Fs-RST` (13) restarts the program counter every
-sample** — there is no software frame loop, and the per-frame instruction budget is fixed by the
-clock ratio. `/Fs-MASK` (14) gates that. `XFsI` (19) is the frame-sync input and `XFsO1`/`XFsO2`
-(28/29) the outputs, so several chips can be chained on one frame clock.
+`/RST` (9) and `/RST2` (10) are two resets. **The program counter is restarted every sample by
+the chip's internal `PC-RST`**, which the TIMING block derives from the frame clock on `LRCKI`.
+There is no software frame loop, and the per-frame instruction budget is fixed by the clock ratio.
+`/Fs-RST` (13) is an *external* PC-reset input, and `/Fs-MASK` (14) inhibits the internal
+`PC-RST`. The CDJ-500 pin table says both are used in the emulator mode and pulled up in regular
+modes; on the KN5000 both are strapped to +5 V. Per the same table, `XFsI` (19) is the input for
+generating the bit clock in slave mode (the KN5000 feeds it IC303's `BCK`); `XFsO1`/`XFsO2`
+(28/29) are outputs of the same TIMING block.
 
-`MD1`–`MD4` (32-35) are mode straps. **What they select is OPEN** — no source documents it. On the
-WSA1R's IC30, `MD1` is grounded and `MD2`/`MD3`/`MD4` go to +5 V.
+`MD1`–`MD4` (32-35) are mode straps. The CDJ-500 pin table describes them only as selecting
+*"external RAM type for digital delay and connection conditions"*, so **what each value selects
+is OPEN**. On the KN5000's IC311 all four are strapped to VDD (`0b1111`); on the WSA1R's IC30,
+`MD1` is grounded and `MD2`/`MD3`/`MD4` go to +5 V.
 
 **`SETRDY` (100) and `/BR-RQ` (11) gate an emulator mode.** On the KN5000 `SETRDY` is left open and
 `BR-RQ` is strapped high, which disables it: *"no PC trace without board modification"*. What the
@@ -294,22 +304,23 @@ One word = one slot, 285 slots per frame, holds in all 91 programs.
 
 ## 5. What is not known
 
-| unknown | why it resists |
-|---|---|
-| `f31` 3, 4, 5, 6, 7 | Separable and reproducible, but their carrier programs are ones no anchored criterion can see |
+| unknown                              | why it resists                                                                                               |
+|--------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| `f31` 3, 4, 5, 6, 7                  | Separable and reproducible, but their carrier programs are ones no anchored criterion can see                |
 | The `lo12` bit-11 alternate encoding | 169 words; addressing and accumulator function already characterised, the encoding itself is the one unknown |
-| `f98` (`hi12[9:8]`) | Proven a field; the accumulator-op-selector reading was tested and failed |
-| `hi12` bits 0, 5, 7 | Bit 7 provably gates the store, but has no meaning of its own yet |
-| `ACT 0x0B` off class A | Three readings survive; three separate criteria measured blind |
-| `SRC 0x11`'s two write forms | A structural dependency cycle — every reachable program feeds it a frame-invariant constant |
-| Class 6's table index | The word that computes it is a bit-11 word; six index sources enumerated and refuted |
-| Addressing modes 3-6 | No characterised twin |
-| `COND` / predication | Unobservable on both Technics boards (§3.2) |
-| `MD1`-`MD4` mode straps | Undocumented anywhere |
-| DRAM read latency | Forced to a window; the exact value needs the emulator mode |
-| `N` in `mod 2^N` | Unobservable from software; 17 address pins bound it |
+| `f98` (`hi12[9:8]`)                  | Proven a field; the accumulator-op-selector reading was tested and failed                                    |
+| `hi12` bits 0, 5, 7                  | Bit 7 provably gates the store, but has no meaning of its own yet                                            |
+| `ACT 0x0B` off class A               | Three readings survive; three separate criteria measured blind                                               |
+| `SRC 0x11`'s two write forms         | A structural dependency cycle — every reachable program feeds it a frame-invariant constant                  |
+| Class 6's table index                | The word that computes it is a bit-11 word; six index sources enumerated and refuted                         |
+| Addressing modes 3-6                 | No characterised twin                                                                                        |
+| `COND` / predication                 | Unobservable on both Technics boards (§3.2)                                                                  |
+| `MD1`-`MD4` mode straps              | One-line description only (delay-RAM type and connection conditions); the value encoding is undocumented     |
+| DRAM read latency                    | Forced to a window; the exact value needs the emulator mode                                                  |
+| `N` in `mod 2^N`                     | Unobservable from software; 17 address pins bound it                                                         |
 
-**Coverage today: 80.8 %** of 7273 distinct pooled microwords. The route from here is in
+**Coverage at the last measurement (2026-09-14): 80.8 %** of 7273 distinct pooled microwords.
+The route from here is in
 [state of play and the route to 100 %]({{ site.baseurl }}/upd6383-decode-status/).
 
 ---

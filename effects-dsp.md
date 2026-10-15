@@ -13,25 +13,29 @@ runs **nine** of the 100 effect-algorithm numbers — see
 [Chip partition](#chip-partition-nine-effects-belong-to-ic310) below.
 
 This page is the reference distillation of the reverse-engineering of that chip. The
-narrative — how each result was found — is in the MAME development blog (Parts 78–84);
+narrative — how each result was found — is in the MAME development blog (Parts 78–84 for
+the identification, 90–113 for the July 2026 decode, and 222–238 for September 2026);
 the conclusions are stated here. Confidence is labelled throughout as **PROVEN /
 MEASURED**, **INFERRED**, or **OPEN**, matching the underlying research notes. Where a
 claim needs real hardware to settle, it says so plainly.
 
 > **Status.** The host upload path, word format, coefficient format, sample rate,
-> memory map, control-flow model and several instruction roles are established, and two
-> whole algorithms (the parametric EQ and the reverb diffuser) are decoded to the bit.
+> memory map, control-flow model and several instruction roles are established, the
+> parametric EQ's coefficient design is decoded to the bit, and the reverb's ladder gains
+> and cells are mapped (its micro-topology is still open, §19).
 > The instruction set as a whole is **not** fully decoded, but the number has moved a long
 > way: honest coverage is **80.8 %** — 5876 of 7273 distinct microcode words pooled over
 > the KN5000 and the SX-WSA1R, leaving **1397 undecoded** (was ~18 % when this paragraph
 > was first written). On the KN5000's own 38 effect programs it is **79.4 %**, 2362 of 2974.
-> MAME now carries an experimental, opt-in partial-execution core for
+> The project's development MAME overlay (`kn7000_mame`; upstream MAME maps IC311 as a
+> no-op stub) now carries an experimental, opt-in partial-execution core for
 > the chip (compile-time `KN5000_ENABLE_DSP1`, default off; a runtime `DSPCFG` port, also
 > default off) that runs one uPD6383GF frame per tone-generator sample and logs which words
-> trap — 199 of the 285 words on the frame path execute, 108 of them fully. It is a decoding
-> instrument, not an audio feature: every frame is still discarded before it reaches the mix
-> (0 of 1,368,001 sampled frames complete), so the default build's audio is unaffected either
-> way and there is still no audio from this chip.
+> trap. On 2026-07-27, before the later decode passes, 199 of the 285 words on the frame path
+> executed, 108 of them fully, and 0 of 1,368,001 sampled frames completed; later passes moved
+> both figures. It is a decoding instrument, not an audio feature: its output stage still
+> delivers no audio (§22), so the default build's audio is unaffected either way and there is
+> still no audio from this chip's low-level emulation.
 >
 > **Update (2026-09-11) — the biquad DATAPATH is now decoded end to end.** Beyond the two
 > algorithms' *transfer functions* (below), the chip's own **microarchitecture** — how a word
@@ -43,10 +47,14 @@ claim needs real hardware to settle, it says so plainly.
 > *audible* LLE is the **input route** (audio reaches the chip's DI-latch cells but the
 > stage that carries it into the effect bodies is undecoded) — a short, enumerated list of
 > open routing codes, not a fog.
+>
+> *(Since 2026-09-12 the input gate has been located at one kernel word, and the output stage
+> is a second, independent blocker — §22.)*
 
 This page supersedes, in part, the older
 [DSP Bytecode Interpreter]({{ site.baseurl }}/dsp-bytecode-interpreter/) page, which was
-written before the chip was identified and refers to it by the wrong part number. That
+written before the chip was identified (it now carries the correct part number and a note
+about the old one). That
 page remains correct about the **Sub CPU-side** bytecode interpreter (the mechanism that
 *uploads* configurations); everything it says about the DSP chip's own architecture is
 refined here. See also the [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) for how
@@ -98,7 +106,7 @@ IC311 is **not** in the main output path. It hangs off the tone generator:
 ```
 IC303.SDOA -> DI1        DO1 -> IC303.SDIA
 IC303.SDOB -> DI2        DO2 -> IC303.SDIB
-IC303.SDO1 -> DI3        DO3 -> leaves the block (destination open)
+IC303.SDO1 -> DI3        DO3 -> extension connector (HSO) pin 62 -> HD-AE5000 direct out
 
 main mix:  IC303.SDO0 -> IC310 (DSP2) -> IC313 PCM69AU DAC -> analog board
 ```
@@ -163,14 +171,17 @@ Each 36-bit word divides into four fields (**MEASURED**):
 
 * **`hi12` is not an opcode — it is a horizontal microword of independent enable bits**
   (**MEASURED**: values one bit apart recur far more than an enumerated field would
-  allow, `z = +7.9`). Three of its twelve bits have assigned meanings:
+  allow, `z = +7.9`). Its best-established bits are:
   * **bit 4 = write the accumulator to `mem[ptr]`** (a store);
   * **bit 10 = end of block** (with bit 11 clear); the terminating instruction still does
     its datapath work — it is a modifier, not a halt code;
   * **bit 11 = format escape** (selects a second word format used by host-poke and
     DRAM-bracket words).
-  Bits [9:8] and [3:1] are proven to be *fields* but their meaning is **OPEN**; the rest
-  are unassigned.
+  Bits [3:1] (`f31`) select the accumulator operation — 0 load, 1 add, 2 hold (§10); codes
+  3–7 are **OPEN** ([unofficial datasheet]({{ site.baseurl }}/upd6383-datasheet/), §4.1).
+  Bit 7 gates the bit-4 store, bit 6 is the third bit of the alternate-encoding flag, and
+  bit 0 marks `addr8` as an absolute immediate (one family). Bits [9:8] are a proven
+  *field* whose meaning is **OPEN**; bit 5 has no reading.
 * **`class4` = a cursor-fetch enable (bit 23) plus a 3-bit `MODE = class4 & 7`.** Bit 23
   was **corrected**: it is *not* a multiply-enable (eighteen phaser all-pass sections
   multiply with no class-A word), but a **cursor-fetch** enable — a class-A word pulls the
@@ -196,10 +207,14 @@ routing code; most of `lo12`'s codes, like most arithmetic words, remain OPEN.
 Two implicit cursors run alongside the word stream: the **coefficient cursor** (+1 per
 class-A word, reset by `801.0.00.021`) and the **data pointer** just described.
 
-**What is OPEN.** The **absolute origin** of the data pointer cannot be pinned from the
-ROM — the per-unit base is reset by the header to a value the instruction stream never
-names (unit 0 = `0x70`, unit 1 = `0x50`, loaded via register `0x821`), and every static
-falsifier is a *difference*, hence origin-free. The **audio-input** instruction, the
+**The data-pointer origin is pinned** (since 2026-07-26,
+`dsp/analysis/output-stage-decode.md` §3). Unit 0's body entry pointer is `0x05` and unit
+1's is `0x85`; the state block sits at entry + 75 = `0x50` / `0xD0` in 85 of 85 streams;
+the pointer at PC restart is `0xFF`. This holds on condition that the mode-1 register file
+and the mode-2 data pointer are one RAM. The `0x70` / `0x50` the header loads through
+register `0x821` are C-RAM tap-table bases, not the D-RAM origin.
+
+**What is OPEN.** The **audio-input** instruction, the
 meaning of most individual arithmetic words, and the `COND`/`BRAKST` control fields named
 in the CDJ pin table are all unidentified. **Honest coverage is 79.4 %** on this corpus
 (2362 of the KN5000's 2974 microcode words), or **80.8 %** pooled and de-duplicated across
@@ -236,7 +251,7 @@ per-frame instruction budget (~286–326 slots) fits comfortably inside the 25 M
 
 The `PARAMETRIC EQ` effect (5 bands × 2 channels) is fully decoded. Each band is a
 second-order section whose coefficients are computed at run time — not tabulated — by a
-software floating-point **biquad designer** in the Sub CPU (`LABEL_03A933`, reached by
+software floating-point **biquad designer** in the Sub CPU (`DSP_BiquadCoeff_Compute`, reached by
 parameter opcode `0x70`). It:
 
 * reads the three user values as **frequency in Hz** (ISO ⅓-octave table, 40 Hz…16 kHz),
@@ -257,6 +272,12 @@ words gives **`max|err| = 0.000e+00`** (bit-identical) on nine real coefficient 
 and the full 42,336-preset design grid is **0 unstable**, with f0/Q/gain recovered to
 ~1e-10.
 
+> ⚠ **The realisation is not settled (2026-09-11).** Live traces found a state cell that is
+> both a store target and a feed-forward tap, which Direct Form I with separate x/y state
+> does not have. DF-I, DF-II and DF-II transposed have identical transfer functions, so the
+> transfer-function checks above (the bit-identical interpreter run and the stability grid)
+> cannot tell them apart. The exact form is **UNDECIDED** (§10–§11).
+
 ### Reverb — pre-delay into all-pass diffuser ladders (MEASURED counts / INFERRED dataflow)
 
 The reverb (the corpus's only unit-1 program) is a pre-delay feeding **nine first-order
@@ -269,6 +290,15 @@ digits (impulse energy 1.000000000) and the nine-stage cascade is a dense, colou
 diffuser (28 taps/ms). Its decay comes from the damping filters and recirculation
 *outside* the motif — the diffuser alone is loss-less by construction, so "does it decay
 like a reverb" is **not** answered by the diffuser and is flagged as such.
+
+> ⚠ **The first-order all-pass reading did not survive (2026-07-27).** Re-run under the
+> shipped single-adder ALU, an exhaustive 20,580,000-machine enumeration finds **0**
+> first-order all-pass survivors, and the round-7 topology search rejects first-order
+> all-pass, the parallel comb bank, Moorer, the nested all-pass and the lattice at 0
+> matches; only a pipe-comb or series-comb cascade survives, and probably only as an
+> artefact of the blocking read. The ladder gains and cells above stand; the
+> micro-topology is **OPEN** (§19). Sources: `dsp/analysis/allpass-adder-rerun.md` and
+> `dsp/analysis/reverb-topology-round7.md` in the disassembly repo.
 
 ### Modulation — a quadrature LFO-swept delay (STRONG, by composition)
 
@@ -316,8 +346,9 @@ EQ. Full evidence and the reproducing tools are in the disassembly repo's
 This is the newest and most complete result: **50 distinct effect algorithms**, each with
 its ordered, named, unit-tagged parameter list — **read live from Sub CPU RAM** while the
 edit page was on screen in MAME, and **pixel-verified against the LCD**. The binding
-mechanism (a per-effect array of name indices at RAM `0x29AC` into an 85-name table in the
-main-CPU program) is confirmed end-to-end.
+mechanism (a per-effect array of name indices at RAM `0x29AC` into the 86-slot
+parameter-name table (`DspParamName_Table`, ROM `0xE324C4`; slots 0 and 85 are blank) in
+the main-CPU program) is confirmed end-to-end.
 
 Two universal tails recur: every DSP-effect list ends with **VOLUME** then **REV SEND**
 (the send to the reverb bus); the standalone reverbs drop REV SEND (a reverb *is* the
@@ -464,8 +495,10 @@ is discarded before reaching the mix, so it has not produced a validated result 
 things need a running core (a real uPD6383, or MAME's once it can complete a frame) and are
 honestly OPEN:
 
-1. **The absolute pointer origin** — a single address-bus read on the first data access
-   after the header would convert every `addr8` in the corpus into a real address.
+1. **The one-RAM condition behind the pointer origin.** The origin is pinned from the ROM
+   (§3), but only on condition that the mode-1 register file and the mode-2 data pointer
+   are one RAM. A single address-bus read on the first data access after the header would
+   test that.
 2. **The audio-input instruction** — the input stage is *located* (header blocks 0–1) but
    no word is decoded.
 3. **Direct confirmation of the mod-256 pointer wrap** (INFERRED from a measured floor).
@@ -509,7 +542,9 @@ disassembles it, and it is a second, independent silicon witness for every concl
 
 Cross-product tooling: `dsp/tools/dsp_topology_fingerprint.py` (idiom counts vs the textbook
 algorithm), `dsp_idiom_sequence.py` (per-word structure), `dsp_residue_sudoku.py` (the
-prioritised decode roadmap over both corpora, 1002 distinct words, 86.7 % executable).
+prioritised decode roadmap over both corpora; its percentages are for the *speculative* tier,
+not the honest coverage of §3 — at disassembly `3417969c0` it reports 1180 distinct words,
+960 (81.4 %) speculatively executable).
 
 ---
 
@@ -526,8 +561,9 @@ LFO (phase accumulator → shaped table), and a delay line — plus a waveshaper
 host-side coefficient designers (the bilinear peaking-EQ formula, the ms→samples delay, the LFO
 rate). It is self-validating: the parametric-EQ band reproduces its solved biquad **exactly**
 (+12.00 dB peak at f₀; impulse response equal to the analytic transfer function to **0.000 dB**);
-the reverb all-pass diffuser is flat and unity-energy; the KN5000 reverb is the proven nine-stage
-all-pass ladder; distortion adds harmonics; the multi-band EQ boosts and cuts as designed. Fed
+the reverb all-pass diffuser is flat and unity-energy; the KN5000 reverb is reconstructed as a
+nine-stage all-pass ladder; distortion adds harmonics; the multi-band EQ boosts and cuts as
+designed. Fed
 the **real coefficients captured from the running SX-WSA1R chip**, all twelve captured biquad
 sections are stable in the decoded `b1,b0,b2,−a1,−a2,makeup` order (the recursive term stored as
 `−a`) — the reference runs that chip's own numbers.
@@ -550,8 +586,8 @@ the `POSITION` absolute scale (needs a hardware trace). So it is a faithful real
 **documented model**, not the instrument's exact sound.
 
 ⇒ "no audio from this chip" (§7) remains true of the *emulated hardware path*; what is new is a
-validated behavioural reference — the payoff of the paper decode, and the model a future MAME HLE
-path would port in (`dsp/hle/PORTING-TO-MAME.md`).
+validated behavioural reference — the payoff of the paper decode, and the model the overlay's
+default-off `DSPHLE` path (§12–§21) ports in (`dsp/hle/PORTING-TO-MAME.md`).
 
 ---
 
@@ -577,11 +613,11 @@ default, running a real note — 18 of 21 words, the three misses being frame-st
 whose product register still holds the previous frame's accumulator). So it is the chip's
 **general** multiplier, not an EQ-specific coincidence.
 
-**The accumulator — MEASURED.** The `hi12[3:1]` field (called `f31`), left **OPEN** in §3, is
-now read: **0 → `acc ← P`** (load), **1 → `acc += P`** (accumulate), **2 → hold**. The
+**The accumulator — MEASURED.** The `hi12[3:1]` field (called `f31`), once left **OPEN** in §3,
+is now read: **0 → `acc ← P`** (load), **1 → `acc += P`** (accumulate), **2 → hold**. The
 accumulate is a one-slot pipeline — `acc[N] = acc[N-1] + P[N-1]`, the product formed at one
 word lands in the accumulator at the next — and the load form was verified on 8 of 8 load
-words. Codes **4–7 remain OPEN**: `f31 = 5` is genuinely anomalous (it behaves as
+words. Codes **3–7 remain OPEN**: `f31 = 5` is genuinely anomalous (it behaves as
 accumulate, then hold, then a partial `≈ 5/6·P` across its occurrences — not one clean op,
 and not bit-exact), and it lives in the shared kernel, effect-independent.
 
@@ -603,7 +639,7 @@ shifts between frames) and is **OPEN**.
 **The reverb datapath — same multiplier, plus a delay-line.** The reverb (unit 1) reads its
 feedback operand as the delayed output from the external delay DRAM into `tempB` (source
 `SRC 0x1A ← SRC 0x0B` delay read) and multiplies it by its gains (e.g. `0.91`) with the **same
-class-A MAC** as the biquad — consistent with the all-pass ladder identity in §4. (An earlier
+class-A MAC** as the biquad — consistent with the ladder of §4. (An earlier
 draft here claimed the reverb "uses no class-A multiplies"; that was a class4-extraction bug —
 the 0.91/`tempB` word is class-A/multiply-enabled — and is retracted.) What is genuinely open for
 the reverb is the **external delay-line advance** (how the delay DRAM pointer moves per frame),
@@ -620,7 +656,10 @@ today, their arithmetic cannot be *observed* in a trace (an unexecuted word emit
 so closing this last mile is an instruction-encoding question, not a matter of capturing more
 frames. **This is the single gate between the decoded datapath and audible low-level
 emulation**, and every downstream stage (reverb feedback, the second-accumulator source) sits
-behind it.
+behind it. *(Superseded in part: `SRC 0x08` and `ACT 0x0D`/`0x0E` were anchored on
+2026-09-13 — see the [unofficial datasheet]({{ site.baseurl }}/upd6383-datasheet/), §4.3 —
+and §22 found the output stage to be a separate, still-open blocker, so the input route is no
+longer the only gate.)*
 
 Every figure on this page's §10 is reproduced from committed evidence traces by
 `dsp/tools/run_decode_regression.sh` in the disassembly repo (no emulator build required).
@@ -686,7 +725,8 @@ annotations.
 
 ## 12. The parametric EQ is now audible in MAME (2026-09-11)
 
-The first effect from this decode now **produces audio inside the emulator**. A new, default-off
+The first effect from this decode now **produces audio inside the emulator** — the development
+overlay (`kn7000_mame`), not upstream MAME. A new, default-off
 option (`DSPHLE` config port, in the DSP1-enabled build) makes the tone generator filter the dry
 mix through a five-band biquad cascade — and the coefficients are read **live from the effects
 DSP's own C-RAM**, i.e. from the numbers the firmware computed for whatever the player dialled on
@@ -741,7 +781,7 @@ height the A/B checks). Reproducibility: `dsp/tools/eq_rbj_reconstruct_ab.py` (o
 
 ## 13. The single delay is now audible too (2026-09-11)
 
-The second effect to be reconstructed from the decode. SINGLE DELAY is the seventh entry on the DSP
+The second effect to be reconstructed from the decode. SINGLE DELAY is the eighth entry (#7) on the DSP
 EFFECT page; its two parameters were located the same way the EQ's were — by an intervention that
 drives one panel control and watches which decoded cell moves:
 
@@ -874,7 +914,7 @@ at those three taps, sweeps each by the LFO at a staggered phase, and sums them 
 ensemble shimmer. Its LFO rate lives in cell 0x00 (≈ 0.4 Hz); with the rate driven up the ensemble
 modulates a held note at 0.77 Hz, **101× more than the dry note**.
 
-**Vibrato** (the seventeenth entry) is **pitch modulation** — a single swept tap, mostly wet, so the
+**Vibrato** (the eighteenth entry, #17) is **pitch modulation** — a single swept tap, mostly wet, so the
 ear hears the pitch wobble rather than a chorus's dry-vs-wet beating. Its rate cell (0x02) sits at
 about **4 Hz** — noticeably faster than the chorus or flanger, as a vibrato should be — and its depth
 is cell 0x05. The check confirms it modulates the note squarely at **4.0 Hz**, **289× more than the
@@ -910,7 +950,7 @@ distinguishes them (the second effect's modulation rate, or the second delay's e
 layout does not separately expose a second-stage feedback or sweep, a fixed value is used; the
 decoded, validated quantity in each case is the modulation rate (or the echo time).
 
-PEQ+S.Delay adds the emphasis band of §1–3: its parameters reuse the **standalone EQ's exact cell
+PEQ+S.Delay adds the emphasis band of §12: its parameters reuse the **standalone EQ's exact cell
 layout** (frequency in cell 0x03, gain in cell 0x01, the same −2.0 structural constant in 0x05), so
 it is the EQ biquad chained into the delay — and both stages were confirmed at once: a **+16.7 dB
 emphasis at 3.2 kHz** and a **299 ms echo** in the same output.
