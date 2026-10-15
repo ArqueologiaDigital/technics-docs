@@ -1165,9 +1165,7 @@ The full sequence of events received by the handler during DISK MENU interaction
 
 See the [Event Codes Reference]({{ site.baseurl }}/event-codes/) for a complete table of known event codes.
 
-### Open Questions
-
-- Does anything besides `InheritedProc` read `allsize`/`selfsize` of a class that re-classes an existing record (as `HDTitleMenu` re-classes view object `0x00600002`)? A class with parent `0xFFFFFFFF` has no inherited behaviour; whether the view system tolerates that for a DISK MENU item is untested.
+Open questions about this mechanism are kept on [Open Questions]({{ site.baseurl }}/questions/#event-system).
 
 ## Control Panel Input
 

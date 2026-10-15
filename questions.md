@@ -93,9 +93,10 @@ The firmware's own class definitions answered most of this section in September 
 
 ## Event System
 
-- [ ] **`0x01C00015` versus `0x01C00016`.** Both are title requests carrying a `0x01A0nnnn` title id and reaching `TitleProc`, but they take different cases (`EventDispatch_SelectMatch` / `EventDispatch_OK`). What is the difference? `HDAE5000_RequestTitle16` has no caller. ([Event Codes]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016))
+- [x] **`0x01C00015` versus `0x01C00016`.** Both are title requests carrying a `0x01A0nnnn` title id and reaching `TitleProc`, but they take different cases (`EventDispatch_SelectMatch` / `EventDispatch_OK`). What is the difference? **The firmware's own names settle it:** `0x01C00015` is `EV_CHANGE_TITLE` (change the current title) and `0x01C00016` is `EV_INTERRUPT_TITLE` (show a title on top of the current one until `EV_RETURN_TITLE` closes it). ([Event Codes]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016))
 - [ ] **HD-AE5000 boot title request.** `HDAE5000_Boot_Init` requests title 0x7F when `HDAE5000_Check_HD_Present` returns non-zero. Per its header, that means the drive is *not* ready. Per the call site's comments, it means it *is*. Which reading is right? ([Boot Sequence]({{ site.baseurl }}/boot-sequence/#hdae5000_boot_init-0x28f576))
-- [ ] Rename `EVT_INTERRUPT_TITLE` (0x01C00016), `EVT_HDAE_SEQ_STOP` (0x01CA0000) and `EVT_HDAE_TICKS` (0x01CA0004) in both `event_codes.s` files. They are a title request and the HD-AE5000's `EV_SeqStop` / `EV_TICKS`.
+- [x] Rename `EVT_INTERRUPT_TITLE` (0x01C00016), `EVT_HDAE_SEQ_STOP` (0x01CA0000) and `EVT_HDAE_TICKS` (0x01CA0004) in both `event_codes.s` files. They are a title request and the HD-AE5000's `EV_SeqStop` / `EV_TICKS`. **Done:** `EVT_INTERRUPT_TITLE` is the firmware's own `EV_INTERRUPT_TITLE`, and the `event_codes.s` comments now describe all three by their firmware names.
+- [ ] Does anything besides `InheritedProc` read `allsize`/`selfsize` of a class that re-classes an existing record (as `HDTitleMenu` re-classes view object `0x00600002`)? A class with parent `0xFFFFFFFF` has no inherited behaviour; whether the view system tolerates that for a DISK MENU item is untested. ([HDAE5000 Homebrew]({{ site.baseurl }}/hdae5000-homebrew/))
 
 ## Data Tables (September 2026 leads)
 
