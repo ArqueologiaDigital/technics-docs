@@ -185,6 +185,9 @@ each part through it. The read loop (checksum core `0x484839A1`) is simply:
   side B (IC207/IC208):  write hi-addr -> 0x98040006 ; write addr -> 0x98040008 ; read WORD <- 0x9804000A
 ```
 
+The side labels are an assumption: nothing confirms which chips each port reaches, and mainline
+MAME maps the two ports the other way round (see [§5](#5-verifying-a-dump)).
+
 **Proposal.** Run a small routine that drives that port across the whole address space and streams
 the words out over MIDI or SD. The stock firmware (build 941) never executes code from the SD card
 or an expansion board (see [Firmware Robustness & ROM Archival]({{ site.baseurl }}/kn7000-firmware-security/)),
@@ -259,6 +262,14 @@ so a Method B′ dump of those four parts can be verified with no instrument at 
 | IC204 | `0x815CFC83` |
 | IC207 | `0x8331EF0B` |
 | IC208 | `0x83254F9D` |
+
+Which value belongs to which chip is not settled. The four values are stored per firmware test, not
+per chip: port `0x9805` first, then `0x9804`, and for each port bit 0 of the `+8` latch = 0, then 1.
+Which chip each port and bit reach has not been confirmed. The names above follow the side
+assignment in the Method B′ read loop, and mainline MAME assumes the opposite side (its `0x98040000`
+port reads IC203/IC204). A Method B′ dump can still be verified, because it reads through the same
+port and bit as the test. What remains open is only the chip name each file gets. See the ⚠ note on
+[KN7000 Expansion Bus & Wave-ROM Dump Routes]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/#-the-wave-roms-are-cpu-readable-through-the-tone-generator).
 
 **The `.INF` oracles**, where an update disk exists for that device, as in §2.
 
