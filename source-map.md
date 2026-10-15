@@ -24,25 +24,25 @@ python3 tools/source_map_counts.py              # the tables below
 python3 tools/source_map_counts.py --selftest   # proves it can go red
 ```
 
-The figures here are its output against disassembly commit `467598e1`; re-run it rather than
+The figures here are its output against disassembly commit `3417969c0`; re-run it rather than
 quoting them. Per-file line counts are deliberately not listed — they move with every
 conversion, and `wc -l` answers them in a second.
 
 ## Tree overview
 
-| Tree | Directory | Root source | Image | `.s` | `.c` |
-|------|-----------|-------------|-------|-----:|-----:|
-| [Main CPU v10](#main-cpu-v10maincpu) | `v10/maincpu/` | `kn5000_v10_program.s` | 2 MB @ 0xE00000 | 156 | 104 |
-| Main CPU v9 | `v9/maincpu/` | `kn5000_v9_program.s` | 2 MB @ 0xE00000 | 156 | 91 |
-| Main CPU v7 | `v7/maincpu/` | `kn5000_v7_program.s` | 2 MB @ 0xE00000 | 156 | 91 |
-| [Sub-CPU payload v1.42](#sub-cpu-payload-v142subcpu) | `v142/subcpu/` | `kn5000_subprogram_v142.s` | 192 KB @ 0x0400 (+ its LZSS update image) | 5 | — |
-| [Sub-CPU boot ROM](#sub-cpu-boot-rom-subcpuboot) | `subcpu/boot/` | `kn5000_subcpu_boot.s` | 128 KB @ 0xFE0000 | 1 | — |
-| [HD-AE5000](#hd-ae5000-hdae5000) | `hdae5000/` | `hd-ae5000_v2_06i.s` | 512 KB @ 0x280000 | 8 | — |
-| [Table data](#table-data-table_data) | `table_data/` | `kn5000_table_data.s` | 2 MB @ 0x800000 | 26 | — |
-| [Custom data](#custom-data-custom_data) | `custom_data/` | `kn5000_custom_data.s` | 1 MB @ 0x300000 | 1 | — |
-| [SX-WSA1R](#sx-wsa1r-wsa1) | `wsa1/` | `prom_{a,b,c,d}/wsa1_prom_*.s` | 4 × 512 KB | 37 | — |
+| Tree                                                 | Directory      | Root source                    | Image                                     | `.s` | `.c` |
+|------------------------------------------------------|----------------|--------------------------------|-------------------------------------------|-----:|-----:|
+| [Main CPU v10](#main-cpu-v10maincpu)                 | `v10/maincpu/` | `kn5000_v10_program.s`         | 2 MB @ 0xE00000                           | 157  | 104  |
+| Main CPU v9                                          | `v9/maincpu/`  | `kn5000_v9_program.s`          | 2 MB @ 0xE00000                           | 157  | 91   |
+| Main CPU v7                                          | `v7/maincpu/`  | `kn5000_v7_program.s`          | 2 MB @ 0xE00000                           | 157  | 91   |
+| [Sub-CPU payload v1.42](#sub-cpu-payload-v142subcpu) | `v142/subcpu/` | `kn5000_subprogram_v142.s`     | 192 KB @ 0x0400 (+ its LZSS update image) | 5    | —    |
+| [Sub-CPU boot ROM](#sub-cpu-boot-rom-subcpuboot)     | `subcpu/boot/` | `kn5000_subcpu_boot.s`         | 128 KB @ 0xFE0000                         | 1    | —    |
+| [HD-AE5000](#hd-ae5000-hdae5000)                     | `hdae5000/`    | `hd-ae5000_v2_06i.s`           | 512 KB @ 0x280000                         | 8    | —    |
+| [Table data](#table-data-table_data)                 | `table_data/`  | `kn5000_table_data.s`          | 2 MB @ 0x800000                           | 26   | —    |
+| [Custom data](#custom-data-custom_data)              | `custom_data/` | `kn5000_custom_data.s`         | 1 MB @ 0x300000                           | 1    | —    |
+| [SX-WSA1R](#sx-wsa1r-wsa1)                           | `wsa1/`        | `prom_{a,b,c,d}/wsa1_prom_*.s` | 4 × 512 KB                                | 37   | —    |
 
-The three main-CPU trees have the same 15-directory shape and the same 156 assembly files;
+The three main-CPU trees have the same 15-directory shape and the same 157 assembly files;
 `v9/` and `v7/` differ from `v10/` in content, in the thirteen C data files v10 alone carries,
 and in `v7/maincpu/transplant_manifest.txt`, which records how v7 was derived. `v10/` is the
 primary target and the one described file by file below. Each tree's `.ld` (32 per main-CPU
@@ -56,7 +56,7 @@ main-CPU tree are the image's own plus the link scripts of the C-compiled data b
 
 The main-CPU ROM is the whole user-facing firmware: UI framework and screen descriptors,
 display rendering, sound and DSP parameter control, sequencer and accompaniment, MIDI, file
-I/O, floppy controller, control-panel link, factory diagnostics. **156 `.s`, 104 `.c`, 3 `.h`
+I/O, floppy controller, control-panel link, factory diagnostics. **157 `.s`, 104 `.c`, 3 `.h`
 and 32 `.ld` files** across 15 subject directories plus an `images/` directory of bitmaps.
 
 ```
@@ -65,7 +65,7 @@ v10/maincpu/                       .s   .c
   maincpu.ld                        inline data, the boot combo handlers, Get_Firmware_Version
   *_constants.s (4 files)           cpanel / fdc / gui / midi_encoder constants
   msp_factory_defaults.s + .c       factory image of the accompaniment stream-buffer pool
-  shared/                           10    -   macros, SFRs, VGA, shared boot code, positional labels
+  shared/                           11    -   macros, SFRs, VGA, shared boot code, RAM variables
   boot/                              6    -   vectors, system handlers, main title, ROM end structure
   display/                           3    -   VGA graphics/text, scoop display
   ui/                               17    1   UI framework, widgets, control panel, mode handlers
@@ -97,18 +97,19 @@ v10/maincpu/                       .s   .c
 
 ### `shared/` — macros, SFRs, VGA and shared boot code
 
-| File | Contents |
-|------|----------|
-| `macros.s` | Assembler helper macros |
-| `sfr_tmp94c241.s` | TMP94C241F special-function-register names (`PC` is `0x30`, and so on) |
-| `vga_constants.s` | VGA display register constants |
-| `vga_init.s` | VGA controller initialisation sequence |
-| `vga_io.s` | VGA register read/write primitives |
-| `event_codes.s` | System event-code constants |
-| `boot_hw_init.s` | Hardware register initialisation |
-| `boot_routines.s` | Region detection and boot helpers |
-| `boot_call_init_handlers.s` | Walks the initialisation-handler table at boot |
-| `positional_labels.s` | Auto-generated positional labels for intra-block references |
+| File                        | Contents                                                                                                                                                                                                                                      |
+|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `macros.s`                  | Assembler helper macros                                                                                                                                                                                                                       |
+| `sfr_tmp94c241.s`           | TMP94C241F special-function-register names (`PC` is `0x30`, and so on)                                                                                                                                                                        |
+| `vga_constants.s`           | VGA display register constants                                                                                                                                                                                                                |
+| `vga_init.s`                | VGA controller initialisation sequence                                                                                                                                                                                                        |
+| `vga_io.s`                  | VGA register read/write primitives                                                                                                                                                                                                            |
+| `event_codes.s`             | System event-code constants                                                                                                                                                                                                                   |
+| `boot_hw_init.s`            | Hardware register initialisation                                                                                                                                                                                                              |
+| `boot_routines.s`           | Region detection and boot helpers                                                                                                                                                                                                             |
+| `boot_call_init_handlers.s` | Walks the initialisation-handler table at boot                                                                                                                                                                                                |
+| `ram_variables.s`           | Main-CPU RAM variables named on this site (`CURRENT_MODE`, the rhythm and medley state, the SwbtWr queue, …), each line citing the page that establishes it; values are v10's, and `scripts/tools/name_kn5000_ram.py` derives each tree's own |
+| `positional_labels.s`       | Empty apart from a comment since 2026-10-03, when the last positional aliases were canonicalised to real labels; kept so the `.include` still resolves                                                                                        |
 
 `table_data/shared/` carries its own copy of the boot and VGA files: the table-data ROM's
 boot code is the same code (see [Table data](#table-data-table_data)).
@@ -126,11 +127,11 @@ boot code is the same code (see [Table data](#table-data-table_data)).
 
 ### `display/` — VGA graphics and text
 
-| File | Contents |
-|------|----------|
-| `graphics_text_vga.s` | Palette initialisation, text rendering, string layout, VRAM operations |
-| `scoop_display.s` | Display dirty-region tracking, performance-mode parameter handlers, scoop editor UI |
-| `scoop_editor_data.s` | **Code** (historical file name): the sound editor's title-function handlers, 3,422 instructions and no data directive, entered at `Scoop_SoundEditorData` and 15 interior offsets |
+| File                  | Contents                                                                                                                                                                             |
+|-----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `graphics_text_vga.s` | Palette initialisation, text rendering, string layout, VRAM operations                                                                                                               |
+| `scoop_display.s`     | Display dirty-region tracking, performance-mode parameter handlers, scoop editor UI                                                                                                  |
+| `scoop_editor_data.s` | **Code** (historical file name): the sound editor's title-function handlers, 3,422 instructions and no data directive, entered at `SeWrtSndTitleFunc_OnDraw` and 15 interior offsets |
 
 ### `ui/` — UI framework and widgets
 
@@ -379,12 +380,12 @@ in the top-level [`dsp/`](#effects-dsp-microprograms-dsp) tree.
 
 ## Sub-CPU boot ROM (`subcpu/boot/`)
 
-| File | Contents |
-|------|----------|
-| `kn5000_subcpu_boot.s` | IC30: hardware init, inter-CPU command dispatch, payload reception, and the data objects at 0xFF8000 (the command-handler jump table, the RAM-test descriptor, the keybed velocity/touch front end). It contains **no decompressor** — the main CPU decompresses the payload and pushes it over the link. The undumped part of IC30 is emitted as erased-flash fill, not as source; see [Sub-CPU Boot ROM (IC30)]({{ site.baseurl }}/subcpu-boot-rom/) |
-| `subcpu_boot.ld` | Linker script (128 KB at 0xFE0000) |
-| `subcpu_boot_data_8000.bin` | The 0xFF8000 data region as a file. The LLVM source no longer reads it — the region is carved into labelled source — but the legacy ASL mirror still `binclude`s it, so it stays on disk |
-| `tools/convert_erased_fill.py` | The script that turned the erased-flash run into `.fill` |
+| File                           | Contents                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+|--------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kn5000_subcpu_boot.s`         | IC30: hardware init, inter-CPU command dispatch, payload reception, and the data objects at 0xFF8000 (the command-handler jump table, the RAM-test descriptor, the keybed velocity/touch front end). It contains **no decompressor** — the main CPU decompresses the payload and pushes it over the link. The undumped part of IC30 is emitted as a `.fill` of the assumed `0xFF` (the source comment still calls it erased flash), not as source; see [Sub-CPU Boot ROM (IC30)]({{ site.baseurl }}/subcpu-boot-rom/) |
+| `subcpu_boot.ld`               | Linker script (128 KB at 0xFE0000)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `subcpu_boot_data_8000.bin`    | The 0xFF8000 data region as a file. The LLVM source no longer reads it — the region is carved into labelled source — but the legacy ASL mirror still `binclude`s it, so it stays on disk                                                                                                                                                                                                                                                                                                                              |
+| `tools/convert_erased_fill.py` | The script that turned the 98,304-byte `0xFF` run into `.fill`                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ---
 
@@ -418,27 +419,27 @@ The 2 MB table-data ROM is labelled source end to end — no anonymous blob is p
 (see [Table Data ROM]({{ site.baseurl }}/table-data-rom/) and the region map on
 [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#region-by-region-source-map)).
 
-| File | Contents |
-|------|----------|
-| `kn5000_table_data.s` | The image: structure overview, `.include`s the modules below in address order, and the labelled `.incbin` slices |
-| `preset_banks.s` | Section directory and 26 bitmaps (0x800000–0x82FFFF); no preset data, despite the file name |
-| `tone_database_directory.s` | [Tone database]({{ site.baseurl }}/tone-database/): directory, program maps and tone-record offset table |
-| `tone_database_records.s` | The tone/voice parameter records (`ToneRec_000` … `ToneRec_628`) |
-| `tone_database_aux.s` | Tone database auxiliary tables (0x855A48–0x87FFEF) |
-| `ui_bitmaps.s` | UI bitmaps, frame pieces and factory image banks (0x912C00–0x937FFF) |
-| `fonts.s` | UI text fonts: descriptor table and 1-bpp glyph banks (0x944D78–0x950FFF) |
-| `style_records.s` | [Music Stylist]({{ site.baseurl }}/music-stylist-database/) preset records (`StyleRec_000` … `StyleRec_999`) |
-| `style_record_ptr_tables.s` | Music Stylist pointer tables (0x986000 / 0x987000) |
-| `help_databases.s` | Help system: multilingual intro strings and the SLIDE8K help databases |
-| `panel_memory_presets.s` | Panel Memory factory bank names and preset records |
-| `boot_fdc_driver.s` | First-stage bootloader floppy (FDC) command-layer driver |
-| `boot_disk_probe.s` | Boot-time floppy disk-format probe |
-| `boot_cpserial.s`, `boot_cpserial_isr.s`, `boot_cpserial_states.s` | Boot-time control-panel serial-link driver: polling/setup half, interrupt entry half, state handlers and packet codecs — see [Boot CP-Serial Link]({{ site.baseurl }}/boot-cpserial-link/) |
-| `boot_clib.s` | Boot-time C runtime: heap allocator, memcmp, 32-bit divide/modulo |
-| `boot_debug.s` | Boot-time debug output group, disabled in shipped firmware |
-| `shared/` | `boot_hw_init.s`, `boot_routines.s`, `boot_call_init_handlers.s`, `vga_init.s`, `vga_io.s`, `vga_constants.s`, `sfr_tmp94c241.s`, `macros.s` — this ROM's own copy of the shared boot and VGA code |
-| `table_data.ld` | Linker script (2 MB at 0x800000) |
-| `includes/` | The data files the image slices from: `demo_presets/` (the 19 demo songs as `.mid` + `.yaml` sidecars and their compressed forms), `help_databases/` (the decompressed databases and their SLIDE8K streams), the six `bootcode_*.bin` slices, the icon, wallpaper and initial-data slices; `generated/` is build output |
+| File                                                               | Contents                                                                                                                                                                                                                                                                                                                                                                                                   |
+|--------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kn5000_table_data.s`                                              | The image: structure overview, `.include`s the modules below in address order, and the labelled `.incbin` slices                                                                                                                                                                                                                                                                                           |
+| `preset_banks.s`                                                   | Section directory and 26 bitmaps (0x800000–0x82FFFF); no preset data, despite the file name                                                                                                                                                                                                                                                                                                                |
+| `tone_database_directory.s`                                        | [Tone database]({{ site.baseurl }}/tone-database/): directory, program maps and tone-record offset table                                                                                                                                                                                                                                                                                                   |
+| `tone_database_records.s`                                          | The tone/voice parameter records (`ToneRec_000` … `ToneRec_628`)                                                                                                                                                                                                                                                                                                                                           |
+| `tone_database_aux.s`                                              | Tone database auxiliary tables (0x855A48–0x87FFEF)                                                                                                                                                                                                                                                                                                                                                         |
+| `ui_bitmaps.s`                                                     | UI bitmaps, frame pieces and factory image banks (0x912C00–0x937FFF)                                                                                                                                                                                                                                                                                                                                       |
+| `fonts.s`                                                          | UI text fonts: descriptor table and 1-bpp glyph banks (0x944D78–0x950FFF)                                                                                                                                                                                                                                                                                                                                  |
+| `style_records.s`                                                  | [Music Stylist]({{ site.baseurl }}/music-stylist-database/) preset records (`StyleRec_000` … `StyleRec_999`)                                                                                                                                                                                                                                                                                               |
+| `style_record_ptr_tables.s`                                        | Music Stylist pointer tables (0x986000 / 0x987000)                                                                                                                                                                                                                                                                                                                                                         |
+| `help_databases.s`                                                 | Help system: multilingual intro strings and the SLIDE8K help databases                                                                                                                                                                                                                                                                                                                                     |
+| `panel_memory_presets.s`                                           | Panel Memory factory bank names and preset records                                                                                                                                                                                                                                                                                                                                                         |
+| `boot_fdc_driver.s`                                                | First-stage bootloader floppy (FDC) command-layer driver                                                                                                                                                                                                                                                                                                                                                   |
+| `boot_disk_probe.s`                                                | Boot-time floppy disk-format probe                                                                                                                                                                                                                                                                                                                                                                         |
+| `boot_cpserial.s`, `boot_cpserial_isr.s`, `boot_cpserial_states.s` | Boot-time control-panel serial-link driver: polling/setup half, interrupt entry half, state handlers and packet codecs — see [Boot CP-Serial Link]({{ site.baseurl }}/boot-cpserial-link/)                                                                                                                                                                                                                 |
+| `boot_clib.s`                                                      | Boot-time C runtime: heap allocator, memcmp, 32-bit divide/modulo                                                                                                                                                                                                                                                                                                                                          |
+| `boot_debug.s`                                                     | Boot-time debug output group, disabled in shipped firmware                                                                                                                                                                                                                                                                                                                                                 |
+| `shared/`                                                          | `boot_hw_init.s`, `boot_routines.s`, `boot_call_init_handlers.s`, `vga_init.s`, `vga_io.s`, `vga_constants.s`, `sfr_tmp94c241.s`, `macros.s` — this ROM's own copy of the shared boot and VGA code                                                                                                                                                                                                         |
+| `table_data.ld`                                                    | Linker script (2 MB at 0x800000)                                                                                                                                                                                                                                                                                                                                                                           |
+| `includes/`                                                        | The data files the LLVM image slices from: `demo_presets/` (the 19 demo songs as `.mid` + `.yaml` sidecars and their compressed forms) and `help_databases/` (the decompressed databases and their SLIDE8K streams); `generated/` is build output. The six `bootcode_*.bin` slices, the icon, wallpaper and initial-data blobs and `hkst_55.ssf` stay on disk only because the ASL mirror `binclude`s them |
 
 ---
 

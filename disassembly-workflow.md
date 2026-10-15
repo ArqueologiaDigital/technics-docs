@@ -19,11 +19,12 @@ process and the traps that make a green gate untrustworthy if you take a shortcu
 > ```
 > **Byte-identical, or the package does not land.**
 
-`make gate` depends on `all`, so it rebuilds before it compares, and it runs
-`scripts/analysis/assert_byte_identical.py`, which **compares bytes and exits non-zero on
-any difference**. Everything else in the workflow exists to protect that one line. A
-package that cannot demonstrate it is reverted, and the reason is recorded rather than
-argued away.
+`make gate` depends on `all`, so it rebuilds before it compares; it runs
+`scripts/analysis/assert_images_assemble.py` (every root source must assemble, asked of the
+assembler directly) and then `scripts/analysis/assert_byte_identical.py`, which **compares
+bytes and exits non-zero on any difference**. Everything else in the workflow exists to
+protect that one line. A package that cannot demonstrate it is reverted, and the reason is
+recorded rather than argued away.
 
 ### ⚠ Never gate on a percentage
 
@@ -56,20 +57,16 @@ mirror at all.
 > LLVM build, six from the ASL mirror. A run that prints nine has tested nothing about the
 > mirror, however green it looks.
 
-Dropping `clean-all` is not an option either, because the incremental build is not sound.
-Most object files list only the top-level `.s` of their ROM as a prerequisite, even though
-that file `.include`s dozens of others:
-
-| Object file | Prerequisites declared in the Makefile | `.s` files in that tree |
-|---|---|---|
-| `hd-ae5000_v2_06i.llvm.o` | `hdae5000/hd-ae5000_v2_06i.s` | 8 |
-| `kn5000_v10_program.llvm.o` | `v10/maincpu/kn5000_v10_program.s`, the original ROM, `$(C_DATA_BINS)` | 156 |
-| `kn5000_table_data.llvm.o` | seven of the tree's `.s` files, plus the generated payloads | 26 |
-| `kn5000_subcpu_boot.llvm.o` | `subcpu/boot/kn5000_subcpu_boot.s` | 1 |
-
-Edit `hdae5000/hdae5000_data_tables.s` and run `make all`, and `make` correctly concludes
-that nothing it knows about has changed. The full-clean rebuild is what makes the
-comparison mean anything.
+Until 2026-09-01 the LLVM incremental build was not sound either: most object files listed
+only the top-level `.s` of their ROM as a prerequisite, so an edit to an `.include`d file
+rebuilt nothing, and four of eight KN5000 images had in fact stopped assembling while the
+gate said PASS. `179709ea5` fixed both. Every LLVM object now depends on every `.s` of its
+tree (`V10_SRC = $(wildcard v10/maincpu/*.s v10/maincpu/*/*.s v10/maincpu/*/*/*.s)` and its
+siblings), and `make gate` runs `scripts/analysis/assert_images_assemble.py`, which asks the
+assembler directly from each root source, before the byte comparison. The ASL mirror's rules
+still name only each image's top-level `.asm`, so after editing a mirror file rebuild it from
+clean (`make clean-asl asl-all`) — and then count fifteen sections in the report, because
+`clean-all` followed by `make all` alone leaves the six mirror sections out.
 
 ## Step 0: audit before touching anything
 
@@ -122,17 +119,21 @@ sub-CPU boot ROM's 96 KB of `0xFF` is **undumped**, not erased.
 
 ## The wave shape
 
-Each wave is one run with the same three-part structure. Five rounds have been integrated
-so far, and the ledger records the count for each:
+Each wave is one run with the same three-part structure. Five rounds were integrated on
+2026-08-07 and 08-08, and the ledger records the count for each. The later 2026-09-25
+semantic push and the 2026-09-25 to 10-02 toolchain wave reuse the names "Wave 2" and
+"Wave 3a" for different work (see
+[ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#after-wave-2-2026-09-25)); in this
+table they mean the August rounds:
 
-| Round | Scope | Landed |
-|---|---|---:|
-| Wave 0 | foundations, SLIDE8K tooling, the tone database | 7 / 7 |
-| Wave 1 | bootcode disassembly, help-database round-trip, the v1.42 update image | 6 / 7 |
-| Wave 2 | table-data conversion (fonts, style records, preset banks, panel memory…) | 8 / 8 |
-| Wave 3a | the sub-CPU DSP data zones A0 / A / B | 3 / 3 |
-| Waves 3b + 5 | HD-AE5000, sub-CPU boot data, maincpu name tables, orphan cleanup | 9 / 10 |
-| **Total** | | **33 / 35** |
+| Round                      | Scope                                                                     | Landed      |
+|----------------------------|---------------------------------------------------------------------------|------------:|
+| Wave 0 (August 2026)       | foundations, SLIDE8K tooling, the tone database                           | 7 / 7       |
+| Wave 1 (August 2026)       | bootcode disassembly, help-database round-trip, the v1.42 update image    | 6 / 7       |
+| Wave 2 (August 2026)       | table-data conversion (fonts, style records, preset banks, panel memory…) | 8 / 8       |
+| Wave 3a (August 2026)      | the sub-CPU DSP data zones A0 / A / B                                     | 3 / 3       |
+| Waves 3b + 5 (August 2026) | HD-AE5000, sub-CPU boot data, maincpu name tables, orphan cleanup         | 9 / 10      |
+| **Total**                  |                                                                           | **33 / 35** |
 
 A sixth wave ran in between, but it was an investigation rather than a conversion: it
 proved the runtime memory remap, re-read the service manual's address-decode logic, and
@@ -205,22 +206,23 @@ Two of the waves' larger corrections started as a search that came back empty an
 briefly believed. In this repository a negative grep result is weak evidence — and a
 positive one is not much better. There are at least four independent traps.
 
-**1. grep will not read some of the sources at all.** Five `.s` files in the v7 tree contain
-an 8-bit byte inside an `.ascii` string — `.ascii "89:;<=\x9e"` at
-`v7/maincpu/audio/sound_editor_ui.s:3519`, for instance. That makes the file invalid UTF-8,
-and the `grep` installed here (ugrep 7.5.0, in a UTF-8 locale) treats such a file as binary:
-it prints **nothing** and exits **1**, which is indistinguishable from "no match". Other
-greps differ only in the detail — GNU grep announces `Binary file … matches` instead of
-listing the lines — so either way the hits vanish from a line-oriented pipeline. The cost is
-not marginal: `grep -rn '\.incbin' v7/maincpu` reports 228 matching lines, while
-`grep -ran` reports 364. The 136 invisible lines are all in those five files. Pass `-a`, or
-set `LC_ALL=C`, or use a parser.
+**1. grep will not read some of the sources at all.** Six `.s` files in the v7 tree contain
+raw 8-bit bytes — Latin-1 text such as `¡ATENCIÓN!` at
+`v7/maincpu/ui_widgets/disk_menu_file_io_screens.s:1455`, for instance. That makes each file
+invalid UTF-8, and the `grep` installed here (ugrep 7.8.4, in a UTF-8 locale) treats four of
+them as binary: it prints **nothing** and exits **1**, which is indistinguishable from "no
+match". Other greps differ only in the detail — GNU grep announces `Binary file … matches`
+instead of listing the lines — so either way the hits vanish from a line-oriented pipeline.
+The cost is not marginal: `grep -rn '\.incbin' v7/maincpu` reports 8,773 matching lines,
+while `grep -ran` reports 10,057 (disassembly `3417969c0`). The 1,284 invisible lines are
+all in three of those files. Pass `-a` or use a parser; with this grep, `LC_ALL=C` does not
+help.
 
 **2. The disassembler writes numbers in a different base than the datasheet.** An early
 scouting pass searched for writes to the TMP94C241's memory-controller registers, found
 none, and concluded the firmware never programs them. All twenty-four registers are in fact
 programmed, in one block at `table_data/shared/boot_hw_init.s:85-134` — but they are emitted
-as direct SFR addresses in **decimal**, so MSAR0 (`0x143`) appears as `stdi8 (323), 30`.
+as direct SFR addresses in **decimal**, so MSAR0 (`0x143`) appears as `ld (323:16), 30`.
 Searching for the *name* is no better: `shared/sfr_tmp94c241.s:210` defines
 `.equ MSAR0, 0x143`, so a grep for `MSAR0` returns exactly one hit — the definition — and
 zero writes. See [TMP94C241 Memory Controller]({{ site.baseurl }}/tmp94c241-memory-controller/)
@@ -265,10 +267,10 @@ repository root.
 
 The same instinct produced a permanent check for the opposite problem — bytes that are
 present but unexplained. `make audit-icons-blob` accounts for all 742,024 bytes of
-`icons_to_strings.bin`: 126,674 in thirteen labelled LLVM slices, 615,350 unreferenced by
-the LLVM build in six runs, and a 221,104-byte dead tail beyond file offset 0x7F2D8 that is
-a stale duplicate of the demo-preset region and is read by nothing. A coverage tool that can
-report an unexplained gap is worth more than a comment claiming there is none.
+`icons_to_strings.bin`: none read by the LLVM build since 2026-09-02, 520,920 bytes
+`binclude`d whole by the ASL mirror, and a 221,104-byte dead tail beyond file offset 0x7F2D8
+that is a stale duplicate of the demo-preset region and is read by nothing. A coverage tool
+that can report an unexplained gap is worth more than a comment claiming there is none.
 
 ## House constraints that keep the gate honest
 
@@ -296,12 +298,12 @@ Two are structural and cost nothing when they happen; the third is the one that 
 - **A run is interrupted mid-wave.** Nothing is integrated until the manager runs, so an
   interrupted wave leaves the repository exactly as it was; finished workers replay from
   cache.
-- **A byte-safe change whose *comment* would be a false claim.** The sub-CPU boot ROM's
-  source carries 98,304 lines of `.byte 0xff`, which collapse to a single `.fill` with no
-  byte changing. That change is **refused**: the region is not erased flash, it is
-  **undumped** — only 4,352 of the chip's 131,072 bytes have ever been read — and one
-  `.fill` directive would state something about the physical part that the dump does not
-  support.
+- **A byte-safe change whose *comment* is a false claim.** The sub-CPU boot ROM's 98,304
+  lines of `.byte 0xff` were collapsed to a single `.fill` on 2026-09-02 (`cccbe2978`), with
+  no byte changing, and the directive's comment calls the region "erased flash". It is not
+  erased flash. It is **undumped**: 14,336 of the chip's 131,072 bytes were ever read, and
+  only 4,352 are not `0xFF`. So the bytes pass the gate while the comment states something
+  about the physical part that the dump does not support, and the comment needs correcting.
 
 **The gate protects the bytes; only the reviewer protects the meaning.** Rejecting a
 byte-safe change on the strength of what its comment would claim is the standard here, not

@@ -4,7 +4,7 @@ title: Raw Byte Code Elimination
 permalink: /raw-byte-code-elimination/
 ---
 
-# Raw Byte Code Elimination Plan
+# Raw Byte Code Elimination
 
 **Status: IN PROGRESS.** All thirteen gated images are byte-identical to their physical
 dumps, but that is a build-match guarantee, not a disassembly guarantee: a `.byte` run that spells real
@@ -45,18 +45,20 @@ thirteen gated images. Data tables, strings, bitmaps, firmware bytecode for soft
 
 ### By ROM
 
-| ROM | Code `.byte` remaining | Instruction statements | Status |
-|-----|---------------------|-----------------------:|--------|
-| Main CPU (v9 / v10, each) | confirmed-region backlog 0 B + misframed islands (partly converted; not a fixed pool — see below) | 358,993 (v9) / 336,011 (v10) | **Not complete** |
-| Main CPU (v7) | 236,713 B in 789 confirmed regions, plus 29,032 B in 2,456 misframed islands — the largest code-as-`.byte` debt in the project | 268,186 | **Not complete** |
-| Sub CPU Payload | **0** | 45,478 | **Complete** |
-| Sub CPU Boot | **0** | 1,358 | **Complete** |
-| Table Data | **0** | 5,758 | **Complete** |
-| Custom Data | **0** (data only) | 0 | **Complete** |
-| HDAE5000 | 13,168 B | 35,285 | **Not complete** |
-| SX-WSA1R `prom_a` | 298 certified `.byte` instruction sites (1,318 B, 89 forms); under the assembler pin `8e188b215251`, 282 of them have no spelling found so far that reassembles byte-identically and the other 16 are spellable, not yet respelled at `be376096` (see below) | 119,235 | **Not complete** |
-| SX-WSA1R `prom_b` | **0** | 67,679 | **Complete** |
-| SX-WSA1R `prom_c` / `prom_d` | **0** — survived a falsification attack | 75,701 / 0 | **Complete** |
+| ROM                          | Code `.byte` remaining                                                                                                                                                                                                                                                                                | Instruction statements       | Status           |
+|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------:|------------------|
+| Main CPU (v9 / v10, each)    | confirmed-region backlog 0 B (the census rule still fires on 5 regions, 389 B, per image; in v10 all five are text strings: the Italian, French and German wallpaper messages, a floppy-test message and a widget-name string) + misframed islands: 145 runs / 1,495 B (v9), 139 runs / 1,426 B (v10) | 330,449 (v9) / 329,465 (v10) | **Not complete** |
+| Main CPU (v7)                | 8 regions (1,236 B) the census rule still fires on, four of them the same strings as v10 and four (914 B) not yet hand-audited, plus 275 misframed islands (2,043 B), 203 of them (1,338 B) in genuine-code context                                                                                   | 331,379                      | **Not complete** |
+| Sub CPU Payload              | **0**                                                                                                                                                                                                                                                                                                 | 45,981                       | **Complete**     |
+| Sub CPU Boot                 | **0**                                                                                                                                                                                                                                                                                                 | 1,358                        | **Complete**     |
+| Table Data                   | **0**                                                                                                                                                                                                                                                                                                 | 10,097                       | **Complete**     |
+| Custom Data                  | **0** (data only)                                                                                                                                                                                                                                                                                     | 0                            | **Complete**     |
+| HDAE5000                     | 1,713 B                                                                                                                                                                                                                                                                                               | 35,281                       | **Not complete** |
+| SX-WSA1R `prom_a`            | 82 certified `.byte` instruction sites (226 B, 42 forms); under the current assembler pin `a3a81863f87d`, 81 of them have no spelling found so far that reassembles byte-identically and one (`decf`) is spellable (see below)                                                                        | 119,190                      | **Not complete** |
+| SX-WSA1R `prom_b`            | **0**                                                                                                                                                                                                                                                                                                 | 67,855                       | **Complete**     |
+| SX-WSA1R `prom_c` / `prom_d` | **0** — survived a falsification attack                                                                                                                                                                                                                                                               | 75,701 / 0                   | **Complete**     |
+
+All figures at disassembly `3417969c0` (2026-10-06).
 
 The **instruction statements** column is, in the disassembly repository,
 
@@ -74,32 +76,38 @@ processors share (`wsa1/kernel/`, 938 statements; `wsa1/dsp/`, 97) are assembled
 and `prom_c` but live outside both roots.
 
 The SX-WSA1R code-as-`.byte` figures come from `wsa1/notes/sound/wsa1_unspellable_forms.py`
-(run from `wsa1/`, disassembly commit `be376096`), which counts a `.byte` line only when four
-gates agree — its comment echoes exactly its bytes, the ROM holds those bytes at the address
-it claims, MAME's committed `unidasm` listing frames them as one instruction, and a spelling
-route is tried and judged by the bytes it assembles to. `prom_a`'s commonest forms are
-`or (N),N` (26 sites) and `sub (N),N` (24). "No spelling" means no route the script tries
-made the assembler emit the bytes, which is not the same as the backend being unable to
-encode them — and the script runs whichever llvm-mc the shared build holds, so the same
-revision gives different counts under different builds. At `be376096`, every build gives
-`298 certified site(s), 1318 byte(s), 89 form(s)`; the NO SPELLING line reads:
+(run from `wsa1/`, disassembly commit `be376096`), which counts a `.byte` line only when
+four gates agree — its comment echoes exactly its bytes, the ROM holds those bytes at the
+address it claims, MAME's committed `unidasm` listing frames them as one instruction, and a
+spelling route is tried and judged by the bytes it assembles to. At `be376096`, `prom_a`'s
+commonest forms were `or (N),N` (26 sites) and `sub (N),N` (24). "No spelling" means no
+route the script tries made the assembler emit the bytes, which is not the same as the
+backend being unable to encode them — and the script runs whichever llvm-mc the shared build
+holds, so the same revision gives different counts under different builds. At `be376096`,
+every build gives `298 certified site(s), 1318 byte(s), 89 form(s)`; the NO SPELLING line
+reads:
 
-| llvm-mc build | sha256 | no spelling | spellable |
-|---|---|---:|---:|
-| `da00420dba8d` (the pin `be376096`'s `TOOLCHAIN_VERSION` names) | `a7ee33d53676` | 298 | 0 |
-| `6488ae7d` (one commit after the `4d7fa4f6b37c` the Wave 2 commit messages name) | `9c0c0033a21f` | 298 | 0 |
-| `910b50efab49` | `b211a23195df` | 292 | 6 — `ld a,(-xix)`, `ld (-xiy),a`, `ld (xix+),a`, `ld (xix+),wa`, `ld (xix+),e`, `tset 0,(0x2a1b76)` |
-| `8e188b215251` (the pin since `bc571542`) | `a67c563269fc` | 282 | 16 — the six, and the ten `mul WA,(XIZ+d)` sites |
+| llvm-mc build                                                                    | sha256         | no spelling | spellable                                                                                           |
+|----------------------------------------------------------------------------------|----------------|------------:|----------------------------------------------------------------------------------------------------:|
+| `da00420dba8d` (the pin `be376096`'s `TOOLCHAIN_VERSION` names)                  | `a7ee33d53676` | 298         | 0                                                                                                   |
+| `6488ae7d` (one commit after the `4d7fa4f6b37c` the Wave 2 commit messages name) | `9c0c0033a21f` | 298         | 0                                                                                                   |
+| `910b50efab49`                                                                   | `b211a23195df` | 292         | 6 — `ld a,(-xix)`, `ld (-xiy),a`, `ld (xix+),a`, `ld (xix+),wa`, `ld (xix+),e`, `tset 0,(0x2a1b76)` |
+| `8e188b215251` (the pin from `bc571542` until 2026-09-25)                        | `a67c563269fc` | 282         | 16 — the six, and the ten `mul WA,(XIZ+d)` sites                                                    |
 
 `tools/wsa1_unspelt_by_toolchain.py` in this repository reproduces the table: it exports a
 revision with `git archive` and runs the script once per named binary. The sources are being
 respelled to match; at `e5f6cea1` the five post-increment / pre-decrement sites are
 instructions and 293 certified sites remain.
 
+At disassembly `3417969c0`, under the current pin `a3a81863f87d` (llvm-mc sha256
+`118bb4d6766e`), the same tool reports `prom_a: 82 certified sites, 226 B, 42 forms; 81 with
+NO SPELLING`; the one spellable form is `decf`. The 2026-10-03 respells `7a9cf4ff8`
+(150 instructions) and `09cc4ae4d` (53) converted most of the 298.
+
 The earlier "0 — byte runs audited and typed" for `prom_a` did not survive this census. Separately, the 2026-09-25 lanes
 retyped *data* framed as code in `prom_a` and `prom_b` — the opposite hazard — per their
 reports in `notes/lanes/wave2-2026-09-25/lane-reports/`. The SX-WSA1R instruction-statement
-figures were re-measured with the `mnemonic_census.py` command above at `be376096`.
+figures were re-measured with the `mnemonic_census.py` command above at `3417969c0`.
 
 The misframed islands in the Main CPU rows are left as `.byte` on purpose: fixing one means
 re-framing an instruction already present in a neighbouring converted region, not filling a
@@ -161,19 +169,26 @@ All previously missing instruction encodings have been implemented in the LLVM T
 
 ### HDAE5000: not complete
 
-`hdae5000/tools/measure_debt.py` counts **13,168 B** of undocumented `.byte`/`.word` operand
+`hdae5000/tools/measure_debt.py` counts **1,713 B** of undocumented `.byte`/`.word` operand
 bytes — overwhelmingly scattered single-byte numeric fields rather than one contiguous block
-— plus **3,815 B** more that carries a decoding comment but has not been converted to real
-instructions. Against a 512 KB ROM that is 2.5 % debt and 96.8 % real source. Most remaining
-`.byte` in the tree is genuine data (custom-filesystem templates — the HD-AE5000 filesystem
-is *not* FAT16 — string constants, UI bitmaps, etc.), but these figures are not yet zero.
-There are **0 B** of raw `.incbin` with no rebuild rule.
+— plus **373 B** more that carries a decoding comment but has not been converted to real
+instructions. Against a 512 KB ROM that is 0.327 % debt and 99.602 % real source
+(disassembly `3417969c0`). Most remaining `.byte` in the tree is genuine data
+(custom-filesystem templates — the HD-AE5000 filesystem is *not* FAT16 — string constants,
+UI bitmaps, etc.), but these figures are not yet zero. There are **0 B** of raw `.incbin`
+with no rebuild rule.
 
 ## Execution Plan
 
+> **Historical plan (March 2026), kept for its method.** Step 1's audit exists as
+> `scripts/analysis/audit_byte_code.py`, the encodings of Steps 3–8 are implemented and spelled
+> natively in the sources, and Step 10 is done: `v10/maincpu/storage/fdc_routines.s` holds no
+> `.byte` line at disassembly `3417969c0`. Paths below predate the per-version split:
+> `maincpu/` is now `v10/maincpu/` (and `v9/`, `v7/`), and `single_load.s` lives in `file_io/`.
+
 ### Step 1: Precise Automated Audit
 
-Write a Python script (`scripts/audit_byte_code.py`) that:
+Write a Python script (`scripts/analysis/audit_byte_code.py`) that:
 1. Parses all `.s` files across all ROMs
 2. Identifies `.byte` sequences between native instructions (code context)
 3. Attempts `llvm-mc --triple=tlcs900 --disassemble` on each sequence
@@ -246,7 +261,7 @@ Newly disassembled code may reveal previously unidentified jump tables or call t
 ### Step 13: Final Verification & Website Sync
 
 1. `make gate-all` — thirteen images byte-identical, or the change does not land
-2. Run `scripts/sync_docs_labels.py --apply` to update any new labels on the website
+2. Run `scripts/analysis/sync_docs_labels.py --apply` to update any new labels on the website
 3. Update `rom-reconstruction.md`
 
 ## Ordering & Priorities

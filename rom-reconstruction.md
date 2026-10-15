@@ -14,11 +14,12 @@ Byte-identity is the project's only acceptance criterion. The gate is
 make gate-all      # thirteen images: 9 KN5000 + 4 SX-WSA1R
 ```
 
-which rebuilds, then runs `scripts/analysis/assert_byte_identical.py` over nine KN5000 image
-pairs and four SX-WSA1R pairs, and `assert_toolchain_is_a_prerequisite.py` to prove the
-assembler is a prerequisite of every image rather than a stale object comparing green
-forever. It **compares bytes and exits non-zero on any difference**. A change that fails it is
-reverted, not explained away.
+which rebuilds, then runs `scripts/analysis/assert_images_assemble.py` (each root source
+must assemble, asked of the assembler directly) and
+`scripts/analysis/assert_byte_identical.py` over nine KN5000 image pairs and four SX-WSA1R
+pairs, and `assert_toolchain_is_a_prerequisite.py` to prove the assembler is a prerequisite
+of every image rather than a stale object comparing green forever. It **compares bytes and
+exits non-zero on any difference**. A change that fails it is reverted, not explained away.
 
 > ⚠ **`compare_roms.py` is a similarity report, not the gate.** It prints
 > `Similarity: 100.00%`, rounded to two decimals — in a 2,097,152-byte ROM that rounding
@@ -63,11 +64,12 @@ and v1.41 are held as verified artifacts with no source tree — see
 
 ### HD-AE5000 Firmware
 
-| Version | Release Date | Notes |
-|---------|--------------|-------|
-| v1.10i | 1998-07-06 | Initial release |
-| v1.15i | 1998-10-13 | |
-| v2.0i | 1999-01-15 | Added lyrics display |
+| Version | Release Date | Notes                                                                                       |
+|---------|--------------|---------------------------------------------------------------------------------------------|
+| v1.10i  | 1998-07-06   | Initial release                                                                             |
+| v1.15i  | 1998-10-13   |                                                                                             |
+| v2.01i  | 1999-01-15   | Added lyrics display (the installer calls it "v2.0i"; the ROM's own signature reads v2.01i) |
+| v2.06i  | unknown      | The image the source tree rebuilds (`hdae5000/hd-ae5000_v2_06i.s`)                          |
 
 ## Verification Sections
 
@@ -168,58 +170,64 @@ to pin the bytes down.
 
 ## What the source says each region is
 
-Every `.incbin` in the repository has been audited: **598 `.incbin`/`binclude` directives**,
-of which **505 are honest build products** — compiled from C or assembly, or generated from
-documented data. The audit method, and the discipline that keeps a conversion from silently
-asserting more than the dump supports, are on the
-[Disassembly Workflow]({{ site.baseurl }}/disassembly-workflow/) page.
+The binclude audit of 2026-08-07 (`analysis/binclude-audit-2026-08-07/`) walked every
+`.incbin`/`binclude` directive the repository then held: **598 directives**, of which **505
+were honest build products** — compiled from C or assembly, or generated from documented
+data. Since then the KN5000 trees have been cut into about 30,500 labelled `.incbin` slices
+of compiled C and PNG-generated images, which that audit predates. The audit method, and the
+discipline that keeps a conversion from silently asserting more than the dump supports, are
+on the [Disassembly Workflow]({{ site.baseurl }}/disassembly-workflow/) page.
 
 ### Table Data ROM: labelled source, not opaque halves
 
-The LLVM source for the 2 MB table-data ROM pulls **zero bytes out of anonymous blob files**.
-`initial_data.bin` is not referenced by the LLVM build at
-all; `icons_to_strings.bin` survives only as 13 labelled, explicitly sized slices
-(126,674 B: ten font glyph banks, the truncated German help block, the Composer factory
-memory image and one residue block); `wallpaper1_to_icons.bin` as 87 named bitmap slices;
-`icon_pixel_data.bin` as 177 named icon slices. Every remaining `.incbin` in the table-data
-sources carries a label, a length and a comment saying what it is.
+The LLVM source for the 2 MB table-data ROM pulls **zero bytes out of anonymous blob
+files**. `initial_data.bin`, `icons_to_strings.bin`, `wallpaper1_to_icons.bin` and
+`icon_pixel_data.bin` are not read by the LLVM build at all. The ten font glyph banks, the
+87 UI bitmaps and the 177 icons are regenerated from committed PNGs
+(`scripts/build/font_images.py`, `ui_bitmaps_images.py`, `icon_images.py`); the Composer
+factory memory image is rebuilt from `custom_data/styles/`; and the stale German help block
+and the style-record residue are derived from the live help-database streams by
+`scripts/generators/gen_stale_help_duplicate.py`. The blobs stay on disk, byte-identical,
+because the ASL mirror `binclude`s them (`icons_to_strings.bin` only up to file offset
+0x7F2D8). Every remaining `.incbin` in the table-data sources carries a label, a length and
+a comment saying what it is.
 
-`icons_to_strings.bin` is audited end to end: all 742,024 bytes are accounted for — 126,674 B in those 13 slices, 394,246 B that this build emits from
-source but the ASL mirror still takes from the blob, and a 221,104-byte dead tail
-(ROM `0x9C4050-0x9F9FFF`) that no build reads and that is a stale duplicate of the
-now-source-built demo-song presets. It was documented rather than deleted, because the
-file is a checked-in dump slice whose hash the audit quotes and because giving those bytes
-a second source would be a byte-match trap. `make audit-icons-blob` re-derives the map
-from the tree and the factory dump and fails if any of it drifts. Details on the
-[Table Data ROM]({{ site.baseurl }}/table-data-rom/) page.
+`icons_to_strings.bin` is audited end to end: all 742,024 bytes are accounted for — none
+read by the LLVM build, 520,920 B (file `0x0-0x7F2D7`) still `binclude`d by the ASL mirror,
+and a 221,104-byte dead tail (ROM `0x9C4050-0x9F9FFF`) that no build reads and that is a
+stale duplicate of the now-source-built demo-song presets. It was documented rather than
+deleted, because the file is a checked-in dump slice whose hash the audit quotes and because
+giving those bytes a second source would be a byte-match trap. `make audit-icons-blob`
+re-derives the map from the tree and the factory dump and fails if any of it drifts. Details
+on the [Table Data ROM]({{ site.baseurl }}/table-data-rom/) page.
 
-Symbol counts follow, from each file's generated header at `be376096`:
+Symbol counts follow, from each file's generated header at disassembly `3417969c0`:
 `symbols/table_data_symbols_reference.txt` holds **4,759** symbols, the sub-CPU payload's
-**5,560**, the HD-AE5000's **3,932** and the sub-CPU boot ROM's **201**.
+**5,053**, the HD-AE5000's **4,099** and the sub-CPU boot ROM's **200**.
 
 ### Region-by-region source map
 
-| Region | ROM range | Now |
-|--------|-----------|-----|
-| Section directory + preset banks | 0x800000–0x82FFFF | `table_data/preset_banks.s` (+ generator) |
-| Tone database | 0x830000–0x87FFEF | three modules: directory/offset table, 579 tone records, aux tables |
-| UI bitmaps, frames, icon tables | 0x913000–0x944D77 | `table_data/ui_bitmaps.s`, symbolic descriptor tables |
-| Font descriptors + glyph banks | 0x945C00–0x950A5F | `table_data/fonts.s` (10 fonts) |
-| Music Stylist preset database | 0x951000–0x98156F | `table_data/style_records.s`, 1000 × 198 B records |
-| Help index, intro strings, help DBs | 0x988000–0x9999D2 | `table_data/help_databases.s` + source-built SLIDE8K |
-| Panel Memory factory presets | 0x99EC00–0x9ABF3F | `table_data/panel_memory_presets.s` |
-| Composer factory memory image | 0x9B4000–0x9C3FFF | `Composer_FactoryMemoryImage` — one labelled 64 KB include, layout documented in-source |
-| Boot FDC command-layer driver | 0x9FD8A5–0x9FEA9C | `table_data/boot_fdc_driver.s` (2,316 lines) |
-| Boot disk-format probe | 0x9FEB2B–0x9FEC6D | `table_data/boot_disk_probe.s` |
-| Boot CP-serial driver | 0x9FEC6E–0x9FFB2E | `table_data/boot_cpserial.s` + `table_data/boot_cpserial_isr.s` + `table_data/boot_cpserial_states.s` |
-| Boot C runtime (heap, memcmp, divide) | 0x9FFB2F–0x9FFE7F | `table_data/boot_clib.s` |
-| Boot debug group (NOP-patched out) | 0x9FFE80–0x9FFEDF | `table_data/boot_debug.s` |
-| Sub-CPU DSP data zones A0 / A / B | 0x00F7E6–0x01E17E | carved into labelled tables in `v142/subcpu/subcpu_data_tables.s` |
-| Sub-CPU boot data region | 0xFF8000–0xFF828F | eight objects in `subcpu/boot/kn5000_subcpu_boot.s`: an 8-entry command-handler jump table, a RAM-test descriptor and the tone-generator velocity/touch front end |
-| DSP effect + parameter name tables (maincpu) | 0xE32418–0xE33579 | `DspParamUnit_Table` (86 × 2), `DspParamName_Table` (86 × 17), `DspEffectName_PtrTable` (128 × u32) and `DspEffectName_Strings` (128 × 18) in `ui_widgets/widget_descriptors.s` ([DSP Name Tables]({{ site.baseurl }}/dsp-name-tables/)) |
-| HD-AE5000 UI object + name tables | 0x2A5D2C–0x2A8499 | two index-parallel 790-entry pointer arrays and the name pool they index, in `hdae5000/hdae5000_data_tables.s` |
-| HD-AE5000 initialised `.data` image | 0x2F94B2–0x2FA133 | `hdae5000/hdae5000_init_data.s` — nine tables, 96 code pointers and 166 string pointers, all named from the firmware's own registration calls |
-| HD-AE5000 graphics bank | 0x2A858E–0x2F8DCD | re-split into eleven regions: five palette + bitmap pairs at the boundaries hard-coded in `HDAE5000_Register_Frame`, plus a string head |
+| Region                                       | ROM range         | Now                                                                                                                                                                                                                                                                                         |
+|----------------------------------------------|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Section directory + bitmap bank              | 0x800000–0x82FFFF | `table_data/preset_banks.s` (+ generator) — 26 bitmaps the program ROM also carries; no preset data, despite the file name                                                                                                                                                                  |
+| Tone database                                | 0x830000–0x87FFEF | three modules: directory/offset table, 579 tone records, aux tables                                                                                                                                                                                                                         |
+| UI bitmaps, frames, icon tables              | 0x913000–0x944D77 | `table_data/ui_bitmaps.s`, symbolic descriptor tables                                                                                                                                                                                                                                       |
+| Font descriptors + glyph banks               | 0x945C00–0x950A5F | `table_data/fonts.s` (10 fonts)                                                                                                                                                                                                                                                             |
+| Music Stylist preset database                | 0x951000–0x98156F | `table_data/style_records.s`, 1000 × 198 B records                                                                                                                                                                                                                                          |
+| Help index, intro strings, help DBs          | 0x988000–0x9999D2 | `table_data/help_databases.s` + source-built SLIDE8K                                                                                                                                                                                                                                        |
+| Panel Memory factory presets                 | 0x99EC00–0x9ABF3F | `table_data/panel_memory_presets.s`                                                                                                                                                                                                                                                         |
+| Composer factory memory image                | 0x9B4000–0x9C3FFF | `Composer_FactoryMemoryImage` — one labelled 64 KB include, layout documented in-source                                                                                                                                                                                                     |
+| Boot FDC command-layer driver                | 0x9FD8A5–0x9FEA9C | `table_data/boot_fdc_driver.s` (2,316 lines)                                                                                                                                                                                                                                                |
+| Boot disk-format probe                       | 0x9FEB2B–0x9FEC6D | `table_data/boot_disk_probe.s`                                                                                                                                                                                                                                                              |
+| Boot CP-serial driver                        | 0x9FEC6E–0x9FFB2E | `table_data/boot_cpserial.s` + `table_data/boot_cpserial_isr.s` + `table_data/boot_cpserial_states.s`                                                                                                                                                                                       |
+| Boot C runtime (heap, memcmp, divide)        | 0x9FFB2F–0x9FFE7F | `table_data/boot_clib.s`                                                                                                                                                                                                                                                                    |
+| Boot debug group (NOP-patched out)           | 0x9FFE80–0x9FFEDF | `table_data/boot_debug.s`                                                                                                                                                                                                                                                                   |
+| Sub-CPU DSP data zones A0 / A / B            | 0x00F7E6–0x01E17E | carved into labelled tables in `v142/subcpu/subcpu_data_tables.s`                                                                                                                                                                                                                           |
+| Sub-CPU boot data region                     | 0xFF8000–0xFF828F | eight objects in `subcpu/boot/kn5000_subcpu_boot.s`: an 8-entry command-handler jump table, a RAM-test descriptor and the tone-generator velocity/touch front end                                                                                                                           |
+| DSP effect + parameter name tables (maincpu) | 0xE32418–0xE33579 | `DspParamUnit_Table` (86 × 2), `DspParamName_Table` (86 × 17), `DspEffectName_PtrTable` (128 × u32) and `DspEffectName_Strings` (128 × 18) in `ui_widgets/widget_descriptors.s` ([DSP Name Tables]({{ site.baseurl }}/dsp-name-tables/))                                                    |
+| HD-AE5000 UI object + name tables            | 0x2A5D2C–0x2A8499 | two index-parallel 790-entry pointer arrays and the name pool they index, in `hdae5000/hdae5000_data_tables.s`                                                                                                                                                                              |
+| HD-AE5000 initialised `.data` image          | 0x2F94B2–0x2FA133 | `hdae5000/hdae5000_init_data.s` — nine tables, 96 code pointers and 166 string pointers, all named from the firmware's own registration calls                                                                                                                                               |
+| HD-AE5000 graphics bank                      | 0x2A858E–0x2F8DCD | re-split into eleven regions: five palette + bitmap pairs, laid out by a rule taken from the copy code in the title-screen procedures (`HDAE5000_TtlScreenRProc`, `HDAE5000_TtlScreenR2Proc`, `HDAE5000_TtlScreenR3Proc`) and confirmed byte-wise over the whole region, plus a string head |
 
 Several of these regions are not what their file names say, and the names were kept while the
 descriptions were not:
@@ -237,89 +245,93 @@ descriptions were not:
   `DSP_MixerCoeff_Compute`, treats its entries as amplitude.
 - The sub-CPU executable does not live at table-data 0x830000. That region is the tone
   database; where the runtime code payload is sourced from is a separate question.
-- `HDAE5000_GFX_DATA_1`, despite the name, is neither graphics nor code: all 3,160
-  bytes of it group into valid little-endian pointers — 769 into the UI descriptor pool,
-  20 into sub-CPU work RAM, and one NULL terminator. Its `0x315` is an *entry count*, not a
-  byte size.
+- `HDAE5000_UiObject_PtrTable` (0x2A5D2C, once labelled `HDAE5000_GFX_DATA_1`) is neither
+  graphics nor code: all 3,160 bytes of it group into valid little-endian pointers — 769
+  into the UI descriptor pool, 20 into sub-CPU work RAM, and one NULL terminator. Its
+  `0x315` is an *entry count*, not a byte size.
 - There is no `HDAE5000_Font_Data` region. The address that label named holds no font, and
   fell 0x11818 bytes *inside* a 320×240 bitmap.
 - A 320×240 boot splash sits at 0x2E61CE, immediately after the 0x400-byte VGA palette.
-- The sub-CPU boot ROM's 96 KB of `0xFF` is **not erased flash**. It was never dumped: only
-  4,352 of the chip's 131,072 bytes have ever been read. Any "the sub-CPU boot ROM is ~99%
-  disassembled" figure computed over the whole file is meaningless.
+- The sub-CPU boot ROM's 96 KB of `0xFF` is **not erased flash**. Apart from 2 KB at each end
+  (0xFE0000–0xFE07FF and 0xFF7800–0xFF7FFF), which were read and came back blank, it was
+  never dumped: 14,336 of the chip's 131,072 bytes have ever been read, and only 4,352 are
+  not `0xFF`. Any "the sub-CPU boot ROM is ~99% disassembled" figure computed over the whole
+  file is meaningless.
 
 ## Where the source still holds raw ROM slices
 
-The HD-AE5000 and sub-CPU boot packages have now landed; what remains is the v7 tree and
-the unfinished half of the closing sweep. Measured from the current sources — total bytes
-emitted by `.incbin` directives per ROM tree:
+Measured at disassembly `3417969c0` (2026-10-06) — total bytes emitted by live `.incbin`
+directives per ROM tree:
 
-| ROM tree | `.incbin` bytes | Character of what remains |
-|----------|-----------------|---------------------------|
-| `v10/maincpu` | 860,028 | Overwhelmingly `includes/generated/*.bin` — C-compiled screen/widget data, an honest build product |
-| `v9/maincpu` | 860,028 | Same shape as v10 |
-| `v7/maincpu` | 995,213 | **Raw ROM slices behind a `generated/` path** — see the note below |
-| `v142/subcpu` | 0 | No binary includes at all |
-| `subcpu/boot` | 0 | The 656-byte blob was carved into source; the ASL mirror still `binclude`s the file, so it stays on disk |
-| `hdae5000` | 313,076 | Ten labelled slices of `code_29af2d_2fffff.bin`, and **all ten are pixel or palette data**: five 1,024-byte RGBX palettes, four 320×240 bitmaps and one 756-byte icon. Despite the file's name none of it is code. The slice boundaries sit on the real palette/bitmap edges, and the boot splash at 0x2E61CE is named |
-| `table_data` | 1,113,121 | All labelled: BMPs, wallpapers, font glyph banks, icon/bitmap slices, and the source-built compressed payloads |
-| `custom_data` | 667,648 | Six factory-style-database sections; blob-level documentation judged adequate (this is one unit's user-data area, not firmware) |
+| ROM tree      | `.incbin` bytes | Character of what remains                                                                                                                                                       |
+|---------------|----------------:|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `v10/maincpu` | 870,502         | Overwhelmingly `includes/generated/*.bin` — C-compiled screen/widget data, an honest build product                                                                              |
+| `v9/maincpu`  | 851,032         | Same shape as v10                                                                                                                                                               |
+| `v7/maincpu`  | 851,232         | Same shape as v9, plus 10 live slices of committed `includes/romslices/` (the ROM is no longer a build input — see the note below)                                              |
+| `v142/subcpu` | 0               | No binary includes at all                                                                                                                                                       |
+| `subcpu/boot` | 0               | The 656-byte blob was carved into source; the ASL mirror still `binclude`s the file, so it stays on disk                                                                        |
+| `hdae5000`    | 313,076         | Ten labelled slices, **all pixel or palette data** regenerated from committed PNGs and palette files: five 1,024-byte RGBX palettes, four 320×240 bitmaps and one 756-byte icon |
+| `table_data`  | 1,303,899       | All labelled: BMPs, wallpapers, font glyph banks, bitmaps and icons regenerated from PNGs, and the source-built compressed payloads                                             |
+| `custom_data` | 639,296         | Eleven slices of the factory-style-database sections; blob-level documentation judged adequate (this is one unit's user-data area, not firmware)                                |
 
 > **What that table does and does not say.** These are bytes that the LLVM build pulls in
 > as opaque binary. A slice that is labelled, sized and commented is *not* the same thing as
 > disassembled code or a decoded structure — it is a boundary that someone has proved. The
-> HD-AE5000 bitmaps, for instance, are fully identified and still 313,076 raw bytes, exactly
-> as they should be.
+> HD-AE5000 bitmaps, for instance, are fully identified and enter as 313,076 `.incbin` bytes
+> regenerated from committed PNGs and palettes.
 
-**The v7 tree deserves a warning.** `scripts/build/extract_v7_bins.py` runs at build time
-and `dd`-slices the v7 ROM into `v7/maincpu/includes/generated/`. Some of those slices are
-explicitly v7-specific (139 `v7_block_*`, 24 `v7_fix_*`, 16 `v7_data_*` and the transplant
-set — 136,775 bytes between them). The rest — 858,438 bytes under names shared with the v9
-tree (`naka_*`, `sound_data_*`, …) — are C-compile outputs that the script **overwrites**
-with raw ROM bytes whenever a >50%-similarity check fires. The v7 ROM therefore rebuilds
-byte-perfectly while much of its "source" is the ROM itself, and the similarity heuristic
-is a silent-corruption risk: a genuinely different block that happens to match at 51%
-would be silently accepted. Fixing this means parameterising the C sources per firmware
-version so compilation alone reproduces the v7 bytes, then deleting the overwrite. It is
-the single largest item left in the plan.
+**The v7 tree no longer reads its own ROM** (since `1528605e8`, 2026-08-21).
+`scripts/build/extract_v7_bins.py` is retired and refuses to run without `--force`
+(`4b5e625f8`). v7's C data bins are compiled from the C it shares with v9/v10.
+`scripts/build/apply_v7_c_divergence.py` then applies the differences recorded in
+`v7/maincpu/includes/v7_c_divergence.json`, which are mostly pointer relocations by a
+recorded per-range delta plus a small number of raw bytes. The bytes with no source at all
+are committed under `v7/maincpu/includes/romslices/`, and 10 `.incbin` lines of it are still
+live. At `3417969c0`, `scripts/analysis/kn5000_source_coverage.py` counts v7's verbatim debt
+as 6,591 B (99.7 % source).
 
 Additional known-unfinished items:
 
-- **Code hidden in maincpu `.byte` is measured, per tree, and it is uneven.** `v7` holds
-  275,822 B of it — 797 confirmed code-shaped regions (247,603 B) plus 2,268 shorter
-  misframed islands (28,219 B) — the single largest debt figure anywhere in the tree, more
-  than twice v7's own verbatim romslice debt. `v9` and `v10`'s high-confidence
-  confirmed-region backlog — the shape `v9_v10_undisassembled_census.py --judge` can find and
-  hand-audit — is at **0 B on both images**, re-confirmed independently for each; the
-  remaining debt in this shape is shorter misframed islands (real instructions run past a
-  flanking `.byte` run, so fixing one means re-framing an instruction already present rather
-  than filling a gap), which stood at about 14,727 B per image before this push and has
-  since been partly converted on both. Converting a region creates new islands at its
-  boundary, so an island count is only valid against the exact commit it was measured at —
-  quote a fresh run, not this page. This is a different, larger category than the `.incbin`
-  verbatim debt measured below: a long `.byte` run is exactly as undecoded as an `.incbin`,
-  but it passes every "no `.incbin`" check, so no tool that only scans for `.incbin` can see
-  it. `scripts/analysis/v9_v10_undisassembled_census.py` (v9/v10, and the same rule applied
-  to v7) is the census.
-- The sub-CPU boot ROM source still spells its blank region as **98,304 individual
-  `.byte 0xff` lines**. Collapsing them to one `.fill` was proposed, drafted and then
-  **withdrawn**: the change is byte-safe, but the region is undumped rather than known to be
-  erased, and a single `.fill` directive would assert a fact about the physical chip that
-  the dump does not support.
-- The HD-AE5000 UI descriptor pool at 0x29DC12–0x2A5D2B is one 769-entry array currently cut
-  into five pieces at non-boundaries — the next honest-data package.
+- **Code hidden in maincpu `.byte` is measured, per tree.** At `3417969c0` the census rule
+  still fires on 8 `v7` regions (1,236 B). That is a ranking for hand audit, not a verdict:
+  four of the eight are the same text strings it flags in v10 (the Italian, French and
+  German wallpaper messages and a widget-name string). A further 275 CODE-flanked `.byte`
+  runs of 63 B or less (2,043 B) remain in v7, 203 of them (1,338 B) in genuine-code
+  context. On 2026-09-02 the same census gave 275,822 B for v7. `v9` and `v10`'s
+  high-confidence confirmed-region backlog — the shape
+  `v9_v10_undisassembled_census.py --judge` can find and hand-audit — is at **0 B on both
+  images**, re-confirmed independently for each; the remaining debt in this shape is shorter
+  misframed islands (real instructions run past a flanking `.byte` run, so fixing one means
+  re-framing an instruction already present rather than filling a gap), which stood at about
+  14,727 B per image before this push and has since been partly converted on both: at
+  `3417969c0` it is 139 runs (1,426 B) in v10 and 145 runs (1,495 B) in v9, of which 99
+  (809 B) and 105 (878 B) sit in genuine-code context. Converting a region creates new
+  islands at its boundary, so an island count is only valid against the exact commit it was
+  measured at — quote a fresh run, not this page. This is a different, larger category than
+  the `.incbin` verbatim debt measured below: a long `.byte` run is exactly as undecoded as
+  an `.incbin`, but it passes every "no `.incbin`" check, so no tool that only scans for
+  `.incbin` can see it. `scripts/analysis/v9_v10_undisassembled_census.py` (v9/v10, and the
+  same rule applied to v7) is the census.
+- The sub-CPU boot ROM source now spells the 0xFE0000–0xFF7FFF run as one
+  `.fill 98304, 1, 0xff` (`cccbe2978`, 2026-09-02). The bytes are unchanged, but the
+  directive's comment calls the run "erased flash", which the dump does not support: apart
+  from 2 KB read at each end (0xFE0000–0xFE07FF and 0xFF7800–0xFF7FFF), the range was never
+  read, and its `0xFF` is assumed (see [Dump Provenance](#dump-provenance)). The comment, not
+  the bytes, needs correcting in the disassembly.
 - The v1.41 sub-CPU payload has no source tree; see
   [Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/).
 
-Three items on this list were closed by the August waves. The HD-AE5000 string table around
-0x2A5D2C–0x2A8499 is no longer mis-decoded as instructions; the orphaned
+Three items on this list were closed by the August waves, and a fourth, the HD-AE5000 UI
+descriptor pool at 0x29DC12–0x2A5D2B, on 2026-09-25: it is now 769 typed `HdaeUiObj_NNN`
+records generated by `scripts/generators/gen_hdae5000_ui_pool.py`. The HD-AE5000 string
+table around 0x2A5D2C–0x2A8499 is no longer mis-decoded as instructions; the orphaned
 `table_data/includes/bootcode_*.bin` slices are gone, along with 25 other unreferenced
 artifacts, each recorded in `analysis/orphans-2026-08-08/README.md` with the `dd` that
 regenerates it byte-for-byte (six `bootcode_*.bin` files remain because the ASL mirror still
 `binclude`s them); and `icons_to_strings.bin` is now fully accounted for by
-`make audit-icons-blob`, which reports 126,674 bytes in thirteen labelled LLVM slices,
-615,350 bytes unreferenced by the LLVM build, and a 221,104-byte dead tail beyond file
-offset 0x7F2D8 that duplicates the source-built demo-preset region and is read by nothing.
+`make audit-icons-blob`, which reports no LLVM slices at all, 742,024 bytes unreferenced by
+the LLVM build, and a 221,104-byte dead tail beyond file offset 0x7F2D8 that duplicates the
+source-built demo-preset region and is read by nothing.
 
 ## Three kinds of debt, not one
 
@@ -369,20 +381,20 @@ gate cannot see. So every site must also be decoded identically by a second deco
 An eight-judge review of 360 accepted sites found two phantom branches, both of which that
 second-decoder rule now refuses. The review evidence is in `notes/branch-symbolization-2026-09-25/`.
 
-| tree | numeric branch operands | of all branches | before the pass |
-|---|---:|---:|---:|
-| maincpu v10 | 585 | 74,085 | 13,344 / 74,282 |
-| maincpu v9 | 611 | 74,085 | 14,217 / 75,164 |
-| maincpu v7 | 2,102 | 73,848 | 19,408 / 57,528 |
-| subcpu v142 | 0 | 7,049 | 726 / 6,997 |
-| HD-AE5000 | 1 | 7,146 | 877 / 7,146 |
-| table data | 0 | 1,331 | 83 / 1,280 |
-| SX-WSA1R `prom_a` | 197 | 25,232 | 7,605 / 25,208 |
-| SX-WSA1R `prom_b` | 206 | 18,516 | 18,241 / 18,411 |
-| SX-WSA1R `prom_c` | 6 | 10,241 | 2,479 / 10,241 |
+| tree              | numeric branch operands | of all branches | before the pass |
+|-------------------|------------------------:|----------------:|----------------:|
+| maincpu v10       | 0                       | 74,354          | 13,344 / 74,282 |
+| maincpu v9        | 0                       | 74,344          | 14,217 / 75,164 |
+| maincpu v7        | 0                       | 74,341          | 19,408 / 57,528 |
+| subcpu v142       | 0                       | 7,078           | 726 / 6,997     |
+| HD-AE5000         | 0                       | 7,195           | 877 / 7,146     |
+| table data        | 0                       | 1,333           | 83 / 1,280      |
+| SX-WSA1R `prom_a` | 12                      | 25,216          | 7,605 / 25,208  |
+| SX-WSA1R `prom_b` | 77                      | 18,544          | 18,241 / 18,411 |
+| SX-WSA1R `prom_c` | 0                       | 10,241          | 2,479 / 10,241  |
 
 Counted with the one-liner in `scripts/converters/README-symbolize-branches.md` (the
-"all branches" column drops the operand pattern), over the committed sources at `be376096`
+"all branches" column drops the operand pattern), over the committed sources at `3417969c0`
 for the current columns and at the commit before the symboliser landed (`b0bfd371^`) for the
 last; `tools/branch_operand_counts.py <rev>` in this repository runs exactly that over the
 committed blobs. Those "before" figures reproduce the ones in the tool's own docstring
@@ -390,12 +402,11 @@ exactly. v7's
 denominator grew by 16,320 branches during Wave 2 (`3958235e` → `5fc8d5bd`), as v7 regions
 were converted to instructions.
 
-What remains is mostly the refused residue, and that residue doubles as a list of places
-where a branch or its target is framed wrongly. In `prom_c` all six sit in the dead
-`UNREFERENCED_TRAMPOLINES` block and target mid-instruction addresses. `prom_a`'s own lane
-instrument (`notes/proma-2026-09-25/measure_proma.py`) counts 203 and splits them: 24 `call`s into `prom_a` and 9 into `prom_b`, 117 `calr`, 33
-`jr`, 9 `jrl`, 9 `jp` into `prom_a` and 2 elsewhere — some of them in genuinely stale code
-(see [SX-WSA1R older-build remnants]({{ site.baseurl }}/wsa1-disassembly/#older-build-remnants-and-why-unreached-code-can-be-correct)).
+What remains is the refused residue in the SX-WSA1R: 12 sites in `prom_a` and 77 in
+`prom_b`, which double as a list of places where a branch or its target is framed wrongly.
+At `be376096` the residue still included 585/611/2,102 in the main-CPU trees and six in
+`prom_c`'s dead `UNREFERENCED_TRAMPOLINES` block; see
+[SX-WSA1R older-build remnants]({{ site.baseurl }}/wsa1-disassembly/#older-build-remnants-and-why-unreached-code-can-be-correct).
 
 ## Verbatim debt across all thirteen gated images
 
@@ -423,17 +434,17 @@ already on record.
 The two remaining rows (reproduce with the command above; these are current measurements,
 not the tool's raw total — see the note on table data below):
 
-| Image | Verbatim debt | % source |
-|---|---:|---:|
-| `v7/maincpu` | 120,666 B | 94.2% |
+| Image        | Verbatim debt                       | % source  |
+|--------------|------------------------------------:|----------:|
+| `v7/maincpu` | 6,591 B                             | 99.7%     |
 | `table_data` | 0 B real (318,468 B raw tool total) | see below |
 
-**So the tree's only real remaining verbatim debt is v7's 120,666 B.** The whole-tree
-figure the tool prints, 439,134 B over 12,386,304 B (96.5% source), is that plus table
+**So the tree's only real remaining verbatim debt is v7's 6,591 B.** The whole-tree
+figure the tool prints, 325,059 B over 12,386,304 B (97.4% source), is that plus table
 data's BMPs.
 
-*(2026-09-02, from the command above. The v7 row falls as conversion lanes land, sometimes
-within hours — re-run rather than quoting this table.)*
+*(2026-10-06, disassembly `3417969c0`, from the command above. The v7 row falls as
+conversion lanes land, sometimes within hours — re-run rather than quoting this table.)*
 
 **Table data's real remaining debt is zero.** The tool's raw 318,468 B figure is entirely the
 six `FTBMP01-06.BMP` feature-demo slide images — genuine, uncompressed 8bpp Windows BMPs
@@ -453,17 +464,22 @@ Byte identity says the source reproduces the ROM. It says nothing about whether 
 can state what a given range of bytes *represents*. That is a separate measurement, and it
 is the one that decides whether "the ROMs are done" is true.
 
-**Of the 12,386,304 bytes across the twelve distinct images, 95.04 % are CODE, evidenced
-data or verified filler** -- the census's *strict* figure, 11,771,934 bytes, after the
-September 25 semantic push (Wave 2), whose twenty lanes turned named-but-unevidenced data into
-data whose header cites its reader; it stood at 64.15 % before (details
-[below](#after-wave-2-2026-09-25)). Counting data that rests on a descriptive name alone as
-well, the census reports 99.54 %. ⚠ That is the instrument's grade, not an audited figure:
-the hand-audited false-positive sample was last drawn for the September 2 run, when about
-93.8 % (≈11.61 MB) could be explained, with a 95 % confidence interval of 86.7 % – 96.6 %
-(about 82 % under the strictest reading -- that a section header does not explain a 30 KB blob
-it happens to sit above). That day's raw census reported 99.78 %, a figure wrong by
-construction for the reasons itemised below.
+**Of the 12,386,304 bytes across the twelve distinct images, 96.34 % (11,932,811 B) are
+CODE, evidenced data or verified filler** -- the census's *strict* figure at `7936b0a2`
+(2026-10-06), which the disassembly README now publishes as the *bytes understood* component
+of its [semantic score](#the-semantic-score). After the September 25 semantic push (Wave 2),
+whose twenty lanes turned named-but-unevidenced data into data whose header cites its
+reader, it was 95.04 % (11,771,934 B); before that push it was 64.15 % (details
+[below](#after-wave-2-2026-09-25)). Part of the last rise is the instrument rather than the
+tree: `d6c4e0ead` (2026-10-06) lets a compact block of one-line `.incbin` entries inherit
+the header directly above it (v10 alone went from 90.03 % to 93.35 %), so 96.34 % and
+95.04 % are not strictly comparable. Counting data that rests on a descriptive name alone as
+well, the census reported 99.54 % after Wave 2. ⚠ That is the instrument's grade, not an
+audited figure: the hand-audited false-positive sample was last drawn for the September 2
+run, when about 93.8 % (≈11.61 MB) could be explained, with a 95 % confidence interval of
+86.7 % – 96.6 % (about 82 % under the strictest reading -- that a section header does not
+explain a 30 KB blob it happens to sit above). That day's raw census reported 99.78 %, a
+figure wrong by construction for the reasons itemised below.
 
     python3 scripts/analysis/data_range_census.py                     # the census, all 12 images
     python3 scripts/analysis/data_range_census.py --json out.json --targets 60
@@ -484,6 +500,26 @@ export of the commit, after `make all`, with `PROJECTS_ROOT` pointing at a direc
 `llvm-project/build/bin/llvm-mc` is the `a7ee33d5…` binary. The lanes' own before/after
 figures, and what each could not do, are in `lane-reports/*.json` beside the committed
 file.
+
+### The semantic score
+
+Since 2026-10-06 (`c2bf2d04a`) the disassembly README has carried badges for a measured
+*semantic score*, produced by `make semantic-score` (`scripts/analysis/semantic_score.py`).
+It is the mean of four components (three for the SX-WSA1R, which has no C), computed per
+model and overall. Every number behind it, with its commit, is in
+`docs/badges/semantic-score.json`, and the trend is in
+`docs/badges/semantic-score-history.csv`. Byte identity is not a component, because every
+image already passes the gate. At `7936b0a2`:
+
+| component            | what it counts                                                                                                                     | all images                          | KN5000      | SX-WSA1R    |
+|----------------------|------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------|-------------|-------------|
+| bytes understood     | the census's strict figure (above)                                                                                                 | 96.34 % (11,932,811 / 12,386,304 B) | 96.66 %     | 94.75 %     |
+| semantic names       | linked symbols whose name says what the thing is, not an address or a position                                                     | 92.57 % (154,116 / 166,478)         | 93.79 %     | 83.11 %     |
+| jump tables resolved | jump/call tables whose every entry lands on a labelled instruction, spelled symbolically (the dispatch census in `docs/coverage/`) | 100 % (3,021 / 3,021)               | 100 %       | 100 %       |
+| C fields named       | C struct members with a meaningful name rather than an index                                                                       | 93.25 % (71,227 / 76,386)           | 93.25 %     | —           |
+| **score**            | the mean of the components                                                                                                         | **95.54 %**                         | **95.93 %** | **92.62 %** |
+
+The first measurement, at `f6458f02` earlier the same day, was 75.75 %.
 
 ### The grades
 
@@ -525,6 +561,12 @@ and undocumented data sandwiched between two instruction regions ("embedded-in-c
 | `prom_d` | 0 | 329,425 | 1,096 | 0 | 193,767 | 99.79 % |
 | **total** | **3,977,832** | **6,429,576** | **557,803** | **56,567** | **1,364,526** | **95.04 %** |
 
+At `7936b0a2` (2026-10-06), after the census fix `d6c4e0ead`, the strict share per image is
+v10 95.48 %, v9 95.02 %, v7 94.71 %, v142 99.41 %, sub-CPU boot 99.97 %, table data 98.93 %,
+custom data 100 %, HD-AE5000 98.15 %, `prom_a` 95.33 %, `prom_b` 85.86 %, `prom_c` 98.01 %
+and `prom_d` 99.79 %, or 96.34 % overall (`docs/badges/semantic-score.json`). The
+five-bucket split above has not been republished since Wave 2.
+
 | | before Wave 2 (`3958235e`) | after (`5fc8d5bd`) |
 |---|---:|---:|
 | strict (CODE + KNOWN-A + FILLER) | 64.15 % | **95.04 %** |
@@ -556,7 +598,7 @@ reports: `prom_a`'s MIDI-in tables for two unidentified controllers now say so (
 to research on purpose), and 24 streams in `prom_c`'s P7 pool are stated as unreferenced
 (5,897 B). The admission is the true statement; the name it replaced was not.
 
-**95.04 % is the instrument's grade, not an audited figure.** KNOWN-A is keyword-graded
+**96.34 % is the instrument's grade, not an audited figure.** KNOWN-A is keyword-graded
 (`grade_purpose()` in `scripts/analysis/data_range_census.py`), by either of two routes: a
 header of eight or more words carrying two evidence tokens, or a descriptive
 (non-address-derived) name with a header of six or more words carrying one — and in both
@@ -569,17 +611,18 @@ size-weighted, seed 90902 (`--load … --sample 40 --seed 90902`). **That audit 
 7.5 %, Wilson 95 % interval 2.6 %–19.9 % — and a further 8 of 40 passing only at the
 granularity of a whole blob. Its run is in `notes/data-census-2026-09-02/` and
 `notes/DATA-CENSUS-2026-09-02.md`. Until the sample is redrawn from the current tree, quote
-95.04 % together with that sentence.
+96.34 % together with that sentence.
 
 **Some of the grading is known to be wrong in both directions** (listed for Wave 3 in
-`notes/lanes/wave2-2026-09-25/WAVE3-LEADS.md` — the first two below under "Instruments",
-the rest under "Open research"): a `NAME = expr` line is
-taken for an instruction owning the next line's bytes; a comment run is kept open across
-blank lines, so a file header can leak into the first object and flip it to "admits" (98 B
-of false research target at `0xED0008` in v10, v9 and v7); a banner is credited only to
-objects within six lines, so about 86 KB of one-line icon and bitmap `.incbin` entries whose
-banner names their readers stay KNOWN-B; single-line headers are not credited; labels such
-as `F64_2376` are read as address-derived; and `m_ldc_*` macro lines are graded as data.
+`notes/lanes/wave2-2026-09-25/WAVE3-LEADS.md` — the first two below under "Instruments", the
+rest under "Open research"): a `NAME = expr` line is taken for an instruction owning the
+next line's bytes; a comment run is kept open across blank lines, so a file header can leak
+into the first object and flip it to "admits" (98 B of false research target at `0xED0008`
+in v10, v9 and v7); a banner used to be credited only to objects within six lines, so
+one-line `.incbin` entries further down a block stayed KNOWN-B (fixed by `d6c4e0ead`,
+2026-10-06: a compact block now inherits the header above its first entry); single-line
+headers are not credited; labels such as `F64_2376` are read as address-derived; and
+`m_ldc_*` macro lines are graded as data.
 
 ### The instrument
 
@@ -760,7 +803,7 @@ The MAME driver papers over the gap with a `ROMX_LOAD` overlay of the compressed
 carved from a genuine update floppy. That composite is a **reconstruction**, and nothing
 in the ROM definition marks it as one.
 
-> Note also that `/home/fsanches/compartilhado/kn5000_custom_data_with_preset.ic19` is
+> Note also that a locally held `kn5000_custom_data_with_preset.ic19` is
 > **not** independent chip evidence: it is byte-identical to the canonical dump except for
 > a 27,967-byte SLIDE4K blob grafted at chip `0x0E0000` — a different, smaller blob than
 > the 93,203-byte v1.42 subprogram.
@@ -832,7 +875,7 @@ instructions — which is why they are the archived set and not the primary one.
 Each firmware version has its own tree (`v7/`, `v9/`, `v10/` for the maincpu; `v142/` for
 the sub-CPU payload), with `shared/` modules included by more than one ROM.
 
-**The three maincpu trees are split by subsystem, not monolithic:** each is about 156 `.s`
+**The three maincpu trees are split by subsystem, not monolithic:** each is about 157 `.s`
 files across roughly twenty directories, and the three carry the same file layout so a
 routine sits at the same path in all of them. The remaining images are far smaller and are
 not split that way — `v142/subcpu` is 5 files, `hdae5000` 8, `table_data` 26, and the
@@ -862,18 +905,19 @@ python3 notes/syntax-convergence-probes/mnemonic_census.py --root v10/maincpu
 
 which prints to stdout and writes nothing unless given `--out`:
 
-| Bucket | Sites | Distinct names |
-|--------|------:|---------------:|
-| Instruction statements, total | 336,011 | 359 |
-| — a native LLVM mnemonic `unidasm` also has | 294,233 | 68 |
-| — a tree-local synthetic name encoding the operand form | 40,071 | 266 |
-| — a `.macro` defined inside the tree | 1,705 | 23 |
-| — unclassified | 2 | 2 |
+| Bucket                                                  | Sites   | Distinct names |
+|---------------------------------------------------------|--------:|---------------:|
+| Instruction statements, total                           | 329,465 | 259            |
+| — a native LLVM mnemonic `unidasm` also has             | 313,275 | 68             |
+| — a tree-local synthetic name encoding the operand form | 12,599  | 154            |
+| — a `.macro` defined inside the tree                    | 3,589   | 35             |
+| — unclassified                                          | 2       | 2              |
 
-Of the synthetic names, 6,020 sites over 79 names are *byte emitters wearing a mnemonic's
-name*: their operands are literal mode and displacement bytes rather than modelled operands,
-so no rename reaches them until the operand is modelled. What retiring the rest would take is
-on [LLVM Semantic Instructions]({{ site.baseurl }}/llvm-semantic-instructions/).
+At `3417969c0`, after the 2026-10-02/03 native respells, 1,027 sites over 37 names are *byte
+emitters wearing a mnemonic's name*: their operands are literal mode and displacement bytes
+rather than modelled operands, so no rename reaches them until the operand is modelled. What
+retiring the rest would take is on [LLVM Semantic Instructions]({{ site.baseurl
+}}/llvm-semantic-instructions/).
 
 Symbol count is a `wc -l` on the reference file, which carries one symbol per line:
 
@@ -882,10 +926,11 @@ grep -c LABEL_ symbols/maincpu_symbols_reference.txt   # 0
 ```
 
 The file's own header block carries the count, regenerated with it by
-`scripts/analysis/l2_symbol_reference.py --regen` (last after Wave 2, at `be376096`):
-**47,836 symbols**, of which 43,656 (91.3 %) have semantic names and 4,180 are positional. No opaque `LABEL_XXXXXX` placeholders remain, in
-that file or in any of the other seven `symbols/*_symbols_reference.txt`. Note the file is
-**v10 only** — it agrees with the v7 ELF at 25.96 % — so each version also has its own.
+`scripts/analysis/l2_symbol_reference.py --regen` (last on 2026-10-06, at `88bc2005c`):
+**53,746 symbols**, of which 53,108 (98.8 %) have semantic names and 638 are positional. No
+opaque `LABEL_XXXXXX` placeholders remain, in that file or in any of the other seven
+`symbols/*_symbols_reference.txt`. Note the file is **v10 only** — it agrees with the v7 ELF
+at 25.96 % — so each version also has its own.
 
 **Subsystem entry points (main CPU):**
 
@@ -912,8 +957,8 @@ that file or in any of the other seven `symbols/*_symbols_reference.txt`. Note t
 The 128 KB sub-CPU boot ROM rebuilds at 100.00% — against a file that is 97% `0xFF` and
 89% never read, so read that number together with [Dump Provenance](#dump-provenance)
 above and with [Sub-CPU Boot ROM (IC30)]({{ site.baseurl }}/subcpu-boot-rom/). Routines
-identified include the tone generator init loop (`SUB_8437`), register-pair writers,
-`COPY_WORDS`/`FILL_WORDS`, `CHECKSUM_CALC`, the inter-CPU handler set, and the
+identified include the tone generator init loop (`TONE_GEN_CHANNEL_INIT`), register-pair
+writers, `COPY_WORDS`/`FILL_WORDS`, `CHECKSUM_CALC`, the inter-CPU handler set, and the
 debug/diagnostic tail at 0xFFFE80.
 
 **DMA transfer routines (0xFF8604–0xFF881E):**
@@ -1127,22 +1172,22 @@ ASL sometimes chooses different (but functionally equivalent) encodings than the
 Executable code is written as native TLCS-900 mnemonics wherever it has been identified as
 code. It is **not** true that no code remains as `.byte`: the sub-CPU payload, the sub-CPU
 boot ROM, table data, custom data, `prom_b` and `prom_c` are at zero, while v7, HD-AE5000
-and `prom_a` still hold instructions spelled as data — in `prom_a`, 298 certified `.byte`
-instruction sites (1,318 B, 89 forms) at disassembly commit `be376096`; under the current
-assembler pin (`8e188b215251`) 282 of them have no spelling found so far that reassembles
-byte-identically, and the other 16 are spellable and being respelled. The per-image figures and the method
+and `prom_a` still hold instructions spelled as data — in `prom_a`, 82 certified `.byte`
+instruction sites (226 B, 42 forms) at disassembly commit `3417969c0`; under the current
+assembler pin (`a3a81863f87d`) 81 of them have no spelling found so far that reassembles
+byte-identically, and one form (`decf`) is spellable. The per-image figures and the method
 that measures them are on
 [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/).
 
 ### Data tables held as C
 
-Structured data is source as typed C rather than byte arrays wherever the shape is known:
-15 sound-data files in `audio/sound_data/` and 29 NAKA widget descriptor blocks are
-`__attribute__((packed))` struct initializers with named fields and `_Static_assert` size
-checks, compiled and `.incbin`'d so the ROM stays byte-identical. These are data only —
-**no firmware routine is written in C**; see
-[ScreenData C conversion]({{ site.baseurl }}/screendata-c-conversion/) and
-[UI Widget Types]({{ site.baseurl }}/ui-widget-types/).
+Structured data is source as typed C rather than byte arrays wherever the shape is known: 15
+sound-data tables in `audio/sound_data_*.c` and 27 NAKA widget descriptor blocks (plus two
+lookup tables) in `ui_widgets/` are `__attribute__((packed))` struct initializers with named
+fields and `_Static_assert` size checks, compiled and `.incbin`'d so the ROM stays
+byte-identical. These are data only — **no firmware routine is written in C**; see
+[ScreenData C conversion]({{ site.baseurl }}/screendata-c-conversion/) and [UI Widget
+Types]({{ site.baseurl }}/ui-widget-types/).
 
 The IC307 waveform ROM's format is decoded — 16-bit signed PCM at 32 kHz with a 512-entry
 sample table — on [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/).

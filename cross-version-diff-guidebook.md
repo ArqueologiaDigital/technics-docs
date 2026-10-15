@@ -6,7 +6,7 @@ permalink: /cross-version-diff-guidebook/
 
 # Cross-Version Source Diff Guidebook
 
-Best practices for producing the cleanest possible source-level diffs between KN5000 firmware versions. Derived from the v9-to-v10 diff minimization journey (5,388 lines reduced to 95) and applied to all version pairs.
+Best practices for producing the cleanest possible source-level diffs between KN5000 firmware versions. Derived from the v9-to-v10 diff minimization journey (5,388 lines reduced to 95 by August 2026) and applied to all version pairs.
 
 ## Principles
 
@@ -63,9 +63,11 @@ The `addr24` macro uses `.reloc R_TLCS900_24` to emit linker-resolved 24-bit add
 **Bad:** `.set _addr24_Free, 0xff0af2` then `addr24 _addr24_Free`
 **Good:** `addr24 Free`
 
+(Since 2026-10-02 the KN5000 trees have no `addr24` uses left: those sites were re-framed as instructions whose operands are labels, and a far pointer pushed as two words is spelled `Label@hi16` / `Label@lo16`.)
+
 ### Rule 4: Parenthesized direct addressing for consistency
 
-All direct-address operands use parenthesized syntax: `ldb_da a, (SomeLabel)`. This is enforced by the LLVM `directaddr` operand class and ensures formatting consistency across versions.
+All direct-address operands use parenthesized syntax with an explicit address width: `ld a, (SomeLabel:24)`. This is enforced by the LLVM `directaddr` operand class and ensures formatting consistency across versions.
 
 ### Rule 5: Use `.set FW_VERSION_BYTE` for version-specific constants
 
@@ -122,5 +124,5 @@ NOT: `.incbin "v7_postshift_blob.bin"` replacing 43 `.include` directives.
 
 ## See Also
 
-- [Firmware Changes: v9 vs v10]({{ site.baseurl }}/firmware-v9-vs-v10/) -- Example of a fully minimized diff (95 lines)
+- [Firmware Changes: v9 vs v10]({{ site.baseurl }}/firmware-v9-vs-v10/) -- the 95-line diff the trees had until August 2026; since the September 2026 v10-only conversions they differ by 87 files (+15,289 / −2,565 lines at disassembly `3417969c0`), so the minimisation needs redoing
 - [LLVM Semantic Instructions]({{ site.baseurl }}/llvm-semantic-instructions/) -- Parenthesized operand syntax

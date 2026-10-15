@@ -30,36 +30,36 @@ Already integrated into the build as `.incbin` directives in `style_ui_params.s`
 
 The scoop display subsystem (`scoop_display.s`) loads XIY/XIX pointers into these blocks at various sub-offsets (~40 distinct entry points). It does not have its own ScreenData — it reuses Style UI data.
 
-### Subsystem 2: Sound Editor (23 files, documentation)
+### Subsystem 2: Sound Editor (27 files, build-integrated in v10)
 
-Located in `maincpu/audio/sound_editor_screens/`. The original data remains as inline `.byte` in `sound_editor_ui.s`.
+Located in `v10/maincpu/audio/sound_editor_screens/`. In v10 every block is compiled and `.incbin`'d: `se_apply_confirm`, `se_setup_editor_full` and `se_setup_sel4` from `storage/flash_floppy_handlers.s`, the rest from `audio/sound_editor_ui.s` (since `7294d0492` / `011f6e0f0`, 2026-09-02). The 23 shared files also exist in `v9/` and `v7/`, where only 10 and 1 of them respectively are `.incbin`'d so far. Four v10-only screens found the same day (`01b48a5f4`) — `se_screen_f11f83.c` (130 B), `se_screen_f129d1.c` (248 B), `se_screen_f12d33.c` (15 B) and `se_screen_f140ef.c` (180 B) — are not in the table below.
 
-| File | Size | Commands | Description |
-|------|------|----------|-------------|
-| se_drumkit_display.c | 293 bytes | 27 | Drum kit variant selection |
-| se_general_edit.c | 96 bytes | 7 | General parameter edit |
-| se_compare_screen.c | 139 bytes | 13 | Compare/apply screen |
-| se_name_editor.c | 218 bytes | 18 | Sound name editor |
-| se_parameter_grid.c | 221 bytes | 18 | Parameter grid display |
-| se_transport_display.c | 141 bytes | 10 | Transport controls |
-| se_apply_confirm.c | 55 bytes | 5 | Apply confirmation |
-| se_setup_params_full.c | 471 bytes | 52 | Full parameter setup |
-| se_setup_nav_full.c | 293 bytes | 35 | Navigation setup |
-| se_setup_editor_full.c | 266 bytes | 28 | Editor setup |
-| se_setup_waveform.c | 206 bytes | 22 | Waveform selection |
-| se_setup_rhythm.c | 191 bytes | 23 | Rhythm setup |
-| se_setup_ctrl_full.c | 167 bytes | 21 | Controller setup |
-| se_setup_ctrl_list.c | 130 bytes | 14 | Controller list |
-| se_setup_transport.c | 107 bytes | 11 | Transport setup |
-| se_setup_env.c | 107 bytes | 13 | Envelope setup |
-| se_setup_labels.c | 47 bytes | 5 | Label definitions |
-| se_setup_sel_rects.c | 30 bytes | 3 | Selection rectangles |
-| se_setup_sel{1-4}.c | 10–30 bytes | 1–2 | Selection rect entries |
-| se_rhythm_transport_tables.c | 220 bytes | 16 | Rhythm/drum-sound transport, with 2 dispatch tables |
+| File                         | Size        | Commands | Description                                         |
+|------------------------------|-------------|----------|-----------------------------------------------------|
+| se_drumkit_display.c         | 329 bytes   | 27       | Drum kit variant selection                          |
+| se_general_edit.c            | 96 bytes    | 7        | General parameter edit                              |
+| se_compare_screen.c          | 139 bytes   | 13       | Compare/apply screen                                |
+| se_name_editor.c             | 218 bytes   | 18       | Sound name editor                                   |
+| se_parameter_grid.c          | 221 bytes   | 18       | Parameter grid display                              |
+| se_transport_display.c       | 141 bytes   | 10       | Transport controls                                  |
+| se_apply_confirm.c           | 55 bytes    | 5        | Apply confirmation                                  |
+| se_setup_params_full.c       | 471 bytes   | 52       | Full parameter setup                                |
+| se_setup_nav_full.c          | 293 bytes   | 35       | Navigation setup                                    |
+| se_setup_editor_full.c       | 266 bytes   | 28       | Editor setup                                        |
+| se_setup_waveform.c          | 206 bytes   | 22       | Waveform selection                                  |
+| se_setup_rhythm.c            | 191 bytes   | 23       | Rhythm setup                                        |
+| se_setup_ctrl_full.c         | 167 bytes   | 21       | Controller setup                                    |
+| se_setup_ctrl_list.c         | 130 bytes   | 14       | Controller list                                     |
+| se_setup_transport.c         | 107 bytes   | 11       | Transport setup                                     |
+| se_setup_env.c               | 107 bytes   | 13       | Envelope setup                                      |
+| se_setup_labels.c            | 47 bytes    | 5        | Label definitions                                   |
+| se_setup_sel_rects.c         | 30 bytes    | 3        | Selection rectangles                                |
+| se_setup_sel{1-4}.c          | 10–30 bytes | 1–2      | Selection rect entries                              |
+| se_rhythm_transport_tables.c | 220 bytes   | 16       | Rhythm/drum-sound transport, with 2 dispatch tables |
 
-### Subsystem 3: Accompaniment Engine (3 files, documentation)
+### Subsystem 3: Accompaniment Engine (3 files, build-integrated)
 
-Located in `maincpu/sequencer/accomp_screens/`. The original data remains as inline `.byte` in `accompaniment_engine.s`.
+Located in `v10/maincpu/sequencer/accomp_screens/`. Compiled and `.incbin`'d by `accompaniment_engine.s`.
 
 | File | Size | Commands | Description |
 |------|------|----------|-------------|
@@ -69,16 +69,16 @@ Located in `maincpu/sequencer/accomp_screens/`. The original data remains as inl
 
 ### Totals
 
-| Subsystem | Files | Bytes | Status |
-|-----------|-------|-------|--------|
-| Style UI | 16 | ~6,193 | Build-integrated (authoritative) |
-| Sound Editor | 23 | 3,458 | Typed documentation |
-| Accompaniment | 3 | 317 | Typed documentation |
-| **Total** | **42** | **~9,968** | 26 files verified 100% byte-match |
+| Subsystem     | Files  | Bytes      | Status                                                                               |
+|---------------|--------|------------|--------------------------------------------------------------------------------------|
+| Style UI      | 16     | 5,889      | Build-integrated (v10, v9, v7)                                                       |
+| Sound Editor  | 27     | 4,067      | Build-integrated in v10 (23 shared + 4 v10-only); v9 `.incbin`s 10 of the 23, v7 one |
+| Accompaniment | 3      | 317        | Build-integrated (v10, v9, v7)                                                       |
+| **Total**     | **46** | **10,273** | all compiled; in v10 all `.incbin`'d and gated byte-identical                        |
 
 ### NOT in scope: NAKA Widget Tables
 
-~74 screen definitions using a completely different format (hierarchical `.long` pointer chains). Separate rendering pipeline — future project.
+~74 screen definitions using a completely different format (hierarchical `.long` pointer chains), with a separate rendering pipeline. They are not ScreenData, but they have been typed C since March 2026 as well: 27 NAKA widget descriptor blocks (plus two lookup tables) in `v10/maincpu/ui_widgets/`, compiled and `.incbin`'d — see [Source Code Map]({{ site.baseurl }}/source-map/#ui_widgets--naka-screen-descriptors).
 
 ## Tooling
 
@@ -99,12 +99,8 @@ Located in `maincpu/sequencer/accomp_screens/`. The original data remains as inl
 
 **Style UI:** Fully integrated. C files are compiled and included via `.incbin` in `style_ui_params.s`.
 
-**Sound Editor:** Partially integrated. Two blocks with dispatch tables have been absorbed into C:
-- `se_drumkit_display.c` (329 bytes) — includes DrumKit_VariantSelect_Table (9 entries)
-- `se_rhythm_transport_tables.c` (220 bytes) — includes RhythmTransport_Control_Table (6 entries) and DrumSound_ParamEdit_Table (10 entries), both with self-referencing entries
+**Sound Editor:** Fully integrated in v10 (since 2026-09-02): all 27 blocks are compiled and `.incbin`'d, including `se_drumkit_display.c` (329 bytes, with DrumKit_VariantSelect_Table, 9 entries) and `se_rhythm_transport_tables.c` (220 bytes, with RhythmTransport_Control_Table, 6 entries, and DrumSound_ParamEdit_Table, 10 entries). v9 `.incbin`s 10 of the 23 shared blocks and v7 one.
 
-The remaining 20 Sound Editor files are documentation-only (no dispatch tables to absorb).
+**Accompaniment:** Fully integrated. The 2,096-byte data block in `accompaniment_engine.s` is split into labelled segments, with 9 `.incbin` slices of the three ScreenData blocks (`accomp_section_widget.c`, `accomp_part_widget.c`, `accomp_display_full.c`).
 
-**Accompaniment:** Fully integrated. The 2,096-byte data block in `accompaniment_engine.s` has been split into 7 segments with 3 `.incbin` directives for the ScreenData blocks (`accomp_section_widget.c`, `accomp_part_widget.c`, `accomp_display_full.c`).
-
-All integrated blocks load data by raw immediate address (`ld xiy, 0xF6AD37`), not by label — binary position must remain exact, which byte-matching guarantees.
+All integrated blocks are loaded through labels on their `.incbin` slices (`ld xiy, AccScreen_DrawTempoDisplay_Data`, which is 0xF6AD37 in v10), so the linker resolves each version's address.
