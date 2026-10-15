@@ -580,10 +580,18 @@ Two things it also settles for the KN work:
   `clamp(value + (max − min) · (amount − 64) · depth / 16256, min, max)`
   (`notes/lanes/promcd-2026-09-25/p7_descriptor_letters.py`, which asserts 124 reader
   instructions and, on the dump, 56/56 digit strings and 390/390 descriptor offsets).
-  ⚠ Whether the WSA1's streams for the four effects the KN5000 ships as NO OPERATION
-  are *usable* programs is **not demonstrated**: the test is to check those streams
-  against the grammar this site already documents, and nobody has done it. 24 of the
-  pool's streams have no reader at all.
+  Those streams have been checked against the KN5000's grammar. Every program record
+  in the pool frames as a valid KN5000 container. The pooled program words decode
+  under the KN5000's uPD6383 model at 34.48 %, against 38.53 % on the KN5000 and
+  nulls of 0.03–0.40 % (disassembly commit `d28b3bf8e`, 2026-09-06). Each of the
+  four effects has a distinct body of its own, disassembled in the disassembly's
+  `wsa1/dsp/disasm/`: SLOW ATTACKER 50 words, PEDAL WAH 75, PEDAL WAH+DELAY 103 and
+  PITCH SHIFTER 108 (see
+  [Effects DSP]({{ site.baseurl }}/effects-dsp/#8-the-same-chip-on-the-sx-wsa1r--three-instances-measured-2026-09-07)).
+  ⚠ Whether they are *usable* programs is still **not demonstrated**: none has been
+  run, and the WSA1R itself never uploads its per-effect bodies in SOUND play. It
+  loads only a 63-word shared kernel at boot and changes effects by streaming
+  coefficients. 24 of the pool's streams have no reader at all.
 * **The MILK toolkit is absent** — zero `MT_` / `*Proc` hits across
   the full 2 MB, against working positive controls. So the WSA1 **predates** the
   KN line's application framework. What it shares is silicon and assets, not the
