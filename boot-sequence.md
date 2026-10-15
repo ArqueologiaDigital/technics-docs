@@ -296,7 +296,7 @@ Two of the old labels were simply wrong, and the corrections matter:
 #### The Bootloader's Own Floppy Driver (0xFFD8A5-0xFFEA9C)
 
 4,600 bytes, entered through the single public routine `FDC_Request` (boot 0xFFE944),
-which takes a pointer to a 14-byte request block and supports twelve commands
+which takes a pointer to a 16-byte request block and supports twelve commands
 (initialize, recalibrate, seek, read, write, format, motor on/off, get last error, set
 disk-changed, controller reset, sense drive status). It is a compact port of the main
 firmware's FDC driver, rebuilt for the boot-time update path, and each routine's header
@@ -347,17 +347,17 @@ interrupt handlers, an 11-entry state machine, ring buffers and a packet codec �
 across `boot_cpserial.s`, `boot_cpserial_isr.s` and `boot_cpserial_states.s`. It is
 **independent of the runtime `CPanel_*` stack** in the Program ROM.
 
-It is only brought up when a disk is present, and only one probe answer changes the boot
-path:
+It is only brought up when a disk is present, and only one held-button combination (PANEL
+MEMORY 1-4) changes the boot path:
 
 ```
 Boot_Init
     ├── Boot_CheckDiskPresent (0xFFEC63)  — Port D bit 6, active low
     │        └── no disk ──> jump to Program ROM
-    ├── BootSerial_Init (0xFFEC7E)        — handshake + device ident
-    ├── Boot_ProbeExternalDevice (0xFFED0E) ──> HL = device class
-    │        ├── class != 4 ──> jump to Program ROM
-    │        └── class == 4 ──> firmware update UI
+    ├── BootSerial_Init (0xFFEC7E)        — handshake + segment 0x0B settle
+    ├── Boot_ProbeExternalDevice (0xFFED0E) ──> HL = button-combo code
+    │        ├── code != 4 ──> jump to Program ROM
+    │        └── code == 4 (PM 1-4 held) ──> firmware update UI
 ```
 
 One finding is worth carrying here: the driver's external-decode hook for class-2
@@ -526,7 +526,7 @@ pre-rendered bitmaps on the boot floppy (`FTBMP01`–`FTBMP06`). Those six are t
 
 #### Sub CPU Payload Verification and the SNS (Power-Off) NMI
 
-After the Main CPU transfers the 192KB Sub CPU firmware payload, `SubCPU_Payload_Verify` (0xEF092B) verifies it by computing one's-complement checksums of two DRAM regions and comparing them against reference values:
+After the Main CPU transfers the 192KB Sub CPU firmware payload, `SubCPU_Payload_Verify` (0xEF092B) runs. Despite its name it reads nothing sent to the Sub CPU: it computes one's-complement checksums of two regions of the Main CPU's own DRAM and compares them against reference values:
 
 | Region   | DRAM range | Size                | Reference stored at |
 |----------|------------|---------------------|---------------------|
@@ -746,7 +746,7 @@ When `SubCPU_Send_Payload` is called, the memory map has been configured by the 
 
 - **0x830000** → Table Data ROM offset 0x30000 (tone database — data for the Sub CPU, *not* its executable)
 - **0x8E0000** → Table Data ROM offset 0xE0000 (LZSS compressed preset data)
-- **0x3E0000** → Custom Data Flash offset 0xE0000 (firmware update staging area)
+- **0x3E0000** → Custom Data Flash offset 0xE0000 (compressed sub-CPU payload, decompressed by `SubCPU_Send_Payload` on every boot)
 
 #### Control Flags
 
@@ -846,12 +846,12 @@ This explains the design:
 
 #### Related Routines
 
-| Routine                       | Address  | Purpose                                   |
-|-------------------------------|----------|-------------------------------------------|
-| `SubCPU_Init_DMA_Channels`    | 0xEF329E | Must be called before payload transfer    |
-| `InterCPU_E1_Bulk_Transfer`   | 0xEF3457 | Underlying protocol for each 64KB chunk   |
-| `SubCPU_Payload_Verify`       | 0xEF092B | Verifies payload checksums after transfer |
-| `SubCPU_Payload_GetErrorFlag` | 0xEF0979 | Returns error status for boot sequence    |
+| Routine                       | Address  | Purpose                                                                                                                    |
+|-------------------------------|----------|----------------------------------------------------------------------------------------------------------------------------|
+| `SubCPU_Init_DMA_Channels`    | 0xEF329E | Must be called before payload transfer                                                                                     |
+| `InterCPU_E1_Bulk_Transfer`   | 0xEF3457 | Underlying protocol for each 64KB chunk                                                                                    |
+| `SubCPU_Payload_Verify`       | 0xEF092B | Compares checksums of Main CPU DRAM 0xF180/0xF980 with the power-off values at 0xFFD4/0xFFD2 (misnomer: checks no payload) |
+| `SubCPU_Payload_GetErrorFlag` | 0xEF0979 | Returns error status for boot sequence                                                                                     |
 
 #### Error Handling
 
