@@ -14,28 +14,43 @@ Wrapper mnemonics like `st_dri3b L, 0xfd, 0xb8, 0x01` are unreadable. The same i
 
 ## Progress Summary
 
-**Forty-one of the forty-three wrapper families are at zero. Two are not.**
-`lda_dpi` and `bit_dri` still stand in the sources, and they are the hardest
-kind: their operands are literal mode and displacement bytes
-(`bit_dri 7, 0x07, 0xec, 0xf4`), so no rename reaches them until the operand
-is modelled. Both are still defined in the backend
-(`TLCS900InstrInfo.td`).
+**Thirty-eight of the forty-three wrapper families are at zero.** `lda_dpi`
+left the tree on 2026-09-25, when the sources were respelled to the real
+`(R+)` / `(-R)` operand (disassembly `166c9dc3e`). The backend then deleted
+the pseudo (llvm `bcb142d6ee97`): `lda_dpi xbc, 232` was really
+`ld (XDE+),A`. `bit_dri` is down to 12 sites, `bit n, (XHL+A)` and
+`bit n, (XHL+C)` (mode byte `0x03`, an 8-bit index register). The parser
+accepts that operand only on LD (`ld a, (xhl+a)` = `c3 03 ec e0 21`), not on
+BIT, and the decoder rejects the BIT bytes, so `bit_dri` is still defined in
+`TLCS900InstrInfo.td`. The four extended-register LD families `ldto_berp` /
+`ldfr_berp` / `ldto_werp` / `ldfr_werp` are nonzero because they are the live
+spelling again. On 2026-09-25 the backend found that the old names
+`stb_erp` / `ldb_erp` and their word-form twins named the direction backwards
+(llvm `ff454781b90e`), and the sources were respelled to the ldto/ldfr names
+(disassembly `c71a6d512`, 9,929 lines). The byte forms take a register-file
+code byte that no register name covers yet (Feature C below). Most word-form
+sites do not need that: 1,846 of their 2,092 sites use the Q-register codes `0xE2`-`0xFA`,
+which the backend already names (`ld wa, qiz` = `d7 fa 88`, the bytes of
+`ldto_werp wa, 0xfa`). The other 246 use bank-3 codes (`0x30`-`0x3E`).
 
-| Phase | Description | Instances (at time of scoping) | Status |
-|-------|-------------|-----------|--------|
-| Phase 1 | Mnemonic renames (81 mnemonics) | 53,603 | **Complete** |
-| Phase 1b | Parenthesized direct addresses | 61,436 | **Complete** |
-| Phase 2 | 24-bit addressing semantics | ~1,700 | **Complete** |
-| Phase 3 | Extended register pair modes | ~3,300 | **Complete** |
-| Phase 4 | SRI/DRI indirect modes | ~3,500 | **Two families remain** |
-| Phase 5 | Miscellaneous | ~700 | **Complete** |
+| Phase    | Description                     | Instances (at time of scoping) | Status                                                                                                                                                                                                                                                                                        |
+|----------|---------------------------------|--------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Phase 1  | Mnemonic renames (81 mnemonics) | 53,603                         | **Complete**                                                                                                                                                                                                                                                                                  |
+| Phase 1b | Parenthesized direct addresses  | 61,436                         | **Complete**                                                                                                                                                                                                                                                                                  |
+| Phase 2  | 24-bit addressing semantics     | ~1,700                         | **Complete**                                                                                                                                                                                                                                                                                  |
+| Phase 3  | Extended register pair modes    | ~3,300                         | **Not complete**: the C7 byte-register forms are still wrapper mnemonics (`ldto_berp`, `ldfr_berp`, `ldib_erp`, `cp_erpb`, `inc1b_erp`, …; see Feature C), and the D7 word forms keep wrapper names although their Q-register codes already have a native spelling (`ld wa, qiz`, `push qiz`) |
+| Phase 4  | SRI/DRI indirect modes          | ~3,500                         | **One family remains** (`bit_dri`, 12 sites)                                                                                                                                                                                                                                                  |
+| Phase 5  | Miscellaneous                   | ~700                           | **Complete**                                                                                                                                                                                                                                                                                  |
 
-Sites remaining, counted over the 547 tracked `.s` files:
+Sites remaining at disassembly `3417969c0`, counted over the 550 tracked `.s` files:
 
-| Mnemonic | Total | v7 | v9 | v10 | v142 | hdae5000 | wsa1 | table_data |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `lda_dpi` | **669** | 135 | 187 | 187 | 9 | 11 | 138 | 2 |
-| `bit_dri` | **189** | 33 | 68 | 68 | 11 | 9 | — | — |
+| Mnemonic    | Total | v7    | v9    | v10   | v142 | hdae5000 | wsa1 | table_data | subcpu boot |
+|-------------|------:|------:|------:|------:|-----:|---------:|-----:|-----------:|------------:|
+| `ldto_berp` | 5,211 | 1,575 | 1,635 | 1,635 |  340 |       10 |    — |         12 |           4 |
+| `ldfr_berp` | 2,655 |   818 |   836 |   836 |  119 |       12 |   26 |          7 |           1 |
+| `ldto_werp` | 1,386 |   363 |   467 |   467 |   64 |        6 |    — |         16 |           3 |
+| `ldfr_werp` |   706 |   197 |   229 |   229 |   46 |        1 |    — |          3 |           1 |
+| `bit_dri`   |    12 |     4 |     4 |     4 |    — |        — |    — |          — |           — |
 
 Reproduce with `python3 tools/wrapper_mnemonic_census.py` in this repository,
 which counts the leading mnemonic on every instruction line of
@@ -45,8 +60,8 @@ grep over them in a UTF-8 locale, can silently return zero matches on a file
 that plainly contains the string.
 
 The per-phase instance counts in the tables below are the counts from when each
-phase was scoped, kept for context; apart from those two families they have not
-been re-verified against the current tree.
+phase was scoped, kept for context; apart from the five families counted above
+they have not been re-verified against the current tree.
 
 ## Completed Work
 
@@ -54,17 +69,17 @@ been re-verified against the current tree.
 
 81 wrapper mnemonics renamed to semantic forms across 53,603 instruction instances:
 
-| Old | New | Category |
-|-----|-----|----------|
-| `push_sr` | `push sr` | Status register push/pop |
-| `pop_sr` | `pop sr` | |
-| `ld8_24` | `ldb_da` | Direct address loads |
-| `st8_24` | `stb_da` | Direct address stores |
-| `sti8_24` | `stib_da` | Direct address immediate stores |
-| `ldto_berp` | `stb_erp` | Extended register pair |
-| `ldfr_berp` | `ldb_erp` | |
-| `st_dri3b` | `stb_dri` | Displacement register indirect |
-| ... | ... | (81 total) |
+| Old         | New                                                                                            | Category                        |
+|-------------|------------------------------------------------------------------------------------------------|---------------------------------|
+| `push_sr`   | `push sr`                                                                                      | Status register push/pop        |
+| `pop_sr`    | `pop sr`                                                                                       |                                 |
+| `ld8_24`    | `ldb_da`                                                                                       | Direct address loads            |
+| `st8_24`    | `stb_da`                                                                                       | Direct address stores           |
+| `sti8_24`   | `stib_da`                                                                                      | Direct address immediate stores |
+| `ldto_berp` | `stb_erp` (reversed 2026-09-25: the name read the direction backwards; `ldto_berp` is current) | Extended register pair          |
+| `ldfr_berp` | `ldb_erp` (reversed 2026-09-25; `ldfr_berp` is current)                                        |                                 |
+| `st_dri3b`  | `stb_dri`                                                                                      | Displacement register indirect  |
+| ...         | ...                                                                                            | (81 total)                      |
 
 ### Phase 1b: Parenthesized Direct Address Syntax (Complete — March 2026)
 
@@ -88,9 +103,10 @@ Changes:
 
 These tables record the mnemonics as originally scoped. Every wrapper mnemonic
 listed in them has zero occurrences left in the KN5000 or SX-WSA1R trees
-**except `lda_dpi` and `bit_dri`**, counted above. The semantic replacement
-shapes were not individually re-audited here, so read these as "what was
-migrated away from," not as a live inventory of current mnemonics.
+**except `bit_dri` and the four extended-register LD families**, counted
+above. The semantic replacement shapes were not individually re-audited here,
+so read these as "what was migrated away from," not as a live inventory of
+current mnemonics.
 
 ### Phase 2: 24-bit Addressing Mode Semantics (~1,700 instances)
 
@@ -106,32 +122,32 @@ migrated away from," not as a live inventory of current mnemonics.
 
 ### Phase 3: Extended Register Pair Modes (~3,300 instances)
 
-| Current | Semantic | Count | Status |
-|---------|----------|-------|--------|
-| `ldto_berp` | `ld (erp+off), val` | 1,251 | Complete |
-| `ldfr_berp` | `ld val, (erp+off)` | 597 | Complete |
-| `ldto_werp` | `ld (erp+off), val` | 459 | Complete |
-| `ldfr_werp` | `ld val, (erp+off)` | 221 | Complete |
-| `ldi_berp` | `ld (erp+off), imm` | 316 | Complete |
-| `ldi_werp` | `ld (erp+off), imm` | 281 | Complete |
-| `push_werp` / `pop_werp` | `push (erp)` / `pop (erp)` | 325 | Complete |
-| `cpi_berp` / `cpi_werp` | `cp (erp+off), imm` | 260 | Complete |
-| `inc1_berp` / `inc1_werp` | `inc 1, (erp+off)` | 281 | Complete |
-| `cp_werp` / `cp_srib_im` | `cp (erp), val` | 184 | Complete |
+| Current                   | Semantic                                                     | Count | Status                                          |
+|---------------------------|--------------------------------------------------------------|-------|-------------------------------------------------|
+| `ldto_berp`               | `ld r, <byte register by code>` (`c7 fb 89` = `ld A,QIZH`)   | 1,251 | **Live spelling**: 5,211 sites; needs Feature C |
+| `ldfr_berp`               | `ld <byte register by code>, r` (`c7 fb 99` = `ld QIZH,A`)   | 597   | **Live spelling**: 2,655 sites                  |
+| `ldto_werp`               | `ld rr, <word register by code>` (`d7 30 88` = `ld WA,RWA3`) | 459   | **Live spelling**: 1,386 sites                  |
+| `ldfr_werp`               | `ld <word register by code>, rr` (`d7 30 98` = `ld RWA3,WA`) | 221   | **Live spelling**: 706 sites                    |
+| `ldi_berp`                | `ld (erp+off), imm`                                          | 316   | Complete                                        |
+| `ldi_werp`                | `ld (erp+off), imm`                                          | 281   | Complete                                        |
+| `push_werp` / `pop_werp`  | `push (erp)` / `pop (erp)`                                   | 325   | Complete                                        |
+| `cpi_berp` / `cpi_werp`   | `cp (erp+off), imm`                                          | 260   | Complete                                        |
+| `inc1_berp` / `inc1_werp` | `inc 1, (erp+off)`                                           | 281   | Complete                                        |
+| `cp_werp` / `cp_srib_im`  | `cp (erp), val`                                              | 184   | Complete                                        |
 
 ### Phase 4: SRI/DRI Indirect Modes (~3,500 instances)
 
-| Current | Semantic | Count | Status |
-|---------|----------|-------|--------|
-| `st_dri3b/w/l` | `ld (reg+d16), val` | 2,105 | Complete |
-| `ld_srib3` / `ld_sriw3` | `ld val, (reg+d16)` | 1,073 | Complete |
-| `lda_dri3` | `lda reg, (reg+d16)` | 396 | Complete |
-| `lda_dpi` | `lda reg, (reg+d16)` | 164 | **Open** — 669 sites remain |
-| `ld_spib` | `ld val, (xsp+d8)` | 129 | Complete |
-| `jp_dri` | `jp (reg+d16)` | 240 | Complete |
-| `stib_dri` / `stib_dpi` | `ld (reg+d16), imm` | 326 | Complete |
-| `st_dpiw` / `stiw_dri` | `ld (reg+d16), imm16` | 120 | Complete |
-| `bit_dri` | `bit n, (reg+d16)` | 68 | **Open** — 189 sites remain |
+| Current                 | Semantic                                                     | Count | Status                                                                                                                                                      |
+|-------------------------|--------------------------------------------------------------|-------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `st_dri3b/w/l`          | `ld (reg+d16), val`                                          | 2,105 | Complete                                                                                                                                                    |
+| `ld_srib3` / `ld_sriw3` | `ld val, (reg+d16)`                                          | 1,073 | Complete                                                                                                                                                    |
+| `lda_dri3`              | `lda reg, (reg+d16)`                                         | 396   | Complete                                                                                                                                                    |
+| `lda_dpi`               | misnamed: `lda_dpi xbc, 232` was `ld (XDE+),A`               | 164   | **Complete**: the tree writes the real `(R+)` / `(-R)` operand (disassembly `166c9dc3e`), and the backend deleted the pseudo on 2026-09-25 (`bcb142d6ee97`) |
+| `ld_spib`               | `ld val, (xsp+d8)`                                           | 129   | Complete                                                                                                                                                    |
+| `jp_dri`                | `jp (reg+d16)`                                               | 240   | Complete                                                                                                                                                    |
+| `stib_dri` / `stib_dpi` | `ld (reg+d16), imm`                                          | 326   | Complete                                                                                                                                                    |
+| `st_dpiw` / `stiw_dri`  | `ld (reg+d16), imm16`                                        | 120   | Complete                                                                                                                                                    |
+| `bit_dri`               | `bit n, (XHL+A)` / `bit n, (XHL+C)` (register + 8-bit index) | 68    | **Open**: 12 sites remain; the parser takes the `(Xrr+r8)` operand on LD only, not on BIT                                                                   |
 
 ### Phase 5: Miscellaneous (~700 instances)
 
@@ -179,7 +195,8 @@ instruction sites, `unidasm` and this backend consume the same bytes every time
 seventh record and is detected 5,763 times). The mnemonic *text* differs at
 333,866 sites — 30.0 % — and that difference is entirely notational.
 
-What the divergence is made of, from the census over all 547 tracked `.s` files:
+What the divergence was made of on 2026-09-02, from the census over the 547
+tracked `.s` files of that day:
 
 | bucket | sites | distinct names |
 |---|---:|---:|
@@ -187,31 +204,46 @@ What the divergence is made of, from the census over all 547 tracked `.s` files:
 | a backend name `unidasm` does not have | 265,116 | 459 |
 | a `.macro` defined in this tree | 16,922 | 113 |
 
-Retiring the 459 synthetic names splits three ways, and the split is what makes
-the work stageable:
+The same census at disassembly `3417969c0`, over 550 files, counts 1,275,163
+sites under 75 shared names, 43,347 under 220 synthetic names and 29,563 under
+125 macros.
+
+Retiring the 459 synthetic names of 2026-09-02 splits three ways, and the split
+is what makes the work stageable:
 
 1. **The name carries a form the operand can already express.** 81,858 sites
    across 71 mnemonics (`ldb_d8`, `stdi8`, `stb_d8`, `ldw_d16`, `stda16`, …)
    assemble to the ROM's exact bytes today under the native spelling plus a
    width annotation, with no backend change. `incm` → `incw` (1,535 sites) and
    `ldda32 xwa, 4160` → `ld xwa, (4160:16)` (4,991 sites) are done.
+   `incm` has since come back at 34 sites (29 of them in v7), all in regions
+   disassembled on 2026-09-25 before backend `910b50efab49` stopped the
+   printer emitting it; the alias still parses, so they assemble.
 2. **The name selects between two legal encodings.** 78,364 sites over nine
-   mnemonics. These cannot be renamed until the operand syntax can say which
-   form — see [the size/form families]({{ site.baseurl }}/tlcs900-instruction-encoding/#two-legal-encodings-one-operation-the-sizeform-families)
+   mnemonics on 2026-09-02. These could not be renamed until the operand syntax
+   could say which form. It can now: the backend parses the encoding selectors
+   `:i3`, `:opc` and `:io` since `adfbb55cf835` (2026-09-04), the sources were
+   respelled with them, and the legacy names were deleted on 2026-09-05
+   (`da00420dba8d`) — see [the size/form families]({{ site.baseurl }}/tlcs900-instruction-encoding/#two-legal-encodings-one-operation-the-sizeform-families)
    and the three backend features below.
-3. **Byte emitters wearing a mnemonic's name.** 98 names, 22,135 sites, whose
-   `$b0,$b1,$b2` operands are literal bytes rather than modelled operands
-   (`add_sril_rm xix, 7, 236, 232`). No rename reaches these; the operand has to
-   be modelled first, and the backend deliberately makes an unmodelled
-   `(xix+iz)` a **parse error** rather than guessing.
+3. **Byte emitters wearing a mnemonic's name.** 98 names and 22,135 sites on
+   2026-09-02; 46 names and 3,301 sites at `3417969c0` by the same census
+   (largest `inc1b_erp` 960, `popw_erp` 509, `pushw_erp` 500). Their operands
+   are written as literal bytes. The byte-register forms need the operand
+   modelled first (`inc 1, qizh` is rejected). The word forms on the Q
+   registers already have a native spelling with the same bytes
+   (`push qiz` = `d7 fa 04`, the bytes of `pushw_erp 0xfa`), so those are a
+   rename away. The register-indexed `(xix+iz)`, once a deliberate parse error,
+   has been modelled on every memory operation since backend `a3a81863f87d`
+   (2026-10-02).
 
-### The three backend features that would retire the form selectors
+### The three backend features for the form selectors
 
-| feature | covers | what it adds |
-|---|---|---|
-| **A — immediate field width** | `cps`, `lds`, `lds32` — 52,064 sites | a `:3` / `:8` / `:16` / `:32` suffix on an *immediate*, exactly parallel to `(addr:16)` on a direct address: `cp a, 4:3` → `c9 dc`, `cp a, 4:8` → `c9 cf 04`. Also retires `lds8`/`lds`/`lds32` as three names for one operation, since the register class already carries the size |
-| **B — naming the alternative encoding** | `ldb`, `ldio`, `ldwio` — 19,603 sites | a suffix that names the *encoding* rather than a width, because both forms carry an immediate of the same width. Each family has exactly two legal encodings |
-| **C — a `PrevGR8` register class** | `stb_erp`, `ldb_erp` — 6,697 sites | the 8-bit counterpart of the existing `PrevGR16` (`QWA`–`QSP`), so the C7-prefix byte forms take a register name instead of a raw code byte. 42 and 45 distinct codes are in use; naming them also normalises the `0xFB` / `0xfb` / `251` spellings the sources currently mix |
+| feature                                 | covers                                                                                             | status                                                                                                                                                                                                                                        |
+|-----------------------------------------|----------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **A — immediate field width**           | `cps`, `lds`, `lds32`                                                                              | **Done.** The `:i3` selector: `cp a, 4:i3` → `c9 dc`, untagged `cp a, 4` → `c9 cf 04` (parser since backend `adfbb55cf835`, 2026-09-04)                                                                                                       |
+| **B — naming the alternative encoding** | `ldb`, `ldio`, `ldwio`                                                                             | **Done.** The `:opc` and `:io` selectors: `ld d, 4:opc` → `24 04`, `ld (0x07:8), 0xff:io` → `08 07 ff`. The nine legacy names were deleted on 2026-09-05 (`da00420dba8d`); the sources carry 71,239 selector uses at disassembly `3417969c0`  |
+| **C — a `PrevGR8` register class**      | `ldto_berp`, `ldfr_berp` (named `stb_erp`/`ldb_erp` until 2026-09-25) — 7,866 sites at `3417969c0` | **Open.** The 8-bit counterpart of the existing `PrevGR16` (`QWA`–`QSP`), so the C7-prefix byte forms take a register name instead of a raw code byte. Naming them would also normalise the `0xFB` / `0xfb` / `251` spellings the sources mix |
 
 ⚠ **Feature A's default must stay the long form.** 2,658 `cp Xrr, n` and 53
 `ld Xrr, n` sites in the tree have an immediate of 0–7 and use the long
@@ -223,11 +255,11 @@ derived property; the day a third encoding is added, every existing use silently
 means something else. It has to name an explicit per-instruction alternative
 recorded in the `.td`.
 
-Feature A would also retire the `(Xrr+0)` sentinel, in which a displacement
-written as **256** means "force the d8 form with displacement 0" — 1,132 sites
-carry it, spelled `256` (931), `0x0100` (200) and `0x100` (1), so a text match
-undercounts by 201. `(xix+0:8)` would say the same thing in the idiom the rest
-of the backend already uses.
+The `(Xrr+0)` sentinel is retired. A displacement written as 256 used to mean
+"force the d8 form with displacement 0". Backend `24782ed406f3` (2026-09-25)
+made 256 an ordinary displacement, and the sources now write the d8-with-zero
+form as `(xix+0:8)`: 1,044 sites at `3417969c0`, respelled in disassembly
+`ff9bdf682`.
 
 Sources for every figure above:
 `notes/ASSESSMENT-syntax-convergence-2026-09-02.md` and
@@ -236,33 +268,34 @@ with the scripts in `notes/syntax-convergence-probes/`
 (`mnemonic_census.py`, `oracle_ab.py`, `diff_causes.py`,
 `native_convergence.py`, `size_family_convert.py --triage`).
 
-### The printer still emits the retired names
+### The printer no longer emits the retired names
 
-A conversion in the sources is only half a fix. `incm` and `ldda32` are gone
-from the `.s` files, but the disassembler still *prints* them, so any region
-disassembled from here on reintroduces the spellings — and the tree grows by
-disassembly. Two backend changes close it and neither can move a byte: giving
-`INC16m`'s `InstAlias` a zero emit priority (its own `AsmString` is already
-`incw`), and giving `LD32_da16` the `AsmString` `ld` with `AddrBytes = 2` set on
-the operand so the printer emits the `:16` it already knows how to print.
+Both printer gaps this section used to list were closed in backend
+`910b50efab49` (2026-09-25). The legacy memory-form aliases (`incm`, `pushm`,
+`bitm`, …) became parse-only, and direct-address forms are decoded through the
+ordinary memory-operand table, so `e1 40 10 20` prints as `ld xwa, (4160:16)`
+and `d2 00 80 00 61` as `incw 1, (32768:24)`. The fix came a few hours too late
+for 34 `incm` lines: regions disassembled earlier that day, with the old
+printer, brought them back. They still assemble because the alias still
+parses.
 
 ## Architecture
 
-The LLVM TLCS-900 backend lives at `/home/fsanches/compartilhado/llvm-project/llvm/lib/Target/TLCS900/`.
+The LLVM TLCS-900 backend lives at `llvm/lib/Target/TLCS900/` on the `tlcs900_backend` branch of [felipesanches/llvm-project](https://github.com/felipesanches/llvm-project/tree/tlcs900_backend). The commit the disassembly is built with is named in its `TOOLCHAIN_VERSION`.
 
-**Key files:**
-- `TLCS900InstrFormats.td` — 83 instruction format class definitions (1,093 lines; was 79 formats when this page was first written)
-- `TLCS900InstrInfo.td` — 5,521 lines of instruction definitions
-- `TLCS900BaseInfo.h` — TSFlags bit-field definitions (283 lines)
-- `AsmParser/TLCS900AsmParser.cpp` — 569 lines, including the direct-address width-request parser (see below)
-- `MCTargetDesc/TLCS900MCCodeEmitter.cpp` — 1,657 lines, manual encoding
-- `Disassembler/TLCS900Disassembler.cpp` — 2,920 lines, manual decoding, including the register-indexed `SriRR*` family and the `ERP` (extended register pair) prefix forms (see below)
+**Key files** (counts at backend `a3a81863f87d`):
+- `TLCS900BaseInfo.h` — the InstFormat enum (88 values) and the TSFlags bit-field definitions (417 lines)
+- `TLCS900InstrFormats.td` — the instruction format classes (1,159 lines)
+- `TLCS900InstrInfo.td` — 5,738 lines of instruction definitions
+- `AsmParser/TLCS900AsmParser.cpp` — 1,427 lines, including the direct-address width-request parser and the encoding-selector parser
+- `MCTargetDesc/TLCS900MCCodeEmitter.cpp` — 1,853 lines, manual encoding
+- `Disassembler/TLCS900Disassembler.cpp` — 3,226 lines, manual decoding, including the register-indexed `SriRR*` family and the `ERP` prefix forms (see below)
 
-**Encoding strategy:** The backend uses manual encoding via a giant `switch(Format)` in `MCCodeEmitter::encodeInstruction()`, NOT auto-generated TableGen encoding. Each of the 83 format classes has a dedicated switch case that emits bytes using TSFlags metadata.
+**Encoding strategy:** The backend uses manual encoding via a giant `switch(Format)` in `MCCodeEmitter::encodeInstruction()`, NOT auto-generated TableGen encoding. Each of the 88 format values has a dedicated switch case that emits bytes using TSFlags metadata.
 
 **TSFlags layout (32 bits, unchanged since this page was written):**
 ```
-[6:0]   InstFormat  — selects encoding strategy (83 values in use; field holds up to 128)
+[6:0]   InstFormat  — selects encoding strategy (88 values in use; field holds up to 128)
 [14:7]  Opcode      — primary prefix/opcode byte
 [16:15] OpSize      — 0=8-bit, 1=16-bit, 2=32-bit
 [17]    AddrWidth   — 0=16-bit addr, 1=24-bit addr
@@ -313,11 +346,12 @@ hand-picked example.
 - The 8-bit **INDEX register**'s file address is `A=0xE0` (not `0xE1`); the
   register file is byte-addressed and little-endian, so a word register's
   low half sits at offset 0.
-- The direct-address ALU family (`addda16`/`subda16`/…/`cpda16` and the
-  `_da24`/mem-dest siblings) takes a 32-bit GPR operand — spell it
-  `addda16 xwa, (4160)`, not `addda16 wa, (4160)` — because every one of
-  those instructions' TableGen definition is 32-bit regardless of the
-  mnemonic's `16`/`24` suffix.
+- The 8- and 16-bit direct-address ALU forms take their real register and a
+  width suffix: `add wa, (4160:16)` is `d1 40 10 80`. The old GPR-typed
+  pseudos (`addda16`, `cpda16`, `cpda8 xbc, …`, …) took a 32-bit register
+  encoded by index, so `cpda8 xbc, (8990)` assembled `cp A,(0x231e)`. They
+  were deleted on 2026-09-25 (backend `bcb142d6ee97`): `addda16 xwa, (4160)`
+  is now an unrecognized mnemonic and `cpda8 xbc, (8990)` an invalid operand.
 - `(Xrr+d8)` is **signed**. A displacement written as `+151` does not fit
   the signed 8-bit field and legitimately assembles to the 5-byte
   `(Xrr+d16)` form instead — `+151` and `-105` are different addresses, not
@@ -334,10 +368,10 @@ verification across all thirteen KN5000 and SX-WSA1R images.
 1. **Define new instruction in `.td`** with semantic mnemonic and proper operand types
 2. **Add encoding case** in `MCCodeEmitter.cpp` (or reuse existing format)
 3. **Add decoding case** in `TLCS900Disassembler.cpp` to emit semantic mnemonic
-4. **Build LLVM:** `ninja -C /home/fsanches/compartilhado/llvm-project/build llc llvm-mc`
-5. **Update all `.s` files** in every tree that uses the mnemonic — the three KN5000 maincpu versions, the sub-CPU, HD-AE5000 and the four SX-WSA1R images (Python script with binary I/O)
+4. **Build LLVM:** `ninja -C build llc llvm-mc` (from the llvm-project checkout)
+5. **Update all `.s` files** in every tree that uses the mnemonic: the three KN5000 main-CPU versions, the sub-CPU payload and boot ROM, table data, HD-AE5000 and the SX-WSA1R images. The sources are latin-1. Where the new spelling needs a new assembler, the tree and the `TOOLCHAIN_VERSION` pin move in one commit.
 6. **Rebuild ROMs:** `make gate-all` — all thirteen images byte-identical, or the change does not land
-7. **Run LLVM tests:** `build/bin/llvm-lit llvm/test/CodeGen/TLCS900/`
+7. **Run LLVM tests:** `build/bin/llvm-lit llvm/test/MC/TLCS900/ llvm/test/MC/Disassembler/TLCS900/ llvm/test/CodeGen/TLCS900/`
 
 ## See Also
 

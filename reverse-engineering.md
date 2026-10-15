@@ -26,7 +26,7 @@ investigation on this hardware:
 - **A search proves something only once you have shown it could have found the thing.** Two
   of the larger corrections in these pages began as an empty grep that was briefly believed:
   all twenty-four memory-controller registers *are* programmed, but the disassembler writes
-  their addresses in decimal (`stdi8 (323), 30`, never `0x143`); and the DSP effect-name
+  their addresses in decimal (`ld (323:16), 30`, never `0x143`); and the DSP effect-name
   strings were never missing from the sources, they were `uint16_t` members inside a
   C-compiled blob. A third trap needs no history to be dangerous: `grep` declines to read
   five of the v7 sources at all, because a high byte inside an `.ascii` string makes them
@@ -101,39 +101,31 @@ The main CPU communicates with the HDAE5000 via an 8255 PPI (Programmable Periph
 
 ```asm
 BIT 0, (PE)           ; Check PE port bit 0
-JR NZ, skip_hdae      ; If set, HD-AE5000 NOT present
-CALR Get_Area_Region_Code
+JR NZ, BootInit_SeqAndPanel ; If set, HD-AE5000 NOT present
+CALR Get_Region_Code
 CP L, 4               ; Check region code
 CALL NZ, HDAE5000_Parport_Setup ; Init if present
 ```
 
-The HD-AE5000 presence is detected via PE port bit 0 (active low).
+PE.0 (active low) gates only `HDAE5000_Parport_Setup`. The XAPR header check at 0x280000 and the call to the extension's Boot_Init (0x280008) run regardless, through `ScreenGroup_ReInit` → `Xapr_DetectAndCallBootInit`.
 
 ### PPORT Commands (Documented)
 
-15 commands have been identified for PC parallel port communication:
+The PC-link command table `HDAE5000_PPORT_Cmd_Table` (0x2953E2) has 20 slots, handled by `HDAE5000_PPORT_Cmd01_SendInfosAboutHd` … `HDAE5000_PPORT_Cmd20_SendXapFileFlash`; slots 12, 15 and 19 are empty:
 
-| Code | Command | Description |
-|------|---------|-------------|
-| 01 | Send Infos About HD | Report HD info to PC |
-| 02 | Exit PPORT | End session |
-| 03-06 | FSB Operations | Read/Write File System Block |
-| 07-11 | Data Transfer | Load/Save between HD, memory, PC |
-| 16-18 | HD Management | Delete, Format, Motor off |
-| 20 | Send XapFile flash | XAP file transfer |
+| Code  | Command              | Description                            |
+|-------|----------------------|----------------------------------------|
+| 01    | Send Infos About HD  | Report HD info to PC                   |
+| 02    | Exit PPORT           | End session                            |
+| 03-06 | FSB Operations       | Read/Write File System Block           |
+| 07-11 | Data Transfer        | Load/Save between HD, memory, PC       |
+| 13-14 | Data / info transfer | Receive data from PC, send infos to PC |
+| 16-18 | HD Management        | Delete, Format, Motor off              |
+| 20    | Send XapFile flash   | XAP file transfer                      |
 
-### Windows DLL Callbacks
+### Registered object names
 
-The firmware contains callback function names used by HD-TechManager5000:
-- `LyricBackColorCheck`, `LyricForeColorCheck`, `LyricJumpEditCheck`
-- `ErrMsgTimerCatch`, `FlsOverWrSwCatch`, `AttenHDFormatSwCatch`
-
-### Remaining Tasks
-
-1. **Disassemble command handlers** - Trace PPORT command implementation
-2. **Document FSB structure** - File System Block format
-3. **Analyze HD controller protocol** - Communication with HD hardware
-4. **Reverse engineer file format** - How files are stored on HD
+Names such as `LyricBackColorCheck`, `ErrMsgTimerCatch` and `AttenHDFormatSwCatch` are entries in the HD-AE5000 firmware's own 69-entry object registry, not callbacks of the PC software. See [HDAE5000 Resources]({{ site.baseurl }}/hdae5000-resources/#the-69-object-registry). The command handlers, the FSB structure and the disk protocol are documented on [HDAE5000]({{ site.baseurl }}/hdae5000/#pport-command-protocol), [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) and [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/).
 
 ---
 
@@ -145,27 +137,26 @@ The main CPU (TMP94C241F) loads a 192KB executable payload to the sub CPU (IC27)
 
 The TMP94C241F has a built-in MicroDMA controller with 4 channels (0-3).
 
-**DMA Register Addresses:**
+**DMA Registers:**
 
-| Register | Ch0 | Ch1 | Ch2 | Ch3 | Description |
-|----------|-----|-----|-----|-----|-------------|
-| DMASn | 0x100 | 0x110 | 0x120 | 0x130 | Source Address (24-bit) |
-| DMADn | 0x104 | 0x114 | 0x124 | 0x134 | Destination Address (24-bit) |
-| DMACn | 0x108 | 0x118 | 0x128 | 0x138 | Transfer Count (16-bit) |
-| DMAMn | 0x10C | 0x11C | 0x12C | 0x13C | Mode Register |
+The channel registers `DMASn` (source, 32-bit), `DMADn` (destination, 32-bit),
+`DMACn` (count, 16-bit) and `DMAMn` (mode, 8-bit) are CPU control registers with
+no memory address: only `LDC` reaches them, through the selector byte listed
+below. The memory-mapped DMA registers are the start vectors `DMAV0`–`DMAV3` at
+0x100–0x103, which name the interrupt that starts a transfer on each channel,
+and the software request register `DMAR` at 0x109 (MAME `tmp94c241.cpp`). 0x110
+is the watchdog mode register `WDMOD`, not a DMA register.
 
 **DMA Mode Register Bits (DMAMn):**
 
-| Bits | Function | Values |
-|------|----------|--------|
-| 7-6 | Transfer mode | 00=burst, 01=cycle-steal, 10=single |
-| 5-4 | Source addressing | 00=fixed, 01=increment, 10=decrement |
-| 3-2 | Dest addressing | 00=fixed, 01=increment, 10=decrement |
-| 1-0 | Data size | 00=byte, 01=word, 10=long |
+| Bits | Function      | Values                                                                                                                                                                                                                                                                            |
+|------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 4-2  | Transfer mode | 000 = destination increment, source fixed (I/O to memory); 001 = destination decrement, source fixed; 010 = source increment, destination fixed (memory to I/O); 011 = source decrement, destination fixed; 100 = both fixed; 101 = counter (source increments, nothing is moved) |
+| 1-0  | Data size     | 00 = byte, 01 = word, 10 = long                                                                                                                                                                                                                                                   |
 
 **LDC Instruction Encoding for DMA Registers:**
 
-DMA registers are accessed via special `LDC` (Load Control) instructions. ASL doesn't support these natively, so macros emit raw bytes:
+DMA registers are accessed via special `LDC` (Load Control) instructions. The LLVM backend spells them `ldc_cr8` / `ldc_cr16` / `ldc_cr32 <register>, <selector>` (e.g. `ldc_cr32 xwa, 0x28` = `e8 2e 28`); the native `ldc dmad2, xwa` is not parsed:
 
 | Instruction | Encoding | Description |
 |-------------|----------|-------------|
@@ -178,24 +169,26 @@ DMA registers are accessed via special `LDC` (Load Control) instructions. ASL do
 
 **Third Byte Encoding (DMA register selector):**
 
-| Value | Register | Description |
-|-------|----------|-------------|
-| 0x00 | DMAS0 | Source, Channel 0 |
-| 0x08 | DMAS2 | Source, Channel 2 |
-| 0x0C | DMAS3 | Source, Channel 3 |
-| 0x20 | DMAD0 | Destination, Channel 0 |
-| 0x28 | DMAD2 | Destination, Channel 2 |
-| 0x2C | DMAD3 | Destination, Channel 3 |
-| 0x40 | DMAM0 | Mode, Channel 0 |
-| 0x42 | DMAC0 | Count, Channel 0 |
-| 0x48 | DMAM2 | Mode, Channel 2 |
-| 0x4A | DMAC2 | Count, Channel 2 |
+| Value | Register | Description               |
+|-------|----------|---------------------------|
+| 0x00  | DMAS0    | Source, Channel 0         |
+| 0x08  | DMAS2    | Source, Channel 2         |
+| 0x0C  | DMAS3    | Source, Channel 3         |
+| 0x20  | DMAD0    | Destination, Channel 0    |
+| 0x28  | DMAD2    | Destination, Channel 2    |
+| 0x2C  | DMAD3    | Destination, Channel 3    |
+| 0x40  | DMAC0    | Count, Channel 0 (16-bit) |
+| 0x42  | DMAM0    | Mode, Channel 0 (8-bit)   |
+| 0x48  | DMAC2    | Count, Channel 2 (16-bit) |
+| 0x4A  | DMAM2    | Mode, Channel 2 (8-bit)   |
+| 0x4C  | DMAC3    | Count, Channel 3 (16-bit) |
+| 0x4E  | DMAM3    | Mode, Channel 3 (8-bit)   |
 
 **Sub CPU Boot ROM DMA Usage:**
 - **Channel 0**: Latch reads (source=0x120000 fixed, dest=RAM incrementing)
 - **Channel 2**: Payload transfers (configurable source/dest)
-- **DMA_BURST_CTRL** (0x0102) = 0x16: Enables DMA, sets trigger mode
-- **Trigger**: Write 0x0A to 0x0100, or set T01MOD bit 2
+- **DMAV2** (0x0102, named `DMA_BURST_CTRL` in the boot source) = 0x16: channel 2 starts on INTT2, so the payload transfers are paced by timer 2, which the code starts with `set 2, (T8RUN)`
+- **DMAV0** (0x0100) = 0x0A: channel 0 starts on INT0, the inter-CPU latch interrupt (the MAME driver wires the latch's data-pending line to the sub CPU's INT0)
 
 **DMA Transfer Routines (Sub CPU Boot ROM):**
 
@@ -209,7 +202,7 @@ DMA registers are accessed via special `LDC` (Load Control) instructions. ASL do
 
 ### Inter-CPU Communication (0x120000)
 
-The main and sub CPUs communicate via a single-byte latch at `0x120000`.
+The main and sub CPUs communicate through a pair of 8-bit latches (IC22/IC23, one per direction), which the sub CPU addresses at `0x120000` and the main CPU at `0x140000`.
 
 **Command Encoding:**
 
@@ -253,7 +246,7 @@ The main and sub CPUs communicate via a single-byte latch at `0x120000`.
 1. Main CPU initializes after reset (see Reset Vector section)
 2. Sub CPU boot ROM runs from 0xFF8290 (BOOT_INIT)
 3. Sub CPU configures DMA for inter-CPU latch at 0x120000
-4. Sub CPU waits for payload via `InterCPU_RX_Handler` (serial receive)
+4. Sub CPU waits for payload via `InterCPU_RX_Handler` (the INT0 inter-CPU latch interrupt)
 5. Main CPU sends payload via DMA transfers
 6. Sub CPU receives E3 command (payload ready signal)
 7. Sub CPU jumps to payload entry point via trampoline at 0x0400
@@ -261,19 +254,19 @@ The main and sub CPUs communicate via a single-byte latch at `0x120000`.
 
 **Sub CPU Boot ROM Key Routines:**
 
-| Address | Routine | Function |
-|---------|---------|----------|
-| 0xFF8290 | BOOT_INIT | Hardware initialization entry |
-| 0xFF846D | COPY_VECTORS | Copy trampolines to RAM (0x0400) |
-| 0xFF85AE | INIT_DMA_SERIAL | Configure DMA for latch |
-| 0xFF84A8 | INIT_TONE_GEN | Initialize tone generator at 0x130000 |
-| 0xFF881F | InterCPU_RX_Handler | Serial receive interrupt |
-| 0xFF88B8 | CMD_Dispatch_Handler | Timer/processing interrupt |
-| 0xFF889A | DMA_Complete_Handler | DMA complete interrupt |
+| Address  | Routine              | Function                                                                                                                    |
+|----------|----------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| 0xFF8290 | BOOT_INIT            | Hardware initialization entry                                                                                               |
+| 0xFF846D | COPY_VECTORS         | Copy trampolines to RAM (0x0400)                                                                                            |
+| 0xFF85AE | INIT_DMA_SERIAL      | Configure DMA for latch                                                                                                     |
+| 0xFF84A8 | INIT_TONE_GEN        | Initialize the 4-channel × 8-register block at 0x130000 (the payload's DSP register base; the routine's name is historical) |
+| 0xFF881F | InterCPU_RX_Handler  | INT0 (inter-CPU latch) interrupt                                                                                            |
+| 0xFF88B8 | CMD_Dispatch_Handler | INTTC0 (micro-DMA channel 0 completion) interrupt                                                                           |
+| 0xFF889A | DMA_Complete_Handler | INTTC2 (micro-DMA channel 2 completion) interrupt                                                                           |
 
 ### Payload Structure
 
-The sub CPU payload (`subcpu/kn5000_subprogram_v142.asm`) is 192KB.
+The sub CPU payload (`v142/subcpu/kn5000_subprogram_v142.s` and its sibling files) is 192KB.
 
 **Key State Variables:**
 
@@ -295,41 +288,44 @@ The sub CPU payload (`subcpu/kn5000_subprogram_v142.asm`) is 192KB.
 
 The command byte received from main CPU uses bits 7-5 to select a handler:
 
-| Bits 7-5 | Range | Handler Address | Purpose |
-|----------|-------|-----------------|---------|
-| 0 | 0x00-0x1F | 0x034D5F | DSP/audio control |
-| 1 | 0x20-0x3F | 0x01FC7C | Audio parameters |
-| 2 | 0x40-0x5F | 0x01FC7F | Tone generator |
-| 3 | 0x60-0x7F | 0x035893 | Effects |
-| 4 | 0x80-0x9F | 0x01F890 | Serial port setup (38400 baud) |
-| 5 | 0xA0-0xBF | 0x03CFEE | Voice commands |
-| 6-7 | 0xC0-0xFF | 0x020C12 | System commands (shared) |
+| Bits 7-5 | Range     | Handler                     | Address  | Purpose                                |
+|----------|-----------|-----------------------------|----------|----------------------------------------|
+| 0        | 0x00-0x1F | `Audio_CmdHandler_00_1F`    | 0x034D5F | MIDI/audio data to ring buffer         |
+| 1        | 0x20-0x3F | `Audio_CmdHandler_20_3F`    | 0x01FC7C | No-op (returns immediately)            |
+| 2        | 0x40-0x5F | `Audio_CmdHandler_40_5F`    | 0x01FC7F | Skip N bytes (data drain)              |
+| 3        | 0x60-0x7F | `Audio_CmdHandler_60_7F`    | 0x035893 | DSP streaming data                     |
+| 4        | 0x80-0x9F | `Serial1_DataTransmit_Loop` | 0x01F890 | Serial port 1 (SC1) TX                 |
+| 5        | 0xA0-0xBF | `Audio_CmdHandler_A0_BF`    | 0x03CFEE | Keybed touch curve / forwarding enable |
+| 6-7      | 0xC0-0xFF | `Audio_CmdHandler_C0_FF`    | 0x020C12 | No-op (returns immediately)            |
+
+See [Sub CPU Command Format]({{ site.baseurl }}/subcpu-command-format/#cmd_dispatch_table).
 
 Bits 4-0 encode the data length minus one (1-32 bytes).
 
 **Tone Generator Interface:**
 
-The payload accesses the tone generator at two address ranges:
+The payload's sound-hardware windows:
 
-| Address | Register | Description |
-|---------|----------|-------------|
-| 0x110000 | Data | 16-bit voice data (note + velocity) |
-| 0x110002 | Status | Status register (bit 0: data ready, bit 1: mode) |
-| 0x130000 | Control | Dual DSP control registers |
+| Address             | Register       | Description                                                            |
+|---------------------|----------------|------------------------------------------------------------------------|
+| 0x100000 / 0x100002 | Tone generator | IC303 register-address latch / data port                               |
+| 0x110002            | Keybed status  | Bit 0: a keybed event is ready (read with P6.7 set)                    |
+| 0x110000            | Keybed data    | Keybed event: low byte note, high byte velocity (read with P6.7 clear) |
+| 0x130000            | DSP block      | 4 channels × 8 registers (`DSP_Init_Channels`, `DSP_Write_Channel`)    |
 
 Port P6 bit 7 controls the A23 address line for tone generator access.
 
-**Tone Generator Routines (0x03D0xx):**
+**Tone generator and keybed routines (0x03D0xx):**
 
-| Routine | Address | Description |
-|---------|---------|-------------|
-| `ToneGen_Init` | 0x03D016 | Initialize tone gen (mode = 6) |
-| `ToneGen_Process_Notes` | 0x03D01E | Process incoming note events |
-| `ToneGen_Read_Voice_Data` | 0x03D0C5 | Read voice data with P6.7 control |
-| `ToneGen_Calc_Pitch` | 0x03D11F | Calculate pitch from note + tables |
-| `ToneGen_Poll_Init` | 0x03D1FB | Clear 8 voice buffers |
-| `ToneGen_Poll_All` | 0x03D217 | Poll all 16 channels |
-| `ToneGen_Compare_Voice` | 0x03D2AC | Compare 8-byte voice blocks |
+| Routine                 | Address  | Description                                                                   |
+|-------------------------|----------|-------------------------------------------------------------------------------|
+| `ToneGen_Init`          | 0x03D016 | Initialize tone gen (mode = 6)                                                |
+| `ToneGen_Process_Notes` | 0x03D01E | Process incoming note events                                                  |
+| `Keybed_Read_Event`     | 0x03D0C5 | Read one keybed event (status 0x110002, data 0x110000) with P6.7 control      |
+| `Keybed_Decode_Event`   | 0x03D11F | Decode the event: note, black-key velocity trim and clamping                  |
+| `ToneGen_Poll_Init`     | 0x03D1FB | Clear 8 voice buffers                                                         |
+| `ToneGen_Poll_All`      | 0x03D217 | Poll all 16 channels                                                          |
+| `FP_dcmp`               | 0x03D2AC | Floating-point double compare (8-byte operands); not a tone-generator routine |
 
 **Voice State Buffer:**
 
@@ -376,16 +372,16 @@ The 128KB boot ROM (`kn5000_subcpu_boot.ic30`) initializes the sub CPU hardware 
 
 ### Memory Map
 
-| Address Range | Size | Description |
-|---------------|------|-------------|
-| 0x0000-0x00FF | 256B | Special Function Registers (SFR) |
-| 0x0100-0x01FF | 256B | Extended SFR / Memory Controller |
-| 0x0400-0x04E0 | 225B | Interrupt vector trampolines (copied from ROM) |
-| 0x04FE | 1B | Payload ready flag |
-| 0x0500-0x05A2 | ~160B | RAM / Stack area |
-| 0x120000 | - | Inter-CPU Communication Latch |
-| 0x130000 | - | Tone Generator Registers |
-| 0xFE0000-0xFFFFFF | 128KB | Boot ROM (only 3.3% is real data — see below) |
+| Address Range     | Size  | Description                                                                                   |
+|-------------------|-------|-----------------------------------------------------------------------------------------------|
+| 0x0000-0x00FF     | 256B  | Special Function Registers (SFR)                                                              |
+| 0x0100-0x01FF     | 256B  | Extended SFR / Memory Controller                                                              |
+| 0x0400-0x04E0     | 225B  | Interrupt vector trampolines (copied from ROM)                                                |
+| 0x04FE            | 1B    | Payload ready flag                                                                            |
+| 0x0500-0x05A2     | ~160B | RAM / Stack area                                                                              |
+| 0x120000          | -     | Inter-CPU Communication Latch                                                                 |
+| 0x130000          | -     | 4-channel × 8-register block (DSP register base; misnamed `TONE_GEN_BASE` in the boot source) |
+| 0xFE0000-0xFFFFFF | 128KB | Boot ROM (only 3.3% is real data — see below)                                                 |
 
 ### ROM Structure
 
@@ -435,7 +431,7 @@ byte is indistinguishable from an assumed-blank one.
 6. **Initialization Routines**:
    - Memory test (0xFF8956)
    - DMA/Serial setup (0xFF85AE) - configures inter-CPU latch at 0x120000
-   - Tone generator init (0xFF84A8) - initializes registers at 0x130000
+   - Register-block init (0xFF84A8, `INIT_TONE_GEN`) - initializes the 4-channel block at 0x130000 (DSP registers, not the tone generator)
 7. **Main Loop**: Waits for payload ready flag at 0x04FE, then calls 0x0400
 
 ### Interrupt Trampoline System
@@ -450,16 +446,16 @@ This allows the payload to replace interrupt handlers by modifying the trampolin
 
 **Trampoline Layout:**
 
-| RAM Address | Handler | Initial Target |
-|-------------|---------|----------------|
-| 0x0400 | Handler 0 (Reset) | 0xFFFEE0 (ROM) |
-| 0x0405 | Handler 1 | 0xFF8432 (Default RETI) |
-| 0x040A | Handler 2 | 0xFF8432 (Default RETI) |
-| ... | ... | ... |
-| 0x0428 | Handler 9 | 0xFF881F (Specific) |
-| ... | ... | ... |
-| 0x04AA | Handler 35 | 0xFF88B8 (Specific) |
-| 0x04B4 | Handler 37 | 0xFF889A (Specific) |
+| RAM Address | Handler                                | Initial Target                    |
+|-------------|----------------------------------------|-----------------------------------|
+| 0x0400      | Handler 0 (Reset)                      | 0xFFFEE0 (ROM)                    |
+| 0x0405      | Handler 1                              | 0xFF8432 (Default RETI)           |
+| 0x040A      | Handler 2                              | 0xFF8432 (Default RETI)           |
+| ...         | ...                                    | ...                               |
+| 0x042D      | Handler 9 (INT0, `IntTramp_INT0`)      | 0xFF881F (`InterCPU_RX_Handler`)  |
+| ...         | ...                                    | ...                               |
+| 0x04B4      | Handler 36 (INTTC0, `IntTramp_INTTC0`) | 0xFF88B8 (`CMD_Dispatch_Handler`) |
+| 0x04BE      | Handler 38 (INTTC2, `IntTramp_INTTC2`) | 0xFF889A (`DMA_Complete_Handler`) |
 
 ### Key Hardware Addresses Discovered
 
@@ -467,9 +463,9 @@ This allows the payload to replace interrupt handlers by modifying the trampolin
 
 The DMA is configured to use 0x120000 for communication between main CPU and sub CPU. This confirms the latch address documented elsewhere.
 
-**Tone Generator (0x130000)**
+**The block at 0x130000**
 
-The `INIT_TONE_GEN` routine writes initialization patterns to registers at 0x130000, confirming this as the tone generator base address.
+The `INIT_TONE_GEN` routine writes initialization patterns to the 4-channel × 8-register block at 0x130000. Despite the routine's name, this is not the tone generator, which is IC303 at 0x100000/0x100002; the v1.42 payload's identical code calls 0x130000 the DSP register base (`DSP_Init_Channels`, `DSP_Write_Channel`). See [Tone Generator]({{ site.baseurl }}/tone-generator/).
 
 ### Disassembly Status
 
@@ -477,32 +473,29 @@ The `INIT_TONE_GEN` routine writes initialization patterns to registers at 0x130
 - BOOT_INIT (0xFF8290) - Full hardware initialization
 - COPY_VECTORS (0xFF846D) - Vector trampoline copy
 - RESET_ENTRY (0xFF8433) - Alternative reset handler (uses `jrl T` to BOOT_INIT)
-- SUB_8437 (0xFF8437) - Tone generator channel initialization loop
+- TONE_GEN_CHANNEL_INIT (0xFF8437) - Channel initialization loop for the 0x130000 block
 - HALT_LOOP (0xFF8490) - Error handler with stub routines
-- TONE_GEN_WRITE (0xFF84F1) - Write data to tone generator
-- SUB_850E (0xFF850E) - Multi-register push/call wrapper
-- SUB_853A (0xFF853A) - Write register pairs to tone generator channel
+- TONE_GEN_WRITE (0xFF84F1) - Write the 8 registers of one 0x130000 channel
+- WRITE_TONE_REG_MULTI_CHANNEL (0xFF850E) - Multi-register push/call wrapper
+- WRITE_TONE_REG_SINGLE_CHANNEL (0xFF853A) - Write register pairs to one channel
 - COPY_WORDS (0xFF858B) - Word block copy using `ldirw`
 - FILL_WORDS (0xFF8594) - Memory fill with word values
 - CHECKSUM_CALC (0xFF859B) - Calculate checksum over memory range
 - INIT_DMA_SERIAL (0xFF85AE) - DMA/Serial configuration
-- INIT_TONE_GEN (0xFF84A8) - Tone generator setup
+- INIT_TONE_GEN (0xFF84A8) - 0x130000 register-block setup
 - MAIN_LOOP - Payload wait loop
 - DEFAULT_HANDLER (0xFF8432) - Simple RETI
 - Vector trampolines (0xFF8F6C) - All 45 handlers
 - Interrupt vector table (0xFFFF00)
-- InterCPU_RX_Handler (0xFF881F) - Serial receive interrupt
-- CMD_Dispatch_Handler (0xFF88B8) - Timer/processing interrupt
-- DMA_Complete_Handler (0xFF889A) - DMA complete interrupt
+- InterCPU_RX_Handler (0xFF881F) - INT0 (inter-CPU latch) interrupt
+- CMD_Dispatch_Handler (0xFF88B8) - INTTC0 (micro-DMA channel 0 completion) interrupt
+- DMA_Complete_Handler (0xFF889A) - INTTC2 (micro-DMA channel 2 completion) interrupt
 - DELAY_ROUTINE (0xFF89A9) - Variable delay routine
 - MEM_TEST_ROUTINE (0xFF89FC) - RAM test
 - ROM_CHECKSUM (0xFF8AB4) - Boot ROM integrity check
 - SERIAL_INIT (0xFF8B07) - Serial communication init
 
-**TODO:**
-- Data tables analysis (0xFF8000)
-- DMA transfer and inter-CPU comm routines (0xFF8604-0xFF8955) - ~850 bytes of code
-- SUB_8B37, SUB_8B89, SUB_8C80 helper routines
+**Remaining:** none. The 0xFF8000 data region is carved ([Sub CPU Boot ROM §4]({{ site.baseurl }}/subcpu-boot-rom/#4-the-656-byte-data-region-at-0xff8000)), 0xFF8604-0xFF8955 is the transfer family listed under DMA Transfer Routines plus the three interrupt handlers, and the last helpers are CONTROL_PANEL_BIT_SET_CLEAR (0xFF8B37), INTER_CPU_LATCH_READ_DISPATCH (0xFF8B89) and HARDWARE_CALIBRATION_SEQUENCE (0xFF8C80).
 
 ### Inter-CPU Protocol (Boot ROM Side)
 
@@ -523,12 +516,12 @@ For commands `00-1F`, the command byte encodes both the handler index and data l
 
 #### Interrupt Handler Details
 
-**InterCPU_RX_Handler (0xFF881F) - Serial Receive Interrupt**
+**InterCPU_RX_Handler (0xFF881F) - INT0 (inter-CPU latch) interrupt**
 
 Triggered when data arrives from the main CPU via the inter-CPU latch.
 
 ```
-1. Check if bit 2 of SC0BUF is set (busy flag)
+1. Check if bit 2 of INTERCPU_STATUS (0x34, port D) is set (busy flag)
    - If set: exit immediately (another transfer in progress)
 2. Read command byte from latch (0x120000)
 3. Store command in LAST_CMD_BYTE (0x051A)
@@ -537,11 +530,11 @@ Triggered when data arrives from the main CPU via the inter-CPU latch.
    - E2: Set CMD_PROCESSING_STATE=3, DMA 10 bytes to CMD_E2_BUFFER (0x054A)
    - E3: Set bit 6 of SUBCPU_STATUS_FLAGS (0x04FE), skip DMA
    - Other: Set CMD_PROCESSING_STATE=1, DMA (cmd & 0x1F)+1 bytes to CMD_DATA_BUFFER (0x051E)
-5. Trigger DMA by writing 0x0A to address 0x0100
-6. Clear bit 1 of SC0BUF
+5. Arm DMA channel 0 by writing 0x0A (INT0) to DMAV0 (0x0100)
+6. Clear bit 1 of INTERCPU_STATUS
 ```
 
-**CMD_Dispatch_Handler (0xFF88B8) - Timer/Processing Interrupt**
+**CMD_Dispatch_Handler (0xFF88B8) - INTTC0 (micro-DMA channel 0 completion) interrupt**
 
 Main processing interrupt that handles received data after DMA completes.
 
@@ -622,24 +615,24 @@ Separate from the command state machine, tracks DMA transfer phases:
 
 #### DMA Register Encoding (LDC Instructions)
 
-The TMP94C241F uses `LDC` instructions to configure DMA registers. These are not supported by ASL's TMP96C141 mode, so they require macros emitting raw bytes.
+The TMP94C241F uses `LDC` instructions to configure DMA registers. The sources write them with the backend's `ldc_cr8`/`ldc_cr16`/`ldc_cr32` mnemonics and a numeric selector.
 
 **DMA Register Address Encoding (Third Byte of LDC):**
 
-| Register | Third Byte | Description |
-|----------|------------|-------------|
-| DMAS0 | `00h` | DMA Source, Channel 0 |
-| DMAS2 | `08h` | DMA Source, Channel 2 |
-| DMAS3 | `0Ch` | DMA Source, Channel 3 |
-| DMAD0 | `20h` | DMA Destination, Channel 0 |
-| DMAD2 | `28h` | DMA Destination, Channel 2 |
-| DMAD3 | `2Ch` | DMA Destination, Channel 3 |
-| DMAM0 | `40h` | DMA Mode, Channel 0 |
-| DMAC0 | `42h` | DMA Count, Channel 0 (byte) |
-| DMAM2 | `48h` | DMA Mode, Channel 2 |
-| DMAC2 | `4Ah` | DMA Count, Channel 2 |
-| DMAM3 | `4Ch` | DMA Mode, Channel 3 |
-| DMAC3 | `4Eh` | DMA Count, Channel 3 |
+| Register | Third Byte | Description                   |
+|----------|------------|-------------------------------|
+| DMAS0    | `00h`      | DMA Source, Channel 0         |
+| DMAS2    | `08h`      | DMA Source, Channel 2         |
+| DMAS3    | `0Ch`      | DMA Source, Channel 3         |
+| DMAD0    | `20h`      | DMA Destination, Channel 0    |
+| DMAD2    | `28h`      | DMA Destination, Channel 2    |
+| DMAD3    | `2Ch`      | DMA Destination, Channel 3    |
+| DMAC0    | `40h`      | DMA Count, Channel 0 (16-bit) |
+| DMAM0    | `42h`      | DMA Mode, Channel 0 (8-bit)   |
+| DMAC2    | `48h`      | DMA Count, Channel 2 (16-bit) |
+| DMAM2    | `4Ah`      | DMA Mode, Channel 2 (8-bit)   |
+| DMAC3    | `4Ch`      | DMA Count, Channel 3 (16-bit) |
+| DMAM3    | `4Eh`      | DMA Mode, Channel 3 (8-bit)   |
 
 **LDC Instruction Format:**
 
@@ -653,16 +646,14 @@ Byte 3: DMA register selector (see table above)
 
 #### MAME MicroDMA Implementation
 
-The TMP94C241 MicroDMA is implemented in MAME's `tmp94c241.cpp` driver. The implementation uses cycle-steal mode where one DMA transfer is performed per CPU instruction boundary.
+The TMP94C241 MicroDMA is implemented in MAME's `tmp94c241.cpp` driver. MAME performs one transfer per CPU instruction boundary.
 
 **DMAM Mode Register Format (TMP94C241):**
 
-| Bits | Field | Values |
-|------|-------|--------|
-| 7-6 | Transfer Mode | 00=Burst, 01=Cycle-steal, 10=Single (currently cycle-steal only) |
-| 5-4 | Source Addressing | 00=Fixed, 01=Increment, 10=Decrement |
-| 3-2 | Dest Addressing | 00=Fixed, 01=Increment, 10=Decrement |
-| 1-0 | Data Size | 00=Byte, 01=Word, 10=Long |
+| Bits | Function      | Values                                                                                                                                                                                                                                                                            |
+|------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 4-2  | Transfer mode | 000 = destination increment, source fixed (I/O to memory); 001 = destination decrement, source fixed; 010 = source increment, destination fixed (memory to I/O); 011 = source decrement, destination fixed; 100 = both fixed; 101 = counter (source increments, nothing is moved) |
+| 1-0  | Data size     | 00 = byte, 01 = word, 10 = long                                                                                                                                                                                                                                                   |
 
 **DMA Trigger Mechanism:**
 
@@ -748,10 +739,10 @@ Provides variable timing delays based on a bit pattern.
 **Algorithm:**
 ```
 1. For each of 3 bits in A (starting from bit 0):
-   a. Disable timer interrupt (res bit 1 of INTTC01)
+   a. Clear bit 1 of port C (0x30)
    b. If current bit set: delay count = 0xC000, else 0x4000
    c. Execute nested delay loops (outer: BC count, inner: 32 iterations)
-   d. Enable timer interrupt (set bit 1 of INTTC01)
+   d. Set bit 1 of port C (0x30)
    e. Execute another nested delay with count 0x4000
    f. Shift A right, increment loop counter
    g. Repeat until 3 bits processed
@@ -761,7 +752,7 @@ This allows 8 different delay combinations based on which bits are set.
 
 ### Source File
 
-`subcpu_boot/kn5000_subcpu_boot.asm` - 1098 lines of disassembled code
+`subcpu/boot/kn5000_subcpu_boot.s` in the disassembly repository (3,115 lines)
 
 ---
 
@@ -806,7 +797,7 @@ The LCD controller is IC206 (MN89304) with 4Mbit Video RAM (IC207).
 
 1. **Scan ROMs** for image signatures (BMP headers: `0x42 0x4D`)
 2. **Trace display code** to find image address references
-3. **Extract to binary files** in `maincpu/images/`, `table_data/images/`, or `hdae5000/images/`
+3. **Extract to binary files** in `v10/maincpu/images/`, `table_data/images/`, or `hdae5000/images/`
 4. **Name descriptively** based on apparent purpose
 5. **Update assembly sources** with `incbin` directives
 6. **Verify byte-match** after rebuild
@@ -832,13 +823,13 @@ The load routine at `0x28f8e0` shifts each RGB component right by 4 bits before 
 ### Current Progress
 
 **Already extracted:**
-- `maincpu/images/` - 42 files (1-bit bitmaps, UI elements, logos)
-- `table_data/images/` - 6 BMP files (feature demo screens)
-- `hdae5000/images/` - 4 images + 2 palettes (product images, icon)
+- `v10/maincpu/images/` - 44 `.bin` files with 42 PNG renders (1-bit bitmaps, UI elements, logos)
+- `table_data/images/` - the 6 feature-demo BMPs, two wallpapers (`Wallpaper_0/1`, PNG beside `.bin`), and 465 PNGs under `icons/`, `icons_png/`, `ui_bitmaps/` and `fonts/`
+- `hdae5000/images/` - 5 images (logo, hands, file panel, splash screen, icon) as `.bin` with PNG renders, plus 2 raw palettes and 5 palette listings
 
-**Tools:**
-- `extract_include_binaries.py` - Extraction script
-- `convert_images.py` - Converts raw `.bin` to PNG with correct palettes
+**Tools** (in the disassembly repository):
+- `scripts/analysis/extract_include_binaries.py` - Extraction script
+- `scripts/build/convert_images.py` - Converts raw `.bin` to PNG with correct palettes
 
 ### Conversion for Documentation
 
@@ -899,7 +890,7 @@ The main CPU executes the following initialization sequence:
 ```
 
 **Post-Init Sequence (after 0xEF0526):**
-1. `Seems_to_copy_some_data_buffers` - Data initialization
+1. `Boot_InitWorkRAM` - Work-RAM initialization
 2. `MainCPU_self_test_routines` - RAM test
 3. `Get_Firmware_Version` - Read version from ROM
 4. If boot ROM (version 0xFF): Display "Please Wait !!" bitmap
@@ -975,15 +966,15 @@ The confirmed initialization order (from RESET_HANDLER analysis):
 
 **Sub CPU Initialization (after main init):**
 
-| Order | Peripheral | Registers | Values |
-|-------|------------|-----------|--------|
-| 1 | Watchdog | WDMOD_REAL, WDCR_REAL | 0x00, 0xB1 |
-| 2 | Interrupt | INT_CTRL (0x10A) | 0x04 |
-| 3 | Port Functions | P0FC-PBFC | 0xFF (most ports) |
-| 4 | Interrupt/Status | INTTC01 (0x30) | 0x03 |
-| 5 | 8-bit Timers | T01MOD, T23MOD | 0x1D, 0x0A |
-| 6 | 16-bit Timer 4 | T4MOD, T4FFCR | 0x05, 0x00 |
-| 7 | Serial Channels | SER0_MOD, SER1_MOD | 0x01, 0x29 |
+| Order | Peripheral      | Registers                                            | Values            |
+|-------|-----------------|------------------------------------------------------|-------------------|
+| 1     | Watchdog        | WDMOD_REAL, WDCR_REAL                                | 0x00, 0xB1        |
+| 2     | Interrupt       | INT_CTRL (0x10A)                                     | 0x04              |
+| 3     | Port Functions  | P0FC-PBFC                                            | 0xFF (most ports) |
+| 4     | Port C          | PC (0x30; the boot source's `INTTC01` is a misnomer) | 0x03              |
+| 5     | 8-bit Timers    | T01MOD, T23MOD                                       | 0x1D, 0x0A        |
+| 6     | 16-bit Timer 4  | T4MOD, T4FFCR                                        | 0x05, 0x00        |
+| 7     | Serial Channels | SER0_MOD, SER1_MOD                                   | 0x01, 0x29        |
 
 ### Sub CPU Startup
 
@@ -995,43 +986,9 @@ The confirmed initialization order (from RESET_HANDLER analysis):
 
 See [Sub CPU Payload Loading](#sub-cpu-payload-loading) for details.
 
-### Control Panel Initialization
+### Panels, display and audio at boot
 
-**Tasks:**
-1. Document when serial channel to CPL/CPR MCUs is configured
-2. Trace initial command sequence sent to panels
-3. Document LED initialization pattern
-4. Identify panel ready confirmation
-
-### LCD Splash Screen
-
-**Tasks:**
-1. Document LCD controller register setup
-2. Trace Video RAM initialization
-3. Document Technics/KN5000 logo display timing
-4. Identify boot progress indicators
-
-### Optional Hardware Detection
-
-**HDAE5000:**
-1. Probe PPI at `0x160000`
-2. Check for ROM at `0x280000`
-3. Initialize if present, skip gracefully if absent
-
-### Audio Subsystem
-
-**Tasks:**
-1. Document tone generator initialization via sub CPU
-2. Trace DAC setup (IC310)
-3. Document DSP initialization (IC311)
-4. Identify audio ready state
-
-### Boot Timeline Goal
-
-Create comprehensive timeline showing:
-- Time from power-on for each stage
-- Dependencies between init stages
-- Total boot time to user-ready state
+The control-panel bring-up is on [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/), the LCD controller set-up on [Display Subsystem]({{ site.baseurl }}/display-subsystem/#vga-initialization-values), and the order and timing of every stage on [Boot Sequence]({{ site.baseurl }}/boot-sequence/#complete-boot-timeline).
 
 ---
 
@@ -1052,18 +1009,18 @@ The MN89304 is a Panasonic LCD controller providing **VGA-compatible register in
 
 **I/O Port Addresses (memory-mapped):**
 
-| Port | Register | Function |
-|------|----------|----------|
-| 0x3C0 | Attribute Controller | Address/Data |
-| 0x3C2 | Misc Output | Timing config (write) |
-| 0x3C3 | VGA Enable | Global enable |
-| 0x3C4/3C5 | Sequencer | Address/Data |
-| 0x3C6 | DAC Mask | Palette mask |
-| 0x3C8 | DAC Write Addr | Palette index |
-| 0x3C9 | DAC Data | Palette RGB (6-bit each) |
-| 0x3CE/3CF | Graphics Ctrl | Address/Data |
-| 0x3D4/3D5 | CRTC | Address/Data |
-| 0x3DA | Input Status 1 | Vertical retrace |
+| Port      | Register             | Function                              |
+|-----------|----------------------|---------------------------------------|
+| 0x3C0     | Attribute Controller | Address/Data                          |
+| 0x3C2     | Misc Output          | Timing config (write)                 |
+| 0x3C3     | VGA Enable           | Global enable                         |
+| 0x3C4/3C5 | Sequencer            | Address/Data                          |
+| 0x3C6     | DAC Mask             | Palette mask                          |
+| 0x3C8     | DAC Write Addr       | Palette index                         |
+| 0x3C9     | DAC Data             | Palette RGB (4 significant bits each) |
+| 0x3CE/3CF | Graphics Ctrl        | Address/Data                          |
+| 0x3D4/3D5 | CRTC                 | Address/Data                          |
+| 0x3DA     | Input Status 1       | Vertical retrace                      |
 
 **Display Configuration:**
 
@@ -1074,7 +1031,7 @@ The MN89304 is a Panasonic LCD controller providing **VGA-compatible register in
 | Dot Clock | 25 MHz | From Misc Output = 0xE3 |
 | Refresh | ~60 Hz | Standard VGA timing |
 
-**Initialization Sequence (`Some_VGA_setup` at 0xEF55A7):**
+**Initialization Sequence (`VGA_Setup` at 0xEF55A7):**
 
 | Step | Port | Value | Action |
 |------|------|-------|--------|
@@ -1107,29 +1064,31 @@ The MN89304 is a Panasonic LCD controller providing **VGA-compatible register in
 
 ### Video RAM Organization
 
+See also [Display Subsystem]({{ site.baseurl }}/display-subsystem/#video-ram).
+
 **IC207: Mitsubishi M5M44265CJ8S (4Mbit VRAM)**
 
-| Parameter | Value |
-|-----------|-------|
-| Capacity | 512KB (4Mbit) |
-| Type | Dual-ported VRAM |
-| Base Address | 0x1A0000 |
+| Parameter  | Value                                        |
+|------------|----------------------------------------------|
+| Capacity   | 512KB chip (4Mbit), of which 256KB is mapped |
+| Type       | Dual-ported VRAM                             |
+| CPU window | 0x1A0000-0x1DFFFF                            |
 
 **Confirmed Configuration:**
 
-| Setting | Value |
-|---------|-------|
-| Color Depth | 8bpp (256 colors) |
-| Frame Size | 320 × 240 × 1 = 76,800 bytes |
-| Available Frames | 512KB / 75KB ≈ 6.8 frames |
+| Setting          | Value                        |
+|------------------|------------------------------|
+| Color Depth      | 8bpp (256 colors)            |
+| Frame Size       | 320 × 240 × 1 = 76,800 bytes |
+| Available Frames | 256KB / 75KB ≈ 3.4 frames    |
 
 **Memory Layout:**
 
-| Address Range | Size | Content |
-|---------------|------|---------|
-| 0x1A0000-0x1A12BFF | 76,800B | Frame buffer 0 |
-| 0x1A12C00-0x1A257FF | 76,800B | Frame buffer 1 (if double-buffered) |
-| 0x1A25800-0x1A7FFFF | ~360KB | Additional buffers / sprites |
+| Address Range     | Size    | Content                             |
+|-------------------|---------|-------------------------------------|
+| 0x1A0000-0x1B2BFF | 76,800B | Frame buffer 0                      |
+| 0x1B2C00-0x1C57FF | 76,800B | Frame buffer 1 (if double-buffered) |
+| 0x1C5800-0x1DFFFF | ~106KB  | Additional buffers                  |
 
 **Access Patterns:**
 - CPU writes to 0x1A0000 base
@@ -1147,85 +1106,25 @@ The MN89304 is a Panasonic LCD controller providing **VGA-compatible register in
 
 **Confirmed: 8-bit indexed color**
 
-| Property | Value |
-|----------|-------|
-| Bits per pixel | 8 |
-| Color count | 256 |
-| Palette format | 6-bit R, 6-bit G, 6-bit B |
-| Total palette colors | 18-bit (262,144 possible) |
+| Property             | Value                     |
+|----------------------|---------------------------|
+| Bits per pixel       | 8                         |
+| Color count          | 256                       |
+| Palette format       | 4-bit R, 4-bit G, 4-bit B |
+| Total palette colors | 12-bit (4,096 possible)   |
 
 **Palette Loading:**
 1. Write palette index to 0x3C8
-2. Write R, G, B values (6-bit each) to 0x3C9
+2. Write R, G, B values (4 significant bits each) to 0x3C9
 3. Index auto-increments
 
 **EGA Compatibility:**
 - Attribute Controller (0x3C0) provides 16-color EGA palette at indices 0-15
 - Standard EGA palette loaded during initialization
 
-### Drawing Primitives
+### Drawing, fonts and screen layout
 
-Firmware contains graphics routines for:
-
-**Tasks:**
-1. Find pixel plotting routine
-2. Document line drawing algorithm
-3. Trace rectangle fill
-4. Analyze bitmap blitting (BLT)
-5. Identify any hardware acceleration
-
-### Font System
-
-**Tasks:**
-1. Locate font data in ROM
-2. Document font format (bitmap vs vector)
-3. Identify character encoding
-4. Document available font sizes
-5. Trace text rendering routines
-6. Check internationalization support
-
-### UI Widget Rendering
-
-The UI includes various interactive elements:
-- Buttons and menus
-- Sliders (drawbar controls)
-- Piano keyboard display
-- Waveform displays
-- Level meters
-
-**Tasks:**
-1. Document widget drawing routines
-2. Identify any sprite system
-3. Trace interactive element updates
-
-### Screen Layout
-
-**Tasks:**
-1. Map screen regions (header, content, status bar)
-2. Document how different modes use display
-3. Create annotated screenshots
-
-### Animation and Effects
-
-Transition effects found in extracted images:
-- `BitmapFadeInPicture.bin` / `BitmapFadeOutPicture.bin`
-- `BitmapFadeInText.bin` / `BitmapFadeOutText.bin`
-
-**Tasks:**
-1. Analyze fade effect implementation
-2. Document screen transition timing
-3. Identify scrolling implementation
-4. Check for hardware effect support
-
-### Font Extraction
-
-**Goal:** Extract fonts as usable assets.
-
-**Tasks:**
-1. Extract font bitmaps from ROM
-2. Convert to standard format (BDF, PNG atlas)
-3. Document character coverage
-4. Add samples to [Image Gallery]({{ site.baseurl }}/image-gallery/)
+The graphics library, fonts, widget rendering, screen regions and fade effects are documented on [Display Subsystem]({{ site.baseurl }}/display-subsystem/#drawing-primitives) and [UI Widget Types]({{ site.baseurl }}/ui-widget-types/); extracted graphics are in the [Image Gallery]({{ site.baseurl }}/image-gallery/).
 
 ---
 
@@ -1244,49 +1143,18 @@ The Feature Demo is an interactive presentation showcasing keyboard features. Ex
 
 Already extracted to `table_data/images/`:
 
-| File | Size | Description |
-|------|------|-------------|
-| FTBMP01.BMP | 320x240 | Demo screen 1 |
-| FTBMP02.BMP | 320x130 | Demo screen 2 |
-| FTBMP03.BMP | 320x120 | Demo screen 3 |
-| FTBMP04.BMP | corrupted | Demo screen 4 |
-| FTBMP05.BMP | 320x125 | Demo screen 5 |
-| FTBMP06.BMP | 320x240 | Demo screen 6 |
+| File        | Size    | Description                    |
+|-------------|---------|--------------------------------|
+| FTBMP01.BMP | 320x240 | Demo screen 1                  |
+| FTBMP02.BMP | 320x130 | Demo screen 2                  |
+| FTBMP03.BMP | 320x120 | Demo screen 3                  |
+| FTBMP04.BMP | 320x120 | Demo screen 4 (disk insertion) |
+| FTBMP05.BMP | 320x125 | Demo screen 5                  |
+| FTBMP06.BMP | 320x240 | Demo screen 6                  |
 
 See [Image Gallery]({{ site.baseurl }}/image-gallery/) for viewable versions.
 
-### Slide Data Structure
-
-**Tasks:**
-1. Locate slide table/index in ROM
-2. Document per-slide record format:
-   - Slide type/ID
-   - Duration/timing
-   - Background image reference
-   - Widget list pointer
-   - MIDI file pointer
-   - Transition effects
-
-### UI Widget Types
-
-Expected widget types based on typical presentation systems:
-
-| Widget | Parameters |
-|--------|------------|
-| TEXT | x, y, font_id, color, string |
-| IMAGE | x, y, image_id |
-| RECT | x, y, width, height, fill_color, border_color |
-| LINE | x1, y1, x2, y2, color |
-| ICON | x, y, icon_id |
-| BUTTON | x, y, width, height, label, action |
-| PIANO | x, y, width, height, highlighted_keys |
-| METER | x, y, width, height, value, max |
-
-**Tasks:**
-1. Trace slide rendering code
-2. Identify all widget types
-3. Document parameter format for each
-4. Create widget type reference
+The slide and widget format is the SSF presentation format, documented on [Feature Demo]({{ site.baseurl }}/feature-demo/#ssf-presentation-format) and [SSF Presentation System]({{ site.baseurl }}/ssf-presentation/).
 
 ### ASL Macro Design
 
@@ -1329,50 +1197,9 @@ SLIDE_END
 3. Ensure macros emit correct binary
 4. Add to `feature_demo.inc`
 
-### Embedded MIDI Extraction
+### Demo songs
 
-MIDI files are embedded for demo music playback.
-
-**Detection:**
-- Search for MIDI header: `4D 54 68 64` ("MThd")
-- Track chunks start with: `4D 54 72 6B` ("MTrk")
-
-**Tasks:**
-1. Scan ROMs for MIDI headers
-2. Parse MIDI structure to find boundaries
-3. Extract as standalone `.mid` files
-4. Verify playback in standard MIDI player
-5. Document each file's purpose
-
-**Output directory:**
-```
-maincpu/midi/
-├── demo_song_1.mid
-├── demo_song_2.mid
-└── ...
-```
-
-### Source Code Refactoring
-
-After macros are defined:
-
-1. Identify raw data sections for slides
-2. Replace `db`/`dw` sequences with macros
-3. Rebuild ROM: `make all`
-4. Verify byte-match: `python compare_roms.py`
-5. Measure source line reduction
-
-**Goal:** Significantly reduce assembly source length while improving readability.
-
-### Slide Viewer Tool
-
-Optional Python tool for visualizing extracted slides:
-
-**Features:**
-- Parse slide data structures
-- Render widgets using PIL/Pillow
-- Export as PNG or HTML
-- Enable slide editing for custom demos
+The demo songs are SLIDE4K-compressed presets in the table data, rebuilt from committed MIDI files; see [Table Data ROM]({{ site.baseurl }}/table-data-rom/#demo-song-presets-slide4k).
 
 ---
 
@@ -1385,17 +1212,24 @@ The KN5000 has a sophisticated sound generation system with dedicated processors
 ```
 Main CPU (TMP94C241F)
     │
-    │ Commands via 0x120000 latches
+    │ Commands via the IC22/IC23 latches
     v
-Sub CPU (IC27) ──────> Waveform ROM (IC306-307)
-    │                      │
-    │ Audio data           │ Samples
-    v                      v
-DSP (IC311) <──────────────┘
+Sub CPU (IC27)
     │
-    │ Processed audio
+    │ Register writes at 0x100000/0x100002
     v
-DAC (IC310)
+Tone generator (IC303) <────── Waveform ROMs (IC304-IC307)
+    │      ^
+    │      │ effects send/return
+    │      v
+    │  DSP1 (IC311)
+    │
+    │ Main mix
+    v
+DSP2 (IC310): mixing and EQ
+    │
+    v
+DAC (IC313, PCM69AU)
     │
     │ Analog audio
     v
@@ -1404,72 +1238,36 @@ Output Jacks (Line, Headphones, Speakers)
 
 ### Hardware Components
 
-| IC | Function | Description |
-|----|----------|-------------|
-| IC27 | Sub CPU | Tone generator control, synthesis engine |
-| IC306-307 | Waveform ROM | PCM sample storage for all instruments |
-| IC311 | DSP | Digital effects (reverb, chorus, EQ) |
-| IC310 | DAC | Digital-to-analog conversion for audio output |
+| IC        | Function       | Description                                                              |
+|-----------|----------------|--------------------------------------------------------------------------|
+| IC27      | Sub CPU        | TMP94C241F; tone generator control, synthesis engine                     |
+| IC303     | Tone generator | TC183C230002; 64 voices, PCM playback from the waveform ROMs             |
+| IC304-307 | Waveform ROMs  | Four 4 MB mask ROMs of PCM samples; only IC307 is dumped                 |
+| IC311     | DSP1           | uPD6383GF-3BA; digital effects (reverb, chorus, …) on a send/return loop |
+| IC310     | DSP2           | MN19413; mixing and EQ on the main mix                                   |
+| IC313     | DAC            | PCM69AU; digital-to-analog conversion for audio output                   |
+
+See [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/#architecture) for the full picture.
 
 ### Sub CPU (IC27)
 
-The Sub CPU handles all real-time sound generation, receiving commands from the main CPU.
-
-**Tasks:**
-1. Identify exact chip type from service manual schematics
-2. Find datasheet and document architecture
-3. Document clock speed and memory map
-4. Analyze I/O capabilities and interfaces
+The Sub CPU handles all real-time sound generation, receiving commands from the main CPU. See [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/).
 
 ### DSP (IC311)
 
-Digital Signal Processor for audio effects.
+Digital Signal Processor for audio effects. See [Effects DSP]({{ site.baseurl }}/effects-dsp/).
 
-**Tasks:**
-1. Identify chip type and find datasheet
-2. Determine if programmable or fixed-function
-3. Document effects capabilities (reverb types, chorus, EQ)
-4. Trace interface to main/sub CPU
-5. Document audio data format and routing
+### DAC (IC313)
 
-### DAC (IC310)
+Converts digital audio to analog output. See [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/).
 
-Converts digital audio to analog output.
+### Waveform ROMs (IC304-IC307)
 
-**Tasks:**
-1. Identify chip type and specifications
-2. Document resolution (bits) and sample rate
-3. Identify number of output channels
-4. Document interface protocol (I2S, parallel, etc.)
-5. Trace analog output path
-
-### Waveform ROM (IC306-307)
-
-Contains all PCM samples for instrument sounds.
-
-**Tasks:**
-1. Document total ROM size
-2. Analyze sample encoding (PCM bit depth, compression)
-3. Document sample indexing scheme
-4. Map samples to instrument patches
-5. Identify loop points and root notes
+Contain all PCM samples for instrument sounds. See [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/).
 
 ### Main CPU ↔ Sub CPU Protocol
 
-Communication via latches at `0x120000`.
-
-**Expected command types:**
-- Note On/Off (key number, velocity, channel)
-- Program Change (instrument selection)
-- Control Change (volume, pan, expression, sustain)
-- Pitch Bend
-- Effects parameters (reverb depth, chorus rate, etc.)
-
-**Tasks:**
-1. Trace all accesses to `0x120000` in main CPU firmware
-2. Document command byte format
-3. Create complete command reference
-4. Identify response/status mechanism
+Communication via latches at `0x120000`. See [Sub CPU Command Format]({{ site.baseurl }}/subcpu-command-format/).
 
 ### Synthesis Architecture
 
@@ -1477,14 +1275,8 @@ Communication via latches at `0x120000`.
 - Polyphony count: **64 voices**, register-indirect at 0x100000/0x100002
 - Synthesis method: **PCM sample playback** from 16MB waveform ROM (4 chips)
 - Envelope generators: **Hardware-internal ADSR** — firmware sends pitch/volume/pan, chip handles envelopes
-- LFO capabilities: Firmware computes LFO modulation (Voice_PanReg_WriteDispatch, 6+ modes)
-- Filter types: Unknown — group 4/5/6 registers may control filtering
-
-**Tasks:**
-1. Analyze sub CPU firmware for synthesis routines
-2. Document oscillator/voice architecture
-3. Trace envelope generator implementation
-4. Identify filter algorithms
+- LFO capabilities: the mod wheel selects vibrato, tremolo or auto-pan (`Voice_ModWheel_Apply`); see [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/#lfo-and-modulation)
+- Filter: the firmware writes a per-voice TVF (filter cutoff) in several modes through `TVF_Emit_Registers` (0x024444, formerly misnamed Voice_PanReg_WriteDispatch)
 
 ### Effects Processing
 
@@ -1493,11 +1285,7 @@ Communication via latches at `0x120000`.
 - Chorus/Flanger
 - EQ (bass, treble, presence)
 
-**Tasks:**
-1. Determine which chip handles each effect
-2. Document effects parameter ranges
-3. Trace effects routing (insert vs send)
-4. Catalog effects presets
+See [Effects DSP]({{ site.baseurl }}/effects-dsp/).
 
 ### Audio Output Path
 
@@ -1508,23 +1296,11 @@ From DAC to physical jacks.
 - Headphone jack
 - Internal speakers (if present)
 
-**Tasks:**
-1. Trace analog signal path from DAC
-2. Document amplifier stages
-3. Identify any analog mixing or effects
-4. Document output levels and impedances
+See [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/).
 
 ### MIDI Implementation
 
-Full MIDI capability for external control and sequencing.
-
-**Tasks:**
-1. Document MIDI IN/OUT/THRU signal handling
-2. Identify channel assignments (parts to channels)
-3. Document supported Control Change (CC) messages
-4. Analyze SysEx command format
-5. Check GM/GS/XG compatibility level
-6. Document MIDI clock sync behavior
+Full MIDI capability for external control and sequencing. See [MIDI Subsystem]({{ site.baseurl }}/midi-subsystem/) and [SysEx Messages]({{ site.baseurl }}/sysex-messages/).
 
 ### Rhythm/Accompaniment Engine
 
@@ -1536,20 +1312,11 @@ Auto-accompaniment system for backing tracks.
 - Chord patterns
 - Style variations (Intro, Main A/B, Fill, Ending)
 
-**Tasks:**
-1. Analyze rhythm pattern data format in ROM
-2. Document chord detection algorithm
-3. Trace bass/chord part generation
-4. Document style structure and switching
+See [Accompaniment Engine]({{ site.baseurl }}/accompaniment-engine/#chord-detection).
 
 ### Sample/Patch Extraction
 
-**Goals:**
-1. Extract all instrument patch definitions
-2. Document patch parameters (samples, envelopes, filters)
-3. Create patch list matching front panel sound groups
-4. Extract raw waveforms as WAV files for analysis
-5. Document sample rates, loop points, root notes
+The tone and drum-kit parameter records are documented on [Tone Database]({{ site.baseurl }}/tone-database/), and the sample layout on [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/). Questions that are still open belong on [Open Questions]({{ site.baseurl }}/questions/).
 
 ---
 
@@ -1596,7 +1363,7 @@ Types 2 and 4 show "ILLEGAL DISK" if loaded before 1 and 3 respectively.
 
 ### Update Mode Entry
 
-**Entry Conditions (all must be true at RESET_HANDLER 0xEF05C5):**
+**Entry Conditions (all must be true; checked in `BootInit_SeqAndPanel`, around 0xEF05C5):**
 
 | Condition | Check | Description |
 |-----------|-------|-------------|
@@ -1607,16 +1374,16 @@ Types 2 and 4 show "ILLEGAL DISK" if loaded before 1 and 3 respectively.
 **Detection Code:**
 
 ```asm
-CALL Read_control_panel_buttons  ; Read buttons at power-on
+CALL CPanel_ScanButtons  ; Read buttons at power-on
 LD (0402h), L                    ; Store button state
 CALL Get_Firmware_Version
 CP L, 0ffh                       ; Check if boot ROM
-JR NZ, skip_update
+JR NZ, User_didnt_request_flash_mem_update
 CALL Check_for_Floppy_Disk_Change
 CP HL, 0                         ; Check disk present
-JR Z, skip_update
+JR Z, User_didnt_request_flash_mem_update
 CP (0402h), 004h                 ; Button code 0x04?
-JR NZ, skip_update
+JR NZ, User_didnt_request_flash_mem_update
 CALL FLASH_MEM_UPDATE            ; Enter update mode
 ```
 
@@ -1627,16 +1394,16 @@ CALL FLASH_MEM_UPDATE            ; Enter update mode
 
 ### File Types and Target Components
 
-| File ID | Header | Target | Address | Size |
-|---------|--------|--------|---------|------|
-| 1 | Program 1/2 | Main CPU ROM (first half) | 0xE00000+ | 1MB |
-| 2 | Program 2/2 | Main CPU ROM (second half) | 0xF00000+ | 1MB |
-| 3 | Table 1/2 | Table Data (first half) | 0x800000+ | 1MB |
-| 4 | Table 2/2 | Table Data (second half) | 0x900000+ | 1MB |
-| 5 | CMPCUSTOMDATA | Custom Data Flash | 0x300000 | 1MB |
-| 6 | HD-AEPRG | HDAE5000 ROM | 0x280000 | 512KB |
-| 7 | Program PCK | Main CPU ROM (packed) | 0xE00000 | 2MB |
-| 8 | Table PCK | Table Data (packed) | 0x800000 | 2MB |
+| File ID | Header        | Target                                                           | Address                                                         | Size        |
+|---------|---------------|------------------------------------------------------------------|-----------------------------------------------------------------|-------------|
+| 1       | Program 1/2   | Main CPU ROM (first half)                                        | 0xE00000+                                                       | 1MB         |
+| 2       | Program 2/2   | Main CPU ROM (second half)                                       | 0xF00000+                                                       | 1MB         |
+| 3       | Table 1/2     | Table Data (first half)                                          | 0x800000+                                                       | 1MB         |
+| 4       | Table 2/2     | Table Data (second half)                                         | 0x900000+                                                       | 1MB         |
+| 5       | CMPCUSTOMDATA | Custom Data Flash                                                | 0x300000                                                        | 1MB         |
+| 6       | HD-AEPRG      | HDAE5000 ROM                                                     | 0x280000                                                        | 512KB       |
+| 7       | Program PCK   | Main CPU program (packed) **and** the compressed sub-CPU payload | program as for types 1/2; payload to Custom Data Flash 0x3E0000 | 2MB + 128KB |
+| 8       | Table PCK     | Table Data (packed)                                              | 0x800000                                                        | 2MB         |
 
 **Component Sizes:**
 
@@ -1647,7 +1414,7 @@ CALL FLASH_MEM_UPDATE            ; Enter update mode
 | Custom Data | 1MB | 1 disk (compressed?) |
 | HDAE5000 ROM | 512KB | 1 disk |
 
-**Note:** Sub CPU payload (192KB) is embedded within main CPU ROM, not a separate update file.
+**Note:** the sub-CPU payload is not a separate update file: a type-7 file carries it as a second SLIDE4K stream, which the installer writes verbatim to Custom Data Flash 0x3E0000 (see [System Update Discs]({{ site.baseurl }}/system-update-discs/#update-handlers-by-type)).
 
 ### Flash ROM Chips
 
@@ -1668,11 +1435,7 @@ Flash memory must be erased before programming.
 3. Poll for completion
 4. Verify erasure (all 0xFF)
 
-**Tasks:**
-1. Trace erase routine in firmware
-2. Document unlock sequence
-3. Identify sector vs chip erase usage
-4. Document timeout handling
+See [Flash Programming]({{ site.baseurl }}/flash-programming/#amdatmel-flash-protocol).
 
 ### Flash Program Algorithm
 
@@ -1685,21 +1448,13 @@ Writing data to Flash ROM.
 4. Poll for completion
 5. Verify written data
 
-**Tasks:**
-1. Trace program routine in firmware
-2. Identify byte-program vs page-buffer mode
-3. Document write verification
-4. Trace error handling
+See [Flash Programming]({{ site.baseurl }}/flash-programming/#amdatmel-flash-protocol).
 
 ### FDC Interaction
 
 Floppy Disk Controller at `0x110000` (IC208: D72068GF-3B9).
 
-**Tasks:**
-1. Document disk detection sequence
-2. Trace file reading routines
-3. Analyze sector layout expectations
-4. Document multi-disk handling ("Change FD 2 of 2")
+See [FDC Subsystem]({{ site.baseurl }}/fdc-subsystem/).
 
 ### Update Progress Display
 
@@ -1716,19 +1471,11 @@ LCD messages during update (extracted as 1-bit bitmaps):
 | `Bitmap_1bit_Illegal_Disk.bin` | Illegal Disk | Error |
 | `Bitmap_1bit_Change_FD_2_of_2.bin` | Change FD 2 of 2 | Multi-disk |
 
-**Tasks:**
-1. Correlate bitmaps with update state machine
-2. Document state transitions
-3. Identify error conditions
+See [Firmware Update Display]({{ site.baseurl }}/firmware-update-display/#state-machine).
 
 ### Validation and Error Handling
 
-**Tasks:**
-1. Document file header validation
-2. Trace checksum verification
-3. Identify version checking logic
-4. Document ROM verification after write
-5. Analyze "Illegal Disk" trigger conditions
+See [Firmware Update Validation]({{ site.baseurl }}/firmware-update-validation/).
 
 ### HDAE5000 Update
 
@@ -1737,13 +1484,10 @@ Separate update procedure for HD-AE5000 expansion.
 **Versions:**
 - v1.10i (1998-07-06)
 - v1.15i (1998-10-13)
-- v2.0i (1999-01-15) - Added lyrics display
+- v2.01i (1999-01-15) - Added lyrics display (the installer says "v2.0i"; the ROM's signature says v2.01i)
+- v2.06i (release date unknown) - the version disassembled here
 
-**Tasks:**
-1. Document separate update disk format
-2. Trace communication via PPI (0x160000)
-3. Identify Flash chips on expansion board
-4. Document version compatibility
+See [System Update Discs]({{ site.baseurl }}/system-update-discs/#update-handlers-by-type) (type 6, HD-AE5000).
 
 ### Homebrew Development
 
@@ -1753,10 +1497,7 @@ Understanding the update system enables:
 - Bug fixes for aging hardware
 - Preservation of update capability
 
-**Tools needed:**
-- Update file parser (extract/create update files)
-- Checksum calculator
-- Flash programmer emulation for testing
+See [Firmware Update Procedure]({{ site.baseurl }}/firmware-update-procedure/#creating-custom-update-discs) for creating custom update discs.
 
 ---
 
@@ -1808,19 +1549,12 @@ OFFSET_TABLE:
 
 ### Jump Table Statistics
 
-Analysis of indirect jump patterns in the main CPU ROM:
-
-| Pattern | Count | Status |
-|---------|-------|--------|
-| `JP T, XIX + WA` | 118 | 9 documented, 109 need naming |
-| `JP T, XIX + BC` | 54 | 4% documented |
-| `JP T, XIX + DE` | 56 | 4% documented |
-| `CALL T, XHL` | 103 | 5 labeled, 6 raw addresses |
-| `LDA XIX/XHL, 0E/0F*h` | 441 | Raw address loads |
+Every jump table in the KN5000 images is resolved: the disassembly's semantic score counts 2,259 of 2,259 KN5000 jump tables resolved (3,021 of 3,021 with the SX-WSA1R, where 11 tables are accepted as declared stale copies), from the dispatch census `docs/coverage/dispatch-census-2026-10-06-31` (`make dispatch-census`). [Dispatch Tables]({{ site.baseurl }}/dispatch-tables/) lists the main-CPU dispatch sites.
 
 **High-use indirect call tables (analyzed):**
 - 0xE9F11C (13 uses) - `PsMixer_ControlProcTable`: 11 code addresses, the mixer's control-type procedures `PsMixer_CtlTypeProc0`..`10`, called by `PsMixer_ControlHelper` with the paint message (September 2026; it was called EVENT_HANDLER_DISPATCH_TABLE)
-- 0xEA0A16 (12 uses) - SingleLoadDstHandlerTable (data transfer subsystem)
+- 0xEA0A16 (12 uses) - `SingleLoadDst_AreaListProcs` (data transfer subsystem)
+- 0xEA0212 (1 use) - `SaveAll_RegionRecs_HandlerCol` (save-all region-record handlers)
 
 ### FDC Memory Map
 
@@ -1845,20 +1579,20 @@ FDC handler routines access these RAM locations:
 
 The FDC subsystem uses a handler dispatch table at 0xF97D8D with 12 handlers. Full disassembly is documented in `docs/fdc_disassembly.md` in the roms-disasm repository.
 
-| Address | Name | Description |
-|---------|------|-------------|
-| 0xF96BBF | FDC_INIT | Basic FDC initialization |
-| 0xF96BD0 | FDC_CONFIG_VERIFY | Configuration/status verification |
-| 0xF96D95 | FDC_CMD_DISPATCH_SUB | Command handler subroutine |
-| 0xF97696 | FDC_STATUS_HANDLER | Status/interrupt handler |
-| 0xF976E4 | FDC_CMD_EXEC | Command execution handler |
-| 0xF97835 | FDC_SECTOR_XFER | Sector/data transfer handler |
-| 0xF97984 | FDC_MODE_CONFIG | Mode configuration (modes 0-5) |
-| 0xF97C21 | FDC_CMD_ENABLE | Command enable (sets bit 3 @ 0x28) |
-| 0xF97C4B | FDC_CMD_DISABLE | Command disable |
-| 0xF97C54 | FDC_STATUS_COPY | Copy cached status |
-| 0xF97C5B | FDC_OUTPUT_CTRL | Output control |
-| 0xF97C7C | FDC_INTERRUPT_HANDLER | Main interrupt handler |
+| Address  | Name                  | Description                        |
+|----------|-----------------------|------------------------------------|
+| 0xF96BBF | FDC_INIT              | Basic FDC initialization           |
+| 0xF96BD0 | FDC_CONFIG_VERIFY     | Configuration/status verification  |
+| 0xF96D95 | FDC_CMD_DISPATCH_SUB  | Command handler subroutine         |
+| 0xF97696 | FDC_CmdSeek           | Seek command                       |
+| 0xF976E4 | FDC_CMD_EXEC          | Command execution handler          |
+| 0xF97835 | FDC_SECTOR_XFER       | Sector/data transfer handler       |
+| 0xF97984 | FDC_MODE_CONFIG       | Mode configuration (modes 0-5)     |
+| 0xF97C21 | FDC_CMD_ENABLE        | Command enable (sets bit 3 @ 0x28) |
+| 0xF97C4B | FDC_CMD_DISABLE       | Command disable                    |
+| 0xF97C54 | FDC_STATUS_COPY       | Copy cached status                 |
+| 0xF97C5B | FDC_OUTPUT_CTRL       | Output control                     |
+| 0xF97C7C | FDC_INTERRUPT_HANDLER | Main interrupt handler             |
 
 **Handler dispatch** works by reading an index from 0x8A40 (0-11) and calling the corresponding routine through the dispatch table.
 
@@ -1866,14 +1600,14 @@ The FDC subsystem uses a handler dispatch table at 0xF97D8D with 12 handlers. Fu
 
 These helper routines support the main FDC handlers:
 
-| Address | Name | Size | Description |
-|---------|------|------|-------------|
-| 0xF97544 | FDC_DRIVE_DETECT | 78 bytes | 6-check drive detection (returns HL=0xFFFF if found) |
-| 0xF97592 | FDC_DRIVE_STATUS | 26 bytes | Quick 2-check status validation |
-| 0xF972F9 | FDC_SEND_COMMAND | 231 bytes | NEC uPD765 command protocol |
-| 0xF975DC | FDC_SET_TIMEOUT | 6 bytes | Set wait flag for timeout protection |
-| 0xF975E2 | FDC_WAIT_TIMEOUT | 48 bytes | Wait with 500ms timeout (error 0x09) |
-| 0xF97612 | SOME_DELAY | 32 bytes | Millisecond delay (WA/2 ms) |
+| Address  | Name             | Size      | Description                                          |
+|----------|------------------|-----------|------------------------------------------------------|
+| 0xF97544 | FDC_DRIVE_DETECT | 78 bytes  | 6-check drive detection (returns HL=0xFFFF if found) |
+| 0xF97592 | FDC_DRIVE_STATUS | 26 bytes  | Quick 2-check status validation                      |
+| 0xF972F9 | FDC_CMD_SEND     | 231 bytes | NEC uPD765 command protocol                          |
+| 0xF975DC | FDC_TIMING_DELAY | 6 bytes   | Set wait flag for timeout protection                 |
+| 0xF975E2 | FDC_POST_OP      | 48 bytes  | Wait with 500ms timeout (error 0x09)                 |
+| 0xF97612 | SOME_DELAY       | 32 bytes  | Millisecond delay (WA/2 ms)                          |
 
 **FDC_DRIVE_DETECT (0xF97544)** validates 6 conditions:
 1. (8A46h) == 0 - Status register 3 clear
@@ -1883,7 +1617,7 @@ These helper routines support the main FDC handlers:
 5. (8A10h) == 0xFFFF - Detection mode active
 6. (8A48h) == 2 or 0xFF - Valid drive response
 
-**FDC_SEND_COMMAND (0xF972F9)** implements the NEC uPD765 protocol:
+**FDC_CMD_SEND (0xF972F9)** implements the NEC uPD765 protocol:
 - Command byte structure: MT(7), MF(6), SK(5), Command(4-0)
 - Accesses FDC hardware at 0x110008 (status) and 0x11000A (data)
 - Handles: Seek, Recalibrate, Read/Write Data, Format Track, Sense Interrupt
@@ -1892,23 +1626,23 @@ These helper routines support the main FDC handlers:
 
 ### Known Jump Tables
 
-| Table | Address | Type | Entries | Purpose |
-|-------|---------|------|---------|---------|
-| `HANDLE_UPDATE_OFFSETS` | 0xE00178 | 16-bit offsets | 8 | Update file type dispatch |
-| `UI_STATE_MACHINE_TABLE` | 0xEF0D64 | 32-bit addresses | 3 | UI state machine (3 states) |
-| `UI_SUBSTATE_TABLE` | 0xEF0DA5 | 32-bit addresses | 16 | UI sub-state handler dispatch |
-| `SOUND_DATA_SECTION_PTRS` | 0xE023B0 | 32-bit addresses | 16 | Sound category data pointers |
-| `FDC_HANDLER_OFFSETS` | 0xEA98CA | 16-bit offsets | 12 | FDC command handler dispatch |
-| `FDC_HANDLER_DISPATCH_BASE` | 0xF97D8D | (base address) | 12 | FDC handler routines |
-| `SQTR_DISPATCH_TABLE_1` | 0xF20D37 | Inline code | 6 | Sequencer track handler (SqTrAsTtlFunc) |
-| `SQTR_DISPATCH_TABLE_2` | 0xF20D8E | Inline code | 6 | Sequencer track handler (SqTrAsTtlFunc) |
-| `APP_EVENT_HANDLER_TABLE` | 0xF44169 | Inline code | 32 | Application event delivery system |
-| `NOTE_EVENT_DISPATCH_1` | 0xF17155 | Inline code | 7 | Note event handler (BC index) |
-| `NOTE_EVENT_DISPATCH_2` | 0xF171C4 | Inline code | 7 | Note event handler (WA index) |
-| `UI_COMPONENT_DISPATCH` | 0xF1A7CB | Inline code | 8 | UI grid/focus component handler |
-| `RESOURCE_INFO_HANDLERS` | 0xF1EA4C | Inline code | 10 | Resource info retrieval (GetResouceInfo) |
-| `FDC_COMMAND_DISPATCHER` | 0xF96DB1 | Inline code | 12 | FDC command dispatcher |
-| `FDC_CMD_HANDLER_BASE` | 0xF96DD6 | (base address) | 12 | FDC command handler base |
+| Table                                   | Address  | Type             | Entries | Purpose                                  |
+|-----------------------------------------|----------|------------------|---------|------------------------------------------|
+| `HANDLE_UPDATE_OFFSETS`                 | 0xE00178 | 16-bit offsets   | 8       | Update file type dispatch                |
+| `UI_STATE_MACHINE_TABLE`                | 0xEF0D64 | 32-bit addresses | 3       | UI state machine (3 states)              |
+| `UI_SUBSTATE_TABLE`                     | 0xEF0DA5 | 32-bit addresses | 16      | UI sub-state handler dispatch            |
+| `SOUND_DATA_SECTION_PTRS`               | 0xE023B0 | 32-bit addresses | 16      | Sound category data pointers             |
+| `FDC_CommandEntry_CopyParams_CaseTable` | 0xEA98CA | 16-bit offsets   | 12      | FDC command handler dispatch             |
+| `FDC_HANDLER_DISPATCH_BASE`             | 0xF97D8D | (base address)   | 12      | FDC handler routines                     |
+| `SQTR_DISPATCH_TABLE_1`                 | 0xF20D37 | Inline code      | 6       | Sequencer track handler (SqTrAsTtlFunc)  |
+| `SQTR_DISPATCH_TABLE_2`                 | 0xF20D8E | Inline code      | 6       | Sequencer track handler (SqTrAsTtlFunc)  |
+| `APP_EVENT_HANDLER_TABLE`               | 0xF44169 | Inline code      | 32      | Application event delivery system        |
+| `NOTE_EVENT_DISPATCH_1`                 | 0xF17155 | Inline code      | 7       | Note event handler (BC index)            |
+| `NOTE_EVENT_DISPATCH_2`                 | 0xF171C4 | Inline code      | 7       | Note event handler (WA index)            |
+| `UI_COMPONENT_DISPATCH`                 | 0xF1A7CB | Inline code      | 8       | UI grid/focus component handler          |
+| `RESOURCE_INFO_HANDLERS`                | 0xF1EA4C | Inline code      | 10      | Resource info retrieval (GetResouceInfo) |
+| `FDC_COMMAND_DISPATCHER`                | 0xF96DB1 | Inline code      | 12      | FDC command dispatcher                   |
+| `FDC_CMD_HANDLER_BASE`                  | 0xF96DD6 | (base address)   | 12      | FDC command handler base                 |
 
 ### Handler Dispatch Example
 
@@ -1954,53 +1688,31 @@ UI_SUBSTATE_TABLE:
 
 ### Undocumented Jump Table Targets
 
-The FDC handler dispatch table (`FDC_HANDLER_OFFSETS` at 0xEA98CA) calls helper routines that are still raw bytes in the source. These routines handle floppy disk operations:
+The FDC handler dispatch table (`FDC_CommandEntry_CopyParams_CaseTable` at 0xEA98CA) calls these routines, all now disassembled:
 
-| Routine | Address | Status | Called By |
-|---------|---------|--------|-----------|
-| `FDC_STATUS_HANDLER` | 0xF97696 | Raw bytes | FDC_HANDLER_02 |
-| `FDC_CMD_EXEC` | 0xF976E4 | Raw bytes | FDC_HANDLER_03 |
-| `FDC_SECTOR_XFER` | 0xF97835 | Raw bytes | FDC_HANDLER_04 |
-| `FDC_CMD_ENABLE` | 0xF97C21 | Raw bytes | Multiple handlers |
-| `FDC_INTERRUPT_HANDLER` | 0xF97C7C | Raw bytes | FDC_HANDLER_11 |
-| `FDC_INIT` | 0xF96BBF | Raw bytes | FDC_InitSequence_Full |
-| `FDC_CONFIG_VERIFY` | 0xF96BD0 | Raw bytes | FDC_InitSequence_Full |
-| `FDC_MODE_CONFIG` | 0xF97984 | Raw bytes | FDC_HANDLER_05 |
-| `FDC_CMD_DISABLE` | 0xF97C4B | Raw bytes | FDC_HANDLER_07 |
-| `FDC_STATUS_COPY` | 0xF97C54 | Raw bytes | FDC_HANDLER_08 |
-| `FDC_OUTPUT_CTRL` | 0xF97C5B | Raw bytes | FDC_HANDLER_09 |
-| `FDC_CMD_DISPATCH_SUB` | 0xF96D95 | Raw bytes | FDC_HANDLER_10 |
+| Routine                 | Address  | Status       | Called By             |
+|-------------------------|----------|--------------|-----------------------|
+| `FDC_CmdSeek`           | 0xF97696 | Disassembled | FDC_HANDLER_02        |
+| `FDC_CMD_EXEC`          | 0xF976E4 | Disassembled | FDC_HANDLER_03        |
+| `FDC_SECTOR_XFER`       | 0xF97835 | Disassembled | FDC_HANDLER_04        |
+| `FDC_CMD_ENABLE`        | 0xF97C21 | Disassembled | Multiple handlers     |
+| `FDC_INTERRUPT_HANDLER` | 0xF97C7C | Disassembled | FDC_HANDLER_11        |
+| `FDC_INIT`              | 0xF96BBF | Disassembled | FDC_InitSequence_Full |
+| `FDC_CONFIG_VERIFY`     | 0xF96BD0 | Disassembled | FDC_InitSequence_Full |
+| `FDC_MODE_CONFIG`       | 0xF97984 | Disassembled | FDC_HANDLER_05        |
+| `FDC_CMD_DISABLE`       | 0xF97C4B | Disassembled | FDC_HANDLER_07        |
+| `FDC_STATUS_COPY`       | 0xF97C54 | Disassembled | FDC_HANDLER_08        |
+| `FDC_OUTPUT_CTRL`       | 0xF97C5B | Disassembled | FDC_HANDLER_09        |
+| `FDC_CMD_DISPATCH_SUB`  | 0xF96D95 | Disassembled | FDC_HANDLER_10        |
 
-These routines are in the `FDC_CmdRecalibrate` (formerly `FDC_SeekRecalibrate`) raw byte block (lines 336862-336929).
+All of them are code in `v10/maincpu/storage/fdc_routines.s`, which holds no `.byte` lines. See [FDC Subsystem]({{ site.baseurl }}/fdc-subsystem/).
 
 ### Finding Jump Tables
 
 To find undocumented jump tables:
 
-1. Search for indirect jumps: `grep -E "JP T, X|CALL T, X"`
-2. Look for raw address loads before jumps: `LDA XIX, 0E*h` or `LDA XHL, 0F*h`
-3. Trace back to find table definitions (`dd LABEL_*` or `dw offset`)
-4. Verify all table targets are disassembled
-
-### Jump Table Analysis Statistics
-
-Analysis of indirect jump patterns in the main CPU ROM reveals the scale of dispatch mechanisms used:
-
-| Pattern | Count | Status |
-|---------|-------|--------|
-| `JP T, XIX + WA` | 118 | 9 documented, 109 need naming |
-| `JP T, XIX + BC` | 54 | 4% documented |
-| `JP T, XIX + DE` | 56 | 4% documented |
-| `CALL T, XHL` | 103 | 5 labeled, 6 raw addresses |
-| `LDA XIX/XHL, 0E/0F*h` | 441 | Raw address loads for tables |
-
-**High-Use Indirect Call Tables (Analyzed):**
-
-| Address | Uses | Purpose |
-|---------|------|---------|
-| 0xE9F11C | 13 | `PsMixer_ControlProcTable`: the 11 mixer control-type procedures `PsMixer_CtlTypeProc0`..`10` (was read as EVENT_HANDLER_DISPATCH_TABLE) |
-| 0xEA0A16 | 12 | SingleLoadDstHandlerTable (data transfer subsystem) |
-| 0xEA0212 | 1 | Resource loader dispatch |
+1. Run `make dispatch-census` in the disassembly repository; it lists every table found, whether each is used, and any target that is unlabelled, mid-instruction or still data (see `docs/coverage/README.md`).
+2. To search by hand, indirect jumps are spelled `jp t, (xix+wa)` / `call (xhl)` in the LLVM sources.
 
 ---
 
@@ -2035,17 +1747,11 @@ The sequencer track system uses dedicated dispatch tables:
 
 ### Resource System
 
-**GetResouceInfo (0xF1EA4C):**
+**GetResouceInfo (0xF1EA30; handler table `RESOURCE_INFO_HANDLERS` at 0xF1EA4C):**
 - 10-entry dispatch table for resource information retrieval
 - Handles font metrics, character widths, and string dimensions
 
-**Known lookup tables:**
-
-| Address | Register | Purpose |
-|---------|----------|---------|
-| 0xE0CB1A | XHL | Character lookup table |
-| 0xE46312 | XHL | Character/font metrics |
-| 0xE161E4-0xE16244 | XHL | String width tables |
+Font metrics and character tables are documented on [Display Subsystem]({{ site.baseurl }}/display-subsystem/#font-helper-functions).
 
 ### UI State Machine
 
@@ -2083,19 +1789,19 @@ A comprehensive analysis identified 200+ labels across 14 assembly files that ne
 
 ### Completed Renames
 
-**150+ labels renamed across 22 files** using sed scripts in `scripts/rename_labels/`:
+**150+ labels renamed across 22 files** using sed scripts in `scripts/renaming/`:
 
-| File | Renames | Examples |
-|------|---------|----------|
-| demo_routines.asm | 23 | `DemoStyle_InputHandler`, `DemoRhythm_DispatchTable` |
-| sysex_routines.asm | 15 | `ExcSendFunc_InvalidParam_Exit`, `ExcDotFunc_HandlerJumpTable` |
-| midi_serial_routines.asm | 15 | `MIDI_RX_BYTE_DISPATCHER`, `MIDI_CHANNEL_HANDLER_JUMP_TABLE` |
-| cpanel_routines.asm | 16 | `CPanel_InterruptPoll_MainLoop`, `CPanel_PanelDetection` |
-| fdc_routines.asm | 15 | `FDC_Setup_DMA_Write_Mode`, `FDC_Exception_Status_Decoder` |
-| subcpu_boot.asm | 15 | `TONE_GEN_CHANNEL_INIT`, `DEBUG_OUTPUT_BYTE_HEX` |
-| subcpu_payload.asm | 20 | `Audio_DMA_RingBuffer_To_Maincpu`, `Voice_EnvelopeRate_Lookup` |
-| hdae5000.asm | 22 | `HDAE5000_SongRecord_Address` (then `HDAE5000_Calculate_Row_Address`), `HDAE5000_PPORT_Cmd12_Nothing` (then `HDAE5000_PPORT_Cmd_LoadHDtoMemory`) |
-| file_io/*.asm | 20 | `SelectPasswordMode`, `DisplaySmfFileList` |
+| File                     | Renames | Examples                                                                                                                                         |
+|--------------------------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| demo_routines.asm        | 23      | `DemoStyle_InputHandler`, `DemoRhythm_DispatchTable`                                                                                             |
+| sysex_routines.asm       | 15      | `ExcSendFunc_InvalidParam_Exit`, `ExcDotFunc_HandlerJumpTable`                                                                                   |
+| midi_serial_routines.asm | 15      | `MIDI_RX_BYTE_DISPATCHER`, `MIDI_CHANNEL_HANDLER_JUMP_TABLE`                                                                                     |
+| cpanel_routines.asm      | 16      | `CPanel_InterruptPoll_MainLoop`, `CPanel_PanelDetection`                                                                                         |
+| fdc_routines.asm         | 15      | `FDC_Setup_DMA_Write_Mode`, `FDC_Exception_Status_Decoder`                                                                                       |
+| subcpu_boot.asm          | 15      | `TONE_GEN_CHANNEL_INIT`, `DEBUG_OUTPUT_BYTE_HEX`                                                                                                 |
+| subcpu_payload.asm       | 20      | `Audio_DMA_RingBuffer_To_Maincpu`, `Voice_Pool_Quota_ModeB`                                                                                      |
+| hdae5000.asm             | 22      | `HDAE5000_SongRecord_Address` (then `HDAE5000_Calculate_Row_Address`), `HDAE5000_PPORT_Cmd12_Nothing` (then `HDAE5000_PPORT_Cmd_LoadHDtoMemory`) |
+| file_io/*.asm            | 20      | `SelectPasswordMode`, `DisplaySmfFileList`                                                                                                       |
 
 ### Naming Conventions
 
@@ -2107,15 +1813,9 @@ A comprehensive analysis identified 200+ labels across 14 assembly files that ne
 | Error Handlers | *_Error, *_Invalid | `FDC_WaitReady_TimeoutCheck` |
 | Data Tables | *_Table | `Voice_PolyphonyLimits_Table` |
 
-### High-Priority Renames (Pending)
+### Where naming stands
 
-| File | Count | Key Labels |
-|------|-------|------------|
-| maincpu main | 30 | `InitSystemRAM_ReleaseMemoryLock`, `FormatString_PrintfLike` |
-| subcpu payload | 20 | `Audio_DMA_RingBuffer_To_Maincpu`, `Voice_EnvelopeRate_Lookup` |
-| midi_serial_routines | 15 | `MIDI_RX_BYTE_DISPATCHER`, `MIDI_QUEUE_EVENT_TO_SEQUENCER` |
-| fdc_routines | 15 | `FDC_Setup_DMA_Write_Mode`, `FDC_Exception_Status_Decoder` |
-| cpanel_routines | 15 | `CPanel_InterruptPoll_MainLoop`, `CPanel_PanelDetection` |
+The rename list above is history. At disassembly `3417969c0` the symbol files have no `LABEL_` placeholders, and v10 has 53,108 semantic names against 638 positional ones (98.8 %). The labels once listed here as pending exist, some under the names the code review settled on: `Boot_HandleFactoryReset` (0xEF07F3), `Sprintf_Core` (0xFF1048) and `Voice_Pool_Quota_ModeB` (0x00F519). The disassembly's `make semantic-score` measures what is left.
 
 ---
 
