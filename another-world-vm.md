@@ -56,15 +56,15 @@ Four 320x200 game pages (64,000 bytes each, one per 64 KB slot) support double-b
 
 **Maincpu target** (standalone ROM):
 
-| Address  | Size  | Contents                            |
-|----------|-------|-------------------------------------|
-| 0x010000 | 64 KB | VM variables, thread data, stack    |
-| 0x020000 | 64 KB | Page buffer 0                       |
-| 0x030000 | 64 KB | Page buffer 1                       |
-| 0x040000 | 64 KB | Page buffer 2                       |
-| 0x050000 | 64 KB | Page buffer 3                       |
-| 0x060000 | —     | Offscreen buffer (used by vga_init) |
-| 0xE00000 | 2 MB  | Program ROM (code + game resources) |
+| Address  | Size  | Contents                                                                           |
+|----------|-------|------------------------------------------------------------------------------------|
+| 0x010000 | 64 KB | VM variables, thread data (the stack grows down from `0x001000`, below this block) |
+| 0x020000 | 64 KB | Page buffer 0                                                                      |
+| 0x030000 | 64 KB | Page buffer 1                                                                      |
+| 0x040000 | 64 KB | Page buffer 2                                                                      |
+| 0x050000 | 64 KB | Page buffer 3                                                                      |
+| 0x060000 | —     | Offscreen buffer (used by vga_init)                                                |
+| 0xE00000 | 2 MB  | Program ROM (code + game resources)                                                |
 
 **Extension target** (HDAE5000 slot):
 

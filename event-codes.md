@@ -18,9 +18,7 @@ The KN5000 firmware uses a **hierarchical event dispatch system** to communicate
 > were renamed to those names (for example `EVT_IDENTITY` is `EVT_GET_CLASS_SP` = MT_GetClassSp,
 > `EVT_MENU_OPEN` is `EVT_SHOW` = EV_SHOW), and the rows below now carry the corrected meanings.
 > The full catalog -- 725 named codes and object ids, each with handler and sender evidence -- is
-> `notes/event-codes-2026-10-02/catalog.json` in the disassembly repository. Some of this page's
-> framing ("0x01E0 = lifecycle", "0x01E4 = widget responses") is superseded by it and awaits a
-> rewrite.
+> `notes/event-codes-2026-10-02/catalog.json` in the disassembly repository.
 
 ## Event Code Format
 
@@ -35,11 +33,12 @@ Event codes are 32-bit values with a structured layout:
 The prefix gives the code's family. Every code takes the same `SendEvent` path (see
 [Dispatch Architecture](#dispatch-architecture)):
 
-| Prefix   | Category            | Description                                |
-|----------|---------------------|--------------------------------------------|
-| `0x01E0` | Lifecycle / Object  | Object lifecycle, getters, activation      |
-| `0x01C0` | Request / Action    | Button presses, UI actions, initialization |
-| `0x01E4` | Grid/Check Response | Widget state query responses               |
+| Prefix   | Category        | Description                                                                                                             |
+|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------|
+| `0x01E0` | Method (`MT_*`) | Entry nn of the root module's ResMethod table (object table 0x1E0): class, object and property queries, `MT_SetVisible` |
+| `0x01C0` | Event (`EV_*`)  | Entry nn of the root module's ResEvent table (object table 0x1C0): switch presses, drawing, mode and title requests     |
+| `0x01E4` | Method (`MT_*`) | Entry nn of module 4 (Suna)'s ResMethod table (object table 0x1E4), e.g. the composer-set grid methods                  |
+| `0x01CA` | Event (`EV_*`)  | Entry nn of the HD-AE5000's (module 0x0A) ResEvent table (object table 0x1CA)                                           |
 
 ## Dispatch Architecture
 
@@ -189,9 +188,9 @@ constant queries about one bitmap:
 
 See [HDAE5000 — Embedded Graphics]({{ site.baseurl }}/hdae5000/#embedded-graphics-rewritten) for the six descriptors and the bitmaps they describe.
 
-### Grid/Check Widget Events (0x01E4xxxx)
+### Composer-Set Grid Methods (0x01E4xxxx)
 
-Used by the UI widget system for checkbox and grid controls:
+Entries of module 4 (Suna)'s ResMethod table, object table 0x1E4. These four drive the composer-set grid:
 
 | Code         | Name          | Description                                                                                                                                            |
 |--------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -392,7 +391,7 @@ void My_Handler(uint32_t object_id, uint32_t event_code, uint32_t param) {
 }
 ```
 
-Assembly implementation (TLCS-900, from the Mines project):
+Assembly implementation (TLCS-900, simplified from `Mines_Handler` in the Mines project's `platforms/kn5000/startup.s`; the real handler also returns at once, without delegating, while `GAME_ACTIVE` is set, and saves and sets bit 3 of `0x0D53` when it activates):
 
 ```asm
 Mines_Handler:

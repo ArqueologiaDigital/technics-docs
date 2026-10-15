@@ -99,7 +99,7 @@ make ORIGINAL_ROMS=/path/to/roms/kn5000 ROMSET_BASE=/path/to/custom-roms/another
      DISASM_REPO=/path/to/kn5000-roms-disasm ASL_PATH=/path/to/asl
 ```
 
-This builds a custom main CPU ROM with the game replacing the firmware, and assembles a complete MAME ROM set.
+This builds a custom main CPU ROM with the game replacing the firmware, and assembles a MAME ROM set. The Makefile copies `kn5000_subprogram_v142.rom`, but MAME's kn5000 loads the compressed sub-CPU payload `kn5000_subprogram_v142_compressed.rom`, so copy that file from your ROM dumps into `ROMSET_BASE/kn5000/` yourself.
 
 ### Run
 
@@ -131,14 +131,15 @@ See: [HDAE5000 Homebrew Development]({{ site.baseurl }}/hdae5000-homebrew/)
 
 ### Prerequisites
 
-- [LLVM with TLCS-900 backend](https://github.com/felipesanches/llvm-project/tree/tlcs900_backend) (provides `clang`, `ld.lld`, `llvm-mc`, `llvm-objcopy`)
+- [LLVM with TLCS-900 backend](https://github.com/felipesanches/llvm-project/tree/tlcs900_backend) (`clang`, `llc`, `llvm-link`, `ld.lld`, `llvm-objcopy`)
+- Python 3 (`tools/generate_tiles.py` makes the tiles and palette; `tools/patch_icon.py` adds the mine icon to the ROM set's table-data ROMs)
 
 ### Build
 
 ```bash
 git clone -b kn5000_port https://github.com/ArqueologiaDigital/Mines.git
 cd Mines/platforms/kn5000
-make
+make LLVM_BIN=/path/to/llvm-project/build/bin ORIGINAL_ROMS=/path/to/roms/kn5000 ROMSET_BASE=/path/to/mines/romset
 ```
 
 ### Run
@@ -212,25 +213,33 @@ After the firmware boots and the DISK MENU loads the App Loader:
 
 ## Controls Reference
 
-The KN5000 has no joystick or D-pad — games use the soft buttons along the edges of the LCD screen. In MAME, these map to keyboard keys.
+The KN5000 has no joystick or D-pad. The games use panel buttons instead: PART SELECT's `RIGHT 2` and the CONDUCTOR buttons for directions, VARIATION 1 and 4 as action buttons, and `EXIT`; Another World also reads `HELP` and `OTHER PARTS/TR` (see [Another World — Input System]({{ site.baseurl }}/another-world-vm/#input-system) and [HDAE5000 Homebrew — Button Mapping]({{ site.baseurl }}/hdae5000-homebrew/#button-mapping)). The LCD soft keys select menu items, such as the DISK MENU entry that starts Mines. In MAME, these map to keyboard keys.
 
 To see or change key bindings, press **Tab** in MAME and go to **Input (This Machine)**. The
-soft keys are listed there under these exact names, on these ports:
+keys are listed there under these exact names, on these ports:
 
-| Name in MAME | Port · mask |
-|---|---|
-| `LEFT 1` | `CPL_SEG10` `0x02` |
-| `LEFT 2` | `CPL_SEG10` `0x01` |
-| `LEFT 3` | `CPL_SEG9` `0x04` |
-| `LEFT 4` | `CPL_SEG9` `0x02` |
-| `LEFT 5` | `CPL_SEG9` `0x01` |
-| `RIGHT 1` | `CPL_SEG8` `0x04` |
-| `RIGHT 2` | `CPL_SEG8` `0x02` |
-| `RIGHT 3` | `CPL_SEG8` `0x01` |
-| `RIGHT 4` | `CPL_SEG7` `0x02` |
-| `RIGHT 5` | `CPL_SEG7` `0x01` |
-| `EXIT` | `CPL_SEG7` `0x08` |
-| `MENU: DISK` | `CPR_SEG10` `0x20` |
+| Name in MAME            | Port · mask        |
+|-------------------------|--------------------|
+| `LEFT 1`                | `CPL_SEG10` `0x02` |
+| `LEFT 2`                | `CPL_SEG10` `0x01` |
+| `LEFT 3`                | `CPL_SEG9` `0x04`  |
+| `LEFT 4`                | `CPL_SEG9` `0x02`  |
+| `LEFT 5`                | `CPL_SEG9` `0x01`  |
+| `RIGHT 1`               | `CPL_SEG8` `0x04`  |
+| `RIGHT 2`               | `CPL_SEG8` `0x02`  |
+| `RIGHT 3`               | `CPL_SEG8` `0x01`  |
+| `RIGHT 4`               | `CPL_SEG7` `0x02`  |
+| `RIGHT 5`               | `CPL_SEG7` `0x01`  |
+| `EXIT`                  | `CPL_SEG7` `0x08`  |
+| `MENU: DISK`            | `CPR_SEG10` `0x20` |
+| `RIGHT 2` (PART SELECT) | `CPR_SEG4` `0x02`  |
+| `CONDUCTOR: LEFT`       | `CPR_SEG4` `0x10`  |
+| `CONDUCTOR: RIGHT 2`    | `CPR_SEG4` `0x20`  |
+| `CONDUCTOR: RIGHT 1`    | `CPR_SEG4` `0x40`  |
+| `VARIATION 1`           | `CPL_SEG4` `0x01`  |
+| `VARIATION 4`           | `CPL_SEG4` `0x08`  |
+| `HELP`                  | `CPL_SEG10` `0x04` |
+| `OTHER PARTS/TR`        | `CPL_SEG10` `0x08` |
 
 None of these has a default key assignment, so assign the ones you need before playing.
 
@@ -240,7 +249,7 @@ None of these has a default key assignment, so assign the ones you need before p
 
 ### "THIS SYSTEM DOESN'T WORK" warning
 
-This is normal — the KN5000 driver is still in development. The warning is skipped automatically with `-skip_gameinfo` combined with `-seconds_to_run N` (where N < 300). For interactive use, just press any key to dismiss it.
+This is normal — the KN5000 driver is still in development. MAME skips the warning when `-seconds_to_run N` is given with N ≤ 300, or with `-video none`; `-skip_gameinfo` alone does not skip it. For interactive use, just press any key to dismiss it.
 
 ### No sound
 

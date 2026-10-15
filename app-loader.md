@@ -449,8 +449,10 @@ mem:write_u8(0x200000, 1)
 
 ### Menu Navigation
 
-The loader reads the panel's raw scan bytes, so the keys it watches are named after their
-matrix position rather than after the function they serve here:
+The loader reads the button-state arrays the firmware keeps per panel segment (right panel
+`0x8E4A`, left `0x8E5A`; see [Control Panel Input]({{ site.baseurl }}/hdae5000-homebrew/#control-panel-input)),
+so the keys it watches are named after their matrix position rather than after the function
+they serve here:
 
 | Bit read by the loader | Panel button in MAME | Action |
 |---|---|---|

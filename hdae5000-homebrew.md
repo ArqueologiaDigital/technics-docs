@@ -508,7 +508,7 @@ The original HDAE5000 firmware performs extensive setup during Boot_Init before 
 2. **Copy init data** -- 3,202 bytes from ROM `0x2F94B2` to RAM `0x23952A`
 3. **Register 11 object tables and one title** -- via `workspace[0x0E0A][0x00E4]` (`RegisterObjectTable`) and `workspace[0x0E0A][0x0270]` (`RegisterTitle`)
 4. **Load VGA palette** -- 256 entries from ROM
-5. **Allocate DRAM and copy VRAM** -- 76,800 bytes to display areas
+5. **Draw the boot splash** -- copy the 320 × 240 bitmap at ROM `0x2E61CE` (76,800 bytes) into VRAM at `0x1A0000`. The `HDAE5000_Alloc_Memory` call before it allocates nothing: it asks the splash's resource descriptor for that ROM address (`EVT_GET_BITMAP_DATA`).
 6. *Then* **call `workspace[0x0E0A][0x02C4]`** (`GetViewInstance`) for view object `0x00600002`, the DISK MENU's expansion item
 7. **Set that record's fields** -- `+0x00` = class id `0x016A0005`, `+0x2A` = display name string (see [below](#disk-menu-slot-registration-workspace0x0e0a0x02c4))
 
@@ -741,12 +741,14 @@ After registering its tables, Boot_Init calls `workspace[0x0E0A][0x02C4]` with
 returns XHL = the instance record of view object `0x00600002`, which is entry 2
 of Viewable table 0x60. The HD-AE5000 then writes two fields of that record:
 
-| Offset | Size | Value (HDAE5000) | Value (Mines) | Field (class `AcTitleMenu`) |
-|--------|------|-------------------|---------------|-------------|
-| +0x00 | 4 | `0x016A0005` | `0x016A0000` | `class`: the record's class id |
-| +0x2A | 4 | `0x2F8DCE` → "HD-AE5000" | MENU_NAME → "Mines Game" | `str`: the item's text |
-| +0x2E | 4 | *(left as is: `0x01A0007F`)* | — | `title`: the title the item opens |
-| +0x32 | 4 | *(left as is: `0x83`)* | 176 | `icon` |
+| Offset | Size | Value (HDAE5000)             | Value (Mines)            | Field (class `AcTitleMenu`)       |
+|--------|------|------------------------------|--------------------------|-----------------------------------|
+| +0x00  | 4    | `0x016A0005`                 | `0x016A0005`             | `class`: the record's class id    |
+| +0x2A  | 4    | `0x2F8DCE` → "HD-AE5000"     | MENU_NAME → "Mines Game" | `str`: the item's text            |
+| +0x2E  | 4    | *(left as is: `0x01A0007F`)* | —                        | `title`: the title the item opens |
+| +0x32  | 4    | *(left as is: `0x83`)*       | 176                      | `icon`                            |
+
+Icon 176 is not in the stock firmware: the icon table at `0x938000` in the table-data ROMs holds entries 0-175 and then a terminator (`table_data/kn5000_table_data.s` in the disassembly). The Mines build's `romset` target runs `tools/patch_icon.py`, which writes a 24 × 24 icon as entry 176 into the ROM set's table-data ROMs (`ic3`/`ic1`), so the custom icon needs those patched ROMs as well as the extension ROM.
 
 **What the record is.** Viewable table 0x60 is registered by `InitializeCheap`
 (`RegObjTabl NAKA_CLASS_Viewable, ViewableProc, 0x4a, Cheap_ViewableTable_060, 0x60`, table at 0xEA67B6, in
@@ -792,22 +794,25 @@ Understanding how the firmware manages the LCD display is critical for any homeb
 
 ### Firmware Display Architecture
 
-The KN5000 display is **NOT driven by a vertical blank interrupt (VBI)**. Instead, display updates happen in the firmware's main event loop at `MainLoop`:
+The KN5000 display is **NOT driven by a vertical blank interrupt (VBI)**. The firmware's drawing routines draw into an off-screen buffer, and `UpdateScreen` (0xFAA61D) copies only the changed rectangle to VRAM (see [Display Subsystem — Drawing Primitives]({{ site.baseurl }}/display-subsystem/#drawing-primitives)). That copy always runs in the draw task, `DrawTask_Main` (kernel task 5): called from any other task, `UpdateScreen` posts it to the draw ring. Its callers include the UI task's loop `MainTitle_EventLoop` (task 4), and `MainLoop` does not call it directly, so `MainLoop`'s order does not decide when the firmware writes VRAM. What `MainLoop` does fix is that the extension's `Frame_Handler` runs last in each pass:
 
 ```
 Main Event Loop (MainLoop)
     |
-    +-- Control Panel Poll
-    +-- Display Update         <-- firmware draws its UI here
-    +-- MIDI Processing
-    +-- FDC Handler
-    +-- Frame_Handler call     <-- extension ROM runs AFTER firmware drawing
-    +-- Audio Sync
+    +-- MIDI output; timer-gated: CPanel_RX_ProcessOrInit (panel packets -> button arrays)
+    +-- Sequencer and MIDI ticks (several, some timer-gated)
+    +-- PanelButton_ProcessChanges    (dispatch the queued panel changes)
+    +-- MainTitle_PrepareAndDispatch  (MainDispatchEvent: the MainPostEvent queue)
+    +-- timer-gated: MIDI, CPanel_Poll, effect and demo timers
+    +-- Sequencer ticks, SqStep_MainTimerTick
+    +-- Display_DirtyRegionDispatch   (step-record screen only, while 0x0D53 bit 3 is set)
+    +-- AccompSeq_PeriodicEntry
+    +-- Xapr_CallFrameHandler         <-- calls the extension ROM's Frame_Handler (0x280010), last
     |
     (loop)
 ```
 
-**Key implication:** The Frame_Handler is called **after** the firmware has already drawn its screen content. Any VRAM writes made by the extension ROM will be visible briefly, then overwritten by the firmware on the next loop iteration.
+**Key implication:** the firmware does not repaint the screen on every pass. What an extension ROM writes to VRAM stays there until the firmware next copies a changed region over it. How often that happens while a game runs has not been measured.
 
 ### Step-Record Display Flag (0x0D53, bit 3)
 
@@ -815,12 +820,12 @@ Address `0x0D53` is a firmware flag byte in the main work DRAM (above the CPU's 
 
 #### Firmware mechanism
 
-The firmware tests this bit at eight places (five in `display/scoop_display.s`, three in `sequencer/accompaniment_engine.s`). The main loop's display update gate is one of them:
+The firmware tests this bit at eight places (five in `display/scoop_display.s`, three in `sequencer/accompaniment_engine.s`). One of them is `Display_DirtyRegionDispatch` (0xEF77DF), which the main loop calls and which runs the step-record screen's dirty-region update only while the bit is set:
 
 ```asm
-; At 0xEF77DF — main display update gate:
+; At 0xEF77DF (Display_DirtyRegionDispatch):
 BIT 3, (0D53h)
-JRL Z, skip               ; If bit 3 CLEAR, skip display update entirely
+JRL Z, skip               ; If bit 3 CLEAR, skip the step-record update
 CALL Display_ResetDirtyFlags
 ; ... dispatches to display handler based on state in (0D65h) ...
 CALL Display_UpdateDirtyRegions
@@ -832,7 +837,7 @@ The dispatch indexes the step-record display mode at `0x0D65`.
 
 #### When is it needed?
 
-In practice, Mines sets bit 3 when the game is activated and writes the saved byte back when it exits (Mines `platforms/kn5000/startup.s`, since commit b865da2). The App Loader does the same. Given the polarity above, doing so is not known to stop the firmware's drawing, and what it changes on screen has not been measured. What both programs rely on is timing. The firmware's display work runs earlier in each main-loop pass, and then `Frame_Handler` runs and the game redraws its screen over it. There is no VBI-driven refresh.
+In practice, Mines sets bit 3 when the game is activated and writes the saved byte back when it exits (Mines `platforms/kn5000/startup.s`, since commit b865da2). The App Loader does the same. Given the polarity above, doing so is not known to stop the firmware's drawing, and what it changes on screen has not been measured. `Frame_Handler` runs last in each main-loop pass. Mines redraws its whole board there on every call (`idle_update` in Mines `platforms/kn5000/video.c`), over whatever the firmware has copied to VRAM since. The App Loader draws its menu once and then redraws only the rows whose selection changes, so anything the firmware copies over the menu stays until the next change. There is no VBI-driven refresh.
 
 ### VGA Controller Details
 
@@ -914,18 +919,18 @@ The firmware implements an **object-oriented dispatch system** that manages all 
 
 The main CPU firmware symbol table reveals the real names for these functions:
 
-| Address | Symbol Name | Previous Name | Purpose |
-|---------|-------------|---------------|---------|
-| 0xFA9660 | **SendEvent** | "FA9660" | Main event dispatch entry point |
-| 0xFA44E2 | **ClassProc** | "Layer 1 handler" | UI event handler (shared by all DISK MENU modules) |
-| 0xFA3D85 | **ObjectProc** | "Layer 2 dispatch" | Object lifecycle event handler |
-| 0xFA4409 | **InheritedProc** | "Layer 3 chain dispatch" | Handler chain traversal |
-| 0xFA42FB | **RegisterObjectTable** | "workspace[0x0E0A][0x00E4]" | Register handler in object table |
-| 0xFA431A | **RegisterObject** | (unnamed) | Register individual object entry |
-| 0xFA43B3 | **UnRegisterObject** | (unnamed) | Remove object entry |
-| 0xFA9752 | **PostEvent** | (was confused with `ApPostEvent`) | Queue event for asynchronous dispatch (`workspace[0x0E0A][0x0104]`) |
-| 0xFA9D58 | **ApPostEvent** | "Display callback" | Queue event into the same ring; yields while the queue is full (`workspace[0x0E0A][0x0124]`) |
-| 0xFA9868 | **DeleteEvent** | (unnamed) | Remove queued events matching an object and event (`workspace[0x0E0A][0x0534]`) |
+| Address  | Symbol Name             | Previous Name                     | Purpose                                                                                      |
+|----------|-------------------------|-----------------------------------|----------------------------------------------------------------------------------------------|
+| 0xFA9660 | **SendEvent**           | "FA9660"                          | Main event dispatch entry point                                                              |
+| 0xFA44E2 | **ClassProc**           | "Layer 1 handler"                 | UI event handler (shared by all DISK MENU modules)                                           |
+| 0xFA3D85 | **ObjectProc**          | "Layer 2 dispatch"                | Proc of the root class `Object`: object methods 0x01E00010-0x01E00023                        |
+| 0xFA4409 | **InheritedProc**       | "Layer 3 chain dispatch"          | Runs the parent class's proc (class record +0x04)                                            |
+| 0xFA42FB | **RegisterObjectTable** | "workspace[0x0E0A][0x00E4]"       | Register handler in object table                                                             |
+| 0xFA431A | **RegisterObject**      | (unnamed)                         | Register individual object entry                                                             |
+| 0xFA43B3 | **UnRegisterObject**    | (unnamed)                         | Remove object entry                                                                          |
+| 0xFA9752 | **PostEvent**           | (was confused with `ApPostEvent`) | Queue event for asynchronous dispatch (`workspace[0x0E0A][0x0104]`)                          |
+| 0xFA9D58 | **ApPostEvent**         | "Display callback"                | Queue event into the same ring; yields while the queue is full (`workspace[0x0E0A][0x0124]`) |
+| 0xFA9868 | **DeleteEvent**         | (unnamed)                         | Remove queued events matching an object and event (`workspace[0x0E0A][0x0534]`)              |
 
 ### Architecture Overview
 
@@ -1035,26 +1040,26 @@ ClassProc (0xFA44E2): UI event handler
   ├── 0x01E00015: MT_GetName (record+12 for a class, via ClassProc_Event_LoadFromOffset)
   └── Default (including 0x01E0009C): → ObjectProc
                                          │
-ObjectProc (0xFA3D85): Lifecycle events
+ObjectProc (0xFA3D85): object methods (the proc of the root class Object)
   ├── Allocates 0x90 bytes stack frame
   ├── Extracts handler index, looks up data records
   ├── Calls handler identity query first
   ├── 0x01E00010-0x01E00023: 20 cases via jump table at 0xEAA8A4
-  │   (setters, init/teardown, string operations)
+  │   (class, name and property queries, MT_AutoFree; see Event Codes)
   └── Out of range (including 0x01E0009C): → InheritedProc
                                                │
-InheritedProc (0xFA4409): Handler chain traversal
-  ├── Read current target identity from 0x02BC14
+InheritedProc (0xFA4409): run the parent class's proc
+  ├── Read the current class id from 0x02BC14
   ├── Extract handler_index and sub_index
-  ├── Look up data record table for current handler
-  ├── Read "next" handler ID from record[sub_index * 24 + 0x04]
-  ├── If next ≠ 0xFFFFFFFF:
-  │     Set 0x02BC14 = next handler ID
-  │     Look up next handler's record table
-  │     Call next handler's implementation function
+  ├── Look up the class table for that handler
+  ├── Read the parent class id from record[sub_index * 24 + 0x04] (the class's parent)
+  ├── If parent ≠ 0xFFFFFFFF:
+  │     Set 0x02BC14 = parent class id
+  │     Look up the parent's class record
+  │     Call the parent's proc (record +0x00)
   │     Restore 0x02BC14 to original value
   │     Return result
-  └── If next = 0xFFFFFFFF: return 0
+  └── If parent = 0xFFFFFFFF: return 0
 ```
 
 ### HDAE5000 Handler Behavior (Record 5: "HDTitleMenu")
@@ -1137,17 +1142,17 @@ The firmware initializes the object table at startup via `InitializeObjectTable`
 1. Clears all 1,120 entries in the object table (14 bytes each)
 2. Initializes internal dispatch tables (0x0328FC and 0x032ABC)
 3. Registers built-in system handlers (IDs 0x0260, 0x0180, 0x01A0, 0x0000-0x00FF, 0x0300-0x03FF)
-4. Calls 31 `Initialize*` functions (one per built-in module): `InitializeMurai`, `InitializeToshi`, `InitializeEast`, `InitializeSuna`, `InitializeCheap`, `InitializeScoop`, `InitializeYoko`, `InitializeKubo`, `InitializeHama`, `InitializeKSS`, `InitializeNaka`, and `InitializeUser12`-`InitializeUser31`
+4. Calls 32 `Initialize*` functions, one per module: `InitializeMurai`, `InitializeToshi`, `InitializeEast`, `InitializeSuna`, `InitializeCheap`, `InitializeScoop`, `InitializeYoko`, `InitializeKubo`, `InitializeHama`, `InitializeKSS`, `InitializeNaka`, and `InitializeUser12`-`InitializeUser31`, and last `InitializeRoot` (module 0, which registers the root classes and function table 0x100)
 5. Each `Initialize*` function calls `RegisterObjectTable` with that module's handlers
 
 The HDAE5000's `Handler_Registration` runs later (during `Boot_Init`), filling the table entry for handler `0x016A`, which no built-in module registers: module 0x0A's `InitializeKSS` is a bare `ret`, so the entry still holds what `InitializeObjectTable` cleared it to.
 
 ### Simplified Activation (Mines Approach)
 
-The Mines project demonstrates that full participation in the object dispatch system is not required. Instead of implementing all 13 sub-objects and chaining to the Root module, the Mines handler:
+The Mines project demonstrates that full participation in the object dispatch system is not required. Instead of implementing all 13 classes, the Mines handler:
 
-1. Registers handler `0x016A` with a minimal 1-record data table
-2. Sets the record's implementation function to `Mines_Handler`
+1. Registers handler `0x016A` with a 13-record class table in which only record 5 is real; the other twelve are placeholders (proc = a bare `ret`, parent `0xFFFFFFFF`)
+2. Gives record 5 the proc `Mines_Handler`, the parent `0x0160001D` (`AcTitleMenu`) and allsize 0x36, and writes `0x016A0005` into the DISK MENU item's `class` field
 3. `Mines_Handler` intercepts the activation event to set a `GAME_ACTIVE` flag in extension RAM
 4. All other requests are delegated to `workspace[0x0E0A][0x00DC]` (`InheritedProc`)
 5. Frame_Handler checks `GAME_ACTIVE` and branches into the C game code when set
@@ -1169,11 +1174,11 @@ Open questions about this mechanism are kept on [Open Questions]({{ site.baseurl
 
 ## Control Panel Input
 
-The KN5000 control panel communicates with the main CPU via SC1 synchronous serial at 250 kHz. The firmware's interrupt-driven state machine continuously polls the panel and stores button bitmaps in RAM arrays. Extension ROMs read these arrays directly — no SC1 serial access needed, no interference with firmware operation.
+The KN5000 control panel communicates with the main CPU via SC1 synchronous serial at 250 kHz. The firmware's interrupt-driven state machine polls the panel and buffers the bytes it receives, and the main loop parses those packets into button bitmaps in RAM arrays. Extension ROMs read these arrays directly — no SC1 serial access needed, no interference with firmware operation.
 
 ### Reading Button State from Firmware RAM
 
-The firmware maintains two button state arrays in internal RAM, one per panel half:
+The firmware maintains two button state arrays in work DRAM (`STATE_OF_CPANEL_BUTTONS` in the main-CPU source), one per panel half:
 
 | Array | Address | Description |
 |-------|---------|-------------|
@@ -1206,7 +1211,7 @@ prev_buttons = buttons;
 ```c
 /* Equalize read/write pointers to discard queued events */
 *(volatile uint16_t *)0x8D9D = *(volatile uint16_t *)0x8D9F;   /* raw serial */
-*(volatile uint16_t *)0x02F838 = *(volatile uint16_t *)0x02F83A; /* app events */
+*(volatile uint16_t *)0x02F838 = *(volatile uint16_t *)0x02F83A; /* MainPostEvent queue */
 ```
 
 ### Button Mapping
@@ -1225,7 +1230,7 @@ See the [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/) pag
 
 ### Cooperative Multitasking for Input
 
-Button state arrays are updated by the firmware's SC1 interrupt handler during the firmware's main loop. Your extension must periodically yield control back to the firmware so it can process serial data and update the arrays.
+Button state arrays are updated by the firmware's main loop, which parses the panel packets that the SC1 interrupt handler has buffered (`CPanel_RX_ProcessOrInit`). Your extension must periodically yield control back to the firmware so it can process serial data and update the arrays.
 
 The Mines game implements this with a `yield_to_firmware()` function (see the App Loader page's [Startup Assembly]({{ site.baseurl }}/app-loader/#startup-assembly), which reproduces it): the game saves its stack pointer, restores the firmware's stack, and returns from `Frame_Handler`. On the next frame, the firmware calls `Frame_Handler` again, which restores the game's stack and resumes execution. This cooperative multitasking ensures button state stays fresh.
 
@@ -1252,7 +1257,7 @@ See the [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) documentation for
 
 ## LLVM TLCS-900 Backend Bugs
 
-The LLVM TLCS-900 backend had several encoding and code generation bugs during development. **Status: All 11 bugs fixed or resolved (Feb 28, 2026). All C-level workarounds removed.**
+The LLVM TLCS-900 backend had several encoding and code generation bugs during development. **Status (Feb 28, 2026): every bug below is fixed or resolved, and all C-level workarounds are removed.** The reports were numbered 1-11. Number 9 is not listed because it was confirmed not to be a bug.
 
 ### Assembler Encoding Bugs (Fixed)
 
