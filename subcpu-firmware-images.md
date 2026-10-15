@@ -61,8 +61,10 @@ file cannot be a tool output. Decoding the two SLIDE4K streams that disc carries
 which makes the **v10 ↔ v1.42 pairing a measured fact**.
 
 The v1.42 → v9, v1.41 → v7/v8 and v1.40 → v5/v6 pairings that MAME's BIOS options assert
-are **not** measured — only the v10 update disc is available to this project. They rest on
-filename inference and should be treated as such until a v5–v9 disc turns up.
+are measured as well. The v5–v9 update discs are on the same Internet Archive item, and the
+second SLIDE4K stream of each disc's `HKMSPRG.SLD` is byte-identical to the compressed image
+MAME pairs with that version: v5 and v6 carry v1.40 (93,124 B), v7 and v8 v1.41 (93,181 B),
+v9 and v10 v1.42 (93,203 B) (`tools/sld_payload_pairing.py` in this repository).
 
 ### The boot ROM `kn5000_subcpu_boot.ic30` is only 11% dumped
 

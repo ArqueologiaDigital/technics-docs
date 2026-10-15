@@ -79,9 +79,9 @@ agrees. So on every dumped firmware the machine takes the IC19 branch, and candi
 only ever reached as a failure fallback.
 
 This also disposes of a tempting hypothesis: the marker does **not** differ across firmware
-versions, so version skew is not the explanation. (v5 and v6 program ROMs are referenced by
-MAME but are not present here; reading one byte at file offset `0x1FFEED` in either would
-close even that.)
+versions, so version skew is not the explanation. (v5, v6 and v8 agree as well: decoding
+stream 1 of each public update disc's `HKMSPRG.SLD` gives images whose CRCs match MAME's
+BIOS list and whose bytes `0x1FFEEB`–`0x1FFEEF` are `FF FF FF 00 FF`; `tools/sld_program_chooser.py` in this repository.)
 
 ## 3. The two candidates, and what our dumps contain
 
@@ -119,7 +119,9 @@ dump*, not about the firmware.
 > material out of table data at `0x830000`. That is what one would expect if the sub-CPU
 > program originally lived entirely in the table-data mask ROM and was later moved to
 > updatable flash, with the vacated space reused for the section bitmaps. Graded **plausible** —
-> the discriminating test is one byte in a v5 or v6 program ROM.
+> but v5 and v6 read `0xFF` at `0x1FFEED` too (see §2), so the test is negative on every
+> preserved firmware; only an earlier, undumped version (v3 or v4 in MAME's list) could still
+> show candidate A live.
 
 ## 4. How the payload is *supposed* to arrive — proven end to end
 
@@ -283,7 +285,7 @@ asserted. It does not run in a normal boot.
 
 ### H5 — MAME's overlay of the update-floppy payload is a faithful reconstruction
 
-**SUPPORTED (proven) for the v10 BIOS; undecided for the others.**
+**SUPPORTED (proven) for all six dumped BIOS options.**
 
 `kn5000.cpp` does `ROMX_LOAD("kn5000_subprogram_v142_compressed.rom", 0x0e0000, …)` into
 the `custom_data` region, which the driver maps at `0x300000`. Offset `0x0E0000` is
@@ -296,10 +298,10 @@ install leaves `0x00`/`0xE5`; the decoder never reaches them.
 
 Two caveats, neither a fidelity defect but both worth stating plainly:
 
-- The v141 → v7/v8 and v140 → v5/v6 pairings in the ROM definition are **not measured**.
-  Only the v10 update disc exists here; of the six dumped BIOS options (v3 and v4 are
-  `NO_DUMP`), five — v9 with v1.42 as well as the four above — rest on filename
-  inference.
+- The pairings rest on the update discs, not on a dump of any instrument: the second SLIDE4K
+  stream of each public `HKMSPRG.SLD` is byte-identical to the compressed file MAME pairs with
+  that version — v5 and v6 carry v1.40 (93,124 B), v7 and v8 v1.41 (93,181 B), v9 and v10
+  v1.42 (93,203 B) (`tools/sld_payload_pairing.py` in this repository). v3 and v4 are `NO_DUMP`.
 - The composite — a genuine chip dump that lacks the update image at `0x3E0000` (H3b,
   undecided: never installed, install interrupted, or dump truncated), plus a
   payload carved from a floppy — is a **reconstruction**, and nothing in the ROM definition
@@ -324,15 +326,15 @@ catch a mistake in it. See
 
 Ordered by cost. The first two are free and block everything else.
 
-| # | Question | Measurement |
-|---|---|---|
-| 1 | H3b — was `0x3E0000` ever programmed on this unit? | On the real instrument, open the built-in memory-dump screen (`DbMemoryDumpProc`, `0xFA2EE6`) at `0x3E0000` and look for ASCII `SLIDE4K`. Present → our dump is incomplete. Absent → the region was genuinely never programmed. |
-| 2 | H3b/H3c — was the instrument making sound when IC19 was read? | Ask the owner. If it was, a blank `0x3E0000` is impossible and the dump must be incomplete. |
-| 3 | Was IC19 read in-system or on a programmer? | Ask the owner. An in-system read through the CPU has a readback-window limit that would explain a truncated tail; an off-board programmer read would not. |
-| 4 | Definitive | Re-read IC19 in full with a device programmer (off-board, or in-circuit with the CPU held in reset) and search for `53 4C 49 44 45 34 4B`. |
-| 5 | Was candidate A ever live? | Read one byte at file offset `0x1FFEED` of `kn5000_v5_program.rom` (CRC `0xfbd035e3`) or `kn5000_v6_program.rom` (CRC `0x0205db30`) — neither is in this project's `original_ROMs/`. Non-`0xFF` would prove the legacy-path reading. |
-| 6 | Are the untested BIOS/payload pairings right? | Obtain v5–v9 update discs and check whether the v140/v141 compressed files are byte-slices of them. |
-| 7 | What should IC19's other 896 KB contain? | A `CMPCUSTOMDATA` (`005h`) disc image — the only artifact that would settle whether the dump is complete *below* `0x0D3450`. |
+| #   | Question                                                      | Measurement                                                                                                                                                                                                                                                                                                                                                      |
+|-----|---------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1   | H3b — was `0x3E0000` ever programmed on this unit?            | On the real instrument, open the built-in memory-dump screen (`DbMemoryDumpProc`, `0xFA2EE6`) at `0x3E0000` and look for ASCII `SLIDE4K`. Present → our dump is incomplete. Absent → the region was genuinely never programmed.                                                                                                                                  |
+| 2   | H3b/H3c — was the instrument making sound when IC19 was read? | Ask the owner. If it was, a blank `0x3E0000` is impossible and the dump must be incomplete.                                                                                                                                                                                                                                                                      |
+| 3   | Was IC19 read in-system or on a programmer?                   | Ask the owner. An in-system read through the CPU has a readback-window limit that would explain a truncated tail; an off-board programmer read would not.                                                                                                                                                                                                        |
+| 4   | Definitive                                                    | Re-read IC19 in full with a device programmer (off-board, or in-circuit with the CPU held in reset) and search for `53 4C 49 44 45 34 4B`.                                                                                                                                                                                                                       |
+| 5   | Was candidate A ever live?                                    | **Answered for v5–v10: no.** The program images decoded from the public v5, v6 and v8 update discs (CRCs `0xfbd035e3`, `0x0205db30`, `0x46b4b242`, MAME's) read `FF FF FF 00 FF` at `0x1FFEEB`–`0x1FFEEF`, like the dumped v7, v9 and v10 (`tools/sld_program_chooser.py` in this repository). Only an earlier, undumped version (v3 or v4) could still show it. |
+| 6   | Are the BIOS/payload pairings right?                          | **Answered: yes.** Stream 2 of each public v5–v10 `HKMSPRG.SLD` is byte-identical to the compressed payload MAME pairs with that version (`tools/sld_payload_pairing.py` in this repository).                                                                                                                                                                    |
+| 7   | What should IC19's other 896 KB contain?                      | A `CMPCUSTOMDATA` (`005h`) disc image — the only artifact that would settle whether the dump is complete *below* `0x0D3450`.                                                                                                                                                                                                                                     |
 
 ## 8. Corrections this investigation forced
 

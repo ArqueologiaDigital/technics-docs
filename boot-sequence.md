@@ -758,8 +758,9 @@ Two bytes in Program ROM control the payload transfer behavior:
 | 0xFFFEEE | 0x1FFEEE | **0x00** | `Boot_CallInitHandlers` is *disabled* (would need 0xFF) |
 | 0xFFFEED | 0x1FFEED | **0xFF** | LZSS decompression from 0x3E0000 is attempted |
 
-Measured `FF FF FF 00 FF` at 0x1FFEEB-0x1FFEEF in **v7, v9 and v10** — the chooser does not
-differ across firmware versions.
+Measured `FF FF FF 00 FF` at 0x1FFEEB-0x1FFEEF in **every preserved version, v5 to v10** (v7, v9
+and v10 from the ROM dumps; v5, v6 and v8 decoded from the public update discs with
+`tools/sld_program_chooser.py` in this repository) — the chooser does not differ across firmware versions.
 
 #### Transfer Sequence
 
