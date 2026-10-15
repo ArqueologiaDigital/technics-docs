@@ -20,7 +20,8 @@ exactly once. Under *Tonewheel Jazz*, for example, sit the styles *Swing Tonewhe
 *Classic B3 Jazz*, *Block Chord Jazz* and *Straight Swingin*, as the
 [ORGAN STYLIST screen]({{ site.baseurl }}/kn7000-table-rom/#the-ui-graphics-are-standard-jpegs)
 shows. This page lists the subcategory names only. Extracted by walking the table
-structure; **270 subcategories across 11 genres, four styles each (1,080 styles)**.
+structure; **270 subcategories across 11 genres, four styles each (1,080 styles)**
+(`tools/kn7000_style_catalog.py` in this repository walks it).
 
 These are not the instrument's built-in rhythms. The user's manual (p. 207) lists
 220 rhythms × 4 variations in 14 rhythm groups, whose names come from a

@@ -1605,7 +1605,8 @@ the 270 subcategory headings in the [Music Stylist catalog]({{ site.baseurl }}/k
 which walks `StyleGenreTable`, are missing from it (for example
 *Disco Orchestra* and *60s Blues Rock*), and so are 355 of the 1,080 style names
 those headings index through `StyleRecordTable` (for example *Hit Parade Organ*
-and *Fab Piano*).
+and *Fab Piano*; `tools/kn7000_style_catalog.py --page kn7000-sound-names.md` in this
+repository counts both).
 
 <div style="columns:3;column-gap:1.5rem;font-size:0.85rem;">
 Mersey Ballad<br>
