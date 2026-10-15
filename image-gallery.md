@@ -88,10 +88,10 @@ These images were extracted from raw bitmap data in the main CPU ROM and convert
 
 ### Logos
 
-| Image | Filename | Dimensions | Description |
-|-------|----------|------------|-------------|
-| ![Technics Logo]({{ "/assets/images/gallery/BitmapTechnicsLogo.png" | relative_url }}) | `BitmapTechnicsLogo.bin` | 312x45, 8-bit | Technics brand logo |
-| ![KN5000 Logo]({{ "/assets/images/gallery/BitmapKN5000Logo.png" | relative_url }}) | `BitmapKN5000Logo.bin` | 200x36, 8-bit | KN5000 model logo |
+| Image                                                                                  | Filename                 | Dimensions                    | Description         |
+|----------------------------------------------------------------------------------------|--------------------------|-------------------------------|---------------------|
+| ![Technics Logo]({{ "/assets/images/gallery/BitmapTechnicsLogo.png" | relative_url }}) | `BitmapTechnicsLogo.bin` | 312x45, 8-bit                 | Technics brand logo |
+| ![KN5000 Logo]({{ "/assets/images/gallery/BitmapKN5000Logo.png" | relative_url }})     | `BitmapKN5000Logo.bin`   | 199x36 (200-byte rows), 8-bit | KN5000 model logo   |
 
 ### Split Point Indicators (58x52 pixels, 8-bit)
 
@@ -138,24 +138,24 @@ These images show keyboard split point notes displayed when configuring the keyb
 
 ### Transition Effects
 
-| Image | Filename | Dimensions | Description |
-|-------|----------|------------|-------------|
-| ![Fade In Picture]({{ "/assets/images/gallery/BitmapFadeInPicture.png" | relative_url }}) | `BitmapFadeInPicture.bin` | 112x25, 8-bit | Fade in picture effect |
-| ![Fade Out Picture]({{ "/assets/images/gallery/BitmapFadeOutPicture.png" | relative_url }}) | `BitmapFadeOutPicture.bin` | 114x25, 8-bit | Fade out picture effect |
-| ![Fade In Text]({{ "/assets/images/gallery/BitmapFadeInText.png" | relative_url }}) | `BitmapFadeInText.bin` | 80x18, 8-bit | Fade in text effect |
-| ![Fade Out Text]({{ "/assets/images/gallery/BitmapFadeOutText.png" | relative_url }}) | `BitmapFadeOutText.bin` | 108x20, 8-bit | Fade out text effect |
+| Image                                                                                       | Filename                   | Dimensions                    | Description             |
+|---------------------------------------------------------------------------------------------|----------------------------|-------------------------------|-------------------------|
+| ![Fade In Picture]({{ "/assets/images/gallery/BitmapFadeInPicture.png" | relative_url }})   | `BitmapFadeInPicture.bin`  | 112x25, 8-bit                 | Fade in picture effect  |
+| ![Fade Out Picture]({{ "/assets/images/gallery/BitmapFadeOutPicture.png" | relative_url }}) | `BitmapFadeOutPicture.bin` | 113x25 (114-byte rows), 8-bit | Fade out picture effect |
+| ![Fade In Text]({{ "/assets/images/gallery/BitmapFadeInText.png" | relative_url }})         | `BitmapFadeInText.bin`     | 80x18, 8-bit                  | Fade in text effect     |
+| ![Fade Out Text]({{ "/assets/images/gallery/BitmapFadeOutText.png" | relative_url }})       | `BitmapFadeOutText.bin`    | 108x20, 8-bit                 | Fade out text effect    |
 
 ### Accompaniment & Edit Graphics
 
-| Image | Filename | Dimensions | Description |
-|-------|----------|------------|-------------|
-| ![Accger16]({{ "/assets/images/gallery/BitmapAccger16.png" | relative_url }}) | `BitmapAccger16.bin` | 120x95, 8-bit | Accompaniment graphic (German) |
-| ![Accita16]({{ "/assets/images/gallery/BitmapAccita16.png" | relative_url }}) | `BitmapAccita16.bin` | 120x95, 8-bit | Accompaniment graphic (Italian) |
-| ![Bmphk]({{ "/assets/images/gallery/BitmapBmphk.png" | relative_url }}) | `BitmapBmphk.bin` | 100x120, 8-bit | Unknown graphic |
-| ![Dredt0d]({{ "/assets/images/gallery/BitmapDredt0d.png" | relative_url }}) | `BitmapDredt0d.bin` | 168x119, 8-bit | Unknown graphic |
-| ![Dredt0k]({{ "/assets/images/gallery/BitmapDredt0k.png" | relative_url }}) | `BitmapDredt0k.bin` | 88x119, 8-bit | Unknown graphic |
-| ![Ntedt0d]({{ "/assets/images/gallery/BitmapNtedt0d.png" | relative_url }}) | `BitmapNtedt0d.bin` | 240x127, 8-bit | Note edit graphic |
-| ![Ntedt0k]({{ "/assets/images/gallery/BitmapNtedt0k.png" | relative_url }}) | `BitmapNtedt0k.bin` | 127x16, 8-bit | Note edit graphic small |
+| Image                                                                         | Filename             | Dimensions     | Description                           |
+|-------------------------------------------------------------------------------|----------------------|----------------|---------------------------------------|
+| ![Accger16]({{ "/assets/images/gallery/BitmapAccger16.png" | relative_url }}) | `BitmapAccger16.bin` | 120x95, 8-bit  | Accordion picture (German)            |
+| ![Accita16]({{ "/assets/images/gallery/BitmapAccita16.png" | relative_url }}) | `BitmapAccita16.bin` | 120x95, 8-bit  | Accordion picture (Italian)           |
+| ![Bmphk]({{ "/assets/images/gallery/BitmapBmphk.png" | relative_url }})       | `BitmapBmphk.bin`    | 100x120, 8-bit | The KN5000 itself on teal             |
+| ![Dredt0d]({{ "/assets/images/gallery/BitmapDredt0d.png" | relative_url }})   | `BitmapDredt0d.bin`  | 168x119, 8-bit | Drum-edit screen grid                 |
+| ![Dredt0k]({{ "/assets/images/gallery/BitmapDredt0k.png" | relative_url }})   | `BitmapDredt0k.bin`  | 88x119, 8-bit  | Drum-edit screen instrument rows      |
+| ![Ntedt0d]({{ "/assets/images/gallery/BitmapNtedt0d.png" | relative_url }})   | `BitmapNtedt0d.bin`  | 240x127, 8-bit | Note-edit screen grid                 |
+| ![Ntedt0k]({{ "/assets/images/gallery/BitmapNtedt0k.png" | relative_url }})   | `BitmapNtedt0k.bin`  | 16x127, 8-bit  | Note-edit screen vertical piano ruler |
 
 ---
 
@@ -174,7 +174,7 @@ These images were extracted from the HD-AE5000 hard disk expansion ROM. The imag
 | STORE button (0x63464) | 0x63064 (greyscale ramp) | 42×15 |
 | Boot splash (0x661ce) | 0x65dce | 320×240 |
 
-> **Render caveat.** `convert_images.py` currently hands the boot-splash palette to *all* HD-AE5000 images, so the four renders below other than the splash are mis-coloured — the logo and drive-mechanism photographs in particular are greyscale images being drawn through the wrong ramp. Regenerating them per-palette is a queued fix in the disassembly repo.
+> **Render caveat.** The logo, drive-mechanism and file-panel renders below are mis-coloured — the two photographs in particular are greyscale images being drawn through the wrong ramp. Correctly paletted PNGs of all five extracted images have been in the disassembly since 2026-08-21 (`hdae5000/images/HDAE5000_*.png`, built and verified by `scripts/build/hdae5000_images.py`), but `convert_images.py` (`make gallery`) still uses the boot-splash palette for the logo, drive-mechanism and file-panel images.
 
 ### HD-AE5000 Boot Splash
 
@@ -216,7 +216,7 @@ The file-selection panel background: three sunken list wells over a blue stone f
 
 Small icon depicting a hard disk with magnetic head, used in UI elements. Its resource descriptor (`0x280395`, registered under the firmware's own name `BitmapHdd_icon`) answers 27 for both width and height, and the last byte of each of the 27 rows is 0x00 — a pad column.
 
-> **Extraction caveat.** `HDAE5000_Icon.bin` in the disassembly repo is 784 bytes, i.e. 28×28. The extra 28 bytes are not image data: they are the first 28 bytes of `HDAE5000_Config_Strings` at `0x2E1C82`, which begins with the ASCII "V2.06i". Re-cutting the asset at 756 bytes is queued.
+> **Extraction caveat.** `hdae5000/images/HDAE5000_Icon.bin` in the disassembly repo is still 784 bytes (28×28): its last 28 bytes are the start of the C program's `.rodata` (`HDAE5000_Str_V206i` at `0x2E1C82`, the ASCII "V2.06i"). The build does not use it. It emits the 756-byte icon from `images/HDAE5000_Icon.png`, and `convert_images.py` now decodes 27×27 with a 28-byte stride, but the render above predates that.
 
 ### STORE Button
 
@@ -232,8 +232,8 @@ These background wallpapers are built into the firmware for the LCD display. The
 
 **Technical details:**
 - Format: 320×240 pixels @ 8bpp (76,800 bytes each)
-- Uses the standard KN5000 256-color palette
-- The wallpaper table has 6 entries, but only entries 0-1 point to ROM data; entries 2-4 point to RAM addresses for user-loaded wallpapers
+- Each image's 1 KB trailer is its own palette: `ChangePalette_Impl` loads DAC entries 0x20-0xDF from it. Every pixel is in 0xE0-0xEF, a 16-shade ramp loaded from the program ROM (see [Table Data ROM]({{ site.baseurl }}/table-data-rom/#wallpapers-0x8ed000-0x900000)). The renders below use the default palette, whose entries 0xE0-0xEF are Wallpaper 1's ramp, so Wallpaper 0 is shown in the wrong shades.
+- The wallpaper table has 5 records: 0 and 1 are these two images, 2 and 3 point at the custom-data flash (`0x3C0000`), and 4 points at RAM `0x56800`.
 
 ### Wallpaper 0 - Blue Texture
 
@@ -251,21 +251,9 @@ Blue textured pattern resembling fabric or carpet.
 
 Blue textured pattern with subtle "Technics" watermark.
 
-### Wallpaper Routine Details
+### Name getters in `file_io/wallpaper.s`
 
-The wallpaper system uses multiple name getter routines for displaying wallpaper names in the UI:
-
-| Routine | Address | Purpose |
-|---------|---------|---------|
-| `WP_GetConfigName` | 0xF8EDD2 | Get name from config at 0x1ED350 |
-| `WP_GetNameByOffset` | 0xF8EE00 | Get name with calculated offset |
-| `WP_GetPresetName1` | 0xF8EE30 | Lookup from ROM table 0xEA07AE |
-| `WP_GetPresetPtr` | 0xF8EE56 | Simple pointer lookup from 0xEA07EA |
-| `WP_GetBankMemName` | 0xF8EE65 | Get name with bank/memory selection |
-| `WP_GetPresetName3` | 0xF8EEB5 | Lookup from ROM table 0xEA08DA |
-| `WP_GetUserName1` | 0xF8EEDB | Get from structure at 0x1E0000 |
-| `WP_GetUserName2` | 0xF8EF08 | Get from RAM at 0x1E4980 |
-| `WP_GetUserName3` | 0xF8EF2C | Get from 0x1E4AA7 |
+The routines in that source file are not wallpaper code, despite their "WP_" prefix. They return item names for the disk SINGLE LOAD lists, and their callers are in `file_io/single_load.s`. For example, `WP_GetConfigName` (0xF8EDD2) returns Panel Memory bank name *n* (RAM `0x1ED360 + 16*n`), `WP_GetNameByOffset` (0xF8EE00) the name of Panel Memory record *n* (`0x1ED402 + 960*n`), and `WP_GetBankMemName` (0xF8EE65) a Composer style name (RAM `0x948A0`) or a section name from `WP_SectionNameTable`.
 
 ---
 
@@ -309,8 +297,9 @@ The KN5000 uses 176 small icons for menu items and UI elements. These were disco
 *384x264 pixels - all 176 icons arranged in 16 columns × 11 rows*
 
 The sprite sheet shows all 24×24 pixel icons. Icon IDs are numbered left-to-right, top-to-bottom starting from 0. Known icons include:
-- Icon 0-1: Document/file icons
-- Icon 7: Appears to be related to Easter egg (worm reference in code)
+- Icons 0 and 1: the green worm in a straw hat, the same picture as the easter-egg bitmap above (`BitmapWormWearingHat`)
+- Icon 7: a bank of four faders
+- Icon 32: the GENERAL MIDI logo (see [Table Data ROM]({{ site.baseurl }}/table-data-rom/#what-is-still-open))
 
 ### Icons with Non-Standard Bounding Boxes
 
@@ -348,16 +337,7 @@ Most icons have bounding box `0x18` × `0x18` (24×24). The `DrawIcons` routine 
 
 ## Cross-ROM Shared Graphics
 
-Analysis found ~39 KB of near-identical graphics data shared between the Main CPU Program ROM and Table Data ROM. These are **not exact duplicates** — they match 89-96% at the byte level, with differences primarily in adjacent byte ordering (suggesting different rendering passes of the same source artwork).
-
-| Main CPU Image | Main CPU Address | Table Data Address | Size | Match |
-|---------------|-----------------|-------------------|------|-------|
-| BitmapTechnicsLogo (tail) | 0xE90090 | 0x91D0EA | 13,806 B | 93.5% |
-| BitmapKN5000Logo (tail) | 0xE93680 | 0x82CDA4 | 7,198 B | 89.8% |
-| BitmapBmphk (tail) | 0xE7C8B0 | 0x921176 | 9,282 B | 95.9% |
-| FadeIn/FadeOut bitmaps | 0xEB8190 | 0x809AD6 | 8,964 B | 94.3% |
-
-**Conclusion:** Because the copies are not byte-identical, sharing via `binclude` is not feasible. Both ROMs were compiled independently with their own bitmap rendering, resulting in near-identical but distinct binary representations of the same visual content.
+The Table Data ROM's section-directory and factory-bank images and its eight update-message bitmaps are **byte-identical** to the Main CPU ROM's own copies. The disassembly emits both ROMs' copies from the same files in `v10/maincpu/images/` (e.g. `SectionBank06_TechnicsLogo` in `table_data/ui_bitmaps.s`). See [Table Data ROM]({{ site.baseurl }}/table-data-rom/#section-directory-and-bitmap-bank-0x800000). An earlier version of this section reported 89-96 % matches; that comparison was wrong.
 
 ## Converting New Images
 

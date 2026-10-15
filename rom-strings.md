@@ -31,11 +31,11 @@ This product ID string confirms the keyboard model and its "Vocalist Workstation
 
 ### Key String Tables
 
-| Address | Description | Count |
-|---------|-------------|-------|
-| 0xE023F0 | Instrument categories | ~50 |
-| 0xE0C3BE | Chord database | ~200 |
-| 0xECFDFE | Keyboard layout strings | ~30 |
+| Address  | Description                                | Count |
+|----------|--------------------------------------------|-------|
+| 0xE023F0 | Instrument categories                      | ~50   |
+| 0xE0C3BE | Chord database                             | ~200  |
+| 0xECFDFE | Part names (RIGHT1, RIGHT2, LEFT, PART4 …) | ~30   |
 
 ### String Categories
 
@@ -109,6 +109,8 @@ Most strings in this ROM relate to:
 **Load Address:** 0xFE0000
 **Total Strings:** 11
 
+> ⚠ **The dump is incomplete.** MAME marks this ROM `BAD_DUMP`: the ranges `0xFE0800-0xFF7800` and `0xFF9800-0xFFF000`, about 89 % of it, were never read and are `0xFF` in the image. The string count and the observations below cover only the dumped part.
+
 ### Analysis
 
 This boot ROM contains minimal strings, which is typical for embedded firmware:
@@ -128,7 +130,7 @@ The sparse string content indicates this ROM focuses on:
 ## Table Data ROM (Interleaved Odd/Even)
 
 **Total Size:** 2MB (1MB odd + 1MB even)
-**Organization:** 16-bit interleaved (odd = high byte, even = low byte)
+**Organization:** two ×16 chips on a 32-bit bus, word-interleaved: `kn5000_table_data_rom_even.ic3` holds bytes 0-1 of each 32-bit word, `kn5000_table_data_rom_odd.ic1` bytes 2-3
 **Total Strings Found:** 164+
 
 ### Bass Instruments
@@ -141,39 +143,9 @@ The sparse string content indicates this ROM focuses on:
 | Fretless Bass | Extended |
 | Synth Bass | Electronic |
 
-### Percussion and Drum Kits
+### Drum Kits
 
-**Standard Kits:**
-- Jazz Kit
-- Rock Kit
-- Brush Kit
-- Electronic Kit
-
-**Extended Kits:**
-- House Kit
-- Hip-Hop Kit
-- Latin Percussion
-- Orchestral Percussion
-
-### Notable Strings
-
-| String | Description |
-|--------|-------------|
-| Tubular Bells C4 | Note-specific tubular bell sample |
-| Tubular Bells D4 | Note-specific tubular bell sample |
-| Tubular Bells E4 | Note-specific tubular bell sample |
-
-The note designations (C4, D4, E4, etc.) indicate multi-sampled instruments with samples for individual notes.
-
-### Rhythm Styles with BPM
-
-| Style | Tempo Range |
-|-------|-------------|
-| Ballad | 48-72 BPM |
-| Swing | 88-140 BPM |
-| Jazz | 100-185 BPM |
-| Rock | 100-140 BPM |
-| House | 118-135 BPM |
+The tone database's kit names include Standard Kit, Room Kit, Power Kit, Brush Kit, Jazz Kit, Light Rock Kit, Funk Kit, Soul Kit, Dance Kit, House Kit, Analog Kit, Synth Kit, Electric Kit, Orchestral Kit, Trad Kit, Special Kit, Sound Effect Kit and MSP Kit. See [Tone Database]({{ site.baseurl }}/tone-database/) for the 26 drum-kit records.
 
 ---
 
@@ -187,29 +159,16 @@ The note designations (C4, D4, E4, etc.) indicate multi-sampled instruments with
 ### Purpose
 
 This flash memory stores user-customizable data including:
-- User-defined rhythms
-- Custom sound settings
-- Panel memory configurations
-- Registration data
+- custom accompaniment styles (sections 0-6) and section 7's block slot store
+- three user banks of sound-parameter settings
+- the LCD wallpaper image
+- the sub-CPU payload staging area
 
-### Rhythm Categories
+Panel Memory is not stored here; see [Custom Data Flash]({{ site.baseurl }}/custom-data-flash/).
 
-| Category | Example Styles |
-|----------|----------------|
-| Jazz/Swing | Big Band Swing, Bebop, Cool Jazz |
-| Rock/Pop | Classic Rock, Pop Ballad, Soft Rock |
-| Brazilian | Bossa Nova, Samba, Baiao |
-| Latin | Cha-Cha, Mambo, Salsa, Merengue |
-| Classical | Waltz, March, Polonaise |
+### Style names
 
-### Designer Attributions
-
-Some factory presets include designer credits:
-
-| Designer | Styles |
-|----------|--------|
-| Ray Conniff | Easy Listening arrangements |
-| Arthur | Various factory presets |
+The style names are the 16-character name fields of each section's style directory. Examples: "Bolero puro", "GentleSwing 1", "GospelRevival", "Roaring 20's", "AccordionJazz", "8BtPopBallad D".
 
 ### Special Entries
 
@@ -239,31 +198,30 @@ These markers indicate the state of user-configurable memory slots.
 
 Commands for PC parallel port communication:
 
-| Command | Description |
-|---------|-------------|
-| Send Infos About HD | Report HD information to PC |
-| Exit PPORT | End parallel port session |
-| Read FSB from HD | Read File System Block |
-| Sending FSB to PC | Transfer FSB to PC |
-| Rcv FSB from PC | Receive FSB from PC |
-| Writing FSB to HD | Write FSB to HD |
-| Load HD to Memory | Load file to KN5000 memory |
-| Send data to PC | Data transfer to PC |
-| Sending files to PC | File transfer to PC |
-| Rcv data from PC | Receive data from PC |
-| Save memory to HD | Save to hard disk |
-| Delete files | Delete HD files |
-| Formating HD | Format hard disk |
-| Switch HD-motor off | Spin down HD |
-| Send XapFile flash | XAP file transfer |
+| Command             | Description                   |
+|---------------------|-------------------------------|
+| Send Infos About HD | Report HD information to PC   |
+| Exit PPORT          | End parallel port session     |
+| Read FSB from HD    | Read File System Block        |
+| Sending FSB to PC   | Transfer FSB to PC            |
+| Rcv FSB from PC     | Receive FSB from PC           |
+| Writing FSB to HD   | Write FSB to HD               |
+| Load HD to Memory   | Load file to KN5000 memory    |
+| Send data to PC     | Data transfer to PC           |
+| Sending files to PC | File transfer to PC           |
+| Rcv data from PC    | Receive data from PC          |
+| Save memory to HD   | Save to hard disk             |
+| Sending infos to PC | Send status information to PC |
+| Delete files        | Delete HD files               |
+| Formating HD        | Format hard disk              |
+| Switch HD-motor off | Spin down HD                  |
+| Send XapFile flash  | XAP file transfer             |
 
-### Windows DLL Callback Names
+The menu is numbered 01-20 (`HDAE5000_PPORT_Cmd01_SendInfosAboutHd` .. `HDAE5000_PPORT_Cmd20_SendXapFileFlash`). Entries 12, 15 and 19 read "nothing", and 13 repeats "Rcv data from PC".
 
-The ROM contains Windows DLL function callback names, indicating the PC-side software interface:
+### Registered Object Names
 
-- Standard Windows callback conventions
-- File transfer protocol handlers
-- Status reporting functions
+Handler names such as LyricBackColorCheck and FlsOverWrSwCatch belong to the firmware's own 69-entry object registry, not to PC-side DLL callbacks. See [HDAE5000 Resources & Object Registry]({{ site.baseurl }}/hdae5000-resources/#the-69-object-registry).
 
 ---
 

@@ -42,24 +42,24 @@ The chip is programmed from the "initial data disk" during factory setup.
 
 ## ROM Layout
 
-| Address Range | Size | Contents |
-|:---|:---|:---|
-| `0x300000-0x316FFF` | 92KB | Section 0: Custom Style Data |
-| `0x317000-0x318FFF` | 8KB | Erased boot block sector gap |
-| `0x319000-0x346FFF` | 184KB | Sections 1-2: Custom Style Data |
-| `0x347000-0x348FFF` | 8KB | Erased sector gap |
-| `0x349000-0x376FFF` | 184KB | Sections 3-4: Custom Style Data |
-| `0x377000-0x378FFF` | 8KB | Erased sector gap |
-| `0x379000-0x3A6FFF` | 184KB | Sections 5-6: Custom Style Data |
-| `0x3A7000-0x3AFFFF` | 36KB | Unused (erased) |
-| `0x3B0000-0x3B0FFF` | 4KB | Section 7: block slot store — header and owner maps ([below](#section-7-block-slot-store)) |
-| `0x3B1000-0x3BFFFF` | 60KB | Section 7's slots (erased in the factory image) |
-| `0x3C0000-0x3D2FFF` | 78KB | LCD Wallpaper/Screenshot Storage |
-| `0x3D3000-0x3D3FFF` | 4KB | Sound-parameter user banks (`CustomData_SndParamBanks`) |
-| `0x3D4000-0x3DFFFF` | 48KB | Unused (erased) |
-| `0x3E0000-0x3FFFFF` | 128KB | SubCPU Payload Staging Area — **blank in our dump**, see below |
+| Address Range       | Size  | Contents                                                                                   |
+|:--------------------|:------|:-------------------------------------------------------------------------------------------|
+| `0x300000-0x3167FF` | 90KB  | Section 0: Custom Style Data                                                               |
+| `0x316800-0x3197FF` | 12KB  | Erased: unused end of section 0's area                                                     |
+| `0x319800-0x3467FF` | 180KB | Sections 1-2: Custom Style Data                                                            |
+| `0x346800-0x3497FF` | 12KB  | Erased                                                                                     |
+| `0x349800-0x3767FF` | 180KB | Sections 3-4: Custom Style Data                                                            |
+| `0x376800-0x3797FF` | 12KB  | Erased                                                                                     |
+| `0x379800-0x3A67FF` | 180KB | Sections 5-6: Custom Style Data                                                            |
+| `0x3A6800-0x3AFFFF` | 38KB  | Unused (erased)                                                                            |
+| `0x3B0000-0x3B0FFF` | 4KB   | Section 7: block slot store — header and owner maps ([below](#section-7-block-slot-store)) |
+| `0x3B1000-0x3BFFFF` | 60KB  | Section 7's slots (erased in the factory image)                                            |
+| `0x3C0000-0x3D2FFF` | 78KB  | LCD Wallpaper/Screenshot Storage                                                           |
+| `0x3D3000-0x3D3FFF` | 4KB   | Sound-parameter user banks (`CustomData_SndParamBanks`)                                    |
+| `0x3D4000-0x3DFFFF` | 48KB  | Unused (erased)                                                                            |
+| `0x3E0000-0x3FFFFF` | 128KB | SubCPU Payload Staging Area — **blank in our dump**, see below                             |
 
-The 8KB gaps between style sections correspond to flash boot block sector boundaries. The AM29F400/800B family has non-uniform sector sizes at whichever end carries the boot block.
+The erased runs are the unused ends of the style areas: each one stops where the next section begins (`0x319800`, `0x349800`, `0x379800`). They fall inside 64 KiB sectors and have nothing to do with the boot block.
 
 ## Section 7: block slot store
 
@@ -117,13 +117,15 @@ Style sections (0-7) begin with a 4-byte header using 16-bit character encoding:
 
 Style data contains accompaniment arrangement data including style names (e.g., "Bolero puro"), MIDI patterns, and configuration parameters.
 
+Each style section (0-6) has a 30-record style directory at section base + 0x60: 96-byte records, each with a 16-character style name at record +0x40, and with words at +0x00 and +0x04..+0x0A that point at the style's cell chains. The music follows in 256-byte cells, each with an `80 PREV NEXT 87` header, an event stream and a trailing `87`. The disassembly builds the 210 styles from `custom_data/styles/*.styles` (`scripts/build/style_events.py`) and can export each one as a Standard MIDI File (`make style-midi`). The format is documented in `docs/accompaniment-style-format.md` in the disassembly repository.
+
 ## LCD Wallpaper Storage (0x3C0000)
 
 77,824 bytes for capturing the LCD screen contents:
 - **76,800 bytes**: 320x240 pixel image at 8bpp (one pixel per byte)
-- **1,024 bytes**: Metadata/padding
+- **1,024 bytes**: its palette, stored after the pixels (see below)
 
-Written by the `CaptureLcd` firmware routine. Zero-filled in factory state.
+Zero-filled in factory state.
 
 Loaded from disk by `Gfx_LoadSplashBMP` (`0xFAE86D`) and written by `Flash_SaveSplashScreen`
 (`0xFAF00B`). Three details differ from a plain BMP copy, established 2026-08-02:
@@ -133,7 +135,7 @@ Loaded from disk by `Gfx_LoadSplashBMP` (`0xFAE86D`) and written by `Flash_SaveS
 - rows are un-flipped to **top-down** on the way in;
 - palette entries are reordered **BGR0 → RGB0**.
 
-`CaptureLcd` (`0xFAF02F`) writes the reverse, emitting `bfSize = 0x13036` = 77,878 bytes — exactly
+`CaptureLcd` (`0xFAF030`) writes the reverse, emitting `bfSize = 0x13036` = 77,878 bytes — exactly
 the size of the five `.bmp` files on the Initial Data Disk, which are therefore in the instrument's
 **own screenshot format** rather than an arbitrary external one.
 
@@ -141,9 +143,10 @@ the size of the five `.bmp` files on the Initial Data Disk, which are therefore 
 
 The disk-menu path reaches the loader through the extension table at `0xEA0340`–`0xEA0367`
 (10 entries, reverse order; `RCM` is index 6, labelled "RHYTHM CUSTOM"):
-`FileIO_BuildNameWithExt` `0xF891AB` → `FileIO_GetTypeFromExtension` `0xF896F0` → the RCM read
-wrapper `0xF87913` → the loader at `0xF186A9`. The export-table variant `rcm_ld` is `0xF18A74`,
-the same algorithm with I/O callbacks.
+`FileIO_ReadHeader` `0xF891AB` → `ParseFileExtension` `0xF896F0` → the RCM read
+wrapper `FileIO_LoadRegion6_Simple` `0xF87913` → the loader `FileIO_LoadRcmToFlash` at
+`0xF186A9`. The export-table entry `rcm_ld_XAPR_j` (`0xF1EB28`) jumps to
+`FloppyDisk_LoadNoteEvents` (`0xF18A74`), the same algorithm with I/O callbacks.
 
 Eight chunks are copied straight through, with no permutation. Lengths come from a table at
 file `+0x40`, whose entry 0 is the header size and whose entry 8 is never read — **the final block
@@ -160,9 +163,10 @@ uses a hard-coded `0xF400`**, and `0x63800 + 0xF400 = 0x72C00`, exactly EOF:
 | `0x054800` | `0xF000` | 6 | `0x390000` |
 | `0x063800` | `0xF400` (hard-coded) | 7 | `0x3B0000` |
 
-> **The payload is not written verbatim.** `Flash_StoreSection` (`0xF17189`) calls `0xF17001`
-> before any flash access, which walks 30 records of `0x60` bytes at `base + 0x60 + 0x60n` and
-> rewrites fields 0, 2, 3, 4 and 5 through `Pack12BitValueWithBank` (`0xF1710C`):
+> **The payload is not written verbatim.** `NoteEventBuffer_Store` (`0xF17189`) calls
+> `PartGrid_ColumnDispatch_Default` (`0xF17001`) before any flash access, which walks 30
+> records of `0x60` bytes at `base + 0x60 + 0x60n` and rewrites fields 0, 2, 3, 4 and 5
+> through `Pack12BitValueWithBank` (`0xF1710C`):
 >
 > ```
 > v = (v == 0xFFFF) ? v : ((k+1) << 12) | (v & 0x0FFF)
@@ -195,24 +199,24 @@ touched by a disk install.
 > ([UI Framework]({{ site.baseurl }}/ui-framework/#module-numbers-and-the-object-table)), not
 > saveable parameters.
 
-| Offset | Contents |
-|:---|:---|
-| `+0x000` | 16-byte header, starting `"HK "` |
-| `+0x010` / `+0x110` / `+0x210` | banks 0 / 1 / 2: 39 six-byte entries `{u32 RAM address, u8 b4, u8 b5}` = 234 (`0xEA`) bytes, padded with `0xFF` to the next 0x100 |
-| `+0x400` | a 0x50-byte block written with the defaults and read back by `SndParamBank_RestoreOptionBlock` |
+| Offset                         | Contents                                                                                                                                                                               |
+|:-------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `+0x000`                       | 16-byte header, starting `"HK "`                                                                                                                                                       |
+| `+0x010` / `+0x110` / `+0x210` | banks 0 / 1 / 2: 39 six-byte entries `{u32 RAM address, u8 b4, u8 b5}` = 234 (`0xEA`) bytes, padded with `0xFF` to the next 0x100                                                      |
+| `+0x400`                       | a 0x50-byte option block, written with the defaults; `SndParamBank_LoadOptionBlock` copies it to RAM `0x340E4`.., and `SndParamBank_RestoreOptionBlock` rebuilds it on a factory reset |
 
 Readers and writers (v10):
 
 - `SndParam_GetBlockPointer` returns ROM records for parameter blocks 0..0x18 and
   `0x3D3010` / `0x3D3110` / `0x3D3210` for blocks 0x1B / 0x1C / 0x1D, the three user banks.
-- `SndParam_CopyPreset` writes 0xEA bytes to a bank with `FlashWrite`.
+- `SndParam_AllocAndCopyPreset` writes 0xEA bytes to a bank with `FlashWrite`.
 - `SndParamBank_CheckFlash` / `SndParamBank_WriteFlashDefaults`: when the first 3 bytes differ from the ROM
   default (`0xED933A`), they write the defaults (header + bank 0 from `0xED933A`, banks 1-2 from
   `0xED9434` / `0xED951E`) and the 0x50-byte block at `+0x400`.
 - `SndParam_ApplyBaseBlock` applies a bank's first 23 entries (RAM addresses `0xF9C2`,
-  `0xF9DC`, … on a 0x1A stride), and `SndParam_ApplyMaskBlock` the other 16, as
-  `*addr = (*addr & ~b4) | b5` (addresses `0xFD50`-`0xFD5C`). Both skip entries whose address
-  is 0; in this dump entries 36-38 are unused.
+  `0xF9DC`, … on a 0x1A stride), and `SndParam_ApplyMaskBlock` the other 16 (addresses
+  `0xFD50`-`0xFD5C`); the next bullet gives how each half writes. Both skip entries whose
+  address is 0; in this dump entries 36-38 are unused.
 - *(Corrected 2026-10-06, from the code.)* The two halves are applied differently.
   `SndParam_ApplyBaseBlock` (entries 0-22) does not mask: it writes `addr[0] = (addr[0] & 0xF8) | b4` and
   `addr[1] = b5` -- the low 3 bits of payload byte 12 and the whole of byte 13 (the part/routing byte; see
@@ -248,15 +252,16 @@ table-data `0x800000` source is only a fallback taken when the `SLIDE` magic che
 > [Sub-CPU Payload Provenance]({{ site.baseurl }}/subcpu-payload-provenance/) for the
 > evidence and for the two free measurements that would settle it.
 >
-> The MAME driver supplies the missing bytes with a `ROMX_LOAD` overlay of the compressed
-> payload carved from a genuine v10 update floppy. Address, form and content all match
-> what a real install writes; only the acquisition path is indirect.
+> The MAME driver supplies the missing bytes with a per-BIOS `ROMX_LOAD` overlay of the
+> compressed payload: v1.42 for the v10 and v9 BIOSes, v1.41 for v8 and v7, v1.40 for v6
+> and v5. Address, form and content all match what a real install writes; only the
+> acquisition path is indirect.
 
 ## Flash Programming
 
 The main CPU ROM contains dedicated flash management routines:
-- `Flash_IdentifyChip` (0xEF3723): Detects flash chip type using AMD command protocol
-- `Flash_IdentifyAndValidateChip` (0xEF37A5): Validates chip ID against known device IDs
+- `Flash_IdentifyChip` (0xEF3724): Detects flash chip type using AMD command protocol
+- `Flash_IdentifyAndValidateChip` (0xEF379A): Validates chip ID against known device IDs
 - `Flash_BurnWithProgress` (referenced by floppy update handlers): Programs flash sectors with progress indication
 
 The flash programming uses the standard AMD byte-programming algorithm with polling for completion.

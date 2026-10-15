@@ -50,59 +50,59 @@ canonical table of contents. Large regions live in their own modules:
 
 ## ROM layout
 
-| Address range | Size | Contents |
-|:---|:---|:---|
-| `0x800000-0x800087` | 136 B | `SectionDirectory_Table` — 33 pointers + null terminator |
-| `0x800088-0x82FFFF` | ~192 KB | 26 8bpp bitmaps of the section directory (entries 0-5, 8-27), the KN-5000 wordmark (entry 7) and 17 accessor routines at `0x82F000` |
-| `0x830000-0x8324D3` | 9.2 KB | Tone-DB directory, bank maps, 629-entry offset table |
-| `0x8324D4-0x855A47` | 141 KB | 579 tone/voice records |
-| `0x855A48-0x87FFEF` | 169 KB | Tone-DB auxiliary tables + 0xFF fill |
-| `0x87FFF0-0x880417` | 1 KB | `hkst_55.ssf` metadata + the SSF slideshow script |
-| `0x880418-0x8CE01B` | 311 KB | Six feature-demo BMP images (`FTBMP01..06`) |
-| `0x8CE01C-0x8CE0C9` | 174 B | Six `FeatureDemo_FileEntry` records + 30 zero bytes |
-| `0x8CE0CA-0x8DFFFF` | 72 KB | 0xFF fill |
-| `0x8E0000-0x8E6D3E` | 27,967 B | `DemoSongPreset18` — SLIDE4K Feature Demo preset |
-| `0x8E6D3F-0x8ECFFF` | 25,281 B | 0xFF fill |
-| `0x8ED000-0x8FFBFF` | 76,800 B | `Wallpaper_0` (320x240, 8bpp) |
-| `0x8FFC00-0x8FFFFF` | 1 KB | Wallpaper_0 trailer + `Wallpaper0_ShadeRamp` at `0x8FFF80` |
-| `0x900000-0x912BFF` | 76,800 B | `Wallpaper_1` (320x240, 8bpp) |
-| `0x912C00-0x912FFF` | 1 KB | Wallpaper_1 trailer: five 16-entry shade-ramp tables |
-| `0x913000-0x913117` | 280 B | `BitmapDescriptorTable` — 34 entries + terminator |
-| `0x913118-0x91CE19` | 39 KB | UI bitmap pixel runs |
-| `0x91CE1A-0x91CFFF` | 486 B | 0xFF fill |
-| `0x91D000-0x933FFF` | 92 KB | Section banks 6, 28-32 — factory UI images |
-| `0x934000-0x9341AF` | 432 B | `FrameDescriptorTable` — 53 entries + terminator |
-| `0x9341B0-0x9373F3` | 12.6 KB | UI frame-piece pixel runs |
-| `0x9373F4-0x937FFF` | 3,084 B | 0xFF fill |
-| `0x938000-0x938587` | 1,416 B | `IconTable` — 176 entries + terminator |
-| `0x938588-0x944D77` | 50 KB | Icon pixel data (176 icons + 1 unreferenced + pad) |
-| `0x944D78-0x945BFF` | 3,720 B | 0xFF fill |
-| `0x945C00-0x945CAF` | 176 B | `FontDescriptor_Table` — 10 fonts + one unused slot |
-| `0x945CB0-0x950A5F` | 43 KB | Font glyph banks + `Font5_KernTable` |
-| `0x950A60-0x950FFF` | 1,440 B | 0xFF fill |
-| `0x951000-0x98156F` | 193 KB | Music Stylist records — 1000 x 198 B |
-| `0x981570-0x983B39` | 9.4 KB | Unreferenced residue of an older flash generation |
-| `0x983B3A-0x985FFF` | 9.2 KB | Stale, truncated SLIDE8K German HELP database |
-| `0x986000-0x986FFF` | 4 KB | `StyleRec_PtrTable_CategoryOrder` + residue |
-| `0x987000-0x987FFF` | 4 KB | `StyleRec_PtrTable_Default` + residue |
-| `0x988000-0x98868F` | 1.6 KB | HELP language index (2 x 6 pointers) + five intro strings |
-| `0x988690-0x9999CB` | 69 KB | Five live SLIDE8K HELP databases |
-| `0x9999CC-0x9999D2` | 7 B | `HelpDB_TrailingResidue` — stray bytes, referenced by nothing |
-| `0x9999D3-0x99EBFF` | 21,037 B | 0xFF fill |
-| `0x99EC00-0x99EC9F` | 160 B | `PanelMemory_BankNames` — 10 x 16 chars |
-| `0x99ECA0-0x9ABF3F` | 53,920 B | 80 Panel Memory factory presets (674 B each) |
-| `0x9ABF40-0x9B3FFF` | 32,960 B | 0xFF fill |
-| `0x9B4000-0x9C3FFF` | 64 KB | `Composer_FactoryMemoryImage` |
-| `0x9C4000-0x9C404F` | 80 B | `DemoSongPreset_PointerTable` — 19 entries + null |
-| `0x9C4050-0x9F94CA` | 213 KB | SLIDE4K demo-song presets 0-17 |
-| `0x9F94CB-0x9F9FFF` | 2,869 B | 0xFF fill |
-| `0x9FA000-0x9FA14F` | 336 B | File identifier strings (floppy format IDs) |
-| `0x9FA150-0x9FB495` | 4.9 KB | `"SLIDE"` marker + eight 1bpp boot-screen bitmaps |
-| `0x9FB496-0x9FB4D1` | 60 B | Three FDC bootloader dispatch offset tables |
-| `0x9FB4D2-0x9FB4E7` | 22 B | `Boot_BitMaskTable` + `Boot_InitParams` |
-| `0x9FB4E8-0x9FFEDF` | 18 KB | First-stage bootloader code |
-| `0x9FFEE0-0x9FFEFF` | 32 B | `RESET_HANDLER` + reserved bytes |
-| `0x9FFF00-0x9FFFFF` | 256 B | TMP94C241F interrupt vector table |
+| Address range       | Size     | Contents                                                                                                                                                                                    |
+|:--------------------|:---------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x800000-0x800087` | 136 B    | `SectionDirectory_Table` — 33 pointers + null terminator                                                                                                                                    |
+| `0x800088-0x82FFFF` | ~192 KB  | 26 8bpp bitmaps of the section directory (entries 0-5, 8-27), the KN-5000 wordmark (entry 7) and 17 accessor routines at `0x82F000`                                                         |
+| `0x830000-0x8324D3` | 9.2 KB   | Tone-DB directory, bank maps, 629-entry offset table                                                                                                                                        |
+| `0x8324D4-0x855A47` | 141 KB   | 579 tone/voice records                                                                                                                                                                      |
+| `0x855A48-0x87FFEF` | 169 KB   | Tone-DB auxiliary tables + 0xFF fill                                                                                                                                                        |
+| `0x87FFF0-0x880417` | 1 KB     | `hkst_55.ssf` metadata + the SSF slideshow script                                                                                                                                           |
+| `0x880418-0x8CE01B` | 311 KB   | Six feature-demo BMP images (`FTBMP01..06`)                                                                                                                                                 |
+| `0x8CE01C-0x8CE0C9` | 174 B    | Six `FeatureDemo_FileEntry` records + 30 zero bytes                                                                                                                                         |
+| `0x8CE0CA-0x8DFFFF` | 72 KB    | 0xFF fill                                                                                                                                                                                   |
+| `0x8E0000-0x8E6D3E` | 27,967 B | `DemoSongPreset18` — SLIDE4K Feature Demo preset                                                                                                                                            |
+| `0x8E6D3F-0x8ECFFF` | 25,281 B | 0xFF fill                                                                                                                                                                                   |
+| `0x8ED000-0x8FFBFF` | 76,800 B | `Wallpaper_0` (320x240, 8bpp)                                                                                                                                                               |
+| `0x8FFC00-0x8FFFFF` | 1 KB     | Wallpaper_0 trailer + `Wallpaper0_ShadeRamp` at `0x8FFF80`                                                                                                                                  |
+| `0x900000-0x912BFF` | 76,800 B | `Wallpaper_1` (320x240, 8bpp)                                                                                                                                                               |
+| `0x912C00-0x912FFF` | 1 KB     | Wallpaper_1 trailer: five 16-entry shade-ramp tables                                                                                                                                        |
+| `0x913000-0x913117` | 280 B    | `BitmapDescriptorTable` — 34 entries + terminator                                                                                                                                           |
+| `0x913118-0x91CE19` | 39 KB    | UI bitmap pixel runs                                                                                                                                                                        |
+| `0x91CE1A-0x91CFFF` | 486 B    | 0xFF fill                                                                                                                                                                                   |
+| `0x91D000-0x933FFF` | 92 KB    | Section banks 6, 28-32 — factory UI images                                                                                                                                                  |
+| `0x934000-0x9341AF` | 432 B    | `FrameDescriptorTable` — 53 entries + terminator                                                                                                                                            |
+| `0x9341B0-0x9373F3` | 12.6 KB  | UI frame-piece pixel runs                                                                                                                                                                   |
+| `0x9373F4-0x937FFF` | 3,084 B  | 0xFF fill                                                                                                                                                                                   |
+| `0x938000-0x938587` | 1,416 B  | `IconTable` — 176 entries + terminator                                                                                                                                                      |
+| `0x938588-0x944D77` | 50 KB    | Icon pixel data (176 icons + 1 unreferenced + pad)                                                                                                                                          |
+| `0x944D78-0x945BFF` | 3,720 B  | 0xFF fill                                                                                                                                                                                   |
+| `0x945C00-0x945CAF` | 176 B    | `FontDescriptor_Table` — 10 fonts + one unused slot                                                                                                                                         |
+| `0x945CB0-0x950A5F` | 43 KB    | Font glyph banks + `Font5_KernTable`                                                                                                                                                        |
+| `0x950A60-0x950FFF` | 1,440 B  | 0xFF fill                                                                                                                                                                                   |
+| `0x951000-0x98156F` | 193 KB   | Music Stylist records — 1000 x 198 B                                                                                                                                                        |
+| `0x981570-0x983B39` | 9.4 KB   | Stale copy of the English HELP database's tail, written 0x8000 below the live one ([details]({{ site.baseurl }}/music-stylist-database/#after-the-grid-a-stale-copy-of-the-help-databases)) |
+| `0x983B3A-0x985FFF` | 9.2 KB   | Stale, truncated SLIDE8K German HELP database                                                                                                                                               |
+| `0x986000-0x986FFF` | 4 KB     | `StyleRec_PtrTable_CategoryOrder` + residue                                                                                                                                                 |
+| `0x987000-0x987FFF` | 4 KB     | `StyleRec_PtrTable_Default` + residue                                                                                                                                                       |
+| `0x988000-0x98868F` | 1.6 KB   | HELP language index (2 x 6 pointers) + five intro strings                                                                                                                                   |
+| `0x988690-0x9999CB` | 69 KB    | Five live SLIDE8K HELP databases                                                                                                                                                            |
+| `0x9999CC-0x9999D2` | 7 B      | `HelpDB_TrailingResidue` — stray bytes, referenced by nothing                                                                                                                               |
+| `0x9999D3-0x99EBFF` | 21,037 B | 0xFF fill                                                                                                                                                                                   |
+| `0x99EC00-0x99EC9F` | 160 B    | `PanelMemory_BankNames` — 10 x 16 chars                                                                                                                                                     |
+| `0x99ECA0-0x9ABF3F` | 53,920 B | 80 Panel Memory factory presets (674 B each)                                                                                                                                                |
+| `0x9ABF40-0x9B3FFF` | 32,960 B | 0xFF fill                                                                                                                                                                                   |
+| `0x9B4000-0x9C3FFF` | 64 KB    | `Composer_FactoryMemoryImage`                                                                                                                                                               |
+| `0x9C4000-0x9C404F` | 80 B     | `DemoSongPreset_PointerTable` — 19 entries + null                                                                                                                                           |
+| `0x9C4050-0x9F94CA` | 213 KB   | SLIDE4K demo-song presets 0-17                                                                                                                                                              |
+| `0x9F94CB-0x9F9FFF` | 2,869 B  | 0xFF fill                                                                                                                                                                                   |
+| `0x9FA000-0x9FA14F` | 336 B    | File identifier strings (floppy format IDs)                                                                                                                                                 |
+| `0x9FA150-0x9FB495` | 4.9 KB   | `"SLIDE"` marker + eight 1bpp boot-screen bitmaps                                                                                                                                           |
+| `0x9FB496-0x9FB4D1` | 60 B     | Three FDC bootloader dispatch offset tables                                                                                                                                                 |
+| `0x9FB4D2-0x9FB4E7` | 22 B     | `Boot_BitMaskTable` + `Boot_InitParams`                                                                                                                                                     |
+| `0x9FB4E8-0x9FFEDF` | 18 KB    | First-stage bootloader code                                                                                                                                                                 |
+| `0x9FFEE0-0x9FFEFF` | 32 B     | `RESET_HANDLER` + reserved bytes                                                                                                                                                            |
+| `0x9FFF00-0x9FFFFF` | 256 B    | TMP94C241F interrupt vector table                                                                                                                                                           |
 
 ## Section directory and bitmap bank (0x800000)
 
@@ -259,8 +259,14 @@ record+0, and `DrawWall` (0xFABB73) copies the image to the offscreen buffer at 
 palette at `0x324FC` via `SetPaletteRGB`. `VGA_WritePaletteEntry` sends bytes +0, +1, +2 to
 the DAC data port in that order. Every pixel of both images is in 0xE0-0xEF, the 16-shade
 ramp at trailer `+0x380` (`Wallpaper0_ShadeRamp`, the `WallpaperRamp_*` set in
-`ui_bitmaps.s`). The loader of entries 0xE0-0xEF (`ChangeWallPalette_Impl`, via the RAM
-table at `0x3F1E4`) has not been traced back to that slot. The older note that "no code
+`ui_bitmaps.s`). Entries 0xE0-0xEF are loaded by `ChangeWallPalette_Impl`. Through
+`GetWallPaletteRGB` it reads entries 0-15 of one palette in the 12-pointer table at RAM
+`0x3F1E4`, which `Boot_InitWorkRAM` copies at boot from the program ROM's
+`Naka_DrawbarReg_Table` (`0xEEF588`; the label is misleading). Entries 1 and 0 of that
+table point at program-ROM palettes (`NakaColor_Palette1` at `0xEB3BDE`,
+`NakaColor_Palette2` at `0xEB3FDE`). Their first 16 entries are byte-identical to the
+`+0x380` ramps of the Wallpaper 0 and Wallpaper 1 trailers, so the DAC gets its ramp from
+the program ROM's copy. The older note that "no code
 reference to these ramps has been found" is superseded. The wallpaper table itself is 5 records of
 `{u32 bitmap, u32 palette, u16 0}`. In the main-CPU source it sits under `ChangeWall_WallpaperTable` (record 0's
 bitmap pointer) and `ChangePalette_WallpaperPalettes` (`ChangePalette_Impl` indexes from there with stride 10).
@@ -311,8 +317,9 @@ survive in Main-CPU routine and widget names.
 
 **Icons (`0x938000`)** — `IconTable` holds 176 entries of `{u16 bbox width, u16 bbox
 height, u32 pixel pointer}` plus a terminator, indexed by the icon number passed to
-`DrawIcons` (`0xFABF9B`). Every icon's pixel data is 24x24 at 4bpp (2 pixels per byte,
-288 bytes, 12 bytes/row x 24 rows — `DrawIcons` hardcodes the geometry). The bounding-box
+`DrawIcons` (`0xFABF3F`; its drawing loop is `DrawIcons_Impl` at `0xFABF9B`). Every
+icon's pixel data is 24x24 at 4bpp (2 pixels per byte, 288 bytes, 12 bytes/row x 24 rows
+— `DrawIcons` hardcodes the geometry). The bounding-box
 fields are UI hit-test dimensions only: icons 173-175 declare 27x27 or 28x28 but still
 carry 24x24 pixels. A **177th icon** sits after the last referenced one — yellow "E.L.S."
 lettering with small glyphs below, apparently a developer signature. No table entry points
@@ -430,13 +437,15 @@ live payloads are **build products** recompressed from the decompressed sources 
 `table_data/includes/help_databases/` by `compress_slide8k.py --strict --reference`, and
 `make verify-help-databases` byte-compares all of them against the original slices.
 
-A sixth, *stale* SLIDE8K block sits at `0x983B3A`: a superseded revision of the German
-database, referenced by nothing in any program ROM (v7, v9 or v10). It is **truncated, not
-merely corrupt** — the factory image wrote the two Music Stylist pointer tables at
-`0x986000`/`0x987000` straight over its tail. Decoding it tracks the live German database
-byte-for-byte for exactly 0x55E0 output bytes, and the element producing output 0x55E0 is
-the first one to read past `0x985FFF`. Because its tail no longer exists it is preserved as
-a raw, byte-exact slice of the dump rather than rebuilt from source.
+A sixth, *stale* SLIDE8K block sits at `0x983B3A`: a copy of the live German database
+written 0x8000 lower, referenced by nothing in any program ROM (v7, v9 or v10). It is
+**truncated, not merely corrupt** — the factory image wrote the two Music Stylist pointer
+tables at `0x986000`/`0x987000` straight over its tail. Decoding it tracks the live German
+database byte-for-byte for exactly 0x55E0 output bytes, and the element producing output
+0x55E0 is the first one to read past `0x985FFF`. Its surviving bytes are not a dump slice:
+`0x98156F-0x985FFF` is the live English and German streams copied 0x8000 lower, so
+`scripts/generators/gen_stale_help_duplicate.py` derives them from the rebuilt live
+streams, and `make verify-stale-help-duplicate` checks the result against the ROM.
 
 Seven stray bytes follow the Indonesian database at `0x9999CC`: three `(0x7F, N)` pairs with
 N stepping by 10 (`0xD8`, `0xE2`, `0xEC`) plus a lone `0x7E` — the tail of some stride-10
@@ -459,10 +468,15 @@ buttons).
 `Composer_FactoryMemoryImage` at `0x9B4000` is a 64 KB image of the COMPOSER (user rhythm
 style) memory, copied wholesale to RAM `0x94800` at boot. It carries three factory user
 styles in four variations each (" Pop Samba 1".."4", "GentleSwing 1".."4", "German 3/4
-1".."4") plus 18 empty "Clear" slots, and from image offset `+0xAB00` (ROM `0x9BEB00`) the
-rhythm cell streams in the same cell grammar the factory rhythms use — 52 `80 nn 00 FF FF 87`
-cell headers, each on a 256-byte boundary. (The module header's "+0xC000" is too late by
-0x1500 bytes.)
+1".."4") plus 18 empty "Clear" slots, and, from image offset `+0x1400` (ROM `0x9B5400`) to
+`+0xFDFF`, 234 linked 256-byte cells in the same cell/chain container as the IC19
+accompaniment styles: each cell has an `80 PREV NEXT 87` header (16-bit links, `0xFFFF` at a
+chain's head or end), an event stream and a trailing `87`. The last two blocks, `+0xFE00`
+and `+0xFF00`, are empty unlinked blocks with a `0x00` marker. The image is built from
+`custom_data/styles/Composer_FactoryMemoryImage.styles`. (The 52 `80 nn 00 FF FF 87`
+headers counted earlier, the first at `+0xAB00`, are only the last cells of the 52
+multi-cell chains; 98 more cells are one-cell chains with both links `0xFFFF`. The module
+header's "+0xC000" is wrong as well.)
 
 See **[Panel Memory & Composer Factory Data]({{ site.baseurl }}/panel-memory-factory-data/)** for the
 record format and the loader routines.
@@ -485,7 +499,7 @@ Format identification strings used to detect floppy disk file types:
 A `"SLIDE"` marker string, then eight headerless 1bpp bitmaps (224x22, 616 bytes each)
 shown during a firmware update: "Flash Memory Update", "Now Erasing", "FD to Flash Memory",
 "Completed", "Please Wait", "Change FD 2 of 2", "Illegal Disk", "Turn On AGAIN". They are
-byte-identical duplicates of the eight bitmaps in the Main CPU ROM at `0xE0018E-0xE0148D`
+byte-identical duplicates of the eight bitmaps in the Main CPU ROM at `0xE0018E-0xE014CD`
 and are emitted from the same image files, so the duplication stays single-sourced. See
 [Firmware Update Display]({{ site.baseurl }}/firmware-update-display/).
 
@@ -515,9 +529,9 @@ the Main CPU ROM, sets the stack pointer from `0x00987E`, clears RAM, copies
 and boot mode, checks for a firmware-update floppy, validates flash integrity, reconfigures
 CS2 to move this ROM to 0x800000, and hands control to the main Program ROM.
 
-The bootloader is a complete little system of its own, disassembled in Wave 1 and Wave 2 of
-the conversion effort. Beyond `Boot_Init` it contains a shared VGA register-init block
-(`0x9FCDFC-0x9FD7E7`), an FDC command-layer driver with twelve commands
+The bootloader is a complete little system of its own, disassembled on 2026-08-07, in
+Wave 1 and Wave 2 of the binary-include conversion. Beyond `Boot_Init` it contains a
+shared VGA register-init block (`0x9FCDFC-0x9FD7E7`), an FDC command-layer driver with twelve commands
 (`0x9FD8A5-0x9FEA9C`, previously mislabelled "flash update handlers"), a floppy
 disk-format probe, a **boot-time control-panel serial driver that is entirely independent
 of the runtime CP-serial stack**, three serial ISRs with a state-machine dispatch table, a
@@ -537,21 +551,23 @@ One artefact predates the whole conversion and still sits in the tree:
 slice of the factory dump** — file offset 0 is ROM `0x944D78` and its last byte is ROM
 `0x9F9FFF` — and as of commit `6ab2b5d` every one of those bytes is accounted for.
 
-| Part | File offsets | ROM | Size | Status |
-|:---|:---|:---|---:|:---|
-| Read by the LLVM build | 13 sized `.incbin` slices | — | 126,674 B | live (17.1 % of the file) |
-| Source-built here, still `binclude`d whole by the ASL mirror | remainder below `0x7F2D8` | `0x944D78-0x9C404F` | 394,246 B | live for the mirror only |
-| Dead tail | `0x7F2D8-0xB5287` | `0x9C4050-0x9F9FFF` | 221,104 B | read by nothing |
+| Part                                                         | File offsets          | ROM                 | Size      | Status                   |
+|:-------------------------------------------------------------|:----------------------|:--------------------|----------:|:-------------------------|
+| Read by the LLVM build                                       | none since 2026-09-02 | —                   | 0 B       | —                        |
+| Source-built here, still `binclude`d whole by the ASL mirror | `0x0-0x7F2D7`         | `0x944D78-0x9C404F` | 520,920 B | live for the mirror only |
+| Dead tail                                                    | `0x7F2D8-0xB5287`     | `0x9C4050-0x9F9FFF` | 221,104 B | read by nothing          |
 
-The 13 live slices are the ten font glyph banks (`fonts.s`), the Music Stylist residue
-block (`style_records.s`), the truncated stale German help block (`help_databases.s`) and
-the 64 KB Composer factory memory image (`kn5000_table_data.s`). Every one lies inside the
-extent the archived ASL mirror bincludes as a single block
-(`binclude "includes/icons_to_strings.bin", 0, 07F2D8h`), which is why the file may not be
-rewritten, re-sliced or truncated on disk even though the LLVM build now emits most of the
-region from real source. The 80 bytes at file `0x7F288-0x7F2D7` (ROM `0x9C4000-0x9C404F`)
-are the last thing the mirror still takes from the blob that this build emits from source:
-`DemoSongPreset_PointerTable`'s 19 pointers plus its null terminator.
+Since 2026-09-02 the LLVM build reads none of it. The ten font glyph banks come from
+round-trip PNGs (`includes/generated/Font*_Glyphs.bin`). The Composer factory memory image
+is built from `custom_data/styles/Composer_FactoryMemoryImage.styles`. The Music Stylist
+residue and the truncated stale German help block are derived from the live English and
+German help streams by `scripts/generators/gen_stale_help_duplicate.py`. The file still may
+not be rewritten, re-sliced or truncated on disk, because the archived ASL mirror
+bincludes its first 0x7F2D8 bytes as a single block
+(`binclude "includes/icons_to_strings.bin", 0, 07F2D8h`). The 80 bytes at file
+`0x7F288-0x7F2D7` (ROM `0x9C4000-0x9C404F`) are the last thing the mirror still takes
+from the blob that this build emits from source: `DemoSongPreset_PointerTable`'s 19
+pointers plus its null terminator.
 
 **The dead tail is a stale duplicate of the demo-song presets.** The 221,104 bytes past the
 ASL extent are eighteen SLIDE4K blocks laid end to end — presets 0-17, one `0xFF`
@@ -584,9 +600,6 @@ places:
 
 * **The section directory's reader.** All 33 targets are identified bitmaps, but nothing in
   any ROM we hold reads the directory (`SectionDirectory_Table`, 136 B) or these copies.
-* **Wallpaper palette entries 0xE0-0xEF.** Entries 0x20-0xDF come from the trailer through
-  `ChangePalette_Impl`. The 0xE0-0xEF shade ramp is loaded by `ChangeWallPalette_Impl` via
-  RAM `0x3F1E4`, and what writes that RAM table is not found.
 * **Panel Memory parameter payloads.** The chunk framing is settled. Each of the 80 records
   now carries its ROM/RAM addresses, but most payloads are still undecoded. The Music Stylist
   parameter block is decoded ([Music Stylist]({{ site.baseurl }}/music-stylist-database/#the-parameter-block)).
@@ -597,12 +610,3 @@ places:
   not worked out.
 * **Tone-record fields.** The record framing is exact; several fixed-value fields have no
   established meaning yet (see the tone-database page).
-* **Housekeeping — settled.** Both items previously listed here are closed. The seven
-  orphaned `bootcode_*.bin` files were deleted along with 25 other unreferenced
-  extraction artefacts (commit `7280bce`; six `bootcode_*` remain because the archived
-  ASL mirror still bincludes them). The dead tail of `includes/icons_to_strings.bin` was
-  measured, explained and left in place on purpose — see *The backing blob* above.
-
-Work on the wider disassembly is also unfinished: the v7 firmware tree has not been
-converted, and the Main-CPU inline `.byte` audit is still pending. Neither affects the
-table-data ROM's own coverage.

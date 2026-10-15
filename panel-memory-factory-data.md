@@ -56,8 +56,9 @@ at 0x9ABF40, from where the ROM is 0xFF fill to 0x9B3FFF (32,960 bytes, verified
 | 9 | Special DSP FX | 50's Echo, Don't Ring Us!, A Bit Of A Mixup, Phased Guitar, Effective Warmth, Bad Boy Wah, Flanged & Funked, Underwater Echo |
 | 10 | World | Sunset in Peru, Party in Greece!, Tango Symphonia, Hungarian Party, Caribbean Style, The French Way!, Eastern Promise, Edinburgh Dance |
 
-Bank names are stored centred with spaces (`"   Accordion    "`, `"     World      "`);
-only bank 0 fills all 16 columns. Preset names are stored likewise and are shown here
+Bank names are space-padded to 16 characters, most of them centred (`"   Accordion    "`,
+`"     World      "`); "Tour Of The 5000", "Church & Theatre" and "Layer Production" fill
+all 16 columns. Preset names are stored likewise and are shown here
 trimmed.
 
 ## Record format: a chunk stream
@@ -250,11 +251,11 @@ zero-fills a 960-byte (`0x3C0`) RAM record at `0x1ED400 + 960*i`, then assembles
 *two* sources -- the 674-byte ROM record at `0x99ECA0 + 674*i`, and a fixed default block
 in the program ROM:
 
-| RAM range | length | source |
-|:---|---:|:---|
-| `+0x000` | `0x07C` | ROM record `+0x00` -- the name chunk and parts `0x00`-`0x03` |
-| `+0x07C` | `0x11E` | program ROM `0xEDB478` -- eleven chunks tagged `0x04`-`0x0E` |
-| `+0x19A` | `0x226` | ROM record `+0x7C` -- everything else, including the `FF FF` terminator |
+| RAM range | length  | source                                                                                           |
+|:----------|--------:|:-------------------------------------------------------------------------------------------------|
+| `+0x000`  | `0x07C` | ROM record `+0x00` -- the name chunk and parts `0x00`-`0x03`                                     |
+| `+0x07C`  | `0x11E` | program ROM `0xEDB478` (`SndParamRam_DefaultImage` + 0x7C) -- eleven chunks tagged `0x04`-`0x0E` |
+| `+0x19A`  | `0x226` | ROM record `+0x7C` -- everything else, including the `FF FF` terminator                          |
 
 The middle piece is the key structural fact: **parts `0x04`-`0x0E` are not stored per
 preset**. The block at main-CPU ROM `0xEDB478` is 286 bytes = eleven chunks in exactly the
@@ -297,18 +298,18 @@ ld XIY,0x9B4000 / ld XIX,0x94800 / ld BC,0x8000 / ldirw   ; 0x8000 words = 64 KB
 ```
 
 That code is at main-CPU **0xF6413A** in v9 and v10 and **0xF63D36** in v7; the v7 source
-tree has it at `v7/maincpu/sequencer/accompaniment_engine.s:16703` under the placeholder
+tree has it at `v7/maincpu/sequencer/accompaniment_engine.s:22708` under the placeholder
 label `AccWidget_DispatchTable` (the same label at 0xF6413A in v9 and v10), which does not describe it: it is the Composer image copier (a rename is pending). Because
 nothing addresses inside the image, the block stays a single labelled `.incbin` slice.
 
 Structure observed in the image (offsets are image-relative; add 0x9B4000 for ROM):
 
-| image offset | contents |
-|:---|:---|
-| `+0x0000` | header: memory-configuration words, part lists `01 02 03 04`, a `5A 5A 5A` (`"ZZZ"`) tag |
-| `+0x0080` | 30 style-slot records, 0x60 bytes each, 16-char name at slot offset +0x20 |
-| `+0x0C00` | zero fill to `+0x12FF` |
-| `+0x1300` | style event pool, to the end of the image |
+| image offset | contents                                                                                                                                                                                               |
+|:-------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `+0x0000`    | header: memory-configuration words, part lists `01 02 03 04`, a `5A 5A 5A` (`"ZZZ"`) tag                                                                                                               |
+| `+0x0080`    | 30 style-slot records, 0x60 bytes each, 16-char name at slot offset +0x20                                                                                                                              |
+| `+0x0C00`    | zero fill to `+0x12FF`                                                                                                                                                                                 |
+| `+0x1300`    | style event pool: zero to `+0x13BF`, a 64-byte misaligned pseudo-cell at `+0x13C0`, 234 linked 256-byte cells from `+0x1400` to `+0xFDFF`, and two empty `0x00`-marker blocks at `+0xFE00` / `+0xFF00` |
 
 The 30 slot names are three factory user styles at four variations each --
 ` Pop Samba 1`..` Pop Samba 4`, `GentleSwing 1`..`GentleSwing 4`,
@@ -319,13 +320,15 @@ The 30 slot names are three factory user styles at four variations each --
 The old region map described `0x9B4D78-0x9C3FFF` as "tone generator parameter data;
 MIDI-event-like note streams (`90 30 24 ...`) from 0x9C0000". Those streams are real, but
 they are the Composer image's rhythm data, not tone-generator parameters. They use the
-same cell grammar the factory rhythms use: a `80 nn 00 FF FF 87` cell header followed by
-six-byte note events beginning `0x90`. In the dumped image there are **52** such headers,
-each landing on a 256-byte boundary, the first at image offset `0xAB00` = ROM
-**0x9BEB00** -- earlier than both the old map's 0x9C0000 and the "+0xC000" figure quoted
-in the module header. The event grammar itself is not decoded on this page; see
-[Custom Data Flash]({{ site.baseurl }}/custom-data-flash/) for the rhythm-cell format in
-the factory style database.
+same cell/chain container as the IC19 accompaniment styles: 256-byte cells, each with an
+`80 PREV NEXT 87` header (16-bit links, `0xFFFF` at a chain's head or end), an event stream
+and a trailing `87`. The image holds **234** linked cells in 150 chains, from image offset
+`0x1400` (ROM **0x9B5400**) to `0xFDFF`; the last two blocks (`0xFE00`, `0xFF00`) are empty
+unlinked blocks with a `0x00` marker. The 52 `80 nn 00 FF FF 87` headers counted earlier,
+the first at `0xAB00`, are only the last cells of the 52 multi-cell chains. The disassembly
+builds the image from `custom_data/styles/Composer_FactoryMemoryImage.styles`; the
+container is described in `docs/accompaniment-style-format.md` in the disassembly
+repository.
 
 ## Neighbours
 
@@ -344,10 +347,11 @@ the factory style database.
 ## Build status
 
 `table_data/panel_memory_presets.s` is a prerequisite of
-`rebuilt_ROMs/kn5000_table_data.llvm.o` (`Makefile:680`), so the whole Panel Memory block
+`rebuilt_ROMs/kn5000_table_data.llvm.o` (`Makefile:886`), so the whole Panel Memory block
 assembles from source in the LLVM lane, chunk by chunk, and the demo-preset pointer table
-is symbolic. The Composer image is still a labelled raw slice of
-`table_data/includes/icons_to_strings.bin`, and the parallel ASL mirror still takes the
+is symbolic. The Composer image is built from
+`custom_data/styles/Composer_FactoryMemoryImage.styles` by `scripts/build/style_events.py`
+and `.incbin`'d as one labelled block; the parallel ASL mirror still takes the
 entire 0x944D78-0x9C404F range as one `binclude`
 (`archive/asl/table_data/kn5000_table_data.asm:221`) so that the blob file stays
 byte-identical on disk.
@@ -361,7 +365,8 @@ Open items on this block:
 * the meaning of the tags themselves (why `0x43`-`0x48`, `0x60`-`0x66`, `0x70`-`0x72`,
   `0x80`, `0x90`-`0x99`) is unknown;
 * the preset-15 `0x19`/`0xC0` outlier is unexplained;
-* the Composer image's header words and its 0x1300-0xAB00 span are undescribed;
+* the Composer image's header words, and the misaligned 64-byte pseudo-cell at `+0x13C0`,
+  are undescribed;
 * the loader routines carry misleading names (`Display_CopyAndRenderBitmaps`,
   `VoiceData_ExtendedParamSetup`, `VoiceData_InitAndCopyParams`); renaming them is pending.
 
@@ -372,7 +377,7 @@ Open items on this block:
 * Loader routines: disassembled from `original_ROMs/kn5000_v10_program.rom` at
   `0xFC81EF`, `0xFC7E82`, `0xFC7DD8`; the default block at `0xEDB478` and the `"HK "`
   slot at `0xEDBA1C` were read from the same image.
-* Composer copy: `v7/maincpu/sequencer/accompaniment_engine.s:16703`; the immediate
+* Composer copy: `v7/maincpu/sequencer/accompaniment_engine.s:22708`; the immediate
   `0x009B4000` occurs exactly once in each of the v7, v9 and v10 program ROMs.
 * Chunk-signature, +13 census, bank/preset names, fill extents and the Composer image
   survey: recomputed from `original_ROMs/kn5000_table_data.rom` for this page.

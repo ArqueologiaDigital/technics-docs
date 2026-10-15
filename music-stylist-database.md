@@ -27,21 +27,22 @@ for the other factory-registration block in the same ROM.
 ## The firmware's own words
 
 The Music Stylist front page is built by the widget module
-`maincpu/ui_widgets/naka_perf_style.c`, and its labels state the size of the database
+`v10/maincpu/ui_widgets/naka_perf_style.c`, and its labels state the size of the database
 directly:
 
-| widget | text |
-|:---|:---|
-| `w160_text` | `Music Stylist` |
-| `w161_text` | `> 1000 Styles of World wide Music !` |
-| `w162_text` | `> Style explorer by Genre` |
-| `w163_text` | `> Alphabetical style select` |
-| `w164_text` | `STYLE EXPLORER` |
-| `str_898` | `Explore 1000 Musical Styles with the Music Stylist.` |
+| widget                         | text                                                  |
+|:-------------------------------|:------------------------------------------------------|
+| `MusicStylist_text`            | `Music Stylist`                                       |
+| `StylesOfWorldWide_text`       | `> 1000 Styles of World wide Music !`                 |
+| `StyleExplorerByGenre_text`    | `> Style explorer by Genre`                           |
+| `AlphabeticalStyleSelect_text` | `> Alphabetical style select`                         |
+| `StyleExplorer_text`           | `STYLE EXPLORER`                                      |
+| `ExploreMusicalStylesWith_str` | `Explore 1000 Musical Styles with the Music Stylist.` |
 
-`str_898` sits at main-CPU ROM **0xE14C86** in all three dumped firmware versions
-(v7, v9, v10). The five help databases carry the same claim in prose -- the English one
-reads "The Music Stylist is your guide to 1000 musical styles in the KN5000."
+The string sits at main-CPU ROM **0xE14C86** (`LongStr_Explore_1000_Musical`) in all three
+disassembled firmware versions (v7, v9, v10). The five help databases carry the same claim
+in prose -- the English one reads "The Music Stylist is your guide to 1000 musical styles
+in the KN5000."
 
 ### Terminology
 
@@ -87,9 +88,10 @@ sub-category name fields -- verified for all 250 groups.
 | +0xBF | 6 | `FF` ×6, constant in every record |
 | +0xC5 | 1 | grid padding, **not** part of the 197-byte record (93 distinct values across the grid) |
 
-Every invariant in that table (the two `.long`s, the printable name ranges, the constant
-`1`, the length byte 32, the `[ 0-9]\d\d` tempo pattern, the five `0xFF`) is asserted for
-all 1000 records by the generator before it emits a line.
+The generator asserts these invariants for all 1000 records before it emits a line: the
+two `.long`s, the printable name ranges, the constant `1`, the length byte 32, the
+`[ 0-9]\d\d` tempo pattern, the `00 00` pad and `0xFF` at +0xC0..+0xC4. The sixth `0xFF`,
+at +0xBF, holds in all 1000 records but is not asserted.
 
 The 3-character number at +0x48 is the style's **tempo** as displayed: the Music Stylist
 list-screen widget templates in `naka_perf_style.c` end their column header with `TEMPO`
@@ -173,9 +175,9 @@ Record ranges are contiguous and in ROM order:
 
 The STYLE EXPLORER screen carries the same ten strings, with one cosmetic difference: the
 screen label reads `Trad / Folk` where the records read `Trad & Folk`. The labels are
-declared in `naka_perf_style.c` as `w166_text`..`w175_text` in the order Easy Listening,
-Rock & Pop, Party Music, Dance Pop, Gospel/Blues/R&B, Jazz & Swing, Show/Trad Dance,
-Trad / Folk, Country, Latin / World -- which differs from ROM order at positions 3 and 4.
+declared in `naka_perf_style.c` as `EasyListening_text`..`LatinWorld_text` in the order
+Easy Listening, Rock & Pop, Party Music, Dance Pop, Gospel/Blues/R&B, Jazz & Swing,
+Show/Trad Dance, Trad / Folk, Country, Latin / World -- which differs from ROM order at positions 3 and 4.
 Whether that declaration order is also the on-screen order has not been confirmed against
 a screenshot.
 
@@ -285,12 +287,12 @@ the end of one list and a missing one) has not been checked on hardware.
 
 ### Which table, and when
 
-`EffectMode_ClampAndLookupPreset` (`v10/maincpu/ui/ui_mode_handlers.s:404`, same routine
+`EffectMode_ClampAndLookupPreset` (`v10/maincpu/ui/ui_mode_handlers.s:424`, same routine
 in v7/v9) performs the lookup:
 
 ```
-cp   wa, 0x3e8            ; clamp the index to 1000 = the entry count
-ldb  c, (0x8d38)          ; current UI state ID
+cp   wa, 0x3e8            ; an index above 1000 is replaced by 1
+ld   c, (ACTIVE_TITLE)    ; RAM 0x8D38, current UI state ID
 cp   c, 0xc2 / 0xc5       ; -> 0x986000, otherwise -> 0x987000
 sll  xwa, 2 / add xwa, xbc / ld xwa, (xwa)
 ld   xhl, xwa / add xhl, (xwa + 4)   ; -> parameter block
@@ -298,10 +300,10 @@ ld   xhl, xwa / add xhl, (xwa + 4)   ; -> parameter block
 
 The selector byte at DRAM **0x8D38** is the **current UI state ID**, not a model code:
 the same byte is what `UIState_KeyScan_Dispatch` uses to index the keymap table
-(`v10/maincpu/ui/ui_control_panel.s:1920-1932`). The "0xC2 = KN3000 / 0xC5 = KN5000"
+(`v10/maincpu/ui/ui_control_panel.s:1932-1947`). The "0xC2 = KN3000 / 0xC5 = KN5000"
 reading that older notes carried is withdrawn.
 
-`EffectMode_DisplayPresetName` (same file, line 432) applies the same split, with explicit
+`EffectMode_DisplayPresetName` (same file, line 452) applies the same split, with explicit
 checks for 0xC0, 0xC2 and 0xC5 -- 0xC0 taking the default table -- and renders the name
 with `Strncpy(dst, record + 43, 16)`, i.e. only the first 16 characters of the 32-char
 display string fit the narrow name box.
@@ -313,7 +315,7 @@ name[16]}` records, searched by `StyleName_FindOverride_*`. For example, index 0
 C2/C5 context and index 0x185 in the default one. The record's own name is used only when the style is not listed
 (`scripts/converters/style_name_override_retype.py` in kn5000-roms-disasm types them).
 
-`MssName_EventDispatch` (event `0x1c00013`, same file, line 10599) uses the default table
+`MssName_EventDispatch` (event `0x1c00013`, same file, line 10576) uses the default table
 only and copies the full string: it loads the length byte from `record + 42` and calls
 `Strncpy(dst, record + 43, that length)` = 32 characters.
 
@@ -334,7 +336,7 @@ original_ROMs/kn5000_table_data.rom` (see the header of `table_data/style_record
 
 The LLVM lane assembles both modules from source -- `table_data/style_records.s` and
 `table_data/style_record_ptr_tables.s` are prerequisites of
-`rebuilt_ROMs/kn5000_table_data.llvm.o` (`Makefile:680`) -- and the pointer tables are
+`rebuilt_ROMs/kn5000_table_data.llvm.o` (`Makefile:886`) -- and the pointer tables are
 fully symbolic (`.long StyleRec_NNN`), so the record grid and its indices stay consistent
 by construction.
 
@@ -356,12 +358,13 @@ Open items on this block:
 * Carve + labels: `table_data/style_records.s`,
   `table_data/style_record_ptr_tables.s` (commit `c9bc67f`).
 * Generator and structural assertions: `scripts/generators/gen_style_records.py`.
-* Consumers: `v10/maincpu/ui/ui_mode_handlers.s` lines 404 (`EffectMode_ClampAndLookupPreset`),
-  432 (`EffectMode_DisplayPresetName`), 10599 (`MssName_EventDispatch`); UI-state byte
-  documented at `v10/maincpu/ui/ui_control_panel.s:1920-1932`.
+* Consumers: `v10/maincpu/ui/ui_mode_handlers.s` lines 424 (`EffectMode_ClampAndLookupPreset`),
+  452 (`EffectMode_DisplayPresetName`), 10576 (`MssName_EventDispatch`); UI-state byte
+  documented at `v10/maincpu/ui/ui_control_panel.s:1932-1947`.
 * Screen labels and the "1000 Musical Styles" string:
-  `v10/maincpu/ui_widgets/naka_perf_style.c` (`w160_text`..`w175_text`, `str_898`);
-  `str_898` is at main-CPU ROM 0xE14C86 in v7, v9 and v10.
+  `v10/maincpu/ui_widgets/naka_perf_style.c` (`MusicStylist_text`..`LatinWorld_text`,
+  `ExploreMusicalStylesWith_str`); the string is `LongStr_Explore_1000_Musical` at
+  main-CPU ROM 0xE14C86 in v7, v9 and v10.
 * Help-text wording: `table_data/includes/help_databases/help_db_english.bin`.
 * Category counts, pointer-table permutations and the 996/1000 anomaly: recomputed from
   `original_ROMs/kn5000_table_data.rom` for this page.
