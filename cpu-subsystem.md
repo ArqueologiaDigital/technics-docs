@@ -225,7 +225,7 @@ not ground truth. Either PD.6 is dual-purpose or one of the two readings is wron
 1. Sub CPU starts from reset vector in Boot ROM (0xFFFEE0)
 2. Initializes DMA and serial for the latch (`INIT_DMA_SERIAL`, 0xFF85AE, in the boot ROM; the payload later runs its own `InterCPU_Latch_Setup`, 0x020C15)
 3. Receives 192KB payload from Main CPU via DMA transfer
-4. Main CPU verifies payload checksums (`SubCPU_Payload_Verify`)
+4. Meanwhile the Main CPU compares checksums of its own DRAM at 0xF180 and 0xF980 with the values the power-off NMI saved at 0xFFD4/0xFFD2 (`SubCPU_Payload_Verify`; despite the name it reads nothing that was sent to the Sub CPU — see [SNS NMI Emulation]({{ site.baseurl }}/sns-nmi-emulation/))
 5. Jumps to payload entry point
 6. Enters audio processing main loop
 
@@ -330,12 +330,12 @@ The CPUs communicate via one pair of hardware latches (IC22/IC23), which the Mai
 
 At boot, the Main CPU transfers the 192KB Sub CPU payload via the same latch:
 
-| Function                | Address  | CPU  | Purpose                               |
-|-------------------------|----------|------|---------------------------------------|
-| `SubCPU_Send_Payload`   | 0xEF068A | Main | Send 192KB payload                    |
-| `SubCPU_Payload_Verify` | 0xEF092B | Main | Verify checksums (DRAM 0xFFD2/0xFFD4) |
+| Function                | Address  | CPU  | Purpose                                                                                 |
+|-------------------------|----------|------|-----------------------------------------------------------------------------------------|
+| `SubCPU_Send_Payload`   | 0xEF068A | Main | Send 192KB payload                                                                      |
+| `SubCPU_Payload_Verify` | 0xEF092B | Main | Compare DRAM 0xF180/0xF980 checksums with 0xFFD4/0xFFD2 (misnomer: not a payload check) |
 
-The payload checksums are stored in Main CPU DRAM at 0xFFD2 and 0xFFD4, preserved across power cycles via NVRAM save (triggered by SNS NMI).
+These are not payload checksums: the power-off NMI (`NMI_StorePayloadChecksums`) stores checksums of Main CPU DRAM 0xF180 and 0xF980 at 0xFFD4 and 0xFFD2, and they survive power-off in the battery-backed SRAM copy at 0x1E8000.
 
 See [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/) for full protocol details.
 
@@ -421,14 +421,14 @@ counts as leads.)
 
 ### Inter-CPU Communication
 
-| Symbol                  | Address    | CPU  | Purpose                                                        |
-|-------------------------|------------|------|----------------------------------------------------------------|
-| `sendCOMM`              | `0xEF32F4` | Main | Send MIDI/command data to Sub CPU via latch, in 32-byte chunks |
-| `SubCPU_Send_Payload`   | `0xEF068A` | Main | Load 192KB payload to Sub CPU                                  |
-| `SubCPU_Payload_Verify` | `0xEF092B` | Main | Verify payload checksums                                       |
+| Symbol                  | Address    | CPU  | Purpose                                                                          |
+|-------------------------|------------|------|----------------------------------------------------------------------------------|
+| `sendCOMM`              | `0xEF32F4` | Main | Send MIDI/command data to Sub CPU via latch, in 32-byte chunks                   |
+| `SubCPU_Send_Payload`   | `0xEF068A` | Main | Load 192KB payload to Sub CPU                                                    |
+| `SubCPU_Payload_Verify` | `0xEF092B` | Main | Check power-down checksums of DRAM 0xF180/0xF980 (misnomer: not a payload check) |
 
 ## External References
 
 - [TMP94C241 Datasheet](https://www.alldatasheet.com/datasheet-pdf/pdf/47265/TOSHIBA/TMP94C241.html) - CPU specifications
 - TLCS-900 Programming Manual — **link unverified**: `https://archive.org/details/toshiba-tlcs900` 404s as of this review (2026-09); see [TLCS-900 Instruction Encoding Reference]({{ site.baseurl }}/tlcs900-instruction-encoding/#references) for unconfirmed candidate replacements
-- [LLVM TLCS-900 Backend](https://github.com/felipesanches/llvm-project/tree/tlcs900_backend) - Custom LLVM backend for TLCS-900
+- [LLVM TLCS-900 Backend](https://github.com/felipesanches/llvm-project/tree/tlcs900_backend) - Custom LLVM backend for TLCS-900 — the commit the disassembly is built with is named in its `TOOLCHAIN_VERSION`. ⚠ As of 2026-10-15 that commit (`a3a81863f87d`) has not been pushed; the public branch stops at `86332721969d` (2026-09-02), 32 commits earlier, and a build of it cannot assemble the current sources.
