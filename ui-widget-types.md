@@ -29,7 +29,8 @@ Byte 3: 0x01
 
 For the root module the value is `0x01600000 | index`: entry *index* of the
 Class table at object-table index 0x160. 2,894 of the 3,365 v10 records use a
-root class. The rest use classes of modules 1-8 (`0x0161KKKK`-`0x0168KKKK`).
+root class. The rest use classes of modules 1-8 (`0x0161KKKK`-`0x0168KKKK`);
+`tools/naka_record_class_tables.py` in this repository counts them per table.
 
 ## Type Byte Inventory
 
