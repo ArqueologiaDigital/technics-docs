@@ -6,9 +6,9 @@ permalink: /mame-pull-requests/
 
 # MAME Pull Requests for KN5000 Emulation
 
-This page describes the planned series of pull requests to upstream MAME that implement functional emulation of the Technics KN5000 music keyboard. The changes span the TLCS-900/H CPU core, the TMP94C241 microcontroller, and the KN5000 machine driver.
+This page records the series of pull requests (all merged by 2026-03-24) to upstream MAME that implement functional emulation of the Technics KN5000 music keyboard. The changes span the TLCS-900/H CPU core, the TMP94C241 microcontroller, and the KN5000 machine driver.
 
-> **Context**: The Technics KN5000 is a 1996 professional arranger keyboard built around dual Toshiba TMP94C241F processors (TLCS-900/H family). All firmware ROMs have been dumped and fully disassembled. A MAME skeleton driver has existed since 2024 but could not proceed beyond early boot due to missing CPU core features. These PRs fix that, bringing the driver from non-functional to fully operational with working sound program selection, control panel interaction, and MIDI I/O.
+> **Context**: The Technics KN5000 is a 1997 professional arranger keyboard built around dual Toshiba TMP94C241F processors (TLCS-900/H family). Its program (v5-v10, extracted from the update floppies), table-data, custom-data and rhythm ROMs, and one of its four waveform ROMs (IC307), are preserved. Program v3/v4 and waveform IC304-IC306 are not, the sub-CPU boot ROM (IC30) is only partly read, and the control-panel MCU ROMs are undumped. The v7, v9 and v10 programs, the table data, the custom data, the sub-CPU payload and boot ROM and the HD-AE5000 ROM are disassembled into sources that rebuild byte-identically. A MAME skeleton driver has existed since 2024 but could not get beyond early boot because the CPU core lacked features. These PRs fixed that: the driver now boots to its main screen with real voice names and responds to the control panel. Upstream it is still flagged `MACHINE_NOT_WORKING | MACHINE_NO_SOUND`: it has no tone generator and no MIDI port, and its floppy controller is not mapped.
 >
 > **See Also**: [SubCPU Payload Loading]({{ site.baseurl }}/subcpu-payload-loading/) for the investigation that identified these issues, [Boot Sequence]({{ site.baseurl }}/boot-sequence/) for overall firmware flow, and [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/) for the serial protocol implemented by the HLE.
 
@@ -37,7 +37,7 @@ PR 2 (EI/RETI shadow) ──┘
 ## PR 1: TLCS-900/H --- LDC Control Register Mapping for TMP94C241 DMA Registers {#pr1}
 
 <div style="background: #d4edda; border: 3px solid #28a745; border-radius: 8px; padding: 16px; margin: 16px 0; font-size: 1.1em;">
-<strong>&#10003; STATUS (March 2026):</strong> All 5 PRs have been <strong>merged upstream</strong>. See the <a href="{{ site.baseurl }}/mame-branch-review/">Branch Review &amp; Roadmap</a> page for upcoming PR candidates (PR 6+).
+<strong>&#10003; STATUS (October 2026):</strong> All 5 PRs were <strong>merged upstream</strong> by 2026-03-24. Three later KN5000 PRs have merged too: #15878 (Feature Presentation demo), #15919 (TEMPO/PROGRAM data wheel) and #16415 (floppy software list, 35hd drive). See the <a href="{{ site.baseurl }}/mame-branch-review/">Branch Review &amp; Roadmap</a> page for the full upstreaming state and the remaining candidates.
 </div>
 
 **Upstream PR:** [mamedev/mame#14970](https://github.com/mamedev/mame/pull/14970) (merged)
@@ -60,7 +60,7 @@ MAME's existing implementation only handles the TMP96C141/TMP95C061/TMP95C063 en
 | DMAC0-3 (CR16) | 0x20, 0x24, 0x28, 0x2C | 0x40, 0x44, 0x48, 0x4C |
 | DMAD0-3 (CR32) | 0x10, 0x14, 0x18, 0x1C | 0x20, 0x24, 0x28, 0x2C |
 
-Without the TMP94C241 cases, `LDC cr,DMAMn` instructions write to a dummy register and DMA never configures correctly. This was the first bug identified in the KN5000 payload loading investigation --- the Main CPU's firmware uses `LDC` extensively to set up HDMA transfers for the 524KB SubCPU firmware payload.
+Without the TMP94C241 cases, `LDC cr,DMAMn` instructions write to a dummy register and DMA never configures correctly. This was the first bug identified in the KN5000 payload loading investigation --- the Main CPU's firmware uses `LDC` extensively to set up the HDMA transfers that carry the 192 KB sub-CPU payload (nine blocks, 524,288 B in all).
 
 Additionally, the disassembler had all variants' CR register names hardcoded in the shared `dasm900.cpp`, which doesn't scale well as new variants are added. The existing SFR symbolic names already use a model-specific table pattern --- CR register names should follow the same approach.
 
@@ -143,7 +143,7 @@ This pattern appears extensively in the KN5000 firmware (hundreds of occurrences
 
 Drivers using TLCS-900/H variants that should be regression-tested:
 - `ngp` (Neo Geo Pocket --- TMP95C061)
-- `zorba` (Zorba portable --- TMP95C063)
+- `taitotz` and `taitopjc` (Taito Type-Zero and Taito Power-JC System, whose I/O CPU is a TMP95C063)
 
 ### Datasheet Reference
 
@@ -167,7 +167,7 @@ Implement the TMP94C241's complete DMA subsystem and fix the port read behavior 
 
 The existing TMP94C241 device in MAME has empty stubs for `tlcs900_check_hdma()` and no DMA transfer logic. The KN5000's Main CPU relies heavily on DMA for two critical operations:
 
-1. **HDMA (Hardware DMA)**: Triggered by interrupt events. The Main CPU uses HDMA to transfer the 524KB SubCPU firmware payload. Each time the SubCPU acknowledges a byte via INT5, the HDMA engine automatically transfers the next byte without CPU intervention. Nine bulk transfers (5x 64KB config blocks + 4 payload blocks) use this mechanism.
+1. **HDMA (Hardware DMA)**: Triggered by interrupt events. The Main CPU uses HDMA for the sub-CPU boot transfers: 524,288 B in all, five 64 KB blocks from table data plus the 192 KB payload. Each time the SubCPU acknowledges a byte via INT5, the HDMA engine automatically transfers the next byte without CPU intervention. Nine bulk transfers (5x 64KB config blocks + 4 payload blocks) use this mechanism.
 
 2. **DMAR (Software DMA)**: Triggered by writing to SFR register 0x109. The SubCPU uses DMAR to receive inter-CPU command bytes --- each INT0 event triggers one DMAR write, transferring a single byte from the latch at `0x120000` to RAM. This is how the SubCPU receives sound program change commands, mixer settings, and other real-time data from the Main CPU after boot.
 
@@ -218,7 +218,7 @@ Replace the inline serial port stubs with a proper sub-device implementation sup
 The existing TMP94C241 serial implementation consists of inline stubs that immediately set the TX-complete interrupt flag on every write to `SCxBUF`. This was sufficient for early bringup but cannot support any real serial communication. The KN5000 uses both serial channels:
 
 - **Serial Channel 0**: MIDI In/Out at 31.25 kbaud (standard MIDI rate). Uses UART mode with the baud rate generator.
-- **Serial Channel 1**: Control panel communication at ~500 kHz using synchronous I/O interface mode. The Main CPU exchanges button/LED/encoder data with the control panel MCU (whose ROM is not dumped) via a clocked serial protocol.
+- **Serial Channel 1**: Control panel communication at 250 kHz (fc/16 / 4, `BR1CR = 0x14`; 31.25 kHz during initialisation) using synchronous I/O interface mode. The Main CPU exchanges button/LED/encoder data with the control panel MCU (whose ROM is not dumped) via a clocked serial protocol.
 
 ### Changes
 
@@ -253,35 +253,34 @@ TMP94C241F Data Sheet:
 
 ---
 
-## PR 5: KN5000 Driver --- Control Panel HLE, SubCPU Payload Transfer, Keybed HLE {#pr5}
+## PR 5: KN5000 Driver --- Control Panel HLE, SubCPU Payload Transfer {#pr5}
 
 **Upstream PR:** [mamedev/mame#15143](https://github.com/mamedev/mame/pull/15143) (merged)
 
-**Branch:** [`kn5000_pr5_driver`](https://github.com/felipesanches/mame/tree/kn5000_pr5_driver)
+**Branch:** [`kn5000_interactive_control_panel`](https://github.com/felipesanches/mame/tree/kn5000_interactive_control_panel) (the head that merged; `kn5000_pr5_driver` is an earlier, larger version that also carried MIDI ports and `perfect_quantum`)
 
 **Depends on:** PR 4
 
 ### Summary
 
-Rework the KN5000 machine driver from a non-functional skeleton to a working system that boots to normal operation with sound program selection, control panel interaction, and MIDI I/O.
+Rework the KN5000 machine driver from a non-functional skeleton to a working system that boots to normal operation with sound program selection and control panel interaction.
 
 ### Problem
 
 The existing KN5000 driver defines the basic hardware layout (two TMP94C241 CPUs, ROM regions, LCD) but cannot proceed past early boot because:
 
-1. The firmware validates backup SRAM contents and enters diagnostic mode if validation fails (NVRAM is empty on first run).
+1. The firmware validates backup SRAM contents and enters diagnostic mode if validation fails (NVRAM is empty on first run). Not addressed by the merged PR: IC21 became NVRAM only in #15878, and no factory-default seeding was merged.
 2. The SubCPU memory map lacks mappings for the tone generator, DSP, inter-CPU latch, and waveform RAM, causing unmapped memory accesses.
-3. No scheduling synchronization between CPUs, making the latched inter-CPU communication unreliable.
+3. No scheduling synchronization between CPUs, making the latched inter-CPU communication unreliable. Not addressed by the merged PR, which has no `perfect_quantum`.
 4. The control panel MCU ROM is not dumped, so the serial protocol to the panel has no responder.
-5. No keybed input mechanism exists.
+5. No keybed input mechanism exists. Not addressed: the keybed port is a `noprw()` stub.
 
 ### Changes
 
 - **`kn5000.cpp`** (major rework):
-  - **NVRAM factory defaults**: Seeds the 32KB backup SRAM from the program ROM's factory default region (`0xEF3AC8`). On real hardware, this data is written during factory programming. In MAME, the NVRAM starts empty, so the firmware's validation checksum fails and it enters a diagnostic loop. Seeding from the ROM image allows normal boot to proceed. On subsequent runs, the NVRAM file persists with any user changes.
-  - **SubCPU memory map**: Maps the tone generator registers at `0x100000`/`0x100002` (IC303, TC183C230002), tone generator keyboard scanning at `0x110000`/`0x110002`, the inter-CPU latch at `0x120000`, DSP registers at `0x130000`/`0x130002`, and 4MB waveform RAM at `0x200000`-`0x5FFFFF`. These are stub handlers that log accesses and return appropriate idle values.
-  - **Inter-CPU latch**: Read/write handlers with logging and `machine().scheduler().perfect_quantum(attotime::from_usec(100))` on writes. The perfect quantum ensures both CPUs see latch updates atomically, which is critical for the HDMA-based payload transfer where the Main CPU writes a byte to the latch and the SubCPU's HDMA must read it before the next byte arrives.
-  - **MIDI ports**: Serial channel 0 of both CPUs is wired to `midi_port` devices for standard MAME MIDI I/O integration.
+  - **Sub-CPU payload**: Replaces the never-mapped, uncompressed `subprogram` region with version-matched compressed sub-CPU payloads (v1.40-v1.42) overlaid on the `custom_data` region (IC19) at `0xE0000`, which is where the system update floppies write them. During boot the Main CPU decompresses the payload from there and sends it to the SubCPU through the inter-CPU latches.
+  - **SubCPU memory map stubs**: Maps the tone generator (IC303) at `0x100000`, its keybed data/status port at `0x110000`, DSP1 (IC311) at `0x130000` and the waveform RAM at `0x1E0000` as `noprw()` stubs, so the SubCPU's initialisation no longer reads `0xFF` from unmapped space and the inter-CPU handshake completes. Device emulation was left for later changes.
+  - **Not merged**: The earlier, larger `kn5000_pr5_driver` branch also seeded the backup SRAM with factory defaults, called `perfect_quantum` on inter-CPU latch writes and wired serial channel 0 to `midi_port` devices. None of that is in #15143: IC21 is plain RAM there, and no MIDI port is wired.
 
 - **`kn5000_cpanel.cpp`** (new file): Control panel HLE implementing the serial protocol between the Main CPU and the control panel MCU. The control panel MCU's ROM is not dumped, so HLE is the only option. Key features:
   - **INTA-driven sessions**: The panel asserts INTA to request attention, then exchanges button/LED data via synchronous serial on channel 1. Each session consists of 8 segments of 8 bytes each (64 bytes total), carrying button states inbound and LED states outbound.
@@ -299,8 +298,7 @@ With all five PRs applied, the KN5000 driver:
 1. Boots from power-on through the complete boot sequence (ROM validation, SubCPU payload transfer, hardware initialization)
 2. Displays the main screen with voice names (Piano, Bigband Brass, Modern E.P.1), rhythm patterns, and mixer levels
 3. Responds to control panel buttons for sound selection, menu navigation, and parameter editing
-4. Accepts MIDI input for external control
-5. SubCPU processes inter-CPU commands in real-time (no "Sound Name Error" messages)
+4. SubCPU processes inter-CPU commands in real-time (no "Sound Name Error" messages)
 
 ### Risk Assessment
 
@@ -312,38 +310,42 @@ With all five PRs applied, the KN5000 driver:
 
 The complete change set has been tested with the following ROM set:
 
-- `kn5000_v10_program.ic9` (Main CPU, 2MB)
-- `kn5000_subcpu_boot.ic30` (SubCPU boot ROM, 128KB)
-- `kn5000_table_data.ic8` (Table data, 2MB)
-- `kn5000_waverom1.ic5` through `kn5000_waverom4.ic2` (Wave ROM, 4x 8MB)
+- `kn5000_v10_program.rom` (Main CPU program, 2 MB; BIOS `v10`)
+- `kn5000_subcpu_boot.ic30` (SubCPU boot ROM, 128 KB; `BAD_DUMP`, partly read)
+- `kn5000_table_data_rom_even.ic3` + `kn5000_table_data_rom_odd.ic1` (Table data, 2 x 1 MB)
+- `kn5000_custom_data_rom.ic19` (Custom data, 1 MB)
+- `kn5000_subprogram_v142_compressed.rom` (compressed sub-CPU payload v1.42, loaded into the custom-data region at `0xE0000`)
+- `kn5000_rhythm_data_rom.ic14` (Rhythm data, 4 MB)
+- `kn5000_waveform_rom.ic307` (Wave ROM, 4 MB; IC304-IC306 are `NO_DUMP`)
 
 **Test scenarios verified:**
-- Cold boot with empty NVRAM (factory defaults are seeded)
+- Cold boot with empty NVRAM
 - Warm boot with existing NVRAM (user settings preserved)
-- SubCPU payload transfer (524KB via HDMA, all 9 transfer blocks complete)
+- SubCPU boot transfers complete (9 HDMA blocks, 524,288 B, including the 192 KB payload)
 - Sound program selection via control panel buttons
 - Menu navigation (display updates correctly)
-- MIDI note input
-- Keybed note input (when assigned via MAME input configuration)
 
 ---
 
 # MN10300 family: the ROM-record contribution
 
-*First submitted 2026-08-02. A separate line of work from the KN5000 PRs above: those improve an
-existing driver, this creates one.*
+*Submitted 2026-08-18, merged 2026-08-23. A separate line of work from the KN5000 PRs above:
+those improve an existing driver, this creates one.*
 
 **Upstream PR:** [mamedev/mame#15911](https://github.com/mamedev/mame/pull/15911) — "matsushita/kn7000.cpp:
 add ROM records for the Technics SX-KN series" (merged 2026-08-23)
 
 ## Why a driver with no CPU
 
-MAME has an MN10300 **disassembler** but no execution core (`scripts/src/cpu.lua` says
-"disassembler only"), so no CPU device can be instantiated for the KN7000, KN6000, KN6500, KN2400
-or KN2600. Rather than wait, the first contribution declares **ROM records only**, following the
-precedent of `src/mame/bfm/bfm_sc6.cpp` — an 80-line driver with no CPU and a machine-config body
-reading `// nothing yet`. The part is named in a commented-out line in each machine configuration
-so the hardware stays documented until a core exists.
+When this was submitted, MAME had an MN10300 **disassembler** but no execution core
+(`scripts/src/cpu.lua` said "disassembler only"), so no CPU device could be instantiated for the
+KN7000, KN6000, KN6500, KN2400 or KN2600. Rather than wait, the first contribution declares **ROM
+records only**, following the precedent of `src/mame/bfm/bfm_sc6.cpp` — an 80-line driver with no
+CPU and a machine-config body reading `// nothing yet`. The part is named in a commented-out line in
+each machine configuration so the hardware stays documented until a core exists. That has since
+changed: [#16250](https://github.com/mamedev/mame/pull/16250) (merged 2026-10-07) added the MN10300
+execution core (`MN103002A`) and the running driver for all five machines, still flagged
+`MACHINE_NOT_WORKING | MACHINE_NO_SOUND`.
 
 ## What it contains
 
@@ -355,11 +357,13 @@ Every device gets a line under its real part number and manual-verified capacity
 not an honest dump of that machine's own part is **`NO_DUMP` with the correct expected size**, never
 shipped as substitute data — see [ROM Dumping Roadmap]({{ site.baseurl }}/rom-dumping-roadmap/) for what remains.
 
-**Follow-up work, not yet submitted upstream** (staged locally as of 2026-08-31): the **KN6000
-expansion connector and the HD-SX3** board (separate `bus/technics/` files, not part of
-`kn7000.cpp`), and new `intelfsh.cpp` flash-device types (`MBM29LV160B`/`MX29LV160B`) for the
-JEDEC-ID work described below — this identification work predates a functional flash device and
-is not needed by the ROM-record-only driver that actually merged.
+**Follow-up work since then:** the flash-device type went upstream in
+[#16192](https://github.com/mamedev/mame/pull/16192) (merged 2026-09-19), which added
+`FUJITSU_29LV160B` (the MBM29LV160B) with the KN7000 as its consumer. No `MX29LV160B` type was
+added. The **KN6000 expansion connector** and its board are open as
+[#16220](https://github.com/mamedev/mame/pull/16220) (separate `bus/technics/kn6000/` files). The
+board is now named the **HD-SX6**, because the firmware held is the HD-SX6's; the HD-SX3's firmware
+has not been dumped.
 
 ## The flash device IDs were read, not guessed
 
@@ -394,6 +398,11 @@ KN7000 as `ROM_SYSTEM_BIOS` options — the factory Initial Data Disk plus eight
 Italian Accordion 7) — because a real instrument holds exactly one at a time. They load at offset
 `0x20000` in a `ROMREGION_ERASEFF` region, so the untouched boot sectors read `0xFF` as erased flash
 does.
+
+> **Superseded upstream (2026-10-11).** [#16394](https://github.com/mamedev/mame/pull/16394) freed
+> the BIOS axis for the program firmware builds (`sp7001`, `v16` (default), `v15`, `v14`). `kn7000`
+> now loads only the factory default `01ctmini.ic21` directly. The nine data sets moved to the
+> `kn7000_flop` software list as three reconstructed floppies (`idd7000`, `custom1`, `custom2`).
 
 ## Build notes
 

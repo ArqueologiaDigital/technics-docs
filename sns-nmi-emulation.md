@@ -14,6 +14,9 @@ permalink: /sns-nmi-emulation/
 > the firmware's own `NMI_StorePayloadChecksums` handler real CPU cycles to run before MAME
 > exits. The technical description of the firmware's own checksum behaviour in the sections
 > that follow is unchanged and still accurate.
+>
+> The POWER switch lives only in the `kn7000_mame` overlay. Mainline MAME's `kn5000` has
+> neither it nor the write tap, so there the firmware's power-down code never runs.
 
 ## The Problem
 
@@ -25,8 +28,8 @@ On the real KN5000, the power supply has an SNS (sense) monitoring circuit that 
 
 ### Boot Sequence
 
-1. `Boot_DisplayScreen` (0xEF0620) clears DRAM[0xFFD4] = 0 (invalidates old checksum)
-2. `Boot_DisplayScreen` writes 0x80 to internal CPU RAM[0x0400] (arms the NMI guard)
+1. `Boot_DisplayScreen` (0xEF0620) writes 0x80 to internal CPU RAM[0x0400] (arms the NMI guard)
+2. `Boot_DisplayScreen` then clears DRAM[0xFFD4] = 0 (invalidates old checksum)
 3. Normal operation proceeds
 
 ### Power-Off Sequence
@@ -38,14 +41,15 @@ On the real KN5000, the power supply has an SNS (sense) monitoring circuit that 
    - Checks NMI guard: internal RAM[0x0400] == 0x80? If not, returns immediately
    - Saves voice presets and flush data to SRAM
    - Computes checksums for two DRAM regions:
-     - **Region 1**: DRAM[0xF180], 0x800 words (2 KB) → one's complement sum → DRAM[0xFFD4]
-     - **Region 2**: DRAM[0xF980], 0x280 words (640 bytes) → one's complement sum → DRAM[0xFFD2]
+     - **Region 1**: DRAM[0xF180], 0x800 bytes (2 KB) → checksum → DRAM[0xFFD4]
+     - **Region 2**: DRAM[0xF980], 0x280 bytes (640 bytes) → checksum → DRAM[0xFFD2]
+   - If `Seq_IsMelodyActive` returns non-zero, adds 1000 to the stored DRAM[0xFFD4] value, so it no longer equals region 1's checksum and the next boot's `SubCPU_Payload_Verify` comparison fails
    - Copies DRAM[0xF980..] to backup SRAM at 0x1E8000
    - Executes `halt` instruction (CPU stops; power dies shortly after)
 
 ### Next Boot
 
-`SubCPU_Payload_Verify` (0xEF06A0) compares stored checksums against freshly computed ones:
+`SubCPU_Payload_Verify` (0xEF092B) compares stored checksums against freshly computed ones:
 - If match: boot proceeds normally → splash animation plays
 - If mismatch: firmware enters factory reset → "ALL INITIAL SETTING!" displayed
 
@@ -74,30 +78,33 @@ The shipped fix does not intercept or substitute anything the firmware computes 
 - During that window the real firmware NMI handler runs natively: it computes both one's-complement checksums, stores them at DRAM[0xFFD4]/[0xFFD2], copies the DRAM[0xF980..] block to the battery-backed IC21 SRAM at `0x1E8000`, and halts.
 - On the next boot the firmware restores that SRAM block (`0xEF0580`, guarded by the `0x5AA5` magic value at DRAM[0xFFCA]) before `SubCPU_Payload_Verify` runs, so the checksums it finds are the real ones the firmware itself produced.
 
-Nothing in the driver computes a checksum or writes NVRAM directly; the driver's only job is supplying the CPU cycles the real power-down code needs, which is why no MAME core change was required. See `kn7000_mame`'s `src/mame/matsushita/kn5000.cpp` (the "modelled POWER switch" block and `power_switch`/`poweroff_done`) for the implementation, and `side-quests/pending/kn5000_splash_animation.txt` for the investigation history.
+Nothing in the driver computes a checksum or writes NVRAM directly; the driver's only job is supplying the CPU cycles the real power-down code needs, which is why no MAME core change was required. See `kn7000_mame`'s `src/mame/matsushita/kn5000.cpp` (the "modelled POWER switch" block and `power_switch`/`poweroff_done`) for the implementation, and the KN7000 repository's `side-quests/pending/kn5000_splash_animation.txt` for the investigation history.
 
 ### Checksum Algorithm
 
 The algorithm below is the firmware's own — unchanged by which emulation strategy runs it:
 
 ```
-For each region:
-    sum = 0
-    for each 16-bit word in region:
-        sum = (sum + word) & 0xFFFF
-    checksum = ~sum & 0xFFFF  (one's complement)
+For each region (start, length in bytes):
+    sum = 0                               (32-bit, XHL)
+    for each 32-bit long in region:       (ADD XHL,(XWA+4))
+        sum = (sum + long) & 0xFFFFFFFF
+    checksum = ~sum & 0xFFFF              (CPL HL: only the low 16 bits are kept)
 ```
+
+Because only the low 16 bits survive, the result depends only on the low word (offset 0 mod 4) of each long (`Checksum_ComputeComplement`, `0xEF18E7`).
 
 ## Key Addresses
 
-| Address | Description |
-|---------|-------------|
-| 0x0400 (internal CPU RAM) | NMI guard flag (0x80 = armed) |
-| 0xEF0620 | `Boot_DisplayScreen` — clears 0xFFD4, arms guard |
-| 0xEF06A0 | `SubCPU_Payload_Verify` — checks checksums |
-| 0xEF08A5 | NMI handler entry |
-| 0xEF08D4 | `NMI_StorePayloadChecksums` — computes and stores checksums |
-| 0xFFD2 | Payload checksum 2 (Region 2) |
-| 0xFFD4 | Payload checksum 1 (Region 1) |
-| 0xF180 | Region 1 start (0x800 words) |
-| 0xF980 | Region 2 start (0x280 words) |
+| Address                   | Description                                                 |
+|---------------------------|-------------------------------------------------------------|
+| 0x0400 (internal CPU RAM) | NMI guard flag (0x80 = armed)                               |
+| 0xEF0620                  | `Boot_DisplayScreen` — arms guard, clears 0xFFD4            |
+| 0xEF092B                  | `SubCPU_Payload_Verify` — checks checksums                  |
+| 0xEF08A5                  | NMI handler entry (`NMI_HANDLER`)                           |
+| 0xEF08D4                  | `NMI_StorePayloadChecksums` — computes and stores checksums |
+| 0xEF18E7                  | `Checksum_ComputeComplement` — the checksum routine         |
+| 0xFFD2                    | Payload checksum 2 (Region 2)                               |
+| 0xFFD4                    | Payload checksum 1 (Region 1)                               |
+| 0xF180                    | Region 1 start (0x800 bytes)                                |
+| 0xF980                    | Region 2 start (0x280 bytes)                                |

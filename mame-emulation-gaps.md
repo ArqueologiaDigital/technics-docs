@@ -15,9 +15,13 @@ This page inventories what the emulator does not model, distinguishes what is a 
 defect from what is merely a shortcut that happens to land in the right place, and gives
 the order in which the three prerequisites have to be built.
 
-> Every claim here was checked against the MAME sources in
-> `kn7000_mame/src/` and `mame/src/` in August 2026. Line numbers drift; the file and
-> symbol names are the durable part.
+> Every claim here was checked against the MAME sources in `kn7000_mame/src/` and
+> `mame/src/` in August-September 2026 (IC19: 2026-09-05). Unless a row says otherwise,
+> "MAME" below means the `kn7000_mame` overlay build. Mainline MAME's `kn5000` lacks more:
+> its floppy controller is instantiated but not mapped into the main CPU's address space,
+> IC19 is a plain `.rom()` region, the tone generator, keybed and DSP1 are `noprw()` stubs
+> (it is flagged `MACHINE_NO_SOUND`), and no MIDI port is wired. Line numbers drift; the
+> file and symbol names are the durable part.
 
 ## What the emulator does today
 
@@ -40,11 +44,16 @@ the order in which the three prerequisites have to be built.
 
 `kn5000.cpp` registers the floppy connector with
 `floppy_image_device::default_mfm_floppy_formats`. That helper calls
-`format_registration::add_mfm_containers()`, which adds MFI/HFE/TD0/IMD/86F/D88/CQM/DSK —
-and **not** `FLOPPY_PC_FORMAT`. Only `add_pc_formats()` adds that. So the driver cannot
+`format_registration::add_mfm_containers()`, which, with the base registration, gives
+MFI/DFI/MFM/TD0/IMD/86F/D88/CQM/DSK — and **not** `FLOPPY_PC_FORMAT`. Only
+`add_pc_formats()` adds that. So the driver cannot
 open a raw 1.44 MB `.img`, which is exactly the form every archived Technics update disc
-takes. Mainline additionally still defaults the drive to `35dd`, which cannot read an HD
-disc at all; the working branch already uses `35hd`.
+takes. Mainline moved the drive to `35hd` and added a `kn5000_flop` software list in
+[#16415](https://github.com/mamedev/mame/pull/16415) (merged 2026-10-13), but kept
+`default_mfm_floppy_formats`. It therefore cannot mount its own list: every entry is a raw
+1,474,560-byte `.img`, and a build with mainline's floppy lines stops with "Unable to
+identify image file format" on `-flop1 idd5000`. Mainline's FDC is also still unmapped
+(`//FIXME` at `0x110000`/`0x120000` in `maincpu_mem`).
 
 Switching to `default_pc_floppy_formats` is a one-line change and is a prerequisite for
 everything below.
@@ -117,7 +126,7 @@ map into the driver's work DRAM.
 The consequence for the KN5000 is that reset reads the vector from `program[0x1FFF00]` and
 control starts at `0xEF03C6`. **The table-data first-stage bootloader never executes.**
 Everything reachable only through it is dead code under emulation: the boot FDC driver
-(`0x9FD8A5`–`0x9FEA9C`), the 16-bit flash routines (`0x9FB812`+), `Detect_Disk_Type`
+(`0x9FD8A5`–`0x9FEA9C`), the 16-bit flash routines (`0x9FB812`+), `Boot_DetectDiskType`
 (`0x9FBFC4`), `Boot_CheckDiskPresent`, `Boot_ProbeExternalDevice` and the whole boot
 CP-serial stack — none of which any regression would ever catch a mistake in.
 
@@ -180,8 +189,11 @@ designing the view**, because a second remap would change its shape.
         └──> [3] update-mode entry  (see below -- the real blocker)
 
   [5] dynamic memory map (memory_view, two states)
-        - NOT a prerequisite for [4]: the type-7 handler that MAME can reach
-          lives in the program flash, which the static map already provides
+        - also a prerequisite for [4], short of patching the version byte:
+          the program flash's updater (FLASH_MEM_UPDATE) has one caller,
+          behind a test that 0xFFFFE8 reads 0xFF -- true only of the
+          table-data image; under the static map it reads the program's
+          version byte (v10: 0x0A)
         - IS a prerequisite for a faithful cold boot and for exercising the
           bootloader's own copy of the updater
         - blocked on: resolving the two-updaters contradiction above, and
@@ -189,10 +201,17 @@ designing the view**, because a second remap would change its shape.
 ```
 
 **Gap 3.5 — entering update mode is the real unresolved blocker.** The update path is gated
-on a sentinel byte at ROM `0xFFFFE8` being `0xFF` (read by `Get_Firmware_Version`, `0xFFFEE5`,
-and tested in `Boot_RunSelfTest`, `0xEF0529`) and, on hardware, on a panel button held through power-on. Which button, and
-how to hold it from reset through the HLE'd `kn5000_cpanel_device`, is not established. This
-is the same class of problem as the still-unsolved KN7000 self-test entry.
+on a sentinel byte at ROM `0xFFFFE8` being `0xFF` (read by `Get_Firmware_Version`, `0xFFFEE5`;
+tested in `Boot_RunSelfTest`, `0xEF0529`, and again in `BootInit_SeqAndPanel`, `0xEF05B5`,
+just before its call to `FLASH_MEM_UPDATE`), on a disc change, and on a panel button
+combination held through power-on. Only the table-data image holds `0xFF` at that offset: in
+the program images byte `0x1FFFE8` is the version number (`0x07`, `0x09`, `0x0A` for v7, v9,
+v10), which is why the disassembly names the `0xFF` branch
+`We_seem_to_be_running_boot_ROM_code`. Under MAME's static map `0xFFFFE8` always reads the
+program image, so this gate is closed in emulation whatever is held. The button combination
+is known: combo 4, all four PANEL MEMORY buttons (`CPanel_CheckSpecialCombos` tests
+`CPR_SEG6 == 0x0F`; see [Test Modes]({{ site.baseurl }}/test-modes/)). How to hold them from
+reset through the HLE'd `kn5000_cpanel_device` is not established.
 
 Even with all of that, the boot path has further gates that MAME cannot currently reach:
 `Boot_CheckDiskPresent` (Port D bit 6, active low), `BootSerial_Init`, and
