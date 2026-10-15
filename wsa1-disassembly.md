@@ -428,19 +428,28 @@ byte identity, not a reading of the WSA1 code.
 `.incbin`. That is not the same as every byte being in its final form, in either direction:
 
 * **code still spelled as `.byte`** — at disassembly commit `3417969c0` (2026-10-06),
-  `prom_a` carries **82 certified `.byte` instruction sites (226 B, 42 forms)**; `prom_b`
-  and `prom_c` carry none. How many have a spelling that reassembles byte-identically
-  depends on the assembler build as well as the sources. Under the pin `TOOLCHAIN_VERSION`
-  names (`a3a81863f87d`, llvm-mc sha256 `118bb4d6766e`), **81 have no spelling and one form,
-  `decf`, is spellable**. At `be376096` (2026-09-25) there were 298 sites (1,318 B, 89
-  forms), 282 of them unspelt under the then pin `8e188b215251`; the respells of 2026-10-03
-  (`7a9cf4ff8`, `09cc4ae4d`) converted most of them. The commonest unspelt forms are now
-  `srl A,C` (7 sites) and `sla A,C` (6). Run `python3 notes/sound/wsa1_unspellable_forms.py`
-  from `wsa1/` in the disassembly repository; it counts a line only if its byte echo, the
-  ROM at its address, MAME's `unidasm` framing and a round trip all agree, and it uses
-  whatever llvm-mc the shared build holds. `tools/wsa1_unspelt_by_toolchain.py` in this
-  repository runs it at a pinned revision under named llvm-mc binaries and prints each
-  binary's sha256.
+  `prom_a` carries **82 certified `.byte` instruction sites (226 B, 42 forms)**; `prom_c`
+  carries none. `prom_b` holds 68 `.byte` rows (221 B) that its source marks
+  `[llvm-mc cannot encode this]`, all between instruction lines: 66 carry an instruction
+  reading (`rrc`/`rlc` by a count, shift-by-A, `ldir`, `ex BC,QBC`, …) and two carry
+  unidasm's `db` (`wsa1/notes/promb_macro_rewrite.py --census`;
+  `tools/annotated_insn_bytes.py wsa1/prom_b` in this repository). The census script named
+  below counts none of them, because their comments carry no byte echo, and it prints
+  "every instruction in this image is spelt" for `prom_b`. How many of `prom_a`'s 82 have a
+  spelling that reassembles byte-identically depends on the assembler build as well as the
+  sources. Under the pin `TOOLCHAIN_VERSION` names (`a3a81863f87d`, llvm-mc sha256
+  `118bb4d6766e`), **the census script spells one form, `decf`, and finds no spelling for
+  81**; 34 of those 81, in 13 shift-by-A forms, reassemble byte-identically as
+  `slaa`/`slla`/`srla`, which it does not try (`tools/wsa1_shift_by_a_spellings.py` in this
+  repository), so 47 sites in 28 forms have no spelling found so far. At `be376096`
+  (2026-09-25) there were 298 sites (1,318 B, 89 forms), 282 of them unspelt under the then
+  pin `8e188b215251`; the respells of 2026-10-03 (`7a9cf4ff8`, `09cc4ae4d`) converted most
+  of them. The commonest form with no spelling found is now `ex BC,QBC` (5 sites). Run
+  `python3 notes/sound/wsa1_unspellable_forms.py` from `wsa1/` in the disassembly
+  repository; it counts a line only if its byte echo, the ROM at its address, MAME's
+  `unidasm` framing and a round trip all agree, and it uses whatever llvm-mc the shared
+  build holds. `tools/wsa1_unspelt_by_toolchain.py` in this repository runs it at a pinned
+  revision under named llvm-mc binaries and prints each binary's sha256.
 * **data framed as code** — the earlier audit that called `prom_a` and `prom_b` clean did not
   hold: the 2026-09-25 lanes found and retyped data decoded as instructions in both (in
   `prom_a` 1,958 B plus eleven panel lookup tables and the LED wire maps; in `prom_b` nine
