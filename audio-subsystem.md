@@ -16,7 +16,7 @@ The KN5000 audio subsystem handles all sound generation, processing, and output.
 │                                                                     │
 │  Audio_Lock_Acquire ──> Audio_DMA_Transfer ──> Audio_Lock_Release   │
 │                                 │                                   │
-│              Latch @ 0x120000 (Inter-CPU Communication)             │
+│              Latch @ 0x140000 (Inter-CPU Communication)             │
 └─────────────────────────────────┬───────────────────────────────────┘
                                   │
                                   v
@@ -36,9 +36,9 @@ The KN5000 audio subsystem handles all sound generation, processing, and output.
 │  └────────────────────────────────────────────────────────────────┘   │
 └──────────┬─────────────────────┬─────────────────────┬────────────────┘
            │                     │                     │
-      [0x100000]             [Serial1]            [0x130000]
-       Register                UART                   DSP
-        Config                Control               Config
+      [0x100000]             [IC310 SO]           [0x130000]
+       Register               serial                  DSP
+        Config                 audio                Config
            │                     │                     │
            v                     v                     v
   ┌─────────────────┐   ┌─────────────────┐   ┌──────────────────┐
@@ -98,24 +98,24 @@ The dual DSP chips are controlled via the Sub CPU's internal I/O ports. DSP1 (IC
 
 **Key Low-Level Functions:**
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| `DSP1_Assert_Reset` | 0x038396 | Reset DSP1 (clear PH.1) |
-| `DSP1_Deassert_Reset` | 0x03839A | Release DSP1 reset (set PH.1) |
-| `DSP2_Assert_Reset` | 0x03839E | Reset DSP2 (clear PH.2) |
-| `DSP2_Deassert_Reset` | 0x0383A2 | Release DSP2 reset (set PH.2) |
-| `DSP_Set_Command_Mode` | 0x0383A7 | DSPCD=0 (command register) |
-| `DSP_Set_Data_Mode` | 0x0383AB | DSPCD=1 (data register) |
-| `DSP_Select_Chip` | 0x0383BF | Assert CS for chip 0 or 1 |
-| `DSP_Deselect_Chip` | 0x0383DB | Deassert CS |
-| `DSP_Read_Status` | 0x0383F7 | Read ready bit from PH.0 |
-| `DSP_Send_Command` | 0x036331 | Full command byte write (with polling) |
-| `DSP_Send_Data` | 0x0367EE | Full data byte write (with polling) |
-| `DSP2_Send_Command` | 0x036599 | DSP2-specific command write |
-| `DSP2_Send_Data` | 0x036855 | DSP2-specific data write |
-| `DSP_DispatchCommand` | 0x03C0D4 | Route command to DSP1 or DSP2 |
-| `DSP_DispatchData` | 0x03C0F3 | Route data to DSP1 or DSP2 |
-| `DSP_WriteParamWord` | 0x03C112 | Write 16-bit parameter (high byte, low byte) |
+| Function               | Address  | Description                                  |
+|------------------------|----------|----------------------------------------------|
+| `DSP1_Assert_Reset`    | 0x038396 | Reset DSP1 (clear PH.1)                      |
+| `DSP1_Deassert_Reset`  | 0x03839A | Release DSP1 reset (set PH.1)                |
+| `DSP2_Assert_Reset`    | 0x03839E | Reset DSP2 (clear PH.2)                      |
+| `DSP2_Deassert_Reset`  | 0x0383A2 | Release DSP2 reset (set PH.2)                |
+| `DSP_Set_Command_Mode` | 0x0383A7 | DSPCD=0 (command register)                   |
+| `DSP_Set_Data_Mode`    | 0x0383AB | DSPCD=1 (data register)                      |
+| `DSP_Select_Chip`      | 0x0383BF | Assert CS for chip 0 or 1                    |
+| `DSP_Deselect_Chip`    | 0x0383DB | Deassert CS                                  |
+| `DSP_Read_Status`      | 0x0383F7 | Read ready bit from PH.0                     |
+| `DSP_Send_Command`     | 0x036331 | Full command byte write (with polling)       |
+| `DSP_Send_Data`        | 0x0367EE | Full data byte write (with polling)          |
+| `DSP2_Send_Command`    | 0x03666B | DSP2-specific command write                  |
+| `DSP2_Send_Data`       | 0x0368BA | DSP2-specific data write                     |
+| `DSP_DispatchCommand`  | 0x036A2E | Route command to DSP1 or DSP2                |
+| `DSP_DispatchData`     | 0x036A4F | Route data to DSP1 or DSP2                   |
+| `DSP_WriteParamWord`   | 0x038405 | Write 16-bit parameter (high byte, low byte) |
 
 ### DSP Channel Register Map (Memory-Mapped at 0x130000)
 
@@ -159,7 +159,7 @@ Audio_System_Init:
     CALL DSP_System_Init          ; Clear DSP state buffers
     CALL DSP2_Init                ; Initialize second DSP
     CALL DSP_Init_Channels        ; Configure 4 DSP channels
-    CALL ToneGen_Init             ; Set tone generator mode
+    CALL ToneGen_Init             ; Keybed init (touch curve 6), power-on key scan
 
 Main_Loop:
     CALL ToneGen_Process_Notes    ; Read keyboard input
@@ -240,17 +240,17 @@ The Sub CPU controls two DSP chips:
 
 ### DSP State Buffers
 
-| Buffer | Address | Size | Purpose |
-|--------|---------|------|---------|
-| DSP State 1 | 0x041342 | 38 bytes | Primary DSP state |
-| DSP State 2 | 0x041368 | 7462 bytes | Extended DSP state |
-| DSP Config | 0x045310-18 | 12 bytes | Configuration parameters |
-| DSP Ring Buffer | 0x3B60-64 | 6 bytes | Command ring buffer for DSP |
-| EFF Mute Flags | 0x493A | 10 bytes | Per-DSP/EFF mute status (5 words) |
-| EFF State | 0x4940 | variable | Per-EFF dirty/change flags |
-| EFF Params | 0x4944 | variable | Per-EFF parameter dirty flags |
-| Argo Change Flag | 0x493E | 2 bytes | Algorithm/routing change pending |
-| EFF Type Table | 0x1ED6D | 5 bytes | Current effect type per EFF slot |
+| Buffer           | Address     | Size       | Purpose                                                  |
+|------------------|-------------|------------|----------------------------------------------------------|
+| DSP State 1      | 0x041342    | 38 bytes   | Primary DSP state                                        |
+| DSP State 2      | 0x041368    | 7462 bytes | Per-part records (26 × 287 B)                            |
+| DSP Config       | 0x045310-18 | 12 bytes   | Configuration parameters                                 |
+| DSP Ring Buffer  | 0x3B60-64   | 6 bytes    | Command ring buffer for DSP                              |
+| EFF Slot Active  | 0x4930      | 10 bytes   | Per-slot active word (5 words), tested by `EFF_MuteLoop` |
+| EFF State        | 0x4940      | variable   | Per-EFF dirty/change flags                               |
+| EFF Params       | 0x4944      | variable   | Per-EFF parameter dirty flags                            |
+| Argo Change Flag | 0x493E      | 2 bytes    | Algorithm/routing change pending                         |
+| EFF Slot→Chip    | 0x1ED6D     | 5 bytes    | Chip of each effect slot (00 00 01 01 01, ROM constant)  |
 
 ### DSP Channel Configuration
 
@@ -277,12 +277,12 @@ The Sub CPU firmware includes a coefficient routing subsystem that maps voice pa
 
 **Memory Layout:**
 
-| Address | Size | Purpose |
-|---------|------|---------|
-| 0x041368 | 7462 bytes | Voice allocation table (26 channels × 287 bytes/channel) |
-| 0x045210 | variable | DSP coefficient output buffer (written by routing functions) |
-| 0x045310 | 4 bytes | Base pointer for routing table computation |
-| 0x045314 | 4 bytes | Pointer to routing configuration structure |
+| Address  | Size       | Purpose                                                      |
+|----------|------------|--------------------------------------------------------------|
+| 0x041368 | 7462 bytes | Per-part records (26 parts × 287 bytes)                      |
+| 0x045210 | variable   | DSP coefficient output buffer (written by routing functions) |
+| 0x045310 | 4 bytes    | Base pointer for routing table computation                   |
+| 0x045314 | 4 bytes    | Pointer to routing configuration structure                   |
 
 The routing configuration structure (pointed to by 0x045314) contains pointers to coefficient source tables at various offsets:
 
@@ -405,22 +405,22 @@ The dispatcher follows a conditional 11-step pipeline:
 | 10 | Algo state update loop | always | Iterate slots 4→0, update algorithm state at 0x12226 |
 
 **EFF_MuteLoop Detail (Step 1b):**
-Iterates EFF slots 0-4. For each slot with its mute flag set (at RAM 18736 + slot×2), sends mute config from pointer table at 0x1F3BC via `DSP_WriteEFFConfig`. If any slot was muted, schedules a 20-unit delay via `DSP_ScheduleDelay`.
+Iterates EFF slots 0-4. For each slot whose active word is 1 (RAM 0x4930 + slot×2), sends mute config from pointer table at 0x1F3BC via `DSP_WriteEFFConfig`. If any slot was muted, schedules a 20-unit delay via `DSP_ScheduleDelay`.
 
 **DSP_AlgorithmChange Detail (Step 3):**
-When the DSP algorithm changes, loads 7 configuration blocks sequentially from ROM:
+When the DSP algorithm changes, loads 8 bytecode programs (`DSP_AlgoChange_Program`, `DSP1_BootProgram`, `DSP2_BootProgram_Step1`-`Step6`) sequentially from ROM:
 
-| Order | ROM Address | Channel | Purpose |
-|-------|------------|---------|---------|
-| 1 | 0x01E63C | 0 | Initial global config |
-| 2 | 0x01E6BE | 0 | Channel 0 config |
-| 3 | 0x01E996 | 1 | Channel 1 config A |
-| 4 | 0x01EA12 | 1 | Channel 1 config B |
-| — | (1-unit delay) | — | Wait for DSP to settle |
-| 5 | 0x01E7C5 | 1 | Channel 1 post-delay A |
-| 6 | 0x01E8A7 | 1 | Channel 1 post-delay B |
-| 7 | 0x01E891 | 1 | Channel 1 post-delay C |
-| 8 | 0x01E947 | 1 | Channel 1 post-delay D |
+| Order | ROM Address    | Chip | Purpose                                  |
+|-------|----------------|------|------------------------------------------|
+| 1     | 0x01E63C       | 0    | Common header (`DSP_AlgoChange_Program`) |
+| 2     | 0x01E6BE       | 0    | DSP1 boot program (`DSP1_BootProgram`)   |
+| 3     | 0x01E996       | 1    | `DSP2_BootProgram_Step1`                 |
+| 4     | 0x01EA12       | 1    | `DSP2_BootProgram_Step2`                 |
+| —     | (1-unit delay) | —    | Wait for DSP to settle                   |
+| 5     | 0x01E7C5       | 1    | `DSP2_BootProgram_Step3`                 |
+| 6     | 0x01E8A7       | 1    | `DSP2_BootProgram_Step4`                 |
+| 7     | 0x01E891       | 1    | `DSP2_BootProgram_Step5`                 |
+| 8     | 0x01E947       | 1    | `DSP2_BootProgram_Step6`                 |
 
 If mode == 1, de-asserts DSP2 reset before loading channel configs.
 
@@ -431,7 +431,7 @@ Calls `EFF_Change_Handler` for each dirty slot. The handler dispatches by slot n
 
 `EFF_Change_WithDebug` writes two config blocks per change: a primary config from table at 0x1ED7C and a secondary from 0x1EF0C, both indexed by the change type. Special handling for channel 1 with types 0x9 and 0xA (hardcoded reverb/chorus ROM addresses).
 
-All 13 diagnostic format strings (at ROM 0x0122CC-0x012397) are triggered through this dispatcher. The strings are output via `Debug_Print_String` (0x038365) which sends characters through boot ROM serial output at `0xFFFEA1`.
+All 13 diagnostic format strings (at ROM 0x0122CC-0x012397) are triggered through this dispatcher. The strings are output via `Debug_Print_String` (0x038365) which calls the boot ROM's `DEBUG_OUTPUT_STRING` at `0xFFFEA1`. In the dumped IC30, that routine's character sink (`DEBUG_OUTPUT_CHAR_STUB`, 0xFFFEC1) is `ld iz,0xFE00` plus 12 `nop`s and `ret`, so nothing is actually output.
 
 ### Inter-CPU Command Protocol (Command 0x2D — DSP Configuration)
 
@@ -439,29 +439,29 @@ The Main CPU sends DSP effect configuration changes to the Sub CPU via a layered
 
 **Layer 1 — Latch Protocol:**
 
-The Main CPU writes bytes to the inter-CPU latch at `0x120000`. The first byte is a header:
+The Main CPU writes bytes to the inter-CPU latch at `0x140000` (the Sub CPU reads it at `0x120000`). The first byte is a header:
 
-| Bits | Meaning |
-|------|---------|
-| 7-5 | Handler index (0-7 into `CMD_DISPATCH_TABLE` at `0xF428`) |
-| 4-0 | Payload length minus 1 (DMA count = value + 1) |
+| Bits | Meaning                                                   |
+|------|-----------------------------------------------------------|
+| 7-5  | Handler index (0-7 into `CMD_DISPATCH_TABLE` at `0xF46C`) |
+| 4-0  | Payload length minus 1 (DMA count = value + 1)            |
 
 For DSP config changes, header byte `0x7F` is used:
-- Handler index = 3 → `Audio_CmdHandler_60_7F` (line 39422)
+- Handler index = 3 → `Audio_CmdHandler_60_7F` (0x035893)
 - Payload = 32 bytes (0x1F + 1)
 
-The `INT0_HANDLER` (line 11247) reads the header byte directly, then sets up HDMA channel 0 to transfer the payload to buffer at `0x10F0`. After DMA completion, `MICRODMA_CH0_HANDLER` (line 11338) dispatches to the handler.
+The `INT0_HANDLER` (0x020E86) reads the header byte directly, then sets up HDMA channel 0 to transfer the payload to buffer at `0x10F0`. After DMA completion, `MICRODMA_CH0_HANDLER` (0x020F1F) dispatches to the handler.
 
-| Handler | Range | Routine | Purpose |
-|---------|-------|---------|---------|
-| 0 | 0x00-0x1F | `Audio_CmdHandler_00_1F` | MIDI/note commands → ring buffer at `0x2B0D` |
-| 1 | 0x20-0x3F | `Audio_CmdHandler_20_3F` | Stub (unused) |
-| 2 | 0x40-0x5F | `Audio_CmdHandler_40_5F` | (function at line 9619) |
-| 3 | 0x60-0x7F | `Audio_CmdHandler_60_7F` | Audio/DSP commands → ring buffer at `0x3B60` |
-| 4 | 0x80-0x9F | `Serial1_DataTransmit_Loop` | Serial port 1 data |
-| 5 | 0xA0-0xBF | `Audio_CmdHandler_A0_BF` | (function at line 51502) |
-| 6 | 0xC0-0xDF | `Audio_CmdHandler_C0_FF` | (function at line 10951) |
-| 7 | 0xE0-0xFF | `Audio_CmdHandler_C0_FF` | Same as handler 6 |
+| Handler | Range     | Routine                     | Purpose                                      |
+|---------|-----------|-----------------------------|----------------------------------------------|
+| 0       | 0x00-0x1F | `Audio_CmdHandler_00_1F`    | MIDI/note commands → ring buffer at `0x2B0D` |
+| 1       | 0x20-0x3F | `Audio_CmdHandler_20_3F`    | Stub (unused)                                |
+| 2       | 0x40-0x5F | `Audio_CmdHandler_40_5F`    | (function at 0x01FC7F)                       |
+| 3       | 0x60-0x7F | `Audio_CmdHandler_60_7F`    | Audio/DSP commands → ring buffer at `0x3B60` |
+| 4       | 0x80-0x9F | `Serial1_DataTransmit_Loop` | Serial port 1 data                           |
+| 5       | 0xA0-0xBF | `Audio_CmdHandler_A0_BF`    | (function at 0x03CFEE)                       |
+| 6       | 0xC0-0xDF | `Audio_CmdHandler_C0_FF`    | (function at 0x020C12)                       |
+| 7       | 0xE0-0xFF | `Audio_CmdHandler_C0_FF`    | Same as handler 6                            |
 
 **Layer 2 — Ring Buffer:**
 
@@ -511,22 +511,22 @@ If any parameters changed, `DSP_ApplyConfig` (at 0x03616A) copies the full 290-b
 
 The Sub CPU uses several lookup tables for DSP configuration:
 
-| Address | Size | Description |
-|---------|------|-------------|
-| 0x1E496 | variable | EFF header config table |
-| 0x1ED6D | 5 bytes | Per-EFF-slot DSP channel byte |
-| 0x1ED72 | 5 bytes | Per-EFF-slot parameter count limit |
-| 0x1ED7C | variable | EFF change config table (per sub-change) |
-| 0x1EF0C | variable | EFF data change config table |
-| 0x1F09C | N × 4 bytes | Per-algorithm register address table (pointers to register maps) |
-| 0x1F22C | N × 4 bytes | Per-algorithm parameter mapping table (pointers to param data) |
-| 0x1F3BC | variable | EFF mute config table |
-| 0x1F3D0 | variable | DSP mute config table |
-| 0x1F3E0 | variable | DSP unmute config table |
-| 0x1F3F0 | variable | EFF disconnect config table |
-| 0x1F404 | variable | EFF link config table |
-| 0x122A6 | 2 × 11 bytes | Sparse parameter update sequences (for algorithms 0x0F and 0x35) |
-| 0x12226 | variable | Per-algorithm byte (DSP channel assignment lookup) |
+| Address | Size          | Description                                                      |
+|---------|---------------|------------------------------------------------------------------|
+| 0x1E496 | variable      | EFF header config table                                          |
+| 0x1ED6D | 5 bytes       | Per-EFF-slot DSP channel byte                                    |
+| 0x1ED72 | 5 bytes       | Per-EFF-slot settle time (`EFF_SlotSettleTime_Table`)            |
+| 0x1ED7C | variable      | EFF change config table (per sub-change)                         |
+| 0x1EF0C | variable      | EFF data change config table                                     |
+| 0x1F09C | 100 × 4 bytes | Per-effect parameter VALUE record pointers                       |
+| 0x1F22C | 100 × 4 bytes | Per-effect parameter DESCRIPTOR record pointers                  |
+| 0x1F3BC | variable      | EFF mute config table                                            |
+| 0x1F3D0 | variable      | DSP mute config table                                            |
+| 0x1F3E0 | variable      | DSP unmute config table                                          |
+| 0x1F3F0 | variable      | EFF disconnect config table                                      |
+| 0x1F404 | variable      | EFF link config table                                            |
+| 0x122A6 | 2 × 11 bytes  | Sparse parameter update sequences (for algorithms 0x0F and 0x35) |
+| 0x12226 | variable      | Per-algorithm byte (DSP channel assignment lookup)               |
 
 **Parameter Translation Chain:**
 
@@ -536,19 +536,19 @@ The Sub CPU uses several lookup tables for DSP configuration:
 2. Look up `0x1F09C[algo_id]` → pointer to register address data (XBC)
 3. Call `DSP_ParameterWriteEngine` (at 0x03C9E6) which uses 12-byte stride tables at those pointers
 4. The inner loop reads 3 words per parameter from the mapping data
-5. Final DSP register writes go through tone generator at `0x130000`
+5. The resulting DSP writes go out through `DSP_DispatchCommand`/`DSP_DispatchData` (Port PZ/P7 for DSP1, the PF serial link for DSP2), not through 0x130000
 
 Special cases: algorithms 9 and 10 for EFF slot 1 use hardcoded tables at `0x1E17F`/`0x1E19E` and `0x1E40A`/`0x1E42D` respectively.
 
 The DSP write routines used by the dispatcher:
 
-| Routine | Address | Description |
-|---------|---------|-------------|
-| `DSP_WriteEFFConfig` | 0x03C161 | Per-EFF DSP write (uses EFF-specific bytecode tables) |
-| `DSP_WriteGlobalConfig` | 0x03C181 | Global DSP write (direct bytecode config) |
-| `DSP_WriteParameter` | 0x03C190 | Parameter-specific DSP write (algo-indexed tables) |
-| `DSP_ParameterWriteEngine` | 0x03C9E6 | Core DSP parameter write engine |
-| `DSP_BytecodeInterpreter_Init` | 0x03C266 | Bytecode interpreter entry point |
+| Routine                        | Address  | Description                                           |
+|--------------------------------|----------|-------------------------------------------------------|
+| `DSP_WriteEFFConfig`           | 0x03C161 | Per-EFF DSP write (uses EFF-specific bytecode tables) |
+| `DSP_WriteGlobalConfig`        | 0x03C181 | Global DSP write (direct bytecode config)             |
+| `DSP_WriteParameter`           | 0x03C190 | Parameter-specific DSP write (algo-indexed tables)    |
+| `DSP_ParameterWriteEngine`     | 0x03C9E6 | Core DSP parameter write engine                       |
+| `DSP_BytecodeInterpreter_Init` | 0x03C259 | Bytecode interpreter entry point                      |
 
 ### DSP Bytecode Interpreter
 
@@ -561,7 +561,7 @@ The Sub CPU uses a bytecode interpreter to batch-write DSP register configuratio
 | `DSP_WriteEFFConfig` | 0x03C161 | 0x14777 | Per-effect channel writes (looks up DSP chip from channel mapping at 0x1ED6D) |
 | `DSP_WriteGlobalConfig` | 0x03C181 | 0x147B3 | Global DSP writes (always targets DSP chip 0) |
 
-Both call `DSP_BytecodeInterpreter_Init` (0x03C266) which loads a 12-byte config entry from the table and begins execution.
+Both call `DSP_BytecodeInterpreter_Init` (0x03C259) which loads a 12-byte config entry from the table and begins execution.
 
 **Config Entry Format (12 bytes per entry, indexed by channel/slot):**
 
@@ -616,7 +616,7 @@ The `count` field gives the number of data bytes following the header (after sub
 
 **Opcodes 0-5 Detail (Native Code Handlers):**
 
-Opcodes 0-5 dispatch to native TLCS-900 machine code subroutines within the `DSP_Bytecode_Programs` block at 0x03C32E. The dispatch table at `DSP_BytecodeInterpreter_CaseOffsets` (0x014739) contains 16-bit offsets from 0x03C32E:
+Opcodes 0-5 dispatch to native TLCS-900 machine code subroutines at `DSP_Bytecode_Op00_Groups5_ParamMix` (0x03C32E) through `DSP_Bytecode_Op05_Groups5_Masked` (0x03C7BB). The dispatch table at `DSP_BytecodeInterpreter_CaseOffsets` (0x014739) contains 16-bit offsets from 0x03C32E:
 
 | Opcode | Offset | Handler Address | Approximate Size |
 |--------|--------|----------------|-----------------|
@@ -765,7 +765,7 @@ When `DSP_WriteGlobalConfig` is called to mute DSP chip 0:
 4. Calls DSP_BytecodeInterpreter_Init:
    a. Loads 12-byte entry from 0x147B3 + 0*12 (channel 0)
    b. Copies 4 config words + 1 program pointer to stack frame
-   c. Falls through to BytecodeInterpreter_CheckEnd
+   c. Falls through to DSP_BytecodeInterpreter_CheckEnd
 5. Interpreter reads first bytecode header from program pointer
 6. Dispatches on opcode:
    - 0xE → sends command+data to DSP hardware
@@ -777,10 +777,10 @@ When `DSP_WriteGlobalConfig` is called to mute DSP chip 0:
 
 **Real-Time Parameter Modification:**
 
-The `DSP_ParameterWriteEngine` (0x03C673) enables real-time control of DSP effects. When a MIDI parameter changes (e.g., reverb depth, chorus rate), the engine:
+The `DSP_ParameterWriteEngine` (0x03C9E6) enables real-time control of DSP effects. When a MIDI parameter changes (e.g., reverb depth, chorus rate), the engine:
 
-1. Looks up the parameter index in a translation table at 0x1ED6D
-2. Walks through algorithm-specific bytecode programs (table at 0x1F22C for program pointers, 0x1F09C for register addresses)
+1. Looks up the effect slot's chip (0x1ED6D, `EFF_SlotToChip_Table`) and the effect's descriptor and value records (0x1F22C / 0x1F09C, indexed by effect number)
+2. Walks the effect's descriptor records (from 0x1F22C, chosen by its caller `DSP_WriteParameter`) against its value records (0x1F09C)
 3. Calls `DSP_PerParameterTranslator` to map the MIDI value to a 32-bit DSP parameter
 4. Re-runs the bytecode program with the new parameter value in `(XSP+0x10)`
 5. Handler 0/5 Branch C applies the parameter offset to template coefficients during write
@@ -835,30 +835,29 @@ The number of H0/H5/H2 groups varies by effect type (more complex effects have m
 
 **EFF Chip Mapping (0x1ED6D):** Maps effect channels to DSP hardware:
 
-| Channel | DSP Chip | Max Params | Notes |
-|---------|----------|-----------|-------|
-| 0 | DSP1 (uPD6383GF-3BA) | 28 | |
-| 1 | DSP1 | 24 | Hardcoded reverb/chorus programs |
-| 2 | DSP2 (MN19413) | 46 | Most parameters |
-| 3 | DSP2 | 20 | |
-| 4 | DSP2 | 20 | |
-| 5-9 | (invalid) | — | Channel IDs > 4 not used for DSP |
+| Channel | DSP Chip             | Settle time | Notes                            |
+|---------|----------------------|-------------|----------------------------------|
+| 0       | DSP1 (uPD6383GF-3BA) | 28          |                                  |
+| 1       | DSP1                 | 24          | Hardcoded reverb/chorus programs |
+| 2       | DSP2 (MN19413)       | 46          |                                  |
+| 3       | DSP2                 | 20          |                                  |
+| 4       | DSP2                 | 20          |                                  |
+| 5-9     | (invalid)            | —           | Channel IDs > 4 not used for DSP |
 
-Parameter count limits are stored at 0x1ED72 (5 bytes, one per channel).
+Per-slot settle times are stored at 0x1ED72 (5 bytes, one per slot).
 
 ### Algorithm and Parameter ROM Tables
 
 The SubCPU ROM contains 6 key tables for DSP effect configuration:
 
-| Table | Address | Format | Entries | Purpose |
-|-------|---------|--------|---------|---------|
-| Chip Mapping | 0x1ED6D | 1B × 5 | 5 | Channel → DSP chip (0=DSP1, 1=DSP2) |
-| Param Limits | 0x1ED72 | 1B × 5 | 5 | Max parameters per channel (20-46) |
-| Algorithm Programs | 0x1ED7C | 4B × 100 | 100 | Pointers to algorithm bytecode (indexed by full algo ID 0-99) |
-| Parameter Programs | 0x1EF0C | 4B × 100 | 100 | Pointers to parameter bytecode (47 unique programs) |
-| Register Addresses | 0x1F09C | 4B × 12 | 12 | Per-algo-type register address bytecode pointers |
-| Parameter Mapping | 0x1F22C | 4B × 12 | 12 | Per-algo-type parameter mapping bytecode pointers |
-| Algo Type Lookup | 0x1F596 | 1B × 40 | 40 | Effect index (0-39) → algorithm type (2-11) |
+| Table                 | Address | Format   | Entries | Purpose                                                                        |
+|-----------------------|---------|----------|---------|--------------------------------------------------------------------------------|
+| Chip Mapping          | 0x1ED6D | 1B × 5   | 5       | Channel → DSP chip (0=DSP1, 1=DSP2)                                            |
+| Slot settle time      | 0x1ED72 | 1B × 5   | 5       | Per-slot settle time (28, 24, 46, 20, 20), max-folded by the dispatcher        |
+| Algorithm Programs    | 0x1ED7C | 4B × 100 | 100     | Pointers to algorithm bytecode (indexed by full algo ID 0-99)                  |
+| Parameter Programs    | 0x1EF0C | 4B × 100 | 100     | Pointers to parameter bytecode (47 unique programs)                            |
+| Parameter values      | 0x1F09C | 4B × 100 | 100     | Per-effect parameter VALUE record pointers (0 = none)                          |
+| Parameter descriptors | 0x1F22C | 4B × 100 | 100     | Per-effect parameter DESCRIPTOR record pointers (0x017425 = NO OPERATION stub) |
 
 **Algorithm Program Table (0x1ED7C):** 100 entries indexed by full algorithm ID. Unique programs for types 2-6, 8-10, 15 (Rotary). Types 0, 7, 11 share a common program at 0x017263. Extended IDs 16-27 (reverb subtypes) share algorithm programs with their base type but have unique parameter programs.
 
@@ -869,11 +868,11 @@ The SubCPU ROM contains 6 key tables for DSP effect configuration:
 - 6 extended effects (auto pan, pitch shifter, pedal wah, rotary, ring mod, HARS)
 - Combination effects, presets, GEQ
 
-**Register and Parameter Mapping Tables (0x1F09C, 0x1F22C):** Both are indexed by algorithm type (0-11). Types 0, 7, 11 have NULL register pointers (they use extended-ID-specific programs instead). The parameter mapping table has a fallback at 0x017425 for these types. Both tables point to variable-length bytecode programs with opcodes like 0x21 (interpolation), 0x40 (pan scaling), 0x61-0x78 (dispatch), terminated by 0x7A/0xF0.
+**Register and Parameter Mapping Tables (0x1F09C, 0x1F22C):** Both are 100-entry arrays indexed by effect number (0-99). 41 effects (0, 7, 11-14 and others) have a NULL value pointer, and their descriptor pointer is the NO OPERATION stub 0x017425. Both tables point to variable-length bytecode programs with opcodes like 0x21 (interpolation), 0x40 (pan scaling), 0x61-0x78 (dispatch), terminated by 0x7A/0xF0.
 
 ### Parameter Translation Opcodes (Level 2 Bytecodes)
 
-The `DSP_PerParameterTranslator` at SubCPU 0x03CB8E dispatches parameter translation opcodes that convert MIDI parameter values (0-127) into DSP chip coefficient writes. Each opcode implements a different mathematical transformation:
+The `DSP_PerParameterTranslator` at SubCPU 0x03CAAE dispatches parameter translation opcodes that convert MIDI parameter values (0-127) into DSP chip coefficient writes. Each opcode implements a different mathematical transformation:
 
 **Special Opcodes:**
 
@@ -920,30 +919,32 @@ Output targets: **OscParam** writes oscillator/amplitude registers, **FreqParam*
 
 The MainCPU ROM at 0xE324C4 contains 86 parameter name entries (17 bytes each: 16-char name + ':' separator). Key named parameters:
 
-| Index | Name | Index | Name |
-|-------|------|-------|------|
-| 0x01 | VOLUME | 0x22 | REVERB TIME |
-| 0x03 | REV SEND | 0x23 | PRE DELAY |
-| 0x04 | DRIVE | 0x24 | HIGH DAMP GAIN |
-| 0x05 | ADJUST | 0x25 | ER.LEVEL |
-| 0x06 | EMPHASIS GAIN | 0x26 | PITCH L |
-| 0x07 | DEPTH | 0x27 | PITCH R |
-| 0x08 | LFO SPEED | 0x28 | THRESHOLD |
-| 0x09 | SLOW LFO SPEED | 0x29 | RATIO |
-| 0x0A | FAST LFO BALANCE | 0x33 | BAND EMPHASIS FC |
-| 0x0B | RESONANCE | 0x34 | BAND EMPHASIS Q |
-| 0x0C | MANUAL | 0x35 | BAND EMPHASIS G |
-| 0x0D | SLOW/FAST | 0x38 | FEEDBACK |
-| 0x1D | PHASER DRY/WET | 0x3B | WAH CENTER FC |
-| 0x52 | INTENSITY | — | — |
+| Index | Name             | Index | Name             |
+|-------|------------------|-------|------------------|
+| 0x01  | VOLUME           | 0x22  | REVERB TIME      |
+| 0x03  | REV SEND         | 0x23  | PRE DELAY        |
+| 0x04  | DRIVE            | 0x24  | HIGH DAMP GAIN   |
+| 0x05  | ADJUST           | 0x25  | ER.LEVEL         |
+| 0x06  | EMPHASIS GAIN    | 0x26  | PITCH L          |
+| 0x07  | DEPTH            | 0x27  | PITCH R          |
+| 0x08  | LFO SPEED        | 0x28  | THRESHOLD        |
+| 0x09  | SLOW LFO SPEED   | 0x29  | RATIO            |
+| 0x0A  | FAST LFO BALANCE | 0x33  | BAND EMPHASIS FC |
+| 0x0B  | RESONANCE        | 0x34  | BAND EMPHASIS Q  |
+| 0x0C  | MANUAL           | 0x35  | BAND EMPHASIS G  |
+| 0x0D  | SLOW/FAST        | 0x39  | FEEDBACK         |
+| 0x1D  | PHASER DRY/WET   | 0x3B  | WAH CENTER FC    |
+| 0x53  | INTENSITY        | —     | —                |
 
 ### Effect Algorithm Type Summary
 
-40 effect indices map to 10 algorithm types (2-11). Each algorithm defines which named parameters control the DSP, and which translation opcodes transform MIDI values.
+Each algorithm defines which named parameters control the DSP, and which translation opcodes transform MIDI values.
 
 **Parameter Mapping Bytecode Format:** Each entry is `[flags:1] [total_length:1] [opcode:1] [data:length-3]`. The first data byte is the primary parameter index. Additional data bytes may be secondary parameter indices or coefficient data. Programs terminate with 0xF0.
 
 **Complete Parameter→Transform Mappings (decoded from ROM tables at 0x1EF0C):**
+
+⚠ The Algo column below is the effect number (0 NO OPERATION, 1 CHORUS … 10 MULTI TAP DELAY), read from the first entries of the 100-entry arrays; the Effects column groupings are not supported by the ROM.
 
 | Algo | Effects | Parameter Mappings (ordered) |
 |------|---------|------------------------------|
@@ -969,7 +970,7 @@ does anything. The twelve: `MODULATION DELAY`, `SLOW ATTACKER`, `NOISE FLANGER`,
 `OVER_D`. Of these, only `SLOW ATTACKER` is reachable from a front-panel effect-type list
 (DSP EFFECT TYPE 14); the rest are not selectable through either array-driven editor page.
 
-**Register Address Programs (ROM table at 0x1F09C):** Each algorithm type also has a register address program that specifies which DSP register addresses each parameter writes to. The register programs use the same bytecode format as the parameter mapping but contain DSP coefficient addresses (12-bit or 16-bit) and fixed-point default values. Algo types 0, 7, 11 share a fallback that doesn't have register address programs (NULL pointers).
+**Register Address Programs (ROM table at 0x1F09C):** Each effect also has a register address program that specifies which DSP register addresses each parameter writes to. The register programs use the same bytecode format as the parameter mapping but contain DSP coefficient addresses (12-bit or 16-bit) and fixed-point default values. Effects whose 0x1F09C entry is NULL (0, 7, 11-14 and others) have none.
 
 ### DSP Coefficient Setup Pipeline
 
@@ -1002,7 +1003,7 @@ These functions implement the voice→DSP routing pipeline:
 1. Call `DSP_AlgoType_Dispatch1` to determine the algorithm type for the voice
 2. Store result to DSP state (0x04520E or 0x04520C)
 3. Call `Voice_BuildOutputList` to enumerate active voice outputs
-4. Iterate the output list, configuring each via `ToneGen_ExtParams56b_DataTable`
+4. Iterate the output list, configuring each via `ToneGen_WriteReg0640` (writes TG register 0x0640+ch)
 5. Loop until all voices processed (up to 128 for full config, 64 for simple copy)
 
 ## Synthesis Architecture
@@ -1011,37 +1012,37 @@ The KN5000 implements a **hardware wavetable synthesis** architecture: the Sub C
 
 ### Polyphony and Voice Management
 
-| Parameter | Value |
-|-----------|-------|
-| MIDI Channels | 26 (channels 0-25) |
-| Hardware Voices | 64 simultaneous |
-| Voice Parameter Size | 287 bytes per MIDI channel (0x11F) |
-| Hardware Voice Size | 71 bytes per voice (0x47) |
-| Voice Template | 68 bytes at ROM 0xF8D5 (34 × 16-bit words) |
-| Channel Parameter Base | 0x04136E (Sub CPU RAM) |
-| Hardware Voice Pool | 0x04308E (Sub CPU RAM, 64 × 71 = 4544 bytes) |
-| Voice Slot Table | 0x4A4C (16 active voice tracking slots) |
+| Parameter              | Value                                           |
+|------------------------|-------------------------------------------------|
+| MIDI Channels          | 26 (channels 0-25)                              |
+| Hardware Voices        | 64 simultaneous                                 |
+| Voice Parameter Size   | 287 bytes per MIDI channel (0x11F)              |
+| Hardware Voice Size    | 71 bytes per voice (0x47)                       |
+| Voice Template         | 68 bytes at ROM 0xF8D5 (34 × 16-bit words)      |
+| Channel Parameter Base | 0x04136E (Sub CPU RAM)                          |
+| Hardware Voice Pool    | 0x04308E (Sub CPU RAM, 64 × 71 = 4544 bytes)    |
+| Held-Key Map           | 0x4A4C + note (per-note bytes, not voice slots) |
 
 **Channel address formula:** `0x04136E + (channel_number × 0x11F)`
 
-The firmware implements **dynamic voice allocation**: any of the 26 MIDI channels can be assigned to any of the 64 hardware voices on demand. When a Note On arrives, `Voice_Allocate` (0x02C9DF) acquires a free voice from a pool-based allocator at 0x2A4E with voice stealing for polyphony overflow.
+The firmware implements **dynamic voice allocation**: any of the 26 MIDI channels can be assigned to any of the 64 hardware voices on demand. A Note On with nonzero velocity goes to `Voice_SetVelocity` (which picks 2 or 4 tone-generator channels according to the part mode) and then `Voice_SetPitch` (for part mode 0x40 only: parks the voice silent, writes its register block and then the key-on word). Velocity 0 goes to `Voice_Allocate` (0x02CCAD; despite its name it builds a match packet and walks the 64-entry voice table), `Voice_ParamInit` and `Voice_NoteOff`.
 
 ### Voice Parameter Structure (287 bytes per MIDI channel)
 
 Each MIDI channel maintains a 287-byte parameter block:
 
-| Offset | Size | Parameter | Set By |
-|--------|------|-----------|--------|
-| +0x00 | 4 | Pitch base | Note On |
-| +0x04 | 2 | Portamento flag | CC 0x95 |
-| +0x06 | 2 | Volume (scaled) | CC 0x07 |
-| +0x08 | 2 | Pan | CC 0x0A |
-| +0x0A | 2 | Expression (scaled) | CC 0x0B |
-| +0x11 | 1 | Frequency multiplier | CC 0x91 |
-| +0x12 | 1 | Fine pitch tuning | CC 0x97 |
-| +0x1F | 1 | Vibrato depth | CC 0x9B |
-| +0x20 | 1 | Tremolo/AM depth | CC 0x9D |
-| +0x67 | var | Extended parameter refs | Program Change |
+| Offset | Size | Parameter                       | Set By         |
+|--------|------|---------------------------------|----------------|
+| +0x00  | 4    | Pitch base                      | Note On        |
+| +0x04  | 2    | see Proprietary Control Changes | CC 0x95        |
+| +0x06  | 2    | Volume (scaled)                 | CC 0x07        |
+| +0x08  | 2    | Pan                             | CC 0x0A        |
+| +0x0A  | 2    | Expression (scaled)             | CC 0x0B        |
+| +0x11  | 1    | see Proprietary Control Changes | CC 0x91        |
+| +0x12  | 1    | see Proprietary Control Changes | CC 0x97        |
+| +0x1F  | 1    | see Proprietary Control Changes | CC 0x9B        |
+| +0x20  | 1    | see Proprietary Control Changes | CC 0x9D        |
+| +0x67  | var  | Extended parameter refs         | Program Change |
 
 ### Note-On Processing Pipeline
 
@@ -1050,36 +1051,22 @@ When a MIDI Note On arrives at `Voice_NoteOn` (0x02CF97):
 ```
 MIDI Note On (channel, note, velocity)
   │
-  ├─ velocity = 0? ──yes──> Voice_NoteOff (release voice)
-  │
-  ├─ Voice_Allocate (0x02C9DF)
-  │     └─ Pool-based allocation from 64 hardware voices
-  │     └─ Voice stealing if pool exhausted
+  ├─ velocity = 0? ──yes──> Voice_Allocate (0x02CCAD) → Voice_ParamInit → Voice_NoteOff
   │
   ├─ Voice_SetVelocity
-  │     └─ Scale velocity via lookup table at 0x011D16
-  │     └─ Write to amplitude parameter
+  │     └─ switch on part mode (tone record +0x10 & 0xC0): 0x80 2 TG channels, 0x40/0x00 4, 0xC0 nothing
   │
-  ├─ Voice_SetPitch / ToneGen_Calc_Pitch (0x03D11F)
-  │     └─ note + 0x24 (transpose by +36 semitones)
-  │     └─ Semitone-specific adjustments (A#, G#, F#, E#)
-  │     └─ Mode-dependent pitch offset (tone gen mode at 0x4A48)
-  │     └─ Clamp to 0-255 range
+  ├─ Voice_SetPitch (0x02C6CD, part mode 0x40 only)
+  │     └─ mute the slot, build its registers (Voice_Init_Type1), write the key-on word
   │
   └─ ToneGen_WriteVoiceParams
         └─ Write 21 register pairs to 0x100000/0x100002
         └─ Set key-on flag (bit 15 at register offset 0x0080)
 ```
 
-### Pitch Calculation
+### Keybed Event Decoding
 
-`ToneGen_Calc_Pitch` (0x03D11F) converts MIDI note numbers to tone generator pitch values:
-
-1. Add base offset: `note + 0x24` (transpose up 3 octaves)
-2. Apply semitone-specific corrections for A#, G#, F#, E# (chromatic tuning compensation)
-3. Apply mode-dependent offset from lookup tables at 0x01F420-0x01F422
-4. Clamp final pitch to 0-255 range
-5. Look up velocity curve from table at 0x01F53E
+`Keybed_Decode_Event` (0x03D11F, formerly mis-named `ToneGen_Calc_Pitch`) turns a raw keybed event into a MIDI note and a curved velocity. It is on the keybed path, not the MIDI Note On path. Note = `(key & 0x7F) + 0x24`, so key 0 is MIDI note 36. The raw touch reading indexes `ToneGen_Velocity_Input_Curve` (0x01F43E) and is scaled by the touch-curve parameters (the words at 0x01F418/0x01F41A and the per-curve byte triplets from 0x01F420; curve number at 0x4A48, default 6). Note classes C#, D#, F#, G# and A# then lose a black-key trim. The result is clamped to 0-255 and mapped through `ToneGen_Velocity_Output_Curve` (0x01F53E). See [Keybed Scanning]({{ site.baseurl }}/keybed-scanning/).
 
 ### Volume and Expression
 
@@ -1093,7 +1080,7 @@ The KN5000 uses **hardware envelopes** in the tone generator IC303 — the Sub C
 
 - **Key-on** (Note On): Sets bit 15 at tone gen register 0x0080, which triggers the hardware's internal attack phase
 - **Key-off** (Note Off): Clears the enable flag, triggering hardware release
-- **Sustain pedal** (CC 0x40): `Voice_CC_Sustain` (0x028962) defers note-off processing while held — notes sustain until pedal released
+- **Sustain pedal** (CC 0x40): `Voice_CC_Sustain` (0x02A383) stores the pedal state (`Voice_CC_SetSustain`, 0x028962), then runs `Voice_AllocateForSustain` and the sustain retrigger scan over the part's held notes
 - **Sostenuto** (CC 0x5B): Similar hold behavior for notes already sounding
 - **Soft pedal** (CC 0x5D): Reduces velocity/volume scaling
 
@@ -1101,22 +1088,20 @@ Attack, decay, sustain level, and release times are determined by the tone gener
 
 ### LFO and Modulation
 
-The Mod Wheel (CC 0x01) controls LFO modulation via `Voice_ModWheel_Apply` (0x024565). The modulation type is selected by bits [7:6] of voice parameter offset +16:
+The Mod Wheel (CC 0x01) is applied by `Voice_ModWheel_Apply` (0x029F73). It switches on the part mode, bits [7:6] of tone-record byte +0x10, and sends up to two destination commands per patch through `AudioChannel_Dispatch`:
 
-| Bits [7:6] | Mode | Effect |
-|------------|------|--------|
-| 0x00 | Off | No modulation |
-| 0x40 | Vibrato | Pitch modulation (frequency wobble) |
-| 0x80 | Tremolo | Amplitude modulation (volume pulse) |
-| 0xC0 | Auto-pan | Stereo position modulation |
+| Bits [7:6]         | Descriptors read                   |
+|--------------------|------------------------------------|
+| 0x00 / 0x40 / 0xC0 | patch+0x17, two 3-byte descriptors |
+| 0x80               | patch+0x15, two 3-byte descriptors |
 
-Additional modulation parameters via proprietary CCs:
+Proprietary CCs formerly read as modulation parameters:
 
-| CC | Offset | Parameter |
-|----|--------|-----------|
-| 0x9B | +0x1F | Vibrato depth |
-| 0x9C | — | Vibrato enable/disable (bit 8 toggle) |
-| 0x9D | +0x20 | Tremolo/AM depth |
+| CC   | Offset | Parameter                       |
+|------|--------|---------------------------------|
+| 0x9B | +0x1F  | see Proprietary Control Changes |
+| 0x9C | —      | see Proprietary Control Changes |
+| 0x9D | +0x20  | see Proprietary Control Changes |
 
 The actual LFO oscillator runs inside the tone generator hardware; the firmware only sets depth and mode parameters.
 
@@ -1124,7 +1109,6 @@ The actual LFO oscillator runs inside the tone generator hardware; the firmware 
 
 No explicit filter envelope or cutoff sweep exists in the CPU firmware. The tone generator hardware likely contains internal filters controlled by:
 
-- **CC 0x9B** (offset +0x1F): May modulate filter cutoff depth in addition to vibrato
 - **Tone gen registers 0x0800-0x08C0** (Volume/Level group): Likely include filter-related parameters
 - **Tone gen registers 0x09C0-0x0A40** (Aux group): Extended parameters potentially including resonance
 
@@ -1132,16 +1116,16 @@ Filter behavior is fixed per voice preset — no real-time filter sweeps are imp
 
 ### Proprietary Control Changes (0x91-0x9D)
 
-| CC | Handler | Channel Offset | Function |
-|----|---------|---------------|----------|
-| 0x91 | Voice_CC_SetReverbDepth | +0x11 | Frequency multiplier (via lookup table) |
-| 0x95 | Voice_CC_SetChorusEnable | +0x04 | Portamento enable/disable (boolean flag) |
-| 0x97 | Voice_CC_SetChorusDepth | +0x12 | Fine pitch tuning (semitone-level adjustment) |
-| 0x9B | Voice_CC_SetDelayDepth | +0x1F | Vibrato depth (via lookup table) |
-| 0x9C | Voice_CC_SetDelayEnable | — | Vibrato enable/disable (bit 8 toggle) |
-| 0x9D | Voice_CC_SetDelayFeedback | +0x20 | Tremolo/AM depth (via lookup table) |
+| CC   | Handler                     | Channel Offset                             | Function                                                                                                             |
+|------|-----------------------------|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| 0x91 | `Voice_CC_SetReverbDepth`   | +0x11                                      | raw byte; tested bitwise by `Voice_Env_ApplyVelocity_Type0`                                                          |
+| 0x95 | `Voice_CC_SetChorusEnable`  | +0x04 bit 2                                | flag                                                                                                                 |
+| 0x97 | `Voice_CC_SetChorusDepth`   | +0x12                                      | raw byte                                                                                                             |
+| 0x9B | `Voice_CC_SetDelayDepth`    | +0x1F                                      | raw byte; its nibbles select gate routing                                                                            |
+| 0x9C | `Voice_CC_SetDelayEnable`   | -0x04 (`Part_PresentWord`, 0x04136A) bit 8 | flag                                                                                                                 |
+| 0x9D | `Voice_CC_SetDelayFeedback` | +0x20                                      | raw byte; 1 / 2 force TG reg 0x180 to 0x00 / 0x7F, otherwise the tone default (the overlay HLE renders 0x180 as pan) |
 
-All proprietary CCs use `channel × 0x11F + base_offset` to access per-channel data. CCs 0x91, 0x97, 0x9B, and 0x9D read values from a shared lookup table at 0x011D16. CCs 0x95 and 0x9C are boolean toggles using OR/AND bit masks.
+Offsets are relative to 0x04136E + channel × 0x11F. These handlers store the controller value as is; only CC 7 and CC 11 go through the lookup table at 0x011D16. The labels (reverb/chorus/delay) are inherited and the meanings are not established.
 
 ## Tone Generator
 
@@ -1159,28 +1143,26 @@ The parameter records the Sub CPU pushes into IC303 are not built in code: they 
 bulk-copies to Sub CPU RAM `0x50000` at boot. See [Tone Database]({{ site.baseurl }}/tone-database/)
 for the directory, the 629-entry tone-record offset table, drum kits and percussion banks.
 
-### Voice Slot Table
+### Held-Key Map
 
-16 voice slots at 0x4A4C-0x4A5C track active notes:
-- 0xFF = note active
-- 0x00 = slot available
+`0x4A4C + note` (note = (key & 0x7F) + 0x24) holds 0xFF while a key is down and 0x00 when it is up. Its only job is to drop a key-up that has no matching key-down.
 
 ### Key Routines
 
-| Routine | Address | Description |
-|---------|---------|-------------|
-| `ToneGen_Config_Init` | 0x02DFCF | Configure all 64 voices and global registers |
-| `ToneGen_Init` | 0x03D016 | Set mode to 6, start polling |
-| `ToneGen_Poll_Init` | 0x03D227 | Read initial voice state (16 slots) |
-| `ToneGen_Process_Notes` | 0x03D01E | Process keyboard events in main loop |
-| `ToneGen_Read_Voice_Data` | 0x03D0C5 | Read note/velocity from hardware |
-| `ToneGen_Calc_Pitch` | 0x03D11F | Calculate pitch value |
+| Routine                 | Address  | Description                                                                                   |
+|-------------------------|----------|-----------------------------------------------------------------------------------------------|
+| `ToneGen_Config_Init`   | 0x02DFCF | Configure all 64 voices and global registers                                                  |
+| `ToneGen_Init`          | 0x03D016 | Keybed init (misnomer): touch curve 6 into 0x4A48, then `ToneGen_Poll_Init`                   |
+| `ToneGen_Poll_Init`     | 0x03D1FB | Keybed power-on scan                                                                          |
+| `ToneGen_Process_Notes` | 0x03D01E | Keybed service: forwards key events to the Main CPU as MIDI (when forwarding flag 0x4A4A = 1) |
+| `Keybed_Read_Event`     | 0x03D0C5 | Read one key event from 0x110002/0x110000                                                     |
+| `Keybed_Decode_Event`   | 0x03D11F | Key index → MIDI note, touch reading → velocity                                               |
 
 ### Hardware Access
 
 - P6.7 controls A23 address line for tone generator access
 - Status read: 0x110002 (bit 0 = data ready)
-- Data read: 0x110000 (16-bit: low byte = note, high byte = velocity)
+- Data read: 0x110000 (16-bit: low byte = note, high byte = raw touch reading, a curve index; 0xFF = no touch value)
 - Register write: 0x100000 (address), 0x100002 (data) with P6.7 chip-select protocol
 
 ## Sound Categories
@@ -1218,9 +1200,9 @@ good. Dropping that re-assertion made latch writes, INT0 dispatches and latch re
 and the demo now runs well past 100 seconds with real voice names on the play screen. The
 detailed logs below (zero `putc_mrx` hits, ring buffer never written, etc.) describe the
 **pre-fix** symptom and are kept as the record of that investigation, not as the current
-emulation behavior. Separately, IC14's rhythm ROM dump was found to have two address lines
-transposed, which affects roughly two-thirds of factory rhythms; that is a different,
-still-partially-open issue from the inter-CPU wedge fixed here.
+emulation behavior. Separately, IC14's rhythm ROM dump had address lines A19 and A21
+transposed. The corrected image (CRC aa4917ce) went upstream with mamedev/mame#15878
+(merged 2026-08-17); only a confirming re-dump remains.
 
 The Feature Demo plays pre-recorded MIDI sequences to demonstrate the keyboard's capabilities. Pressing the DEMO button triggers a complex initialization and playback sequence.
 
@@ -1267,7 +1249,7 @@ The demo's style/rhythm preset data is at `Demo_StyleRhythmData` (0xF5CFCC), whi
 
 The data loading uses LDIR block copy loops at `Demo_LoadVariationData` (0xF5CF8B) and `Demo_LoadVariationC_Data` (0xF5CFAE).
 
-### Current Emulation Behavior
+### Emulation Behavior Before the 2026-08-05 Fix (historical)
 
 When the DEMO button is pressed in MAME, the Feature Demo enters its playback loop but **only sends configuration commands** (Control Change, Pitch Bend, Channel Pressure, SysEx). No Note On (0x90) or Note Off (0x80) events are ever dispatched. Analysis of a test session showed:
 
@@ -1328,7 +1310,7 @@ Rhythm ROM (4MB) ──read──> Pattern Data in RAM ──???──> Ring Buf
      ✓ working              ✓ executing                  ✗ NEVER written
 ```
 
-Possible causes under investigation:
+Causes considered at the time (superseded by the /INT0 fix above):
 1. **Startup flag (0x0251D8)** is never set, potentially skipping a critical initialization step
 2. A missing Timer7 tick or other timing mechanism that drives MIDI event generation
 3. An inter-CPU response or hardware register that gates the final event write stage
@@ -1354,22 +1336,15 @@ Possible causes under investigation:
 
 ### Sub CPU (`v142/subcpu/kn5000_subprogram_v142.s`)
 
-| Routine | Address | Description |
-|---------|---------|-------------|
-| `Audio_System_Init` | 0x01FACB | Master audio initialization |
-| `MIDI_Dispatch` | 0x034D93 | MIDI message dispatcher |
-| `Audio_CmdHandler_00_1F` | 0x034D5F | Audio command handler |
-| `Voice_NoteOn` | 0x02CF97 | Note On processing |
-| `Voice_CtrlChange` | 0x02A282 | Control Change processing |
-| `DSP_System_Init` | 0x034C45 | DSP initialization |
-| `ToneGen_Init` | 0x03D016 | Tone generator init |
-
-## Related Pages
-
-- [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/) - Communication details
-- [MIDI Subsystem]({{ site.baseurl }}/midi-subsystem/) - External MIDI handling
-- [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/) - Main and Sub CPU details
-- [System Overview]({{ site.baseurl }}/system-overview/) - Overall architecture
+| Routine                  | Address  | Description                 |
+|--------------------------|----------|-----------------------------|
+| `Audio_System_Init`      | 0x01FACB | Master audio initialization |
+| `MIDI_Dispatch`          | 0x034D93 | MIDI message dispatcher     |
+| `Audio_CmdHandler_00_1F` | 0x034D5F | Audio command handler       |
+| `Voice_NoteOn`           | 0x02CF97 | Note On processing          |
+| `Voice_CtrlChange`       | 0x02A282 | Control Change processing   |
+| `DSP_System_Init`        | 0x034C45 | DSP initialization          |
+| `ToneGen_Init`           | 0x03D016 | Keybed init (misnomer)      |
 
 ## Serial Port 1 Interface
 
@@ -1408,29 +1383,23 @@ The KN5000 uses two custom DSP chips for effects processing:
 | IC310 | MN19413 | Matsushita (Panasonic) | Custom ASIC, no public documentation |
 | IC311 | uPD6383GF-3BA | NEC | No datasheet or programming manual is public; identified from the Pioneer CDJ-500 service manual (see [Effects DSP]({{ site.baseurl }}/effects-dsp/)) |
 
-Both DSPs use an identical 8-bit parallel bus protocol with shared data lines but separate chip-select signals. They are NOT general-purpose DSPs — they are dedicated effects processors with a fixed command interface.
+The two DSPs use different transports: IC311 a parallel byte port (PZ data; /WR /RD CS C/D on P7; READY on PH.0), and IC310 a write-only bit-banged serial link (PF.0 data, PF.2 clock, PE.6 select) with no ready line. Both are programmable: the Sub CPU uploads their microcode.
 
 ### DSP Control Pin Mapping
 
 The Sub CPU controls both DSPs via GPIO pins:
 
-| Pin | Port | Function |
-|-----|------|----------|
-| P7.3 | Port 7 bit 3 | Write strobe (active low) |
-| P7.4 | Port 7 bit 4 | Read strobe (active low) |
-| P7.5 | Port 7 bit 5 | CS1 — DSP1 chip select (IC311, uPD6383GF-3BA) |
-| P7.6 | Port 7 bit 6 | Command/Data select (1=command, 0=data) |
-| PE.6 | Port E bit 6 | CS2 — DSP2 chip select (IC310, MN19413) |
-| PH.0 | Port H bit 0 | Status input (busy/ready) |
-| PZ[7:0] | Port Z | 8-bit bidirectional data bus |
+| Pin     | Port         | Function                                      |
+|---------|--------------|-----------------------------------------------|
+| P7.3    | Port 7 bit 3 | Write strobe (active low)                     |
+| P7.4    | Port 7 bit 4 | Read strobe (active low)                      |
+| P7.5    | Port 7 bit 5 | CS1 — DSP1 chip select (IC311, uPD6383GF-3BA) |
+| P7.6    | Port 7 bit 6 | Command/Data select (0=command, 1=data)       |
+| PE.6    | Port E bit 6 | CS2 — DSP2 chip select (IC310, MN19413)       |
+| PH.0    | Port H bit 0 | Status input (busy/ready)                     |
+| PZ[7:0] | Port Z       | 8-bit bidirectional data bus                  |
 
-**DSP1 handshake sequence** (parallel bus command write):
-1. Set PZ = data byte
-2. Set P7.6 = 1 (command mode) or 0 (data mode)
-3. Assert CS1 (P7.5 low)
-4. Assert write strobe (P7.3 low)
-5. Wait for PH.0 ready
-6. Deassert write/CS
+**DSP1 handshake sequence:** see the Write Protocol under [DSP Port I/O Control](#dsp-port-io-control-sub-cpu-internal-ports).
 
 **DSP2 serial protocol** (GPIO bit-bang):
 
@@ -1442,7 +1411,7 @@ DSP2 uses a different interface from DSP1. Instead of the parallel bus, it uses 
 | PF.2 | SCLK — Serial clock to DSP2 |
 | PE.6 | CS2 — Chip select (active low) |
 
-Each byte is transmitted MSB-first with one CS assert/deassert cycle per byte. Both `DSP2_Send_Command` and `DSP2_Send_Data` produce **9 SCLK rising edges** per byte (8 data bits + 1 trailing). The command variant adds an extra `ClockPulseHigh` before the bit loop, but this doesn't create an additional rising edge because the first bit loop iteration's SCLK-high is absorbed (SCLK already high from the pulse).
+Each byte is transmitted MSB-first with one CS assert/deassert cycle per byte. Both `DSP2_Send_Command` and `DSP2_Send_Data` produce **9 SCLK rising edges** per byte (8 data bits + 1 trailing). The command variant adds an extra `DSP2_SPI_ClockPulseHigh` (the START condition) before the bit loop, but this doesn't create an additional rising edge because the first bit loop iteration's SCLK-high is absorbed (SCLK already high from the pulse).
 
 ```
 Command byte: CS↓ → ClkHigh → [SDA=bit7, CLK↑(absorbed), CLK↓] → [SDA=bit6, CLK↑, CLK↓] × 7 → trailing CLK↑ → CS↑
@@ -1459,9 +1428,9 @@ Register writes use CMD 0x30 followed by 4-byte data groups: `[0x00, addr, val_h
 
 1. **The DSPs are programmable, and the firmware programs them at run time.** An earlier revision of this page claimed both chips carry fixed internal microcode. That is **superseded**: the Sub CPU uploads bytecode microprograms to IC311 (uPD6383GF) through the [DSP bytecode interpreter]({{ site.baseurl }}/dsp-bytecode-interpreter/), which is how the effect algorithms are switched. See [Effects DSP]({{ site.baseurl }}/effects-dsp/). The MAME driver corroborates this independently: the emulated host interface has verified that uploaded microcode lands in the chip's I-RAM.
 
-2. **Sub CPU controls DSPs via register writes only** — All communication uses the 8-bit parallel bus handshake protocol (Port PZ data, Port P7 control lines). The Sub CPU sends:
-   - **Command bytes** (P7.6=1): Select DSP register or operation mode
-   - **Data bytes** (P7.6=0): Write parameter values to selected register
+2. **Sub CPU controls DSPs via register writes only** — DSP1 uses the parallel handshake (Port PZ data, Port P7 control); DSP2 uses the serial link described above. The Sub CPU sends:
+   - **Command bytes** (P7.6=0): Select DSP register or operation mode
+   - **Data bytes** (P7.6=1): Write parameter values to selected register
 
 3. **Configuration via bytecode interpreter** — The Sub CPU has a bytecode interpreter (`DSP_BytecodeInterpreter_Init` at 0x03C259) that reads compact bytecode programs from ROM and translates them into sequences of DSP command+data writes, including the microcode upload itself. This is a **Sub CPU-side** interpreter that emits DSP-side bytecode; it is not the DSP's own instruction set.
 
@@ -1471,7 +1440,7 @@ Register writes use CMD 0x30 followed by 4-byte data groups: `[0x00, addr, val_h
 - `0x0E`: Send command+data sequence
 - `0x0F`: End of program
 
-**Implication for emulation:** What blocks audio emulation is **not** a missing ROM dump — the uploaded bytecode is Sub-CPU ROM content and is already fully carved (see the [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/)). What is missing is the **uPD6383GF's own instruction-set semantics**: nothing yet decodes what the DSP's internal core actually does with the bytes it receives, so even with the microcode upload traffic captured, the chip's audio-domain behavior cannot be reproduced. This is the primary remaining challenge for accurate sound emulation.
+**Implication for emulation:** What blocks audio emulation is **not** a missing ROM dump — the uploaded bytecode is Sub-CPU ROM content and is already fully carved (see the [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/)). What is missing is the **uPD6383GF's own instruction-set semantics**: its instruction set is only partly decoded (see [uPD6383 decode status]({{ site.baseurl }}/upd6383-decode-status/)), so even with the microcode upload traffic captured, the chip's audio-domain behavior cannot yet be fully reproduced. This is the primary remaining challenge for accurate sound emulation.
 
 ### DSP Preset Structure
 
@@ -1493,7 +1462,7 @@ Each effect block contains parameters:
 
 ### Effect Type Name Table
 
-The Main CPU ROM contains a 128-entry effect type name table at address `0xE32A7A` (pointer table) with 16-character padded strings at `0xE32C7A`-`0xE33579`. 100 entries are named; the rest are unused (`----------`).
+The Main CPU ROM contains a 128-entry effect type name table at address `0xE32A7A` (pointer table) with 16-character padded strings at `0xE32C7A`-`0xE33579`. 71 entries, all within effect numbers 0-99, are named; the rest are unused (`----------`).
 
 **Modulation Effects (0-6):**
 
@@ -1598,7 +1567,7 @@ The Main CPU ROM contains a 128-entry effect type name table at address `0xE32A7
 
 ### Effect Parameter Names
 
-84 effect parameter names are stored at Main CPU ROM `0xE324D0`-`0xE32A6A`:
+86 entries of 17 bytes at Main CPU ROM `0xE324C4`-`0xE32A79` (`DspParamName_Table`): entries 0 and 85 are blank, entries 1-84 hold the names. ⚠ The indices in the table below are one lower than the firmware's and the `DspParamName_NN_*` labels: add 1 to each.
 
 | Index | Name | Index | Name |
 |-------|------|-------|------|
@@ -1631,7 +1600,7 @@ The Main CPU ROM contains a 128-entry effect type name table at address `0xE32A7
 
 ### Known DSP Commands
 
-These are the hardware command bytes sent to the DSP chips via the parallel bus (P7.6=1 for command, P7.6=0 for subsequent data). They are sent by bytecode opcode 0xE and by direct calls to `DSP_DispatchCommand`/`DSP_DispatchData`.
+These are the hardware command bytes sent to the DSP chips via the parallel bus (P7.6=0 for command, P7.6=1 for subsequent data). They are sent by bytecode opcode 0xE and by direct calls to `DSP_DispatchCommand`/`DSP_DispatchData`.
 
 | Command | Direction | Via | Description |
 |---------|-----------|-----|-------------|
@@ -1662,7 +1631,7 @@ The complete algorithm change writes 8 bytecode programs to the DSPs in order:
    - OP1: 8 bytes (algorithm header 2)
    - OP2: 93 bytes (coefficient data block 2)
 
-3-8. AlgoChange_Ch1 (4 programs with delay):
+3-8. AlgoChange_Ch1 (6 programs, `DSP2_BootProgram_Step1`-`Step6`, with a delay after the second):
    - SEND_CMD: cmd=0x30 sub=0x03 + 2 data bytes (mode select)
    - STATE_CHANGE (release semaphore 1 and switch tasks)
    - SEND_CMD: cmd=0x30 sub=0x05 + 100-189 data bytes (coefficients)
@@ -1674,7 +1643,7 @@ The complete algorithm change writes 8 bytecode programs to the DSPs in order:
 
 Reverb and chorus configs share a common 28-byte header (first 14 word pairs) starting with `0x00C8 0x0880 0x1300 0x0B00 0x0028 0x9415 0x0212...`, suggesting a common DSP state initialization structure where effect-specific parameters follow.
 
-The `DSP_DispatchCommand` function (0x036454) routes commands to DSP1 (`DSP_Send_Command`) or DSP2 (`DSP2_Send_Command`) based on the chip number in BC. Both use the same handshake protocol: poll PH.0 for ready, then write via Port PZ with appropriate chip-select and command/data strobes.
+The `DSP_DispatchCommand` function (0x036A2E) routes commands to DSP1 (`DSP_Send_Command`) or DSP2 (`DSP2_Send_Command`) based on the chip number in BC. DSP1 bytes go through the PZ/P7 handshake; DSP2 bytes are bit-banged on PF.0/PF.2 with no ready poll.
 
 ### DSP Boot Sequence (MAME Dynamic Trace)
 
@@ -1822,51 +1791,11 @@ The pattern of 0x80xx values written to many registers suggests a register forma
 
 ### DSP Effect Types and Algorithm Mapping
 
-The KN5000 supports 40 effect slots (indices 0-39), mapped to 12 DSP algorithm types (0-11) via a lookup table at SubCPU ROM address 0x01F596. The algorithm type determines which DSP program module and coefficient set gets uploaded to DSP1.
-
-**Effect List and Algorithm Types:**
-
-| Index | Effect Name | Algo | Index | Effect Name | Algo |
-|-------|-------------|------|-------|-------------|------|
-| 0 | NO OPERATION | 2 | 20 | CONCERT REVERB 1 | 6 |
-| 1 | CHORUS | 2 | 21 | CONCERT REVERB 2 | 6 |
-| 2 | MODULATED CHORUS | 2 | 22 | DARK REVERB 1 | 7 |
-| 3 | ENHANCER | 2 | 23 | DARK REVERB 2 | 7 |
-| 4 | FLANGER | 2 | 24 | BRIGHT REVERB 1 | 7 |
-| 5 | PHASER | 2 | 25 | BRIGHT REVERB 2 | 7 |
-| 6 | ENSEMBLE | 2 | 26 | WAVE REVERB 1 | 8 |
-| 7 | (reserved) | 2 | 27 | WAVE REVERB 2 | 8 |
-| 8 | GATED REVERB | 3 | 28-29 | (reserved) | 8-9 |
-| 9 | SINGLE DELAY | 3 | 30-31 | (reserved) | 9 |
-| 10 | MULTI TAP DELAY | 3 | 32 | DISTORTION | 9 |
-| 11 | MODULATION DELAY | 4 | 33 | OVERDRIVE | 10 |
-| 12-14 | (reserved) | 4 | 34 | FUZZ | 10 |
-| 15 | ROCK ROTARY | 5 | 35 | EXCITER | 10 |
-| 16 | ROOM REVERB 1 | 5 | 36 | COMPRESSOR | 10 |
-| 17 | ROOM REVERB 2 | 5 | 37 | SLOW ATTACKER | 11 |
-| 18 | PLATE REVERB 1 | 5 | 38 | NOISE FLANGER | 11 |
-| 19 | PLATE REVERB 2 | 6 | 39 | PARAMETRIC EQ | 11 |
-
-**Algorithm Type Groups:**
-
-| Algo | Category | Effects |
-|------|----------|---------|
-| 2 | Modulation | NO OPERATION, CHORUS, MOD CHORUS, ENHANCER, FLANGER, PHASER, ENSEMBLE |
-| 3 | Delay/Gate | GATED REVERB, SINGLE DELAY, MULTI TAP DELAY |
-| 4 | Mod Delay | MODULATION DELAY |
-| 5 | Reverb A | ROCK ROTARY, ROOM REVERB 1/2, PLATE REVERB 1 |
-| 6 | Reverb B | PLATE REVERB 2, CONCERT REVERB 1/2 |
-| 7 | Reverb C | DARK REVERB 1/2, BRIGHT REVERB 1/2 |
-| 8 | Reverb D | WAVE REVERB 1/2 |
-| 9 | Distortion A | DISTORTION |
-| 10 | Distortion B | OVERDRIVE, FUZZ, EXCITER, COMPRESSOR |
-| 11 | Dynamics | SLOW ATTACKER, NOISE FLANGER, PARAMETRIC EQ |
-
-Algo types 0 and 1 are not used by any effect and appear to be reserved for internal routing.
+⚠ **Retracted (2026-10).** Earlier revisions mapped 40 effect indices to algorithm types 2-11 through a lookup table at SubCPU ROM 0x01F596. No such table exists. 0x01F596 is byte 88 of `ToneGen_Velocity_Output_Curve` (0x01F53E-0x01F63D, the keybed touch-to-velocity curve, read only by `Keybed_Decode_Event`), and nothing in the payload references 0x01F596. The values were that curve's ramp. Effect numbers 0-99 index the per-effect pointer arrays directly; see [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/).
 
 **Effect Parameter Names** (stored at MainCPU 0xE324C4, colon-delimited 16-char fields):
 
-Each effect has up to 8 adjustable parameters selected from a shared pool of 52 parameter names. Key parameters include: VOLUME, DEPTH, LFO SPEED, RESONANCE, MANUAL, REVERB TIME, PRE DELAY, HIGH DAMP GAIN, ER.LEVEL, FEEDBACK L/R, DELAY L/R, THRESHOLD, RATIO, ATTACK/RELEASE SENS/RATE, GATE TIME.
+Each effect has up to 8 adjustable parameters selected from a shared pool of 84 parameter names. Key parameters include: VOLUME, DEPTH, LFO SPEED, RESONANCE, MANUAL, REVERB TIME, PRE DELAY, HIGH DAMP GAIN, ER.LEVEL, FEEDBACK L/R, DELAY L/R, THRESHOLD, RATIO, ATTACK/RELEASE SENS/RATE, GATE TIME.
 
 **Algorithm Selection Mechanism:**
 
@@ -1876,13 +1805,13 @@ more — it was renamed `Sprintf_Locked` in March 2026 (`b5d34b75`) once it was 
 general sprintf()-style formatter, called from 128+ sites across MIDI, sequencer and demo
 code, not an audio-specific command interface. Which routine actually performs *this*
 send has not been re-verified; treat the sender's identity as unconfirmed pending that
-work. The SubCPU's `DSP_Cmd2B_AlgoSelect` handler (sub-command 0x00) receives this index, looks up the algorithm type from the ROM table at 0x01F596, initializes the voice structure (287 bytes per slot, base 0x041368, stride 0x11F), then uploads the appropriate DSP program modules and coefficient data to DSP1.
+work. The SubCPU's `DSP_Cmd2B_AlgoSelect` handler (sub-command 0x00) receives this index, passes payload[0] to `DSP_AlgoSelect`, which rejects values >= 40 (`DSP_WriteAlgoBuffer`'s header calls this a DSP slot index, 0-39), initializes the voice structure (287 bytes per slot, base 0x041368, stride 0x11F), then uploads the appropriate DSP program modules and coefficient data to DSP1.
 
 The algo type is stored at offset 0x5D of the voice structure. The full byte encodes both the algo type (lower nibble) and additional routing state (upper nibble). For example, 0x93 = algo type 3 with upper state 9, 0x25 = algo type 5 with upper state 2.
 
-The SubCPU maintains up to 26 voice slots. At boot, the default configuration loads reverb-type effects (algo types 3 and 5) on several slots, with DSP program modules 0xC8 (reverb) and 0x54 (chorus) uploaded to DSP1.
+The SubCPU maintains up to 26 voice slots. At boot, the default configuration loads reverb-type effects (algo byte low nibbles 3 and 5) on several slots, with DSP program modules 0xC8 (reverb) and 0x54 (chorus) uploaded to DSP1.
 
-**Effect Name Table:** MainCPU ROM address 0xE32A7A contains 40 pointers to 16-character fixed-width effect name strings (padded with spaces).
+**Effect Name Table:** MainCPU ROM address 0xE32A7A contains 128 pointers, one per effect number (71 named, all within 0-99; the rest, including all of 100-127, are "----------" spares), to 16-character fixed-width effect name strings (padded with spaces).
 
 ### DSP1 Internal Address Map
 
@@ -1930,54 +1859,44 @@ The DSP1 coefficient address space is organized by algorithm type. Each coeffici
 
 ### DSP Voice Structure Layout
 
-The SubCPU maintains 26 voice/effect slots starting at DRAM 0x041368, stride 0x11F (287 bytes). Each slot controls one DSP effect instance. Structure fields discovered through MAME dynamic analysis:
+The SubCPU keeps one 287-byte (0x11F) record per part (MIDI channel 0-25) at DRAM 0x041368, the structure described under [Voice Parameter Structure](#voice-parameter-structure-287-bytes-per-midi-channel) (whose offsets count from +0x06). The effect-related fields below sit inside it. Fields discovered through MAME dynamic analysis:
 
-| Offset | Size | Field | Description |
-|--------|------|-------|-------------|
-| +0x00 | 2 | flags | Voice configuration flags |
-| +0x06 | 3 | rom_ptr | ROM data pointer (24-bit) |
-| +0x0E | 2 | config | Configuration word |
-| +0x13 | 1 | unknown | Always 0x02 in active slots |
-| +0x18 | 1 | algo_related | Value matches algo type (5 for reverb) |
-| +0x19 | 1 | param_a | First effect parameter (e.g., REVERB TIME=26, GATED=6) |
-| +0x1A | 1 | param_b | Second parameter (usually 0) |
-| +0x1B | 1 | param_c | Third parameter (default 64 = 0x40) |
-| +0x1C | 1 | param_d | Fourth parameter (default 64 = 0x40) |
-| +0x1D-0x20 | 4 | params_e-h | Parameters 5-8 (usually 0) |
-| +0x21 | 1 | enable | Enable flag (1 = active) |
-| +0x57 | 1 | routing | Routing state (matches upper nibble of algo byte) |
-| +0x5D | 1 | algo_byte | Algorithm: lower nibble = type (2-11), upper nibble = routing |
-| +0x5E | 1 | effect_idx | Effect index (0-39, maps to algo type via ROM table at 0x01F596) |
-| +0x6E-0x70 | 3 | cfg_ptr_1 | Configuration data pointer 1 |
-| +0x71-0x86 | | algo_data_1 | Algorithm-specific coefficient data block 1 |
-| +0x87 | 1 | block_flags | Flags between data blocks |
-| +0x90-0xB3 | | algo_data_2 | Algorithm-specific coefficient data block 2 |
-| +0xB4-0xD0 | | algo_data_3 | Algorithm-specific coefficient data block 3 |
-| +0xD1-0x100 | | algo_data_4 | Algorithm-specific coefficient data block 4 |
+| Offset      | Size | Field        | Description                                                               |
+|-------------|------|--------------|---------------------------------------------------------------------------|
+| +0x00       | 2    | flags        | Voice configuration flags                                                 |
+| +0x06       | 3    | rom_ptr      | ROM data pointer (24-bit)                                                 |
+| +0x0E       | 2    | config       | Configuration word                                                        |
+| +0x13       | 1    | unknown      | Always 0x02 in active slots                                               |
+| +0x18       | 1    | algo_related | Value matches algo type (5 for reverb)                                    |
+| +0x19       | 1    | param_a      | First effect parameter (e.g., REVERB TIME=26, GATED=6)                    |
+| +0x1A       | 1    | param_b      | Second parameter (usually 0)                                              |
+| +0x1B       | 1    | param_c      | Third parameter (default 64 = 0x40)                                       |
+| +0x1C       | 1    | param_d      | Fourth parameter (default 64 = 0x40)                                      |
+| +0x1D-0x20  | 4    | params_e-h   | Parameters 5-8 (usually 0)                                                |
+| +0x21       | 1    | enable       | Enable flag (1 = active)                                                  |
+| +0x57       | 1    | routing      | Routing state (matches upper nibble of algo byte)                         |
+| +0x5D       | 1    | algo_byte    | Algorithm: lower nibble = type, upper nibble = routing                    |
+| +0x5E       | 1    | effect_idx   | Value seen in MAME traces; meaning not established (no ROM table maps it) |
+| +0x6E-0x70  | 3    | cfg_ptr_1    | Configuration data pointer 1                                              |
+| +0x71-0x86  |      | algo_data_1  | Algorithm-specific coefficient data block 1                               |
+| +0x87       | 1    | block_flags  | Flags between data blocks                                                 |
+| +0x90-0xB3  |      | algo_data_2  | Algorithm-specific coefficient data block 2                               |
+| +0xB4-0xD0  |      | algo_data_3  | Algorithm-specific coefficient data block 3                               |
+| +0xD1-0x100 |      | algo_data_4  | Algorithm-specific coefficient data block 4                               |
 
 **Boot-time default voice slots (MAME 60s trace):**
 
-| Slot | Algo Type | Routing | param_a | Description |
-|------|-----------|---------|---------|-------------|
-| 2 | 3 (delay/gate) | 9 | 6 | Gated reverb default |
-| 16 | 5 (reverb A) | 2 | 26 | Room reverb 1 |
-| 17 | 5 (reverb A) | 2 | 29 | Room reverb 1 (alt params) |
-| 18 | 3 (delay/gate) | 9 | 6 | Gated reverb (duplicate of slot 2) |
-| 21 | 3 (delay/gate) | 9 | 6 | Gated reverb (duplicate of slot 2) |
+| Slot | Algo Type | Routing | param_a | Description                        |
+|------|-----------|---------|---------|------------------------------------|
+| 2    | 3         | 9       | 6       | Gated reverb default               |
+| 16   | 5         | 2       | 26      | Room reverb 1                      |
+| 17   | 5         | 2       | 29      | Room reverb 1 (alt params)         |
+| 18   | 3         | 9       | 6       | Gated reverb (duplicate of slot 2) |
+| 21   | 3         | 9       | 6       | Gated reverb (duplicate of slot 2) |
 
 ### Effect Routing Configuration
 
-The routing config table at SubCPU DRAM 0x00F490 (40 bytes) assigns each effect index to a routing group. This controls how the effect is connected in the audio signal chain.
-
-| Routing | Effects | Group Name |
-|---------|---------|------------|
-| 0 | 9, 11-14, 16-28 | Direct (no routing modifier) |
-| 1 | 0-3, 12-15, 29 | Modulation group A |
-| 2 | 4-7, 30 | Modulation group B |
-| 3 | 8, 10, 31 | Delay/reverb group |
-| 4-11 | 32-39 | Per-distortion/dynamics (one routing per effect) |
-
-Note: Effects 32-39 (distortion, overdrive, fuzz, exciter, compressor, slow attacker, noise flanger, parametric EQ) each have unique routing values 4-11, suggesting they require individual signal path configuration.
+⚠ Retracted: the table formerly given here, at 0x00F490, was a misaligned read of `Voice_PolyphonyLimits_Table` (0x00F48C, a per-part group id 0-3, indexed by part & 0x1F) running into `Voice_IndexMapping_Table`. It does not assign effects to routing groups.
 
 ## Keybed Architecture
 
@@ -1985,7 +1904,7 @@ The physical keyboard (keybed) connects **directly** to the tone generator IC303
 
 This means:
 - The CPU does **not** scan the keyboard matrix
-- IC303 handles debouncing, velocity detection, and polyphony assignment
+- IC303 scans the keys and reports a key index plus a raw touch reading; the Sub CPU curve-maps the reading into a velocity (`Keybed_Decode_Event`) and assigns tone-generator voices itself
 - The Sub CPU simply reads completed note events from IC303's output register
 
 See [Keybed Scanning]({{ site.baseurl }}/keybed-scanning/) for the complete note flow, encoding format, and voice slot management.
@@ -1994,15 +1913,17 @@ See [Keybed Scanning]({{ site.baseurl }}/keybed-scanning/) for the complete note
 
 *(⚠ re-checked 2026-09-01 against the overlay driver, `kn7000_mame/src/mame/matsushita/kn5000.cpp` — several claims below were stale.)*
 
-The MAME driver includes device classes for the audio chips. The tone generator produces basic audio output (waveform playback from ROM). **DSP1 (IC311) now has a real device (`upd6383_device`)** behind a compile-time switch (`KN5000_ENABLE_DSP1`, off by default): its host interface is exercised and uploaded microcode is verified to land in the chip's I-RAM, but the chip's own instruction set is not decoded, so nothing executes and there is no audio from it. DSP2 (IC310) is still handled via SubCPU GPIO port callbacks rather than a dedicated device — and per the driver's own hardware notes, IC310, not IC311, is the chip the main audio mix actually passes through (IC303 SDO0 → IC310 → IC313 PCM69AU), which is why DSP1 being silent does not mute the instrument.
+None of this is in mainline MAME. Upstream `kn5000` maps, on the Sub CPU's bus, the tone generator (0x100000), keybed (0x110000), DSP1 (0x130000) and waveform RAM (0x1E0000) as `noprw` stubs and is flagged `MACHINE_NOT_WORKING | MACHINE_NO_SOUND`. Everything below describes the kn7000_mame overlay build.
+
+The MAME driver includes device classes for the audio chips. The tone generator produces basic audio output (waveform playback from ROM). **DSP1 (IC311) now has a real device (`upd6383_device`)** behind a compile-time switch (`KN5000_ENABLE_DSP1`, off by default): its host interface is exercised and uploaded microcode is verified to land in the chip's I-RAM; its instruction set is partly decoded (80.8 % of distinct microcode words, pooled over the KN5000 and the SX-WSA1R; see [uPD6383 decode status]({{ site.baseurl }}/upd6383-decode-status/)) and the core can run, but its output is discarded. DSP2 (IC310) is still handled via SubCPU GPIO port callbacks rather than a dedicated device — and per the driver's own hardware notes, IC310, not IC311, is the chip the main audio mix actually passes through (IC303 SDO0 → IC310 → IC313 PCM69AU), which is why DSP1 being silent does not mute the instrument.
 
 ### Audio Chip Device Classes
 
-| Device | Chip | IC | Interface | MAME Class | Status |
-|--------|------|----|-----------|------------|--------|
-| Tone Generator | TC183C230002 | IC303 | Memory-mapped (0x100000) | `kn5000_tonegen_device` | 64-voice PCM with pitch/pan/volume, keybed input, voice status readback |
-| DSP1 | uPD6383GF-3BA | IC311 | Memory-mapped (0x130000) | `upd6383_device` (`m_dsp1`), optional, `KN5000_ENABLE_DSP1=0` by default | Draft core: host interface + I-RAM upload verified; instruction set not decoded, so silent |
-| DSP2 | MN19413 | IC310 | Serial (GPIO bit-bang) | (port callbacks) | Not yet a separate device; serial protocol handled by SubCPU GPIO; this is the chip the main mix passes through |
+| Device         | Chip          | IC    | Interface                      | MAME Class                                                               | Status                                                                                                          |
+|----------------|---------------|-------|--------------------------------|--------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| Tone Generator | TC183C230002  | IC303 | Memory-mapped (0x100000)       | `kn5000_tonegen_device`                                                  | 64-voice PCM with pitch/pan/volume, keybed input, voice status readback                                         |
+| DSP1           | uPD6383GF-3BA | IC311 | Parallel Port PZ/P7 (`host_w`) | `upd6383_device` (`m_dsp1`), optional, `KN5000_ENABLE_DSP1=0` by default | Partial core: host interface, I-RAM upload and decoded words run; output discarded. HLE effects via `DSPHLE`    |
+| DSP2           | MN19413       | IC310 | Serial (GPIO bit-bang)         | (port callbacks)                                                         | Not yet a separate device; serial protocol handled by SubCPU GPIO; this is the chip the main mix passes through |
 
 **Tone Generator (`kn5000_tonegen_device`):**
 - Register-indirect config interface (address port + data port)
@@ -2013,14 +1934,13 @@ The MAME driver includes device classes for the audio chips. The tone generator 
 - Pitch: the played note (recovered from the key-bed/MIDI event that caused the voice) plus
   the transpose/detune the `+0x400` (reg[8]) log-pitch register carries, resampling the
   recording's measured fundamental to the target frequency
-- Loudness: the log-domain level in the high byte of `+0x800` (reg[20]), `gain = 2^((L-231)/10)`
+- Loudness: a per-sample amplitude EG. By default (since 2026-08-06, kn7000_mame `cb1c144`) the level code L renders as linear gain `L/255` with `+0x080` as a per-voice output level: a provisional joint calibration. The derived log law `2^((L-255)/16)` is selectable with `KN5000_EGLAW=log`.
 - Timbre: a per-voice low-pass filter whose cutoff is the 7-bit TVF parameter in `+0x100`
   (reg[4]), gated on bit 10 (the firmware's own "this word carries a computed cutoff" flag)
-- Pan: centred. The group-8/9/10 register *pairs* are NOT an L/R pair — every firmware
-  updater writes the same computed value to both members — so there is no evidence-based
-  per-voice pan source yet
-- KEY ON (0x8100) / KEY OFF (0x7E00) voice management with per-voice hold timer (2s)
-- Voice status readback: reports KEY ON while hold timer active
+- Pan: stereo, from `+0x180` (reg[6]) bits [6:0]; 0x40 = centre
+- KEY ON (0x8100) / KEY OFF (0x7E00), with a 100 ms hold after key-off
+- Voice status: the status port reports the envelope-running latch; the per-voice readback
+  reports KEY ON (0x8100) while a key is held or within 100 ms of key-off
 - Keyboard input interface with `push_keybed_event()` for MAME input port integration
 
 **DSP1 (`upd6383_device`, member `m_dsp1`, optional and `set_disable()`d by default):**
@@ -2028,7 +1948,7 @@ The MAME driver includes device classes for the audio chips. The tone generator 
   memory-mapped port; I-RAM, C-RAM and D-RAM are mapped by the device itself, and only the
   external digital-delay DRAM (IC309) is the driver's to map.
 - Held disabled on purpose: uploaded microcode is captured into a real, debugger-visible
-  I-RAM, but the chip's own instruction set is not decoded, so the core must not execute —
+  I-RAM, but the instruction set is only partly decoded, so the core's output is discarded —
   a partially-correct effects DSP was exactly the failure mode that produced
   audible-but-wrong sound on the KN7000.
 - The **separate** 0x130000/0x130002 register block described above (`dsp_reg_addr_w` /
@@ -2045,9 +1965,9 @@ The MAME driver includes device classes for the audio chips. The tone generator 
 
 ### Key Emulation Challenges
 
-1. **The uPD6383GF's own instruction set is not decoded** — this is the actual blocker, not a missing ROM dump. The bytecode the Sub CPU uploads to IC311 is Sub-CPU ROM content and is fully carved (see the [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/)); what remains unknown is what the chip's own core does when it executes that upload. IC310 (MN19413) is a separate, undocumented custom ASIC with no public programming information at all.
+1. **The uPD6383GF's instruction set is only partly decoded (80.8 %)** — this is the actual blocker, not a missing ROM dump. The bytecode the Sub CPU uploads to IC311 is Sub-CPU ROM content and is fully carved (see the [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/)); what remains unknown is the rest of what the chip's own core does when it executes that upload. IC310 (MN19413) is a separate, undocumented custom ASIC with no public programming information at all.
 2. **Tone generator wavetable ROM — largely solved.** IC307 (one of the four wave ROMs IC304-IC307 that hang off IC303) is a hardware-rooted dump and is already used for 64-voice PCM playback (see "Tone Generator" above and [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/)). IC304-IC306 are currently `BAD_DUMP` copies of IC307, not independent dumps, so waveform *selection* across banks is not yet faithful even though single-bank playback works.
-3. **Serial port 1 protocol** — The ~500kHz UART connection between SubCPU and the DAC/DSP control path is not yet fully decoded.
+3. **Serial port 1** is the Computer Interface (TO HOST) link, not part of the audio path; see [Serial Port 1 Interface](#serial-port-1-interface). The DAC (IC313) is fed by IC310's serial outputs.
 
 ### What Works Now
 
@@ -2057,38 +1977,36 @@ The MAME driver includes device classes for the audio chips. The tone generator 
 - Effect configurations flow from MainCPU → SubCPU → DSP device stubs
 - Keybed input from MAME input ports reaches the tone generator device
 - SubCPU Serial Port 1 (Computer Interface) wired with UART byte decoder and logging
-- Feature Demo sends CC/pitch/sysex configuration commands correctly (2,625 commands observed)
 
 ### Known Issues
 
-- **Feature Demo timing** — The SSF presentation runs too fast because `Seq_IsMelodyActive` sees voices as inactive almost immediately after KEY OFF. Root cause: the tone generator HLE's release envelope completes in ~125ms. Fix: a 2-second hold timer was added per voice so firmware status queries still see voices as active, matching the real hardware's longer envelope times. Needs MAME testing to verify.
-- **No DSP effects audio** — DSP1 is a real device (`upd6383_device`) but held disabled because its instruction set is not decoded; DSP2 (IC310) has no dedicated device at all, only SubCPU GPIO port callbacks. Neither produces effects processing (reverb, chorus, etc.). The tone generator itself produces real 64-voice PCM wavetable playback from ROM (not just a sine wave) as its normal mode; a diagnostic sine-wave render mode also exists, selectable from the MAME menu (`:TGMODE` port).
+- **Feature Demo timing** — the HLE keeps a released voice reported active for 100 ms (4,800 samples) so the firmware's per-tick status polls see it; whether this matches real envelope times is not measured.
+- **DSP effects audio is opt-in** — the default build has none. In a `KN5000_ENABLE_DSP1=1` build, the `DSPHLE` configuration option (default Off) makes 34 effect settings audible as high-level reconstructions from the decoded C-RAM ([Effects DSP]({{ site.baseurl }}/effects-dsp/) §9-§21). The `DSPCFG` option runs the decoded microcode on the low-level core, but its output is discarded; a further speculative-ISA setting runs guessed semantics, and its output is not known to be right. DSP2 (IC310) has no device. The tone generator plays real PCM from IC307; a diagnostic sine mode is selectable through the `:TGMODE` port.
 
 ## Research Needed
 
 - [x] ~~Document waveform ROM format and sample layout~~ -- Complete: IC307 analyzed. 198-entry index table, 186 unique signed 16-bit PCM waveforms, x16 byte offset addressing, key zone parameter records. See [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/)
-- [x] ~~Decode per-algorithm parameter mapping tables at `0x1F22C`/`0x1F09C`~~ — Complete: both are 12-entry pointer tables (indexed by algo type 0-11) pointing to variable-length bytecode programs with opcodes 0x21/0x24/0x40/0x61-0x78, terminated by 0x7A/0xF0
+- [x] ~~Decode per-algorithm parameter mapping tables at `0x1F22C`/`0x1F09C`~~ — Complete: both are 100-entry pointer arrays indexed by effect number pointing to variable-length bytecode programs with opcodes 0x21/0x24/0x40/0x61-0x78, terminated by 0x7A/0xF0
 - [x] ~~Map MainCPU parameter indices to EFF block word positions~~ — Partial: 84 named parameters extracted from MainCPU 0xE324C4. DSP2 master list at 0xE4475C maps 14 SubCPU param indices to UI names. Final register-to-parameter mapping requires runtime bytecode tracing
 - [x] ~~Decode DSP register semantics per channel~~ — Partial: DSP2 112-register map from boot-time analysis (stride-0x10 channel regs at offset 0x_8, control regs 0x00/0x40/0x80, coefficient regs 0xE6/0xE7). DSP1 channel regs 0x10-0x17 still need semantic mapping.
 - [ ] Document remaining inter-CPU command types (beyond 0x2D and 0xE1/E2/E3)
-- [ ] Investigate why song engine never writes MIDI events to ring buffer (putc_mrx has zero hits) — may be resolved by voice hold timer fix
-- [ ] Determine what sets the startup flag at 0x0251D8 on real hardware
+- [x] ~~Investigate why song engine never writes MIDI events to ring buffer~~ — resolved by the 2026-08-05 /INT0 fix (kn7000_mame 3fd44f3)
+- [x] ~~Determine what sets the startup flag at 0x0251D8~~ — it is the presentation-loaded flag (EVT_EXIST/INIT/EXIT_PRESENTATION): `Seq_InitializeAndStart` sets it to 1 (fdemotext_routines.s:2921) and the MT_InitPresentation method clears it (file_demo_proc.s:159). The zero reading above is from the pre-2026-08-05 session.
 - [ ] Trace the path from rhythm ROM pattern data to ring buffer write calls — partially addressed by Feature Demo analysis
 - [ ] Decode voice parameter template at ROM 0xF8D5 (34 words — which map to pitch, waveform select, envelope mode, etc.)
 - [x] ~~Investigate why Feature Demo sequencer never reaches Note On events~~ — Ring buffer at 0x01F37B is never written; sequencer dispatcher and rhythm ROM reading work correctly but event generation stage never fires
 - [x] ~~Identify the timing mechanism or subcpu response that advances the sequencer~~ — Partially resolved: Timer7, state machine, and dispatcher pipeline traced; the issue is in the song engine output stage, not the input/timing stage
 - [x] ~~Identify exact device on Serial Port 1~~ — Computer Interface (TO HOST connector), sends 0xFE Active Sensing
 - [x] ~~Analyze DSP1/DSP2 command sets~~ — Partial: 4 commands identified, preset structure decoded
-- [x] ~~Extract effect type names from ROM~~ — Complete: 100 named effect types at MainCPU 0xE32A7A
-- [x] ~~Extract effect parameter names from ROM~~ — Complete: 84 parameter names at MainCPU 0xE324D0
+- [x] ~~Extract effect type names from ROM~~ — Complete: 71 named effect types at MainCPU 0xE32A7A
+- [x] ~~Extract effect parameter names from ROM~~ — Complete: 84 parameter names at MainCPU 0xE324C4
 - [x] ~~Document DSP state dispatcher architecture~~ — Complete: `DSP_State_Dispatcher` and 11 sub-routines traced
 - [x] ~~Trace inter-CPU command 0x2D protocol~~ — Complete: 4-layer protocol fully documented
 - [x] ~~Map effect type indices to DSP register configurations~~ — Partial: translation chain traced through `DSP_WriteParameter` → `DSP_ParameterWriteEngine`, but per-algorithm ROM tables not yet decoded
-- [x] ~~Determine if DSP microcode is loaded from ROM~~ — **No.** DSPs are pre-programmed; SubCPU only writes configuration via bytecode interpreter
-- [x] ~~Map remaining proprietary CC handlers (0x97-0x9D)~~ — Complete: CC91=freq mult, CC95=portamento, CC97=fine pitch, CC9B=vibrato depth, CC9C=vibrato enable, CC9D=tremolo depth
+- [x] ~~Determine if DSP microcode is loaded from ROM~~ — **Yes.** The Sub CPU uploads IC311 and IC310 microcode from its own ROM through the bytecode interpreter (see [DSP Firmware / Microcode Loading](#dsp-firmware--microcode-loading) above)
+- [x] ~~Map remaining proprietary CC handlers (0x97-0x9D)~~ — Storage traced (see Proprietary Control Changes); meanings open
 - [x] ~~Decode tone generator register semantics~~ — Partial: voice control state machine, key-on/off flags, volume/level groups, latched parameter updates documented; pitch/envelope/filter register mapping still needs work
 - [x] ~~Document synthesis architecture~~ — Complete: 64-voice wavetable, 26 MIDI channels, dynamic voice allocation, hardware ADSR, LFO modes, proprietary CCs
-- [ ] Reverse-engineer DSP register semantics by runtime bytecode tracing — static analysis decoded all table structures (7 ROM tables, 47 unique parameter programs, 100 algorithm entries) but actual register addresses are embedded in variable-length bytecode and require interpreter execution to extract
-- [x] ~~Analyze native code handlers within DSP_Bytecode_Programs~~ — **Fully decoded** (1,613 bytes → 6 handlers). Op0/5: complex 5-byte groups with 3-way branching (static/raw/parameter-modified coefficients). Op1: 5-byte groups with 12-bit address. Op2: 3-byte raw groups. Op3: 16-bit address + raw tail. Op4: command-only. Key finding: Handlers 0/5 Branch C implement real-time parameter control by mixing a 32-bit runtime parameter into template coefficient data during DSP writes.
-- [ ] Determine if DSP internal ROM can be extracted (decapping, JTAG, etc.)
-- [x] ~~Document bytecode interpreter opcode set completely (opcodes 0x0-0xF)~~ — Complete: 2-byte header format, opcodes 0-5 (native code dispatch), 0xD (yield), 0xE (send command+data), 0xF (end). Config entries are 12 bytes (4 words + 1 pointer). Handlers at `DSP_Bytecode_Programs` (0x3C32E) are native TLCS-900 subroutines.
+- [ ] Reverse-engineer DSP register semantics by runtime bytecode tracing — static analysis decoded all table structures (6 ROM tables, 47 unique parameter programs, 100 algorithm entries) but actual register addresses are embedded in variable-length bytecode and require interpreter execution to extract
+- [x] ~~Analyze the native code handlers (DSP_Bytecode_Op00 … Op05)~~ — **Fully decoded** (1,613 bytes → 6 handlers). Op0/5: complex 5-byte groups with 3-way branching (static/raw/parameter-modified coefficients). Op1: 5-byte groups with 12-bit address. Op2: 3-byte raw groups. Op3: 16-bit address + raw tail. Op4: command-only. Key finding: Handlers 0/5 Branch C implement real-time parameter control by mixing a 32-bit runtime parameter into template coefficient data during DSP writes.
+- [x] ~~Document bytecode interpreter opcode set completely (opcodes 0x0-0xF)~~ — Complete: 2-byte header format, opcodes 0-5 (native code dispatch), 0xD (yield), 0xE (send command+data), 0xF (end). Config entries are 12 bytes (4 words + 1 pointer). The handlers, `DSP_Bytecode_Op00_Groups5_ParamMix` (0x3C32E) through `DSP_Bytecode_Op05_Groups5_Masked`, are native TLCS-900 subroutines.

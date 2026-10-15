@@ -6,7 +6,7 @@ permalink: /swbwr-tone-init/
 
 # Tone Generator Initialization (SwbtWr)
 
-During Feature Demo, `SwbtWr_ReinitBothBanks` blocks the CPU for approximately 16 seconds while reinitializing the tone generator with new sound preset parameters. This blocking starves the NAKA widget framework, preventing the SSF visual presentation screen from activating.
+During Feature Demo, `SwbtWr_ReinitBothBanks` blocks the CPU while reinitializing the tone generator with new sound preset parameters. In MAME the stall lasted about 16 seconds (measured 2026-03-09, see [Feature Demo Timer Behaviour]({{ site.baseurl }}/feature-demo-investigation-2026-03-09/)). An earlier version of this page blamed it for the SSF presentation never starting; that failure was later traced to event routing and is independent of the stall (see [SSF Presentation System]({{ site.baseurl }}/ssf-presentation/)).
 
 This page documents the full initialization call graph, the event buffer system, the dispatch loop internals, and the impact on the main loop.
 
@@ -29,9 +29,9 @@ This page documents the full initialization call graph, the event buffer system,
 
 ## Overview
 
-When the Feature Demo transitions to song playback, the firmware must reinitialize the tone generator hardware with the new sound preset's parameters. This is handled by `SwbtWr_ReinitBothBanks`, which processes two banks of tone generator events sequentially via `SwbtWr_DispatchLoop`. The entire operation is synchronous and blocking -- no interrupts are re-enabled, no cooperative yield points exist, and the main loop is completely starved for the duration.
+When the Feature Demo transitions to song playback, the firmware must reinitialize the tone generator hardware with the new sound preset's parameters. This is handled by `SwbtWr_ReinitBothBanks`, which processes two banks of tone generator events sequentially via `SwbtWr_DispatchLoop`. The entire operation is synchronous and blocking -- interrupts stay enabled, but there are no cooperative yield points, so the main loop does not advance for the duration.
 
-The consequence is that phases 5-7 of the main loop (UI widget dispatch, SwbtWr post-processing, and display rendering) are unreachable during the ~16-second initialization window. The Feature Presentation screen's widget activation requires multiple main loop passes through the UI widget dispatch phase, which cannot occur while the CPU is trapped in the dispatch loop.
+While the loop runs, the rest of the main loop (UI dispatch, display rendering, the demo timer) does not advance.
 
 ---
 
@@ -45,13 +45,13 @@ Demo_SelectEntry_TimerTick
   -> Demo_SelectEntry_PlaySong
        -> ToneGen_FileIO_SaveAndSync
             -> PanelTlv_ValidateLivePanel
-                 -> PanelTlv_ValidateBlock0 (46 iterations)
-                      -> DSPCfg_WriteAllSlots_Combined (x5 per iteration)
-       -> SoundParam_NotifyMultipleChanges
-            -> SoundParam_NotifyChange (x3 channels)
-                 -> ToneGen_DiffScanAndUpdate
+                 -> PanelTlv_ValidateBlock0 (46 record validations, then)
+                      -> DSPCfg_WriteAllSlots_Combined (x5: effect slots 0-4)
+            -> SoundParam_NotifyMultipleChanges
+                 -> SoundParam_NotifyChange (x3: parameters 0x000, 0x102, 0x103)
+                 -> ToneGen_DiffScanAndUpdate (tail jump, once)
                       (scans 606-byte parameter space, fills event buffer)
-                      (mid-scan flush at 500 entries via SwbtWr_ReinitOutputBank)
+                      (mid-scan flush at 500 bytes via SwbtWr_ReinitOutputBank)
        -> SwbtWr_ReinitBothBanks
             -> SwbtWr_InitBank1 (1309-byte table)
                  -> SwbtWr_DispatchLoop
@@ -59,7 +59,7 @@ Demo_SelectEntry_TimerTick
                  -> SwbtWr_DispatchLoop
 ```
 
-The initialization begins when the demo timer reaches value 10, triggering `Demo_ParseSlideHeader` and `Demo_SelectEntry_PlaySong`. The song setup path first saves current tone generator state, reinitializes all DSP configuration entries (46 iterations with 5 slot writes each), then performs a diff scan of the 606-byte parameter space to determine which tone generator registers need updating.
+The initialization begins when the demo timer reaches value 10, triggering `Demo_ParseSlideHeader` and `Demo_SelectEntry_PlaySong`. The song setup path first saves current tone generator state, reinitializes all DSP configuration entries (46 record validations, then one write per effect slot, 5 in all), then performs a diff scan of the 606-byte parameter space to determine which tone generator registers need updating.
 
 ---
 
@@ -67,17 +67,17 @@ The initialization begins when the demo timer reaches value 10, triggering `Demo
 
 The event buffer is a central staging area for tone generator parameter changes:
 
-| Property | Value |
-|----------|-------|
-| **Buffer location** | DRAM `0xBD3C` |
-| **Entry size** | 4 bytes per event |
-| **Batch capacity** | ~127 events per batch |
-| **Total events per preset change** | ~450 |
-| **Mid-scan flush threshold** | 500 entries |
+| Property                               | Value                                                        |
+|----------------------------------------|--------------------------------------------------------------|
+| **Buffer location**                    | DRAM `0xBD3C`                                                |
+| **Entry size**                         | 4 bytes per event                                            |
+| **Batch capacity**                     | ~127 events per batch                                        |
+| **Events per pass (MAME, 2026-03-09)** | ~113 and ~122 (the byte index at 0xC07B reached 452 and 488) |
+| **Mid-scan flush threshold**           | 500 bytes (125 events)                                       |
 
 ### How Events Are Generated
 
-`ToneGen_DiffScanAndUpdate` compares the current 606-byte parameter space against the new preset's parameters. For each byte that differs, it generates a 4-byte event record containing the parameter index and new value. When the buffer accumulates 500 entries during a scan, it triggers an early flush via `SwbtWr_ReinitOutputBank` to prevent overflow.
+`ToneGen_DiffScanAndUpdate` compares the current 606-byte parameter space against the new preset's parameters. For each byte that differs, it appends a 4-byte event record (event code, byte index, new value, changed bits = new XOR old). When the buffer reaches 500 bytes (125 events) during a scan, it triggers an early flush via `SwbtWr_ReinitOutputBank` to prevent overflow.
 
 ### Event Flow
 
@@ -85,7 +85,7 @@ The event buffer is a central staging area for tone generator parameter changes:
 Parameter diff scan (606 bytes)
   -> Generate 4-byte event per changed parameter
   -> Buffer at DRAM[0xBD3C]
-  -> Flush when buffer hits 500 entries (mid-scan)
+  -> Flush when buffer hits 500 bytes (mid-scan)
   -> Final flush after scan completes
   -> SwbtWr_DispatchLoop processes all buffered events
 ```
@@ -94,7 +94,7 @@ Parameter diff scan (606 bytes)
 
 ## Dispatch Loop Detail
 
-`SwbtWr_DispatchLoop` is the inner engine that converts buffered events into tone generator hardware register writes. It processes events sequentially with no parallelism or batching optimization.
+`SwbtWr_DispatchLoop` is the inner engine that hands each buffered event to the callbacks registered for its code. It processes events sequentially with no parallelism or batching optimization.
 
 ### Per-Event Processing Steps
 
@@ -102,24 +102,24 @@ Parameter diff scan (606 bytes)
 2. **Index into ROM callback table** -- multiply event code by 4 to get the table offset
 3. **Walk the callback chain** -- each table position holds a linked list of callbacks
 4. **For each callback in the chain:**
-   - Save 10 register pairs (20 push operations onto the stack)
+   - Save the dispatcher state and registers (11 pushes: the words at RAM 0xC07B, 0xC081, 0xC083, 0xC085, 0xC087 and XWA, XBC, XDE, XHL, XIY, XIX)
    - Call the callback handler via indirect `call (xde)`
-   - Restore 10 register pairs (20 pop operations from the stack)
+   - Restore them (11 pops)
 5. **Advance to next event** in the buffer
 6. **After all events:** run the post-callback table for finalization
 
 ### Bank Tables
 
-| Bank | ROM Address | Table Size | Approximate Entries |
-|------|-------------|------------|---------------------|
-| Bank 1 | `0xEE7786` | 1309 bytes | ~327 entries |
-| Bank 2 | `0xEE7CA7` | 2573 bytes | ~643 entries |
+| Bank   | ROM Address                            | Table Size | Contents                                    |
+|--------|----------------------------------------|------------|---------------------------------------------|
+| Bank 1 | `0xEE7786` (`SwbtBank1_ListenerTable`) | 1309 bytes | 192 code slots (0x00-0xBF) + listener lists |
+| Bank 2 | `0xEE7CA7` (`Naka_RenderMode_A_Table`) | 2573 bytes | 192 code slots + listener lists             |
 
-Bank 1 handles the primary tone generator parameters (voice control, pitch, velocity, waveform selection). Bank 2 handles secondary parameters (DSP effects, pan, modulation, auxiliary routing). Both banks are processed sequentially by `SwbtWr_ReinitBothBanks`.
+What most event codes mean is an open question in the disassembly; only 0x61 and 0x63-0x66 are tied to DSP blocks. Bank 1's lists name only six callbacks (panel-tag and MIDI-mode handlers, a demo-text and a bitmap probe). Bank 2's are mostly UI-state and display handlers (`UIState_KeyScan_Dispatch`, `UIState_ProcessKeyEvent`, `BitMapOut_ByteData_RenderB`, …) plus `EffEdit_DSPConfigBlock` and `DSPCfg_ProcessInput`. Both banks are processed sequentially by `SwbtWr_ReinitBothBanks`.
 
 ### Callback Body
 
-Each callback performs the actual hardware interaction -- computing the final register value from the event parameters and writing it to the tone generator's register-indirect interface (address latch at `0x100000`, data at `0x100002`). Callbacks also handle DSP parameter computation and effects send level calculations.
+Each callback reads the event back from RAM (code at 0xC080, payload at 0xC07D-0xC07F) and acts on it. The callbacks run on the Main CPU, which has no tone generator on its bus; anything that reaches IC303 or the DSPs goes to the Sub CPU as an inter-CPU command through the latch at 0x140000.
 
 ---
 
@@ -127,29 +127,26 @@ Each callback performs the actual hardware interaction -- computing the final re
 
 The ~16-second blocking duration results from the combination of:
 
-| Factor | Contribution |
-|--------|-------------|
-| ~450 events per preset change | Base event count from diff scan |
-| x2 banks = ~900+ dispatch iterations | Both banks processed sequentially |
-| 20 push/pop operations per callback | 40 stack operations per callback invocation |
-| Indirect call overhead | `call (xde)` through linked list chain |
-| Callback body execution | Tone gen register writes, DSP computation |
-| No yield points | 100% blocking -- no interrupt re-enable, no cooperative scheduling |
-| No batching | Each event processed individually |
+| Factor                           | Contribution                                            |
+|----------------------------------|---------------------------------------------------------|
+| ~235 events in two passes        | measured in MAME; a batch holds at most 127             |
+| 11 pushes + 11 pops per callback | 22 stack operations per callback invocation             |
+| Indirect call overhead           | `call (xde)` through linked list chain                  |
+| Callback body execution          | UI-state, display and DSP-config handlers               |
+| No yield points                  | the main loop does not advance; interrupts keep running |
+| No batching                      | Each event processed individually                       |
 
-Additionally, `MainLoop_ReinitSwbtWr` (in the main loop's phase 6) calls `SwbtWr_ReinitBothBanks` **again** on the next main loop iteration if the sequencer startup has queued additional events. This can extend the total blocking time beyond the initial 16-second window.
+Additionally, `MainLoop_ReinitSwbtWr` (in the main loop's phase 4) calls `SwbtWr_ReinitBothBanks` **again** on the next main loop iteration if the sequencer startup has queued additional events. This can extend the total blocking time beyond the initial 16-second window.
 
 ### Timing Breakdown
 
-At 16 MHz CPU clock, the per-event overhead of 40 stack operations plus an indirect call plus callback execution amounts to roughly 17-18 milliseconds per event. With ~900 events across both banks:
-
-```
-~900 events x ~18ms/event = ~16.2 seconds
-```
+The ~16 s is a MAME measurement ([Feature Demo Timer Behaviour]({{ site.baseurl }}/feature-demo-investigation-2026-03-09/)). The dispatch overhead per event (11 pushes, 11 pops, one indirect call) is a few microseconds at 16 MHz, so the time is spent in the callback bodies. Why they take tens of milliseconds each in MAME has not been established, and real hardware has not been timed.
 
 ---
 
 ## DSP Status Polling Bug (March 2026 Discovery)
+
+> ⚠ **Retracted.** This diagnosis is wrong (kn5000-roms-disasm `dsp/analysis/second-dsp-and-ready.md` §0 A2-A4, 2026-07-27). The sub CPU's reset code writes `PHCR = 0x07` (`v142/subcpu/kn5000_subprogram_v142.s:80`), so PH.0 is an output. Under the port convention MAME implements, `DSP_Read_Status` reads back the latch it has just set, so READY is 1 on every poll and the 8,000-poll timeout never runs. PH.0 is IC311's (DSP1) ready line, not IC310's. In any case the poll runs on the Sub CPU, not in the Main CPU's dispatch loop. The MAME driver's `porth_read().set_constant(0x01)` changes nothing on PH.0; its only live bit is PH.3. The text below is kept as the record of the March 2026 hypothesis.
 
 A significant contributor to the ~16-second blocking time was identified in the SubCPU's DSP communication layer.
 
@@ -194,7 +191,7 @@ flowchart TD
     CMD["DSP_Send_Command<br/>(SubCPU)"] --> POLL["Poll DSP_Read_Status<br/>counter = 0x1F40 (8000)"]
     POLL --> READ["Read PH.0"]
     READ --> CHECK{"PH.0 == 1?<br/>(DSP ready)"}
-    CHECK -- "Yes" --> SEND["Send command to DSP1<br/>via 0x130000/0x130002"]
+    CHECK -- "Yes" --> SEND["Send command to DSP1<br/>via Port PZ"]
     CHECK -- "No (MAME: always)" --> DEC["counter--"]
     DEC --> TIMEOUT{"counter == 0?"}
     TIMEOUT -- "No" --> READ
@@ -208,22 +205,24 @@ flowchart TD
 
 ## Impact on NAKA Widget Framework
 
-The main loop in `system_handlers.s` (lines 1121-1254) processes these phases per iteration:
+The main loop (`MainLoop`, `v10/maincpu/boot/system_handlers.s:1115-1248`) calls, in this order within one iteration: `SwbtWr_ProcessAll` (:1187), `MainTitle_PrepareAndDispatch` (:1190), `MainLoop_ReinitSwbtWr` (:1191), …, `Demo_SelectEntry_TimerTick` (:1217), …, `Display_DirtyRegionDispatch` (:1245). The phase numbers below are this page's grouping, not the source's:
 
-| Phase | Function | Description |
-|-------|----------|-------------|
-| 1 | Timer/scheduler | System tick processing |
-| 2 | MIDI dispatch | Incoming MIDI message handling |
-| 3 | Sequencer events | Sequence playback state machine |
-| **4** | **Demo timer tick** | **Calls `SwbtWr_ReinitBothBanks` -- BLOCKS HERE** |
-| 5 | UI widget dispatch | `MainTitle_PrepareAndDispatch` -- NAKA framework processing |
-| **6** | **SwbtWr processing** | **`MainLoop_ReinitSwbtWr` -- MAY BLOCK AGAIN** |
-| 7 | Display rendering | `Display_DirtyRegionDispatch` -- VRAM updates |
+| Phase | Function               | Description                                                                              |
+|-------|------------------------|------------------------------------------------------------------------------------------|
+| 1     | Input, MIDI, sequencer | Panel and MIDI input, first sequencer ticks (:1116-1184)                                 |
+| 2     | SwbtWr processing      | `SwbtWr_ProcessAll` (:1187)                                                              |
+| 3     | UI widget dispatch     | `MainTitle_PrepareAndDispatch` (:1190) -- NAKA framework processing                      |
+| **4** | **SwbtWr re-init**     | **`MainLoop_ReinitSwbtWr` (:1191) -- MAY BLOCK**                                         |
+| **5** | **Demo timer tick**    | **`Demo_SelectEntry_TimerTick` (:1217) reaches `SwbtWr_ReinitBothBanks` -- BLOCKS HERE** |
+| 6     | Sequencer ticks        | `Seq_TickWrapper`, `Seq_EventProcessingTick`, `SeqStep_MainTimerTick` (:1239-1244)       |
+| 7     | Display rendering      | `Display_DirtyRegionDispatch` (:1245) -- VRAM updates                                    |
 
 ### Consequences of Blocking
 
-- **Phases 5-7 are unreachable** while `SwbtWr_ReinitBothBanks` executes in phase 4
-- The Feature Presentation screen's **widget activation requires multiple main loop passes** through phase 5 (UI widget dispatch)
+⚠ The consequences below are the March 2026 hypothesis; see the note at the top of this page.
+
+- **Nothing after the demo tick in that iteration runs**, and the next iteration's UI dispatch and display rendering wait until `SwbtWr_ReinitBothBanks` returns
+- The Feature Presentation screen's **widget activation requires multiple main loop passes** through phase 3 (UI widget dispatch)
 - The **screen activation event `0x1C00001`** cannot be processed, so `SetCurrentTarget` is never called for the Feature Presentation screen
 - Without `CurrentTarget` being set correctly, **broadcast event `0x1C00038`** is routed to the wrong widget handler
 - The **SSF visual presentation never starts** because `GroupBoxProc_StartSSFPresentation` is never invoked
@@ -246,28 +245,23 @@ flowchart TD
     PLAY --> SAVE["ToneGen_FileIO_SaveAndSync<br/>Save current tone gen state"]
     SAVE --> INIT["PanelTlv_ValidateLivePanel"]
     INIT --> DSP["PanelTlv_ValidateBlock0<br/>(46 iterations)"]
-    DSP --> SLOTS["DSPCfg_WriteAllSlots_Combined<br/>(x5 per iteration = 230 writes)"]
+    DSP --> SLOTS["DSPCfg_WriteAllSlots_Combined<br/>(x5, effect slots 0-4)"]
     SLOTS --> NOTIFY["SoundParam_NotifyMultipleChanges"]
 
-    NOTIFY --> CH1["SoundParam_NotifyChange<br/>(channel 1)"]
-    NOTIFY --> CH2["SoundParam_NotifyChange<br/>(channel 2)"]
-    NOTIFY --> CH3["SoundParam_NotifyChange<br/>(channel 3)"]
+    NOTIFY --> CH["SoundParam_NotifyChange<br/>(x3: 0x000, 0x102, 0x103)"]
+    CH --> DIFF["ToneGen_DiffScanAndUpdate<br/>(tail jump, once)<br/>Scan 606-byte parameter space"]
 
-    CH1 --> DIFF["ToneGen_DiffScanAndUpdate<br/>Scan 606-byte parameter space"]
-    CH2 --> DIFF
-    CH3 --> DIFF
-
-    DIFF --> FILL["Fill event buffer at DRAM[0xBD3C]<br/>(~450 events, 4 bytes each)"]
-    FILL --> FLUSH{"Buffer > 500<br/>entries?"}
+    DIFF --> FILL["Fill event buffer at DRAM[0xBD3C]<br/>(4 bytes per event)"]
+    FILL --> FLUSH{"Buffer ≥ 500<br/>bytes?"}
     FLUSH -- "Yes" --> MIDFLUSH["SwbtWr_ReinitOutputBank<br/>(mid-scan flush)"]
     MIDFLUSH --> DIFF
     FLUSH -- "No" --> SWBT["SwbtWr_ReinitBothBanks"]
 
     SWBT --> B1["SwbtWr_InitBank1<br/>(1309B table at 0xEE7786)"]
-    B1 --> LOOP1["SwbtWr_DispatchLoop<br/>(~327 events)"]
+    B1 --> LOOP1["SwbtWr_DispatchLoop<br/>(queued events, ≤127)"]
     LOOP1 --> B2["SwbtWr_InitBank2<br/>(2573B table at 0xEE7CA7)"]
-    B2 --> LOOP2["SwbtWr_DispatchLoop<br/>(~643 events)"]
-    LOOP2 --> DONE["Return to Demo_SelectEntry_PlaySong<br/>(~16 seconds elapsed)"]
+    B2 --> LOOP2["SwbtWr_DispatchLoop<br/>(queued events, ≤127)"]
+    LOOP2 --> DONE["Return to Demo_SelectEntry_PlaySong<br/>(~16 seconds elapsed in MAME)"]
 ```
 
 ### Dispatch Loop Detail
@@ -284,10 +278,10 @@ flowchart TD
     CHAIN --> HASNEXT{"Next callback<br/>in chain?"}
 
     HASNEXT -- "No" --> LOAD
-    HASNEXT -- "Yes" --> PUSH["Save 10 register pairs<br/>(20 push operations)"]
+    HASNEXT -- "Yes" --> PUSH["Save state + 6 registers<br/>(11 push operations)"]
     PUSH --> CALL["call (xde)<br/>Indirect callback invocation"]
-    CALL --> BODY["Callback body executes:<br/>- Compute register value<br/>- Write tone gen registers<br/>- DSP parameter computation"]
-    BODY --> POP["Restore 10 register pairs<br/>(20 pop operations)"]
+    CALL --> BODY["Callback body executes:<br/>UI-state, display or DSP-config handler<br/>(sound changes go to the Sub CPU as inter-CPU commands)"]
+    BODY --> POP["Restore them<br/>(11 pop operations)"]
     POP --> HASNEXT
 ```
 
@@ -295,18 +289,18 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    subgraph REACHABLE["Phases 1-4 (reachable)"]
-        P1["Phase 1<br/>Timer/Scheduler"] --> P2["Phase 2<br/>MIDI Dispatch"]
-        P2 --> P3["Phase 3<br/>Sequencer Events"]
-        P3 --> P4["Phase 4<br/>Demo Timer Tick"]
+    subgraph REACHABLE["Phases 1-5 (reachable)"]
+        P1["Phase 1<br/>Input, MIDI, Sequencer"] --> P2["Phase 2<br/>SwbtWr Processing"]
+        P2 --> P3["Phase 3<br/>UI Widget Dispatch<br/>(NAKA framework)"]
+        P3 --> P4["Phase 4<br/>SwbtWr Re-init<br/>(may block)"]
+        P4 --> P5["Phase 5<br/>Demo Timer Tick"]
     end
 
-    P4 -->|"SwbtWr_ReinitBothBanks<br/>BLOCKS ~16 seconds"| BLOCK["CPU trapped<br/>in dispatch loop"]
+    P5 -->|"SwbtWr_ReinitBothBanks<br/>BLOCKS ~16 seconds in MAME"| BLOCK["CPU trapped<br/>in dispatch loop"]
 
-    subgraph STARVED["Phases 5-7 (STARVED)"]
+    subgraph STARVED["Phases 6-7 (STARVED)"]
         direction LR
-        P5["Phase 5<br/>UI Widget Dispatch<br/>(NAKA framework)"]
-        P6["Phase 6<br/>SwbtWr Processing<br/>(may block again)"]
+        P6["Phase 6<br/>Sequencer Ticks"]
         P7["Phase 7<br/>Display Rendering"]
     end
 
@@ -320,21 +314,21 @@ flowchart LR
 
 ## Key Source Files
 
-| Source File | Key Functions | Purpose |
-|-------------|--------------|---------|
-| `system_handlers.s` | `SwbtWr_ReinitBothBanks` (line 1422), main loop (line 1121), `MainLoop_ReinitSwbtWr` (line 1277) | Main loop and SwbtWr entry points |
-| `dsp_config_sysex.s` | `SwbtWr_InitBank1`, `SwbtWr_InitBank2`, `SwbtWr_InitBank3`, `SwbtWr_DispatchLoop` | Bank initialization and event dispatch loop |
-| `audio_control_engine.s` | `SwbtWr_FlushAndAppendParams`, `SwbtWr_WriteParamBlock` | Event buffer management and parameter writes |
-| `tonegen_fileio_handlers.s` | `ToneGen_FileIO_SaveAndSync`, `ToneGen_DiffScanAndUpdate` | Tone gen state save/restore and parameter diff scanning |
-| `file_demo_proc.s` | `Demo_SelectEntry_TimerTick`, `Demo_SelectEntry_PlaySong` | Demo timer state machine and song playback initiation |
+| Source File                 | Key Functions                                                                                    | Purpose                                                 |
+|-----------------------------|--------------------------------------------------------------------------------------------------|---------------------------------------------------------|
+| `system_handlers.s`         | `SwbtWr_ReinitBothBanks` (line 1419), main loop (line 1115), `MainLoop_ReinitSwbtWr` (line 1271) | Main loop and SwbtWr entry points                       |
+| `dsp_config_sysex.s`        | `SwbtWr_InitBank1`, `SwbtWr_InitBank2`, `SwbtWr_InitBank3`, `SwbtWr_DispatchLoop`                | Bank initialization and event dispatch loop             |
+| `audio_control_engine.s`    | `SwbtWr_FlushAndAppendParams`, `SwbtWr_WriteParamBlock`                                          | Event buffer management and parameter writes            |
+| `tonegen_fileio_handlers.s` | `ToneGen_FileIO_SaveAndSync`, `ToneGen_DiffScanAndUpdate`                                        | Tone gen state save/restore and parameter diff scanning |
+| `file_demo_proc.s`          | `Demo_SelectEntry_TimerTick`, `Demo_SelectEntry_PlaySong`                                        | Demo timer state machine and song playback initiation   |
 
-All source files are in the `roms-disasm/maincpu/` directory tree.
+All source files are in kn5000-roms-disasm's `v10/maincpu/` tree: `boot/system_handlers.s`, `audio/dsp_config_sysex.s`, `audio/audio_control_engine.s`, `audio/tonegen_fileio_handlers.s` and `demo/file_demo_proc.s`.
 
 ---
 
 ## Related Pages
 
-- [SSF Presentation System]({{ site.baseurl }}/ssf-presentation/) -- Full SSF analysis including the MAME activation bug caused by SwbtWr blocking
+- [SSF Presentation System]({{ site.baseurl }}/ssf-presentation/) -- Full SSF analysis, including the MAME activation bug (since traced to event routing, not to SwbtWr blocking)
 - [Feature Demo]({{ site.baseurl }}/feature-demo/) -- Feature Demo investigation history and timer bugs
 - [Tone Generator]({{ site.baseurl }}/tone-generator/) -- Tone gen hardware registers and voice management
 - [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) -- Audio architecture overview
@@ -343,4 +337,4 @@ All source files are in the `roms-disasm/maincpu/` directory tree.
 
 ---
 
-*Last updated: March 17, 2026*
+*Last reviewed against kn5000-roms-disasm 3417969c0 (2026-10-06).*
