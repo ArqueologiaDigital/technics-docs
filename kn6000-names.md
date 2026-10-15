@@ -50,11 +50,11 @@ Offsets (`@0x…`) are into the decompressed `IK2.SLD` / `IKV2.SLD`; add `0x4860
 get the CPU address.
 
 **KN6000** (`@0x0a32cc`): Italian Pop · 70's Folk · Folk Rock · Pop Dance · Star
-Groove · Cool 16 Beat · Detroit Ballad · Pop Girls · 90's Rock & Roll · Pop Shuffle ·
+Groove · Cool 16 Beat · Detroit Ballad · Pop Girls · 90's Rock & Roll · 90's Top Ten · Pop Shuffle ·
 Beach Party · Mersey Beat · 16Beat Standards · Piano Superstar · Fifties Smooch ·
 Rock Balladeer · Rhythm & Blues …
 
-**KN6500** (`@0x0a7d50`): Sci-fi Adventure · Spy Movie · Cartoon Ballad · New
+**KN6500** (`@0x0a7d50`): Sci-fi Adventure · Spy Movie · Cartoon Ballad · ProductionNumber · New
 Choreography · Tap Dance Legend · Legendary Ballad · Movie Melodrama · Swing
 Production · Breakfast Waltz · Ballroom Waltz · Slow Latin Dance · 60's Foxtrot ·
 Ribbon Foxtrot · Swinging Bert · Show Overture …

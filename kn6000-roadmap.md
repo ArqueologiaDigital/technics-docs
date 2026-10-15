@@ -87,8 +87,8 @@ them as a parallel corpus and cross-reference constantly:
    (`table_extract.py`, `table_names.py`, `style_names.py`, `pad_names.py`,
    `table_bitmaps.py`) should run on the KN6000/6500 table ROMs with, at most, offset
    tweaks, once IC13/IC14 have been dumped.
-3. **Bug/behaviour triangulation.** Open questions on one model (e.g. the KN7000
-   rhythm-name resolution, the panel board-decode) can be
+3. **Bug/behaviour triangulation.** Open questions on one model (e.g. why the KN6500's
+   voice engine never starts, or the KN6000 panel's LED `[register][bit]` decode) can be
    cross-checked against the other three: where three agree and one differs, the
    difference localises the model-specific code.
 4. **MN10300 trio first.** For 6000/6500 use **KN7000 as the primary reference**
@@ -115,7 +115,7 @@ them as a parallel corpus and cross-reference constantly:
 KN7000 tooling is reused in place instead: `kn7000_extraction`'s decoders (including
 the new `name_extract_nul.py`) run directly against the KN6000/KN6500 images, and
 `kn6000`/`kn6500` are `SYST()` variants registered inside the existing
-`src/mame/matsushita/kn7000.cpp`, reusing `kn7000_state` and the MN10300 core
+`src/mame/matsushita/kn7000.cpp`, reusing `kn7000_state` in the kn7000_mame overlay (mainline MAME gives them their own `kn6000_state`) and the MN10300 core
 verbatim — see the transfer table above and the status update below. `make verify`
 stays byte-exact and Jekyll keeps building, as for KN7000.
 
@@ -137,8 +137,7 @@ reflection-table walker to name functions; build the byte-exact disassembly;
 recover `CL_*`/`VF_*`/`BD_*` constants. Then **four-way align** names across models.
 
 **Phase 4 — the four-way diff.** Build a cross-model symbol/behaviour map; use it to
-resolve each model's open questions and to back-fill KN5000/KN7000 gaps (e.g. the
-rhythm-name resolution, panel board-decode). Document the shared framework once, with
+resolve each model's open questions and to back-fill KN5000/KN7000 gaps. Document the shared framework once, with
 per-model deltas.
 
 ## Status update (2026-10)
@@ -196,7 +195,8 @@ Substantial work has landed since the section above was last written:
   from the firmware's own TG write primitive (`0x4849465B`). The KN6000's tone-generator
   device is live-verified against captured audio: measured pitch is within 0.01 semitone of
   the true frequency at three test notes (C4/G4/C5). Timbre is still a placeholder sine
-  (wave ROMs undumped).
+  (wave ROMs undumped); since kn7000_mame `0a06ab3` (2026-07-23) that sine is a fabricated
+  sample played through the PCM path rather than computed.
 - **KN6500 is a separate story: it emits zero tone-generator writes on a key press.** Its
   voice engine never starts (a boot/enable-gate difference from KN6000, not a decode
   problem), so it stays `MACHINE_NO_SOUND` while KN6000 is `MACHINE_IMPERFECT_SOUND`.
