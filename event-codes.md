@@ -32,52 +32,31 @@ Event codes are 32-bit values with a structured layout:
   └── 0x009C  = Event number within that category
 ```
 
-The prefix determines which dispatch layer handles the event:
+The prefix gives the code's family. Every code takes the same `SendEvent` path (see
+[Dispatch Architecture](#dispatch-architecture)):
 
-| Prefix | Category | Dispatch Layer | Description |
-|--------|----------|----------------|-------------|
-| `0x01E0` | Lifecycle / Object | ClassProc → ObjectProc → InheritedProc | Object lifecycle, getters, activation |
-| `0x01C0` | Request / Action | Record function directly | Button presses, UI actions, initialization |
-| `0x01E4` | Grid/Check Response | UI widget system | Widget state query responses |
+| Prefix   | Category            | Description                                |
+|----------|---------------------|--------------------------------------------|
+| `0x01E0` | Lifecycle / Object  | Object lifecycle, getters, activation      |
+| `0x01C0` | Request / Action    | Button presses, UI actions, initialization |
+| `0x01E4` | Grid/Check Response | Widget state query responses               |
 
 ## Dispatch Architecture
 
 ```
-Event arrives (via SendEvent or PostEvent queue)
-    │
-    ▼
-SendEvent (0xFA9660)
-    │  Saves global state, looks up handler from object table
-    │  Calls handler function (typically ClassProc)
-    │
-    ▼
-ClassProc (0xFA44E2) ─── Layer 1: Simple Getters & Specials
-    │  Handles: 0x01E00000-0x01E00007 (getters via jump table)
-    │           0x01E0000D (keypress), 0x01E0000E (input)
-    │           0x01E0000F (return immediately)
-    │           0x01E00015 (return config pointer)
-    │
-    │  Everything else falls through to:
-    ▼
-ObjectProc (0xFA3D85) ─── Layer 2: Lifecycle Events
-    │  Handles: 0x01E00010-0x01E00023 (20 lifecycle cases)
-    │           via jump table at 0xEAA8A4
-    │
-    │  Everything else falls through to:
-    ▼
-InheritedProc (0xFA4409) ─── Layer 3: Handler Chain
-    │  Follows "next handler" chain in data record (+0x04)
-    │  Calls chained handler's implementation function
-    │
-    ▼
-Record Function (implementation) ─── Layer 4: Handler-Specific
-    │  Called by SendEvent (step 9) for ALL events
-    │  Receives: XWA=object_id, XBC=event_code, XDE=param
-    │  This is where extension ROM handlers intercept events
-    │
-    ▼
-Default Handler (workspace[0x0E0A][0x00DC] = InheritedProc)
-    Handles remaining lifecycle management if delegated
+SendEvent(object, event, param)                       (0xFA9660)
+  1. object 0xFFFFFFFF -> the current target (GetCurrentTarget)
+  2. table proc = object_table[(object >> 16) & 0xFFF].proc
+     (ViewableProc for a view, ClassProc for a class, ModeProc, TitleProc, ...)
+  3. class = table proc(object, EVT_GET_CLASS_SP 0x01E00000, 0) -> stored at 0x02BC14
+  4. class proc (class record +0x00) is called with the real event
+         e.g. HDAE5000_HDTitleMenuProc, Mines_Handler
+         |  anything it does not handle it passes to
+         v
+InheritedProc (0xFA4409, workspace[0x0E0A][0x00DC])
+     reads the current class's parent (class record +0x04) and calls the parent's
+     proc (AcTitleMenuProc ... ViewableProc ... ObjectProc, the proc of the root
+     class Object); returns 0 when the parent is 0xFFFFFFFF
 ```
 
 The "default handler" that extension ROMs delegate to, `workspace[0x0E0A][0x00DC]`,
@@ -85,7 +64,7 @@ is the firmware's own `InheritedProc` (0xFA4409). The firmware's function-name
 table names the entry at that offset, as it does for every other offset an
 extension calls (see [HDAE5000 Homebrew — Workspace Pointer]({{ site.baseurl }}/hdae5000-homebrew/#workspace-pointer)).
 
-**Key insight:** The record function (Layer 4) receives ALL events, regardless of which layer processed them first. For extension ROMs, the record function is the primary interception point.
+**Key insight:** The class proc receives every event first. `SendEvent` asks the target's table proc only for the class id, then calls the class's proc with the real event. `ClassProc`, `ObjectProc` and the other base procs see the event only when a class proc passes it on through `InheritedProc`, or when a base proc calls `ObjectProc` for a code it does not handle. For extension ROMs, the class proc (the record function) is the primary interception point.
 
 ## Object ids: functions, modes and titles
 
@@ -121,7 +100,7 @@ had taken such targets for pointers -- 81 in v10 and in v9, 68 in v7 (where 13 m
 bare numbers) -- e.g. `ld xwa, IvAccordion_ShowHide_Data`
 for view `0x00EB0009` ("Accordion1"), with labels created at those addresses, some inside the
 `"<PRESENTATION>"` string at `0xEA0008`. Since 2026-10-03 they are `NAKA_VIEW_<name>` constants
-(76 in each of v10, v9 and v7, the same names and values: `ld xwa, NAKA_VIEW_Accordion1`), as is the view argument of
+(81 in each of v10, v9 and v7, the same names and values: `ld xwa, NAKA_VIEW_Accordion1`), as is the view argument of
 `RegTitle` (`RegTitle 0x1, ..._TT_MESAGE, 0xee, NAKA_APFUNC_DefaultFunction, NAKA_VIEW_Mesage`);
 `scripts/tools/name_naka_view_ids.py` finds them and retired the labels the misreading had made.
 A 32-bit value in `0xE00000-0xFFFFFF` handed to an event routine is a view id first.
@@ -141,16 +120,16 @@ parent, allsize, selfsize, name, propdata, propname -- proved for all 13 by
 
 Handled by ClassProc's jump table at `0xEAA8F8`. These are fast property queries.
 
-| Code | Name | Handler | Return Value |
-|------|------|---------|-------------|
-| `0x01E00000` | `EVT_GET_CLASS_SP` | ClassProc_Event_LoadFromWA | MT_GetClassSp. Asks an object table's proc for the class id of the object. SendEvent asks this of every target first, then calls ... |
-| `0x01E00001` | `EVT_GET_PARENT_CLASS_SP` | ClassProc_Event_LoadFromHL | MT_GetParentClassSp. Class-level query that returns the parent class id (Class record +4 'parent'). |
-| `0x01E00002` | `EVT_GET_PROCEDURE_SP` | ClassProc_Event_LoadFromIZ | MT_GetProcedureSp. Returns the class procedure pointer (Class record +0 'proc'). |
-| `0x01E00003` | `EVT_GET_INSTANCE_SIZE_SP` | ClassProc_Event_LoadFromOffset | MT_GetInstanceSizeSp. Returns the instance size of the class (WORD at Class record +8 'allsize'). Not *(XHL+0x0C), as the ... |
-| `0x01E00004` | `EVT_GETTER_4` | (complex) | Linked object operation |
-| `0x01E00005` | `EVT_GETTER_5` | (complex) | Linked object operation |
-| `0x01E00006` | `EVT_GETTER_6` | (complex) | Linked object operation |
-| `0x01E00007` | `EVT_GETTER_7` | (complex) | Linked object operation |
+| Code         | Name                       | Handler                       | Return Value                                                                                                                                 |
+|--------------|----------------------------|-------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x01E00000` | `EVT_GET_CLASS_SP`         | ClassProc_Event_LoadFromWA    | MT_GetClassSp. Asks an object table's proc for the class id of the object. SendEvent asks this of every target first, then calls ...         |
+| `0x01E00001` | `EVT_GET_PARENT_CLASS_SP`  | ClassProc_Event_LoadFromHL    | MT_GetParentClassSp. Class-level query that returns the parent class id (Class record +4 'parent').                                          |
+| `0x01E00002` | `EVT_GET_PROCEDURE_SP`     | ClassProc_Event_LoadFromIZ    | MT_GetProcedureSp. Returns the class procedure pointer (Class record +0 'proc').                                                             |
+| `0x01E00003` | `EVT_GET_INSTANCE_SIZE_SP` | ClassProc_OnGetInstanceSizeSp | MT_GetInstanceSizeSp. Returns the instance size of the class (WORD at Class record +8 'allsize'). Not *(XHL+0x0C), as the ...                |
+| `0x01E00004` | `EVT_CHECK_CLASS_SP`       | ClassProc_OnCheckClassSp      | MT_CheckClassSp. Class-level is-a test: walks the parent chain and returns 1 if the class is, or derives from, the class id in the parameter |
+| `0x01E00005` | `EVT_GET_PROP_STRING_EX`   | ClassProc_OnGetPropStringEx   | MT_GetPropStringEx. Builds the full property-signature string (one type letter per field)                                                    |
+| `0x01E00006` | `EVT_GET_PROP_COUNT_SP`    | ClassProc_OnGetPropCountSp    | MT_GetPropCountSp. Number of properties (the length of the property string)                                                                  |
+| `0x01E00007` | `EVT_GET_PROP_NAME_SP`     | ClassProc_OnGetPropNameSp     | MT_GetPropNameSp. Class-level lookup of the name of property #n                                                                              |
 
 ### ClassProc Special Events
 
@@ -161,21 +140,21 @@ Handled by ClassProc's jump table at `0xEAA8F8`. These are fast property queries
 | `0x01E0000F` | `EVT_GET_INSTANCE` | ClassProc special | MT_GetInstance. Returns a pointer to the object's instance record: the class record for a class, the mode or title record, the ... |
 | `0x01E00015` | `EVT_GET_NAME` | ClassProc special | MT_GetName. Returns the object's name string pointer. For a class this is record+12; for Function, ApFunction, MainFunction ... |
 
-### ObjectProc Lifecycle Events (0x01E00010-0x01E00023)
+### ObjectProc Object Methods (0x01E00010-0x01E00023)
 
-Handled by ObjectProc's jump table at `0xEAA8A4`. These manage object lifecycle (creation, destruction, state changes). Each maps to a specific lifecycle phase.
+Handled by ObjectProc's jump table at `0xEAA8A4`. These are object-level methods; most forward to the class-level `...Sp` method.
 
-| Code | Name | Description |
-|------|------|-------------|
-| `0x01E00010` | `EVT_LIFECYCLE_10` | Lifecycle phase 0x10 |
-| `0x01E00011` | `EVT_LIFECYCLE_11` | Lifecycle phase 0x11 |
-| `0x01E00012` | `EVT_LIFECYCLE_12` | Lifecycle phase 0x12 |
-| `0x01E00013` | `EVT_LIFECYCLE_13` | Lifecycle phase 0x13 |
-| `0x01E00014` | `EVT_CHECK_CLASS` | MT_CheckClass. Object-level is-a test: returns 1 if the object's class is, or derives from, the class id in the parameter. ObjectProc forwards it as ... |
-| `0x01E00015` | `EVT_LIFECYCLE_15` | Lifecycle phase 0x15 (also ClassProc special) |
-| `0x01E00016` | `EVT_LIFECYCLE_16` | Lifecycle phase 0x16 |
-| ... | ... | Phases 0x17-0x22 (not yet individually documented) |
-| `0x01E00023` | `EVT_LIFECYCLE_23` | Lifecycle phase 0x23 (last) |
+| Code                      | Name                                         | Description                                                                                                                                              |
+|---------------------------|----------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x01E00010`              | `EVT_GET_CLASS`                              | MT_GetClass. The object's class id                                                                                                                       |
+| `0x01E00011`              | `EVT_GET_PARENT_CLASS`                       | MT_GetParentClass. The parent of the object's class                                                                                                      |
+| `0x01E00012`              | `EVT_GET_CLASS_NAME`                         | MT_GetClassName. The name of the object's class                                                                                                          |
+| `0x01E00013`              | `EVT_GET_PROCEDURE`                          | MT_GetProcedure. The proc of the object's class                                                                                                          |
+| `0x01E00014`              | `EVT_CHECK_CLASS`                            | MT_CheckClass. Object-level is-a test: returns 1 if the object's class is, or derives from, the class id in the parameter. ObjectProc forwards it as ... |
+| `0x01E00015`              | `EVT_GET_NAME`                               | MT_GetName (see ClassProc Special Events above)                                                                                                          |
+| `0x01E00016`              | `EVT_SET_NAME`                               | MT_SetName. Renames a view                                                                                                                               |
+| `0x01E00017`-`0x01E00022` | `EVT_GET_PROP_COUNT` ... `EVT_GET_PROP_CHAR` | Property methods: count, name, signature string, copy, dump, get, set, value domain, instance size and type letter (see `shared/event_codes.s`)          |
+| `0x01E00023`              | `EVT_AUTO_FREE`                              | MT_AutoFree. Frees the heap block given as the parameter                                                                                                 |
 
 ### DISK MENU Selection Events (0x01C0xxxx)
 
@@ -214,12 +193,12 @@ See [HDAE5000 — Embedded Graphics]({{ site.baseurl }}/hdae5000/#embedded-graph
 
 Used by the UI widget system for checkbox and grid controls:
 
-| Code | Name | Description |
-|------|------|-------------|
-| `0x01E40008` | `EVT_PAN_UP` | Firmware method MT_PanUp: composer-set grid: increment the pan byte (record +2, max 127) of part XDE, then MT_RequestGridDraw (0x01E0008D) to 0xB4000E |
-| `0x01E40009` | `EVT_GRIDCHECK_RESP_A2` | Grid/Check widget response variant A2 |
-| `0x01E4000A` | `EVT_RLMT_UP` | Grid/Check widget response variant B |
-| `0x01E4000B` | `EVT_GRIDCHECK_RESP_B2` | Grid/Check widget response variant B2 |
+| Code         | Name          | Description                                                                                                                                            |
+|--------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x01E40008` | `EVT_PAN_UP`  | Firmware method MT_PanUp: composer-set grid: increment the pan byte (record +2, max 127) of part XDE, then MT_RequestGridDraw (0x01E0008D) to 0xB4000E |
+| `0x01E40009` | `EVT_PAN_DN`  | Firmware method MT_PanDn: composer-set grid: decrement the pan byte (min 0) of part XDE, then MT_RequestGridDraw                                       |
+| `0x01E4000A` | `EVT_RLMT_UP` | Firmware method MT_RLmtUp: composer-set grid: increment the range-limit byte (record +5, max 11) of part XDE                                           |
+| `0x01E4000B` | `EVT_RLMT_DN` | Firmware method MT_RLmtDn: composer-set grid: decrement the range-limit byte (min 0) of part XDE                                                       |
 
 ### Mode and Title Requests (0x01C00014-0x01C00016)
 
@@ -227,11 +206,11 @@ These three events switch the instrument's current **mode** and **title** (the
 top-level screen). The parameter is the id of the mode or title that is wanted,
 not a hard-disk parameter block:
 
-| Code | Parameter | Main-CPU handler | Meaning |
-|------|-----------|------------------|---------|
-| `0x01C00014` | `0x0180nnnn` = mode id | `ModeProc`, case label `ObjectEnum_Close` | Mode request |
-| `0x01C00015` | `0x01A0nnnn` = title id | `TitleProc`, case label `EventDispatch_SelectMatch` | Title request |
-| `0x01C00016` | `0x01A0nnnn` = title id | `TitleProc`, case label `EventDispatch_OK` | Title request (second form) |
+| Code         | Parameter               | Main-CPU handler                                    | Meaning                                                                           |
+|--------------|-------------------------|-----------------------------------------------------|-----------------------------------------------------------------------------------|
+| `0x01C00014` | `0x0180nnnn` = mode id  | `ModeProc`, case label `ObjectEnum_Close`           | `EV_CHANGE_MODE`: change the current mode                                         |
+| `0x01C00015` | `0x01A0nnnn` = title id | `TitleProc`, case label `EventDispatch_SelectMatch` | `EV_CHANGE_TITLE`: change the current title                                       |
+| `0x01C00016` | `0x01A0nnnn` = title id | `TitleProc`, case label `EventDispatch_OK`          | `EV_INTERRUPT_TITLE`: show a title temporarily, closed later by `EV_RETURN_TITLE` |
 
 `ModeProc` also has a case for `0x01C00013` (`EVT_ACTIVATE_STATE` below), labelled
 `ObjectEnum_Default`.
@@ -286,9 +265,12 @@ boot request call `ApPostEvent` directly. The requesters are:
   posts title 0x7F (`0x01C00016`) through `RootFn_ApPostEvent` alone, when
   `HDAE5000_Check_HD_Present` finds a drive.
 
-**Not established:** what distinguishes `0x01C00015` from `0x01C00016`. Both
-reach `TitleProc` with a title id, but they take different cases. Listed on
-[Open Questions]({{ site.baseurl }}/questions/).
+**`0x01C00015` versus `0x01C00016`.** The firmware's own names tell them apart.
+`0x01C00015` is `EV_CHANGE_TITLE`: it changes the current title. `0x01C00016` is
+`EV_INTERRUPT_TITLE`: it shows a title on top of the current one (a message, error,
+welcome or software-version screen, as the titles above show), and
+`EV_RETURN_TITLE` (`0x01C00028`) later closes it and returns to the title it
+interrupted.
 
 Evidence: `hdae5000/hdae5000_ui_display.s` (the `HDAE5000_Request*` headers),
 `v10/maincpu/ui/ui_widget_defs.s` (`ModeProc`, `TitleProc`, `GetModeNow`,
@@ -298,11 +280,6 @@ Evidence: `hdae5000/hdae5000_ui_display.s` (the `HDAE5000_Request*` headers),
 The finding is the `hdae` lane's, in
 `notes/lanes/wave2-2026-09-25/lane-reports/hdae.json`.
 
-> **Stale constant name.** Both `hdae5000/shared/event_codes.s` and
-> `v10/maincpu/shared/event_codes.s` still define `0x01C00016` as
-> `EVT_INTERRUPT_TITLE` ("hard disk initialization parameters"). That reading is
-> wrong. Renaming the constant is a pending disassembly change.
-
 ### HD-AE5000 Events (0x01CA0000-0x01CA000C)
 
 `0x01CA0000 + n` addresses entry *n* of object table 0x1CA, which the HD-AE5000
@@ -310,12 +287,12 @@ registers with class id `0x0160000C` (`ResEventProc`). Its 13 entries are the
 names in `HDAE5000_EventName_Table`, in order. The code's own uses fit that
 reading:
 
-| Code | Entry name | Use in the code |
-|------|------------|-----------------|
-| `0x01CA0000` | `EV_SeqStop` | constant `EVT_HDAE_SEQ_STOP` in the sources (a misnomer) |
-| `0x01CA0002` | `EV_TimerBack` | error-message timers (`RootFn_SetApTimer` with event `0x01CA0002`) |
-| `0x01CA0004` | `EV_TICKS` | posted by `HDAE5000_Frame_Handler` to the open lyric box with the song position; `HDAE5000_LyricBoxProc` then runs `HDAE5000_Lyrics_PlayToPosition`. Constant `EVT_HDAE_TICKS` in the sources (a misnomer) |
-| `0x01CA0008` / `0x01CA0009` | `EV_Alldraw` / `EV_Drawsyllable` | lyric-box redraw requests (`HDAE5000_Lyrics_PlayToPosition`) |
+| Code                        | Entry name                       | Use in the code                                                                                                                                                                               |
+|-----------------------------|----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x01CA0000`                | `EV_SeqStop`                     | constant `EVT_HDAE_SEQ_STOP` in the sources                                                                                                                                                   |
+| `0x01CA0002`                | `EV_TimerBack`                   | error-message timers (`RootFn_SetApTimer` with event `0x01CA0002`)                                                                                                                            |
+| `0x01CA0004`                | `EV_TICKS`                       | posted by `HDAE5000_Frame_Handler` to the open lyric box with the song position; `HDAE5000_LyricBoxProc` then runs `HDAE5000_Lyrics_PlayToPosition`. Constant `EVT_HDAE_TICKS` in the sources |
+| `0x01CA0008` / `0x01CA0009` | `EV_Alldraw` / `EV_Drawsyllable` | lyric-box redraw requests (`HDAE5000_Lyrics_PlayToPosition`)                                                                                                                                  |
 
 `HDAE5000_LyricBoxProc` dispatches `0x01CA0003`-`0x01CA0009` through a 7-entry
 switch table. The table is typed in `hdae5000/hdae5000_data_tables.s`.
@@ -368,7 +345,7 @@ The complete sequence when a user selects a DISK MENU entry by pressing a panel 
 4. SendEvent dispatches events to registered handler:
 
    Step 1: EVT_SW_ON (0x01C00008)
-       → ClassProc → ObjectProc → InheritedProc → Record function
+       → SendEvent asks ViewableProc for the item's class, then calls the class proc (Mines_Handler) directly
        → Mines_Handler intercepts: sets GAME_ACTIVE=1, skips delegation
 
    Step 2: EVT_NEW_TITLE (0x01C00039)
@@ -378,23 +355,21 @@ The complete sequence when a user selects a DISK MENU entry by pressing a panel 
        → Delegated to default handler
 
    Step 4: EVT_CHECK_CLASS (0x01E00014)
-       → Handled by ObjectProc lifecycle, then delegated
+       → Delegated to default handler (MT_CheckClass is an object method that ObjectProc implements)
 
 5. Next Frame_Handler call detects GAME_ACTIVE=1
 6. C runtime initialized, main() called
 7. Game renders minesweeper board to VRAM
 ```
 
-For comparison, programmatic activation via `PostEvent`:
+There is no second, programmatic activation path. `0x01E0009C` is `MT_SetVisible`
+(see [Activation Events](#activation-events)), and its one sender to the DISK MENU's
+expansion item, `FileIO_DiskRemoved`, posts it only when no extension ROM is present:
 
 ```
-1. FileIO_DiskRemoved calls PostEvent(0x00600002, 0x01E0009C, 0)
-2. Main loop dequeues event
-3. SendEvent(slot[+0x00], 0x01E0009C, 0)
-4. ClassProc: not a getter → ObjectProc
-5. ObjectProc: not in 0x10-0x23 range → InheritedProc
-6. InheritedProc: follows handler chain
-7. Record function (Mines_Handler) intercepts: sets GAME_ACTIVE=1
+FileIO_DiskRemoved (0xF8B1DF):
+  if Xapr_GetPresentFlag() != 0: return        (an extension ROM is installed)
+  ApPostEvent(0x00600002, 0x01E0009C, 0)       (MT_SetVisible, parameter 0: hide the item)
 ```
 
 ## Implementing Event Handlers
@@ -408,10 +383,6 @@ void My_Handler(uint32_t object_id, uint32_t event_code, uint32_t param) {
     case 0x01C00008:  // Button-press activation (DISK MENU selection)
         GAME_ACTIVE = 1;
         return;       // Skip delegation to prevent default handler UI
-
-    case 0x01E0009C:  // Programmatic activation (PostEvent injection)
-        GAME_ACTIVE = 1;
-        return;       // Skip delegation
 
     default:
         // Delegate everything else to default handler
@@ -433,7 +404,7 @@ Mines_Handler:
     cp    xbc, xix
     jr    z, .activate
 
-    ; Check for PostEvent activation
+    ; 0x01E0009C is MT_SetVisible (show/hide); Mines intercepts it too, but it is not an activation event
     ld    xix, 0x01E0009C
     cp    xbc, xix
     jr    z, .activate
@@ -466,7 +437,7 @@ This event codes reference and the following related documentation must be updat
 
 1. **This page** (`event-codes.md`) -- Add new codes, update descriptions, correct dispatch paths
 2. **[HDAE5000 Homebrew Development]({{ site.baseurl }}/hdae5000-homebrew/)** -- Update handler examples and activation flow
-3. **ROM disassembly** (`~/devel/kn5000-roms-disasm/`) -- Update symbolic names (`EVT_*` constants) in assembly source
-4. **Symbol reference files** -- Keep `hdae5000_symbols_reference.txt` and `maincpu_symbols_reference.txt` in sync with assembly
+3. **ROM disassembly** ([kn5000-roms-disasm](https://github.com/ArqueologiaDigital/kn5000-roms-disasm)) -- Update symbolic names (`EVT_*` constants) in assembly source
+4. **Symbol reference files** -- `hdae5000_symbols_reference.txt` and `maincpu_symbols_reference.txt` are generated from the built ELF files: regenerate them after a rename (`scripts/analysis/l2_symbol_reference.py --regen`) and never edit them by hand
 
 See also: [HDAE5000 Homebrew Development]({{ site.baseurl }}/hdae5000-homebrew/) for the full handler registration and dispatch system documentation.

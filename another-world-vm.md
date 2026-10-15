@@ -6,19 +6,19 @@ permalink: /another-world-vm/
 
 # Another World VM Port
 
-A port of Delphine Software's **Another World** (1991) running natively on the Technics KN5000 keyboard. The game's original bytecode interpreter is reimplemented in TLCS-900/H2 assembly, executing the unmodified Amiga game data on the KN5000's hardware.
+A port of Delphine Software's **Another World** (1991) running natively on the Technics KN5000 keyboard. The game's original bytecode interpreter is reimplemented in TLCS-900/H2 assembly, executing the unmodified game data of the MS-DOS release on the KN5000's hardware.
 
 > **Project Page:** [felipesanches.github.io/kn5000-anotherworld](https://felipesanches.github.io/kn5000-anotherworld/) | **Source:** [GitHub](https://github.com/felipesanches/kn5000-anotherworld)
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| Target CPU | TMP94C241F (TLCS-900/H2) @ 16 MHz |
-| Display | MN89304 VGA controller, 320x240 @ 8bpp |
-| Input | Control panel buttons via SC1 synchronous serial |
-| Build Targets | Standalone maincpu ROM (2 MB) or HDAE5000 extension (512 KB) |
-| Game Data | Original Amiga resources (bytecode, polygons, palettes, bitmaps) |
+| Property      | Value                                                                                                                                                              |
+|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Target CPU    | TMP94C241F (TLCS-900/H2) @ 16 MHz                                                                                                                                  |
+| Display       | MN89304 VGA controller, 320x240 @ 8bpp                                                                                                                             |
+| Input         | Control panel buttons via SC1 synchronous serial                                                                                                                   |
+| Build Targets | Standalone maincpu ROM (2 MB). An HDAE5000 extension build (512 KB) compiles, but the game's 974 KB of resources do not fit, so at most the intro can run that way |
+| Game Data     | Original MS-DOS release resources (MEMLIST.BIN + BANK01-BANK0D: bytecode, polygons, palettes, bitmaps)                                                             |
 
 ## Architecture
 
@@ -35,19 +35,19 @@ The game uses a bytecode virtual machine originally designed for the Amiga (Moto
 
 All 27 opcodes (0x00-0x1A) are implemented:
 
-| Range | Category | Examples |
-|-------|----------|---------|
-| 0x00-0x04 | Register ops | MOV, ADD, ADDCONST, CALL, RET |
-| 0x05-0x0A | Flow control | BREAK, JMP, SETVEC, JNOT, CONDJMP |
-| 0x0B-0x0F | Variable ops | SETPALETTE, SELECTVIDEOPAGE, FILLVIDEOPAGE, COPYVIDEOPAGE, BLITFRAMEBUFFER |
-| 0x10-0x13 | Thread ops | KILLTHREAD, DRAWSTRING, SUB, AND |
-| 0x14-0x17 | More ops | OR, SHL, SHR, PLAYSOUND |
-| 0x18-0x1A | Resources | LOADRESOURCE, PLAYSONG, PLAYMUSIC |
-| 0x40/0x80 | Video | Polygon/sprite rendering |
+| Range     | Category                   | Examples                                                                                |
+|-----------|----------------------------|-----------------------------------------------------------------------------------------|
+| 0x00-0x05 | Variables and calls        | MOVCONST, MOV, ADD, ADDCONST, CALL, RET                                                 |
+| 0x06-0x0A | Flow control               | PAUSETHREAD (break), JMP, SETVEC, DJNZ, CONDJMP                                         |
+| 0x0B-0x10 | Palette, threads and pages | SETPALETTE, RESETTHREAD, SELECTVIDEOPAGE, FILLVIDEOPAGE, COPYVIDEOPAGE, BLITFRAMEBUFFER |
+| 0x11-0x12 | Threads and text           | KILLTHREAD, DRAWSTRING                                                                  |
+| 0x13-0x17 | Arithmetic and logic       | SUB, AND, OR, SHL, SHR                                                                  |
+| 0x18-0x1A | Sound and resources        | PLAYSOUND, LOADRESOURCE, PLAYMUSIC                                                      |
+| 0x40/0x80 | Video                      | Polygon/sprite rendering                                                                |
 
 ### Video Rendering
 
-Four 320x240 framebuffers (76,800 bytes each) support double-buffered rendering:
+Four 320x200 game pages (64,000 bytes each, one per 64 KB slot) support double-buffered rendering; the 320x200 image is drawn 20 lines down on the 320x240 LCD:
 - **Polygon engine**: Interprets vertex lists from video data resources, drawing filled convex polygons
 - **Bitmap loader**: Decompresses full-screen images (ByteKiller algorithm)
 - **Palette**: 16 colors, 4-bit per channel (0x0RGB format), mapped to MN89304's 4-bit DAC
@@ -56,27 +56,28 @@ Four 320x240 framebuffers (76,800 bytes each) support double-buffered rendering:
 
 **Maincpu target** (standalone ROM):
 
-| Address | Size | Contents |
-|---------|------|----------|
-| 0x010000 | 64 KB | VM variables, thread data, stack |
-| 0x020000 | 75 KB | Page buffer 0 |
-| 0x030000 | 75 KB | Page buffer 1 |
-| 0x040000 | 75 KB | Page buffer 2 |
-| 0x050000 | 75 KB | Page buffer 3 |
-| 0x060000 | 75 KB | Offscreen work buffer |
-| 0xE00000 | 2 MB | Program ROM (code + game resources) |
+| Address  | Size  | Contents                            |
+|----------|-------|-------------------------------------|
+| 0x010000 | 64 KB | VM variables, thread data, stack    |
+| 0x020000 | 64 KB | Page buffer 0                       |
+| 0x030000 | 64 KB | Page buffer 1                       |
+| 0x040000 | 64 KB | Page buffer 2                       |
+| 0x050000 | 64 KB | Page buffer 3                       |
+| 0x060000 | —     | Offscreen buffer (used by vga_init) |
+| 0xE00000 | 2 MB  | Program ROM (code + game resources) |
 
 **Extension target** (HDAE5000 slot):
 
-| Address | Size | Contents |
-|---------|------|----------|
-| 0x200000 | 64 KB | VM variables, thread data, stack |
-| 0x240000 | 75 KB | Page buffers 0-3 |
-| 0x280000 | 512 KB | Extension ROM |
+| Address           | Size      | Contents                         |
+|-------------------|-----------|----------------------------------|
+| 0x200000          | 64 KB     | VM variables, thread data, stack |
+| 0x210000          | —         | Offscreen buffer                 |
+| 0x240000-0x27FFFF | 4 x 64 KB | Page buffers 0-3                 |
+| 0x280000          | 512 KB    | Extension ROM                    |
 
 ## Input System
 
-The KN5000's control panel buttons are read via **SC1 synchronous serial** at 250 kHz. The firmware polls two button segments each frame:
+The KN5000's control panel buttons are read via **SC1 synchronous serial** at 250 kHz. The game polls three button segments each frame (CPL_SEG10's HELP and OTHER PARTS/TR open the help screen and the password part):
 
 | KN5000 Button | Segment | Bit | Game Action |
 |--------------|---------|-----|-------------|
@@ -127,14 +128,15 @@ Part switching loads new resources and reinitializes the VM. Copy protection che
 cd kn5000-anotherworld/
 
 make            # Build maincpu ROM + create MAME ROM set
-make extension  # Build as HDAE5000 extension ROM
-make test       # Run in MAME emulator
+make extension  # Build as HDAE5000 extension ROM (resources do not fit: intro only)
+make test TARGET=extension  # Run the extension build (plain `make test` runs the maincpu build)
 ```
 
 Requirements:
-- ASL Macro Assembler 1.42 Beta
-- Original KN5000 ROMs (for MAME ROM set)
-- Game resources extracted from the original Amiga data (see repo README)
+- ASL Macro Assembler 1.42 Beta (`asl` and `p2bin`; Makefile variable `ASL_PATH`, default `../../tools/asl`)
+- Original KN5000 ROMs (for MAME ROM set). Pass their directory as `ORIGINAL_ROMS` and the ROM-set output directory as `ROMSET_BASE`: the Makefile's defaults are paths on the author's machine
+- The MS-DOS game data files (MEMLIST.BIN and BANK01-BANK0D) in `game_data/MSDOS/`; `tools/extract_resources.py` extracts the resources from them
+- A checkout of [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/kn5000-roms-disasm) at `../../kn5000-roms-disasm` (Makefile variable `DISASM_REPO`), whose `archive/asl/` sources the build includes
 
 ## Implementation Status
 

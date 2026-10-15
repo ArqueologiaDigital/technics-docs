@@ -8,7 +8,7 @@ permalink: /hdae5000-homebrew/
 
 The HD-AE5000 extension slot can run custom code on the KN5000's main CPU. By replacing the HDAE5000 ROM with a custom binary, you can create games, demos, or utilities that run on the keyboard hardware. This page documents the extension ROM protocol, known toolchain bugs, and a working build pipeline.
 
-> **Status**: A Minesweeper game is fully playable on the KN5000 LCD via the HDAE5000 extension slot. Boot initialization, handler registration, DISK MENU entry with custom icon, game activation via button press, palette loading, and VRAM rendering are all working in MAME. The firmware's object dispatch system, handler registration protocol, and event dispatch are fully implemented. Remaining work: control panel input during gameplay.
+> **Status**: A Minesweeper game is fully playable on the KN5000 LCD via the HDAE5000 extension slot. Boot initialization, handler registration, DISK MENU entry with custom icon, game activation via button press, palette loading, and VRAM rendering are all working in MAME. The firmware's object dispatch system, handler registration protocol, and event dispatch are fully implemented. Control-panel input during gameplay works as well (see [Control Panel Input](#control-panel-input)).
 
 ![DISK MENU showing Mines Game entry]({{ site.baseurl }}/assets/images/mines-disk-menu.png)
 *The KN5000 DISK MENU in MAME showing the "Mines Game" entry with a custom mine icon at the bottom-right position. Selecting this entry activates the game.*
@@ -33,7 +33,7 @@ This section walks through building a minimal "hello world" extension ROM that d
 git clone https://github.com/felipesanches/llvm-project.git -b tlcs900_backend
 cd llvm-project
 mkdir build && cd build
-cmake -G Ninja ../llvm -DLLVM_TARGETS_TO_BUILD="TLCS900" \
+cmake -G Ninja ../llvm -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="TLCS900" \
   -DLLVM_ENABLE_PROJECTS="clang;lld" -DCMAKE_BUILD_TYPE=Release
 ninja
 ```
@@ -146,14 +146,14 @@ yield_to_firmware:
 
 void set_palette_entry(uint8_t index, uint8_t r, uint8_t g, uint8_t b) {
     *VGA_DAC_WRITE_INDEX = index;
-    *VGA_DAC_DATA = r;  /* 6-bit values (0-63) */
+    *VGA_DAC_DATA = r;  /* 4-bit values (0-15): the MN89304 DAC uses only the low 4 bits */
     *VGA_DAC_DATA = g;
     *VGA_DAC_DATA = b;
 }
 
 void main(void) {
     /* Set palette: index 1 = bright green */
-    set_palette_entry(1, 0, 63, 0);
+    set_palette_entry(1, 0, 15, 0);
 
     /* Draw a green rectangle */
     for (int y = 80; y < 160; y++) {
@@ -268,8 +268,8 @@ The main firmware validates the extension ROM and calls Boot_Init from routine `
 ```asm
 ; At Xapr_DetectAndCallBootInit in kn5000_v10_program.rom:
 PUSHW 0004h                          ; Compare 4 bytes
-PUSHW 00e1h                          ; String compare flags
-PUSHW 0ffc6h                         ; Pointer to "XAPR" in firmware ROM
+PUSHW 00e1h                          ; High word of the pointer to "XAPR" (0x00E1FFC6)
+PUSHW 0ffc6h                         ; Low word of that pointer
 LD    XWA, 00280000h                 ; Extension ROM base address
 PUSH  XWA
 CALL  String_Compare                 ; Compare first 4 bytes
@@ -306,7 +306,7 @@ RET
 
 ### Workspace Pointer
 
-The firmware passes `0x027ED2` in XWA to Boot_Init. This is the base address of the firmware's **object table** in main DRAM -- a data structure with 14-byte entries spanning from `0x027ED2` to `0x02BC12` (~1,118 entries).
+The firmware passes `0x027ED2` in XWA to Boot_Init. This is the base address of the firmware's **object table** in main DRAM -- a data structure with 14-byte entries spanning from `0x027ED2` to `0x02BC12` (1,120 entries, ids 0x000-0x45F).
 
 The workspace pointer reaches the firmware's functions through the object table
 itself. Each 14-byte entry is `{class id, proc, count, data}` and the data pointer
@@ -335,8 +335,9 @@ re-reads every constant's function pointer and name from
 `original_ROMs/kn5000_v10_program.rom` and counts the call sites. The
 disassembly's `scripts/converters/hdae5000_symbolize_fn_tables.py`, which
 generated the constants, no longer runs as a check: it refuses because the
-`InitializeHama` registration line it looks for now reads `Hama_FunctionTable_109`
-instead of `0xe1f0ec`. An earlier count of "100 functions" (the hdae lane
+registration lines it checks for are no longer spelled as it expects:
+`InitializeRoot`'s now reads `RegObjTabl NAKA_CLASS_Function, FunctionProc, 0x160, Root_FunctionTable_100, 0x100`,
+and `InitializeHama`'s reads `Hama_FunctionTable_109` instead of `0xe1f0ec`. An earlier count of "100 functions" (the hdae lane
 report) is not reproduced: the sources define 99 constants and use all 99.
 
 **Earlier versions of this page guessed several of these wrong.** `+0x0100` is
@@ -459,8 +460,10 @@ which the frame handler reads to drive the lyrics.
 
 Entries 75-79 of table 0x109 lie past the count its registration gives (0x4B =
 75), yet the HD-AE5000 calls them (`SetGlobalError`, `malloc_X`, `free_X`,
-`ChangePalette`, `ChangeWall`). Both tables are still `.incbin` blobs in the
-main-CPU source.
+`ChangePalette`, `ChangeWall`). Table 0x100 (`Root_FunctionTable_100`,
+`ui_widgets/widget_names_charmap.s`) is still an `.incbin` slice in the main-CPU
+source. Table 0x109 (`Hama_FunctionTable_109`, `factory_test/test_data.s`) has
+been typed as `.long` code pointers since 2026-09-25.
 
 ### Boot_Init Calling Convention
 
@@ -746,7 +749,7 @@ of Viewable table 0x60. The HD-AE5000 then writes two fields of that record:
 | +0x32 | 4 | *(left as is: `0x83`)* | 176 | `icon` |
 
 **What the record is.** Viewable table 0x60 is registered by `InitializeCheap`
-(`RegObjTabl 0x1600010, ViewableProc, 0x4a, 0xea67b6, 0x60` in
+(`RegObjTabl NAKA_CLASS_Viewable, ViewableProc, 0x4a, Cheap_ViewableTable_060, 0x60`, table at 0xEA67B6, in
 `v10/maincpu/file_io/medley.s`) and holds the DISK MENU screen. Entry 0 is a
 `TtlScreen`. Entries 1, 3 and 4 are ROM records of class `AcTitleMenu`:
 "STYLE CONVERT" (title 0x10), "PREFERENCES" (title 0x7E) and "SAVE" (title
@@ -806,13 +809,13 @@ Main Event Loop (MainLoop)
 
 **Key implication:** The Frame_Handler is called **after** the firmware has already drawn its screen content. Any VRAM writes made by the extension ROM will be visible briefly, then overwritten by the firmware on the next loop iteration.
 
-### Display Disable Flag (SFR 0x0D53, bit 3)
+### Step-Record Display Flag (0x0D53, bit 3)
 
-Address `0x0D53` is a firmware flag byte in the TMP94C241F's internal RAM. Setting bit 3 tells the firmware to skip all LCD rendering, giving an extension ROM exclusive VRAM ownership.
+Address `0x0D53` is a firmware flag byte in the TMP94C241F's internal RAM. Bit 3 is set on the path of `SqStep_SetupCursorTrack` (the second half of `SqStep_InitOnEnter`, which runs when the sequencer's step-record screen is entered) and cleared by `SqStep_RestoreOnLeave` when that screen is left. It is not a display-disable switch.
 
 #### Firmware mechanism
 
-The firmware checks this flag at four locations in its main event loop before performing display operations:
+The firmware tests this bit at eight places (five in `display/scoop_display.s`, three in `sequencer/accompaniment_engine.s`). The main loop's display update gate is one of them:
 
 ```asm
 ; At 0xEF77DF — main display update gate:
@@ -823,35 +826,13 @@ CALL Display_ResetDirtyFlags
 CALL Display_UpdateDirtyRegions
 ```
 
-When bit 3 is **clear** (default), the firmware draws its UI (menus, panels, status bars) into VRAM every main loop iteration. When bit 3 is **set**, all four display update paths are skipped — `Display_ResetDirtyFlags`, `Display_UpdateDirtyRegions`, and related state management code at `0xEFAA40`, `0xF59C11`, and `0xF59D65` are all bypassed.
+Note the polarity. `JRL Z` jumps when bit 3 is **clear**, so this update runs only while bit 3 is **set**. The same `BIT 3` / `JR Z` pattern holds at the other seven sites, among them `SysEx_ControllerBitCheck` at 0xEFAA40 and the `AccPedal_Sustain_CheckPlay` / `AccPedal_Distribute_CheckRecord` tests at 0xF59C11 / 0xF59D65. All of them belong to the sequencer's step-record and accompaniment code, and `SqStep_RestoreOnLeave` clears the bit when the step-record screen is left.
 
-The firmware also uses a related state byte at `0x0D65` for sub-state dispatch within the display update. Setting bit 3 of `0x0D53` bypasses all of this.
-
-#### How to set it
-
-In assembly (e.g., during Boot_Init or early Frame_Handler):
-```asm
-SET 3, (0x0D53)     ; Disable firmware display updates
-```
-
-In C (via volatile pointer):
-```c
-*(volatile uint8_t *)0x0D53 |= 0x08;   // Set bit 3
-```
-
-To restore firmware display ownership (e.g., when exiting a game):
-```asm
-RES 3, (0x0D53)     ; Re-enable firmware display updates
-```
+The dispatch indexes the step-record display mode at `0x0D65`.
 
 #### When is it needed?
 
-In practice, the Mines homebrew game does **not** set this flag. It relies on the Frame_Handler timing: the firmware draws its UI, then calls Frame_Handler, and the game overwrites VRAM with its own graphics. This works because the firmware does not have a VBI-driven (vertical blank interrupt) display refresh — its drawing is purely main-loop driven.
-
-However, setting the flag is recommended for homebrew that needs flicker-free display ownership, especially if:
-- The game renders in a background timer rather than Frame_Handler
-- The firmware's main loop runs faster than expected, causing visible flicker
-- Running on real hardware where timing may differ from MAME emulation
+In practice, Mines sets bit 3 when the game is activated and writes the saved byte back when it exits (Mines `platforms/kn5000/startup.s`, since commit b865da2). The App Loader does the same. Given the polarity above, doing so is not known to stop the firmware's drawing, and what it changes on screen has not been measured. What both programs rely on is timing. The firmware's display work runs earlier in each main-loop pass, and then `Frame_Handler` runs and the game redraws its screen over it. There is no VBI-driven refresh.
 
 ### VGA Controller Details
 
@@ -911,7 +892,6 @@ VRAM is linear and row-major. Pixel at screen position (x, y) is at VRAM address
 Testing with MAME confirmed:
 - **VRAM writes from extension ROM code work correctly** -- both assembly and C code can write to the 0x1A0000 framebuffer
 - **Game rendering is fully working** -- the Mines game draws a complete minesweeper board (palette, tiles, grid) to the KN5000 LCD
-- The display disable flag at `0x0D53` bit 3 is available but **not required in MAME** -- the emulated firmware does not appear to have a VBI-driven display refresh that overwrites VRAM between Frame_Handler calls
 - **Critical pitfall:** The LLVM backend's for-loop bug (#11) caused the VRAM clear to only execute one iteration, making it appear that VRAM writes didn't work when in fact only 4 bytes out of 76,800 were being cleared
 
 ### Headless MAME Testing
@@ -999,7 +979,7 @@ SendEvent(XWA=object_id, XBC=request_code, XDE=param):
   11. Return result in XHL
 ```
 
-The identity query (step 4) calls through the registered handler function (e.g., `ClassProc` for DISK MENU objects). For request `0x01E00000`, `ClassProc` simply returns XWA unchanged, so the identity equals the object ID.
+The class query (step 4) goes to the table's proc: `ViewableProc` for the DISK MENU view `0x00600002`, which returns the class id the view record holds (`0x016A0005` for the HD-AE5000's item). Only for a class object does `ClassProc` return XWA unchanged.
 
 ### PostEvent (0xFA9752) — Asynchronous Event Queue
 
@@ -1010,7 +990,7 @@ PostEvent:                    ; 0xFA9752
     ; Allocate 8 bytes on stack, save registers
     ; Acquire lock (CALL 0xEF1EA7 with WA=4)
     ; Read queue state:
-    ;   BC = queue size from (0x02EC34)
+    ;   BC = read index from (0x02EC34)
     ;   DE = write index from (0x02EC36)
     ; Check for queue full (WA = DE + 1, compare with BC)
     ; If full: release lock, spin forever (deadlock!)
@@ -1034,23 +1014,25 @@ The event queue is a ring buffer with 1,024 entries (indices 0x0000-0x03FF), eac
 
 `ClassProc` (shared by all DISK MENU modules) dispatches requests through three layers:
 
+> **Correction.** `SendEvent` asks the target's table proc (`ViewableProc` for a view such as `0x00600002`, `ClassProc` for a class object) only for the class id (`EVT_GET_CLASS_SP`, 0x01E00000). For a view, the answer is the class id that the view record holds, here `0x016A0005`. `SendEvent` then calls that class's `proc` (class record +0x00) with the real request. `ClassProc`, `ObjectProc` and `InheritedProc` see a real request only through delegation. A class proc passes on what it does not handle with `InheritedProc`, which follows the class record's `parent` field (+0x04). `ObjectProc` is the proc of the root class `Object`, and the base procs (`ViewableProc`, `ClassProc`) also call it directly for codes they do not handle. The tree below lists what each proc does with the codes it handles, not the order in which a request reaches them.
+
 ```
 ClassProc (0xFA44E2): UI event handler
   ├── 0x01E00000-0x01E00007: Jump table via 0xEAA8F8
   │   ├── Case 0 (0x01E00000): Return XWA (identity)
   │   ├── Case 1 (0x01E00001): Return *(XHL)
   │   ├── Case 2 (0x01E00002): Return *(XIZ)
-  │   ├── Case 3 (0x01E00003): Return *(XHL+0x0C)
-  │   ├── Case 4-7: (complex linked object operations)
+  │   ├── Case 3 (0x01E00003): Return the WORD at +0x08 (allsize)
+  │   ├── Case 4-7: MT_CheckClassSp, MT_GetPropStringEx, MT_GetPropCountSp, MT_GetPropNameSp
   │   Via helper functions:
   │     ClassProc_Event_LoadFromWA   (0xFA4598)
   │     ClassProc_Event_LoadFromHL   (0xFA459D)
   │     ClassProc_Event_LoadFromIZ   (0xFA45A2)
-  │     ClassProc_Event_LoadFromOffset (0xFA45A7)
-  ├── 0x01E0000D: Special case (keypress handling)
-  ├── 0x01E0000E: Special case (other input)
-  ├── 0x01E0000F: Return immediately
-  ├── 0x01E00015: Return *(XHL+0x0C)
+  │     ClassProc_OnGetInstanceSizeSp (case 3)
+  ├── 0x01E0000D: MT_GetPropDataSp (entry #n of an ID-typed property's domain)
+  ├── 0x01E0000E: MT_GetPropDataCountSp (size of that domain)
+  ├── 0x01E0000F: MT_GetInstance (pointer to the instance record)
+  ├── 0x01E00015: MT_GetName (record+12 for a class, via ClassProc_Event_LoadFromOffset)
   └── Default (including 0x01E0009C): → ObjectProc
                                          │
 ObjectProc (0xFA3D85): Lifecycle events
@@ -1091,28 +1073,10 @@ HDAE5000_HDTitleMenuProc (0x2827A8)(XWA=object, XBC=request, XDE=param):
 
 **The "default handler" at `workspace[0x0E0A][0x00DC]` is `InheritedProc`.**
 It runs the parent class's behaviour, here `AcTitleMenu`'s, and that manages
-the DISK MENU item for most requests, including 0x01E0009C (activation). The
+the DISK MENU item for most requests. These include the panel-switch event `0x01C00007` (`EVT_SW_IN`), on which `AcTitleMenuProc` sends `EVT_CHANGE_TITLE` (0x01C00015) to the current target (`SendEvent` with object `0xFFFFFFFF`) with the item's `title` field (+0x2E). The
 HD-AE5000 only intercepts `0x01C0000F`. It sends `0x01C0000D` synchronously
 (`SendEvent`, not a post) to its own UI object `HD_MENU_BMP` (`0x007F01ED`,
 entry 0x1ED of Viewable table 0x7F).
-
-### Dispatch Flow for Activation Event (0x01E0009C)
-
-When the DISK MENU activation event reaches our handler:
-
-```
-PostEvent(0x00600002, 0x01E0009C, 0)
-  → Event queue stores entry
-  → Main loop dequeues event
-  → SendEvent(slot[+0x00], 0x01E0009C, 0)
-    → ClassProc: 0x01E0009C not in simple getter range → ObjectProc
-      → ObjectProc: 0x01E0009C not in 0x10-0x23 range → InheritedProc
-        → InheritedProc: follows record[+0x04] "next" chain
-          → If next = 0xFFFFFFFF: returns 0 (no further handler)
-          → If next = valid ID: calls that handler's function
-```
-
-**Key insight:** For the activation event `0x01E0009C`, neither `ClassProc` nor `ObjectProc` handle it directly. It falls through to `InheritedProc`, which follows the "next handler" chain in the data record. If the chain ends (`0xFFFFFFFF`), nothing happens. The actual activation must be handled by the record's implementation function (called by `SendEvent` at step 9), or by a chained handler via `InheritedProc`.
 
 ## DISK MENU Activation Mechanism
 
@@ -1120,44 +1084,28 @@ When the user selects a DISK MENU entry, the firmware does not directly call the
 
 ### Activation Trigger
 
-The main firmware routine at `FileIO_DiskRemoved` handles extension board activation:
+The main firmware routine `FileIO_DiskRemoved` (0xF8B1DF) is the one place that
+posts `0x01E0009C` to the expansion's DISK MENU item, and it does not activate
+anything:
 
 ```asm
-; FileIO_DiskRemoved: Check if HDAE5000 extension is present
+; FileIO_DiskRemoved, after resetting the medley and progress state:
 CALL  Xapr_GetPresentFlag           ; Read XAPR detection flag from (0x03DD04)
 CP    L, 0
-JR    Z, .no_extension       ; Skip if no extension ROM
+RET   NZ                     ; Extension present: return at once
 
-; Extension present -- post activation event
-LD    XWA, 00600002h         ; Target handler ID (same as DISK MENU registration)
-LD    XBC, 01E0009Ch         ; Event code: activate
-LD    XDE, 0                 ; Parameter: none
-CALL  PostEvent              ; Queue event for dispatch
+; No extension -- hide the expansion's DISK MENU item
+LD    XWA, 00600002h         ; View object 0x00600002 (the DISK MENU's expansion item)
+LD    XBC, 01E0009Ch         ; EVT_SET_VISIBLE (MT_SetVisible)
+LD    XDE, 0                 ; Parameter 0: hide
+CALL  ApPostEvent            ; Queue event for dispatch
 ```
 
-`PostEvent` (0xFA9752) queues events in a ring buffer at `0x02BC34` (12-byte entries, max 1,024). The main event loop dequeues events and dispatches them synchronously via `SendEvent`.
-
-### Complete Activation Flow
-
-When `PostEvent(0x00600002, 0x01E0009C, 0)` is dispatched:
-
-```
-1. Main loop dequeues event from ring buffer at 0x02BC34
-2. SendEvent(object_id, 0x01E0009C, 0)
-   where object_id = slot[+0x00] (e.g., 0x016A0005)
-
-3. SendEvent extracts handler_index = 0x016A
-4. Looks up object_table[0x016A * 14 + 4] → handler function (ClassProc)
-5. Calls ClassProc(0x016A0005, 0x01E00000, 0) → identity = 0x016A0005
-6. Sets 0x02BC14 = 0x016A0005
-
-7. Looks up data_ptr from object_table[0x016A * 14 + 0x0A]
-8. Extracts sub_index = 5 from identity
-9. Reads record[5 * 24 + 0x00] → implementation function (0x2827A8)
-10. Calls 0x2827A8(0x016A0005, 0x01E0009C, 0)
-11. Handler delegates to workspace[0x0E0A][0x00DC] (`InheritedProc`)
-12. `InheritedProc` runs the parent class (`AcTitleMenu`), which manages the DISK MENU activation lifecycle
-```
+`0x01E0009C` is `MT_SetVisible`, not an activation event. With an extension ROM
+installed, nothing posts it to the item. The activation itself is `AcTitleMenuProc`'s
+answer to the panel-switch event `0x01C00007` (`EVT_SW_IN`): it opens the item's
+`title` (+0x2E) by sending `EVT_CHANGE_TITLE` (`SendEvent`, to the current target
+`0xFFFFFFFF`; see [HDAE5000 Handler Behavior](#hdae5000-handler-behavior-record-5-hdtitlemenu)).
 
 ### What Mines Needs for DISK MENU Activation
 
@@ -1178,9 +1126,9 @@ Based on the complete dispatch analysis, the Mines project needs:
 3. **Set `slot+0x00`** (the `class` field of view object `0x00600002`) to `0x016A0005` (class 5 of table 0x016A, matching the HD-AE5000) — or `0x016A0000` if the class table has one entry
 
 4. **Implement a handler function** that:
-   - Intercepts `0x01C00008` (button-press activation) and `0x01E0009C` (programmatic activation) to set the `GAME_ACTIVE` flag — and **skips delegation** for these events
+   - Intercepts `0x01C00008` (`EVT_SW_ON`, the panel-switch press that selects the item) to set the `GAME_ACTIVE` flag, and **skips delegation** for it. (Mines and the App Loader also intercept `0x01E0009C`, but that is `MT_SetVisible`, not an activation event.)
    - Delegates all other requests to `workspace[0x0E0A][0x00DC]` (`InheritedProc`, i.e. the parent class)
-   - Optionally intercepts `0x01C0000F` for custom initialization (as the original HDAE5000 does)
+   - Optionally intercepts `0x01C0000F` (`EVT_PARA_DRAW`, draw the item's text) to draw extra content after the parent class has drawn the item. The original HD-AE5000 uses it to send `EVT_DRAW` (0x01C0000D) to its `HD_MENU_BMP` icon view.
 
 ### Object System Initialization
 
@@ -1192,7 +1140,7 @@ The firmware initializes the object table at startup via `InitializeObjectTable`
 4. Calls 31 `Initialize*` functions (one per built-in module): `InitializeMurai`, `InitializeToshi`, `InitializeEast`, `InitializeSuna`, `InitializeCheap`, `InitializeScoop`, `InitializeYoko`, `InitializeKubo`, `InitializeHama`, `InitializeKSS`, `InitializeNaka`, and `InitializeUser12`-`InitializeUser31`
 5. Each `Initialize*` function calls `RegisterObjectTable` with that module's handlers
 
-The HDAE5000's `Handler_Registration` runs later (during `Boot_Init`), overwriting the table entry for handler `0x016A` that was previously initialized by one of the built-in modules.
+The HDAE5000's `Handler_Registration` runs later (during `Boot_Init`), filling the table entry for handler `0x016A`, which no built-in module registers: module 0x0A's `InitializeKSS` is a bare `ret`, so the entry still holds what `InitializeObjectTable` cleared it to.
 
 ### Simplified Activation (Mines Approach)
 
@@ -1204,7 +1152,7 @@ The Mines project demonstrates that full participation in the object dispatch sy
 4. All other requests are delegated to `workspace[0x0E0A][0x00DC]` (`InheritedProc`)
 5. Frame_Handler checks `GAME_ACTIVE` and branches into the C game code when set
 
-**Key discovery:** When the user selects a DISK MENU entry via a physical button press, the firmware dispatches event code **`0x01C00008`** (not `0x01E0009C`) to the handler's record function. The activation event `0x01E0009C` is only used for direct `PostEvent` injection (e.g., from `FileIO_DiskRemoved`). The handler must intercept **both** codes to support both activation paths.
+**Key discovery:** When the user selects a DISK MENU entry via a physical button press, the firmware dispatches event code **`0x01C00008`** (not `0x01E0009C`) to the handler's record function. `0x01E0009C` is `MT_SetVisible`, not an activation event. Its one sender to this item, `FileIO_DiskRemoved`, hides the item, and only when no extension ROM is present. Intercepting `0x01C00008` is enough.
 
 When activation is intercepted, the handler should **skip delegation** to the default handler — otherwise the default handler shows its own UI (e.g., "FD SAVE/LOAD TEST") which would interfere with the game.
 
@@ -1219,9 +1167,7 @@ See the [Event Codes Reference]({{ site.baseurl }}/event-codes/) for a complete 
 
 ### Open Questions
 
-- ~~What specific record fields (`+0x08` through `+0x14`) does the default handler at `workspace[0x0E0A][0x00DC]` expect?~~ **ANSWERED (2026-09-25):** the record is a class definition (`allsize`, `selfsize`, `name`, `propdata`, `propname`) and the "default handler" is `InheritedProc`; see [the class table above](#data-record-table-handler-0x016a-the-modules-classes).
 - Does anything besides `InheritedProc` read `allsize`/`selfsize` of a class that re-classes an existing record (as `HDTitleMenu` re-classes view object `0x00600002`)? A class with parent `0xFFFFFFFF` has no inherited behaviour; whether the view system tolerates that for a DISK MENU item is untested.
-- ~~How does the firmware route physical button presses (DISK MENU selection) to the `PostEvent(0x00600002, 0x01E0009C, 0)` call?~~ **RESOLVED:** The firmware does NOT use `PostEvent` for button-press activation. Instead, it dispatches event code `0x01C00008` directly via `SendEvent` to the handler's record function. The `0x01E0009C` event is only used for programmatic activation via `PostEvent`.
 
 ## Control Panel Input
 
@@ -1283,20 +1229,20 @@ See the [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/) pag
 
 Button state arrays are updated by the firmware's SC1 interrupt handler during the firmware's main loop. Your extension must periodically yield control back to the firmware so it can process serial data and update the arrays.
 
-The Mines game implements this with a `yield_to_firmware()` function (see [Build Pipeline](#build-pipeline)): the game saves its stack pointer, restores the firmware's stack, and returns from `Frame_Handler`. On the next frame, the firmware calls `Frame_Handler` again, which restores the game's stack and resumes execution. This cooperative multitasking ensures button state stays fresh.
+The Mines game implements this with a `yield_to_firmware()` function (see the App Loader page's [Startup Assembly]({{ site.baseurl }}/app-loader/#startup-assembly), which reproduces it): the game saves its stack pointer, restores the firmware's stack, and returns from `Frame_Handler`. On the next frame, the firmware calls `Frame_Handler` again, which restores the game's stack and resumes execution. This cooperative multitasking ensures button state stays fresh.
 
 ## Audio
 
-The KN5000's audio subsystem is managed entirely by the SubCPU (a second TMP94C241F). The main CPU communicates with it via shared DRAM and the inter-CPU protocol (see [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/)). Extension ROMs on the main CPU cannot directly control the tone generator, DSP effects, or MIDI output.
+The KN5000's audio subsystem is managed entirely by the SubCPU (a second TMP94C241F). The main CPU sends it commands through a pair of memory-mapped latches at `0x140000` (see [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/)). Extension ROMs on the main CPU cannot directly control the tone generator or the DSP effects. MIDI is different: it runs on the main CPU's own serial channel 0 (see [MIDI Serial I/O]({{ site.baseurl }}/midi-serial-io/)).
 
 ### What Extensions Can Do
 
-- **Trigger sounds via firmware callbacks:** The firmware's workspace contains callback pointers for triggering MIDI notes and sound effects. The two function tables reachable from the workspace (see [Workspace Pointer](#workspace-pointer)) name some candidates: the HD-AE5000 calls `HamaFn_sendCOMM` and `HamaFn_SwbtWr` in table 0x109. What those calls send, and whether they can play notes, has not been traced. This is unexplored territory — the exact API for triggering notes from extension code is not yet documented.
-- **Write to shared DRAM:** The inter-CPU command buffer in DRAM could theoretically be used to send commands to the SubCPU, but the protocol is complex and interference with normal firmware operation is likely.
+- **Trigger sounds via firmware callbacks:** The firmware's workspace contains callback pointers for triggering MIDI notes and sound effects. The two function tables reachable from the workspace (see [Workspace Pointer](#workspace-pointer)) name some candidates: the HD-AE5000 calls `HamaFn_sendCOMM` and `HamaFn_SwbtWr` in table 0x109. `HamaFn_sendCOMM` is the main CPU's block sender to the SubCPU (`sendCOMM`: A = command/channel id, BC = byte count, XDE = source; it sends 32-byte chunks through `InterCPU_Send_Data_Block`). `HamaFn_SwbtWr` has not been traced. Whether an extension can play notes through either has not been tried. This is unexplored territory — the exact API for triggering notes from extension code is not yet documented.
+- **Write to the inter-CPU latch:** the latch at `0x140000` could in principle be used to send commands to the SubCPU, but the protocol is complex and interference with normal firmware operation is likely.
 
 ### What Extensions Cannot Do
 
-- Directly program the tone generator (MN89316, at `0x100000-0x15FFFF` — these registers are written by both CPUs but controlled by SubCPU firmware logic)
+- Directly program the tone generator (IC303, TC183C230002, at `0x100000` on the SubCPU's bus only; on the main CPU's bus that range holds the floppy controller and the inter-CPU latch)
 - Directly program the DSP effect processors (MN19413 / uPD6383GF — connected via SubCPU GPIO, no main CPU access)
 - Bypass the SubCPU for audio output
 
@@ -1308,30 +1254,30 @@ See the [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) documentation for
 
 ## LLVM TLCS-900 Backend Bugs
 
-The LLVM TLCS-900 backend had several encoding and code generation bugs during development. **Status: All 11 bugs fixed or resolved (Feb 28, 2026). All C-level workarounds removed.** A detailed report for compiler developers is maintained in the [Mines project repository](https://github.com/ArqueologiaDigital/Mines/blob/kn5000_port/LLVM_TLCS900_BUGS.md).
+The LLVM TLCS-900 backend had several encoding and code generation bugs during development. **Status: All 11 bugs fixed or resolved (Feb 28, 2026). All C-level workarounds removed.**
 
 ### Assembler Encoding Bugs (Fixed)
 
-### Bug 1: Direct Memory Load Prefix
+### Bug 1: Direct Memory Load Prefix (Fixed)
 
 **Instruction:** `ld reg, (addr)` (load from absolute address)
 
 **Bug:** LLVM uses the `F2` prefix (F0/store group) instead of `E2` (E0/load group). In the F0 sub-opcode table, entry `0x26` is `LDA` (load address), not `LD` (load data) as in the E0 table.
 
-**Workaround:**
+**Former workaround:**
 ```asm
 ; Instead of: ld xwa, (0x200008)     -- BROKEN
 ld   xhl, 0x200008                    ; load address into register
 ld   xwa, (xhl)                       ; then dereference
 ```
 
-### Bug 2: Immediate-to-Memory Store Sub-opcode
+### Bug 2: Immediate-to-Memory Store Sub-opcode (Fixed)
 
 **Instruction:** `ld (addr), imm32` (store immediate to absolute address)
 
 **Bug:** LLVM emits sub-opcode `0x08` in the F0 table, which does not exist on the TLCS-900. The hardware only supports `0x00` (byte immediate) and `0x02` (word immediate) -- there is no 32-bit immediate-to-memory store.
 
-**Workaround:**
+**Former workaround:**
 ```asm
 ; Instead of: ld (0x200000), 0x100   -- BROKEN
 ld   xde, 0x200000                    ; load address
@@ -1339,13 +1285,13 @@ ld   xwa, 0x00000100                  ; load value
 ld   (xde), xwa                       ; store via register-indirect
 ```
 
-### Bug 3: Indirect CALL Sub-opcode
+### Bug 3: Indirect CALL Sub-opcode (Fixed)
 
 **Instruction:** `call (xreg)` (call function at address in register)
 
 **Bug:** LLVM emits sub-opcode `0x1F` in the b0 table, which is undefined on the TLCS-900. The correct encoding for an unconditional call is `0xE8` (CALL T, where T = True = condition code 8). CALL entries occupy `0xE0-0xEF` in the b0 table, one per condition code.
 
-**Workaround:**
+**Former workaround:**
 ```asm
 ; Instead of: call (xix)             -- BROKEN (emits 0x1F)
 .byte 0xB4, 0xE8                      ; B4 = XIX prefix, E8 = CALL T
@@ -1361,13 +1307,13 @@ ld   (xde), xwa                       ; store via register-indirect
 
 **Bug:** LLVM originally encoded JP as opcode `0x1C`, which is actually `CALL I16` (call with 16-bit address) on the real hardware. This was fixed in the LLVM backend to use the correct opcode `0x1B` (JP I24, jump with 24-bit address).
 
-### Bug 5: Register+Displacement Loads
+### Bug 5: Register+Displacement Loads (Fixed)
 
 **Instruction:** `ld xreg, (xreg + disp)` (load from register + displacement)
 
-**Bug:** LLVM does not support encoding register+displacement loads. This was initially believed to be a hardware limitation, but the original HDAE5000 ROM uses instructions like `ld XWA, (XWA + 0x0E0A)` successfully -- confirming the hardware *does* support this addressing mode. Stores with displacement (`ld (xreg + disp), src`) work correctly in LLVM.
+**Bug (fixed):** LLVM did not support encoding register+displacement loads. This was initially believed to be a hardware limitation, but the original HDAE5000 ROM uses instructions like `ld XWA, (XWA + 0x0E0A)` successfully -- confirming the hardware *does* support this addressing mode. Stores with displacement (`ld (xreg + disp), src`) work correctly in LLVM.
 
-**Workaround:**
+**Former workaround:**
 ```asm
 ; Instead of: ld xiz, (xiz + 0x0E0A)  -- NOT SUPPORTED
 add  xiz, 0x0E0A                       ; modify register (destructive)
@@ -1404,7 +1350,7 @@ ld   xiz, (xiz)                        ; then dereference
 
 ### Bug 11: For-Loop with uint16_t Counter Exits After 1 Iteration — FIXED
 
-**Fix (Feb 28, 2026):** Commit `eba2fe6622ee`. Root cause: `EXTS32` and `EXTZ32` were declared with `Defs=[SR]` in `TLCS900InstrInfo.td`, telling the compiler they set flags. On TLCS-900/H hardware, EXTS/EXTZ do NOT set any flags (confirmed via MAME's `op_EXTZLR` and `op_EXTSLR` implementations).
+**Fix (Feb 28, 2026):** originally commit `eba2fe6622ee`, kept on branch `tlcs900_backend_backup_20260418`. On `tlcs900_backend` it is part of the squashed commit `e90ba8f16b19` (2026-04-18). Root cause: `EXTS32` and `EXTZ32` were declared with `Defs=[SR]` in `TLCS900InstrInfo.td`, telling the compiler they set flags. On TLCS-900/H hardware, EXTS/EXTZ do NOT set any flags (confirmed via MAME's `op_EXTZLR` and `op_EXTSLR` implementations).
 
 For `uint16_t` loops, clang generates a count-down pattern: `DEC` + `EXTZ` + `CP 0` + `JR NZ`. The `RedundantCmpElim` pass saw `EXTZ` (which it thought set Z) followed by `CP 0` + `JPcc NZ`, and removed the `CP` as "redundant." This left the `JR NZ` reading stale flags, causing immediate loop exit.
 
@@ -1634,20 +1580,20 @@ clean:
 
 ## Memory Map for Custom ROMs
 
-| Address Range | Size | Region | Use |
-|--------------|------|--------|-----|
-| 0x200000-0x27FFFF | 256KB | Extension RAM | Variables, stack, heap |
-| 0x280000-0x2FFFFF | 512KB | Extension ROM | Code, read-only data |
-| 0x1A0000-0x1DFFFF | 256KB | Video RAM | 320x240 8bpp linear framebuffer |
-| 0x1703C6 | 1B | VGA DAC Mask | Palette mask register |
-| 0x1703C8 | 1B | VGA DAC Index | Palette write index |
-| 0x1703C9 | 1B | VGA DAC Data | RGB data (write 3 bytes sequentially) |
-| 0x1703D4 | 1B | VGA CRTC Index | CRTC register select |
-| 0x1703D5 | 1B | VGA CRTC Data | CRTC register data |
-| 0x8E4A-0x8E54 | 11B | Right Panel Buttons | Firmware button state (1 byte per segment) |
-| 0x8E5A-0x8E64 | 11B | Left Panel Buttons | Firmware button state (1 byte per segment) |
-| 0x0D53 | 1B | Display Flags | Bit 3: display disable (firmware SFR) |
-| 0x03DD04 | 1B | XAPR Flag | Extension ROM detection (1=present) |
+| Address Range     | Size  | Region              | Use                                                                                   |
+|-------------------|-------|---------------------|---------------------------------------------------------------------------------------|
+| 0x200000-0x27FFFF | 512KB | Extension RAM       | Variables, stack, heap                                                                |
+| 0x280000-0x2FFFFF | 512KB | Extension ROM       | Code, read-only data                                                                  |
+| 0x1A0000-0x1DFFFF | 256KB | Video RAM           | 320x240 8bpp linear framebuffer                                                       |
+| 0x1703C6          | 1B    | VGA DAC Mask        | Palette mask register                                                                 |
+| 0x1703C8          | 1B    | VGA DAC Index       | Palette write index                                                                   |
+| 0x1703C9          | 1B    | VGA DAC Data        | RGB data (write 3 bytes sequentially)                                                 |
+| 0x1703D4          | 1B    | VGA CRTC Index      | CRTC register select                                                                  |
+| 0x1703D5          | 1B    | VGA CRTC Data       | CRTC register data                                                                    |
+| 0x8E4A-0x8E54     | 11B   | Right Panel Buttons | Firmware button state (1 byte per segment)                                            |
+| 0x8E5A-0x8E64     | 11B   | Left Panel Buttons  | Firmware button state (1 byte per segment)                                            |
+| 0x0D53            | 1B    | Firmware Flags      | Bit 3: set while the sequencer's step-record screen is active (not a display disable) |
+| 0x03DD04          | 1B    | XAPR Flag           | Extension ROM detection (1=present)                                                   |
 
 The KN5000's LCD is 320x240 pixels at 8 bits per pixel (256-color indexed palette). VRAM starts at `0x1A0000` with a linear framebuffer layout (row-major, 320 bytes per row). See [Display Ownership Model](#display-ownership-model) for details on taking control of the display.
 

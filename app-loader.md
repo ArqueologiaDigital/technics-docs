@@ -28,6 +28,7 @@ the MAME driver tree and the disassembly tree:
 | Mines disk startup and linker script | `Mines/platforms/kn5000/disk_startup.s`, `Mines/platforms/kn5000/disk.ld` (branch `kn5000_port`) |
 
 Paths in the rest of this page are relative to those two repository roots.
+`custom-kn5000-roms` has not been published yet; Mines is public (branch `kn5000_port`).
 
 ## How It Works
 
@@ -65,12 +66,12 @@ Extension DRAM (512KB @ 0x200000)
 
 ### Cooperative Multitasking
 
-The KN5000 firmware runs at 60Hz. The App Loader (and any loaded app) must cooperate with the firmware by yielding control every frame. This is done via a coroutine mechanism:
+The firmware calls the extension's `Frame_Handler` once per pass of its main loop (no frame rate has been measured). The App Loader (and any loaded app) must cooperate with the firmware by yielding control every frame. This is done via a coroutine mechanism:
 
 1. **Firmware** calls the App Loader's `Frame_Handler` once per frame
 2. **App Loader** resumes the running app by restoring its saved stack pointer
 3. **Running app** calls `yield_to_firmware()` to return control until the next frame
-4. This cycle repeats at 60Hz, giving each party time to run
+4. This cycle repeats, giving each party time to run
 
 The loaded app's `yield_to_firmware()` uses the **same shared addresses** as the App Loader -- `SAVED_SP` at 0x200044 and `APP_SAVED_SP` at 0x200048, declared in both `custom-kn5000-roms/apploader/startup.s` and `custom-kn5000-roms/apploader/src/kn5000.h`. That makes one coroutine chain: Firmware <-> App Loader <-> Running App.
 
@@ -285,7 +286,7 @@ int main(void)
 }
 ```
 
-The call to `yield_to_firmware()` is essential -- it returns control to the KN5000 firmware for one frame (~16.7ms at 60Hz). Without it, the firmware will hang and the keyboard will be unresponsive.
+The call to `yield_to_firmware()` is essential -- it returns control to the KN5000 firmware for one frame (one main-loop pass). Without it, the firmware will hang and the keyboard will be unresponsive.
 
 ### Makefile
 
@@ -381,7 +382,7 @@ Note: The offset of 512 skips the MBR sector to reach the FAT16 partition.
 
 ### Prerequisites
 
-- MAME with the KN5000 driver (including HDAE5000 extension slot and ATA support)
+- MAME built from the driver overlay (kn7000_mame). Upstream MAME's HD-AE5000 has no working ATA (its `ata_r` returns 0), so the App Loader cannot read its disk there.
 - Original KN5000 ROM dumps
 - The App Loader ROM: the 512 KB `apploader.bin` that `make romset` writes into `custom-kn5000-roms/apploader/build/`
 - A disk image with your app: `apploader_disk.hd`, in the same build directory
@@ -430,7 +431,7 @@ mame kn5000 \
 
 ### Activating the App Loader
 
-The App Loader activates when the firmware sends the DISK MENU event (`0x01C00008`). In MAME:
+The App Loader activates when the firmware sends its DISK MENU item the panel-switch event `0x01C00008` (`EVT_SW_ON`). In MAME:
 
 1. Wait for the keyboard to boot (~30 seconds)
 2. Press the **`MENU: DISK`** button (`CPR_SEG10` `0x20`) — that is the name it carries in
@@ -493,7 +494,7 @@ make disk
 
 ```bash
 make test-interactive
-# Boot the keyboard, press DISK, navigate to Mines, press ENTER
+# Boot the keyboard, press MENU: DISK to bring up the App Loader, move to Mines with RIGHT 2 (PART SELECT) / CONDUCTOR: RIGHT 2, and launch it with VARIATION 1
 ```
 
 ### How the Mines Port Fits the Loader
@@ -508,7 +509,7 @@ make test-interactive
 
 The App Loader source code is available at:
 
-- **App Loader**: [`custom-kn5000-roms/apploader/`](https://github.com/ArqueologiaDigital/custom-kn5000-roms/tree/main/apploader)
+- **App Loader**: `custom-kn5000-roms/apploader/` (not yet published)
 - **Mines disk build**: [`Mines/platforms/kn5000/`](https://github.com/ArqueologiaDigital/Mines/tree/kn5000_port/platforms/kn5000) (see `disk_startup.s`, `disk.ld`, and the `disk` Makefile target)
 
 ## Related Pages

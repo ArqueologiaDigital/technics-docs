@@ -17,10 +17,12 @@ This guide walks you through running homebrew games on the Technics KN5000 using
 | **Game source code** | See individual game sections below |
 
 > **Which MAME.** The base KN5000 driver is in upstream `mamedev/mame`, so a plain upstream
-> checkout has it. The homebrew walkthroughs below (Another World, Mines, the App Loader) rely
-> on custom ROM images and the HDAE5000 extension slot rather than on driver features, but they
-> are developed against the driver overlay repository, which is ahead of upstream. If something
-> here does not work against a plain upstream checkout, check it against the overlay.
+> checkout has it. The homebrew walkthroughs below are developed against the driver overlay
+> repository (kn7000_mame), which is ahead of upstream. Another World and Mines rely on custom
+> ROM images and the HDAE5000 extension slot, which upstream has. If one of them does not work on
+> a plain upstream checkout, try the overlay. The App Loader always needs the overlay: it reads
+> its disk through the HD-AE5000's hard-disk (ATA) interface, which only the overlay emulates
+> (upstream's ATA registers read 0).
 
 ## Building MAME
 
@@ -82,17 +84,19 @@ See: [Another World VM technical details]({{ site.baseurl }}/another-world-vm/)
 - [ASL Macro Assembler](http://john.ccac.rwth-aachen.de:8000/as/) (`asl` and `p2bin`)
 - Original *Another World* game data files (DOS version)
 - Python 3 (for resource extraction)
+- A checkout of [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/kn5000-roms-disasm). The build includes the ASL sources in its `archive/asl/` tree; pass its location as `DISASM_REPO` (default `../../kn5000-roms-disasm`).
 
 ### Build
 
 ```bash
-git clone https://github.com/ArqueologiaDigital/custom-kn5000-roms.git
-cd custom-kn5000-roms/anotherworld
+git clone https://github.com/felipesanches/kn5000-anotherworld.git
+cd kn5000-anotherworld
 
 # Place your Another World DOS game files in game_data/MSDOS/
 # Required: BANK*, MEMLIST.BIN
 
-make
+make ORIGINAL_ROMS=/path/to/roms/kn5000 ROMSET_BASE=/path/to/custom-roms/anotherworld \
+     DISASM_REPO=/path/to/kn5000-roms-disasm ASL_PATH=/path/to/asl
 ```
 
 This builds a custom main CPU ROM with the game replacing the firmware, and assembles a complete MAME ROM set.
@@ -103,9 +107,9 @@ This builds a custom main CPU ROM with the game replacing the firmware, and asse
 # Standalone ROM (replaces firmware — game runs directly from boot)
 ./mame kn5000 -rompath /path/to/custom-roms/anotherworld -window -skip_gameinfo
 
-# Or use the Makefile shortcut:
-cd custom-kn5000-roms/anotherworld
-make test
+# Or use the Makefile shortcut (with the same ROM paths as for the build):
+cd kn5000-anotherworld
+make test ORIGINAL_ROMS=/path/to/roms/kn5000 ROMSET_BASE=/path/to/custom-roms/anotherworld
 ```
 
 The game starts immediately — the intro cinematic plays on the KN5000's LCD.
@@ -115,15 +119,7 @@ The game starts immediately — the intro cinematic plays on the KN5000's LCD.
 
 ### Extension ROM Mode
 
-Another World can also run as an HDAE5000 extension ROM alongside the original firmware:
-
-```bash
-cd custom-kn5000-roms/anotherworld
-make extension
-make test
-```
-
-In this mode, the game is launched from the KN5000's **DISK MENU**.
+An HDAE5000 extension build (`make extension`) also compiles, but it cannot run the game: the game's 974 KB of resources do not fit in the 512 KB extension ROM, so at most the intro could. Its ROM is written as `hd-ae5000.ic4`, which must be renamed to `hd-ae5000_v2_06i.ic4` for MAME to load it, and it is tested with `make test TARGET=extension` (plain `make test` runs the main-CPU build).
 
 ---
 
@@ -140,7 +136,7 @@ See: [HDAE5000 Homebrew Development]({{ site.baseurl }}/hdae5000-homebrew/)
 ### Build
 
 ```bash
-git clone https://github.com/ArqueologiaDigital/Mines.git
+git clone -b kn5000_port https://github.com/ArqueologiaDigital/Mines.git
 cd Mines/platforms/kn5000
 make
 ```
@@ -180,8 +176,10 @@ See: [App Loader documentation]({{ site.baseurl }}/app-loader/)
 
 ### Prerequisites
 
-- [ASL Macro Assembler](http://john.ccac.rwth-aachen.de:8000/as/)
-- `mtools` (for FAT16 disk image creation)
+- [LLVM with TLCS-900 backend](https://github.com/felipesanches/llvm-project/tree/tlcs900_backend) (`clang`, `llc`, `llvm-link`, `ld.lld`, `llvm-objcopy`)
+- Python 3 (`tools/create_disk.py` writes the FAT16 image)
+- The App Loader source, `custom-kn5000-roms/apploader/`, which has not been published yet
+- MAME built from the driver overlay (upstream's HD-AE5000 has no working ATA)
 
 ### Build
 
@@ -206,9 +204,9 @@ make
 
 After the firmware boots and the DISK MENU loads the App Loader:
 
-- **RIGHT UP / RIGHT DOWN** — Navigate the app list
-- **LEFT ENTER** — Launch selected app
-- **LEFT EXIT** — Return to menu
+- **`RIGHT 2`** (PART SELECT, port `CPR_SEG4`; MAME has a second `RIGHT 2`, the LCD soft key on `CPL_SEG8`) / **`CONDUCTOR: RIGHT 2`**: move the selection up / down
+- **`VARIATION 1`**: launch the selected app
+- **`EXIT`**: leave the App Loader
 
 ---
 
@@ -246,7 +244,7 @@ This is normal — the KN5000 driver is still in development. The warning is ski
 
 ### No sound
 
-Sound emulation is work-in-progress. The tone generator produces basic PCM waveform playback but many sounds are incomplete without the full waveform ROM set (IC304, IC305, IC306 are undumped).
+Upstream MAME's KN5000 makes no sound (`MACHINE_NO_SOUND`): the tone generator, DSP and waveform RAM are stubs. Only the driver overlay (kn7000_mame) has a tone generator, and even there many sounds are incomplete because IC304, IC305 and IC306 are undumped.
 
 ### ROM checksum mismatch warnings
 
