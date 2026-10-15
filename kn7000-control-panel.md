@@ -11,33 +11,40 @@ that light under them — is not wired directly to the main CPU. Instead it is
 **scanned by a set of dedicated panel sub-CPUs**, which report switch presses to
 the MN10300 main CPU and drive the LEDs on its behalf. This distributes the
 tedious matrix scanning off the main CPU and matches the KN5000's arrangement
-(with a different number of sub-CPUs). This page documents the panel from the
-firmware (`kn7000_program_even.rom` / `kn7000_program_odd.rom`) — the sub-CPUs, how input becomes events, and the
-LED/dial control — grounded in the service-test screens and the named handlers.
-In MAME the sub-CPU side is modelled by a dedicated high-level-emulation device,
+(with the same two M37471M2196S panel microcontrollers, CPL and CPR). This page
+documents the panel from the firmware (program build 941, v1.6:
+`kn7000_program_even_v1.6_b941.ic17` / `kn7000_program_odd_v1.6_b941.ic16` in
+MAME; every address below is that build's) — the sub-CPUs, how input becomes
+events, and the LED/dial control — grounded in the service-test screens and the
+named handlers. In MAME (mainline since
+[mamedev/mame#16250](https://github.com/mamedev/mame/pull/16250), merged
+2026-10-07) the sub-CPU side is modelled by a dedicated high-level-emulation device,
 **`kn7000_cpanel_device`**, which owns the panel's buttons and LEDs and speaks the
 serial link to the main CPU (mirroring the KN5000's `kn5000_cpanel` device).
 
 ## The panel sub-CPUs
 
-The service manual's schematics show **three panel PCBs, each with its own 8-bit
-microcomputer**, and the service-test "PANEL CPU CHECKING" / "PANEL SW&LED CHECK"
-screens enumerate **four logical groups**:
+The service manual shows **three panel PCBs but two 8-bit microcomputers**:
+IC1101 on CPL and IC1001 on CPR, both Mitsubishi M37471M2196S (house code
+`C2BBDB000023`), the part the KN5000 uses. The CPC board carries no IC: its 40
+switches and 4 LEDs are wired to the CPL board through CN1107/CN1108. The
+service-test "PANEL CPU CHECKING" / "PANEL SW&LED CHECK" screens enumerate **four
+logical groups**:
 
-| Sub-CPU | PCB | Micro | Role |
-|---------|-----|-------|------|
-| **CPL** | CPL (page 128) | IC1101 = `C2BBDB000023` | left: LCD soft-keys, style/rhythm groups, fills, performance pads |
-| **CPC** | CPC (page 130) | (8-bit micro) | centre: the part mixer — 16 `MUTE UP/DOWN`, contrast, page/exit |
-| **CPR** | CPR (page 132) | IC1001 = `C2BBDB000023` | right (**master**): sound groups & families, part select, transpose, LCD soft-keys, memory/disk. The main-CPU serial link attaches here and chains to CPL. |
-| **CPSD** | SD front panel | MN102H60 | the SD-card front-panel board. It is **not** on the panel scan link: it has its own MN102H60 and speaks to the main CPU over SIO **channel 2**, framed as MIDI. |
+| Group    | PCB                         | Micro                                              | Role                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|----------|-----------------------------|----------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **CPL**  | CPL (page 128)              | IC1101 = `C2BBDB000023`                            | left: LCD soft-keys, style/rhythm groups, fills, performance pads                                                                                                                                                                                                                                                                                                                                                                                  |
+| **CPC**  | CPC (page 130)              | none — wired to CPL's IC1101 through CN1107/CN1108 | centre: the part mixer — 16 `MUTE UP/DOWN`, contrast, page/exit                                                                                                                                                                                                                                                                                                                                                                                    |
+| **CPR**  | CPR (page 132)              | IC1001 = `C2BBDB000023`                            | right (**master**): sound groups & families, part select, transpose, LCD soft-keys, memory/disk. The main-CPU serial link attaches here and chains to CPL.                                                                                                                                                                                                                                                                                         |
+| **CPSD** | SD front panel (SDSW board) | none on the board                                  | the SD-card front-panel board: six transport switches (SW901–SW906) and two LEDs. It is **not** on the panel scan link: its switches are read as a GPIO byte at `0x9CC00008`. The SD card itself is driven by the main CPU as SPI through the shift register at `0x9805000C` (see [Storage]({{ site.baseurl }}/kn7000-storage-subsystem/)), and the SD µ-COM (IC401, MN102H60) sits on the main board, not here. SIO channel 2 is the MIDI-2 UART. |
 
 The **data dial** is a rotary encoder (`SW1101` on the ROT board). It is not a
 scan-matrix switch: the panel reports it as a continuous-controller frame on wire
 `0x10` (see *Continuous controls* below).
 
-### Button inventory (from the schematics)
+### Button inventory (as declared in MAME)
 
-All 152 front-panel buttons are now declared **by the control-panel device itself**
+All 154 front-panel buttons are now declared **by the control-panel device itself**
 (`kn7000_cpanel_device::device_input_ports()`), not by the driver — the panel
 sub-CPUs own their inputs, so their scan-matrix ports live with the HLE that
 emulates them. They are grouped into **22 scan-matrix ports named
@@ -50,25 +57,29 @@ Tempo/Program knob) likewise stay in the driver's `INPUT_PORTS` and are handed t
 device by tag, which digitises them into the same link's continuous-controller
 frames. By board:
 
-* **CPL** — `LCD Left 1–5`, `START/STOP`, `SYNCHRO & BREAK`, `INTRO & ENDING 1/2`,
-  `FILL IN 1/2`, `FADE IN/OUT`, `TAP TEMPO`, `SPLIT POINT`; the style/rhythm groups
-  (`8 & 16 BEAT`, `SOUL & FUNK`, `BALLAD`, `JAZZ COMBO`, `ROCK & POP`, `MARCH`,
-  `ENTERTAINER`, `COUNTRY`, `LATIN & WORLD`, `BALLROOM`, `MODERN DANCE`,
-  `MOVIE SHOW`, `CUSTOM`); `VARIATION & MSA 1–4`,
-  `MUSIC STYLE ARRANGER`, `PAD 1–6/SOLO`, `PERFORMANCE PADS BANK/STOP/AUTO`,
-  `ONE TOUCH PLAY`, `SOUND SET`, `MUSIC STYLIST`, `AUTO MODE`, `DEMO`,
-  `MEMORY/LOAD`, `PLAY CHORD OFF/ON`, `ARRANGER OFF/ON`.
-* **CPC** — `OTHER PARTS/TG`, `HELP`, `CONTRAST UP/DOWN`, `MUTE UP/DOWN 1–16`
+* **CPL** — `LCDL 1–5`, `START/STOP`, `SYNCHRO & BREAK`, `INTRO & ENDING 1/2`,
+  `FILL IN 1/2`, `FADE IN`, `FADE OUT`, `TAP TEMPO`, `SPLIT POINT`;
+  `RHYTHM GROUP/MEMORY` and the fifteen rhythm genres (`8 & 16 BEAT`,
+  `ROCK & POP`, `BALLAD`, `JAZZ & SWING`, `BALLROOM`, `MOVIE & SHOW`,
+  `ENTERTAINER`, `ORGANIST`, `60s & 70s`, `MODERN DANCE`, `SOUL & R&B`,
+  `COUNTRY & WESTERN`, `MARCH & WALTZ`, `LATIN & WORLD`, `CUSTOM`);
+  `VARIATION & MSA 1–4`, `MUSIC STYLE ARRANGER`, `PAD 1–4`, `PAD 5/SOLO`,
+  `PAD 6/SOLO`, `PERFORMANCE PADS/BANK`, `/STOP`, `/AUTO SETTING`,
+  `ONE TOUCH PLAY`, `SOUND SET`, `MUSIC STYLIST`, `AUTO PLAY CHORD MODE`,
+  `AUTO PLAY CHORD OFF/ON`, `ARRANGER OFF/ON`, `DEMO`.
+* **CPC** — `OTHER PART & FR`, `HELP`, `CONTRAST UP/DOWN`, `MUTE UP/DOWN 1–16`
   (the part mixer), `PAGE UP/DOWN`, `DISPLAY HOLD`, `EXIT`.
-* **CPR** — `SOUND GROUP 1–8`; the sound families (`PIANO`, `GUITAR`, `BRASS`,
-  `STRINGS & VOCAL`, `BASS`, `SYNTH`, `ORGAN & ACCORDION`, `DRUM KITS`, `WORLD`,
-  `PAD`, `MALLET & ORCH PERC`, `TAB ORGAN`, `DIGITAL DRAWBAR`, `SAX & WOODWIND`,
-  `ACCORDION REGISTER`); `PART SELECT LEFT/RIGHT 1–2`, `CONDUCTOR LEFT/RIGHT 1–2`,
-  `TRANSPOSE R1/R2 ±`, `LCD Right 1–5`, `MEMORY`, `FAVORITES`, `VARIATION`,
-  `REVERB`, `CHORUS`, `SUSTAIN`, `DIGITAL EFFECT`, `SOUND DSP`, `EFFECT MIC`,
-  `MULTI`, `TECHNI-CHORD`, `SOLO`, `SOUND SET/EXPLORER`, `EW EXPANSION`, disk/SD
-  (`DISK EASY REC`, `DISK MENU LOAD`, `DISK PLAY`, `SD CARD LOAD`, `CUSTOMIZE`,
-  `CUSTOM PANEL`, `PROGRAM MENUS`, `NEXT BANK`, `BANK VIEW`).
+* **CPR** — the sound families (`PIANO`, `GUITAR`, `BRASS`, `STRINGS & VOCAL`,
+  `BASS`, `SYNTH`, `ORGAN & ACCORDION`, `DRUM KITS`, `WORLD`, `PAD`,
+  `MALLET & ORCH PERC`, `ORGAN TABS`, `DIGITAL DRAWBAR`, `SAX & WOODWIND`,
+  `ACCORDION REGISTER`, `SOUND EXPLORER`) and `SOUND GROUP/MEMORY`;
+  `PART SELECT LEFT/RIGHT 1/RIGHT 2`, `CONDUCTOR LEFT/RIGHT 1/RIGHT 2`,
+  `TRANSPOSE +/−`, `R1/R2 OCTAVE +/−`, `LCDR 1–5`; `PANEL MEMORY 1–8`,
+  `PANEL MEMORY SET`, `BANK VIEW`, `NEXT BANK`; `FAVORITES`, `CUSTOM PANEL`,
+  `CUSTOMIZE`, `VARIATION`, `REVERB`, `CHORUS`, `SUSTAIN`, `DIGITAL EFFECT`,
+  `SOUND DSP`, `EFFECT MIC`, `MULTI`, `TECHNI-CHORD`, `SOLO`, `EW EXPANSION`,
+  `PROGRAM MENUS`, `DISK MENU LOAD`, `SD CARD LOAD`, `SEQUENCER EASY REC`,
+  `SEQUENCER PLAY`.
 
 The exact **SEG-column × SW-row** position of every switch is transcribed from
 the service-manual schematics (CPL = DIAGRAM-15 p128, own sub-CPU IC1101; CPC =
@@ -110,22 +121,22 @@ right column is spread over three.
 
 **The 16 sound families**, all on CPR:
 
-| Family | Port · mask | Family | Port · mask |
-|---|---|---|---|
-| `STRINGS & VOCAL` | `CPR_SEG0` `0x10` | `PIANO` | `CPR_SEG4` `0x10` |
-| `SYNTH` | `CPR_SEG0` `0x20` | `DIGITAL DRAWBAR` | `CPR_SEG4` `0x20` |
-| `WORLD` | `CPR_SEG1` `0x10` | `SOUND EXPLORER` | `CPR_SEG6` `0x08` |
-| `PAD` | `CPR_SEG1` `0x20` | `ORGAN & ACCORDION` | `CPR_SEG7` `0x08` |
-| `MALLET & ORCH PERC` | `CPR_SEG2` `0x10` | `DRUM KITS` | `CPR_SEG8` `0x04` |
-| `ACCORDION REGISTER` | `CPR_SEG2` `0x20` | `SAX & WOODWIND` | `CPR_SEG8` `0x08` |
-| `GUITAR` | `CPR_SEG3` `0x10` | `BASS` | `CPR_SEG9` `0x04` |
-| `TAB ORGAN` | `CPR_SEG3` `0x20` | `BRASS` | `CPR_SEG9` `0x08` |
+| Family               | Port · mask       | Family              | Port · mask       |
+|----------------------|-------------------|---------------------|-------------------|
+| `STRINGS & VOCAL`    | `CPR_SEG0` `0x10` | `PIANO`             | `CPR_SEG4` `0x10` |
+| `SYNTH`              | `CPR_SEG0` `0x20` | `DIGITAL DRAWBAR`   | `CPR_SEG4` `0x20` |
+| `WORLD`              | `CPR_SEG1` `0x10` | `SOUND EXPLORER`    | `CPR_SEG6` `0x08` |
+| `PAD`                | `CPR_SEG1` `0x20` | `ORGAN & ACCORDION` | `CPR_SEG7` `0x08` |
+| `MALLET & ORCH PERC` | `CPR_SEG2` `0x10` | `DRUM KITS`         | `CPR_SEG8` `0x04` |
+| `ACCORDION REGISTER` | `CPR_SEG2` `0x20` | `SAX & WOODWIND`    | `CPR_SEG8` `0x08` |
+| `GUITAR`             | `CPR_SEG3` `0x10` | `BASS`              | `CPR_SEG9` `0x04` |
+| `ORGAN TABS`         | `CPR_SEG3` `0x20` | `BRASS`             | `CPR_SEG9` `0x08` |
 
-**Rhythm genres.** Thirteen are bound, on two CPL columns: `CPL_SEG1` bits 2–7
-(`CUSTOM`, `ENTERTAINER`, `LATIN & WORLD`, `MOVIE SHOW`, `MARCH`, `BALLROOM`) and
-`CPL_SEG2` bits 0–5 and 7 (`COUNTRY`, `JAZZ COMBO`, `SOUL & FUNK`, `BALLAD`,
-`MODERN DANCE`, `ROCK & POP`, `8 & 16 BEAT`). Two positions in that block —
-`CPL_SEG1` `0x02` and `CPL_SEG2` `0x40` — are still `IPT_UNUSED`.
+**Rhythm genres.** All fifteen are bound, on two CPL columns: `CPL_SEG1` bits 1–7
+(`ORGANIST`, `CUSTOM`, `ENTERTAINER`, `LATIN & WORLD`, `MOVIE & SHOW`,
+`MARCH & WALTZ`, `BALLROOM`) and `CPL_SEG2` bits 0–7 (`COUNTRY & WESTERN`,
+`JAZZ & SWING`, `SOUL & R&B`, `BALLAD`, `MODERN DANCE`, `ROCK & POP`, `60s & 70s`,
+`8 & 16 BEAT`). `CPL_SEG1` bit 0 is `RHYTHM GROUP/MEMORY`.
 
 **The 16-part mute matrix**, all on CPC, two bits (ON/OFF) per part:
 
@@ -135,13 +146,16 @@ right column is spread over three.
 | `CPC_SEG8` | 3–6 | `CPC_SEG11` (bits 0–3) | 15–16 |
 | `CPC_SEG9` | 7–10 | | |
 
-Each scans its own switch matrix and drives its own LEDs; the test mode lights
-them group by group (`CPL LEDS to light`, `CPC LEDs to light`, `CPR LEDs to
-light`, `CPSD`) and asks the operator to *"Push each button and check the LED"*.
+CPL and CPR each scan a switch matrix and drive LEDs (CPL's also covers the CPC
+board); the test mode lights them group by group (`CPL LEDS to light`, `CPC LEDs
+to light`, `CPR LEDs to light`, `CPSD`) and asks the operator to *"Push each
+button and check the LED"*.
 The go/no-go results are surfaced by `PanelCPL_OKNG` / `PanelCPR_OKNG` (and
-siblings) and the panel firmware itself can be reflashed (`PanelFlashFunc`),
-which is why the test reports "CPU of CPL =" / "CPU of CPR =" as live devices
-rather than fixed logic.
+siblings), and the test reports "CPU of CPL =" / "CPU of CPR =", one line per
+panel microcontroller. The panel firmware cannot be reflashed: both MCUs are
+mask-ROM M37471M2196S parts. The one panel-named `…FlashFunc` in the firmware,
+`CustomPanelFlashFunc` (`0x484A888D`), is one of the settings writers (beside
+`MainFlashFunc` and `LangSetFlashFunc`) that persist user settings to flash.
 
 ## Switch input → events
 
@@ -172,8 +186,9 @@ event into an internal note (in parallel with the MIDI-in path). The MAME driver
 models this FIFO. All **61 keys (C2..C7)** are declared, each carrying
 `PORT_GM_NOTE` musical-note markup, so a USB-MIDI controller routed through MAME's
 midi input provider plays the whole bed; the middle two octaves (C4..C6) additionally
-keep PC tracker-style key bindings. Audible output still awaits the (undumped)
-waveform ROMs, but the note reaches the firmware.
+keep PC tracker-style key bindings. Mainline MAME makes no sound yet (the tone
+generators' registers are decoded, but the wave ROMs are undumped and the
+ADSP-21065L effects DSP is not emulated), but the note reaches the firmware.
 
 ## The data dial
 
@@ -202,21 +217,24 @@ rides the **same serial channel** as the button reports: the firmware sends a
 map is **authoritative from a real-machine lamp test** — driving the firmware's
 `F3`+`F4` service LED sweep on Felipe's own KN7000 confirmed **79 press-lit LEDs** (the
 lamp under each button). Together with the mode/indicator lamps (state LEDs such as the
-CUSTOMIZE-menu, DISK-in-use, split-point and conductor indicators), the device binds
-**101 named LED outputs**. Of the 171 decoded LED bits, **68 are marked
-`(unmapped)`** — driven by the firmware but not yet tied to a named panel function. The
-decoder still passes those through, so the layout can name them once identified.
+CUSTOMIZE-menu, DISK-in-use, split-point and conductor indicators), the layout ties
+**101** LED outputs to panel positions. The device itself names no LEDs: each frame
+sets all eight outputs of its register, numbered `8 × register + bit` (`cpr_led#` for
+registers `0x00`–`0x3F`, `cpc_led#` for `0xE1`–`0xFF`, `cpl_led#` otherwise). The
+remaining outputs are driven by the firmware but not yet tied to a panel function.
 
 ## Hardware path & serial protocol
 
 The service-manual schematics (SX-KN7000, *SCHEMATIC DIAGRAM-15* "CPL CIRCUIT")
-pin this down. **Each panel PCB carries its own 8-bit microcomputer** — on the
-CPL board it is **IC1101 = C0BDB646823** (with crystal X1101) — and that sub-CPU
-does the local work:
+pin this down. **The CPL and CPR boards each carry an 8-bit microcomputer** (the
+CPC board has none and is scanned by CPL's). On the CPL board it is
+**IC1101 = M37471M2196S** (house code `C2BBDB000023`, with a 4 MHz ceramic
+oscillator X1101), and that sub-CPU does the local work:
 
-* it **scans an 8×8 switch matrix** — eight strobe lines `SW0…SW7` against eight
-  sense columns `SEG0…SEG7`, each cell a diode + a momentary switch (`EVQ2140SR`),
-  so up to 64 buttons per board;
+* it **scans a switch matrix**: it strobes scan columns `SEG0`, `SEG1`, … and reads
+  eight sense lines `SW0…SW7` on each. Each cell is a diode + a momentary switch
+  (mostly `EVQ21405R`). CPL's scanner covers columns 0–11, five of which carry the
+  CPC board's switches; CPR's covers columns 0–9;
 * it **drives an LED matrix** through a **74LS138 (IC1102) 3-to-8 decoder** plus
   transistor rows and buffers (IC1103), the LEDs sitting under the buttons;
 * it talks to the main CPU over a **synchronous serial link** — the pins
@@ -224,18 +242,18 @@ does the local work:
   reset, and a control/attention line). CPL chains to the CPR board and on to the
   main board.
 
-On the **main-CPU side** the link is **one channel of a multi-channel USART/SIO
-ASIC** in the `0x34000000` bank at base **`0x34000800`** — traced register by
+On the **main-CPU side** the link is **channel 0 of the MN103002A's on-chip
+three-channel serial interface (SIO)**, at base **`0x34000800`** — traced register by
 register from the firmware:
 
-| Register | Role |
-|----------|------|
-| `0x34000800` | channel config/direction (low 3 bits: `\|0x07` = RX+clear, `\|0x04` = TX) |
-| `0x34000804` | channel control (set at init `0x484ABCBA`) |
-| `0x34000808` | **TX data** — LED/command bytes *out* to the sub-CPUs |
-| `0x34000809` | **RX data** — switch/panel bytes *in* |
-| `0x3400080C` | channel status |
-| `0x34000168` | interrupt-control register (ICR) for the channel |
+| Register     | Role                                                                                                                                    |
+|--------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| `0x34000800` | channel config/direction (low 3 bits: `\|0x07` = RX+clear, `\|0x04` = TX)                                                               |
+| `0x34000804` | channel control (set at init `0x484ABCBA`)                                                                                              |
+| `0x34000808` | **TX data** — LED/command bytes *out* to the sub-CPUs                                                                                   |
+| `0x34000809` | **RX data** — switch/panel bytes *in*                                                                                                   |
+| `0x3400080C` | channel status                                                                                                                          |
+| `0x34000168` | interrupt-control register of interrupt group `0x1A`, the panel's ATN line (IRQ3); the SIO channel's own RX/TX groups are `0x10`/`0x11` |
 
 The link is **interrupt-driven and half-duplex** (the same channel carries LEDs
 out and switches in):
@@ -251,10 +269,10 @@ out and switches in):
    (types 0 and 1) are edge-detected against a per-segment shadow byte —
    `CHANGED = DATA XOR shadow` — and each changed bit becomes an
    `EV_SW*`/`EV_INDEXSW_*` event via `SendEvent` (`0x48429388`).
-   **Latched/continuous controls** (type 2 — the volume faders, data dial and
-   pedal) are instead dispatched through `0x484AD680`, which forms an index
-   `((b & 0xC0) >> 3) | (b & 0x07)` into a **32-entry jump table at `0x48613108`**
-   and latches the new value (see *Continuous controls* below). Momentary keys do
+   **Latched/continuous controls** (type 2 — the volume faders, the DATA dial and
+   the TEMPO/PROGRAM knob) are instead dispatched through `0x484AD680`, which
+   forms an index `((b & 0xC0) >> 3) | (b & 0x07)` into a **32-entry jump table
+   at `0x48613108`** and latches the new value (see *Continuous controls* below). Momentary keys do
    **not** go through `0x484AD680`; they take the shadow-XOR path above.
 
 LED output rides the **same channel**: `SetHoldLed`/`SetOtherPartLed` →
@@ -271,15 +289,13 @@ main CPU reaches it over **channel 0** of this on-chip USART/SIO controller, run
 (main asserts interrupt group `0x1A`) and an **RXD** byte (pushed onto the channel-0
 receive FIFO, asserting group `0x10`). The **two sibling channels** at `0x34000810` and
 `0x34000820` are the *same* controller at a `+0x10` stride but configured for
-**asynchronous UART** framing: channel 1 is MIDI port 1 and channel 2 is the **SD
-sub-CPU (CPSD) link** (which itself frames its traffic as MIDI). That identical `+0x10`
-channel layout is what pins `0x34000800` down as the panel link.
+**asynchronous UART** framing: channel 1 is MIDI port 1 and channel 2 is MIDI port 2.
+That identical `+0x10` channel layout is what pins `0x34000800` down as the panel link.
 
 ### Continuous controls: the volume faders
 
-The four analog volume faders (MAIN, APC/SEQ, MIC, LINE IN), plus the data dial,
-the pitch/modulation controls and the expression pedal, are **not** an ADC read on
-the main CPU — they are digitised by the panel sub-CPUs and delivered as **type-2
+The four analog volume faders (MAIN, APC/SEQ, MIC, LINE IN), plus the DATA dial and
+the TEMPO/PROGRAM knob, are **not** an ADC read on the main CPU — they are digitised by the panel sub-CPUs and delivered as **type-2
 "latched control" frames** `[ADDR, DATA]` on the very same serial link. The
 `0x484AD680` dispatch routes each `ADDR` to one of **six** live handlers (the other
 26 table slots share a no-op); the four volume pots are wire addresses
@@ -311,9 +327,9 @@ Both are bound. The TEMPO knob's adjuster is an infinite rotary control, so a
 full-circle drag wraps its 0..100 range; the device takes the direction the short way
 round and emits `±1` per detent. Because the firmware adds rather than diffs, sending a
 growing absolute position drives the tempo to the 300 BPM rail regardless of which way
-the knob turns. Its raw adjuster setting is read from the field's live value rather than
-through the analog port read, whose interpolation wobble would otherwise inject spurious
-mixed-sign steps that cancel the encoder motion.
+the knob turns. (The kn7000_mame overlay reads the adjuster's live field value rather
+than the port, to avoid interpolation wobble injecting mixed-sign steps; mainline MAME
+reads the port.)
 
 When probing the KN7000 in MAME: the musical-notes-over-a-globe image a few seconds
 after launch is the **boot splash**, not the idle demo. The `PMEM` home screen appears
@@ -360,8 +376,8 @@ Distributed panel scanning by dedicated sub-CPUs, the switch-to-event flow, and
 the data-dial focus model are **shared with the KN5000**
 ([Shared Codebase Map]({{ site.baseurl }}/technics-shared-codebase/), [Control panel
 protocol]({{ site.baseurl }}/control-panel-protocol/)). The KN7000-specific detail observed here is
-the set of **four** sub-CPUs (CPL/CPC/CPR/CPSD) and their concrete test-mode and
-handler names.
+the **four** panel groups its test mode names (CPL/CPC/CPR/CPSD), of which only CPL
+and CPR carry a microcontroller, and their concrete test-mode and handler names.
 
 ## PAGE and CONTRAST
 
@@ -373,7 +389,9 @@ events, which the panel scanner delivers like any other switch:
 | **PAGE Up / Down** | `0x18` | `0x2001` / `0x2000` | `SEG0B` 0x10 / 0x20 | page-box widget `0x4841DF23` accepts key `0x18`; `AcWindowPageProc` does page +1 / −1 |
 | **CONTRAST + / −** | `0x1D` | `0x2001` / `0x2000` | `SEG05` 0x04 / 0x08 | contrast-edit filter `0x4854E693` accepts only arg-hi `0x1D`; shares the value stepper with the Tempo/Program wheel |
 
-normSeg `0x16`–`0x1A` are **not buttons** at all: they are the absolute-analog
-inputs (DATA dial, pitch-bend / modulation wheels, Tempo/Program encoder). The PAGE
+In the overlay's numbering, normSeg `0x16`–`0x19` (wire `0xD0`–`0xD3`) are the four
+volume faders, `0x1A` (wire `0x10`) is the DATA dial and `0x20` (wire `0x17`) is the
+TEMPO/PROGRAM knob. These are continuous controls, not buttons, and mainline MAME
+gives them no segment number. The PAGE
 rocker walks MULTI EFFECT `PAGE 6/8 → 7 → 8 → 7 → 6 → 5` and the within-group
 effect-type sub-pages. The LCD contrast value is driven but not rendered.

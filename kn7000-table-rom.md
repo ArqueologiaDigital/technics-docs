@@ -6,9 +6,10 @@ permalink: /kn7000-table-rom/
 
 # Technics SX-KN7000 — table ROM resource archive
 
-The KN7000's 4 MB **table ROM** (mapped at `0x48000000`, a mask ROM byte-interleaved across two
-flash chips) is not code — it is a **directory-based resource archive**. It opens with a table of
-little-endian u32 chunk offsets, and each entry points to a tagged resource.
+The KN7000's 4 MB **table ROM** (mapped at `0x48000000`: the half of the IC16/IC17 flash pair
+where A22 is low, the program being the other half, interleaved in 16-bit words with IC17
+holding the even words and IC16 the odd) is not code — it is a **directory-based resource
+archive**. It opens with a table of little-endian u32 chunk offsets, and each entry points to a tagged resource.
 
 ## Chunk kinds
 
@@ -35,9 +36,11 @@ little-endian u32 chunk offsets, and each entry points to a tagged resource.
 Scanning for JPEG streams recovers **119 images, 117 of which decode cleanly with an ordinary JFIF
 decoder** — 52 are `160×120` icons/thumbnails and twelve are full-screen `640×240` reference/help
 screens. In other words the KN7000 stores its on-screen artwork as ordinary JPEGs and decodes them
-in firmware. (A long-standing emulation note that "the boot-splash JPEG decodes to garbage" is
-therefore a **software JPEG-decoder bug**, not a bad dump or an exotic format — the source stream is
-valid JFIF.)
+in firmware. (A long-standing emulation note that "the boot-splash JPEG decodes to garbage" was
+therefore an **emulation bug**, not a bad dump or an exotic format: the source stream is valid
+JFIF. The CPU core lacked the `udf07` bit-search instruction that the firmware's JPEG decoder
+uses. With it implemented, the splash decodes pixel-clean; see
+[User Data & Initial Data Disk]({{ site.baseurl }}/kn7000-initial-data/#the-boot-splash-and-the-green-screen).)
 
 Example full-screen reference screens, extracted verbatim from the ROM:
 
@@ -53,7 +56,7 @@ A smaller `240×160` panel graphic:
 ![KN7000 panel graphic]({{ site.baseurl }}/assets/images/table-rom/icon-sample.jpg)
 
 ## Reproduce
-De-interleave `kn7000_table_{even,odd}.rom` (`out[0::4]=e[0::2]; out[1::4]=e[1::2]; out[2::4]=o[0::2];
-out[3::4]=o[1::2]`) → 4 MB image; walk the u32 directory at offset 0; extract JPEGs by scanning
-`ff d8 ff e0` → `ff d9`. See also the [firmware images]({{ site.baseurl }}/kn7000-firmware/) page for the full
-per-segment breakdown; technical detail in `kn7000_mame/notes/table-rom-format.md`.
+De-interleave MAME's table build 84 pair, `kn7000_table_even_b84.ic17` / `kn7000_table_odd_b84.ic16`
+(`out[0::4]=e[0::2]; out[1::4]=e[1::2]; out[2::4]=o[0::2]; out[3::4]=o[1::2]`) → 4 MB image;
+walk the u32 directory at offset 0; extract JPEGs by scanning `ff d8 ff e0` → `ff d9`. See also
+the [firmware images]({{ site.baseurl }}/kn7000-firmware/) page for the full per-segment breakdown; technical detail in `kn7000_mame/notes/table-rom-format.md`.

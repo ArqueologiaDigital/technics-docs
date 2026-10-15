@@ -14,9 +14,10 @@ resulting map is on the [Control Panel Protocol]({{ site.baseurl }}/kn7000-contr
 
 ## What Has to Be Determined
 
-The panel HLE declares **33 normalised scan segments** (`num_segs()` returns `0x21`) of eight
-bits each. Of those, **22 are exposed as MAME input ports** — `CP{board}_SEG{col}` for CPL,
-CPC and CPR — carrying **152 declared buttons**. A binding is one (port, mask) pair tied to one
+The panel HLE reports **22 scan segments** (`0x00`–`0x15`) of eight bits each, one per MAME
+input port (`CP{board}_SEG{col}` for CPL, CPC and CPR), carrying **154 declared buttons**. (The
+kn7000_mame overlay's older device declares 33 normalised segments, `num_segs()` = `0x21`, and
+152 buttons.) A binding is one (port, mask) pair tied to one
 silk-screened button, and it is only correct if pressing it makes the firmware do what that
 button does on the instrument.
 
@@ -73,14 +74,16 @@ keys.
 There are **two complete panel interpretations** in the shared MN10300 codebase, and a RAM flag
 at `0x5006BE94` selects between them:
 
-| Flag | Normalise table | Dispatch table |
-|---|---|---|
-| 0 | `PanelWireNormTable` (`0x486135A0`) | `0x48614978` |
-| **1 — what the KN7000 runs** | `0x48613620` | `0x486149FC` |
+| Flag                                                  | Normalise table                     | Dispatch table |
+|-------------------------------------------------------|-------------------------------------|----------------|
+| **0 — what the KN7000 runs** (tone generator present) | `PanelWireNormTable` (`0x486135A0`) | `0x48614978`   |
+| 1 (a sibling without SD)                              | `0x48613620`                        | `0x486149FC`   |
 
-`0x48614978` is a real, fully decoded dispatch table, but it is the **inactive half** on this
-model. Both tables agree on the mute part IDs, so the mute cross-check holds either way. The
-ADDR→normSeg formula and the ioport map are in `notes/panel-board-decode.md`.
+`0x486149FC` is a real, fully decoded dispatch table, but it is the **inactive half** on this
+model: the firmware selects it only when no tone generator answers. Both tables agree on the
+mute part IDs, so the mute cross-check holds either way. The ADDR→normSeg formula is in
+`notes/panel-board-decode.md`, and which bank the KN7000 runs is settled in
+`notes/panel-bank-A-is-the-kn7000.md`.
 
 The table also indexes the firmware's internal segment numbering, which is not the layout's.
 A binding read straight out of it can land on a physically different switch: an "AUTO PLAY

@@ -279,10 +279,15 @@ shapes and reuse them.*
 
 # Part II — KN7000 instantiation
 
-The concrete realisation of Part I on this panel. In MAME, the layout is not
-drawn by hand: a small generator script (`tools/gen_lay.py`) emits the layout
-file (`src/mame/layout/kn7000.lay`) that the driver loads. The values below are
-specific to the SX-KN7000 and this emulator; the *reasons* for them are in Part I.
+The concrete realisation of Part I on this panel. In the kn7000_mame overlay the
+layout is generated rather than drawn by hand: a small generator script
+(`tools/gen_lay.py`, with the shared tokens in `tools/lay_kit.py`) emits the layout
+file (`src/mame/layout/kn7000.lay`) that the driver loads. (The performance pads
+were later edited into that file directly.) Mainline MAME's `kn7000.lay` (merged
+with [mamedev/mame#16250](https://github.com/mamedev/mame/pull/16250)) is a tidied
+copy with some element names of its own (`mute_btn`, `pill_half`, `seam`), so the
+element names in §12 are the overlay's. The values below are specific to the
+SX-KN7000 and this emulator; the *reasons* for them are in Part I.
 
 ## 10. Colour tokens
 
@@ -308,18 +313,18 @@ shifted a notch darker so the resting look is the former *pressed* look (Part I
 
 ## 11. Per-control taxonomy mapping
 
-| Tier (§5) | KN7000 members |
-|-----------|----------------|
-| Metallic mirror (primary selectors) | the 16 RHYTHM GROUP + 16 SOUND GROUP buttons |
-| Silver family (performance / recall) | TEMPO / PROGRAM wheel; all pill buttons (FADE, FILL IN, INTRO & ENDING, TAP TEMPO, SYNCHRO & BREAK, TRANSPOSE, R1 / R2 OCTAVE, SD VOLUME, CONTRAST, PAGE); the 16 MUTE UP / DOWN part-buttons; the LCD left / right soft-keys; MSP pads; the 8 PANEL MEMORY buttons; CUSTOM PANEL / FAVORITES / CUSTOMIZE **sitting in a filled silver zone** (the enclosing ring is a silver disc with a dark-grey outline) |
-| Plain grey function | PART EFFECT, GLOBAL EFFECT, PART SELECT, CONDUCTOR, VARIATION, APC controls, SEQUENCER, pad-control (AUTO SETTING / BANK / STOP), OTHER PART / HELP / DISPLAY HOLD / EXIT |
-| Matte exception (hero shape, grey body) | **DEMO, SOUND EXPLORER, EW EXPANSION** — a recessed ring `#2c2c32` + grey `BTN` body: the **same moulded shape as the metallic hero buttons, different finish** (Part I §2 / §5). "Related to the metallic buttons but secondary." |
-| Media / SD subsystem | SD-card transport buttons (skip / stop / play): a dark fill (`#303036` resting, near-black `#070708` pressed) + dark-grey `#4a4a52` border, light icons — a distinct dark treatment marking the media subsystem apart (Part I §6, subsystem colour). |
-| Accent pills | orange = MUSIC STYLIST, SD LOAD; teal = START / STOP + PANEL MEMORY SET hub; red = EASY REC |
+| Tier (§5)                               | KN7000 members                                                                                                                                                                                                                                                                                                                                                                                                    |
+|-----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Metallic mirror (primary selectors)     | the 16 RHYTHM GROUP + 16 SOUND GROUP buttons; the 8 PANEL MEMORY wedges of the rosette (a recall control, but chrome on the real panel: radial gradients sampled from a photograph and neutralised to grey — an exception to §5's role → finish map)                                                                                                                                                              |
+| Silver family (performance / recall)    | TEMPO / PROGRAM wheel; all pill buttons (FADE, FILL IN, INTRO & ENDING, TAP TEMPO, SYNCHRO & BREAK, TRANSPOSE, R1 / R2 OCTAVE, SD VOLUME, CONTRAST, PAGE); the 16 MUTE UP / DOWN part-buttons; the LCD left / right soft-keys; MSP pads; the BANK VIEW / NEXT BANK wings; CUSTOM PANEL / FAVORITES / CUSTOMIZE **sitting in a filled silver zone** (the enclosing ring is a silver disc with a dark-grey outline) |
+| Plain grey function                     | PART EFFECT, GLOBAL EFFECT, PART SELECT, CONDUCTOR, VARIATION, APC controls, SEQUENCER, pad-control (AUTO SETTING / BANK / STOP), OTHER PART / HELP / DISPLAY HOLD / EXIT                                                                                                                                                                                                                                         |
+| Matte exception (hero shape, grey body) | **DEMO, SOUND EXPLORER, EW EXPANSION** — a recessed ring `#2c2c32` + grey `BTN` body: the **same moulded shape as the metallic hero buttons, different finish** (Part I §2 / §5). "Related to the metallic buttons but secondary."                                                                                                                                                                                |
+| Media / SD subsystem                    | SD-card transport buttons (skip / stop / play): a dark fill (`#303036` resting, near-black `#070708` pressed) + dark-grey `#4a4a52` border, light icons — a distinct dark treatment marking the media subsystem apart (Part I §6, subsystem colour).                                                                                                                                                              |
+| Accent pills                            | orange = MUSIC STYLIST, SD LOAD; teal = START / STOP + PANEL MEMORY SET hub; red = EASY REC                                                                                                                                                                                                                                                                                                                       |
 
-Note that the silver family spans **several shapes** — a round wheel, pills, round
-PANEL MEMORY buttons, and the *rounded-rectangle* MUTE and LCD soft-keys. This
-confirms the family is defined by **function** (the surface you perform / operate
+Note that the silver family spans **several shapes** — a round wheel, pills, the
+swept BANK VIEW / NEXT BANK wings, and the *rounded-rectangle* MUTE and LCD
+soft-keys. This confirms the family is defined by **function** (the surface you perform / operate
 on), not by a single shape (Part I §5). The finish (silver) is applied over
 whatever moulded shape the control uses.
 
@@ -338,9 +343,12 @@ Part I §2.** The concrete kit is:
   split-pill halves `half_t` / `half_b` mirrored for the two rocker sides and a
   non-clickable seam between them;
 - the page and mute rockers `page_up` / `page_dn` and `mute_up` / `mute_down`;
-- the performance pads `msp_*`, the `tempo_knob` wheel, the grouping ring
-  `pill_ring_pair`, the `lcd_soft_key`, the media `sd_btn`, and the header rule
-  lines.
+- the performance pads, six edge-sharing tiles `perf_pad1`–`perf_pad6` that
+  follow the panel's curve (edited into the layout file directly; they replace the
+  generator's earlier `msp_*` shapes), the PANEL MEMORY rosette parts
+  `pm_btn1`–`pm_btn8`, `pm_rim`, `pm_hub`, `pm_set` and `pm_wing_l` / `pm_wing_r`,
+  the `tempo_knob` wheel, the grouping ring `pill_ring_pair`, the `lcd_soft_key`,
+  the media `sd_btn`, and the header rule lines.
 
 New controls should reuse one of these; inventing a bespoke shape means a "new
 mould" and should be resisted. Concrete geometry:
@@ -410,6 +418,9 @@ mould" and should be resisted. Concrete geometry:
 
 - Exact header-bracket gaps around text are hand-set per header.
 - A formal token name for the metallic gradient does not exist yet.
+- The PANEL MEMORY wedges take the top-rung chrome finish although §5 places recall
+  controls in the silver family: the real panel's photograph overrides the role
+  rule there.
 
 ## 15. Quick decision reference
 

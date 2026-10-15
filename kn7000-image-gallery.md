@@ -10,8 +10,9 @@ The KN7000 firmware stores graphics in **two** ways:
 
 * **Standard file formats** — 169 images total (125 baseline JPEGs — photos,
   demo art — and 44 Windows BMPs — UI graphics, the digital-drawbar caps and two
-  program-ROM icons), extracted with `image_extract.py`. These are shown in the
-  sections below; each caption gives the source ROM, byte offset, and dimensions.
+  program-ROM icons), extracted with `image_extract.py` (in `kn7000_extraction`).
+  These are shown in the sections below; each caption gives the source ROM, byte
+  offset, and dimensions.
 * **Raw palette-indexed bitmaps** — exactly like the [KN5000]({{ site.baseurl }}/image-gallery/):
   headerless 4/8bpp indexed pixel data reached through a pointer hierarchy in the
   table ROM (see [Raw UI bitmaps](#raw-ui-bitmaps-table-rom) at the bottom).
@@ -37,9 +38,11 @@ ROM). Both are JPEGs in the **table ROM**. (Other 640×240 table-ROM images such
 <figure style="margin:0;text-align:center;"><img src="{{ "/assets/images/kn7000-gallery/table_06b954.jpg" | relative_url }}" loading="lazy" alt="KN7000 logo variant" style="max-width:100%;height:auto;border:1px solid #ccc;border-radius:3px;"><figcaption style="font-size:0.7rem;color:#777;">"KN7000" logo variant · table 0x4806B954</figcaption></figure>
 </div>
 
-Because these frames are **present in the dumped ROM**, the emulator's blank/green
-boot screen is a *display-path* bug (the firmware not decoding/blitting these JPEGs),
-not missing data — see [User Data & Initial Data Disk]({{ site.baseurl }}/kn7000-initial-data/#the-boot-splash-and-the-green-screen).
+Because these frames are **present in the table image**, the emulator's early
+blank/green boot screen was an emulation bug, not missing data. It had two causes,
+the display path and an unimplemented CPU instruction (`udf07`, a bit search the
+firmware's JPEG decoder uses). Both are fixed, and the emulated KN7000 now plays this
+splash; see [User Data & Initial Data Disk]({{ site.baseurl }}/kn7000-initial-data/#the-boot-splash-and-the-green-screen).
 
 ## Program ROM — icons & product photos
 
@@ -244,7 +247,7 @@ Separately from the JPEGs/BMPs above, the table ROM holds **293 headerless
 palette-indexed bitmaps** — the same storage design the KN5000 uses. They are
 reached through a pointer hierarchy: a master directory at table file `0x200`
 points to sub-tables of `{width, height, pixel_ptr}` records; the pixel data is
-raw 4/8bpp palette indices. Extract them with `table_bitmaps.py`.
+raw 4/8bpp palette indices. Extract them with `table_bitmaps.py` (in `kn7000_extraction`).
 
 These are rendered in their **true display colours**, using the 256-entry
 `0x00BBGGRR` palette found in the **program ROM at file `0x32573C`** (a 16-colour
