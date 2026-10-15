@@ -6,7 +6,7 @@ permalink: /tmp94c241-memory-controller/
 
 # TMP94C241 Memory Controller & Chip Selects
 
-Both KN5000 CPUs are Toshiba **TMP94C241F** (TLCS-900/H1) parts whose external address
+Both KN5000 CPUs are Toshiba **TMP94C241F** (TLCS-900/H2) parts whose external address
 decode is *software defined*: six programmable chip-select blocks, each with a start
 address register, an address mask register and two control bytes. Nothing on the board
 tells the CPU where the ROMs are — the firmware tells it, at boot, and can change its mind
@@ -53,8 +53,9 @@ Twenty-four bytes at SFR `0x140`–`0x157`, four per block
 > **A documentation trap worth recording.** An earlier scouting pass grepped the
 > disassembly for writes to these registers and found *nothing*, and concluded the
 > firmware never programs them. That was a false negative: the disassembler emits direct
-> SFR addresses in **decimal**, so the writes appear as `stdi8 (331), 192` rather than
-> `LD (MSAR2), 0xC0`. Search the binary, or search for `320`–`343`, not for the names.
+> SFR addresses in **decimal**, so the writes appear as `ld (331:16), 192` (formerly
+> `stdi8 (331), 192`) rather than `LD (MSAR2), 0xC0`. Search the binary, or search for
+> `320`–`343`, not for the names.
 
 ## What the firmware actually writes
 
@@ -323,7 +324,7 @@ correct rather than wrong, with two known deviations:
   hardware.
 - everything reachable only through the bootloader is dead code under MAME: the boot FDC
   driver (`0x9FD8A5`–`0x9FEA9C`), the 16-bit flash routines (`0x9FB812`+),
-  `Detect_Disk_Type` (`0x9FBFC4`), `Boot_ProbeExternalDevice`, and the boot CP-serial
+  `Boot_DetectDiskType` (`0x9FBFC4`), `Boot_ProbeExternalDevice`, and the boot CP-serial
   stack.
 
 See [MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/) for what implementing

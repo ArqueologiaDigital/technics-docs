@@ -20,7 +20,7 @@ This page provides a high-level view of the Technics KN5000 keyboard architectur
 │                 │  SIN/SOUT/CLK       │          TMP94C241F                  │
 │  2x M37471M2    │                     │                                      │
 │  ├─ 150 Buttons │                     │  Program ROM: 2MB @ 0xE00000         │
-│  ├─ 119 LEDs    │                     │  RAM: 512KB @ 0x200000               │
+│  ├─ 119 LEDs    │                     │  DRAM: 1MB @ 0x000000                │
 │  └─ 6 Encoders  │                     │                                      │
 └─────────────────┘                     │  ┌─────────────────────────────────┐ │
                                         │  │ Subsystem Handlers:             │ │
@@ -42,7 +42,7 @@ This page provides a high-level view of the Technics KN5000 keyboard architectur
 │  AUDIO OUTPUT   │            │                 │           │                 │
 │                 │            │  @ 0x110000     │           │  ROM: 512KB     │
 │  DSP Processing │            │  3.5" Floppy    │           │  RAM: 512KB     │
-│  DAC @ 0x100000 │            └─────────────────┘           │  HD: 1.08GB     │
+│  DAC (via DSPs) │            └─────────────────┘           │  HD: 1.08GB     │
 │  L/R Outputs    │                                          │  PPI @ 0x160000 │
 └─────────────────┘            ┌─────────────────┐           │  ATA @ 0x130010 │
                                │  LCD DISPLAY    │           └─────────────────┘
@@ -82,11 +82,11 @@ The KN5000 is organized into several interconnected subsystems. Click each link 
 
 ### Audio
 
-| Subsystem | Description | Documentation |
-|-----------|-------------|---------------|
-| **Audio Output** | DSP processing and DAC at 0x100000, stereo L/R outputs | [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) |
-| **Tone Generation** | Sub CPU controls synthesis engine | [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) |
-| **MIDI** | Full MIDI In/Out/Thru implementation | [MIDI Subsystem]({{ site.baseurl }}/midi-subsystem/) |
+| Subsystem           | Description                                               | Documentation                                          |
+|---------------------|-----------------------------------------------------------|--------------------------------------------------------|
+| **Audio Output**    | DSP processing (IC311, IC310) and DAC, stereo L/R outputs | [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) |
+| **Tone Generation** | Sub CPU controls synthesis engine                         | [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) |
+| **MIDI**            | Full MIDI In/Out/Thru implementation                      | [MIDI Subsystem]({{ site.baseurl }}/midi-subsystem/)   |
 
 ### Storage
 
@@ -108,7 +108,7 @@ The KN5000 is organized into several interconnected subsystems. Click each link 
 
 ### Power-On Sequence
 
-1. **Reset Vector** (0xFFFEE0) - Main CPU starts executing
+1. **Reset Vector** (0xFFFEE0) - Main CPU starts in the table-data ROM's first-stage bootloader (`RESET_HANDLER`, ROM 0x9FFEE0), which hands over to the program flash at `Boot_InitIOPorts` (0xEF050F) — see [TMP94C241 Memory Controller]({{ site.baseurl }}/tmp94c241-memory-controller/)
 2. **Hardware Init** - Initialize RAM, peripherals, interrupts
 3. **Sub CPU Boot** - Load 192KB payload via `SubCPU_Send_Payload` ([details]({{ site.baseurl }}/boot-sequence/#subcpu_send_payload-details))
 4. **Subsystem Init** - Initialize UI, MIDI, FDC, audio
@@ -160,38 +160,41 @@ See [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/) for details.
 
 ## Memory Organization
 
-| Address Range | Size | Component |
-|---------------|------|-----------|
-| 0x000000-0x001FFF | 8KB | Internal RAM (Main CPU) |
-| 0x100000-0x10FFFF | 64KB | Audio/DAC Interface |
-| 0x110000-0x11FFFF | 64KB | Floppy Disk Controller |
-| 0x140000-0x14FFFF | 64KB | Inter-CPU Communication Latch (0x120000 on the Sub CPU's bus) |
-| 0x130010-0x130020 | 16B | HDAE5000 ATA Registers |
-| 0x160000-0x160007 | 8B | HDAE5000 PPI (Parallel Port) |
-| 0x170000-0x17FFFF | 64KB | VGA/LCD Controller |
-| 0x200000-0x27FFFF | 512KB | Main RAM |
-| 0x280000-0x2FFFFF | 512KB | HDAE5000 ROM |
-| 0x300000-0x3FFFFF | 1MB | Custom Data Flash |
-| 0x800000-0x9FFFFF | 2MB | Table Data ROM |
-| 0xE00000-0xFFFFFF | 2MB | Main Program ROM |
+| Address Range     | Size  | Component                                                                                  |
+|-------------------|-------|--------------------------------------------------------------------------------------------|
+| 0x000000-0x0FFFFF | 1MB   | Work DRAM (IC9/IC10, volatile)                                                             |
+| 0x000400-0x000BFF | 2KB   | On-chip RAM (Main CPU; takes priority over the DRAM)                                       |
+| 0x110000-0x11FFFF | 64KB  | Floppy Disk Controller                                                                     |
+| 0x140000-0x14FFFF | 64KB  | Inter-CPU Communication Latch (0x120000 on the Sub CPU's bus)                              |
+| 0x150000-0x150003 | 4B    | Audio/mixer register file (address latch 0x150000, data 0x150002; chip not yet identified) |
+| 0x130010-0x130020 | 16B   | HDAE5000 ATA Registers                                                                     |
+| 0x160000-0x160007 | 8B    | HDAE5000 PPI (Parallel Port)                                                               |
+| 0x170000-0x17FFFF | 64KB  | VGA/LCD Controller                                                                         |
+| 0x1E0000-0x1FFFFF | 128KB | Battery-backed SRAM (IC21)                                                                 |
+| 0x200000-0x27FFFF | 512KB | HDAE5000 SRAM (only with the board fitted)                                                 |
+| 0x280000-0x2FFFFF | 512KB | HDAE5000 ROM                                                                               |
+| 0x300000-0x3FFFFF | 1MB   | Custom Data Flash                                                                          |
+| 0x400000-0x7FFFFF | 4MB   | Rhythm Data ROM (IC14)                                                                     |
+| 0x800000-0x9FFFFF | 2MB   | Table Data ROM                                                                             |
+| 0xE00000-0xFFFFFF | 2MB   | Main Program ROM                                                                           |
 
 See [Memory Map]({{ site.baseurl }}/memory-map/) for complete details.
 
 ## Documentation Status
 
-| Subsystem | Status | Notes |
-|-----------|--------|-------|
-| Main CPU Firmware | 100% | Byte-perfect match (239,683 native instructions) |
-| Sub CPU Boot ROM | 100% | Byte-exact rebuild of a dump that is 97% `0xFF` and 89% never read — see [Sub-CPU Boot ROM (IC30)]({{ site.baseurl }}/subcpu-boot-rom/) |
-| Sub CPU Payload | 100% | Complete disassembly |
-| Control Panel Protocol | Documented | HLE in progress for MAME |
-| HDAE5000 | 100% | ROM complete, protocol documented |
-| FDC Subsystem | Partial | Handler identified, needs integration |
-| Audio Subsystem | Documented | DSP effects, tone gen, voice management |
-| Display Subsystem | Documented | Framebuffer layout, palette, VGA registers |
-| MIDI Subsystem | Documented | 26-channel voice routing, CC handlers, SysEx |
-| UI Framework | Documented | 550+ widget handlers, event system, drawing API, property types |
-| Sequencer | Documented | 16-track engine, ring buffer pipeline, style system, medley playback |
+| Subsystem              | Status     | Notes                                                                                                                                   |
+|------------------------|------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| Main CPU Firmware      | 100%       | Byte-identical rebuild (v10: 329,465 instruction statements at disassembly `3417969c0`)                                                 |
+| Sub CPU Boot ROM       | 100%       | Byte-exact rebuild of a dump that is 97% `0xFF` and 89% never read — see [Sub-CPU Boot ROM (IC30)]({{ site.baseurl }}/subcpu-boot-rom/) |
+| Sub CPU Payload        | 100%       | Complete disassembly                                                                                                                    |
+| Control Panel Protocol | Documented | HLE upstream in MAME (#15143; data wheel #15919)                                                                                        |
+| HDAE5000               | 100%       | ROM complete, protocol documented                                                                                                       |
+| FDC Subsystem          | Partial    | Handler identified, needs integration                                                                                                   |
+| Audio Subsystem        | Documented | DSP effects, tone gen, voice management                                                                                                 |
+| Display Subsystem      | Documented | Framebuffer layout, palette, VGA registers                                                                                              |
+| MIDI Subsystem         | Documented | 26-channel voice routing, CC handlers, SysEx                                                                                            |
+| UI Framework           | Documented | 550+ widget handlers, event system, drawing API, property types                                                                         |
+| Sequencer              | Documented | 16-track engine, ring buffer pipeline, style system, medley playback                                                                    |
 
 ## Learning Paths
 

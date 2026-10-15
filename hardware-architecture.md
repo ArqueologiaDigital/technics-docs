@@ -122,17 +122,18 @@ Detailed hardware documentation extracted from the service manual schematics.
 
 **Memory Map:**
 
-| Address | Size | Description |
-|---------|------|-------------|
-| 0x0000-0x00FF | 256B | Special Function Registers (SFR) |
-| 0x0100-0x01FF | 256B | Extended SFR (memory controller, DMA, watchdog) |
-| 0x0400-0x04E0 | 225B | Interrupt trampolines (copied from ROM) |
-| 0x0500-0x05A2 | ~160B | RAM / Stack area |
-| 0x100000 | - | Audio hardware registers (DSP/DAC interface) |
-| 0x110000 | - | Keyboard/control panel interface |
-| 0x120000 | - | Inter-CPU communication latch |
-| 0x130000 | - | Tone generator registers |
-| 0xFE0000-0xFFFFFF | 128KB | Boot ROM |
+| Address           | Size  | Description                                                      |
+|-------------------|-------|------------------------------------------------------------------|
+| 0x0000-0x00FF     | 256B  | Special Function Registers (SFR)                                 |
+| 0x0100-0x01FF     | 256B  | Extended SFR (memory controller, DMA, watchdog)                  |
+| 0x0400-0x04E0     | 225B  | Interrupt trampolines (copied from ROM)                          |
+| 0x0500-0x05A2     | ~160B | RAM / Stack area                                                 |
+| 0x000000-0x0FFFFF | 1MB   | Work DRAM (IC28/IC29)                                            |
+| 0x100000          | -     | Tone generator IC303 registers (address +0, data +2)             |
+| 0x110000          | -     | Tone generator keybed data (+0) / status (+2)                    |
+| 0x120000          | -     | Inter-CPU communication latch                                    |
+| 0x130000          | -     | DSP1-associated register block (4 channels; address +0, data +2) |
+| 0xFE0000-0xFFFFFF | 128KB | Boot ROM                                                         |
 
 **I/O Capabilities:**
 - 2 serial channels (SC0, SC1)
@@ -142,21 +143,21 @@ Detailed hardware documentation extracted from the service manual schematics.
 - Multiple GPIO ports (P0-PB, PE, PF)
 - DRAM controller with refresh
 
-**Role:** Controls tone generator at 0x130000, handles audio synthesis, and communicates with main CPU via the latch pair, which sits at 0x120000 on *this* bus and 0x140000 on the main CPU's. Receives 192KB payload from main CPU at boot.
+**Role:** Controls the tone generator at 0x100000 and the DSPs, handles audio synthesis, and communicates with main CPU via the latch pair, which sits at 0x120000 on *this* bus and 0x140000 on the main CPU's. Receives 192KB payload from main CPU at boot.
 
 ### Memory
 
-| IC | Part Number | Type | Size | Function |
-|----|-------------|------|------|----------|
-| IC1 | QS6C5008E13 | ROM | 8Mbit | Table Data (ODD) |
-| IC3 | QS6C5D0ME11 | ROM | 8Mbit | Table Data (EVEN) |
-| IC4 | QV1GFKN5KAX1 | ROM | 8Mbit | Program (ODD) |
-| IC6 | QV1GFKN5KAX1 | ROM | 8Mbit | Program (EVEN) |
-| IC9 | M5M44260AJ7S | DRAM | 4Mbit | Dynamic RAM |
-| IC10 | M5M44260AJ7S | DRAM | 4Mbit | Dynamic RAM |
-| IC14 | QS6C303C301I (the driver's ROM record reads the part as `QSIGX3C23011`) | ROM | 32Mbit | Rhythm Data ROM. ⚠ **The read this project holds had address lines A19 and A21 transposed.** Service-manual page 32 shows IC14 wired straight, so the defect is in the dump, not on the board; the correction is applied on disk once and the raw read is kept beside it. See the ROM record in `src/mame/matsushita/kn5000.cpp` |
-| IC19 | QV1GFKN5KAX1 | ROM | 8Mbit | Custom Data |
-| IC21 | - | SRAM | 1Mbit | Backup (battery) |
+| IC   | Part Number                                                                          | Type  | Size   | Function                                                                                                                                                                                                                                                                                                                                                   |
+|------|--------------------------------------------------------------------------------------|-------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| IC1  | QS6C5008E13                                                                          | ROM   | 8Mbit  | Table Data (ODD)                                                                                                                                                                                                                                                                                                                                           |
+| IC3  | QS6C5D0ME11                                                                          | ROM   | 8Mbit  | Table Data (EVEN)                                                                                                                                                                                                                                                                                                                                          |
+| IC4  | QV1GFKN5KAX1                                                                         | Flash | 8Mbit  | Program (ODD)                                                                                                                                                                                                                                                                                                                                              |
+| IC6  | QV1GFKN5KAX1                                                                         | Flash | 8Mbit  | Program (EVEN)                                                                                                                                                                                                                                                                                                                                             |
+| IC9  | M5M44260AJ7S                                                                         | DRAM  | 4Mbit  | Dynamic RAM                                                                                                                                                                                                                                                                                                                                                |
+| IC10 | M5M44260AJ7S                                                                         | DRAM  | 4Mbit  | Dynamic RAM                                                                                                                                                                                                                                                                                                                                                |
+| IC14 | QS6C303C301I (the kn7000_mame overlay's ROM record reads the part as `QSIGX3C23011`) | ROM   | 32Mbit | Rhythm Data ROM. ⚠ **The read this project holds had address lines A19 and A21 transposed.** Service-manual page 32 shows IC14 wired straight, so the defect is in the dump, not on the board; the correction is applied on disk once and the raw read is kept beside it. See the ROM record in the kn7000_mame overlay's `src/mame/matsushita/kn5000.cpp` |
+| IC19 | QV1GFKN5KAX1                                                                         | Flash | 8Mbit  | Custom Data                                                                                                                                                                                                                                                                                                                                                |
+| IC21 | -                                                                                    | SRAM  | 1Mbit  | Backup (battery)                                                                                                                                                                                                                                                                                                                                           |
 
 > **Where each chip appears in the address space is set by software.** The TMP94C241 has
 > six programmable chip-select blocks, and on top of them service-manual page 32 shows a
@@ -174,39 +175,39 @@ Detailed hardware documentation extracted from the service manual schematics.
 
 The KN5000 uses different data organization depending on the ROM:
 
-| ROM | Chips | Interleaving | Size | Address Range |
-|-----|-------|-------------|------|---------------|
-| Program ROM | IC6 (even) + IC4 (odd) | 16-bit word-level | 2MB | 0xE00000-0xFFFFFF |
-| Table Data ROM | IC3 (even) + IC1 (odd) | 16-bit word-level | 2MB | 0x800000-0x9FFFFF |
-| Sub CPU Boot ROM | IC30 (internal) | None (single chip) | 128KB | 0xFE0000-0xFFFFFF |
-| Custom Data Flash | IC19 | None (single chip) | 1MB | 0x300000-0x3FFFFF |
-| HDAE5000 ROM | IC4 (expansion) | None (single chip) | 512KB | 0x280000-0x2FFFFF |
-| Sub CPU Payload | Transferred via latch | None (in-memory) | 192KB | 0x002000-0x031FFF |
+| ROM               | Chips                  | Interleaving       | Size  | Address Range                         |
+|-------------------|------------------------|--------------------|-------|---------------------------------------|
+| Program ROM       | IC6 (even) + IC4 (odd) | 16-bit word-level  | 2MB   | 0xE00000-0xFFFFFF                     |
+| Table Data ROM    | IC3 (even) + IC1 (odd) | 16-bit word-level  | 2MB   | 0x800000-0x9FFFFF                     |
+| Sub CPU Boot ROM  | IC30 (internal)        | None (single chip) | 128KB | 0xFE0000-0xFFFFFF                     |
+| Custom Data Flash | IC19                   | None (single chip) | 1MB   | 0x300000-0x3FFFFF                     |
+| HDAE5000 ROM      | IC4 (expansion)        | None (single chip) | 512KB | 0x280000-0x2FFFFF                     |
+| Sub CPU Payload   | Transferred via latch  | None (in-memory)   | 192KB | 0x000400-0x0004FF + 0x00F000-0x03EEFF |
 
 **16-bit word-level interleaving** means the two physical ROM chips store alternating 16-bit words:
 
 ```
-Combined ROM:   [WORD0_LO][WORD0_HI] [WORD1_LO][WORD1_HI] [WORD2_LO][WORD2_HI] ...
-Even chip (IC3): WORD0_LO  WORD0_HI   WORD1_LO  WORD1_HI   ...  (bytes 0,1 of each word)
-Odd chip (IC1):                                                    (bytes 0,1 of each word)
+Combined ROM:    [E0 E1] [O0 O1] [E2 E3] [O2 O3] ...   (E = even chip IC3, O = odd chip IC1)
 ```
 
 To reconstruct the combined ROM from the two chip dumps:
 ```
-combined[2*i]     = even[i]    (low byte of word i)
-combined[2*i + 1] = odd[i]     (high byte of word i)
+combined[4*i + 0] = even[2*i]      (word 2i, low byte)
+combined[4*i + 1] = even[2*i + 1]  (word 2i, high byte)
+combined[4*i + 2] = odd[2*i]       (word 2i+1, low byte)
+combined[4*i + 3] = odd[2*i + 1]   (word 2i+1, high byte)
 ```
 
 This is **not** the same as byte-level interleaving (`even[0], odd[0], even[1], odd[1]`) — each chip stores complete 16-bit values, and the CPU's 16-bit data bus reads one word at a time from the appropriate chip.
 
 ### Audio / Sound Generation
 
-| IC | Part Number | Function | Interface |
-|----|-------------|----------|-----------|
-| IC303 | TC183C230002 | Tone Generator | Memory-mapped at 0x100000 (SubCPU) |
-| IC310 | MN19413 | DSP2 (mixing/EQ) | Serial GPIO bit-bang (SubCPU) |
-| IC311 | uPD6383GF-3BA | DSP1 (effects) | Memory-mapped at 0x130000 + parallel port (P7/PZ) |
-| IC304-307 | see [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/) | Waveform ROMs, 4 MB each | Connected to IC303. **IC307 is dumped; IC304-306 are not** — the driver fills their banks with a `BAD_DUMP`-flagged copy of IC307, so voices selecting them play real-but-wrong PCM through the real paged datapath instead of silence |
+| IC        | Part Number                                                        | Function                 | Interface                                                                                                                                                                                                                                                                                                            |
+|-----------|--------------------------------------------------------------------|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| IC303     | TC183C230002                                                       | Tone Generator           | Memory-mapped at 0x100000 (SubCPU)                                                                                                                                                                                                                                                                                   |
+| IC310     | MN19413                                                            | DSP2 (mixing/EQ)         | Serial GPIO bit-bang (SubCPU)                                                                                                                                                                                                                                                                                        |
+| IC311     | uPD6383GF-3BA                                                      | DSP1 (effects)           | Memory-mapped at 0x130000 + parallel port (P7/PZ)                                                                                                                                                                                                                                                                    |
+| IC304-307 | see [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/) | Waveform ROMs, 4 MB each | Connected to IC303. **IC307 is dumped; IC304-306 are not** — the development driver in the kn7000_mame overlay fills their banks with a `BAD_DUMP`-flagged copy of IC307, so voices selecting them play real-but-wrong PCM through the real paged datapath instead of silence; upstream MAME declares them `NO_DUMP` |
 
 The tone generator IC303 handles polyphonic synthesis with 64 voice channels, while IC311 (DSP1) provides digital effects (reverb, chorus, delay, distortion) and IC310 (DSP2) handles mixing and EQ. The SubCPU controls all three via dedicated interfaces.
 
@@ -232,14 +233,14 @@ The HD-AE5000 is an optional expansion providing 1.08GB storage.
 
 **PPI Port Mapping:**
 
-| Address | Port | Function |
-|---------|------|----------|
-| 0x160000 | Port A | Data output to HD controller |
-| 0x160002 | Port B | Status input from HD controller |
-| 0x160004 | Port C | Control signals (strobe, handshake) |
-| 0x160006 | Control | PPI mode configuration (0x82) |
+| Address  | Port    | Function                                      |
+|----------|---------|-----------------------------------------------|
+| 0x160000 | Port A  | Data byte to/from the PC parallel port        |
+| 0x160002 | Port B  | Status input from the PC                      |
+| 0x160004 | Port C  | Control signals to the PC (strobe, handshake) |
+| 0x160006 | Control | PPI mode configuration (0x82)                 |
 
-**Detection:** PE port bit 0 (active low) indicates HDAE5000 presence.
+**Detection:** PE port bit 0 (active low) indicates HDAE5000 presence and gates only the PPI set-up (`HDAE5000_Parport_Setup`); the extension ROM itself is found by its `XAPR` signature at `0x280000` (`Xapr_DetectAndCallBootInit`), independently of PE.0.
 
 See [HDAE5000 page]({{ site.baseurl }}/hdae5000/) for firmware details.
 
@@ -249,10 +250,10 @@ The MN89304 provides a VGA-compatible register interface at I/O base `0x170000`.
 
 **Memory Map:**
 
-| Address | Description |
-|---------|-------------|
-| `0x170000` + port | VGA I/O registers |
-| `0x1A0000` | Video RAM base (512KB) |
+| Address               | Description                                   |
+|-----------------------|-----------------------------------------------|
+| `0x170000` + port     | VGA I/O registers                             |
+| `0x1A0000`-`0x1DFFFF` | Video RAM window (256 KB of the 512 KB IC207) |
 
 **VGA I/O Ports:**
 
@@ -286,13 +287,13 @@ Registers `0x19` and `0x1A` are MN89304-specific extensions (not standard VGA).
 
 ### Logic ICs
 
-| IC | Part Number | Function |
-|----|-------------|----------|
-| IC11 | TC74VHC139F | 2-to-4 Decoder |
-| IC12 | T7W139F | 2-to-4 Decoder |
-| IC13 | TC74VHC139F | 3-to-8 Decoder |
-| IC16B | D74HC164GS | Shift Register |
-| IC17, IC31 | TC7W32FU | Dual 2-input OR gates |
+| IC         | Part Number | Function                          |
+|------------|-------------|-----------------------------------|
+| IC11       | TC74VHC138F | 3-to-8 Decoder (A16-A18)          |
+| IC12       | T7W139F     | 2-to-4 Decoder                    |
+| IC13       | TC74VHC139F | Dual 2-to-4 Decoder (A19/A20/A22) |
+| IC16B      | D74HC164GS  | Shift Register                    |
+| IC17, IC31 | TC7W32FU    | Dual 2-input OR gates             |
 
 ## Button Mapping
 

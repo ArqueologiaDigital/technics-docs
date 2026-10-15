@@ -27,8 +27,8 @@ The KN5000 uses a dual-CPU architecture with two identical TMP94C241F processors
 │  └───────────────────────────┘  │     │  └────────────────────────────────┘  │
 │                                 │     │                                      │
 │  ┌───────────────────────────┐  │     │  ┌────────────────────────────────┐  │
-│  │ RAM: 512KB                │  │     │  │ Payload: 192KB                 │  │
-│  │ @ 0x200000-0x27FFFF       │  │     │  │ (loaded at boot from Main)     │  │
+│  │ DRAM: 1MB                 │  │     │  │ Payload: 192KB                 │  │
+│  │ @ 0x000000-0x0FFFFF       │  │     │  │ (loaded at boot from Main)     │  │
 │  └───────────────────────────┘  │     │  └────────────────────────────────┘  │
 │                                 │     │                                      │
 │  Responsibilities:              │     │  Responsibilities:                   │
@@ -64,15 +64,15 @@ The TMP94C241F is a Toshiba 32-bit microcontroller from the TLCS-900/H2 family.
 
 ### On-Chip Peripherals
 
-| Peripheral | Description |
-|------------|-------------|
-| RAM | 2 KB on-chip, at `0x000400-0x000BFF` |
-| Timers | 8x 16-bit timers |
-| Serial | 2x UART, 1x SIO |
-| DMA | 4-channel MicroDMA |
-| Interrupt | Multi-level interrupt controller |
-| I/O Ports | Multiple 8-bit ports |
-| ADC | 10-bit ADC (optional) |
+| Peripheral | Description                                                                   |
+|------------|-------------------------------------------------------------------------------|
+| RAM        | 2 KB on-chip, at `0x000400-0x000BFF`                                          |
+| Timers     | 4 × 8-bit (T0–T3) and 4 × 16-bit (T4, T6, T8, TA; two compare registers each) |
+| Serial     | 2 channels (SC0, SC1), UART or I/O-interface mode                             |
+| DMA        | 4-channel MicroDMA                                                            |
+| Interrupt  | Multi-level interrupt controller                                              |
+| I/O Ports  | Multiple 8-bit ports                                                          |
+| ADC        | 10-bit ADC (optional)                                                         |
 
 ### Register File
 
@@ -100,24 +100,25 @@ The TMP94C241F is a Toshiba 32-bit microcontroller from the TLCS-900/H2 family.
 
 ### Memory Map
 
-| Address Range | Size | Description |
-|---------------|------|-------------|
-| 0x000000-0x0003FF | 1KB | Special Function Registers |
-| 0x000400-0x000BFF | 2KB | On-chip RAM (takes priority over the external DRAM below) |
-| 0x000000-0x0FFFFF | 1MB | Work DRAM — 2 × 4 Mbit at IC9/IC10 on CS3, **volatile** |
-| 0x100000-0x10FFFF | 64KB | Audio/DAC Interface |
-| 0x110000-0x11FFFF | 64KB | Floppy Disk Controller |
-| 0x120000-0x12FFFF | 64KB | Floppy DMA acknowledge (**not** the inter-CPU latch) |
-| 0x140000-0x14FFFF | 64KB | Inter-CPU Latch (IC22/IC23) |
-| 0x130010-0x130020 | 16B | HDAE5000 ATA |
-| 0x160000-0x160007 | 8B | HDAE5000 PPI |
-| 0x170000-0x17FFFF | 64KB | VGA Controller |
+| Address Range     | Size  | Description                                                  |
+|-------------------|-------|--------------------------------------------------------------|
+| 0x000000-0x0003FF | 1KB   | Special Function Registers                                   |
+| 0x000400-0x000BFF | 2KB   | On-chip RAM (takes priority over the external DRAM below)    |
+| 0x000000-0x0FFFFF | 1MB   | Work DRAM — 2 × 4 Mbit at IC9/IC10 on CS3, **volatile**      |
+| 0x110000-0x11FFFF | 64KB  | Floppy Disk Controller                                       |
+| 0x120000-0x12FFFF | 64KB  | Floppy DMA acknowledge (**not** the inter-CPU latch)         |
+| 0x140000-0x14FFFF | 64KB  | Inter-CPU Latch (IC22/IC23)                                  |
+| 0x150000-0x150003 | 4B    | Audio/mixer register file (address 0x150000, data 0x150002)  |
+| 0x130010-0x130020 | 16B   | HDAE5000 ATA                                                 |
+| 0x160000-0x160007 | 8B    | HDAE5000 PPI                                                 |
+| 0x170000-0x17FFFF | 64KB  | VGA Controller                                               |
 | 0x1E0000-0x1FFFFF | 128KB | Battery-backed SRAM (1 Mbit, IC21) — the only persistent RAM |
-| 0x280000-0x2FFFFF | 512KB | HDAE5000 ROM |
-| 0x300000-0x3FFFFF | 1MB | Custom Data Flash (IC19) |
-| 0x400000-0x7FFFFF | 4MB | Rhythm Data ROM (IC14) |
-| 0x800000-0x9FFFFF | 2MB | Table Data ROM |
-| 0xE00000-0xFFFFFF | 2MB | Program ROM |
+| 0x200000-0x27FFFF | 512KB | HDAE5000 SRAM (only with the board fitted)                   |
+| 0x280000-0x2FFFFF | 512KB | HDAE5000 ROM                                                 |
+| 0x300000-0x3FFFFF | 1MB   | Custom Data Flash (IC19)                                     |
+| 0x400000-0x7FFFFF | 4MB   | Rhythm Data ROM (IC14)                                       |
+| 0x800000-0x9FFFFF | 2MB   | Table Data ROM                                               |
+| 0xE00000-0xFFFFFF | 2MB   | Program ROM                                                  |
 
 See [Memory Map]({{ site.baseurl }}/memory-map/) for complete details.
 
@@ -131,13 +132,13 @@ See [Memory Map]({{ site.baseurl }}/memory-map/) for complete details.
 
 The 2MB Main CPU ROM is organized as:
 
-| Component | Description |
-|-----------|-------------|
-| Reset Vector | Entry point at 0xFFFEE0 |
-| Interrupt Vectors | Exception handlers |
-| Boot Code | Hardware initialization |
-| Subsystem Handlers | UI, MIDI, FDC, etc. |
-| Data Tables | Fonts, graphics, strings |
+| Component          | Description                                                                                                                                                              |
+|--------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Reset handler      | `RESET_HANDLER` at 0xEF03C6; the first-stage bootloader hands over at `Boot_InitIOPorts` (0xEF050F). The CPU's own reset entry, 0xFFFEE0, is the table-data bootloader's |
+| Interrupt Vectors  | Exception handlers                                                                                                                                                       |
+| Boot Code          | Hardware initialization                                                                                                                                                  |
+| Subsystem Handlers | UI, MIDI, FDC, etc.                                                                                                                                                      |
+| Data Tables        | Fonts, graphics, strings                                                                                                                                                 |
 
 ### Reconstruction Status
 
@@ -152,7 +153,7 @@ measured and by which script.
 The parallel ports are the main CPU's connection to the front panel's pedals, the
 extension slot and the flash devices. What each bit does is established from the
 firmware's own reads and from the direction registers the boot code programs; the SFR
-addresses are `PD = 0x30`, `PE = 0x38`, `PG = 0x40`, `PZ = 0x68`.
+addresses are `PD = 0x34`, `PE = 0x38`, `PG = 0x40`, `PZ = 0x68`.
 
 | Port bit | Direction | Function |
 |---|---|---|
@@ -167,7 +168,7 @@ addresses are `PD = 0x30`, `PE = 0x38`, `PG = 0x40`, `PZ = 0x68`.
 | P7.5 | input | flash ready/busy, polled before every flash command |
 
 **Port G is the pedal port, and its pins are active low.** `PanelInput_ScanPedalPorts`
-(`v10/maincpu/audio/audio_control_engine.s:1848`, reached from `PanelInput_Poll`)
+(`v10/maincpu/audio/audio_control_engine.s:2093`, reached from `PanelInput_Poll`)
 reads `PG` three times per periodic tick: bits 3:2 are shifted down and stored as the foot
 switch byte at DRAM `0x8EB6`, and bits 7:4 are shifted down and stored as the foot
 controller byte at `0x8EBA`. The polarity is not an inference — the firmware's own idle
@@ -176,17 +177,19 @@ a released panel reads `0xFC`. When the test matches, the firmware arms a 500-co
 debounce at `0x8EC8` and skips the write. The routine's auto-generated name is misleading;
 its body is a foot-switch and foot-controller scan.
 
-**PE.0 gates the whole HD-AE5000 initialisation.** On the normal boot path,
-`Boot_FlashAndExtensions` (`v10/maincpu/kn5000_v10_program.s:571`) tests
-`bit 0, (PE:8)` (SFR 0x38) and skips the extension entirely when it reads 1; when it reads 0 — and
-the region code is not 4 — it calls `HDAE5000_Parport_Setup`, which programs the uPD71055
-PPI and makes the hard disk reachable. The boot programs `PECR = 0x20`, so PE.0 is an
-input and the strap is genuinely external.
+**PE.0 gates the HD-AE5000's PPI set-up, not its detection.** On the normal boot path,
+`Boot_FlashAndExtensions` (`v10/maincpu/kn5000_v10_program.s:1343`) tests
+`bit 0, (PE:8)` (SFR 0x38) and skips `HDAE5000_Parport_Setup` when it reads 1; when it reads
+0 — and the region code is not 4 — it calls it, which programs the uPD71055 PPI. The
+extension ROM itself is found without PE.0: `ScreenGroup_ReInit` ends in
+`Xapr_DetectAndCallBootInit` (`v10/maincpu/factory_test/test_init.s:546`), which compares
+`XAPR` at `0x280000` and calls `0x280008` whenever it matches. The boot programs
+`PECR = 0x20`, so PE.0 is an input and the strap is genuinely external.
 
 **Port E is programmed twice, and the second write is the operative one.** Early boot
 writes `PECR = 0x20`, which on its own would make PE.5 the port's only output. On the
 unconditional path that follows, `CPanel_InitHardware`
-(`v10/maincpu/ui/cpanel_routines.s:95-98`, reached from `kn5000_v10_program.s:584` through
+(`v10/maincpu/ui/cpanel_routines.s:95-98`, reached from `kn5000_v10_program.s:1357` through
 `CPanel_InitDispatchTable[0]`) writes `PEFC = 0x00` and then **`PECR = 0x46`** — outputs on
 PE.1, PE.2 and PE.6 only. PE.0 and PE.5 are therefore **inputs** in the running machine, and
 the same bytes appear in v7 and v9.
@@ -205,21 +208,22 @@ not ground truth. Either PD.6 is dual-purpose or one of the two readings is wron
 
 ### Memory Map
 
-| Address Range | Size | Description |
-|---------------|------|-------------|
-| 0x000400-0x000BFF | 2KB | On-chip CPU RAM (bypasses the external bus) |
-| 0x000000-0x0FFFFF | 1MB | Work DRAM — 2 × 4 Mbit at IC28/IC29 |
-| 0x002B00-0x002B1F | 32B | Ring buffer control (MIDI message queue from Main CPU) |
-| 0x002000-0x031FFF | 192KB | Payload RAM (loaded from Main CPU at boot) |
-| 0x100000-0x10FFFF | 64KB | Tone Generator hardware registers |
-| 0x120000 | 1B | Inter-CPU communication latch (`0x140000` on the main CPU's bus) |
-| 0x130000-0x130002 | 4B | DSP registers (uPD6383GF-3BA: address + data) |
-| 0xFE0000-0xFFFFFF | 128KB | Boot ROM |
+| Address Range                        | Size  | Description                                                                                                                   |
+|--------------------------------------|-------|-------------------------------------------------------------------------------------------------------------------------------|
+| 0x000400-0x000BFF                    | 2KB   | On-chip CPU RAM (bypasses the external bus)                                                                                   |
+| 0x000000-0x0FFFFF                    | 1MB   | Work DRAM — 2 × 4 Mbit at IC28/IC29                                                                                           |
+| 0x002B00-0x002B1F                    | 32B   | Ring buffer control (MIDI message queue from Main CPU)                                                                        |
+| 0x000400-0x0004FF, 0x00F000-0x03EEFF | 192KB | Payload RAM (loaded from Main CPU at boot; see [Payload Image Extents]({{ site.baseurl }}/memory-map/#payload-image-extents)) |
+| 0x100000-0x10FFFF                    | 64KB  | Tone Generator hardware registers                                                                                             |
+| 0x110000-0x110003                    | 4B    | Tone generator keybed data (+0) / status (+2)                                                                                 |
+| 0x120000                             | 1B    | Inter-CPU communication latch (`0x140000` on the main CPU's bus)                                                              |
+| 0x130000-0x130003                    | 4B    | DSP1-associated register block (4 channels; address at 0x130000, data at 0x130002) — not the uPD6383GF host interface         |
+| 0xFE0000-0xFFFFFF                    | 128KB | Boot ROM                                                                                                                      |
 
 ### Boot Process
 
 1. Sub CPU starts from reset vector in Boot ROM (0xFFFEE0)
-2. Initializes DMA and latch configuration (`InterCPU_Latch_Setup` at 0x020B3B)
+2. Initializes DMA and serial for the latch (`INIT_DMA_SERIAL`, 0xFF85AE, in the boot ROM; the payload later runs its own `InterCPU_Latch_Setup`, 0x020C15)
 3. Receives 192KB payload from Main CPU via DMA transfer
 4. Main CPU verifies payload checksums (`SubCPU_Payload_Verify`)
 5. Jumps to payload entry point
@@ -227,10 +231,10 @@ not ground truth. Either PD.6 is dual-purpose or one of the two readings is wron
 
 ### Firmware Components
 
-| Component | Size | Status |
-|-----------|------|--------|
-| Boot ROM (IC30) | 128KB | 100% byte-match, and zero verbatim debt. ⚠ **Only 4,352 of the chip's 131,072 bytes have ever been read** — the rest of the file is `0xFF` standing in for undumped content, so "100% covered" is true over a 3.3% denominator |
-| Payload (v1.42) | 192KB | 100% byte-match, zero verbatim debt |
+| Component       | Size  | Status                                                                                                                                                                                                                                                                                         |
+|-----------------|-------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Boot ROM (IC30) | 128KB | 100% byte-match, and zero verbatim debt. ⚠ **Only 14,336 of the chip's 131,072 bytes (10.9%) have ever been read** — the other 116,736 bytes are `0xFF` standing in for undumped content, and only 4,352 bytes of the file are not `0xFF` — so "100% covered" is true over a 10.9% denominator |
+| Payload (v1.42) | 192KB | 100% byte-match, zero verbatim debt                                                                                                                                                                                                                                                            |
 
 ### The RTOS is not bespoke
 
@@ -249,23 +253,23 @@ built). A run that starts at the same offset in both enclosing routines (ALIGNED
 script's strongest sign that the two names label the same routine. That is how the subcpu lane (September 2026) found several
 main-CPU kernel names to be wrong. The main-CPU source still carries these names:
 
-| Sub CPU (v1.42, named from the code) | Main CPU (v10 label) | aligned run |
-|:---|:---|:---|
-| `TaskSched_SpawnTask` | `Show_ScreenGroup_Entry` (0xEF1B9C) | 63 B at +32 |
-| `TaskSched_ExitCurrentTask` | `Show_ScreenGroup_Entry_0x7A` | 20 B at +29 |
-| `TaskSched_PreemptiveYield` | `TaskSched_YieldToQueue` | 63 B at +21 |
-| `TaskSched_Block_Self` — blocks the **calling** task | `TaskSched_Resume` (0xEF1CEC) | 56 B at +15 |
-| `TaskEvent_Signal` / `TaskEvent_Wait_SuspendTask` | `TaskSched_SignalEvent` / `TaskSched_WaitForEvent_Block` | 38 B / 30 B |
-| `TaskSem_Release` (semaphore V) | `Audio_Lock_Release` (0xEF1F0F) | 44 B at +39 |
-| `TaskSem_Release_WakeWaiter` | `AudioLock_Release_WakeWaiter` | 16 B at +56 |
-| `TaskSem_TryDec` / `TaskSem_GetCount` | `AudioLock_TryAcquire` / `AudioLock_GetCount` | 22 B / 26 B |
-| `TaskMsgQ_Send` / `TaskMsgQ_Receive` | `TaskMsg_Send` / `TaskMsg_Receive` | 41 B at +37 and 54 B at +102 / 39 B at +23 |
+| Sub CPU (v1.42, named from the code)                 | Main CPU (v10 label)                                     | aligned run                                |
+|:-----------------------------------------------------|:---------------------------------------------------------|:-------------------------------------------|
+| `TaskSched_SpawnTask`                                | `Show_ScreenGroup` (0xEF1B9C)                            | 63 B at +32                                |
+| `TaskSched_ExitCurrentTask`                          | `SndTable_ByteBlock_ReadOps_Helper` (0xEF1C16)           | 20 B at +29                                |
+| `TaskSched_PreemptiveYield`                          | `TaskSched_YieldToQueue`                                 | 63 B at +21                                |
+| `TaskSched_Block_Self` — blocks the **calling** task | `TaskSched_Resume` (0xEF1CEC)                            | 56 B at +15                                |
+| `TaskEvent_Signal` / `TaskEvent_Wait_SuspendTask`    | `TaskSched_SignalEvent` / `TaskSched_WaitForEvent_Block` | 38 B / 30 B                                |
+| `TaskSem_Release` (semaphore V)                      | `Audio_Lock_Release` (0xEF1F0F)                          | 44 B at +39                                |
+| `TaskSem_Release_WakeWaiter`                         | `AudioLock_Release_WakeWaiter`                           | 16 B at +56                                |
+| `TaskSem_TryDec` / `TaskSem_GetCount`                | `AudioLock_TryAcquire` / `AudioLock_GetCount`            | 22 B / 26 B                                |
+| `TaskMsgQ_Send` / `TaskMsgQ_Receive`                 | `TaskMsg_Send` / `TaskMsg_Receive`                       | 41 B at +37 and 54 B at +102 / 39 B at +23 |
 
 So **`Audio_Lock_Acquire` / `Audio_Lock_Release` are the kernel's generic semaphore P/V
 routines**, not an audio-specific lock. Their "lock index" is a semaphore number. The audio
 command path happens to use semaphore 7 (see
 [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/#lock-mechanism)).
-`Show_ScreenGroup_Entry` spawns a task. `TaskSched_Resume` puts the calling task to sleep
+`Show_ScreenGroup` spawns a task. `TaskSched_Resume` puts the calling task to sleep
 rather than resuming another. The run table also pairs the scheduler's init and dispatch
 (`TaskSched_Init_TaskDescriptors` / `TaskSched_InitTCBFields`,
 `TaskSched_Dispatch_ScanQueues` / `TaskSched_ScanPriorityQueues`) and the timer tick
@@ -291,32 +295,32 @@ The Sub CPU's primary role is real-time audio synthesis and effects processing. 
 - Filter frequency clamped to max 0x1C
 
 **DSP Effects Processing (uPD6383GF-3BA):**
-- Memory-mapped DSP at 0x130000 (address) / 0x130002 (data)
+- A DSP1-associated register block at 0x130000 (address) / 0x130002 (data); the uPD6383GF itself is loaded over port PZ with port-7 strobes
 - 4 effect channels × 32 registers each
-- Bytecode interpreter at 0x03C32E (1,613 bytes, 6 native handlers)
-- Real-time parameter updates via `DSP_ParameterWriteEngine` (0x03C673)
+- Bytecode interpreter `DSP_BytecodeInterpreter_Init` (0x03C259); six native opcode handlers (1,613 bytes) from 0x03C32E
+- Real-time parameter updates via `DSP_ParameterWriteEngine` (0x03C9E6)
 - See [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) for DSP details
 
 **Hardware I/O:**
-- Port E bit 0: Audio mute control (confirmed by `MUTE_AND_HALT` routine at 0x9360)
+- Port E bit 0: cleared by the NMI handler `MUTE_AND_HALT` (0x01FBF4) just before it halts; read as an active-low mute, which the source records as an assumption
 - Parallel port (P7/PZ): DSP command/data protocol for effect program loading
 - DMA Channel 0: Inter-CPU latch data transfer (interrupt-driven)
 
 ## Inter-CPU Communication
 
-The CPUs communicate via a hardware latch at 0x120000. The Main CPU sends MIDI-like command streams to the Sub CPU for audio synthesis control.
+The CPUs communicate via one pair of hardware latches (IC22/IC23), which the Main CPU addresses at 0x140000 and the Sub CPU at 0x120000. The Main CPU sends MIDI-like command streams to the Sub CPU for audio synthesis control.
 
 ### Transfer Mechanism
 
-| Component | Main CPU | Sub CPU |
-|-----------|----------|---------|
-| Latch Address | 0x120000 (write) | 0x120000 (read) |
-| Transfer Function | `Audio_DMA_Transfer` (0xEF32F4) | `MICRODMA_CH0_HANDLER` (0x020F1F) |
-| Direction | Main → Sub (primary) | Sub → Main (status/ack) |
+| Component         | Main CPU              | Sub CPU                           |
+|-------------------|-----------------------|-----------------------------------|
+| Latch Address     | 0x140000              | 0x120000                          |
+| Transfer Function | `sendCOMM` (0xEF32F4) | `MICRODMA_CH0_HANDLER` (0x020F1F) |
+| Direction         | Main → Sub (primary)  | Sub → Main (status/ack)           |
 
 ### Data Flow
 
-1. Main CPU writes MIDI-like messages to latch at 0x120000
+1. Main CPU writes MIDI-like messages to the latch at 0x140000 (0x120000 on the Sub CPU's bus)
 2. Sub CPU's MicroDMA Channel 0 fires interrupt on data arrival
 3. `MICRODMA_CH0_HANDLER` dispatches received bytes to command parser
 4. Bytes accumulate in ring buffer at 0x2B0D
@@ -326,10 +330,10 @@ The CPUs communicate via a hardware latch at 0x120000. The Main CPU sends MIDI-l
 
 At boot, the Main CPU transfers the 192KB Sub CPU payload via the same latch:
 
-| Function | Address | CPU | Purpose |
-|----------|---------|-----|---------|
-| `SubCPU_Payload_Transfer` | 0xEF0620 | Main | Send 192KB payload |
-| `SubCPU_Payload_Verify` | 0xEF06A0 | Main | Verify checksums (DRAM 0xFFD2/0xFFD4) |
+| Function                | Address  | CPU  | Purpose                               |
+|-------------------------|----------|------|---------------------------------------|
+| `SubCPU_Send_Payload`   | 0xEF068A | Main | Send 192KB payload                    |
+| `SubCPU_Payload_Verify` | 0xEF092B | Main | Verify checksums (DRAM 0xFFD2/0xFFD4) |
 
 The payload checksums are stored in Main CPU DRAM at 0xFFD2 and 0xFFD4, preserved across power cycles via NVRAM save (triggered by SNS NMI).
 
@@ -342,8 +346,10 @@ See [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/) for full protoc
 The project uses **LLVM** with a custom TLCS-900 backend as the authoritative build system for all thirteen gated images:
 
 ```bash
-# Build all ROMs (from roms-disasm/)
+# Build the nine KN5000 images (from roms-disasm/); make everything also builds the four SX-WSA1R images
 make all
+# Certify all thirteen images byte-identical
+make gate-all
 
 # Pipeline: llvm-mc → ld.lld → llvm-objcopy → raw binary
 llvm-mc -triple=tlcs900 -filetype=obj source.s -o output.o
@@ -360,18 +366,17 @@ The ASL Macro Assembler (used historically) is archived in `archive/asl/`.
 As of March 2026, the LLVM backend encodings that were missing at the time (R+d16, 16-bit
 direct, 8-bit direct, F2 immediate stores, etc.) had all been implemented, and the disassembly
 repository's own milestone commits describe "all executable code" as converted for that
-effort. **This is not the current state.** Re-running the repository's own
-`scripts/analysis/audit_byte_code.py` classifier (2026-09) still finds several hundred `.byte`
-blocks across the sub-CPU boot ROM, HDAE5000 and table-data sources that the tool classifies
-as already decodable as native instructions by the current LLVM backend — 397 blocks (20,851
-bytes), concentrated in `table_data/preset_banks.s` (18,763 bytes) and
-`hdae5000/hdae5000_data_tables.s` (722 bytes) — plus 3 small blocks (19 bytes) that still need
-further backend work. Converting `.byte` fallbacks to native mnemonics is therefore an ongoing
-effort, not a completed one; see [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/)
-for the current tracking page. (Note: the classifier's "decodable" label means llvm-mc can
-round-trip the bytes as valid instructions, not that a block is proven to be code rather than
-data that happens to disassemble cleanly — treat the counts as leads, per the tool's own
-caveat.)
+effort. The repository's `scripts/analysis/audit_byte_code.py` classifier, re-run at disassembly
+commit `3417969c0` (2026-10-06), reports 422 `.byte` blocks (22,846 bytes) that llvm-mc can
+decode as instructions. 418 of them (22,818 bytes) are in the table data, almost all in
+`table_data/style_records.s` (18,270 bytes) and `table_data/tone_database_aux.s` (4,502
+bytes): style records and tone-database tables that merely happen to decode. The rest are 3
+blocks (12 bytes) in the HD-AE5000 and 1 block (16 bytes) in the sub-CPU boot ROM. The tool
+does not scan the main-CPU (v10/v9/v7), sub-CPU payload (v1.42) or SX-WSA1R trees, so it says
+nothing about code still held as `.byte` there; see
+[Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/). (The classifier's
+"decodable" label means llvm-mc can round-trip the bytes, not that a block is code. Treat the
+counts as leads.)
 
 ## Related Pages
 
@@ -389,41 +394,41 @@ caveat.)
 
 ### Main CPU Boot & Init
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| Reset Vector | `0xFFFEE0` | CPU entry point |
-| `MainCPU_self_test_routines` | `0xEF0400` | Boot-time self tests |
-| `Get_Firmware_Version` | `0xEF0534` | Read version byte from 0xFFFFE8 |
-| `MainLoop` | `0xEF1245` | Main event loop entry |
-| `INTT1_HANDLER` | `0xEF0BF9` | Timer 1 interrupt (SYSTEM_TIMESTAMP) |
-| `SC0Init_Entry` | `0xFCF890` | MIDI serial port initialization |
-| `Boot_DisplayScreen` | `0xEF05D0` | Boot screen display |
+| Symbol                                  | Address                                  | Purpose                                                         |
+|-----------------------------------------|------------------------------------------|-----------------------------------------------------------------|
+| `RESET_HANDLER` (table-data bootloader) | `0x9FFEE0` (seen at `0xFFFEE0` at reset) | CPU entry point                                                 |
+| `MainCPU_self_test_routines`            | `0xFB729E`                               | Boot-time self tests (called from `Boot_RunSelfTest`, 0xEF0529) |
+| `Get_Firmware_Version`                  | `0xFFFEE5`                               | Read version byte from 0xFFFFE8                                 |
+| `MainLoop`                              | `0xEF1245`                               | Main event loop entry                                           |
+| `INTT1_HANDLER`                         | `0xEF0BF9`                               | Timer 1 interrupt (SYSTEM_TIMESTAMP)                            |
+| `SC0Init_Entry`                         | `0xFCF897`                               | MIDI serial port initialization                                 |
+| `Boot_DisplayScreen`                    | `0xEF0620`                               | Boot screen display                                             |
 
 ### Sub CPU
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| Reset Vector | `0xFFFEE0` | Sub CPU entry point (Boot ROM) |
-| `InterCPU_Latch_Setup` | `0x020B3B` | DMA and latch configuration |
-| `MICRODMA_CH0_HANDLER` | `0x020F1F` | Command dispatcher (DMA interrupt) |
-| `MIDI_Dispatch` | `0x034D93` | MIDI message parser/router |
-| `Voice_NoteOn` | `0x02CF97` | Voice note-on processing |
-| `Voice_CtrlChange` | `0x02A282` | Voice CC processing and dispatch |
-| `Voice_LoadFilterTable_Ch` | `0x022071` | Per-channel filter frequency/LPF |
-| `DSP_Bytecode_Programs` | `0x03C32E` | DSP effect bytecode interpreter (1,613B) |
-| `DSP_ParameterWriteEngine` | `0x03C673` | Real-time DSP parameter update engine |
-| `MUTE_AND_HALT` | `0x009360` | Audio mute via PE.0 and halt |
+| Symbol                         | Address    | Purpose                                                                                                                   |
+|--------------------------------|------------|---------------------------------------------------------------------------------------------------------------------------|
+| Reset Vector                   | `0xFFFEE0` | Sub CPU entry point (Boot ROM)                                                                                            |
+| `InterCPU_Latch_Setup`         | `0x020C15` | DMA and latch configuration                                                                                               |
+| `MICRODMA_CH0_HANDLER`         | `0x020F1F` | Command dispatcher (DMA interrupt)                                                                                        |
+| `MIDI_Dispatch`                | `0x034D93` | MIDI message parser/router                                                                                                |
+| `Voice_NoteOn`                 | `0x02CF97` | Voice note-on processing                                                                                                  |
+| `Voice_CtrlChange`             | `0x02A282` | Voice CC processing and dispatch                                                                                          |
+| `Voice_LoadFilterTable_Ch`     | `0x027534` | Per-channel filter frequency/LPF                                                                                          |
+| `DSP_BytecodeInterpreter_Init` | `0x03C259` | DSP effect bytecode interpreter; its six opcode handlers (1,613B) start at `DSP_Bytecode_Op00_Groups5_ParamMix`, 0x03C32E |
+| `DSP_ParameterWriteEngine`     | `0x03C9E6` | Real-time DSP parameter update engine                                                                                     |
+| `MUTE_AND_HALT`                | `0x01FBF4` | NMI handler: clears PE.0 (read as mute), then halts                                                                       |
 
 ### Inter-CPU Communication
 
-| Symbol | Address | CPU | Purpose |
-|--------|---------|-----|---------|
-| `Audio_DMA_Transfer` | `0xEF32F4` | Main | Send MIDI to Sub CPU via latch |
-| `SubCPU_Payload_Transfer` | `0xEF0620` | Main | Load 192KB payload to Sub CPU |
-| `SubCPU_Payload_Verify` | `0xEF06A0` | Main | Verify payload checksums |
+| Symbol                  | Address    | CPU  | Purpose                                                        |
+|-------------------------|------------|------|----------------------------------------------------------------|
+| `sendCOMM`              | `0xEF32F4` | Main | Send MIDI/command data to Sub CPU via latch, in 32-byte chunks |
+| `SubCPU_Send_Payload`   | `0xEF068A` | Main | Load 192KB payload to Sub CPU                                  |
+| `SubCPU_Payload_Verify` | `0xEF092B` | Main | Verify payload checksums                                       |
 
 ## External References
 
 - [TMP94C241 Datasheet](https://www.alldatasheet.com/datasheet-pdf/pdf/47265/TOSHIBA/TMP94C241.html) - CPU specifications
 - TLCS-900 Programming Manual — **link unverified**: `https://archive.org/details/toshiba-tlcs900` 404s as of this review (2026-09); see [TLCS-900 Instruction Encoding Reference]({{ site.baseurl }}/tlcs900-instruction-encoding/#references) for unconfirmed candidate replacements
-- [LLVM TLCS-900 Backend](https://github.com/ArqueologiaDigital/llvm-project) - Custom LLVM backend for TLCS-900 (corrected from `niclasr/llvm-project`: this was the only page on the site using that name, against ~50 pages naming `ArqueologiaDigital/llvm-project` for the same backend; neither URL is confirmed publicly reachable, so this is an internal-consistency fix, not a verified-live link)
+- [LLVM TLCS-900 Backend](https://github.com/felipesanches/llvm-project/tree/tlcs900_backend) - Custom LLVM backend for TLCS-900

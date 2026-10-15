@@ -86,7 +86,7 @@ VGA I/O ports are memory-mapped to CPU address `0x170000 + port_number`:
 
 ### VGA Initialization Values
 
-The `VGA_Setup` routine (0xEF51A5) configures the full register set at boot. Key values:
+The `VGA_Setup` routine (0xEF55A7) configures the full register set at boot. Key values:
 
 **Sequencer Registers (via ports 0x3C4/0x3C5):**
 
@@ -210,7 +210,7 @@ This means the CRTC offset register value is multiplied by 8 to get the actual b
 | Row stride | 320 bytes |
 | Pixel addressing | `VRAM_BASE + y * 320 + x` |
 
-The framebuffer is linear and row-major. The active display occupies the first 76,800 bytes; the remaining ~185KB is unused but accessible.
+The framebuffer is linear and row-major, and the active display occupies the first 76,800 bytes. The rest of the window is not idle. `Vga_SetupMultiPlaneDisplay` (0xEF09EA) copies work-DRAM blocks (from `0xF180` and `SEQ_SONG_SLOTS`) to `0x1B4000`-`0x1BFFFF`. It then selects write planes 1-3 with `Vga_SelectWritePlane` (0xEF09A8), which writes `(plane << 4) | 1` to MN89304 sequencer index 8 between writes of 1 and 0 to index 6, and copies further blocks into each plane at `0x1A0000`. `Vga_RestoreMultiPlaneDisplay` (0xEF0A73) copies them all back.
 
 ## Display Update Mechanism
 
@@ -236,20 +236,20 @@ This means:
 - The HDAE5000 Frame_Handler runs **after** the firmware's display update
 - Any VRAM writes by extension code will be overwritten on the next loop iteration unless the firmware's drawing is disabled
 
-### Display Disable Flag
+### Step-record display flag (`0x0D53` bit 3)
 
-The firmware checks a flag byte at address `0x0D53` before performing display updates. Setting bit 3 of this byte disables all firmware-driven LCD rendering:
+`0x0D53` is a work-DRAM flag byte of the sequencer's step-record screen (TT_SQSTEP). Bit 3 is 0 at power-on (the byte lies in the block `Boot_InitWorkRAM` zero-fills). `SqStep_InitOnEnter` (0xEFA133) sets it when that screen is entered, and `SqStep_RestoreOnLeave` (0xEFA8CE) clears it when the screen is left. The main loop's `Display_DirtyRegionDispatch` (0xEF77DF) runs the step-record screen's dirty-region update only while the bit is set:
 
 ```asm
-; At 0xEF77DF (main display update gate):
-BIT 3, (0D53h)           ; Check display disable flag
-JRL Z, skip              ; If bit 3 CLEAR, skip display entirely
+; At 0xEF77DF (Display_DirtyRegionDispatch):
+BIT 3, (0D53h)           ; Step-record screen active?
+JRL Z, skip              ; If bit 3 CLEAR, skip the step-record update
 CALL Display_ResetDirtyFlags
 ; ... dispatches via state byte (0D65h) ...
 CALL Display_UpdateDirtyRegions
 ```
 
-This check occurs at four firmware locations (`0xEF77DF`, `0xEFAA40`, `0xF59C11`, `0xF59D65`), gating all display update code paths. When bit 3 is set, the firmware skips dirty-region tracking, state-based display dispatch, and VRAM writes — allowing an extension ROM to take full control of the framebuffer. See [HDAE5000 Homebrew]({{ site.baseurl }}/hdae5000-homebrew/#display-disable-flag-sfr-0x0d53-bit-3) for usage details.
+v10 tests this bit at eight places: five in `display/scoop_display.s` (among them `Display_DirtyRegionDispatch`) and three in `sequencer/accompaniment_engine.s`. It is **not** a display-disable flag. It is clear in normal operation and the firmware's UI draws regardless, so neither setting nor clearing it hands the framebuffer to an extension ROM.
 
 ### Workspace Display Callbacks
 
@@ -294,30 +294,28 @@ This ensures all VRAM/buffer writes happen in a single task context, avoiding co
 
 ### Draw Command Queue
 
-The draw queue is a **circular buffer** managed by `DrawQueue_Alloc` (0xFAA4ED):
+The draw queue is a **circular buffer** managed by `DrawQueue_Alloc` (0xFAA444):
 
-| Property | Value |
-|----------|-------|
-| Base address | 0x030466 |
-| Size | 8KB (0x2000 bytes) |
-| Write pointer | 0x03246A |
-| Read pointer | 0x032474 |
-| Entry count | 0x03247A (modular counter, wraps at 0x7C entries) |
-| Synchronization | Event 3 (wait/signal) + Event 4 (audio lock) |
+| Property        | Value                                                                                                                              |
+|-----------------|------------------------------------------------------------------------------------------------------------------------------------|
+| Base address    | 0x030466                                                                                                                           |
+| Size            | 8KB (0x2000 bytes)                                                                                                                 |
+| Write pointer   | 0x03246A                                                                                                                           |
+| Read pointer    | 0x032474                                                                                                                           |
+| Entry count     | 0x03247A (modular counter, wraps at 0x7C entries)                                                                                  |
+| Synchronization | Event 3 (wait/signal) + semaphore 4 (taken with the kernel's generic `Audio_Lock_Acquire`/`Audio_Lock_Release`; not an audio lock) |
 
 Each queued command starts with a 4-byte function pointer (the `DrawXxx_Impl` address), followed by serialized parameters (8-28 bytes depending on the primitive). When the draw task processes a command, it calls the function pointer with the parameter block.
 
 ### Graphics Initialization
 
-`InitializeGraphics` (0xFAA4FA) performs the following at boot:
+`InitializeGraphics` (0xFAA547) performs the following at boot:
 
 1. Initialize draw task (`InitDrawTask`)
 2. Show screen group 5 and enable palette
 3. Initialize palette RGB tables (`InitPaletteRGB`)
 4. Set wallpaper (index 0) and palette (index 2)
-5. Clear two offscreen buffers (each 0x9600 = 38,400 bytes) at 0x43C00 with `Memset(0)`
-
-The two buffers at 0x43C00 and 0x4D200 (each 320x120 = 38,400 bytes) suggest a **split-screen double-buffering** scheme where the top and bottom halves of the 320x240 display are rendered independently.
+5. Clear `OFFSCREEN_BUFFER_1` (76,800 bytes at 0x43C00) with two `Memset(0)` calls of 0x9600 bytes each (the count is a 16-bit word)
 
 ### Address Calculation
 
@@ -327,7 +325,7 @@ All drawing functions convert (x, y) pixel coordinates to buffer offsets using:
 offset = y * 320 + x
 ```
 
-The multiplication `y * 320` is computed via shifts: `(y << 2 + y) << 6 = y * 5 * 64`. This is implemented in the shared helper `Set_XWA_to_320_times_XDE` at `0xEF5023`.
+The multiplication `y * 320` is computed via shifts: `(y << 2 + y) << 6 = y * 5 * 64`. This is implemented in the shared helper `Set_XWA_to_320_times_XDE` at `0xEF5088`.
 
 ### Drawing Modes
 
@@ -357,27 +355,27 @@ Several primitives support multiple drawing modes specified by a mode code:
 
 ### Pixel Operations
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| `ReadPixel` | 0xFAA7B4 | Read 8-bit color from offscreen buffer at (x, y) |
-| `ModifyPixel` | 0xFAA7E4 | Write single pixel to offscreen buffer |
-| `ModifyPixelEx` | 0xFAA84A | Extended pixel op: write/clear/OR/AND/XOR modes |
+| Function        | Address  | Description                                      |
+|-----------------|----------|--------------------------------------------------|
+| `ReadPixel`     | 0xFAA7B2 | Read 8-bit color from offscreen buffer at (x, y) |
+| `ModifyPixel`   | 0xFAA7E4 | Write single pixel to offscreen buffer           |
+| `ModifyPixelEx` | 0xFAA844 | Extended pixel op: write/clear/OR/AND/XOR modes  |
 
 ### Rectangle Operations
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| `VRAM_FillRect` | 0xEF50DF | Fill 6×12 pixel rect directly in VRAM with solid color |
-| `DrawWall` | 0xFABB74 | Fill entire screen from source buffer (wallpaper/splash) |
-| `DrawRect` | 0xFB0D14 | Rectangle outline: drawn at once when XSP is inside 0x1C032-0x1D032 (`IS_XSP_INSIDE_4K_REGION_AT_1C032`), otherwise queued as a `DrawRect_CallbackBlock` record (the same pattern as `ColorBlit` and `DrawText_QueueOrDirect`) |
-| `DrawRect_Impl` | 0xFB0D8C | The outline itself: clips the box to (0,0)-(319,239), then four `DrawLineWithMode_Impl` sides (one line when y0 = y1) and `SetChangeRect` |
+| Function        | Address  | Description                                                                                                                                                                                                                    |
+|-----------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `VRAM_FillRect` | 0xEF50DF | Fill 6×12 pixel rect directly in VRAM with solid color                                                                                                                                                                         |
+| `DrawWall`      | 0xFABB73 | Fill entire screen from source buffer (wallpaper/splash)                                                                                                                                                                       |
+| `DrawRect`      | 0xFB0D14 | Rectangle outline: drawn at once when XSP is inside 0x1C032-0x1D032 (`IS_XSP_INSIDE_4K_REGION_AT_1C032`), otherwise queued as a `DrawRect_CallbackBlock` record (the same pattern as `ColorBlit` and `DrawText_QueueOrDirect`) |
+| `DrawRect_Impl` | 0xFB0D8C | The outline itself: clips the box to (0,0)-(319,239), then four `DrawLineWithMode_Impl` sides (one line when y0 = y1) and `SetChangeRect`                                                                                      |
 
 ### Line Drawing
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| `DrawLine` | 0xFAA98A | Bresenham line from point A to point B |
-| `DrawLineEx` | 0xFAAA3E | Extended line with drawing mode (write/XOR/etc.) |
+| Function     | Address  | Description                                      |
+|--------------|----------|--------------------------------------------------|
+| `DrawLine`   | 0xFAA98A | Bresenham line from point A to point B           |
+| `DrawLineEx` | 0xFAAF12 | Extended line with drawing mode (write/XOR/etc.) |
 
 Both use Bresenham's algorithm with optimized fast paths for horizontal lines (`dy = 0`), vertical lines (`dx = 0`), and general diagonal lines. The color 0xF5 triggers pattern-fill mode where each pixel's color is read from a secondary buffer instead of using a fixed color.
 
@@ -393,11 +391,11 @@ The firmware uses a **bitmap descriptor table** in ROM at `0x913000`. Each entry
 
 Bitmap pixel data is stored as packed 16-bit words (2 pixels per word). Color `0xF7` in bitmap data is treated as transparent (pixel skipped).
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| `DrawBitmap` | 0xFABC3A | Draw bitmap with transparency (0xF7 = transparent) |
-| `DrawBitmapFast` | 0xFABE0E | Draw bitmap without transparency check (opaque only) |
-| `MovePixels` | 0xFABA60 | Copy rectangular pixel block within offscreen buffer |
+| Function                             | Address  | Description                                                 |
+|--------------------------------------|----------|-------------------------------------------------------------|
+| `DrawBitmap`                         | 0xFABC3C | Draw bitmap with transparency (0xF7 = transparent)          |
+| `DrawBitmapFast`                     | 0xFABE13 | Draw bitmap without transparency check (opaque only)        |
+| `MovePixels`                         | 0xFABA53 | Copy rectangular pixel block within offscreen buffer        |
 | `Draw_FlashMemUpdate_message_bitmap` | 0xEF5040 | Draw 224×22 monochrome (1bpp) bitmap for firmware update UI |
 
 ### Text Rendering
@@ -417,24 +415,24 @@ For **variable-width fonts** (kerning_table_ptr ≠ 0), the kerning table has 4-
 
 Character codes are offset by 0x20 (space) before table lookup. Glyphs are rendered as 1bpp bitmaps decomposed into 8-pixel-wide vertical strips, drawn left-to-right, top-to-bottom. All text rendering clips against a specified rectangle.
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| `DrawString` | 0xFACACE | Core text renderer: draws null-terminated string |
-| `DrawStringCentered` | 0xFACF17 | Center text horizontally and vertically in rect |
-| `DrawStringLeftJustify` | 0xFACFBA | Left-align text (x = rect.left + 4), center vertically |
-| `DrawStringRightJustify` | 0xFAD004 | Right-align text (x = rect.right - 4 - width) |
-| `DrawStringAlignment` | 0xFAD052 | Dispatch by mode: 0=center, 1=left, 2=right |
-| `DrawStringReverse` | 0xFAD091 | Draw with swapped fg/bg colors (selection highlight) |
+| Function                 | Address  | Description                                            |
+|--------------------------|----------|--------------------------------------------------------|
+| `DrawString`             | 0xFACACA | Core text renderer: draws null-terminated string       |
+| `DrawStringCentered`     | 0xFACEAC | Center text horizontally and vertically in rect        |
+| `DrawStringLeftJustify`  | 0xFACF4A | Left-align text (x = rect.left + 4), center vertically |
+| `DrawStringRightJustify` | 0xFACFB1 | Right-align text (x = rect.right - 4 - width)          |
+| `DrawStringAlignment`    | 0xFAD049 | Dispatch by mode: 0=center, 1=left, 2=right            |
+| `DrawStringReverse`      | 0xFAD084 | Draw with swapped fg/bg colors (selection highlight)   |
 
 ### Font Helper Functions
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| `GetCharHeight` | 0xFB25ED | Return character height from font table (+0x02) |
-| `GetCharDescent` | 0xFB25F9 | Return character descent from font table (+0x04) |
-| `CalcTotalWidth` | 0xFB270D | Calculate total pixel width of rendered string |
-| `ConvertStrings` | 0xFB264F | Convert control codes to displayable format (0x7E prefix = escape) |
-| `WordwrapStrings` | 0xFB26D2 | Word-wrap text for multi-line layout |
+| Function          | Address  | Description                                                        |
+|-------------------|----------|--------------------------------------------------------------------|
+| `GetCharHeight`   | 0xFB260A | Return character height from font table (+0x02)                    |
+| `GetCharDescent`  | 0xFB2617 | Return character descent from font table (+0x04)                   |
+| `CalcTotalWidth`  | 0xFB26D1 | Calculate total pixel width of rendered string                     |
+| `ConvertStrings`  | 0xFB2640 | Convert control codes to displayable format (0x7E prefix = escape) |
+| `WordwrapStrings` | 0xFB275A | Word-wrap text for multi-line layout                               |
 
 ### Character Encoding
 
@@ -460,20 +458,20 @@ Source: `scripts/converters/text_tables_retype.py` in the disassembly repository
 
 ### Font Catalog
 
-The firmware contains **10 fonts** (IDs 0-9) in the Table Data ROM. Each font has 224 characters (ASCII 0x20-0xFF). All glyph data resides at `0x945C00`-`0x94FF00`.
+The firmware contains **10 fonts** (IDs 0-9) in the Table Data ROM. Each font has 224 characters (ASCII 0x20-0xFF). All font data resides at `0x945C00`-`0x950A5F` (descriptors to `0x945CAF`, glyphs from `0x945CB0`).
 
-| ID | Size | Type | Kerning | Description |
-|----|------|------|---------|-------------|
-| 0 | 8×16 | Fixed | No | Standard UI font |
-| 1 | 8×16 | Fixed | No | Standard UI font (bold variant) |
-| 2 | 16×16 | Fixed | No | Wide/bold font (double-width) |
-| 3 | 6×8 | Fixed | No | Small font (compact displays) |
-| 4 | 11×16 | Fixed | No | Medium-wide font |
-| 5 | var×16 | Variable | Yes | Proportional font (widths 3-10px) |
-| 6 | 8×10 | Fixed | No | Compact font (reduced height) |
-| 7 | 8×16 | Fixed | No | Standard UI font (alternate style) |
-| 8 | 8×16 | Fixed | No | Standard UI font (alternate bold) |
-| 9 | 11×16 | Fixed | No | Medium-wide font (alternate) |
+| ID | Size   | Type     | Kerning | Description                                             |
+|----|--------|----------|---------|---------------------------------------------------------|
+| 0  | 8×16   | Fixed    | No      | UI font, UI-symbol upper page                           |
+| 1  | 8×16   | Fixed    | No      | Font 0 with glyphs 2 px higher in the cell              |
+| 2  | 16×16  | Fixed    | No      | Double-width headline font                              |
+| 3  | 6×8    | Fixed    | No      | Small font                                              |
+| 4  | 11×16  | Fixed    | No      | Large font                                              |
+| 5  | var×16 | Variable | Yes     | Proportional font (widths 3-10 px), Latin-1 accent page |
+| 6  | 8×10   | Fixed    | No      | Compact font                                            |
+| 7  | 8×16   | Fixed    | No      | Font 0 letterforms, Latin-1 accent page                 |
+| 8  | 8×16   | Fixed    | No      | Font 1 letterforms, Latin-1 accent page                 |
+| 9  | 11×16  | Fixed    | No      | Font 4 letterforms, Latin-1 accent page                 |
 
 **Variable-width font (ID 5):** Uses a kerning table at `0x94C620` with 4-byte entries per character: `{word char_width, word glyph_offset}`. Each glyph uses `ceil(width/8) × height` bytes. Character widths range from 3 to 10 pixels.
 
@@ -530,12 +528,14 @@ Each region has a dedicated redraw function that references ROM descriptor table
 
 ### Display State
 
-The display state byte at address `0x0D65` (SFR 3429) selects the active screen mode:
+The byte at address `0x0D65` (decimal 3429 in the disassembly; a work-DRAM byte, not an SFR) is the step-record screen's display mode, 0-3. `SqStep_SetDisplayModeFromTrack` sets it from the cursor track's TRACK ASSIGN entry, and `Timer_ModeDispatch` uses its low two bits to index a 4-entry table:
 
-| Value | Mode |
-|-------|------|
-| 0 | Default/normal display |
-| 2 | Alternative layout (different descriptor sets used) |
+| Value | Mode              |
+|-------|-------------------|
+| 0     | chord / APC track |
+| 1     | note track        |
+| 2     | CONTROL track     |
+| 3     | RHYTHM track      |
 
 The state byte influences which ROM descriptors are selected by redraw functions, allowing the same regions to display different content based on the active screen mode.
 
@@ -617,9 +617,9 @@ The display update system tracks 11 independent screen regions. Each region has 
 
 ### Change Tracking
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| `SetChangeRect` | 0xFAA760 | Expand dirty bounding box to include drawn region |
+| Function        | Address  | Description                                       |
+|-----------------|----------|---------------------------------------------------|
+| `SetChangeRect` | 0xFAA762 | Expand dirty bounding box to include drawn region |
 
 The bounding box is maintained at:
 
@@ -636,12 +636,12 @@ In the source (each maincpu tree's `shared/ram_variables.s`): `DIRTY_BBOX` (0x03
 
 ### Offscreen Buffers
 
-| Buffer | Address | Size | Purpose |
-|--------|---------|------|---------|
-| OFFSCREEN_BUFFER_1 | 0x043C00 | 76,800 bytes | Primary render target (all drawing goes here) |
-| OFFSCREEN_BUFFER_2 | 0x056800 | 76,800 bytes | Secondary buffer (scrolling/animation) |
-| OFFSCREEN_BUFFER_3 | 0x05FE00 | 76,800 bytes | Tertiary buffer (compositing) |
-| OFFSCREEN_BUFFER_4 | 0x069400 | 76,800 bytes | Quaternary buffer (sprites/overlays) |
+| Buffer             | Address  | Size                                     | Purpose                                       |
+|--------------------|----------|------------------------------------------|-----------------------------------------------|
+| OFFSCREEN_BUFFER_1 | 0x043C00 | 76,800 bytes                             | Primary render target (all drawing goes here) |
+| OFFSCREEN_BUFFER_2 | 0x056800 | 38,400 bytes (0x9600 to the next buffer) | Secondary buffer (scrolling/animation)        |
+| OFFSCREEN_BUFFER_3 | 0x05FE00 | 38,400 bytes (0x9600 to the next buffer) | Tertiary buffer (compositing)                 |
+| OFFSCREEN_BUFFER_4 | 0x069400 | 76,800 bytes                             | Quaternary buffer (sprites/overlays)          |
 
 ## UI Widget Rendering
 
@@ -649,32 +649,32 @@ In the source (each maincpu tree's `shared/ram_variables.s`): `DIRTY_BBOX` (0x03
 
 In addition to the pixel-level drawing primitives, the firmware provides higher-level shape drawing functions:
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| `DrawBox` | 0xFAB295 | Fill a rectangle with solid color (clip to 0-319, 0-239) |
-| `DrawFrame` | 0xFAB400 | Draw rectangle outline (4 border lines, no fill) |
-| `DrawFrameEx` | 0xFAB8CC | Styled frame with XOR support and screen clipping |
-| `DrawDesignFrame` | 0xF9C8B7 | Decorative frame with special border patterns |
-| `DrawDesignBox` | 0xFAD559 | Styled box with type-specific rendering |
+| Function          | Address  | Description                                              |
+|-------------------|----------|----------------------------------------------------------|
+| `DrawBox`         | 0xFAB273 | Fill a rectangle with solid color (clip to 0-319, 0-239) |
+| `DrawFrame`       | 0xFAB3DE | Draw rectangle outline (4 border lines, no fill)         |
+| `DrawFrameEx`     | 0xFAB809 | Styled frame with XOR support and screen clipping        |
+| `DrawDesignFrame` | 0xF9C86F | Decorative frame with special border patterns            |
+| `DrawDesignBox`   | 0xFAD559 | Styled box with type-specific rendering                  |
 
 ### Icon Rendering
 
 The firmware maintains a separate **icon descriptor table** at `0x938000` (in Table Data ROM), using the same 8-byte format as the bitmap table:
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| `DrawIcons` | 0xFABF61 | Draw icon from table at 0x938000 |
-| `DrawBitmapSP` | 0xFAC0CB | Draw bitmap with special color mapping |
-| `DrawBitmapSPFast` | 0xFAC1FF | Fast special bitmap rendering |
-| `DrawBitmapSP2` | 0xFAC38D | Alternative special bitmap variant |
-| `DrawBitmapFile` | 0xFAC3FB | Draw bitmap from file/external data |
+| Function           | Address  | Description                            |
+|--------------------|----------|----------------------------------------|
+| `DrawIcons`        | 0xFABF3F | Draw icon from table at 0x938000       |
+| `DrawBitmapSP`     | 0xFAC1EC | Draw bitmap with special color mapping |
+| `DrawBitmapSPFast` | 0xFAC3DB | Fast special bitmap rendering          |
+| `DrawBitmapSP2`    | 0xFAC509 | Alternative special bitmap variant     |
+| `DrawBitmapFile`   | 0xFAC697 | Draw bitmap from file/external data    |
 
 ### Progress Bar Widgets
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| `DrawProgressRectH` | 0xF99E75 | Horizontal progress bar (3 modes: center, left, right fill) |
-| `DrawProgressRectV` | 0xF99F7D | Vertical progress bar (3 modes: center, top, bottom fill) |
+| Function            | Address  | Description                                                 |
+|---------------------|----------|-------------------------------------------------------------|
+| `DrawProgressRectH` | 0xF96180 | Horizontal progress bar (3 modes: center, left, right fill) |
+| `DrawProgressRectV` | 0xF9635E | Vertical progress bar (3 modes: center, top, bottom fill)   |
 
 ### Widget Event Handlers
 
@@ -691,13 +691,13 @@ Many domain-specific widget types exist for the keyboard's various modes (arrang
 
 ### LCD Control
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| `LcdOn` | 0xFAA5B6 | Enable LCD output (set flag at 0x030464) |
-| `LcdOff` | 0xFAA5DB | Disable LCD output |
-| `ChangePalette` | 0xFAF34E | Switch color palette |
-| `ChangeWall` | 0xFAF21C | Load background wallpaper |
-| `ChangeWallPalette` | 0xFAF26C | Change palette for wallpaper |
+| Function            | Address  | Description                              |
+|---------------------|----------|------------------------------------------|
+| `LcdOn`             | 0xFAA5B6 | Enable LCD output (set flag at 0x030464) |
+| `LcdOff`            | 0xFAA5DB | Disable LCD output                       |
+| `ChangePalette`     | 0xFAF2C7 | Switch color palette                     |
+| `ChangeWall`        | 0xFAF20B | Load background wallpaper                |
+| `ChangeWallPalette` | 0xFAF25B | Change palette for wallpaper             |
 
 ## Embedded Images
 
@@ -762,10 +762,10 @@ During large updates, `VGA_ScreenBlank` (0xFB319A) blanks the display by setting
 
 The firmware implements fade effects through VGA DAC palette manipulation:
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| ChangePalette | 0xFAF2F3 | Switch to a new 256-color palette from table at 0xEAAE66 |
-| PaletteBankRotation | 0xFAF346 | Rotate pixel values through palette banks for fade effect |
+| Function            | Address  | Description                                                                                     |
+|---------------------|----------|-------------------------------------------------------------------------------------------------|
+| `ChangePalette`     | 0xFAF2C7 | Switch to a new 256-color palette from table at 0xEAAE66 (body: `ChangePalette_Impl`, 0xFAF2F3) |
+| `PaletteBankRotate` | 0xFAF346 | Rotate pixel values through palette banks for fade effect                                       |
 
 **Palette table** at `0xEAAE66`: entries are 10 bytes each, containing pointers to RGB palette data. The firmware supports 16 palette banks of 16 colors each (0x00-0x0F through 0xE0-0xEF).
 
@@ -787,39 +787,34 @@ This rotates all pixels one palette bank forward. Combined with palettes arrange
 In the source: `PALETTE_DATA_PTR_CACHED` (0x03EF94), `PALETTE_INDEX_CACHED` (0x03EF9E),
 `PALETTE_INDEX_PREVIOUS` (0x03EFA0) and `PALETTE_UPDATE_FLAG` (0x030460).
 
-### Grid-Based Screen Transitions
+### Fade-setting grid box
 
-Complex screen transitions use a grid-based dissolve effect:
+| Function             | Address  | Description                                                        |
+|----------------------|----------|--------------------------------------------------------------------|
+| AcFadeSetGridBoxProc | 0xF75229 | Grid-box widget procedure (cell redraw, header row/column strings) |
+| FadeSetGridCheck     | 0xF754BE | Grid parameter validation and dispatch                             |
+| TtFadeInOut          | 0xF751EB | Fade-in/out state machine (Entertainer mode)                       |
 
-| Function | Address | Description |
-|----------|---------|-------------|
-| AcFadeSetGridBoxProc | 0xF7514A | Grid fade effect processor (event-driven) |
-| FadeSetGridCheck | 0xF75377 | Grid parameter validation and dispatch |
-| TtFadeInOut | 0xF75118 | Fade-in/out state machine (Entertainer mode) |
+`AcFadeSetGridBoxProc` answers `EVT_REQUEST_GRID_DRAW` (redraw one cell), `EVT_GET_FIXED_ROW_STR` and `EVT_GET_FIXED_COL_STR` (header labels) and `EVT_SHOW` directly, and dispatches seven index-switch events (from `EVT_INDEXSW_UP`) through `AcFadeSetGridBoxProc_CaseTable` (0xE7F964). Nothing in it fades the screen.
 
-The grid effect divides the screen into cells and fades them individually with staggered timing, creating a "dissolve" appearance. Configuration uses ROM lookup tables:
-- `0xE7F948` — fade-in timing table
-- `0xE7F956` — fade-out timing table
-- `0xE7F964` — jump table for 7 sub-handlers (events 0x17-0x1D)
+### Fade In / Fade Out bitmaps
 
-### Pre-Computed Fade Data
+Four 8 bpp bitmaps, drawn by `VwUserBitmapProc` through `DrawBitmapSPFast`, label the Fade In / Fade Out controls:
 
-Four binary data blobs in ROM store pre-computed fade transition patterns:
-
-| Label | Address | Size | Purpose |
-|-------|---------|------|---------|
-| Bitmap_FadeInPicture | 0xEB8072 | 2800 | Picture fade-in transition data |
-| Bitmap_FadeInText | 0xEB8B62 | 1440 | Text fade-in transition data |
-| Bitmap_FadeOutPicture | 0xEB9102 | 2850 | Picture fade-out transition data |
-| Bitmap_FadeOutText | 0xEB9C24 | 2160 | Text fade-out transition data |
+| Label                 | Address  | Size | Purpose                                  |
+|-----------------------|----------|------|------------------------------------------|
+| Bitmap_FadeInPicture  | 0xEB8072 | 2800 | 112×25 crescendo wedge                   |
+| Bitmap_FadeInText     | 0xEB8B62 | 1440 | 80×18 "FADE IN" lettering                |
+| Bitmap_FadeOutPicture | 0xEB9102 | 2850 | 113×25 (row stride 114) diminuendo wedge |
+| Bitmap_FadeOutText    | 0xEB9C24 | 2160 | 108×20 "FADE OUT" lettering              |
 
 ### Timer-Driven Animation
 
-Animation timing is handled by the `IvOneShotTimerProc` (0xF8A122) event handler, which provides single-shot timer callbacks for UI animation frame ticks.
+Animation timing is handled by the `IvOneShotTimerProc` (0xF96025) event handler, which provides single-shot timer callbacks for UI animation frame ticks.
 
 ### Screen Transition State Machine
 
-The `MainTitleCtrl_ChangeTitle` (0xF99579) handler manages full-screen mode transitions (e.g., switching between sequencer screens, entering demo mode). It coordinates state variables at:
+The `MainTitleCtrl_ChangeTitle` (0xF9936D) handler manages full-screen mode transitions (e.g., switching between sequencer screens, entering demo mode). It coordinates state variables at:
 - `0x02749A` — transition progress counter
 - `0x02749E` — transition timer
 - `0x0274A2` — transition type/flags
@@ -827,107 +822,87 @@ The `MainTitleCtrl_ChangeTitle` (0xF99579) handler manages full-screen mode tran
 
 ### Scrolling
 
-All scrolling is software-based — no VGA hardware scroll registers are used. Scrolling is implemented via `MovePixels` (0xFABA60), which copies rectangular pixel blocks within the offscreen buffer. The `AcRotStrBoxProc` (0xF8D6D8) handler provides smooth scrollbar animation with timer-based auto-repeat.
+All scrolling is software-based — no VGA hardware scroll registers are used. Scrolling is implemented via `MovePixels` (0xFABA53), which copies rectangular pixel blocks within the offscreen buffer. The `AcRotStrBoxProc` (0xF967E8) handler provides smooth scrollbar animation with timer-based auto-repeat.
 
 UI element names "SlideMove" and "SlideBase" appear in the firmware's string table (0xEAB8D8), suggesting slide animation support for UI transitions.
 
 ## MAME Emulation Status
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| MN89304 VGA Controller | **Working** | Register map emulated, 320×240 8bpp LCD output |
-| VRAM | **Working** | 256KB at 0x1A0000-0x1DFFFF, linear framebuffer |
-| Palette | **Working** | 256-color palette with 4-bit RAMDAC (VGA DAC at 0x170000) |
-| Display output | **Working** | Full screen rendering visible, UI widgets draw correctly |
-| Font rendering | **Working** | All firmware text drawing functions operate correctly |
-| Page transitions | **Partial** | Palette fade works; grid dissolve not verified |
+| Component              | Status      | Notes                                                     |
+|------------------------|-------------|-----------------------------------------------------------|
+| MN89304 VGA Controller | **Working** | Register map emulated, 320×240 8bpp LCD output            |
+| VRAM                   | **Working** | 256KB at 0x1A0000-0x1DFFFF, linear framebuffer            |
+| Palette                | **Working** | 256-color palette with 4-bit RAMDAC (VGA DAC at 0x170000) |
+| Display output         | **Working** | Full screen rendering visible, UI widgets draw correctly  |
+| Font rendering         | **Working** | All firmware text drawing functions operate correctly     |
+| Page transitions       | **Partial** | Palette fade works                                        |
 
 The display is one of the most complete subsystems in MAME emulation. The MN89304 VGA controller is emulated as a custom device with the KN5000-specific RAMDAC and offset override behaviors.
 
 ## Research Needed
 
-- [x] Document VGA register map at 0x170000 — Complete: full register set with init values
-- [x] Document VGA initialization sequence (boot-time register programming) — Complete
-- [x] Analyze framebuffer memory layout
-- [x] Understand display update mechanism (main loop, not VBI)
-- [x] Document MN89304 differences from standard VGA (4-bit RAMDAC, offset override)
-- [x] Identify display disable mechanism (0x0D53 bit 3)
-- [x] Identify font rendering routines (DrawString family, font table at 0x945C00)
-- [x] Document text drawing functions (DrawString, Centered, Left/Right, Reverse, Alignment)
-- [x] Map UI widget drawing primitives (pixel, line, rect, bitmap, text, blit)
-- [x] Document page transition effects (palette fade, grid dissolve, state machine)
-- [x] ~~Document deferred draw command queue~~ -- Complete: DrawQueue circular buffer, task context check, synchronization
 - [ ] Document workspace display callbacks (0x0124, 0x0278, 0x0534) protocols
-- [ ] Reverse engineer pre-computed fade data format (BitmapFadeIn/Out blobs)
 
 ## Code References
 
-> **Correction (2026-09 review).** Cross-checking this whole appendix against the current
-> v10 build's symbol table (`nm rebuilt_ROMs/kn5000_v10_program.llvm.elf` in
-> `kn5000-roms-disasm`) found that most addresses here do not land exactly on a current
-> label start — some by a handful of bytes, consistent with this table having been compiled
-> by hand against an earlier disassembly pass, before later label-placement corrections.
-> One confirmed, unrelated-routine mismatch: **`LcdOn` is not at `0xFAA5D0`** — the real
-> `LcdOn` label is at `0xFAA5B6`; `0xFAA5D0` is `InitGraphics_SetupVRAM_Loop`, a different
-> routine a few lines further down the same function block. The rest of the table below is
-> **unverified** pending a full re-check against the symbol table rather than hand-copied
-> addresses; treat individual addresses here with caution until then.
+> Addresses are v10, checked against `symbols/maincpu_v10_symbols_reference.txt` at disassembly
+> commit `3417969c0` (2026-10-06). v9 shares most of them; v7 does not.
 
 ### Core Display
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| `Display_ResetDirtyFlags` | `0xEF5B27` | Clear all dirty flags |
-| `Display_UpdateDirtyRegions` | `0xEF5B36` | Check and redraw dirty regions |
-| `UpdateScreen` | `0xFAA61D` | Copy changed regions to VRAM |
-| `Set_XWA_to_320_times_XDE` | `0xEF5023` | Y×320 coordinate calculation |
-| `VGA_ScreenBlank` | `0xFB319A` | Blank display during updates |
-| `VGA_ScreenUnblank` | `0xFB318A` | Restore display after updates |
-| `LcdOn` | `0xFAA5B6` | Enable LCD output |
-| `LcdOff` | `0xFAA5DB` | Disable LCD output |
-| `DrawQueue_Alloc` | `0xFAA4ED` | Allocate space in deferred draw queue |
-| `DrawRing_Post` | `0xFAA36A` | Post a draw command to the draw task's ring (RAM 0x03247C), retrying while it is full (was `DisplayCmd_DequeueAndExecute`) |
-| `IS_XSP_INSIDE_4K_REGION_AT_1C032` | `0xFAA532` | Check if caller runs in draw task context |
-| `InitializeGraphics` | `0xFAA4FA` | Boot-time graphics initialization |
-| `DrawFunc` | `0xFAA48C` | Generic draw function dispatch with deferred support |
+| Symbol                             | Address    | Purpose                                                                                                                    |
+|------------------------------------|------------|----------------------------------------------------------------------------------------------------------------------------|
+| `Display_ResetDirtyFlags`          | `0xEF5B27` | Clear all dirty flags                                                                                                      |
+| `Display_UpdateDirtyRegions`       | `0xEF5B36` | Check and redraw dirty regions                                                                                             |
+| `UpdateScreen`                     | `0xFAA61D` | Copy changed regions to VRAM                                                                                               |
+| `Set_XWA_to_320_times_XDE`         | `0xEF5088` | Y×320 coordinate calculation                                                                                               |
+| `VGA_ScreenBlank`                  | `0xFB319A` | Blank display during updates                                                                                               |
+| `VGA_ScreenUnblank`                | `0xFB318A` | Restore display after updates                                                                                              |
+| `LcdOn`                            | `0xFAA5B6` | Enable LCD output                                                                                                          |
+| `LcdOff`                           | `0xFAA5DB` | Disable LCD output                                                                                                         |
+| `DrawQueue_Alloc`                  | `0xFAA444` | Allocate space in deferred draw queue                                                                                      |
+| `DrawRing_Post`                    | `0xFAA36C` | Post a draw command to the draw task's ring (RAM 0x03247C), retrying while it is full (was `DisplayCmd_DequeueAndExecute`) |
+| `IS_XSP_INSIDE_4K_REGION_AT_1C032` | `0xFAA532` | Check if caller runs in draw task context                                                                                  |
+| `InitializeGraphics`               | `0xFAA547` | Boot-time graphics initialization                                                                                          |
+| `DrawFunc`                         | `0xFAA48C` | Generic draw function dispatch with deferred support                                                                       |
 
 ### Drawing Primitives
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| `ReadPixel` | `0xFAA7B4` | Read pixel from offscreen buffer |
-| `ModifyPixel` | `0xFAA7E4` | Write single pixel |
-| `ModifyPixelEx` | `0xFAA84A` | Write/clear/OR/AND/XOR pixel |
-| `DrawLine` | `0xFAA98A` | Bresenham line drawing |
-| `DrawLineEx` | `0xFAAA3E` | Line with drawing mode |
-| `DrawBox` | `0xFAB295` | Filled rectangle |
-| `DrawFrame` | `0xFAB400` | Rectangle outline |
-| `DrawFrameEx` | `0xFAB8CC` | Styled frame with XOR |
-| `VRAM_FillRect` | `0xEF50DF` | Direct VRAM rectangle fill |
-| `SetChangeRect` | `0xFAA760` | Expand dirty bounding box |
-| `Copy_DE_words_from_XBC_to_XWA` | `0xEF18D7` | Block memory copy (blit) |
+| Symbol                          | Address    | Purpose                          |
+|---------------------------------|------------|----------------------------------|
+| `ReadPixel`                     | `0xFAA7B2` | Read pixel from offscreen buffer |
+| `ModifyPixel`                   | `0xFAA7E4` | Write single pixel               |
+| `ModifyPixelEx`                 | `0xFAA844` | Write/clear/OR/AND/XOR pixel     |
+| `DrawLine`                      | `0xFAA98A` | Bresenham line drawing           |
+| `DrawLineEx`                    | `0xFAAF12` | Line with drawing mode           |
+| `DrawBox`                       | `0xFAB273` | Filled rectangle                 |
+| `DrawFrame`                     | `0xFAB3DE` | Rectangle outline                |
+| `DrawFrameEx`                   | `0xFAB809` | Styled frame with XOR            |
+| `VRAM_FillRect`                 | `0xEF50DF` | Direct VRAM rectangle fill       |
+| `SetChangeRect`                 | `0xFAA762` | Expand dirty bounding box        |
+| `Copy_DE_words_from_XBC_to_XWA` | `0xEF18D7` | Block memory copy (blit)         |
 
 ### Bitmap & Sprite
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| `DrawBitmap` | `0xFABC3A` | Bitmap with transparency (0xF7) |
-| `DrawBitmapFast` | `0xFABE0E` | Opaque bitmap (no transparency) |
-| `DrawIcons` | `0xFABF61` | Icon from table at 0x938000 |
-| `MovePixels` | `0xFABA60` | Copy rectangular pixel block |
-| `DrawWall` | `0xFABB74` | Full-screen wallpaper fill |
-| `Draw_FlashMemUpdate_message_bitmap` | `0xEF5040` | 1bpp update UI bitmap renderer |
+| Symbol                               | Address    | Purpose                         |
+|--------------------------------------|------------|---------------------------------|
+| `DrawBitmap`                         | `0xFABC3C` | Bitmap with transparency (0xF7) |
+| `DrawBitmapFast`                     | `0xFABE13` | Opaque bitmap (no transparency) |
+| `DrawIcons`                          | `0xFABF3F` | Icon from table at 0x938000     |
+| `MovePixels`                         | `0xFABA53` | Copy rectangular pixel block    |
+| `DrawWall`                           | `0xFABB73` | Full-screen wallpaper fill      |
+| `Draw_FlashMemUpdate_message_bitmap` | `0xEF5040` | 1bpp update UI bitmap renderer  |
 
 ### Text
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| `DrawString` | `0xFACACE` | Core text renderer |
-| `DrawStringCentered` | `0xFACF17` | Center-aligned text |
-| `DrawStringLeftJustify` | `0xFACFBA` | Left-aligned text |
-| `DrawStringRightJustify` | `0xFAD004` | Right-aligned text |
-| `DrawStringReverse` | `0xFAD091` | Reversed fg/bg colors |
-| `CalcTotalWidth` | `0xFB270D` | Calculate string pixel width |
+| Symbol                   | Address    | Purpose                      |
+|--------------------------|------------|------------------------------|
+| `DrawString`             | `0xFACACA` | Core text renderer           |
+| `DrawStringCentered`     | `0xFACEAC` | Center-aligned text          |
+| `DrawStringLeftJustify`  | `0xFACF4A` | Left-aligned text            |
+| `DrawStringRightJustify` | `0xFACFB1` | Right-aligned text           |
+| `DrawStringReverse`      | `0xFAD084` | Reversed fg/bg colors        |
+| `CalcTotalWidth`         | `0xFB26D1` | Calculate string pixel width |
 
 ### Display Regions
 
@@ -947,15 +922,15 @@ The display is one of the most complete subsystems in MAME emulation. The MN8930
 
 ### Palette & Effects
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| `ChangePalette` | `0xFAF34E` | Switch color palette |
-| `ChangeWall` | `0xFAF21C` | Load wallpaper |
-| `PaletteBankRotation` | `0xFAF346` | Fade via palette bank rotation |
-| `AcFadeSetGridBoxProc` | `0xF7514A` | Grid dissolve transition |
-| `MainTitleCtrl_ChangeTitle` | `0xF99579` | Full-screen mode transition |
-| `DrawProgressRectH` | `0xF99E75` | Horizontal progress bar |
-| `DrawProgressRectV` | `0xF99F7D` | Vertical progress bar |
+| Symbol                      | Address    | Purpose                         |
+|-----------------------------|------------|---------------------------------|
+| `ChangePalette`             | `0xFAF2C7` | Switch color palette            |
+| `ChangeWall`                | `0xFAF20B` | Load wallpaper                  |
+| `PaletteBankRotate`         | `0xFAF346` | Fade via palette bank rotation  |
+| `AcFadeSetGridBoxProc`      | `0xF75229` | Fade-setting grid-box procedure |
+| `MainTitleCtrl_ChangeTitle` | `0xF9936D` | Full-screen mode transition     |
+| `DrawProgressRectH`         | `0xF96180` | Horizontal progress bar         |
+| `DrawProgressRectV`         | `0xF9635E` | Vertical progress bar           |
 
 ## How to Contribute
 
