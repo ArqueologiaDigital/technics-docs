@@ -133,8 +133,8 @@ runtime, and every effect algorithm.
 
 The **FAJ board** carries the jacks (mic, line, aux, sub-out, main-out,
 headphones), a multi-band **"EQUALIZING"** op-amp bank, and the power stages
-driving the built-in speakers (2× 12 cm woofers, 2× 6.5 cm tweeters, a 14 cm
-bass driver).
+driving the built-in speakers (two 12 cm and two 6.5 cm for mid/high, one
+14 cm for bass; user's manual p. 208).
 
 ### A separate, DSP-bypassing audio path
 
@@ -148,15 +148,15 @@ playing back recorded audio.
 The whole sound block lives in the `0x98000000` region of the MN10300 memory
 map:
 
-| Range | Function |
-|---|---|
-| `0x98040000` / `0x98050000` | master / sub tone-generator register ports |
-| `0x98040004` / `0x98050004` | key-bed / voice-event FIFOs |
-| `0x98040006/8/A` / `0x98050006/8/A` | wave-ROM readback windows |
-| `0x9805000E` | audio-routing mode latch (echo-handshake) |
-| `0x98060000` | bit-banged serial config to the DAC/codec |
-| `0x98070000` | read-only sound-board status / strap word |
-| `0x98000000` + `0x9C000000` | effects-DSP host port (index + data) |
+| Range                               | Function                                                                                                 |
+|-------------------------------------|----------------------------------------------------------------------------------------------------------|
+| `0x98040000` / `0x98050000`         | master / sub tone-generator register ports                                                               |
+| `0x98040004` / `0x98050004`         | key-bed / voice-event FIFOs                                                                              |
+| `0x98040006/8/A` / `0x98050006/8/A` | wave-ROM readback windows                                                                                |
+| `0x9805000E`                        | not a sound register: the SD card's SPI clock-rate latch, next to the SPI shift register at `0x9805000C` |
+| `0x98060000`                        | bit-banged serial config to the DAC/codec                                                                |
+| `0x98070000`                        | read-only sound-board status / strap word                                                                |
+| `0x98000000` + `0x9C000000`         | effects-DSP host port (index + data)                                                                     |
 
 The firmware's sound engine allocates voices, writes them to the tone
 generators, and separately manages the DSP effect units. The user-facing screens

@@ -26,7 +26,7 @@ the 16-char format are excluded.)
 ## How the instrument addresses a sound
 
 SOUND EXPLORER prints a small annotation beside every sound it lists —
-`[32.11-1  Concert Grand` — which the manual (p35) describes as the sound's MIDI
+`[32.11-1  Concert Grand` — which the manual (pp. 35–36) describes as the sound's MIDI
 **bank select MSB**, **bank select LSB** and **program change** number.
 
 Reverse engineering of the firmware shows that this is not just a MIDI courtesy:
@@ -1601,9 +1601,11 @@ ORCH<br>
 The **931 style / Music-Stylist names** that `style_names.py` finds by scanning
 program-ROM file offsets `0x1CF000`–`0x1D6000` for fixed 17-byte records (a
 16-char space-padded name + NUL). The scan is heuristic and not complete: 74 of
-the 270 names in the [Music Stylist catalog]({{ site.baseurl }}/kn7000-rhythm-catalog/),
+the 270 subcategory headings in the [Music Stylist catalog]({{ site.baseurl }}/kn7000-rhythm-catalog/),
 which walks `StyleGenreTable`, are missing from it (for example
-*Disco Orchestra* and *60s Blues Rock*).
+*Disco Orchestra* and *60s Blues Rock*), and so are 355 of the 1,080 style names
+those headings index through `StyleRecordTable` (for example *Hit Parade Organ*
+and *Fab Piano*).
 
 <div style="columns:3;column-gap:1.5rem;font-size:0.85rem;">
 Mersey Ballad<br>

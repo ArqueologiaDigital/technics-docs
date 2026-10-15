@@ -6,21 +6,28 @@ permalink: /kn7000-rhythm-catalog/
 
 # Technics SX-KN7000 — built-in Music Stylist catalog
 
-The complete list of the KN7000's built-in **Music Stylist** styles, recovered
-directly from the program ROM. These are the one-touch setups offered by
-MUSIC STYLIST &rarr; MUSICAL CATEGORY and ORGAN STYLIST (user's manual pp. 61–63).
-The names live in a genre&rarr;style table pair rooted at `StyleGenreTable`
+The complete list of the KN7000's built-in **Music Stylist** subcategories, recovered
+directly from the program ROM. MUSIC STYLIST &rarr; MUSICAL CATEGORY and ORGAN STYLIST
+(user's manual pp. 61–63) group their one-touch setups under these headings; the SKIP
+buttons jump from one heading to the next.
+The names live in a genre&rarr;subcategory table pair rooted at `StyleGenreTable`
 (program-ROM `0x4873ACC0`), which the MUSICAL CATEGORY list box
 (`AcCtgStyleListBoxProc`) walks. Each 8-byte genre entry points to a genre name
-and to that genre's style sub-table, whose entries carry the style names.
-Extracted by walking the table structure; **270 styles across 11 genres**.
+and to that genre's sub-table. Each sub-table entry points to a subcategory name and
+to a list of four style numbers, ended by `0xFFFF`, which index the style records of
+`StyleRecordTable` (`0x4873BEE8`); the 270 lists use every number from 0 to 1,079
+exactly once. Under *Tonewheel Jazz*, for example, sit the styles *Swing Tonewheels*,
+*Classic B3 Jazz*, *Block Chord Jazz* and *Straight Swingin*, as the
+[ORGAN STYLIST screen]({{ site.baseurl }}/kn7000-table-rom/#the-ui-graphics-are-standard-jpegs)
+shows. This page lists the subcategory names only. Extracted by walking the table
+structure; **270 subcategories across 11 genres, four styles each (1,080 styles)**.
 
 These are not the instrument's built-in rhythms. The user's manual (p. 207) lists
 220 rhythms × 4 variations in 14 rhythm groups, whose names come from a
 different, still-undumped resource; see
 [How the rhythm menu resolves a style name]({{ site.baseurl }}/kn7000-initial-data/#how-the-rhythm-menu-resolves-a-style-name).
 
-## Rock & Pop (58 styles)
+## Rock & Pop (58 subcategories)
 
 - Disco Orchestra
 - 60s Blues Rock
@@ -81,7 +88,7 @@ different, still-undumped resource; see
 - Yuppie Beat
 - Pop Ballad Boys
 
-## Easy Listening (25 styles)
+## Easy Listening (25 subcategories)
 
 - Sweet Pop
 - Song Contest
@@ -109,7 +116,7 @@ different, still-undumped resource; see
 - Latin Drawbars
 - 70s Covers Band
 
-## Soul & Gospel (19 styles)
+## Soul & Gospel (19 subcategories)
 
 - 70s Detroit Pop
 - Soulful Organ
@@ -131,7 +138,7 @@ different, still-undumped resource; see
 - Funk 4 Experts
 - 70s Funk
 
-## Dance Pop (16 styles)
+## Dance Pop (16 subcategories)
 
 - 90s Boy Groups
 - Electric World
@@ -150,7 +157,7 @@ different, still-undumped resource; see
 - Steamy Funk
 - Hip Club Mixes
 
-## Latin & World (27 styles)
+## Latin & World (27 subcategories)
 
 - Latino Pop
 - Smooth Latin
@@ -180,7 +187,7 @@ different, still-undumped resource; see
 - Radio Bossa
 - Bossa Guitars
 
-## Jazz & Swing (28 styles)
+## Jazz & Swing (28 subcategories)
 
 - Blue Notes
 - LoungeLizardJazz
@@ -211,7 +218,7 @@ different, still-undumped resource; see
 - Jazz Club Jam
 - Jazz Accordion
 
-## Show & Ballroom (29 styles)
+## Show & Ballroom (29 subcategories)
 
 - Dinner Dance
 - Swinging Bert
@@ -243,7 +250,7 @@ different, still-undumped resource; see
 - Ballroom Waltz
 - Strict Tempo
 
-## Trad & Folk (17 styles)
+## Trad & Folk (17 subcategories)
 
 - Standard 3/4
 - Franco Americana
@@ -263,7 +270,7 @@ different, still-undumped resource; see
 - Ceilidh Band
 - Modern Folk
 
-## Party Music (12 styles)
+## Party Music (12 subcategories)
 
 - Ballermann
 - Party R&B
@@ -278,7 +285,7 @@ different, still-undumped resource; see
 - Party Pop Organ
 - Accordion Party
 
-## Country (12 styles)
+## Country (12 subcategories)
 
 - Barn Dance
 - Country Festival
@@ -293,7 +300,7 @@ different, still-undumped resource; see
 - Bluegrass City
 - Country Dance
 
-## Organ Stylist (27 styles)
+## Organ Stylist (27 subcategories)
 
 - Tonewheel Jazz
 - Organ A-Go-Go
@@ -323,5 +330,5 @@ different, still-undumped resource; see
 - Party Tabs
 - Jive Organist
 
-*Total: 270 built-in Music Stylist styles across 11 genres. Names are reproduced verbatim
+*Total: 270 built-in Music Stylist subcategories across 11 genres, each holding four styles (1,080 in all). Names are reproduced verbatim
 (fixed 16-character fields in ROM).*

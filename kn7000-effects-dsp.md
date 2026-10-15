@@ -17,8 +17,8 @@ The striking result of reverse-engineering it: **the DSP has no boot ROM, and
 its programs are embedded in the main firmware.** So the entire effects engine —
 kernel and every effect algorithm — was recovered from `kn7000_program.rom`
 alone, with no physical chip and no undumped ROM. All 80 programs are
-disassembled and documented in the project's disassembly repository; this page
-explains how it works.
+disassembled and documented in the project's `kn7000_disassembly` repository
+(not yet published); this page explains how it works.
 
 > **The documentation pass over the pool is complete.** Every record — the
 > kernel, the four boot probes, all 72 effect programs and the three data
@@ -250,7 +250,9 @@ The **tone generator** performs the final mix: its output-bus registers
 (group 0x20) crossfade each DAC channel between the TG's direct sound and the
 DSP *returns* — the panel REVERB button toggles exactly that crossfade
 (`0x803A = 007F/7F00`), and REVERB TOTAL DEPTH is the return level
-(`0x8338 = 0x8500|depth`). The DSP send enters at unit 0's input slots.
+(`0x8338 = 0x8500|depth`). The TG's three effect sends enter at the input pairs
+of unit 0 (REVERB, `0xC362/63`), unit 1 (MULTI, `0xC364/65`) and unit 9
+(CHORUS, `0xC376/77`).
 
 ### Hardware truths required for a faithful emulation
 
