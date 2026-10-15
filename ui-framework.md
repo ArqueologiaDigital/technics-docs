@@ -13,7 +13,7 @@ The KN5000 firmware contains an object-oriented UI framework with 550+ widget ha
 The UI framework is organized in layers:
 
 1. **ClassProc hierarchy** - Object-oriented widget system with inheritance
-2. **Event dispatch** - Two event spaces: actions (0x1C0xxxx) and getters (0x1E0xxxx)
+2. **Event dispatch** - Two code spaces: events `0x01Cm00nn` (firmware `EV_*` names) and methods `0x01Em00nn` (firmware `MT_*` names), m = module
 3. **Drawing primitives** - Line, box, frame, bitmap, string rendering to VRAM
 4. **Page/Window navigation** - Screen, window, and page management
 5. **Resource properties** - Type-safe property system with introspection
@@ -28,23 +28,26 @@ generic `InitializeUser12`–`InitializeUser31` slots and `InitializeRoot`.
 Addresses are v10, from `symbols/maincpu_v10_symbols_reference.txt`; the source file is the one
 that carries the routine's ROM address range, which is why several sit outside `ui/`.
 
-| Module | Init Routine | Address (v10) | Source file | Purpose |
-|--------|-------------|---------|---------|---------|
-| **Murai** | `InitializeMurai` | 0xF7AD77 | `ui/drawbar_panel_ui.s` | Core UI framework, event dispatch |
-| **Toshi** | `InitializeToshi` | 0xFC311A | `extensions/extension_init.s` | Extension device support |
-| **East** | `InitializeEast` | 0xF72BAC | `sequencer/seq_event_playback.s` | Eastern region/style UI |
-| **Suna** | `InitializeSuna` | 0xF19636 | `storage/flash_floppy_handlers.s` | Sound parameter UI |
-| **Cheap** | `InitializeCheap` | 0xF9426A | `file_io/medley.s` | Basic parameter editing |
-| **Scoop** | `InitializeScoop` | 0xF028E3 | `display/scoop_display.s` | Display update manager |
-| **Yoko** | `InitializeYoko` | 0xF29E6D | `sequencer/sequencer_ui.s` | Horizontal layout/scrolling |
-| **Kubo** | `InitializeKubo` | 0xF2D2C4 | `sequencer/sequencer_ui.s` | Grid/table layout |
-| **Hama** | `InitializeHama` | 0xF1E146 | `factory_test/test_init.s` | Factory diagnostic tests |
-| **KSS** | `InitializeKSS` | 0xFC3E4F | `kn5000_v10_program.s` | Keyboard/panel status |
-| **Naka** | `InitializeNaka` | 0xF165EB | `storage/flash_floppy_handlers.s` | UI widget descriptor tables |
+| Module    | Init Routine      | Address (v10) | Source file                       | Purpose (from the modes, titles and classes it registers)                                                                                                                                                                                                                           |
+|-----------|-------------------|---------------|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Murai** | `InitializeMurai` | 0xF7AD77      | `ui/drawbar_panel_ui.s`           | Sound mode (`MD_SOUND`): sound menu, part, master-tune, scale-type, mixer and `TT_SDTECD` titles; drawbar, accordion, welcome, message, software-version and feature-demo screens; 37 classes                                                                                       |
+| **Toshi** | `InitializeToshi` | 0xFC311A      | `extensions/extension_init.s`     | Normal, control and one-touch-play modes (`MD_NORMAL`, `MD_CONTROL`, `MD_OTP`): normal screen, control menu (`TT_CT*`), MSA, Music Stylist (`TT_MUSICSTYL`, `TT_MS*`), panel memory (`TT_PM*`), `TT_SVARI` / `TT_RVARI`, test titles `TT_TEST1`–`TT_TEST6` and `TT_EXT`; 28 classes |
+| **East**  | `InitializeEast`  | 0xF72BAC      | `sequencer/seq_event_playback.s`  | MIDI mode (`TT_MD*` titles), reverb and EQ presets, entertainer vocal and fade-in, split select; 16 classes (MIDI, in/out, control-message and vocal grids)                                                                                                                         |
+| **Suna**  | `InitializeSuna`  | 0xF19636      | `storage/flash_floppy_handlers.s` | Composer (`MD_CMP`), MSP (`MD_MSP`, `MD_MSP_REC`) and sound-arranger (`MD_SND_ARG`) modes, Style Converter titles (`TT_STYLCNV*`); 41 classes                                                                                                                                       |
+| **Cheap** | `InitializeCheap` | 0xF9426A      | `file_io/medley.s`                | Disk mode (`MD_DISK`): load, save, utility, format and medley titles (`TT_DK*`); file-name boxes, screen title, wait and one-shot timers; 13 classes                                                                                                                                |
+| **Scoop** | `InitializeScoop` | 0xF028E3      | `display/scoop_display.s`         | Sound Editor mode and its 32 titles (`TT_SEMENU`, `TT_SE*`); no classes                                                                                                                                                                                                             |
+| **Yoko**  | `InitializeYoko`  | 0xF29E6D      | `sequencer/sequencer_ui.s`        | Demo mode and the sequencer step mode: disk direct play (`TT_DP*`) and medleys, track select, step, track assign, song select and song name, demo menus; 22 classes                                                                                                                 |
+| **Kubo**  | `InitializeKubo`  | 0xF2D2C4      | `sequencer/sequencer_ui.s`        | Entertainer, sequencer (play, easy record, real-time record, edit) and help modes; reverb, DSP-effect, equalizer and `TT_SDACCILL` titles; 26 classes                                                                                                                               |
+| **Hama**  | `InitializeHama`  | 0xF1E146      | `factory_test/test_init.s`        | Factory floppy test: two titles (slots 0x7F and 0xFC) handled by `TestTitleFunc`; 1 class, `HamaList`                                                                                                                                                                               |
+| **KSS**   | `InitializeKSS`   | 0xFC3E4F      | `kn5000_v10_program.s`            | None: the routine is a bare `ret` in v7, v9 and v10, so it registers nothing                                                                                                                                                                                                        |
+| **Naka**  | `InitializeNaka`  | 0xF165EB      | `storage/flash_floppy_handlers.s` | UI widget descriptor tables (Viewable table 0xFD, 478 entries) and the `TT_FDMSP` title                                                                                                                                                                                             |
 
-Three of the code names also name directories in the disassembly, which is what fixes their
-scope: `ui_widgets/` is NAKA, `extensions/` is TOSHI, `factory_test/` is HAMA. The other eight
-purposes are read from what each module registers, not from an independent source.
+Three of the code names also name directories in the disassembly: `ui_widgets/` is NAKA,
+`extensions/` is TOSHI, `factory_test/` is HAMA. The directory names do not fix the modules'
+scope; like the other files, they follow ROM address ranges. The purposes in the table are read
+from the modes, titles and classes each module registers (the `RegMode` / `RegTitle` lines of
+each `Initialize*` routine; `python3 scripts/analysis/nakarest_objtab_map.py v10 --classes`
+lists every class by table), not from an independent source. KSS registers nothing.
 
 Each module registers "object tables" that define UI component hierarchies using the `RegObjTable` / `RegObjTabl` macros.
 
@@ -72,7 +75,8 @@ Kubo 8, Hama 9 and Naka 0x0B. **The HD-AE5000 expansion ROM registers as module
 Viewable tables (class id `0x01600010`, `ViewableProc`) and their name tables
 (`0x0160000F`, `ResNameProc`, index + 0x300) are numbered per screen family
 rather than per module. Examples are Naka's 0xFD, the HD-AE5000's 0x7F and
-Hama's 0xFC. Two further tables belong to the root: 0x180 holds the modes and
+Hama's 0xFC. Three further tables belong to the root: 0x180 holds the modes,
+0x260 the support classes (`SupportClassProc`, 0x37 entries) and
 0x1A0 the titles (see [Event Codes — Mode and Title Requests]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)).
 
 An **object id** is `index << 16 | entry`. `SendEvent` takes bits 16-27 of the
@@ -139,7 +143,7 @@ their fields. `Label` adds `str`, `font` and `fontcolor` (allsize 32).
 `fontcolor`, `align`, `editsw` and `selected` (allsize 54).
 
 **Type letters.** `propdata` has one letter per own field. The sizes were solved
-so that the letters' sizes sum to `selfsize` for all 292 classes:
+so that the letters' sizes sum to `selfsize` for all 293 classes:
 
 | Size | Letters |
 |------|---------|
@@ -153,15 +157,18 @@ with `"CC"`. The nakarest table resolves it with `C` = 1 byte.
 
 **Measured invariants** (v10, v9 and v7 alike):
 
-- 292 classes in the 10 Class tables the main CPU registers. By table: 0x160
+- 293 classes in the 11 Class tables the main CPU registers. By table: 0x160
   Root 109, 0x161 Murai 37, 0x162 Toshi 28, 0x163 East 16, 0x164 Suna 41, 0x165
-  Cheap 13, 0x167 Yoko 22, 0x168 Kubo 26.
-- `allsize = parent.allsize + selfsize` for all 291 classes that have a parent.
+  Cheap 13, 0x167 Yoko 22, 0x168 Kubo 26 and 0x169 Hama 1 (`HamaList`); Scoop's
+  0x166 and Naka's 0x16B are registered empty.
+- `allsize = parent.allsize + selfsize` for all 292 classes that have a parent.
   The root class `Object` (`0x01600000`) contributes no prefix.
-- All 3,340 widget records in the 209 registered Viewable tables resolve to a
+- All 3,365 widget records in the 211 registered Viewable tables resolve to a
   class, and none lies closer to the next record than its `allsize`.
-- nakabig's independent count: 3,340 of the 3,367 Viewable-registered records
-  match a known class, and none overlaps the next record.
+- nakabig's independent count (2026-09-25): 3,340 of the 3,367 Viewable-registered
+  records matched a known class, and none overlapped the next record. Its extractor,
+  `scripts/analysis/naka_class_descriptors.py`, matches only the numeric spelling
+  `RegObjTable 0x1600004` and finds no tables in the current sources.
 
 Reproduce with `python3 scripts/analysis/nakarest_objtab_map.py v10 --classes`,
 which prints every class with its fields at their offsets, and with
@@ -280,36 +287,36 @@ Many domain-specific grid configurations exist:
 
 ### Screen Types
 
-| Proc | Description |
-|------|-------------|
-| `IvScreenProc` | Interactive screen |
-| `TtlScreenProc` | Title screen |
-| `NormScreenProc` | Normal operating screen |
-| `MsaModeScreenProc` | MSA mode screen |
-| `VariScreenProc` | Variation screen |
-| `RVariScreenProc` | Registration variation screen |
-| `PmBankScreenProc` | Panel memory bank screen |
-| `SineWaveScreenProc` | Sine wave test screen |
-| `AcFdemoScreenProc` | Feature demo screen |
-| `AcWelcomScreenProc` | Welcome/startup screen |
+| Proc                 | Description                                |
+|----------------------|--------------------------------------------|
+| `IvScreenProc`       | Interactive screen                         |
+| `TtlScreenProc`      | Title screen                               |
+| `NormScreenProc`     | Normal operating screen                    |
+| `MsaModeScreenProc`  | MSA mode screen                            |
+| `VariScreenProc`     | Variation screen                           |
+| `RVariScreenProc`    | Rhythm variation screen (title `TT_RVARI`) |
+| `PmBankScreenProc`   | Panel memory bank screen                   |
+| `SineWaveScreenProc` | Sine wave test screen                      |
+| `AcFdemoScreenProc`  | Feature demo screen                        |
+| `AcWelcomScreenProc` | Welcome/startup screen                     |
 
 ### Interactive View Widgets (Iv* prefix)
 
 Controller widgets for page navigation and lifecycle:
 
-| Proc | Description |
-|------|-------------|
-| `IvPageControlProc` | Page control handler |
-| `IvWindowPageCtlProc` | Window-based page control |
+| Proc                      | Description               |
+|---------------------------|---------------------------|
+| `IvPageControlProc`       | Page control handler      |
+| `IvWindowPageControlProc` | Window-based page control |
 | `IvPmemWindowPageCtlProc` | Panel memory page control |
-| `IvExitProc` | Exit handler |
-| `IvExitWindowProc` | Window exit handler |
-| `IvWaitWinCtlProc` | Wait dialog control |
-| `IvNamingProc` | Naming dialog controller |
-| `IvShowHideProc` | Visibility toggle |
-| `IvCatchEventProc` | Event capture handler |
-| `IvDrawbarProc` | Drawbar organ display |
-| `IvAccordionProc` | Accordion display |
+| `IvExitProc`              | Exit handler              |
+| `IvExitWindowProc`        | Window exit handler       |
+| `IvWaitWinCtlProc`        | Wait dialog control       |
+| `IvNamingProc`            | Naming dialog controller  |
+| `IvShowHideProc`          | Visibility toggle         |
+| `IvCatchEventProc`        | Event capture handler     |
+| `IvDrawbarProc`           | Drawbar organ display     |
+| `IvAccordionProc`         | Accordion display         |
 
 ### Property Type System
 
@@ -331,10 +338,11 @@ Widget records are in ROM, so a widget cannot write its own state into the recor
 holds the RAM address of a cell of its own. For example, `selected`, `onoff`, `page`, `selrow`/`selcol`, `window`,
 `parent`, `child`, `nowstyle`, `nowsong` and an edit box's `data` (its value) all work this way. Over all the
 in-ROM widgets of v10 there are 1,367 such fields and 1,367 distinct cells; no two widgets share one. The cells
-lie in the work-RAM image that `Boot_InitWorkRAM` copies from ROM to RAM `0x3DCD4` at boot
-(`naka_sequencer_channels.c` in kn5000-roms-disasm), so the image is also where each cell's initial value is
-set. The C source names each cell after its widget and field: `TrAsGrid_Selcol`, `SdpartMain_RevDepth_Value`,
-`STYLE2_AcMstStyle2GridBox_Nowstyle` (`scripts/converters/name_widget_value_cells.py`).
+lie in the work-RAM image that `Boot_InitWorkRAM` copies from ROM `0xEED8C8` to RAM `0x3D524` at boot. The part from
+RAM `0x3DCD4` on is the C file `naka_sequencer_channels.c` in kn5000-roms-disasm, so the image is also where each
+cell's initial value is set. The C source names each cell after its widget and field: `TrAsGrid_SelCol`,
+`SdpartMain_AcLswPartEditBox_2_Value` (the REV. DEPTH box's value cell), `STYLE2_AcMstStyle2GridBox_Nowstyle`
+(`scripts/converters/name_widget_value_cells.py`).
 
 #### The property-type protocol (2026-10-06)
 
@@ -364,24 +372,24 @@ The names come from `scripts/renaming/gen_idproc_names.py`, `gen_name_table_idpr
 
 Events use 32-bit codes divided into two spaces:
 
-**Action events (0x1C0xxxx)** — Request something to happen:
+**Events (0x01Cm00nn, firmware `EV_*`)** — notifications and requests:
 
-| Event | Code | Description |
-|-------|------|-------------|
-| `EVT_SHOW` | 0x1C00001 | View shown (firmware EV_SHOW). Sent to a title's view after it becomes current; ViewableProc broadcasts it down the ... |
-| `EVT_HIDE` | 0x1C00002 | View hidden/closed (firmware EV_HIDE); broadcast down the view tree like EV_SHOW. |
-| `EVT_SW_ON` | 0x1C00008 | Panel switch pressed (firmware EV_SWON), param = switch number. Not specific to DISK MENU. |
-| `EVT_DRAW` | 0x1C0000D | Draw this view only (firmware EV_DRAW); EV_PAINT and EV_REPAINT send it to self. |
-| `EVT_PARA_DRAW` | 0x1C0000F | Draw the parameter/value text (firmware EV_PARADRAW); param = string pointer, or 0 to fetch the text with 0x1E0003A. ... |
-| `EVT_ACTIVATE_STATE` | 0x1C00013 | Activation-state notification to a mode or title object (firmware EV_ACTIVATE). The param is a phase: 0 = mode ... |
-| — | 0x1C00014 | Mode request, parameter `0x0180nnnn` ([details]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)) |
-| — | 0x1C00015 | Title request, parameter `0x01A0nnnn` |
-| `EVT_INTERRUPT_TITLE` | 0x1C00016 | Show a title temporarily on top of the current one (firmware EV_INTERRUPT_TITLE), e.g. a message, error, welcome or ... |
-| `EVT_NEW_TITLE` | 0x1C00039 | Broadcast to the current view tree that a title has just become the new current title (firmware EV_NEW_TITLE). |
-| `EVT_HDAE_SEQ_STOP` | 0x1CA0000 | The sequencer stopped while HD-AE5000 song-list (FLS) playback is active. FlsLoadScreen reacts by arming a 0x53-tick AP ... |
-| `EVT_HDAE_TICKS` | 0x1CA0004 | Song-position tick for the open lyric box. The parameter points to HDAE5000_RAM_LyricPosEvt (sqbtof, step, position) ... |
+| Event                 | Code      | Description                                                                                                                     |
+|-----------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------|
+| `EVT_SHOW`            | 0x1C00001 | View shown (firmware EV_SHOW). Sent to a title's view after it becomes current; ViewableProc broadcasts it down the ...         |
+| `EVT_HIDE`            | 0x1C00002 | View hidden/closed (firmware EV_HIDE); broadcast down the view tree like EV_SHOW.                                               |
+| `EVT_SW_ON`           | 0x1C00008 | Panel switch pressed (firmware EV_SWON), param = switch number. Not specific to DISK MENU.                                      |
+| `EVT_DRAW`            | 0x1C0000D | Draw this view only (firmware EV_DRAW); EV_PAINT and EV_REPAINT send it to self.                                                |
+| `EVT_PARA_DRAW`       | 0x1C0000F | Draw the parameter/value text (firmware EV_PARADRAW); param = string pointer, or 0 to fetch the text with 0x1E0003A. ...        |
+| `EVT_ACTIVATE_STATE`  | 0x1C00013 | Activation-state notification to a mode or title object (firmware EV_ACTIVATE). The param is a phase: 0 = mode ...              |
+| `EVT_CHANGE_MODE`     | 0x1C00014 | Mode request, parameter `0x0180nnnn` ([details]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)) |
+| `EVT_CHANGE_TITLE`    | 0x1C00015 | Title request, parameter `0x01A0nnnn`                                                                                           |
+| `EVT_INTERRUPT_TITLE` | 0x1C00016 | Show a title temporarily on top of the current one (firmware EV_INTERRUPT_TITLE), e.g. a message, error, welcome or ...         |
+| `EVT_NEW_TITLE`       | 0x1C00039 | Broadcast to the current view tree that a title has just become the new current title (firmware EV_NEW_TITLE).                  |
+| `EVT_HDAE_SEQ_STOP`   | 0x1CA0000 | The sequencer stopped while HD-AE5000 song-list (FLS) playback is active. FlsLoadScreen reacts by arming a 0x53-tick AP ...     |
+| `EVT_HDAE_TICKS`      | 0x1CA0004 | Song-position tick for the open lyric box. The parameter points to HDAE5000_RAM_LyricPosEvt (sqbtof, step, position) ...        |
 
-**Getter events (0x1E0xxxx)** — Query widget state:
+**Methods (0x01Em00nn, firmware `MT_*`)** — queries and commands sent to an object:
 
 | Event | Code | Description |
 |-------|------|-------------|
@@ -398,16 +406,15 @@ Events use 32-bit codes divided into two spaces:
 
 ### Event Dispatch Functions
 
-| Function | Description |
-|----------|-------------|
-| `MainDispatchEvent` | Primary event router |
-| `MainSendEvent` | Direct event send |
-| `MainPostEvent` | Post event to queue |
-| `SendEvent` | Generic send |
-| `PostEvent` | Generic post |
-| `BroadcastEvent` | Send to all listeners |
-| `DispatchEvent` | Route by type |
-| `ApPostEvent` | Application-level post |
+| Function            | Description            |
+|---------------------|------------------------|
+| `MainDispatchEvent` | Primary event router   |
+| `MainSendEvent`     | Direct event send      |
+| `MainPostEvent`     | Post event to queue    |
+| `SendEvent`         | Generic send           |
+| `PostEvent`         | Generic post           |
+| `DispatchEvent`     | Route by type          |
+| `ApPostEvent`       | Application-level post |
 
 ### Sound-editor title functions (`DirmdEmulator`)
 
@@ -428,7 +435,7 @@ The fourth method, +12 `SeXxxTitleFunc_Nop`, is a `jp` to a bare `ret`, and `Dir
 event, handled or not, then runs `DirmdEmu_DefaultCase`, which posts the part-change, mode-change, refresh and
 other events whose request flags a method left set.
 
-`OnSwitchIn` jumps to the title's `SeXxxTitleFunc_DispatchSwitch`, which calls `SeTitle_DecodeSwitch`:
+`SeXxxTitleFunc_OnSwitchIn` jumps to the title's `SeXxxTitleFunc_DispatchSwitch`, which calls `SeTitle_DecodeSwitch`:
 
 | switch number | handler index | bank byte |
 |---|---|---|
@@ -448,10 +455,10 @@ The index names a control on the LCD. A button pair shares one switch number: th
 | 13–15 | 13–15 | not identified | `SeXxx_OnSwitch13` … `15` |
 | 16 | 25 | not identified | `SeXxx_OnSwitch25` |
 
-For 28 titles, `DispatchSwitch` then calls `SeXxxTitleFunc_SwitchHandlers[index]` with WA = the bank byte. In
-v10, 27 of those tables hold 17 code pointers (indices 0–16) and a zero. SeFilLfo1's runs 14 slots up to the next
-label. `SeMenu` and `SeDigEff` decode the switch the same way but act on
-it in code, with no table. Source: `audio/sound_editor_routines.s` (the stubs), `audio/presentation_sound_nav.s`
+For 31 titles, `SeXxxTitleFunc_DispatchSwitch` then calls `SeXxxTitleFunc_SwitchHandlers[index]` with WA = the
+bank byte. In v10, 30 of those tables hold 17 code pointers (indices 0–16) and a zero. SeFilLfo1's is cut by a label
+after 14 slots and continues past it. Only `SeMenu` decodes the switch the same way but acts on it in code, with no
+table. Source: `audio/sound_editor_routines.s` (the stubs), `audio/presentation_sound_nav.s`
 (`DirmdEmulator`), `audio/semenu_routines.s` (`SeTitle_DecodeSwitch`), and the tables in `kn5000_v*_program.s`.
 The same in v7, v9 and v10.
 
@@ -468,13 +475,13 @@ The firmware provides a complete set of drawing primitives that render to the of
 
 ### Geometric Shapes
 
-| Function | Description |
-|----------|-------------|
-| `DrawBox` | Filled rectangle |
-| `DrawFrame` | Rectangle outline |
-| `DrawFrameEx` | Extended frame with style |
-| `DrawFrameSP` | Frame with special properties |
-| `DrawWall` | Tiled background fill |
+| Function      | Description                                                                                                                                                          |
+|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `DrawBox`     | Filled rectangle                                                                                                                                                     |
+| `DrawFrame`   | Rectangle outline                                                                                                                                                    |
+| `DrawFrameEx` | Extended frame with style                                                                                                                                            |
+| `DrawFrameSP` | Frame with special properties                                                                                                                                        |
+| `DrawWall`    | Full-screen background (wallpaper): copies the 320 × 240 image (76,800 bytes) whose address is held in RAM `0x030452` (set by `SetWall_X`) into the offscreen buffer |
 
 ### Bitmap Rendering
 
@@ -489,14 +496,14 @@ The firmware provides a complete set of drawing primitives that render to the of
 
 ### Text Rendering
 
-| Function | Description |
-|----------|-------------|
-| `DrawString` | Basic text output |
-| `DrawStringCentered` | Centered text within bounds |
-| `DrawStringLeftJustify` | Left-aligned text |
-| `DrawStringRightJustify` | Right-aligned text |
-| `DrawStringAlignment` | Text with specified alignment |
-| `DrawStringReverse` | Right-to-left text |
+| Function                 | Description                                                                           |
+|--------------------------|---------------------------------------------------------------------------------------|
+| `DrawString`             | Basic text output                                                                     |
+| `DrawStringCentered`     | Centered text within bounds                                                           |
+| `DrawStringLeftJustify`  | Left-aligned text                                                                     |
+| `DrawStringRightJustify` | Right-aligned text                                                                    |
+| `DrawStringAlignment`    | Text with specified alignment                                                         |
+| `DrawStringReverse`      | Reverse-video text on a filled box (colours swapped), centred, left- or right-aligned |
 
 ### Pixel Operations
 
@@ -510,24 +517,18 @@ The firmware provides a complete set of drawing primitives that render to the of
 The UI uses a hierarchy of Screens > Windows > Pages:
 
 - **Screens** (`ScreenProc`, `IvScreenProc`) — Full-screen layouts that own the entire display
-- **Windows** (`WindowProc`, `IvWindowPageCtlProc`) — Contained regions within a screen
+- **Windows** (`WindowProc`, `IvWindowPageControlProc`) — Contained regions within a screen
 - **Pages** (`IvPageControlProc`, `PsPageBoxProc`) — Switchable content within a window
 
-Page controllers (`IvPageControlProc`) manage which page is visible and handle transitions when the user switches tabs or modes. Window-level controllers (`IvWindowPageCtlProc`) coordinate multiple pages within a single window.
+Page controllers (`IvPageControlProc`) manage which page is visible and handle transitions when the user switches tabs or modes. Window-level controllers (`IvWindowPageControlProc`) coordinate multiple pages within a single window.
 
 ### Known Page Identifiers
 
-| Page | Description |
-|------|-------------|
-| MAIN_PAGE | Main operating screen |
-| SOUND_PAGE | Sound/voice selection |
-| STYLE_PAGE | Style selection |
-| RECORD_PAGE | Sequencer recording |
-| PLAY_PAGE | Playback controls |
-| MIDI_PAGE | MIDI settings |
-| UTILITY_PAGE | System utilities |
-| PC_DATA_LINK_PAGE | PC connection (HDAE5000) |
-| HDD_UTIL_PAGE | Hard disk utilities |
+The firmware has no table of page identifiers. Of the names this page used to list, only `PC_DATA_LINK_PAGE`
+(PC connection) and `HDD_UTIL_PAGE` (hard-disk utilities) exist. Both are entries in the HD-AE5000 ROM's own object
+registry and name its routines `HDAE5000_PC_DATA_LINK_PAGE` and `HDAE5000_HDD_UTIL_PAGE`. The main firmware names
+its screens by title (`TT_*` strings such as `TT_NORMAL` or `TT_SQMENU`) and by the view names in its ResName
+tables.
 
 ## Presentation System (SSF)
 
@@ -541,26 +542,16 @@ See [Feature Demo & Presentation System]({{ site.baseurl }}/feature-demo/) for f
 
 ### Include Files
 
-⚠ The line counts below are stale — the repo now holds three ROM versions (v7/v9/v10) and none
-of them matches these figures exactly for every file (checked directly: `drawing_primitives.s` is
-close at 4,575 in v10, but `semenu_routines.s` is 7,506 in v9/v10 — more than double the 3,431
-here — and `fdemotext_routines.s` is 3,259 in v9/v10 against 2,334 here). Current v10 line counts,
-for reference: `drawing_primitives.s` 4,575; `semenu_routines.s` 7,506; `bitmap_out_routines.s`
-4,669; `psgridbox_routines.s` 1,146; `rvari_routines.s` 2,761; `fdemotext_routines.s` 3,259;
-`setwall_routines.s` 2,193; `bmdredit_routines.s` 4,436. Paths also moved under per-subsystem
-directories, e.g. `v10/maincpu/ui/drawing_primitives.s`, `v10/maincpu/audio/semenu_routines.s`,
-`v10/maincpu/demo/fdemotext_routines.s`, `v10/maincpu/sequencer/bmdredit_routines.s`.
-
-| File | Lines (as originally documented) | Contents |
-|------|-------|----------|
-| `drawing_primitives.s` | 4,567 | Line, box, frame, bitmap, string rendering |
-| `semenu_routines.s` | 3,431 | Sound editor menu system |
-| `bitmap_out_routines.s` | 4,347 | Bitmap output/display compositing |
-| `psgridbox_routines.s` | 1,138 | Performance settings grid box UI |
-| `rvari_routines.s` | 2,752 | Registration variation selection UI |
-| `fdemotext_routines.s` | 2,334 | Feature demo text rendering |
-| `setwall_routines.s` | 1,940 | Accompaniment style wall parser |
-| `bmdredit_routines.s` | 4,434 | Beat/drum editor |
+| File (under `v10/maincpu/`)     | Contents                                                                                                             |
+|---------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| `ui/drawing_primitives.s`       | Line, box, frame, bitmap, string rendering                                                                           |
+| `audio/semenu_routines.s`       | Sound editor menu (SeMenu) event handling and navigation                                                             |
+| `ui/bitmap_out_routines.s`      | Bitmap blitting and palette loading                                                                                  |
+| `ui/psgridbox_routines.s`       | PS Grid Box widget                                                                                                   |
+| `ui/rvari_routines.s`           | RVari (rhythm variation) screen renderer and interaction                                                             |
+| `demo/fdemotext_routines.s`     | Feature-demo text processing                                                                                         |
+| `ui/setwall_routines.s`         | Sequencer TRACK ASSIGN page (SqTrAs) and the routines after it (historical `SetWall_` prefix); it loads no wallpaper |
+| `sequencer/bmdredit_routines.s` | Bitmap drum editor                                                                                                   |
 
 ### Key Routines
 
@@ -669,7 +660,7 @@ documentation earlier on this page is still correct; only the file-loading path 
 
 ## Research Needed
 
-- [ ] Document widget property layout (offset table per widget type)
+- [x] Document widget property layout (offset table per widget type): the class definitions name every field; see [The class system describes itself](#the-class-system-describes-itself).
 - [ ] Map complete event dispatch chain (post → queue → dispatch → handler)
 - [ ] Document focus/navigation system (tab order, encoder routing)
 - [ ] Trace widget creation flow (alloc → init → register → display)
