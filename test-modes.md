@@ -145,7 +145,7 @@ Displays the software version screen showing internal build numbers for all firm
 
 **Buttons:** All four PANEL MEMORY buttons (PM 1–4) on the right panel.
 
-Initiates firmware update from floppy disk. **Requires** both a floppy disk in the drive **and** the version byte at `0xFFFFE8` reading `0xFF` (`Get_Firmware_Version`; v10 holds `0x0A` there, and how the check is met on a stock unit is open: see [MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/)). This is the procedure described in the service manual under "How to write program/data into FLASH ROMs" (p I-24). After the update starts, the instrument enters an infinite loop and must be power-cycled.
+Initiates firmware update from floppy disk. On a stock unit the update is started by the table-data bootloader, which runs at reset before the main program. With a disk present it runs its own copy of this combo check (`Boot_ClassifyDeviceID`, code 4 = PM 1–4) and its own updater (see [Boot CP-Serial Link]({{ site.baseurl }}/boot-cpserial-link/#handshake-button-poll-and-power-on-combo-check)). The main program's own combo-4 path **requires** both a floppy disk in the drive **and** the version byte at `0xFFFFE8` reading `0xFF` (`Get_Firmware_Version`). Only the table-data image holds `0xFF` there (v10 holds `0x0A`), so whether a stock unit ever reaches that path is open: see [MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/#resolve-this-contradiction-first). This is the procedure described in the service manual under "How to write program/data into FLASH ROMs" (p I-24). After the update starts, the instrument enters an infinite loop and must be power-cycled.
 
 ### Control Panel Memory Layout
 
@@ -288,7 +288,7 @@ Even with a properly functioning drive, occasional "NG" results may occur. If fr
 
 ## HAMA Factory Diagnostics (Codename "HAMA")
 
-The HAMA subsystem is an internal Matsushita factory diagnostic system for testing floppy disk I/O and hard disk extension (HDAE5000) hardware. "HAMA" is the developer codename preserved in the ROM's factory test string table alongside other original symbol names (`assswb_op`, `sendCOMM`, etc.).
+The HAMA subsystem is an internal Matsushita factory diagnostic system for testing floppy disk I/O. It has no hard-disk test. Its links to the HD-AE5000 are two: a stand-in registration of the expansion's hard-disk title (`TT_HDDEXT`), which the HD-AE5000 replaces, and a "DEBUG SCREEN for HD-AE" page (`HamaDeb_HdaeDebugScreenFunc`), which loads `A:HKEXT.XAP` from floppy into `0x200000` and, if the file begins with the `XAPR` id, jumps to `0x200008`. "HAMA" is the developer codename preserved in the ROM's factory test string table alongside other original symbol names (`assswb_op`, `sendCOMM`, etc.).
 
 ### Registration
 
@@ -297,10 +297,10 @@ The HAMA subsystem is an internal Matsushita factory diagnostic system for testi
 - **13 NAKA widget object tables** for the test UI system (file browsers, dialog buttons, diagnostic counters)
 - **2 diagnostic titles** in the firmware's title system:
 
-| Title | String Address | Widget Table | Description |
-|-------|---------------|--------------|-------------|
-| `TT_HDDEXT` | `0xE1FD18` | `0x7F` | FDD / Hard Disk Extension test |
-| `TT_EXTAPR` | `0xE1FD22` | `0xFC` | Extension APR test |
+| Title       | String Address | Title id | Description                                                                        |
+|-------------|----------------|----------|------------------------------------------------------------------------------------|
+| `TT_HDDEXT` | `0xE1FD18`     | `0x7F`   | The hard-disk title; the HD-AE5000 re-registers it with its own view and procedure |
+| `TT_EXTAPR` | `0xE1FD22`     | `0xFC`   | FD SAVE/LOAD TEST (Test 8)                                                         |
 
 Both titles use `TestTitleFunc` (`0xF1E39A`) as their lifecycle callback.
 
@@ -490,13 +490,13 @@ These strings are displayed on the diagnostic LCD during hardware validation, pr
 
 ### Activation Path (Traced)
 
-The HAMA titles are activated through the **keybed service mode system**:
+`TT_EXTAPR` is activated through the **keybed service mode system**; `TT_HDDEXT` is not:
 
-**Test 8 (B3 + B4) → TT_EXTAPR (mode 0xFC):**
-Holding keys B3 and B4 during power-on causes `SelfTest_FirmwareVersionCheck` to post mode code `0xFC` via `UI_PostModeChangeEvent`. This matches the widget table ID `0xFC` used when registering `TT_EXTAPR`, activating the full HAMA diagnostic screen with FDD SAVE/LOAD test, directory listing, and test-floppy formatting.
+**Test 8 (B3 + B4) → TT_EXTAPR (title 0xFC):**
+Holding keys B3 and B4 during power-on causes `SelfTest_FirmwareVersionCheck` to request title `0x01A000FC` through `UI_PostModeChangeEvent` (which, despite its name, posts `EVT_CHANGE_TITLE`, `0x1C00015`). The request opens `TT_EXTAPR`, which `InitializeHama` registers as title `0xFC`: the full HAMA diagnostic screen with FDD SAVE/LOAD test, directory listing, and test-floppy formatting.
 
-**TT_HDDEXT (widget table 0x7F):**
-The `TT_HDDEXT` title (Hard Disk Extension test, title id `0x7F`) does not correspond to any keybed mode code, and how it is reached has not been established. (`RegHamaTitle1_Entry` and `RegHamaTitle2_Entry` do not switch titles: they format a 2DD or 2HD test floppy.)
+**TT_HDDEXT (title 0x7F):**
+The `TT_HDDEXT` title (title id `0x7F`) is the HD-AE5000's hard-disk title, not a keybed test. The firmware ships a pre-built DISK MENU item that points at it (caption "HARD DISK MAIN MENU", which the HD-AE5000 replaces with "HD-AE5000"). The HD-AE5000 re-registers the title with its own view and procedure and, when a hard disk is present, requests it at boot with `EVT_INTERRUPT_TITLE` (see [HDAE5000 Homebrew]({{ site.baseurl }}/hdae5000-homebrew/#disk-menu-slot-registration-workspace0x0e0a0x02c4)). (`RegHamaTitle1_Entry` and `RegHamaTitle2_Entry` do not switch titles: they format a 2DD or 2HD test floppy.)
 
 **Complete activation chain:**
 ```
@@ -506,7 +506,7 @@ Power on while holding B3 + B4
   → Detects 2 keys: byte[4] bit 3 + byte[5] bit 7
   → Posts UI_PostModeChangeEvent(0xFC)
   → Event 0x1C00015 with data 0x1A000FC
-  → Title system activates TT_EXTAPR (widget table 0xFC)
+  → Title system activates TT_EXTAPR (title 0xFC)
   → TestTitleFunc receives EVT_ACTIVATE_STATE 0x1C00013 ("Title Activate")
   → HAMA diagnostic screen displayed
   → User can START/STOP FDD test, browse files, format a test floppy
