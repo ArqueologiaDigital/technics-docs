@@ -214,7 +214,7 @@ flowchart TD
     AUDIO_LAYER --> CPU_LAYER
     IO_LAYER --> UI_LAYER
     IO_LAYER --> SEQ_LAYER
-    MAIN <-->|"E1/E2/E3 commands"| LATCH
+    MAIN <-->|"commands, E1/E2 bulk transfers"| LATCH
     LATCH <-->|"DMA bulk transfer"| SUB
     SUB --> TONEGEN
     SUB --> DSP
@@ -267,7 +267,12 @@ on the main-CPU side, so a single flat picture of "the" address space would be m
 
 ## Source File Organization
 
-The v10 main-CPU firmware is one top-level file plus fifteen subsystem directories. Counts are
+The v10 main-CPU firmware is six top-level `.s` files (`kn5000_v10_program.s`, four
+`*_constants.s` and `msp_factory_defaults.s`) and one top-level C file
+(`msp_factory_defaults.c`), plus fifteen subsystem directories; the chart leaves out the
+top-level files other than `kn5000_v10_program.s`, `shared/` (11 `.s`, only
+`boot_hw_init.s` drawn), `includes/` (2 `.s`, 1 `.c`), the 16 C files of `style_ui/` and
+`ui/sepaout_config.c`. Counts are
 from `find v10/maincpu -name '*.s' | wc -l` (and `'*.c'`) in the disassembly repository —
 157 assembly files and 104 C files.
 
@@ -298,7 +303,7 @@ flowchart TD
         NVM["audio/note_voice_mapping.s"]
         SEMENU["audio/semenu_routines.s"]
         DSP_CFG["audio/dsp_config_sysex.s"]
-        SND_DATA["audio/sound_data/*.c"]
+        SND_DATA["audio/sound_data_*.c"]
     end
 
     subgraph SEQ_FILES ["Sequencer — 15 .s + 3 .c"]

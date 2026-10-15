@@ -300,7 +300,8 @@ Two caveats, neither a fidelity defect but both worth stating plainly:
   Only the v10 update disc exists here; of the six dumped BIOS options (v3 and v4 are
   `NO_DUMP`), five — v9 with v1.42 as well as the four above — rest on filename
   inference.
-- The composite — a genuine chip dump of a machine that never had the update, plus a
+- The composite — a genuine chip dump that lacks the update image at `0x3E0000` (H3b,
+  undecided: never installed, install interrupted, or dump truncated), plus a
   payload carved from a floppy — is a **reconstruction**, and nothing in the ROM definition
   marks it as such. The base `ROM_LOAD` carries a clean CRC/SHA1 and the `ROMX_LOAD`
   overlay carries no `BAD_DUMP` flag.

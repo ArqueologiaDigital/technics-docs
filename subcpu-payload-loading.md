@@ -20,7 +20,7 @@ The firmware's `SubCPU_Send_Payload` function (address `0xEF068A`) is responsibl
 
 1. Sending 5 x 64KB of **tone-database** data from Table Data ROM (`0x830000`-`0x870000`) to SubCPU RAM (see [What the two source regions actually hold](#what-the-two-source-regions-actually-hold) — this is *not* the Sub CPU's executable)
 2. Decompressing the compressed payload from `0x3E0000` to Main CPU RAM at `0x050000`
-3. Sending the decompressed data (preset data + entry point code) to SubCPU via E1 bulk transfers
+3. Sending the decompressed data (the sub-CPU executable; its first 256 bytes, the entry-point block, go last) to SubCPU via E1 bulk transfers
 4. The last 256-byte E1 transfer writes to SubCPU address `0x000400`-`0x04FF`, which includes `SUBCPU_STATUS_FLAGS` at `0x04FE` -- when bit 6 of that byte is set by DMA, the boot ROM's polling loop triggers payload execution
 
 ## Boot Flow: Payload Transfer
@@ -41,7 +41,7 @@ User_didnt_request_flash_mem_update (0xEF05E8)
 
 ### SubCPU_Send_Payload Detail (0xEF068A)
 
-Source: `maincpu/kn5000_v10_program.asm:134123`
+Source: `v10/maincpu/kn5000_v10_program.s:1475`
 
 ```
 Phase 1: Transfer 5 x 64KB from Table Data ROM
@@ -83,7 +83,7 @@ The following 9 E1 blocks were confirmed in the MAME log with 524,358 total HDMA
 
 ### E1 Bulk Transfer Protocol
 
-Source: `maincpu/kn5000_v10_program.asm:139166`
+Source: `v10/maincpu/boot/system_handlers.s:5700`
 
 Each E1 transfer follows this protocol:
 
@@ -98,7 +98,7 @@ The Main CPU sends data byte-by-byte in a tight software loop (`Audio_DMA_Transf
 
 ### Sub CPU Reception (Boot ROM INT0 Handler)
 
-Source: `subcpu/boot/kn5000_subcpu_boot.asm:1159`
+Source: `subcpu/boot/kn5000_subcpu_boot.s:1547`
 
 The Sub CPU's INT0 handler (`InterCPU_RX_Handler` at `0xFF881F`) processes incoming bytes:
 
@@ -120,7 +120,7 @@ The Sub CPU's INT0 handler (`InterCPU_RX_Handler` at `0xFF881F`) processes incom
 When the HDMA transfer writes a byte with bit 6 set to address `0x04FE`, the Sub CPU's main loop polling detects this and jumps to the payload entry point:
 
 ```asm
-; subcpu/boot/kn5000_subcpu_boot.asm:405
+; subcpu/boot/kn5000_subcpu_boot.s:774
 MAIN_LOOP:
     res 6, (SUBCPU_STATUS_FLAGS)    ; Clear ready flag
 .wait_loop:
@@ -132,14 +132,12 @@ MAIN_LOOP:
 
 **Confirmed in MAME log:** After HDMA writes to dst=0x0004FE, the SubCPU begins executing payload code at PC=0x01F929 (within the expected payload address range 0x00F000-0x03EE75).
 
-### The E3 Data Command (Separate from Payload Loading)
+### The E3 Command (Separate from Payload Loading)
 
-The `0xE3` byte in the boot ROM's INT0 handler is a **regular data command byte** for the inter-CPU protocol, not related to payload loading:
+`0xE3` is **not** a data command for handler 7. The boot ROM's INT0 handler (`InterCPU_RX_Handler`, `subcpu/boot/kn5000_subcpu_boot.s:1575-1579`) and the payload's (`INT0_HANDLER`, `v142/subcpu/kn5000_subprogram_v142.s:3180-3183`) both test for `0xE3` before the 3-bit dispatch, and both only set bit 6 of `0x04FE` (`SUBCPU_STATUS_FLAGS`; `PAYLOAD_LOADED_FLAG` in the payload source), which in the boot ROM would also trigger payload execution. The byte never reaches `CMD_DISPATCH_TABLE` (see [SubCPU Command Format]({{ site.baseurl }}/subcpu-command-format/#special-commands-e1e2e3)):
 
-- `0xE3` = `0b11100011` = channel 7, count 4 bytes
-- This is used later during normal operation when the Main CPU sends audio data packets on channel 7
-- The boot ROM's E3 handler sets bit 6 of `SUBCPU_STATUS_FLAGS`, which also triggers payload execution
-- However, this E3 path is NOT used during normal boot -- the payload loading trigger comes from the DMA write to 0x04FE
+- The main CPU's only literal E-command writes to the latch are `0xE1` and `0xE2` (`v10/maincpu/boot/system_handlers.s:5722`, `:5597`); no `0xE3` write has been found
+- This E3 path is NOT used during normal boot -- the payload loading trigger comes from the DMA write to 0x04FE
 
 ## What the transfer actually carries (2026-08 update)
 

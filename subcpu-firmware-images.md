@@ -17,9 +17,10 @@ is not.** The routine takes one of two source bases: the SLIDE4K image at Custom
 the live path on every firmware version we hold, and a File Type 007 update disc is proven
 to write the compressed payload there verbatim. But in our IC19 dump that region is 131,072
 bytes of `0xFF` with no `SLIDE` magic anywhere in the image, and the table-data fallback at
-`0x800100` is `0xF7` filler behind a pointer table. A machine matching our dumps could not
-start its sub-CPU. That is a **dump-provenance** problem, not a firmware one; the full
-evidence and the measurements that would settle it are on
+`0x800000` is a section directory followed by a bank of 8bpp bitmaps (picture data). A
+machine matching our dumps could not start its sub-CPU. That is a **dump-provenance**
+problem, not a firmware one; the full evidence and the measurements that would settle it
+are on
 [Sub-CPU Payload Provenance]({{ site.baseurl }}/subcpu-payload-provenance/).
 
 Three revisions of that payload survive, and they survive in two different shapes — which
