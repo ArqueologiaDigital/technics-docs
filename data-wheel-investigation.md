@@ -32,9 +32,10 @@ The panel sends a two-byte frame:
 [0xD7] [signed detent count]
 ```
 
-- `0xD7` = `0xC0 | 0x17`. Bits 7:6 = `11` select the **left** panel, exactly as button packets
-  encode it, and `0x17` is the encoder sub-address. (The KN7000 panel uses the same `0x17`
-  index for its own TEMPO/PROGRAM knob.)
+- `0xD7` is a Type 2 header. Bits 5:3 = `010` are the packet type; the CPU reads bits 7:6 = `11`
+  and 2:0 = `111` as bits 4:3 and 2:0 of the encoder ID, 31 (see below), not as a button packet's
+  panel select and segment. (The KN7000 panel sends `0x17`, the same low five bits, for its own
+  TEMPO/PROGRAM knob.)
 - The second byte is a **count** of detents accumulated since the previous report, not a
   direction. Sending a larger magnitude is how a fast spin is expressed.
 
@@ -94,7 +95,9 @@ to raise the on-screen value.
 > magnitudes are **-16..+16**. Keeping within that range is the panel's job; nothing in the
 > firmware will catch a violation.
 
-Regenerate the curve with `notes/kn5000-wheel-probes/curve.py`.
+The 33 values are typed in the disassembly as `CtrlPanel_DialStepByDelta[33]`
+(`v10/maincpu/ui_widgets/naka_disk_warning.c`). `notes/kn5000-wheel-probes/curve.py` in
+kn7000_mame dumps only the first 32 (wire -16..+15).
 
 ## Event Chain
 
@@ -212,8 +215,9 @@ The kn7000_mame overlay instead polls both ports from the panel device on each s
 
 The panel scan timer runs every 7 ms (~143 Hz). When the summed delta is non-zero the device
 negates it, clamps to -16..+15, and sends `[0xD7, count]` through `send_encoder_packet()` —
-deliberately **not** through `send_button_packet()`, which masks the sub-address to four bits
-and so cannot carry `0x17`. Delivery is then triggered by the same INTA path as a button change.
+deliberately **not** through `send_button_packet()`, which masks the segment number to four bits
+and so cannot produce the header `0xD7`. Delivery is then triggered by the same INTA path as a
+button change.
 
 Mainline logs each report under `LOG_BUTTONS` ("Encoder packet"); the overlay has a separate
 `LOG_ENCODER`.
@@ -221,9 +225,10 @@ Mainline logs each report under `LOG_BUTTONS` ("Encoder packet"); the overlay ha
 ## Reproducibility
 
 The static evidence lives in `notes/kn5000-wheel-probes/` in the kn7000_mame repository; each
-script names the question it answers in that directory's README. `tblid.py` and `curve.py`
-produced the two tables on this page. Related rigs: `tools/rigs/kn5000_wheel_bios_sweep.py`
-(cross-revision verdict), `tools/rigs/kn5000_wheel_rate_test.lua` (detent-loss measurement) and
+script names the question it answers in that directory's README. `tblid.py` produced the
+translation-table addresses, and `curve.py` the curve except its last entry (+16 → -7), which it
+does not read. Related rigs: `tools/rigs/kn5000_wheel_bios_sweep.py` (cross-revision verdict),
+`tools/rigs/kn5000_wheel_rate_test.lua` (detent-loss measurement) and
 `tools/rigs/kn5000_wheel_idle.lua` (the negative control: record `0x19` never appears at idle).
 
 ## Related Pages

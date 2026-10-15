@@ -8,8 +8,8 @@ permalink: /boot-cpserial-link/
 
 The first-stage bootloader in the Table Data ROM carries **its own, complete
 control-panel serial driver** — an interrupt-driven link over serial channel 1 with a
-ring-buffered packet layer, a handshake, a device probe and a device classifier. It is
-**not** the `CPanel_*` stack documented in
+ring-buffered packet layer, a handshake, a button poll and a power-on button-combination
+check. It is **not** the `CPanel_*` stack documented in
 [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/): that one lives in
 the Program ROM and only starts running after the bootloader has handed control to the
 main firmware.
@@ -36,7 +36,8 @@ interrupt vector table stores.
 ## Where it sits in the boot flow
 
 The link is not brought up unconditionally. `Boot_Init` gates it on a floppy being
-present, and only a specific device answer diverts the boot into the firmware-update UI:
+present, and only one held-button combination (PANEL MEMORY 1-4) diverts the boot into the
+firmware-update UI:
 
 ```
 Boot_Init
@@ -49,11 +50,11 @@ Boot_Init
     │       delays · BootSerial_FullInit · handshake · BootSerial_WaitDeviceIdent
     │
     ├── Boot_ProbeExternalDevice (0xFFED0E)
-    │       BootSerial_ProbeSequence + Boot_ClassifyDeviceID ──> HL = device class
+    │       BootSerial_ProbeSequence + Boot_ClassifyDeviceID ──> HL = button-combo code
     │
-    ├── class != 4 ──> jump to the Program ROM (normal boot)
+    ├── code != 4 ──> jump to the Program ROM (normal boot)
     │
-    └── class == 4 ──> firmware-update UI (display, prompt, Boot_PerformUpdate)
+    └── code == 4 (PM 1-4 held) ──> firmware-update UI (display, prompt, Boot_PerformUpdate)
 ```
 
 `BootSerial_InitVectorTable` is a 4-entry `.long` table of boot-time entry points; only
@@ -132,8 +133,7 @@ count = (byte & 0x0F) + 3                  if (byte & 0x3F) >= 0x30
 ```
 
 This is bit-for-bit the rule the runtime driver applies to `CPANEL_PACKET_BYTE_COUNT`
-(the "STATE_0_TO_17" calculation in
-[Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/)).
+(see [CPANEL_PACKET_BYTE_COUNT Meaning]({{ site.baseurl }}/control-panel-protocol/#cpanel_packet_byte_count-meaning)).
 Two independent implementations, one wire format.
 
 ## Rings and transfer-control blocks
@@ -154,13 +154,13 @@ drain the ring.
 
 Link state bytes worth knowing:
 
-| address | meaning |
-|---------|---------|
-| 0x0F62 | state byte (raw dispatch-table offset) |
-| 0x0F63 | per-frame byte countdown |
-| 0x0F64 | flags: bit 0 RX active, bit 1 TX pending, bit 2 RX busy, bit 4 decode-collapse sentinel, bits 7:6 link mode |
-| 0x0F6A | status/abort bits (bit 0 RX overflow, bit 1 TX arbitration failed, bit 3 frame discarded, bit 7 done/abort) |
-| 0x1022+ | decoded-packet buffer (also the XOR-scramble state) |
+| address | meaning                                                                                                                                                     |
+|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0x0F62  | state byte (raw dispatch-table offset)                                                                                                                      |
+| 0x0F63  | per-frame byte countdown                                                                                                                                    |
+| 0x0F64  | flags: bit 0 RX active, bit 1 TX pending, bit 2 RX busy, bit 4 decode-collapse sentinel, bits 7:6 link mode                                                 |
+| 0x0F6A  | status/abort bits (bit 0 RX overflow, bit 1 TX arbitration failed, bit 3 frame discarded, bit 7 done/abort)                                                 |
+| 0x1022+ | button-state array, one byte per segment, laid out like the runtime `STATE_OF_CPANEL_BUTTONS` (right panel +0x00-0x0A, status +0x0B, left panel +0x10-0x1A) |
 
 Named in the source since 2026-10-03 (each maincpu tree's `shared/ram_variables.s`): `BOOTSERIAL_STATE`,
 `BOOTSERIAL_FLAGS` and `BOOTSERIAL_STATUS`, at the same addresses in v7, v9 and v10. The rings and
@@ -175,12 +175,12 @@ transfer-control ring. Each frame is classified by `(first byte & 0x38) >> 1` �
 parser shifts right by one only, so the eight entries of
 `BootSerial_RxPacketDispatchTable` (0xFFF746) are 4 bytes apart and index directly.
 
-| class | handler | behaviour |
-|-------|---------|-----------|
-| 0, 1 | `BootSerial_RxPkt_TwoByteScrambled` | both bytes stored, plus a third byte produced by exchanging into the 0x1022 scramble buffer and XORing with its old contents (3 control-ring slots) |
-| 2 | `BootSerial_RxPkt_TwoByteDecode` | first byte stored raw, then `(C, A)` handed to an **external decoder hook** |
-| 3, 4, 5 | `BootSerial_RxPkt_Discard` | both bytes consumed and dropped; status bit 3 set |
-| 6, 7 | `BootSerial_RxPkt_VarLengthRun` | run header's low nibble gives `(header & 0x0F) + 1` payload bytes; each is either externally decoded (run-tag bit 4) or XOR-mixed like class 0/1 |
+| class   | handler                             | behaviour                                                                                                                                                                                                                                  |
+|---------|-------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0, 1    | `BootSerial_RxPkt_TwoByteScrambled` | button packet: both bytes stored, then the new state swapped into the 0x1022 button-state array and XORed with the old state, giving the changed bits as a third byte (3 control-ring slots), as the runtime `CPanel_RX_ButtonPacket` does |
+| 2       | `BootSerial_RxPkt_TwoByteDecode`    | first byte stored raw, then `(C, A)` handed to an **external decoder hook**                                                                                                                                                                |
+| 3, 4, 5 | `BootSerial_RxPkt_Discard`          | both bytes consumed and dropped; status bit 3 set                                                                                                                                                                                          |
+| 6, 7    | `BootSerial_RxPkt_VarLengthRun`     | run header's low nibble gives `(header & 0x0F) + 1` payload bytes; each is either externally decoded (run-tag bit 4) or XOR-mixed like class 0/1                                                                                           |
 
 Parsing stops when fewer than 4 free slots remain in the control ring, or fewer than 2
 bytes are available in the serial ring.
@@ -213,8 +213,11 @@ BootStub_ReturnError:            ; ROM 0x9FB80E — bytes 33 FF FF 0E
 The caller treats `HL == 0xFFFF` as *decode failure*: it takes the already-stored first
 byte back out of the control ring (`BootSerial_CtrlRingRetreatIX`), commits the serial
 tail and drops the packet. So **every class-2 packet is discarded on a stock KN5000** —
-the hook exists for a decoder that this firmware does not contain. The same is true of
-the decode arm of the class 6/7 variable-length handler, which calls the same wrapper.
+class 2 is the Type 2 (analog-controller / data-wheel) frame, and the wrapper sits where the
+runtime `CPanel_RX_EncoderPacket` calls `CPanel_EncoderDispatch` (through
+`EncPkt_DispatchThunk`, the same push/call/pop shape). The bootloader links an error stub
+there instead. The same is true of the decode arm of the class 6/7 variable-length
+handler, which calls the same wrapper.
 The stub sits in a bank of five one-line stubs at 0x9FB802-0x9FB811 — four returning 0,
 this one returning 0xFFFF. That grouping *looks* like the residue of optional modules
 that were not linked into this build, but that reading is an interpretation; what the ROM
@@ -235,7 +238,7 @@ TX serial ring.
 | 0, 1, 2 | `BootSerial_TxPkt_TwoByte` | plain 2-byte frame |
 | 3 | `BootSerial_TxPkt_VarLengthRun` | header plus `(header & 0x0F) + 2` payload bytes |
 
-## Handshake, probe and device classification
+## Handshake, button poll and power-on combo check
 
 `BootSerial_FullInit` (0xFFED1E) resets both transfer-control blocks, programs the port
 F/E pin functions (keeping `PFCR`/`PFFC` shadows in RAM), sets `SC1MOD = 0x00`,
@@ -262,21 +265,28 @@ driver's segment-0x0B settling check (`CPanel_ButtonPollLoop`, the same bit 7 �
 0x0E / else 0x0C rule). That register is not the data wheel; see
 [Data Wheel]({{ site.baseurl }}/data-wheel-investigation/).
 
-`Boot_ClassifyDeviceID` (0xFFEF89) then inspects four bytes of the decoded-packet buffer,
-in this order:
+`Boot_ClassifyDeviceID` (0xFFEF89) then tests four bytes of the 0x1022 button-state array,
+which `BootSerial_ProbeSequence` has just filled by sending the same four commands as the
+runtime `CPanel_ReadAllButtons` (`25 01`, `E2 04`, `20 10`, `E2 11`). Despite its name it
+classifies no external device: it is the bootloader's copy of the runtime power-on combo check
+`CPanel_CheckSpecialCombos`, with the same four tests in the same order, the same values and
+the same return codes. Its offsets from 0x1022 (+0x14, +0x01, +0x16, +0x06) are the ones the
+runtime check uses from `STATE_OF_CPANEL_BUTTONS` (0x8E4A): 0x8E5E, 0x8E4B, 0x8E60, 0x8E50.
 
-| test | result |
-|------|--------|
-| (0x1036) == 0x6C | class 3 |
-| (0x1023) == 0x70 | class 2 |
-| (0x1038) == 0x38 | class 1 |
-| (0x1028) == 0x0F | class 4 — **flash-update service device** |
-| otherwise | class 0 (none / unknown) |
+| test             | segment  | buttons held                                       | code               |
+|------------------|----------|----------------------------------------------------|--------------------|
+| (0x1036) == 0x6C | CPL_SEG4 | AUTO PLAY CHORD + SPLIT POINT + VAR4 + VAR3        | 3                  |
+| (0x1023) == 0x70 | CPR_SEG1 | GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR  | 2                  |
+| (0x1038) == 0x38 | CPL_SEG6 | SHOWTIME & TRAD DANCE + PARTY TIME + MARCH & WALTZ | 1                  |
+| (0x1028) == 0x0F | CPR_SEG6 | PM 1 + PM 2 + PM 3 + PM 4                          | 4                  |
+| otherwise        |          |                                                    | 0 (no combination) |
 
-Only class 4 changes the boot path: `Boot_Init` compares `L` against 4 and runs the
-firmware-update UI on a match. What classes 1-3 correspond to physically is not
-established from the ROM alone — the classifier only tells us which byte of which
-response distinguishes them.
+Only code 4 changes the boot path: `Boot_Init` compares `L` against 4 and runs the
+firmware-update UI on a match. That is why an update is started by holding PANEL MEMORY 1-4
+while powering on with the update disk inserted (see
+[Firmware Update Procedure]({{ site.baseurl }}/firmware-update-procedure/)). The bootloader
+ignores codes 1-3; the main firmware's own check acts on them (see
+[Test Modes]({{ site.baseurl }}/test-modes/#control-panel-button-combos)).
 
 ## Dead and unreferenced code
 
@@ -314,12 +324,16 @@ not yet done.
 
 ## Emulation status
 
-There is **no HLE of this driver** in MAME today; the existing
-`kn5000_cpanel` device targets the runtime protocol. Because the bootloader only brings
-the link up when a disk is present, and only diverts on device class 4, a normal
-emulated boot never depends on it. Anyone who does implement it should note the two
-traps above: the state byte is a raw table offset (not a state index), and class-2
-packets can never be decoded successfully by stock firmware.
+This driver is main-CPU code, so an emulator needs no HLE of it: it runs the code as it is.
+MAME does not run it today. Its static memory map puts the Program ROM at 0xE00000-0xFFFFFF,
+so the reset path is the Program ROM's and the table-data bootloader never executes (see
+[MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/#gap-3--the-dynamic-memory-map)).
+The `kn5000_cpanel` device emulates the panel MCUs that both drivers talk to.
+On hardware the bootloader brings the link up only when a disk is present and diverts
+only when PANEL MEMORY 1-4 are held, so a boot without a disk never runs it. Anyone who
+makes it run under emulation should note the two traps above: the state byte is a raw
+table offset (not a state index), and class-2 packets can never be decoded successfully
+by stock firmware.
 
 ---
 
@@ -328,4 +342,4 @@ packets can never be decoded successfully by stock firmware.
 - [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/) — the *runtime* driver in the Program ROM (different implementation)
 - [Boot Sequence]({{ site.baseurl }}/boot-sequence/) — where this link is brought up and what gates it
 - [FDC Subsystem]({{ site.baseurl }}/fdc-subsystem/) — the bootloader's other big driver, disassembled in the same wave
-- [Firmware Update Procedure]({{ site.baseurl }}/firmware-update-procedure/) — the path device class 4 leads to
+- [Firmware Update Procedure]({{ site.baseurl }}/firmware-update-procedure/) — the path combo code 4 (PANEL MEMORY 1-4 held) leads to

@@ -225,7 +225,7 @@ Byte 1: [ Button bitmap - 8 buttons per segment ]
 | `00` | 0x00 | Right panel (CPR) |
 | `11` | 0xC0 | Left panel (CPL) |
 
-**Important:** Bits 7:6=`01` (0x40) and bits 7:6=`10` (0x80) fall in a dead zone of the firmware's ROM lookup table at `0xEDA03C`. Using 0x40 for left panel headers causes all left panel events to bypass LED dispatch entirely (index 0x1F > 0x15). This was a long-standing bug in early HLE implementations.
+**Important:** Bits 7:6=`01` (0x40) and bits 7:6=`10` (0x80) fall in a dead zone of the firmware's ROM lookup table at `0xEDA03C`. Using 0x40 for left panel headers maps every left panel event to index 0x1F, whose action list is empty, so no left-panel button press reaches an action. This was a long-standing bug in early HLE implementations.
 
 **Firmware processing at `CPanel_RX_ButtonPacket` (0xFC4985):**
 1. Extracts panel/segment: `W = byte0 & 0x4F`
@@ -245,7 +245,7 @@ Table contents (128 entries):
 [0x6B-0x7F]: mostly 1F, with 0x16-0x19 at specific offsets (encoders/multi-byte)
 ```
 
-Event indices ≤ 0x15 → LED dispatch (visible button reactions). Indices > 0x15 → pending array (no visible reaction). This is why header encoding must use exactly `00` (right) and `11` (left) in bits 7:6.
+In normal operation every record is queued at RAM `0x8E94` and runs the action list of its index (see [From a button change to an action](#from-a-button-change-to-an-action-2026-10-06)). The dead-zone index 0x1F has an empty list (`PanelActions_Event31`), so its records do nothing; this is why header encoding must use exactly `00` (right) and `11` (left) in bits 7:6. Only while title 251 (`TITLE_EXT`) is current does `PanelInput_QueueChange` split at 0x15: segment indexes go straight to `EffectMode_MidiSetLEDs`, and higher ones (except 0x19) are queued.
 
 ### Encoder Packet Format (Type 2)
 
@@ -363,7 +363,7 @@ A segment change becomes a 3-byte record `{event index, new state, changed bits}
 11-21 = right-panel segments 0-10, 22-24 = left-panel headers `0xD1`, `0xD2`, `0xD3` (Type 2 frames of encoder IDs 25-27: `Encoder_ProcessBreath`, `Encoder_ProcessFoot`, `Encoder_ProcessExpression`), 25 = header `0xD7`, the TEMPO/PROGRAM data wheel (records
 `{0x19, ±delta, 0xFF}`: MAME's panel device has sent the `[0xD7, count]` frame that produces these records since
 [mamedev/mame#15919](https://github.com/mamedev/mame/pull/15919)), 26 = the
-modulation wheel and 27 = the volume slider (`ENCODER_0` / `ENCODER_1`, queued by `PanelInput_QueueWheelChanges`),
+modulation wheel and 27 = the volume slider (`ENCODER_0_OUTPUT` / `ENCODER_1_OUTPUT`, queued by `PanelInput_QueueWheelChanges`),
 28 = foot switches FS1/FS2 (PG.2-3), 29 = foot controllers FC1-FC4 (PG.4-7), 30 = PD.6 (the pedal records of
 `PanelInput_ScanPedalPorts`; see [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/)). For each record, `PanelButton_DispatchChange` walks one **action list**, chosen by the event
 index from `PanelButton_ActionLists` (ROM `0xED9C1E`), or from `PanelButton_HelpModeActionLists`
@@ -379,9 +379,9 @@ index from `PanelButton_ActionLists` (ROM `0xED9C1E`), or from `PanelButton_Help
 
 For each action, `state & mask` and `changed & mask` are shifted by the count. When the masked changed bits
 are not 0, the handler is called with the frame `{event_id, event_arg, state, changed}` and the raw `{0xAA,
-index, state byte, changed byte}` after it. (Corrected the same day: the first version of this section read the
-record as `{old byte, new byte}`; the pedal scan, `PanelInput_UpdatePedalRecord`, writes `new ^ old` as the
-third byte, and `PanelButton_PairDown` tests the state byte for press or release.) Most handlers filter on the mode or a panel parameter, then post one or both 4-byte
+index, state byte, changed byte}` after it. The pedal scan, `PanelInput_UpdatePedalRecord`, writes `new ^ old`
+as the third byte, and `PanelButton_PairDown` tests the state byte for press or release, which confirms this
+layout. Most handlers filter on the mode or a panel parameter, then post one or both 4-byte
 events with `PanelEvent_Post` (a 16-deep queue at `(0xC039)`). The event ids `0x48`, `0x60`, `0x70`,
 `0x90` and `0x98` are panel-record tags (see [Panel Memory Factory Data]({{ site.baseurl }}/panel-memory-factory-data/)).
 An id of `0x00`, used by the sound-group buttons, is replaced by the byte at RAM `0x8D3A` before posting
@@ -573,12 +573,12 @@ State Transition Diagram:
 
 The variable `CPANEL_PACKET_BYTE_COUNT` (address 0x8D8B) tracks the expected byte count in multi-byte transfers:
 
-| Value | Meaning |
-|-------|---------|
-| 0 | Idle/complete |
-| 1 | Last byte expected |
-| 2 | Standard 2-byte packet |
-| 3-17 | Extended packet, N bytes remaining |
+| Value | Meaning                            |
+|-------|------------------------------------|
+| 0     | Idle/complete                      |
+| 1     | Last byte expected                 |
+| 2     | Standard 2-byte packet             |
+| 3-18  | Extended packet, N bytes remaining |
 
 **Calculation (from received byte A):**
 ```c
@@ -849,7 +849,7 @@ Buttons are organized in 11 segments per panel, with 8 buttons per segment.
 | Segment  | Bitmask | Buttons                                            | Effect                                                                            |
 |----------|---------|----------------------------------------------------|-----------------------------------------------------------------------------------|
 | CPL_SEG4 | 0x6C    | AUTO PLAY CHORD + SPLIT POINT + VAR4 + VAR3        | Display software build numbers                                                    |
-| CPR_SEG1 | 0x70    | GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR  | "ALL INITIAL SETTING!" screen + firmware version on the LEDs                      |
+| CPR_SEG1 | 0x70    | GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR  | MPVersion screen (`EVT_MP_VERSION`) + firmware version on the LEDs                |
 | CPL_SEG6 | 0x38    | SHOWTIME & TRAD DANCE + PARTY TIME + MARCH & WALTZ | Factory reset (Initial Setting); see [Test Modes]({{ site.baseurl }}/test-modes/) |
 | CPR_SEG6 | 0x0F    | PM 1 + PM 2 + PM 3 + PM 4                          | Firmware update mode                                                              |
 
@@ -975,8 +975,9 @@ two-byte frame:
 [0xD7] [signed detent count]
 ```
 
-`0xD7` = `0xC0 | 0x17`: bits 7:6 = `11` select the left panel, as in a button packet, and `0x17`
-is the encoder sub-address. The second byte is a **count** of detents accumulated since the last
+`0xD7` is a Type 2 header (see below). Its bits 5:3 = `010` are the packet type, and the CPU reads
+bits 7:6 = `11` and 2:0 = `111` as bits 4:3 and 2:0 of the encoder ID, 31, not as a button packet's
+panel select and segment. The second byte is a **count** of detents accumulated since the last
 report, not a direction. The header becomes a record index via `((A & 0xC0) >> 1) | (A & 0x1F)`,
 so `0xD7` maps to index `0x77`, where the translation table holds record `0x19`. Only `0xD7` and
 `0xF7` reach that index.
@@ -1060,7 +1061,7 @@ Once the 0x1C0001F event is posted, it reaches the focused widget through the NA
 
 The firmware has two separate polling loops:
 
-1. **Startup mode** (`CPanel_PollStartup` + `CPanel_ButtonPollLoop`, lines 505-549): sends `0x20 0x0B`, settles the encoder register, runs only during boot.
+1. **Startup mode** (`CPanel_PollStartup` + `CPanel_ButtonPollLoop`, lines 505-549): sends `0x20 0x0B`, repeats until the segment 0x0B reply is stable, runs only during boot.
 2. **Steady-state mode** (`CPanel_InterruptPoll_MainLoop`, lines 1060-1177): sends `E0 13` periodically, updates LEDs, handles INTA packets. There is no encoder poll here — the wheel pushes its `[0xD7, count]` frames over INTA like any other panel change.
 
 
@@ -1347,7 +1348,7 @@ The `CPanel_RX_MultiBytePacket` handler has complex decoding logic:
 **Complete LED mapping now documented** - see "LED Control Interface" section above.
 - Right panel: rows 0x00-0x0C
 - Left panel: rows 0xC0-0xC8
-- Full mapping extracted from MAME driver cpanel_leds_w function
+- The same mapping is in MAME's `kn5000_cpanel_device::process_led_command()` (`kn5000_cpanel.cpp`)
 
 **Button → LED map (firmware side).** `PanelButton_LedMap` (352 bytes in the program ROM, 0xEB7E8C in v10) gives,
 for each of the 22 panel input segments and each of its 8 button bits, the `{LED row, LED pattern}` that
@@ -1470,19 +1471,22 @@ CPanel_RX_ButtonPacket (0xFC4985)
 
 - **Location:** `CPANEL_RX_EVENT_QUEUE` (0x000200AD)
 - **Size:** 128 bytes circular buffer
-- **Content:** Changed bits mask + segment info
+- **Content:** 3-byte records `{header byte, new state, changed bits}`
 
 ### Application Event Dispatch
 
 ```
-ApDeliveryEvent (0xFA9E07) - Called from main loop
+CtrlPanel_HandlePortCommands (0xF98314)
+    - panel payload 0x20 (a mode key) → ApPostEvent(EVT_SW_IN_MODE, mode)
     ↓
-AppEvent_ChainDispatch1 (0xF44147) - Event Dispatcher
-    - Extracts event code (0x01c00013)
-    - Indexes APP_EVENT_HANDLER_TABLE with handler ID
-    - Jumps to handler
+GroupBoxProc (0xF9983F) → GroupBox_HandleStateCompare (0xF99E57)
+    - EVT_SW_IN_MODE becomes EVT_CHANGE_MODE
     ↓
-DemoModeFunc (0xF222CC)
+GroupBox_HandlePartChange (0xF99961), the EVT_CHANGE_MODE case
+    - SendEvent(old mode, EVT_ACTIVATE_STATE, 1)   phase 1 = mode deactivated
+    - SendEvent(new mode, EVT_ACTIVATE_STATE, 0)   phase 0 = mode activated
+    ↓
+DemoModeFunc (0xF222CC), the MD_DEMO mode's MainFunction (NAKA_MAINFUNC_DemoModeFunc)
 ```
 
 ### Event Code `0x01c00013` Is `EVT_ACTIVATE_STATE`, Not a Button Event
@@ -1510,15 +1514,15 @@ DemoModeFunc:
 
 ### Key Addresses
 
-| Component                 | Address    | Purpose                                                      |
-|---------------------------|------------|--------------------------------------------------------------|
-| `CPanel_RX_ButtonPacket`  | 0xFC4985   | Packet parsing, XOR change detection                         |
-| `CPANEL_RX_EVENT_QUEUE`   | 0x000200AD | Event queue buffer                                           |
-| `ApDeliveryEvent`         | 0xFA9E07   | Main event dispatcher                                        |
-| `APP_EVENT_HANDLER_TABLE` | 0xF44169   | Handler lookup table                                         |
-| `DemoModeFunc`            | 0xF222CC   | Demo mode's EVT_ACTIVATE_STATE handler                       |
-| `DemoMode_Main_Operation` | 0xF8696F   | Demo mode entry (EVT_ACTIVATE_STATE phase 0, mode activated) |
-| `DemoMode_Initialize`     | 0xF869E3   | Called on EVT_ACTIVATE_STATE phase 1 (mode deactivated)      |
+| Component                      | Address    | Purpose                                                                                      |
+|--------------------------------|------------|----------------------------------------------------------------------------------------------|
+| `CPanel_RX_ButtonPacket`       | 0xFC4985   | Packet parsing, XOR change detection                                                         |
+| `CPANEL_RX_EVENT_QUEUE`        | 0x000200AD | Event queue buffer                                                                           |
+| `CtrlPanel_HandlePortCommands` | 0xF98314   | Turns the mode-key panel event (payload 0x20) into `EVT_SW_IN_MODE`                          |
+| `GroupBox_HandlePartChange`    | 0xF99961   | `GroupBoxProc`'s `EVT_CHANGE_MODE` case: sends `EVT_ACTIVATE_STATE` to the old and new modes |
+| `DemoModeFunc`                 | 0xF222CC   | Demo mode's EVT_ACTIVATE_STATE handler                                                       |
+| `DemoMode_Main_Operation`      | 0xF8696F   | Demo mode entry (EVT_ACTIVATE_STATE phase 0, mode activated)                                 |
+| `DemoMode_Initialize`          | 0xF869E3   | Called on EVT_ACTIVATE_STATE phase 1 (mode deactivated)                                      |
 
 ### Complete Call Chain
 
@@ -1536,16 +1540,17 @@ CPanel_RX_ButtonPacket (0xFC4985)
     └─ Queue event to CPANEL_RX_EVENT_QUEUE
     ↓
 PanelButton_ModeKey (DEMO's action {0xA9, 0x20})
-    └─ The demo mode is selected; the mode change sends EVT_ACTIVATE_STATE
+    └─ PanelEvent_Post: panel event {0xA9, 0x20, mode code}
     ↓
-ApDeliveryEvent (0xFA9E07) - Called from main loop
-    ├─ Deliver EVT_ACTIVATE_STATE (0x01c00013), phase 0 = mode activated
-    └─ Call AppEvent_ChainDispatch1
+CtrlPanel_HandlePortCommands (0xF98314)
+    └─ panel payload 0x20 → ApPostEvent(EVT_SW_IN_MODE, mode)
     ↓
-AppEvent_ChainDispatch1 (0xF44147)
-    ├─ Index APP_EVENT_HANDLER_TABLE with handler ID
-    ├─ Compute offset from handler offset lookup table
-    └─ Jump to handler function
+GroupBox_HandleStateCompare (0xF99E57), GroupBoxProc's EVT_SW_IN_MODE case
+    └─ EVT_CHANGE_MODE
+    ↓
+GroupBox_HandlePartChange (0xF99961), GroupBoxProc's EVT_CHANGE_MODE case
+    ├─ SendEvent(old mode, EVT_ACTIVATE_STATE, 1) - mode deactivated
+    └─ SendEvent(new mode, EVT_ACTIVATE_STATE, 0) - mode activated
     ↓
 DemoModeFunc (0xF222CC)
     ├─ CP XBC, 01c00013h  ← EVT_ACTIVATE_STATE?

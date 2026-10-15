@@ -180,7 +180,7 @@ Time    CPU Firmware                  MAME Serial Device    Control Panel HLE
         │ SendCommand(0x20, 0x0B)
         │ DELAY_6_TICKS
         │ Process response
-        │ ... (repeat until encoder stable)
+        │ ... (repeat until the segment 0x0B reply is stable)
         │
 ~55 ms  CPanel_InitButtonState:
         │ WaitTXReady + Send(0x2B, 0x00)  <── Query all left segments
@@ -238,8 +238,8 @@ four `bits 7:6` encodings are live:
 ```
 
 A left-panel header of `0x40 | segment` lands in the dead zone: every event resolves to index
-`0x1F`, which is past the table's `0x15` limit, and LED dispatch is skipped entirely. The left
-panel must use `0xC0 | segment`.
+`0x1F`, whose action list (`PanelActions_Event31`) is empty, so no left-panel button press reaches
+an action. The left panel must use `0xC0 | segment`.
 
 This is the same table that resolves the data wheel's `0xD7` header to record `0x19`; see
 [Data Wheel]({{ site.baseurl }}/data-wheel-investigation/).
