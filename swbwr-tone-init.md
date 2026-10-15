@@ -6,7 +6,7 @@ permalink: /swbwr-tone-init/
 
 # Tone Generator Initialization (SwbtWr)
 
-During Feature Demo, `SwbtWr_ReinitBothBanks` blocks the CPU while reinitializing the tone generator with new sound preset parameters. In MAME the stall lasted about 16 seconds (measured 2026-03-09, see [Feature Demo Timer Behaviour]({{ site.baseurl }}/feature-demo-investigation-2026-03-09/)). An earlier version of this page blamed it for the SSF presentation never starting; that failure was later traced to event routing and is independent of the stall (see [SSF Presentation System]({{ site.baseurl }}/ssf-presentation/)).
+During Feature Demo, `SwbtWr_ReinitBothBanks` blocks the CPU while reinitializing the tone generator with new sound preset parameters. In MAME the stall lasted about 16 seconds (measured 2026-03-09, see [Feature Demo Timer Behaviour]({{ site.baseurl }}/feature-demo-investigation-2026-03-09/)). Later builds do not reproduce it. On the kn7000_mame overlay of 2026-08-15, the demo countdown at DRAM `0x0D2F` went from 10 to 9 in 0.51 s, against 0.07 to 0.10 s for every other step ([`notes/p9-countdown-2026-08-15.log`](https://github.com/ArqueologiaDigital/MAME_Technics_Research/blob/main/notes/p9-countdown-2026-08-15.log)). Ten is the value at which `Demo_ParseSlideHeader` and `Demo_SelectEntry_PlaySong` run, so the slide parse and the whole song setup, `SwbtWr_ReinitBothBanks` included, took at most half a second. An earlier version of this page blamed it for the SSF presentation never starting; that failure was later traced to event routing and is independent of the stall (see [SSF Presentation System]({{ site.baseurl }}/ssf-presentation/)).
 
 This page documents the full initialization call graph, the event buffer system, the dispatch loop internals, and the impact on the main loop.
 
@@ -18,7 +18,7 @@ This page documents the full initialization call graph, the event buffer system,
 - [Call Graph](#call-graph)
 - [Event Buffer System](#event-buffer-system)
 - [Dispatch Loop Detail](#dispatch-loop-detail)
-- [Why It Takes ~16 Seconds](#why-it-takes-16-seconds)
+- [Why It Took ~16 Seconds in March 2026](#why-it-took-16-seconds-in-march-2026)
 - [DSP Status Polling Bug (March 2026 Discovery)](#dsp-status-polling-bug-march-2026-discovery)
 - [Impact on NAKA Widget Framework](#impact-on-naka-widget-framework)
 - [Flowcharts](#flowcharts)
@@ -123,9 +123,9 @@ Each callback reads the event back from RAM (code at 0xC080, payload at 0xC07D-0
 
 ---
 
-## Why It Takes ~16 Seconds
+## Why It Took ~16 Seconds in March 2026
 
-The ~16-second blocking duration results from the combination of:
+The ~16-second duration measured in March 2026 came from the combination of:
 
 | Factor                           | Contribution                                            |
 |----------------------------------|---------------------------------------------------------|
@@ -136,11 +136,11 @@ The ~16-second blocking duration results from the combination of:
 | No yield points                  | the main loop does not advance; interrupts keep running |
 | No batching                      | Each event processed individually                       |
 
-Additionally, `MainLoop_ReinitSwbtWr` (in the main loop's phase 4) calls `SwbtWr_ReinitBothBanks` **again** on the next main loop iteration if the sequencer startup has queued additional events. This can extend the total blocking time beyond the initial 16-second window.
+Additionally, `MainLoop_ReinitSwbtWr` (in the main loop's phase 4) calls `SwbtWr_ReinitBothBanks` **again** on the next main loop iteration if the sequencer startup has queued additional events. This can extend the total blocking time beyond the initial window.
 
 ### Timing Breakdown
 
-The ~16 s is a MAME measurement ([Feature Demo Timer Behaviour]({{ site.baseurl }}/feature-demo-investigation-2026-03-09/)). The dispatch overhead per event (11 pushes, 11 pops, one indirect call) is a few microseconds at 16 MHz, so the time is spent in the callback bodies. Why they take tens of milliseconds each in MAME has not been established, and real hardware has not been timed.
+The ~16 s is a MAME measurement ([Feature Demo Timer Behaviour]({{ site.baseurl }}/feature-demo-investigation-2026-03-09/)). The dispatch overhead per event (11 pushes, 11 pops, one indirect call) is a few microseconds at 16 MHz, so the time is spent in the callback bodies. Why they took tens of milliseconds each in the March 2026 build was never established, and the August 2026 build no longer shows it; real hardware has not been timed.
 
 ---
 
@@ -261,7 +261,7 @@ flowchart TD
     B1 --> LOOP1["SwbtWr_DispatchLoop<br/>(queued events, ≤127)"]
     LOOP1 --> B2["SwbtWr_InitBank2<br/>(2573B table at 0xEE7CA7)"]
     B2 --> LOOP2["SwbtWr_DispatchLoop<br/>(queued events, ≤127)"]
-    LOOP2 --> DONE["Return to Demo_SelectEntry_PlaySong<br/>(~16 seconds elapsed in MAME)"]
+    LOOP2 --> DONE["Return to Demo_SelectEntry_PlaySong<br/>(~16 s in MAME, March 2026; at most 0.5 s, August 2026)"]
 ```
 
 ### Dispatch Loop Detail
@@ -296,7 +296,7 @@ flowchart LR
         P4 --> P5["Phase 5<br/>Demo Timer Tick"]
     end
 
-    P5 -->|"SwbtWr_ReinitBothBanks<br/>BLOCKS ~16 seconds in MAME"| BLOCK["CPU trapped<br/>in dispatch loop"]
+    P5 -->|"SwbtWr_ReinitBothBanks<br/>blocked ~16 s in MAME (March 2026)"| BLOCK["CPU trapped<br/>in dispatch loop"]
 
     subgraph STARVED["Phases 6-7 (STARVED)"]
         direction LR
