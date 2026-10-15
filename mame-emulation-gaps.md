@@ -218,7 +218,11 @@ reset through the HLE'd `kn5000_cpanel_device` is not established.
 
 Even with all of that, the boot path has further gates that MAME cannot currently reach:
 `Boot_CheckDiskPresent` (Port D bit 6, active low), `BootSerial_Init`, and
-`Boot_ProbeExternalDevice` needing to return device class 4.
+`Boot_ProbeExternalDevice` returning code 4. Despite its name it probes no external device: it
+is the bootloader's copy of the same power-on combo check, run on its own poll of the panel,
+and it returns 4 only when PANEL MEMORY 1-4 are held (its copy of `CPR_SEG6`, at `0x1028`,
+reads `0x0F`). So the HLE panel has to report the combination above to the bootloader as
+well; see [Boot CP-Serial Link]({{ site.baseurl }}/boot-cpserial-link/#handshake-button-poll-and-power-on-combo-check).
 
 ## Secondary gaps
 
