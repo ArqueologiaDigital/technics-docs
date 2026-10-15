@@ -176,8 +176,8 @@ unsolved — and that is the useful part:
   parametric EQ and room reverb 1 carry **zero** `f31 = 3` words, so every anchored criterion is
   blind to the axis by construction. It is separable and reproducible; it is unrankable.
 - **The class-6 lookup is blocked on its index**, and the word that computes the index is itself a
-  bit-11 word the device executes nothing for. Six index sources have been enumerated and refuted:
-  **do not build a seventh.**
+  bit-11 word, of which the device runs only the addressing. Six index sources have been
+  enumerated and refuted: **do not build a seventh.**
 - **The bit-11 family turns on one question.** 169 undecoded words over nine shapes, two of which
   are 87.6 % of the family. **169 of 169 are in a characterised addressing mode** and 158 of 169
   carry an anchored accumulator function — the disassembler refuses them by an explicit policy
@@ -252,10 +252,11 @@ which no datasheet tells us. Rank it last, and only after R1–R4 have been exha
 
 ### R6 — What may be genuinely undecidable, and the doctrine for it
 
-Some fields have a **measured proof of blindness** — not an absence of effort. `ACT 0x0D` has no
-anchored pair anywhere in 91 programs and all three known-mathematics contexts measure blind; the
-exact DRAM read latency inside its forced window is unobtainable from either board; `N` in
-`mod 2^N` is unobservable from software because the firmware never uses more than 16 bits.
+Some fields have a **measured proof of blindness** — not an absence of effort: the exact DRAM
+read latency inside its forced window is unobtainable from either board, and `N` in `mod 2^N` is
+unobservable from software because the firmware never uses more than 16 bits. (`ACT 0x0D`, once
+the standard example, was anchored together with `0x0E` on 2026-09-13 by two independent routes;
+see the [unofficial datasheet]({{ site.baseurl }}/upd6383-datasheet/), §4.3.)
 
 The existing doctrine is the right one and should not be softened: **name the equivalence class,
 pick a member, mark the row ARBITRARY — not GUESSED — and make the choice a single toggle** a

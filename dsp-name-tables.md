@@ -199,7 +199,8 @@ the first line on the current page is the byte at `0x021098`. The loop paints ei
 ## 6. Parameter value formats
 
 The value shown next to each parameter name is written by `FormatParamValueStr`
-(`sequencer/sequencer_ui.s`, called from the effect editor's `OnGetEffDltNStr` handlers). The
+(`sequencer/sequencer_ui.s`, called, through `DspItem0_FormatParamValue`, from the effect
+editor's handlers `DspItem0CngFunc_OnGetEffDlt0Str` … `DspItem0CngFunc_OnGetEffDlt7Str`). The
 routine reads two things for row *r*: the parameter id (the byte at RAM `0x29AC + r`, the same id
 that indexes the name and unit tables) and the value (the word at RAM `0x2978 + 2r`). It writes
 a 7-character cell: a space, five value characters, and another space.
@@ -291,9 +292,10 @@ descriptor material.
 ## 8. Caveats and open items
 
 * **The blob is cut and its members are named.** `widget_descriptors.s` addresses it
-  through 696 labelled `.incbin` slices, and `naka_widget_descriptors.c` has no
-  `field_XXXX` / `ptr_XXXX` placeholder members left (since 2026-09-25). Naming the 4,450
-  bytes on this page did not by itself explain the widget-descriptor format.
+  through 696 `.incbin` slices, all but one of them labelled, and
+  `naka_widget_descriptors.c` has no `field_XXXX` / `ptr_XXXX` placeholder members left
+  (since 2026-09-25). Naming the 4,450 bytes on this page did not by itself explain the
+  widget-descriptor format.
 * **All three trees name the table the same way now.** Until 2026-10-02
   `v7/maincpu/sequencer/sequencer_ui.s` loaded it through the positional alias
   `NakaData_WidgetDescriptors_0x1C1A`; v7 now has the `DspEffectName_PtrTable` label too

@@ -248,8 +248,9 @@ the cursor). Bits 2:0 are the addressing mode, and **`hi12` bit 11 picks the spa
      +--+--------------+-+----------------+
 ```
 
-**Bit 11 selects a second encoding with no SRC and no ACTION field** — the device executes nothing
-for such a word. 169 undecoded words carry it; this is the single largest open block.
+**Bit 11 selects a second encoding with no SRC and no ACTION field** — by default the emulated
+device executes only such a word's addressing (pointer step and cursor advance), not its ALU
+step. 169 undecoded words carry it; this is the single largest open block.
 
 **SRC — 7 of 18 observed codes anchored:** `0x07` `mem[ptr]`, `0x10` accumulator, `0x19` tempA,
 `0x1A` tempB, `0x08` coefficient, plus `0x00` and `0x0B` which are **split by the word's own

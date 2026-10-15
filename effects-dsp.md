@@ -135,7 +135,9 @@ generates**; the Fs-RST and Fs-MASK pins are strapped inactive on this board.
 The Sub CPU (TMP94C241F) is the host. It reaches the DSP through a **parallel
 microcontroller interface** — port **PZ** carries an 8-bit data byte, and port 7 supplies
 the strobes: command/data select (C/D), write (`/WR`), read (`/RD`) and chip select
-(`/CS`). Status bits (ready, read-busy, I-RAM-modify, GF, OVF) are polled back. This is
+(`/CS`). The firmware reads only the chip's `RDY` line back, on port H bit 0
+(`DSP_Read_Status`); `DSP_Assert_Read` has no caller, so the read-busy, I-RAM-modify, GF
+and OVF status bits known from the sibling uPD6380 are never polled. This is
 the physical layer documented on the
 [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) page.
 
@@ -195,14 +197,16 @@ Each 36-bit word divides into four fields (**MEASURED**):
 The source-operand routing lives in `lo12`, and its dominant code is settled.
 **`SRC 0x00`** — the value on 599 words, 572 of them exactly `lo12 == 0x000` —
 reads **`mem[ptr]`**, the current data-pointer cell, and that is the reading the
-emulator ships. Of the six candidate readings it was tested against, four
-(`zero`, the `P` register, the delay-RAM read register `DR`, and `tempA`) leave
-no survivor in the one block that forces `SRC 0x00` to carry data, and the only
-rival, the accumulator `acc`, becomes reachable only if a host parameter write
-gives the input-mix words a non-zero gain — which the factory coefficients never
-do. The tempting "`lo12 == 0x000` is a null routing" reading is **falsified**:
-the single-delay block needs `SRC 0x00` to carry its input. ⚠ This is one
-routing code; most of `lo12`'s codes, like most arithmetic words, remain OPEN.
+emulator ships everywhere except on class-A words with `hi12[9:8] == 1`, where the same
+code reads the coefficient, `C-RAM[cursor]`; both readings were anchored on 2026-09-13
+([unofficial datasheet]({{ site.baseurl }}/upd6383-datasheet/), §4.3). Of the seven
+candidate readings tested on the single delay's head-write word (`mem[ptr]`, `zero`, the
+`P` register, the accumulator `acc`, the delay-RAM read register `DR`, `tempA` and the
+coefficient), only `mem[ptr]` puts the ROM's echo at lag 1001 into the delay line
+(`dsp/tools/sd_rerun.py src00` in the disassembly repository). The tempting
+"`lo12 == 0x000` is a null routing" reading is **falsified**: the single-delay block
+needs `SRC 0x00` to carry its input. ⚠ This is one routing code; most of `lo12`'s codes,
+like most arithmetic words, remain OPEN.
 
 Two implicit cursors run alongside the word stream: the **coefficient cursor** (+1 per
 class-A word, reset by `801.0.00.021`) and the **data pointer** just described.
@@ -214,9 +218,10 @@ the pointer at PC restart is `0xFF`. This holds on condition that the mode-1 reg
 and the mode-2 data pointer are one RAM. The `0x70` / `0x50` the header loads through
 register `0x821` are C-RAM tap-table bases, not the D-RAM origin.
 
-**What is OPEN.** The **audio-input** instruction, the
-meaning of most individual arithmetic words, and the `COND`/`BRAKST` control fields named
-in the CDJ pin table are all unidentified. **Honest coverage is 79.4 %** on this corpus
+**What is OPEN.** The meaning of most individual arithmetic words and the `COND`/`BRAKST`
+control fields named in the CDJ pin table are unidentified, and the **audio-input** word,
+located in the shared kernel (§22), is a `lo12` bit-11 word whose capture source is not
+decoded. **Honest coverage is 79.4 %** on this corpus
 (2362 of the KN5000's 2974 microcode words), or **80.8 %** pooled and de-duplicated across
 both products (5876 of 7273 distinct words, 1397 still undecoded) — the structural results
 are worth more than that number, but the number is reported straight.
@@ -489,18 +494,19 @@ Note that the chip a *slot* talks to is a separate lookup: the byte table at Sub
 ## 7. What still needs real hardware
 
 The reverse engineering behind the conclusions above is entirely **static** — none of it
-depends on the chip or an emulator actually completing a frame. MAME's own draft core (§ above)
-does not change that: it is gated off by default, and every frame it attempts still traps and
-is discarded before reaching the mix, so it has not produced a validated result either. Five
-things need a running core (a real uPD6383, or MAME's once it can complete a frame) and are
+depends on the chip or an emulator actually completing a frame. MAME's own draft core (see the
+status note at the top of this page) does not change that: it is gated off by default, and its
+output stage still delivers no audio (§22), so it has not produced a validated result either.
+Five things need a running core (a real uPD6383, or MAME's once it produces audio) and are
 honestly OPEN:
 
 1. **The one-RAM condition behind the pointer origin.** The origin is pinned from the ROM
    (§3), but only on condition that the mode-1 register file and the mode-2 data pointer
    are one RAM. A single address-bus read on the first data access after the header would
    test that.
-2. **The audio-input instruction** — the input stage is *located* (header blocks 0–1) but
-   no word is decoded.
+2. **The audio-input instruction** — located at one shared-kernel word (§22), a `lo12`
+   bit-11 word whose capture MAME performs only behind a default-off diagnostic; what that
+   word captures is not decoded.
 3. **Direct confirmation of the mod-256 pointer wrap** (INFERRED from a measured floor).
 4. **Validation of the whole chain against a real impulse response** — the biquad and
    diffuser are proven against the firmware's own arithmetic, which is strong but is not
@@ -529,8 +535,9 @@ disassembles it, and it is a second, independent silicon witness for every concl
   pattern, 6 bands × 2 channels versus the KN5000's 5 × 2 — so its decode is validated by
   construction on a second chip. `SINGLE DELAY`, the distortions, the modulation effects all
   match their KN5000 counterparts' idiom sequence.
-- **One real difference: the reverbs.** The DRAM access order shows the KN5000 reverb is an
-  **all-pass diffuser ladder** (read/write alternation) while the WSA1R reverb is a
+- **One real difference: the reverbs.** The DRAM access order differs: the KN5000 reverb's
+  ladder stages alternate reads and writes (once read as all-pass diffusers, a reading since
+  withdrawn; its micro-topology is open, §4 and §19) while the WSA1R reverb is a
   **write-heavy multi-tap / comb (FDN)** — the same effect name, a different reverb
   architecture between the two products.
 - **What actually executes at runtime (MEASURED on the emulated WSA1R).** Only **one** DSP
@@ -1374,7 +1381,9 @@ CONFRONT-2026-09-12.md` and `N-DLYSEED2-CHORUS-CONFRONT-2026-09-12.md`.
   synced from the disassembly tree and rendered as Mermaid.
 - [Effect HLE + bytecode]({{ site.baseurl }}/effects-dsp/impl/) — one page per effect
   pairing the disassembled **microprogram** with the MAME **HLE reconstruction** that renders
-  it (the educational bridge described in [§21](#21-the-rest-of-the-effect-catalogue-reconstructed-2026-09-12)
+  it (an educational bridge: the reconstructions of
+  [§9–§21](#9-a-high-level-emulation-reference-now-makes-the-effects-audible-2026-09-10),
+  which [§22](#22-the-hle-as-an-oracle-for-the-lle-2026-09-12) uses as an oracle for the LLE
   — reading the two together is how the bytecode is understood, toward a faithful LLE).
 - [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) — the Sub CPU audio firmware and
   the parallel host interface that reaches this chip.

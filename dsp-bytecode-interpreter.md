@@ -104,38 +104,38 @@ to `DSP_Bytecode_Op0D_StateChange` and `DSP_Bytecode_Op0E_SendCommand`.
 
 ## Level 2 Opcodes (Translator)
 
-| Opcode | Handler                       | Output                  | Purpose                                          |
-|--------|-------------------------------|-------------------------|--------------------------------------------------|
-| 0x21   | ParamInterp_2Point            | WriteOscParam           | 2-point linear interpolation                     |
-| 0x24   | ParamInterp_MultiStep         | WriteOscParam           | Multi-step interpolation                         |
-| 0x40   | PanScale_Simple               | WriteOscParam           | Pan position scaling                             |
-| 0x61   | ParamFetch_Op61Table          | WriteOscParam           | Table lookup in `DSP_OscParamCurve` (`0x0129A3`) |
-| 0x62   | ParamFetch_SingleTable        | WriteOscParam           | Single-table lookup (CURVE_D volume law)         |
-| 0x63   | ParamFetch_AlgoTypeTable      | WriteFreqParam_AlgoType | Algorithm-dependent table (A/B/C curve select)   |
-| 0x64   | PitchParam_Scale              | WriteFreqParam          | Pitch scaling with freq write                    |
-| 0x65   | VolumeParam_Scale             | WriteOscParam           | Volume scaling                                   |
-| 0x66   | ParamInterp_2Point            | WriteOscParam           | 2-point interpolation (oscillator)               |
-| 0x67   | ParamInterp_FPScale           | WriteOscParam_Offset    | FP scale with offset                             |
-| 0x68   | ParamInterp_Div0xB4           | WriteFreqParam          | Frequency interp (divide by 0xB4)                |
-| 0x69   | VolumeCurve_FP                | WriteOscParam           | Fixed-point volume curve                         |
-| 0x6A   | FreqCurve_FP                  | WriteFreqParam          | Fixed-point frequency curve                      |
-| 0x6B   | FreqInterp_2Point             | WriteFreqParam          | 2-point frequency interp                         |
-| 0x6C   | ParamInterp_3Point_WithOffset | WriteFreqParam          | 3-point interp with offset                       |
-| 0x6D   | ReverbCurve_FP                | WriteOscParam           | Reverb-specific curve                            |
-| 0x6E   | ParamInterp_FPComplex         | WriteOscParam           | Complex FP interpolation                         |
-| 0x6F   | PanCurve_PiecewiseLin         | WriteOscParam           | Piecewise-linear pan curve                       |
-| 0x70   | BiquadCoeff_Compute           | (direct)                | Biquad IIR filter coefficient                    |
-| 0x71   | DetuneCurve_SignedFP          | WriteOscParam           | Signed FP detune curve                           |
-| 0x72   | BiquadWarp_FP                 | (direct)                | Bilinear transform warping                       |
-| 0x73   | ParamInterp_Div0xC6           | WriteOscParam           | Interpolation (divide by 0xC6)                   |
-| 0x74   | WriteLUTParamSet              | (direct)                | Lookup table parameter set                       |
-| 0x75   | ParamEQ_Curve_FP              | WriteOscParam           | Parametric EQ curve                              |
-| 0x76   | SOS_Coeff_Compute             | (direct)                | Second-order section coefficient                 |
-| 0x77   | ParamInterp_2Point_B          | WriteOscParam           | 2-point interp variant B                         |
-| 0x78   | VolScale_B                    | WriteOscParam           | Volume scaling variant B                         |
-| 0x79   | AlgoParam_Decode              | WriteOscParam           | Algorithm parameter decode                       |
-| 0x7A   | (end)                         | —                       | Terminate bytecode block                         |
-| 0xF0   | (separator)                   | —                       | Separator between parameter slots                |
+| Opcode | Handler                       | Output                  | Purpose                                                     |
+|--------|-------------------------------|-------------------------|-------------------------------------------------------------|
+| 0x21   | ParamInterp_2Point            | WriteOscParam           | 2-point linear interpolation                                |
+| 0x24   | ParamInterp_MultiStep         | WriteOscParam           | Multi-step interpolation                                    |
+| 0x40   | PanScale_Simple               | WriteOscParam           | Pan position scaling                                        |
+| 0x61   | ParamFetch_Op61Table          | WriteOscParam           | Table lookup in `DSP_OscParamCurve` (`0x0129A3`)            |
+| 0x62   | ParamFetch_SingleTable        | WriteOscParam           | Single-table lookup (CURVE_D volume law)                    |
+| 0x63   | ParamFetch_AlgoTypeTable      | WriteFreqParam_AlgoType | Algorithm-dependent table (A/B/C curve select)              |
+| 0x64   | PitchParam_Scale              | WriteFreqParam          | Pitch scaling with freq write                               |
+| 0x65   | VolumeParam_Scale             | WriteOscParam           | Volume scaling                                              |
+| 0x66   | ParamInterp_2Point            | WriteOscParam           | 2-point interpolation (oscillator)                          |
+| 0x67   | ParamInterp_FPScale           | WriteOscParam_Offset    | FP scale with offset                                        |
+| 0x68   | ParamInterp_Div0xB4           | WriteFreqParam          | Frequency interp (divide by 0xB4)                           |
+| 0x69   | VolumeCurve_FP                | WriteOscParam           | Fixed-point volume curve                                    |
+| 0x6A   | FreqCurve_FP                  | WriteFreqParam          | Fixed-point frequency curve                                 |
+| 0x6B   | FreqInterp_2Point             | WriteFreqParam          | 2-point frequency interp                                    |
+| 0x6C   | ParamInterp_3Point_WithOffset | WriteFreqParam          | 3-point interp with offset                                  |
+| 0x6D   | ReverbCurve_FP                | WriteOscParam           | Reverb-specific curve                                       |
+| 0x6E   | ParamInterp_FPComplex         | WriteOscParam           | Complex FP interpolation                                    |
+| 0x6F   | PanCurve_PiecewiseLin         | WriteOscParam           | Piecewise-linear pan curve                                  |
+| 0x70   | BiquadCoeff_Compute           | (direct)                | Biquad IIR filter coefficient                               |
+| 0x71   | DetuneCurve_SignedFP          | WriteOscParam           | Signed FP detune curve                                      |
+| 0x72   | BiquadWarp_FP                 | (direct)                | Bilinear transform warping                                  |
+| 0x73   | ParamInterp_Div0xC6           | WriteOscParam           | Interpolation (divide by 0xC6)                              |
+| 0x74   | WriteLUTParamSet              | (direct)                | Lookup table parameter set                                  |
+| 0x75   | ParamEQ_Curve_FP              | WriteOscParam           | Parametric EQ curve                                         |
+| 0x76   | SOS_Coeff_Compute             | (direct)                | Second-order section coefficient                            |
+| 0x77   | ParamInterp_2Point_B          | WriteOscParam           | 2-point interp variant B                                    |
+| 0x78   | VolScale_B                    | WriteOscParam           | Volume scaling variant B                                    |
+| 0x79   | AlgoParam_Decode              | WriteOscParam           | Algorithm parameter decode                                  |
+| 0x7A   | (end)                         | —                       | Terminate bytecode block                                    |
+| 0xF0   | (not an opcode)               | —                       | End-of-table sentinel of the record table; never dispatched |
 
 Translator dispatch table: `DSP_Translator_CaseOffsets` at `0x014745` — 25 signed `u16` offsets relative
 to base `0x03CB8E`, indexed by `opcode - 0x61` for opcodes `0x61`-`0x79`. Opcodes `0x21`,
@@ -145,9 +145,10 @@ to base `0x03CB8E`, indexed by `opcode - 0x61` for opcodes `0x61`-`0x79`. Opcode
 
 The **measured** semantics of the settled subset are on the
 [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/) page (`0x21` universal tail
-level, `0x62` CURVE_D volume law at 1.00 dB/step, `0x68` ms→DRAM words at 44.1 kHz, `0x69`
-degrees, `0x70` biquad, `0x72` compressor threshold/ratio). Where that page and the
-inferred descriptions in the table above disagree, the measured page wins.
+level, `0x62` CURVE_D volume law at 1.00 dB/step, `0x63` A/B/C curve select, `0x68` ms→DRAM
+words at 44.1 kHz, `0x69` degrees, `0x6D` compressor attack/release smoother pair, `0x70`
+biquad, `0x72` compressor threshold/ratio). Where that page and the inferred descriptions
+in the table above disagree, the measured page wins.
 
 ## SPI Protocol (DSP2 Register Writes)
 
