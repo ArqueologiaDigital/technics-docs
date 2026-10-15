@@ -65,7 +65,7 @@ The most complete active branch, containing the next major batch of driver impro
 | **MIDI output**         | 1       | Wire TX0 to `midi_port` device                                                                                                                                   |
 | **Tone generator**      | 7       | Full `kn5000_tonegen_device` (IC303): PCM playback, pitch/pan/volume, release envelope, linear interpolation                                                     |
 | **DSP1 stub**           | 1       | IC311 uPD6383GF-3BA device stub                                                                                                                                  |
-| **Timer 0 output**      | 1       | Wire TO0 to FDC Terminal Count                                                                                                                                   |
+| **Timer 0 output**      | 1       | Wires TO0 to FDC Terminal Count -- wrong line, **do not submit**: TC is Port H bit 0, pulsed by `FDC_Pulse_PH0`; timer 0 never runs (kn7000_mame `240a41f`)      |
 | **SNS NMI write tap**   | 1       | Boot-time write tap on DRAM `0xFFD4` -- **do not submit**: it caused the "Sound Name Error" bug (see [SNS NMI Emulation]({{ site.baseurl }}/sns-nmi-emulation/)) |
 | **Code style**          | 1       | Minor upstream compliance cleanup                                                                                                                                |
 
@@ -156,7 +156,7 @@ Based on the branch review, the following PRs are planned:
 
 **Source**: `kn5000_pr6` + cherry-picks from `kn5000_research_tonegen`
 
-> **Plan changed (2026-09-19).** Parts of this now go as separate PRs. The floppy drive type merged in [#16415](https://github.com/mamedev/mame/pull/16415) without the disc-formats line (`default_pc_floppy_formats`), which is still unsubmitted. The partial tone generator would come from `kn5000_tonegen_pcm` and waits on a policy decision. One `/INT0` per pin assertion is a separate TLCS-900 core PR, blocked on one experiment. The control-panel ioport move should go before any PR that extracts the overlay's `kn5000.lay`. The FDC address mapping, the UART mode, MIDI output, the DSP1 device and the TO0 wiring are not yet in any planned PR.
+> **Plan changed (2026-09-19).** Parts of this now go as separate PRs. The floppy drive type merged in [#16415](https://github.com/mamedev/mame/pull/16415) without the disc-formats line (`default_pc_floppy_formats`), which is still unsubmitted. The partial tone generator would come from `kn5000_tonegen_pcm` and waits on a policy decision. One `/INT0` per pin assertion is a separate TLCS-900 core PR, blocked on one experiment. The control-panel ioport move should go before any PR that extracts the overlay's `kn5000.lay`. The FDC address mapping, the UART mode, MIDI output, the DSP1 device and the FDC Terminal Count (on Port H bit 0, not the branch's TO0 wiring) are not yet in any planned PR.
 
 **Scope**: Bring the remaining KN5000 peripherals online:
 - Tone generator device (IC303 TC183C230002) with PCM waveform playback, pitch/pan/volume control
@@ -164,7 +164,7 @@ Based on the branch review, the following PRs are planned:
 - 8-bit UART mode for TMP94C241 serial channels
 - MIDI output via TX0
 - DSP1 device stub (IC311 uPD6383GF-3BA)
-- Timer 0 output to FDC Terminal Count
+- FDC Terminal Count on Port H bit 0, which the firmware pulses in `FDC_Pulse_PH0` (not the branch's Timer 0 output: the firmware never starts timer 0; kn7000_mame `240a41f`)
 - The modelled POWER switch from the kn7000_mame overlay (pulse `~NMI`, let the firmware save its own checksums), not PR6's write tap
 
 **Preparation needed**:
@@ -195,7 +195,10 @@ the fixes; >99% of interpreter fallbacks eliminated). Submission is under the pr
 owner's authorship; the apply-tests should be re-run against the current upstream base
 before sending. Since 2026-10-08 the series also sits, rebased, on the fork branch
 `technics-kn7000-dsp` together with the KN7000 effects-DSP hookup. It has no PR yet and is queued
-behind the KN7000 tone-generator PR (`technics-kn7000-tonegen`).
+behind the KN7000 tone-generator PR (`technics-kn7000-tonegen`). One fix in the catalogue, the
+circular-buffer wrap off-by-one in both engines, reached upstream independently as
+[mamedev/mame#16016](https://github.com/mamedev/mame/pull/16016) (merged 2026-09-25), so it is
+not part of the branch.
 
 Also riding with a future KN5000 PR: the control-panel **button ioports moved into
 `kn5000_cpanel_device`** (`device_input_ports()`, layout inputtags qualified
