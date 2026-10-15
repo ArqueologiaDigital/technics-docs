@@ -183,10 +183,16 @@ each part through it. The read loop (checksum core `0x484839A1`) is simply:
   side B (IC207/IC208):  write hi-addr -> 0x98040006 ; write addr -> 0x98040008 ; read WORD <- 0x9804000A
 ```
 
-**Proposal.** Upload a small routine over an existing exfil path (MIDI sysex / SD) that drives that
-port across the whole address space and streams the words out. Verify against the firmware's own
-[golden checksums](#5-verifying-a-dump). This reaches all four KN7000 wave ROMs (64 MB) with no
-hardware work at all. Full write-up: [KN7000 Expansion Bus & Wave-ROM Dump Routes]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/).
+**Proposal.** Run a small routine that drives that port across the whole address space and streams
+the words out over MIDI or SD. The stock firmware (build 941) never executes code from the SD card
+or an expansion board (see [Firmware Robustness & ROM Archival]({{ site.baseurl }}/kn7000-firmware-security/)),
+and no route from MIDI to running code is known, so the routine needs a carrier: a modified
+firmware-update disk, or a plug-in under the SP7001 PLUG-iN release (build 942), which does load
+code from the SD card (see [SD PLUG-iN (SP7001)]({{ site.baseurl }}/kn7000-sd-plugin/)). Either
+replaces the instrument's firmware, so it is acceptable only on a unit whose build is already
+preserved, never on the owner's build-893 unit. Verify against the firmware's own
+[golden checksums](#5-verifying-a-dump). This reaches all four KN7000 wave ROMs (64 MB) without
+opening the instrument. Full write-up: [KN7000 Expansion Bus & Wave-ROM Dump Routes]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/).
 
 *Applies to:* KN7000 IC203/204/207/208 only. **The KN5000's IC303 has no equivalent read port** — its
 Wave ROM Check is an acoustic (listen-for-distortion) test — so its wave ROMs still need Method C or D.
