@@ -96,8 +96,8 @@ when the *next* byte's high nibble is `0xF`, so the `0xF0` terminator is not exe
 Handler dispatch table: `DSP_BytecodeInterpreter_CaseOffsets` at `0x014739` — 6 signed `u16` offsets relative to
 base `0x03C32E`, decoding to handlers at `0x03C32E`, `0x03C568`, `0x03C661`, `0x03C708`,
 `0x03C7A1`, `0x03C7BB`. Handler code: 1,613 bytes of TLCS-900 code at `0x03C32E`-`0x03C97A`,
-disassembled as instructions since 2026-09-25. The six handlers are
-`DSP_Bytecode_Op00_Groups5_ParamMix`, `DSP_Bytecode_Op01_Groups5_Addr12`,
+disassembled as instructions since 2026-09-02 (named as six handlers on 2026-09-25).
+The six handlers are `DSP_Bytecode_Op00_Groups5_ParamMix`, `DSP_Bytecode_Op01_Groups5_Addr12`,
 `DSP_Bytecode_Op02_Groups3_Raw`, `DSP_Bytecode_Op03_Addr16_RawTail`,
 `DSP_Bytecode_Op04_CommandOnly` and `DSP_Bytecode_Op05_Groups5_Masked`. Opcodes `0xD`/`0xE` go
 to `DSP_Bytecode_Op0D_StateChange` and `DSP_Bytecode_Op0E_SendCommand`.
