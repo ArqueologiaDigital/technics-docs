@@ -61,7 +61,9 @@ For the receiving side of the protocol see
 ## 2. The marker bytes
 
 Three bytes sit in a five-byte island of `0xFF` immediately after the reset trampoline, at
-main-CPU `0xFFFEEB`–`0xFFFEEF` (`ROM_PaddingFF` in the disassembly). They are individually
+main-CPU `0xFFFEEB`–`0xFFFEEF` (`ROM_PaddingFF` at `0xFFFEEB`-`0xFFFEEC`, then
+`SubCPU_FlashPayloadEnableFlag`, `Boot_InitHandlersEnableFlag` and
+`SubCPU_SendPayloadEnableFlag` at `0xFFFEED`-`0xFFFEEF`). They are individually
 patchable flash bytes, not incidental padding:
 
 | Address | ROM file offset | Measured | Effect |
@@ -96,13 +98,15 @@ firmware falls back to candidate A.
 
 ### Candidate A — table-data `0x800000`
 
-Measured on `kn5000_table_data.rom`: offset `0x000000`–`0x0000FF` is a table of LE32
-pointers (`0x800088`, `0x802D10`, `0x805998`, …) and `0x000100` onward is `0xF7` filler
-running to about `0x001000`, then `0xFF` to `0x030000`. The region is the preset-bank
-directory documented in [Table Data ROM]({{ site.baseurl }}/table-data-rom/).
+In the table-data ROM (`kn5000_table_data.rom`), CPU `0x800000`–`0x800087` is
+`SectionDirectory_Table`, 33 LE32 pointers and a null terminator (`0x800088`, `0x802D10`,
+`0x805998`, …). From `0x800088` the region is the bitmap bank they point at: 26 8bpp images
+whose transparent colour is `0xF7`, the KN-5000 wordmark, and 17 accessor routines at
+`0x82F000`. See
+[Table Data ROM]({{ site.baseurl }}/table-data-rom/#section-directory-and-bitmap-bank-0x800000).
 
-So the fallback would ship 192 KB of filler across the link and then `CALL 0x400` into a
-pointer table. **A machine whose ROMs matched our dumps could not run its sub-CPU at all**
+So the fallback would ship 192 KB of picture data across the link and then `CALL 0x400`
+into a pointer table. **A machine whose ROMs matched our dumps could not run its sub-CPU at all**
 — no sound.
 
 That is the crux. Felipe's KN5000 works. Therefore the IC19 image we hold is not the state
@@ -114,14 +118,14 @@ dump*, not about the firmware.
 > candidate B's, and the *unconditional* part of the same routine already reads sub-CPU
 > material out of table data at `0x830000`. That is what one would expect if the sub-CPU
 > program originally lived entirely in the table-data mask ROM and was later moved to
-> updatable flash, with the vacated space reused for preset banks. Graded **plausible** —
+> updatable flash, with the vacated space reused for the section bitmaps. Graded **plausible** —
 > the discriminating test is one byte in a v5 or v6 program ROM.
 
 ## 4. How the payload is *supposed* to arrive — proven end to end
 
 The chain from firmware-update floppy to `0x3E0000` is closed and verified byte for byte.
 
-**The disc.** `/home/fsanches/compartilhado/kn5000_project/kn5000_v10_disk.img` is a
+**The disc.** The v10 system-update floppy image (`kn5000_v10_disk.img`) is a
 1.44 MB FAT12 image, OEM string `Technics`, sha1
 `a892bedc68f06c431c154ab503bee8ae87d2b3e9`. At LBA 33 (`0x4200`) it carries the ASCII
 signature `Technics KN5000 Program  DATA FILE PCK  by T.Nishino`, which is exactly where
@@ -248,8 +252,8 @@ boundary rather than a transfer boundary favours "never programmed"; that argume
 not hold — the last non-`0xFF` byte marks where the data ended, not where the dump ended.
 
 **H3c — this unit worked in the dumped state.** *Refuted.* See §3: with `0x1FFEED = 0xFF`
-in every firmware and a blank `0x3E0000`, the fallback ships filler and the sub-CPU cannot
-run.
+in every firmware and a blank `0x3E0000`, the fallback ships picture data and the sub-CPU
+cannot run.
 
 ### H4 — the payload could be resident in the undumped 116 KB of the sub-CPU boot ROM
 
@@ -293,7 +297,8 @@ install leaves `0x00`/`0xE5`; the decoder never reaches them.
 Two caveats, neither a fidelity defect but both worth stating plainly:
 
 - The v141 → v7/v8 and v140 → v5/v6 pairings in the ROM definition are **not measured**.
-  Only the v10 update disc exists here; four of the six BIOS options rest on filename
+  Only the v10 update disc exists here; of the six dumped BIOS options (v3 and v4 are
+  `NO_DUMP`), five — v9 with v1.42 as well as the four above — rest on filename
   inference.
 - The composite — a genuine chip dump of a machine that never had the update, plus a
   payload carved from a floppy — is a **reconstruction**, and nothing in the ROM definition
@@ -302,12 +307,12 @@ Two caveats, neither a fidelity defect but both worth stating plainly:
 
 ## 6. What MAME does today
 
-| Aspect | Hardware | MAME |
-|---|---|---|
-| IC19 `0x3E0000` content | populated by a `007h` (or `005h`) update disc | supplied by a `ROMX_LOAD` overlay |
-| IC19 device | AM29F400/800B-family flash, writable | `.rom()` region — read-only, cannot be programmed |
-| Payload source decision | reads `0xFFFEED`, then the SLIDE magic | same code runs; succeeds because of the overlay |
-| Running an install | erase + program IC19 and the `0x800000` pair | impossible: no flash devices, static map, no bootloader |
+| Aspect                  | Hardware                                      | MAME                                                                                                                 |
+|-------------------------|-----------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| IC19 `0x3E0000` content | populated by a `007h` (or `005h`) update disc | supplied by a `ROMX_LOAD` overlay                                                                                    |
+| IC19 device             | AM29F400/800B-family flash, writable          | mainline: `.rom()` region, read-only; kn7000_mame overlay (since 2026-09-05): a writable `amd_29f800b_16bit_device`  |
+| Payload source decision | reads `0xFFFEED`, then the SLIDE magic        | same code runs; succeeds because of the overlay                                                                      |
+| Running an install      | erase + program IC19 and the `0x800000` pair  | impossible: the `0x800000` and `0xE00000` pairs are still `.rom()`, the map is static, and the bootloader never runs |
 
 So the emulator reaches the right state by a different route. That is defensible today, but
 it means the install path itself has never been executed under emulation and nothing would

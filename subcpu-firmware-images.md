@@ -59,9 +59,9 @@ file cannot be a tool output. Decoding the two SLIDE4K streams that disc carries
 `kn5000_v10_program.rom` (2,097,152 B) and `kn5000_subprogram_v142.rom` (196,608 B) exactly,
 which makes the **v10 ↔ v1.42 pairing a measured fact**.
 
-The v1.41 → v7/v8 and v1.40 → v5/v6 pairings that MAME's BIOS options assert are **not**
-measured — only the v10 update disc is available to this project. They rest on filename
-inference and should be treated as such until a v5–v9 disc turns up.
+The v1.42 → v9, v1.41 → v7/v8 and v1.40 → v5/v6 pairings that MAME's BIOS options assert
+are **not** measured — only the v10 update disc is available to this project. They rest on
+filename inference and should be treated as such until a v5–v9 disc turns up.
 
 ### The boot ROM `kn5000_subcpu_boot.ic30` is only 11% dumped
 
@@ -102,11 +102,11 @@ the chip is read in full.
 
 ## Status of each revision
 
-| Revision | Update image | Decompressed payload | Source tree | In `make all` |
-|----------|-------------:|---------------------:|-------------|---------------|
-| v1.40 | 93,124 B | 196,608 B — **recovered, committed** | no | no |
-| v1.41 | 93,181 B | 196,608 B | no — tracked as `kn5000-v41` | no |
-| v1.42 | 93,203 B | 196,608 B | `v142/subcpu/` | **yes, both shapes** |
+| Revision | Update image | Decompressed payload                 | Source tree    | In `make all`        |
+|----------|-------------:|-------------------------------------:|----------------|----------------------|
+| v1.40    | 93,124 B     | 196,608 B — **recovered, committed** | no             | no                   |
+| v1.41    | 93,181 B     | 196,608 B                            | no             | no                   |
+| v1.42    | 93,203 B     | 196,608 B                            | `v142/subcpu/` | **yes, both shapes** |
 
 ### v1.42 — fully covered
 
@@ -152,10 +152,9 @@ cannot cover either artifact.
 
 sha256 of the payload: `04212fa6799e75db64b399242b762ce7377669a0a877984659c78c148453d9fe`.
 
-This is tracked as issue **`kn5000-v41`** in the disassembly repository. The proposed route
-is the one the main-CPU v7/v9/v10 trees already use: start from the v142 source and
-reconcile against the v141 ROM. The raw byte diff looks daunting but is not — most of it is
-address-constant ripple that symbolic assembly absorbs for free:
+The proposed route is the one the main-CPU v7/v9/v10 trees already use: start from the
+v142 source and reconcile against the v141 ROM. The raw byte diff looks daunting but is
+not — most of it is address-constant ripple that symbolic assembly absorbs for free:
 
 | Pair | Differing bytes | Contiguous runs |
 |------|----------------:|----------------:|

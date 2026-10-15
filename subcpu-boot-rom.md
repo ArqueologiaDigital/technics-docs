@@ -196,12 +196,12 @@ Nothing in the region is code. After the carve there is **no `.incbin` directive
 Eight little-endian 32-bit code pointers. `CMD_Dispatch_Handler` state 1 reads the command
 byte at RAM `0x51A`, splits it into a 5-bit payload length (low bits, plus 1) and a 3-bit
 handler index (high bits), scales the index by 4 (`sla wa,2`), adds it to the base
-(`lda_24 xbc,(0xff8000)`) and `call`s the entry with a three-word payload descriptor on
-the stack.
+(`lda xbc,(CmdHandler_Table:24)`) and `call`s the entry with a three-word payload
+descriptor on the stack.
 
 The table reads `{0xFF8496, 0xFF849F, 0xFF84A2, 0xFF849C, 0xFF8499, 0xFF84A5, 0xFF85AB,
 0xFF85AB}`. **Every one of those targets is the same three bytes, `db a8 0e` —
-`lds hl,0 / ret`.** The boot loader accepts and acknowledges the main CPU's entire command
+`ld hl,0:i3 / ret`.** The boot loader accepts and acknowledges the main CPU's entire command
 surface and implements none of it; the working handlers arrive with the payload.
 
 It is real dispatch data all the same, not padding: there are seven distinct stub
@@ -273,10 +273,11 @@ table as `byte[0x01F420 + 3*mode]`, and the table self-describes — its first b
 | 8 | 128/128 | 134 | 22 |
 | 9 | 144/128 | 130 | 24 |
 
-Mode 0 has zero gain — touch off, every note leaves at level 208. As the gain rises the
-output at the pivot falls and the black-key trim grows with it (roughly 0.17 × gain), so
-the ten curves fan out about a common point. **The boot ROM hard-codes mode 6**
-(`lda_24 xde,(0xff8040)`); only the payload selects among the ten.
+Mode 0 has zero gain — touch off: every note reaches the output curve at 208 and leaves
+as velocity 80 (`0x50`). As the gain rises the output at the pivot falls and the black-key
+trim grows with it (roughly 0.17 × gain), so the ten curves fan out about a common point.
+**The boot ROM hard-codes mode 6** (`lda xde,(ToneGen_VelCurve_ModeParams_Mode6:24)`,
+0xFF8040); only the payload selects among the ten.
 
 The two 256-byte curves are worth reading as a pair. The input curve is monotonically
 *decreasing* — `0xFF` for inputs 0-8, then `0xFB 0xF6 0xF1 …` down to `0x01` by input 224
@@ -339,18 +340,19 @@ to be live *here*.
 - **The reference check should be redone properly**, as an enumeration of real
   control-flow targets and vector entries rather than a byte scan, and committed as an
   artifact.
-- **"Erased flash" is still in the source.** Both `subcpu/boot/kn5000_subcpu_boot.s:231`
-  and the ASL mirror `archive/asl/subcpu/boot/kn5000_subcpu_boot.asm:232` still say
-  "ROM starts with 96KB of 0xFF (erased flash)". The correction is recorded in the plan
-  but has not been applied to the comments.
+- **"Erased flash" is still in the source.** `subcpu/boot/kn5000_subcpu_boot.s:335`
+  (banner) and `:342` (the `.fill` comment added by `cccbe2978`), and the ASL mirror
+  `archive/asl/subcpu/boot/kn5000_subcpu_boot.asm:232`, still describe the region as erased
+  flash. The correction is recorded in the plan but has not been applied to the comments.
 - **The ASL mirror still hides the data region.** The carve landed in the LLVM source
   only; `archive/asl/subcpu/boot/kn5000_subcpu_boot.asm` still `binclude`s
   `subcpu_boot_data_8000.bin`, which is therefore still a live build input (see the
   Makefile rule for `kn5000_subcpu_boot.rebuilt.p`). Both builds reproduce the dump file
   byte for byte.
-- **A proposed source shrink was rejected**, and deliberately so. Collapsing the 98,304
-  lines of `.byte 0xff` into one `.fill` is byte-safe, but it would assert as a fact
-  something the dump does not support; commit `153dc45` records the reasoning.
+- **The source shrink was applied anyway.** Commit `cccbe2978` (2026-09-02) replaced the
+  98,304 lines of `.byte 0xff` with one `.fill 98304, 1, 0xff`. That is byte-safe, but its
+  comment again calls the region erased flash, which is what `153dc45` rejected. The bytes
+  are fine; the comment is what needs correcting.
 - **The sub-CS2 window question** (64 KB at `0xFF0000` versus 128 KB at `0xFE0000`) is
   undecided, and it changes the headline number for how much undumped space is even
   addressable.

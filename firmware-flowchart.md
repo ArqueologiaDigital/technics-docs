@@ -22,17 +22,18 @@ The main CPU boots in two stages. At reset the **Table Data ROM** is mapped over
 `0xE00000-0xFFFFFF`, so the reset vector at `0xFFFEE0` lands in a first-stage bootloader that
 lives in that ROM. The bootloader configures the memory controller, and a single store —
 `MSAR2 := 0x80` — moves the table data down to `0x800000` and reveals the program flash
-underneath. Only then does the main firmware's `RESET_HANDLER` run.
+underneath. Control then enters the program flash at `Boot_InitIOPorts` (0xEF050F), through
+the slot at 0xFFFEDC, skipping `RESET_HANDLER`'s duplicate init block.
 
 <pre class="mermaid">
 flowchart TD
     RESET["Reset vector 0xFFFEE0<br/>(table-data ROM, aliased at 0xE00000)"] --> BOOT1["First-stage bootloader<br/>0xFFB4E8"]
     BOOT1 --> MEMCTL["Memory-controller config<br/>MSAR/MAMR, DRAM refresh"]
     MEMCTL --> REMAP["MSAR2 := 0x80 at 0x9FB6D3<br/>table data moves to 0x800000"]
-    REMAP --> RESETH["RESET_HANDLER<br/>0xEF03C6 (program flash)"]
+    REMAP --> RESETH["Boot_InitIOPorts<br/>0xEF050F via 0xFFFEDC (program flash)"]
     RESETH --> HW_INIT["Hardware init<br/>watchdog, clock, ports, timers, stack"]
-    HW_INIT --> SELF_TEST["MainCPU_self_test_routines<br/>0xEF0400"]
-    SELF_TEST --> FW_VER{"Get_Firmware_Version<br/>0xEF0534"}
+    HW_INIT --> SELF_TEST["MainCPU_self_test_routines<br/>0xFB729E"]
+    SELF_TEST --> FW_VER{"Get_Firmware_Version<br/>0xFFFEE5"}
     FW_VER -->|"0xFF (boot ROM)"| SHOW_WAIT["Display<br/>'Please Wait !!'"]
     FW_VER -->|"Normal"| POST_TEST["Post self test"]
     SHOW_WAIT --> POST_TEST
@@ -50,16 +51,18 @@ flowchart TD
     FW_UPDATE --> HALT["Boot_MainSequence_Trampoline<br/>(infinite loop — reboot required)"]
 
     subgraph MAIN_BOOT ["Main Boot Path"]
-        FACTORY{"Factory reset<br/>requested?"}
-        FACTORY -->|Yes| RESET_DRAM["Clear work DRAM + IC21 SRAM"]
-        FACTORY -->|No| SUBCPU_INIT
-        RESET_DRAM --> SUBCPU_INIT["SubCPU_Init_DMA_Channels"]
+        FACTORY{"Combo 1 and DRAM[0xFFCA] != 0x5AA5?"}
+        FACTORY -->|Yes| RESET_DRAM["Boot_HandleFactoryReset<br/>clear work DRAM + IC21 SRAM"]
+        FACTORY -->|No| SUBCPU_INIT["SubCPU_Init_DMA_Channels"]
+        RESET_DRAM -->|"jp Boot_InitIOPorts (reboot)"| RESETH
         SUBCPU_INIT --> PAYLOAD["SubCPU_Send_Payload<br/>192 KB over the 0x140000 latch"]
         PAYLOAD --> VERIFY["SubCPU_Payload_Verify<br/>checksum validation"]
         VERIFY --> SCREEN0["ScreenGroup_Dispatch(0)<br/>init phase 0 of every subsystem"]
         SCREEN0 --> CHECK_ERR{"Payload<br/>transfer OK?"}
-        CHECK_ERR -->|Error| ERR_SCREEN["ScreenGroup_Dispatch(2)<br/>init phase 2 (payload error)"]
-        CHECK_ERR -->|OK| BOOT_SCREEN["Boot_DisplayScreen<br/>ScreenGroup_Dispatch(1), then (3)"]
+        CHECK_ERR -->|Error| ERR_SCREEN["WA = 2 (payload error)"]
+        CHECK_ERR -->|OK| OK_SCREEN["WA = 1"]
+        ERR_SCREEN --> BOOT_SCREEN
+        OK_SCREEN --> BOOT_SCREEN["Boot_DisplayScreen<br/>ScreenGroup_Dispatch(WA), then (3)"]
     end
 
     BOOT_SCREEN --> MAIN_LOOP
@@ -147,17 +150,22 @@ flowchart LR
         DMA["MICRODMA_CH0_HANDLER<br/>0x020F1F — inter-CPU command dispatch"]
     end
 
-    TX0 --> MIDIQ["SeqAlt1 ring buffer<br/>0x01F785 — MIDI TX queue"]
+    TX0 --> MIDIQ["MidiOut ring buffer<br/>0x01F785 — MIDI TX queue"]
     RX0 --> PARSER["MidiSerial_ProcessInput<br/>0xFCF9AE (main loop)"]
     RX1 --> CPPARSE["Control-panel packet parser"]
 </pre>
 
-The main CPU has five sequencer ring buffers — `SeqMain` at `0x01F37B` and `SeqAlt1`–`SeqAlt4`
-at `0x01F785`, `0x01FCA3`, `0x0201C1` and `0x0204DF`. Only `SeqAlt1` has an established role:
-`INTTX0_HANDLER` dequeues MIDI output bytes from it. **What fills the other three
-`SeqAlt` buffers is not established** — the routines that read and write each of them are
-listed on [Sequencer]({{ site.baseurl }}/sequencer/#additional-buffer-instances), but nothing
-in the disassembly has yet tied them to a producer. See
+Besides the main sequencer ring buffer at `0x01F37B` (`SeqMain_*`), the main CPU has ring
+buffers at `0x01F785`, `0x01FCA3`, `0x0201C1`, `0x0204DF` and `0x0203D5`. The source names them
+by role through their accessors: MidiOut (`SeqBuf_MidiOut_ReadByte`), DspSysEx
+(`SeqBuf_DspSysEx_WriteByte`), VoiceMap (`SeqBuf_VoiceMap_ReadByte`), SoundEdit
+(`SeqBuf_SoundEdit_ReadByte`) and NoteEvent (`SeqBuf_NoteEvent_WriteByte`); the full accessor
+lists are on [Sequencer]({{ site.baseurl }}/sequencer/#additional-buffer-instances).
+`INTTX0_HANDLER` dequeues MIDI output bytes from the MidiOut buffer. The others are filled with
+packets from the sub-CPU: `INTTC0_HANDLER` routes each received packet, by bits 7-5 of its
+header byte, through `SeqRingBuf_WriteDispatch_Table` to `SeqDMA_MultiWrite_NoteEvent` /
+`SeqDMA_WriteMidi_NoteOn` (NoteEvent), `SeqDMA_MultiWrite_SoundEdit`,
+`SeqDMA_MultiWrite_VoiceMap` or `SeqDMA_MultiWrite_DspSysEx`; entries 5-7 are `SeqDMA_Nop`. See
 [MIDI Serial I/O]({{ site.baseurl }}/midi-serial-io/) for the two MIDI handlers in full and
 [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/) for the panel pair.
 
@@ -227,8 +235,7 @@ flowchart TD
     BUTTON["Physical button press"] --> CPANEL_ISR["INTRX1_HANDLER<br/>serial packet decode"]
     CPANEL_ISR --> EVT_GEN["Generate event ID<br/>(e.g. 0x01C00008 = EVT_SW_ON)"]
     EVT_GEN --> VIEWABLE["ViewableProc<br/>0xFA5995 — dispatch on 32-bit event ID"]
-    VIEWABLE --> HANDLER_TABLE["handler_table lookup<br/>(DRAM dispatch table)"]
-    HANDLER_TABLE --> INHERITED["InheritedProc<br/>0xFA4409 — walk parent chain"]
+    VIEWABLE --> INHERITED["InheritedProc<br/>0xFA4409 — walk parent chain"]
     VIEWABLE -.->|"rendering priority<br/>from the 8-bit type byte"| TYPE_CLASS["SeMenu_SetObjectFlags<br/>0xF06898"]
 
     subgraph WIDGETS ["Widget handlers"]
@@ -246,9 +253,11 @@ flowchart TD
     PROC --> ACTION["UI action<br/>sound change, screen transition"]
 </pre>
 
-Where the `handler_table` DRAM addresses (values in the `0x0003xxxx` range) actually live is
-**not resolved** — they map to neither ROM nor the extension DRAM window. That question is
-tracked on [Open Questions]({{ site.baseurl }}/questions/#naka-widget-system).
+The `0x0003xxxx` values older notes called a `handler_table` are not a dispatch table: the
+class definitions name that field `window` (in a `TtlScreen`) or `selected` (in an
+`AcTitleMenu`), and the values point into main DRAM, inside the work-RAM image
+`Boot_InitWorkRAM` copies to `0x3D524-0x3F6C1`
+([Open Questions]({{ site.baseurl }}/questions/#handler_table-dispatch)).
 
 ## Memory Map
 
@@ -261,7 +270,7 @@ on the main-CPU side, so a single flat picture of "the" address space would be m
 
 The v10 main-CPU firmware is one top-level file plus fifteen subsystem directories. Counts are
 from `find v10/maincpu -name '*.s' | wc -l` (and `'*.c'`) in the disassembly repository —
-156 assembly files and 104 C files.
+157 assembly files and 104 C files.
 
 <pre class="mermaid">
 flowchart TD

@@ -160,11 +160,11 @@ overlap the way the earlier table did.)
 
 > **See Also**: [Flash Programming]({{ site.baseurl }}/flash-programming/) for detailed protocol documentation and comparison with Program ROM flash routines.
 
-#### LZSS Decompressor Suite (0xFFC8C2-0xFCCA4F)
+#### LZSS Decompressor Suite (0xFFC8C2-0xFFCC29)
 
 The bootloader includes a complete LZSS decompression subsystem for handling compressed firmware data. This is the "SLIDE4K" format used by the firmware update system.
 
-> **Status**: All LZSS routines (872 bytes total) are now **100% byte-matching** disassembly in `table_data/kn5000_table_data.asm`.
+> **Status**: All LZSS routines (872 bytes total) are now **100% byte-matching** disassembly in `table_data/kn5000_table_data.s`.
 
 ##### Decompressor Routines
 
@@ -190,17 +190,17 @@ The bootloader includes a complete LZSS decompression subsystem for handling com
 
 ##### RAM Variables (0x0C20-0x0C38)
 
-| Address | Name | Purpose |
-|---------|------|---------|
-| 0x0C20 | Expected Size | Target decompressed size (3 bytes LE) |
-| 0x0C24 | Output Position | Current output byte count |
-| 0x0C28 | Dest Address | Destination pointer for decompressed data |
-| 0x0C2C | Buffer Pointer | Sector read buffer (typically 0x0099A4) |
-| 0x0C30 | Display X | Progress indicator X coordinate |
-| 0x0C32 | Display Y | Progress indicator Y coordinate |
-| 0x0C34 | Sector Offset | Current sector read offset |
-| 0x0C36 | Byte Counter | Output byte counter (0-3 for 32-bit writes) |
-| 0x0C38 | Source Address | Compressed data source pointer |
+| Address | Name            | Purpose                                                      |
+|---------|-----------------|--------------------------------------------------------------|
+| 0x0C20  | Expected Size   | Target decompressed size (3 bytes, big-endian in the header) |
+| 0x0C24  | Output Position | Current output byte count                                    |
+| 0x0C28  | Dest Address    | Destination pointer for decompressed data                    |
+| 0x0C2C  | Buffer Pointer  | Sector read buffer (typically 0x0099A4)                      |
+| 0x0C30  | Display X       | Progress indicator X coordinate                              |
+| 0x0C32  | Display Y       | Progress indicator Y coordinate                              |
+| 0x0C34  | Sector Offset   | Current sector read offset                                   |
+| 0x0C36  | Byte Counter    | Output byte counter (0-3 for 32-bit writes)                  |
+| 0x0C38  | Source Address  | Compressed data source pointer                               |
 
 ##### Decompression Algorithm
 
@@ -208,7 +208,7 @@ The bootloader includes a complete LZSS decompression subsystem for handling com
 1. Allocate 4KB window buffer (via malloc at 0xFFFB56)
 2. Pre-fill window[0..0xFED] with 0x00
 3. Set window_pos = 0x0FEE
-4. Read 8-byte header, then 3-byte size (little-endian)
+4. Read 8-byte header, then 3-byte size (big-endian)
 5. Main Loop:
    a. Shift flag byte right
    b. If bit 8 clear, read new flag byte (set bit 8 as sentinel)
@@ -377,13 +377,13 @@ The table_data ROM contains a complete interrupt vector table at offset 0x1FFF00
 | 1-7 | 0xFFB705 | Handler | Common interrupt handler |
 | 11 | 0xFFEAB2 | Handler | Specific handler |
 
-The memory controller values in the table_data bootloader are **identical** to those in the Program ROM boot code (lines 134224-134235 of `kn5000_v10_program.asm`), confirming this is the intended configuration.
+The memory controller values in the table_data bootloader are **identical** to those in the Program ROM boot code (`v10/maincpu/shared/boot_hw_init.s`, which `RESET_HANDLER` includes), confirming this is the intended configuration.
 
 ### Stage 2: Program ROM Main Boot
 
 #### Reset Handler (0xEF03C6)
 
-After memory remapping, execution continues at `RESET_HANDLER` in the Program ROM. The TMP94C241F CPU now sees the Program ROM at 0xE00000-0xFFFFFF.
+After memory remapping, execution continues at `Boot_InitIOPorts` (0xEF050F), reached through the program flash's slot at 0xFFFEDC. The program flash's own `RESET_HANDLER` (0xEF03C6), which repeats the shared hardware-init block (`shared/boot_hw_init.s`), runs only when the program flash answers the reset vector, as it does in MAME. The TMP94C241F CPU now sees the Program ROM at 0xE00000-0xFFFFFF.
 
 #### Hardware Initialization
 
@@ -416,13 +416,13 @@ After hardware initialization, the main CPU loads a 192KB firmware payload to th
 >
 > The payload transfer is handled by `SubCPU_Send_Payload` (0xEF068A) using the E1 bulk transfer protocol. This is one of the most complex boot operations, involving:
 > - Multiple 64KB chunk transfers from Table Data ROM
-> - Optional LZSS decompression of preset data
+> - SLIDE4K decompression of the sub-CPU executable from custom-data flash 0x3E0000 (fallback base: table-data 0x800000)
 > - Careful timing with delay loops
 >
 > **Quick Reference:**
 > - [`SubCPU_Send_Payload`](#subcpu_send_payload-details) - Main transfer routine (see below)
 > - [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/#subcpu_send_payload-0xef068a) - Full technical details with code examples
-> - [Open Questions](#sub-cpu-payload-transfer---open-questions) - Disputed interpretations about destination addresses
+> - [Open Questions](#subprogram-storage-location-under-investigation) - What the two source bases hold, and the dump-provenance question that remains
 
 **Main CPU Boot Sequence:**
 ```
@@ -447,7 +447,7 @@ RESET_HANDLER (0xEF03C6)
 3. Main CPU sends 6-byte header (destination address + byte count)
 4. Main CPU sends actual data via DMA
 5. Repeat for each 64KB chunk
-6. Sub CPU receives E3 command, sets bit 6 of PAYLOAD_LOADED_FLAG
+6. The last block (256 bytes to sub-CPU 0x400-0x4FF) writes bit 6 of PAYLOAD_LOADED_FLAG (0x4FE); no E3 command is sent
 7. Sub CPU boot ROM calls payload at 0x000400
 
 See [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/) for detailed protocol documentation.
@@ -470,37 +470,38 @@ After subsystem initialization and Sub CPU payload loading, the firmware display
 
 **Power-on button scan** (`CPanel_ScanButtons` / `CPanel_CheckSpecialCombos`): At early boot (before the welcome screen), the firmware scans the control panel buttons. If specific combinations are held during power-on, special boot modes are activated:
 
-| Button Combination | Code | Effect |
-|---|---|---|
-| No special combo | 0 | Normal boot — splash animation |
-| SHOWTIME & TRAD DANCE + PARTY TIME + MARCH & WALTZ | 1 | Soft version screen |
-| GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR | 2 | Firmware version display + "ALL INITIAL SETTING!" |
-| AUTO PLAY CHORD + SPLIT POINT + VAR4 + VAR3 | 3 | Internal build numbers |
-| PM1 + PM2 + PM3 + PM4 (all 4 Panel Memory buttons) | 4 | Firmware flash update mode |
+| Button Combination                                 | Code | Effect                                                                                                                                                    |
+|----------------------------------------------------|------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| No special combo                                   | 0    | Normal boot — splash animation                                                                                                                            |
+| SHOWTIME & TRAD DANCE + PARTY TIME + MARCH & WALTZ | 1    | Factory reset (Initial Setting): only when DRAM[0xFFCA] != 0x5AA5, `Boot_HandleFactoryReset` zero-fills work DRAM and the IC21 SRAM and restarts the boot |
+| GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR  | 2    | Firmware version on the panel LEDs (`Boot_HandleComboDisplay`) and the MPVersion screen (`EVT_MP_VERSION`)                                                |
+| AUTO PLAY CHORD + SPLIT POINT + VAR4 + VAR3        | 3    | Internal build numbers                                                                                                                                    |
+| PM1 + PM2 + PM3 + PM4 (all 4 Panel Memory buttons) | 4    | Firmware flash update mode                                                                                                                                |
 
 The scanned combo code is stored in internal RAM at address 0x402 (byte at offset 1026).
 
-**Welcome screen decision tree** (in `AcWelcomScreenProc` at 0xF7F4B0):
+**Welcome screen decision tree** (in `AcWelcomScreenProc` at 0xF7F4A6):
 
 ```
-CREATE event (0x1C00001):
+EVT_SHOW (0x1C00001):
     │
-    ├─ Get region code from Port H (0x408)
-    │  Region 2 → animation data at 0xE9DF4E
-    │  Other    → animation data at 0xE9E806
+    ├─ Get_Region_Code
+    │  Region 2 → WelcomeScript_Steps_A (0xE9DF4E)
+    │  Other    → WelcomeScript_Steps_B (0xE9E806)
     │
-    ├─ Read boot button combo from RAM 0x402
+    ├─ Boot_GetButtonComboCode (RAM 0x402)
     │  │
-    │  ├─ Combo == 2 → "ALL INITIAL SETTING!" screen
-    │  │               (posts event 0x1C10009 → "AllInitial" widget)
+    │  ├─ Combo == 2 → "MPVersion" screen (firmware version)
+    │  │               (posts EVT_MP_VERSION 0x1C10009)
     │  │
-    │  └─ Combo != 2 → Check Sub CPU payload status
+    │  └─ Combo != 2 → SubCPU_Payload_GetErrorFlag
     │     │
-    │     ├─ Payload error → "CPU data transmission" error dialog
-    │     │                  (posts event 0x1C10004)
+    │     ├─ Negative (0xFF: checksum of DRAM 0xF980 != DRAM[0xFFD2]) →
+    │     │      "ALL INITIAL SETTING!" screen
+    │     │      (posts EVT_ALL_INITIAL 0x1C10004 → "AllInitial" view)
     │     │
-    │     └─ Payload OK → Normal splash animation
-    │                     (posts event 0x1E000B3)
+    │     └─ 0 or 1 → Normal splash animation
+    │                 (sends EVT_SET_KEEP 0x1E000B3)
 ```
 
 **Normal splash animation**: On a successful boot with no special buttons held, the firmware displays a splash screen with the Technics/KN5000 logo and animated palette effects (palette cycling, spotlight-like illumination). The animation uses region-specific data tables — Region 2 uses different graphics than other regions. The boot code reaches it through `ScreenGroup_Dispatch` (0xFDDB46), which runs one init phase of every subsystem (see [Subsystem Init Phases](#subsystem-init-phases)); the drawing is done by the subsystems' phase handlers.
@@ -519,9 +520,9 @@ and `welcome_step_t` in `naka_technichord_strings.c`. This page used to say the 
 pre-rendered bitmaps on the boot floppy (`FTBMP01`–`FTBMP06`). Those six are the
 [Feature Demo]({{ site.baseurl }}/feature-demo/)'s slides, stored in the table-data ROM at `0x880418`-`0x8CE01B`.
 
-**"ALL INITIAL SETTING!" screen**: This appears when the firmware version button combo (GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR) is held at power-on, **not** because of NVRAM loss or factory reset detection. This is a diagnostic/service mode, not an error condition.
+**"ALL INITIAL SETTING!" screen**: the welcome screen opens it (`EVT_ALL_INITIAL`, view `AllInitial`) when `SubCPU_Payload_GetErrorFlag` is negative (0xFF). `SubCPU_Payload_Verify` sets 0xFF when the checksum of DRAM `0xF980` (0x280 words) does not match the value the power-off NMI stored at `0xFFD2`. A mismatch of the `0xF180` region alone gives 1, which the welcome screen treats as success. A cold start with no saved power-down state therefore shows this screen. Holding combo 2 (GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR) opens the `MPVersion` screen instead and shows the firmware version on the panel LEDs.
 
-> **MAME Note**: In the emulator, the control panel MCU is HLE'd. If the HLE implementation does not correctly report "no buttons pressed" during the initial scan, the firmware may misinterpret the result and display the wrong welcome screen. This is an area for investigation.
+> **MAME Note**: In MAME, as on hardware, a cold boot with no saved power-down checksums shows "ALL INITIAL SETTING!". The kn7000_mame overlay's modelled POWER switch lets the firmware's own NMI handler save them, so the next boot shows the splash. See [SNS NMI Emulation]({{ site.baseurl }}/sns-nmi-emulation/).
 
 #### Sub CPU Payload Verification and the SNS (Power-Off) NMI
 
@@ -542,7 +543,7 @@ After the Main CPU transfers the 192KB Sub CPU firmware payload, `SubCPU_Payload
 
 This means: every **clean power-off** stores fresh checksums; every **boot** clears them (`Boot_DisplayScreen`); the NMI at the *previous* power-off provides the values for `SubCPU_Payload_Verify` at the *next* boot.
 
-> **MAME Implementation**: The SNS NMI is implemented in the driver via two complementary mechanisms: **(A)** a write tap on DRAM[0xFFD4] that intercepts `Boot_DisplayScreen`'s zero-write and substitutes the correct checksum (reliable, always active); **(B)** a 60 Hz periodic timer that pulses the NMI line when `exit_pending` is true, allowing `NMI_StorePayloadChecksums` to run from actual ROM code at shutdown. Note: internal CPU RAM[0x0400] is on-chip and not visible on the external bus, so the NMI guard cannot be monitored via write taps — the ROM handler checks it internally. See branch [`kn5000_aided_by_claude`](https://github.com/felipesanches/mame/tree/kn5000_aided_by_claude) for the work-in-progress implementation (messy and hacky, before code review and proper MAME PR submission).
+> **MAME Implementation**: the kn7000_mame overlay models the instrument's POWER switch. Pressing it pulses the CPU's ~NMI and gives the firmware's own `NMI_StorePayloadChecksums` a power-down window before MAME exits (kn7000_mame `84aba70`, 2026-08-15). An earlier boot-time write tap on DRAM[0xFFD4] was removed (`b1cf7db`, 2026-07-20) because it caused the "Sound Name Error". Mainline MAME models neither. See [SNS NMI Emulation]({{ site.baseurl }}/sns-nmi-emulation/).
 
 #### Battery-Backed SRAM Validation
 
@@ -555,7 +556,7 @@ During boot, the firmware validates the battery-backed SRAM at 0x1E0000-0x1FFFFF
 
 If validation fails, the firmware displays an **"ERROR in back-up SRAM"** message and prompts the user to power-cycle. The factory defaults are embedded in Program ROM at offset 0x0A0150 (0x72A6 bytes, starting with "KN5000 SOUND RAM" header).
 
-The MAME driver correctly implements this via `nvram2` with a custom initialization handler that copies factory defaults and computes the correct checksum on first run.
+The kn7000_mame overlay driver implements this with a custom NVRAM handler (`kn5000_state::nvram_init`) that copies the factory defaults and computes the checksum on first run; mainline MAME declares a plain `NVRAM(config, "nvram")` without it.
 
 #### Main Loop
 
@@ -631,7 +632,7 @@ Source: `boot/screen_group_dispatch.s` and `ui_widgets/widget_dispatch.s` (`Subs
 │  2. Vector points to 0xFFFEE0 → JP 0xFFB4E8                          │
 │  3. Boot code configures MSAR0-5, MAMR0-5, DRAM controller           │
 │  4. Memory remap: Table Data → 0x800000, Program ROM → 0xE00000      │
-│  5. Jump to Program ROM entry point (0xEF03C6)                       │
+│  5. Jump via 0xFFFEDC to Boot_InitIOPorts (0xEF050F)                 │
 └──────────────────────────────────────────────────────────────────────┘
                                    │
                                    v
@@ -646,8 +647,8 @@ Source: `boot/screen_group_dispatch.s` and `ui_widgets/widget_dispatch.s` (`Subs
 │    0x800000-0x9FFFFF = Table Data ROM (remapped)                     │
 │    0xE00000-0xFFFFFF = Program ROM (now visible)                     │
 │                                                                      │
-│  1. RESET_HANDLER at 0xEF03C6                                        │
-│  2. Hardware initialization (redundant memory controller setup)      │
+│  1. Boot_InitIOPorts at 0xEF050F (RESET_HANDLER 0xEF03C6 skipped)    │
+│  2. Remaining hardware init (shared init block already run)          │
 │  3. Release Sub CPU from reset                                       │
 │  4. Send 192KB payload to Sub CPU                                    │
 │  5. Initialize subsystems and enter main loop                        │
@@ -770,8 +771,8 @@ differ across firmware versions.
 
 > Step 6 previously read "~33 KB of optional LZSS preset data". It is not preset data and
 > it is not optional on any dumped firmware: it is the 192 KB sub-CPU executable, and steps
-> 8-11 total exactly `0x30000` = 196,608 bytes. Where that image actually comes from is a
-> live question — see
+> 8-11 total exactly `0x30000` = 196,608 bytes. A File Type 007 update writes that image to
+> custom-data `0x3E0000`; why our IC19 dump lacks it is still open — see
 > [Sub-CPU Payload Provenance]({{ site.baseurl }}/subcpu-payload-provenance/).
 
 #### Timing
@@ -780,9 +781,9 @@ The routine includes two delay loops for hardware timing:
 - **Initial delay**: 0x2000 iterations (~8,192 cycles) before first transfer
 - **Inter-chunk delay**: 0x100000 iterations (~1,048,576 cycles) between chunks
 
-#### LZSS Preset Data Handling
+#### LZSS Decompression of the Sub-CPU Executable {#lzss-preset-data-handling}
 
-After the main 5×64KB payload transfer, the routine attempts to load additional "preset" parameter data:
+After the five unconditional 64 KB tone-database transfers, the routine chooses the base of the executable:
 
 **Code Flow:**
 ```asm
@@ -813,10 +814,10 @@ The address `0x3E0000` maps to **Custom Data Flash** (0x300000-0x3FFFFF), NOT Ta
 
 **Boot Behavior:**
 
-| Scenario | 0x3E0000 Contents | Decompression | Data Source |
-|----------|-------------------|---------------|-------------|
-| **After firmware update** | Valid LZSS data | Succeeds | Custom Data Flash (updated firmware) |
-| **Factory state** | Empty / user data | Fails (0xFFFF) | Table Data ROM fallback |
+| Scenario                                 | 0x3E0000 Contents | Decompression  | Data Source                                                    |
+|------------------------------------------|-------------------|----------------|----------------------------------------------------------------|
+| **After firmware update**                | Valid LZSS data   | Succeeds       | Custom Data Flash (updated firmware)                           |
+| **Blank 0x3E0000** (as in our IC19 dump) | All 0xFF          | Fails (0xFFFF) | Table Data 0x800000 fallback: picture data, sub-CPU cannot run |
 
 **Firmware Update Integration:**
 
@@ -836,18 +837,18 @@ HANDLE_UPDATE_FILE_TYPE_ID_007h:
 This explains the design:
 1. **Firmware updates** write compressed payload to Custom Data Flash at 0x3E0000
 2. **On next boot**, `SubCPU_Send_Payload` decompresses the updated firmware
-3. **Factory units** have no data at 0x3E0000, so they fall back to Table Data ROM
+3. **Without an image at 0x3E0000** the fallback base 0x800000 ships picture data, so the sub-CPU cannot run (the provenance page discusses why our IC19 dump is blank there)
 
 > **✅ RESOLVED:** The 0x3E0000 address mystery is now understood. See [Firmware Update System]({{ site.baseurl }}/lzss-compression/#firmware-update-system-and-0x3e0000) for full details.
 
 #### Related Routines
 
-| Routine | Address | Purpose |
-|---------|---------|---------|
-| `SubCPU_Init_DMA_Channels` | 0xEF329E | Must be called before payload transfer |
-| `InterCPU_E1_Bulk_Transfer` | 0xEF3457 | Underlying protocol for each 64KB chunk |
-| `SubCPU_Payload_Verify` | 0xEF092B | Verifies payload checksums after transfer |
-| `SubCPU_Payload_GetErrorFlag` | 0xEF096A | Returns error status for boot sequence |
+| Routine                       | Address  | Purpose                                   |
+|-------------------------------|----------|-------------------------------------------|
+| `SubCPU_Init_DMA_Channels`    | 0xEF329E | Must be called before payload transfer    |
+| `InterCPU_E1_Bulk_Transfer`   | 0xEF3457 | Underlying protocol for each 64KB chunk   |
+| `SubCPU_Payload_Verify`       | 0xEF092B | Verifies payload checksums after transfer |
+| `SubCPU_Payload_GetErrorFlag` | 0xEF0979 | Returns error status for boot sequence    |
 
 #### Error Handling
 
@@ -855,11 +856,11 @@ If the payload transfer or verification fails:
 1. `SubCPU_Payload_Verify` sets error flag at `0x01E53E`
 2. Boot sequence reads flag via `SubCPU_Payload_GetErrorFlag`
 3. Non-zero result triggers "ERROR in CPU data transmission" dialog
-4. Error dialog defined at `ErrorDialog_CPUTransmissionError` (0xED66BA)
+4. Error dialog defined at `ErrorDialog_CPUTransmissionError` (0xED66C4)
 
 #### Source Code Reference
 
-Assembly: `maincpu/kn5000_v10_program.asm:134212-134295`
+Assembly: `v10/maincpu/kn5000_v10_program.s` (`SubCPU_Send_Payload` through `SubCPU_Payload_Done`)
 
 ```asm
 ; Entry point
@@ -874,13 +875,13 @@ SubCPU_Send_Payload:                ; 0xEF068A
     RET
 ```
 
-### Subprogram Storage Location (UNDER INVESTIGATION)
+### Subprogram Storage Location {#subprogram-storage-location-under-investigation}
 
 > ⚠ **Retraction (2026-08).** This section previously read "RESOLVED" and stated that the
 > Sub CPU's 192 KB executable is stored uncompressed at Table Data ROM `0x830000`. That is
 > **wrong and is withdrawn.** `0x830000-0x87FFEF` is the **tone database** — sound-parameter
 > data, copied into the Sub CPU's *data* window. Where the executable comes from at run time
-> is a separate, still-open question. See
+> is a separate question, answered below; only the IC19 dump's provenance is still open. See
 > [Tone Database]({{ site.baseurl }}/tone-database/) and
 > [SubCPU Payload Loading]({{ site.baseurl }}/subcpu-payload-loading/).
 
@@ -894,15 +895,16 @@ SubCPU_Send_Payload:                ; 0xEF068A
 contents are the factory tone/voice records, drum kits, percussion bank, wave-source name
 catalogues and envelope pool — not code.
 
-**Where the executable comes from: unresolved**
+**Where the executable comes from: the mechanism is closed, the dump provenance is not**
 
 The same routine transfers the code blocks (Sub CPU `0x400` and `0xF000`-`0x3EEFF`) from a
 base held in `XIZ`: the LZSS image at Custom Data Flash `0x3E0000` if it decompresses, and
 table-data `0x800000` otherwise. In the images this project holds, **neither is the
-payload** — custom-data `0x3E0000` is erased (all `0xFF`; no File Type 007 update was ever
-applied to the dumped unit), and no byte of `kn5000_subprogram_v142.rom` appears anywhere in
-the table-data or custom-data dumps. The executable is known only from its own ROM dump and
-from the compressed update-disc images.
+payload** — custom-data `0x3E0000` is blank (all `0xFF`; whether the region was never
+programmed or the dump is incomplete cannot be told from the file — see
+[Sub-CPU Payload Provenance]({{ site.baseurl }}/subcpu-payload-provenance/)), and no byte of
+`kn5000_subprogram_v142.rom` appears anywhere in the table-data or custom-data dumps. The
+executable is known only from its own ROM dump and from the compressed update-disc images.
 
 **LZSS Compressed Region at 0x8E0000 (Preset Parameters, NOT Executable):**
 
@@ -928,13 +930,15 @@ The code references `0x3E0000` for LZSS decompression, but this address maps to 
 | 0x3E0000 | Custom Data Flash (offset 0xE0000) | User data or empty |
 | 0x8E0000 | Table Data ROM (offset 0xE0000) | LZSS compressed preset data |
 
-In normal factory boot, the LZSS decompression from 0x3E0000 likely fails (no valid data in Custom Data Flash), causing the code to fall back to `TABLE_DATA_ROM__BASE_ADDR`.
+If the image at 0x3E0000 fails its SLIDE check, the code falls back to `TABLE_DATA_ROM__BASE_ADDR` (0x800000). That region is the section directory and bitmap bank, so a working sub-CPU needs the image; see [Sub-CPU Payload Provenance]({{ site.baseurl }}/subcpu-payload-provenance/).
 
 **Remaining Open Questions:**
 
 1. What data is at `0x830000`? **Answered:** the tone database (data, not code).
-2. **Where does the ~192 KB executable come from?** Still open — neither of
-   `SubCPU_Send_Payload`'s two source bases holds it in the images we have.
+2. ~~Where does the ~192 KB executable come from?~~ **Answered (August 2026):** from the
+   SLIDE4K stream a File Type 007 update disc writes verbatim to custom-data `0x3E0000`,
+   decompressed on every boot. What is open is why the IC19 dump lacks it; see
+   [Sub-CPU Payload Provenance]({{ site.baseurl }}/subcpu-payload-provenance/).
 3. Does the Sub CPU have its own ROM chip? **Yes** — the 128 KB Sub CPU Boot ROM (IC30)
    holds the boot loader. It does *not* hold the 192 KB runtime payload.
 4. ~~What is the purpose of the preset data at 0x8E0000, and when is it used?~~ **Answered
@@ -945,7 +949,9 @@ In normal factory boot, the LZSS decompression from 0x3E0000 likely fails (no va
    8bpp bitmaps whose transparent colour is `0xF7`, so the fallback sends picture data to the
    Sub CPU. This is a strong lead on the "Preset Data Destination" dispute, not confirmed in
    MAME; see [LZSS Compression]({{ site.baseurl }}/lzss-compression/#preset-data-destination-dispute).
-5. Under what conditions does the 0x3E0000 LZSS path succeed (firmware update mode)?
+6. ~~Under what conditions does the 0x3E0000 LZSS path succeed?~~ **Answered:** whenever a
+   File Type 007 (or 005) update has written the SLIDE4K image there; see
+   [Sub-CPU Payload Provenance]({{ site.baseurl }}/subcpu-payload-provenance/).
 
 See [LZSS Compression](lzss-compression.md) for decompression details.
 
@@ -984,7 +990,7 @@ Size: ~400 bytes
 | 12 | DRAM_* | Various | DRAM refresh/timing |
 | 13 | BxCSL, BxCSH | Various | Bus chip select |
 
-### 3. Copy Interrupt Vectors (Boot_Copy_Vectors)
+### 3. Copy Interrupt Vectors (COPY_VECTORS)
 
 ```
 Address: 0xFF846D
@@ -996,7 +1002,7 @@ Size: 225 bytes (0xE1 bytes)
 The boot ROM copies interrupt vector trampolines from ROM to RAM. These are placeholder handlers that jump back to boot ROM until the actual payload overwrites them:
 
 ```asm
-Boot_Copy_Vectors:             ; 0xFF846D
+COPY_VECTORS:                  ; 0xFF846D
     LD   XDE, 0x00000400       ; Destination: RAM at 0x0400
     LD   XHL, 0x00FF8F6C       ; Source: ROM stub table
     LD   XBC, 0x000000E1       ; Count: 225 bytes
@@ -1012,16 +1018,16 @@ ei 0    ; Enable interrupts at level 0
 
 ### 5. Initialization Routines
 
-| Routine | Address | Size | Purpose |
-|---------|---------|------|---------|
-| INIT_MEMORY_TEST | 0xFF8956 | ~300B | RAM test, ROM checksum |
-| INIT_DMA_SERIAL | 0xFF85AE | ~90B | DMA and serial setup |
-| INIT_TONE_GEN | 0xFF84A8 | ~70B | Tone generator at 0x130000 |
+| Routine          | Address  | Size  | Purpose                                                                                                                                      |
+|------------------|----------|-------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| INIT_MEMORY_TEST | 0xFF8956 | ~300B | Returns at once unless bit 0 of 0x30 is clear (strap); then RAM test, ROM checksum, TG probe and an endless loop — not part of a normal boot |
+| INIT_DMA_SERIAL  | 0xFF85AE | ~90B  | DMA and serial setup                                                                                                                         |
+| INIT_TONE_GEN    | 0xFF84A8 | ~70B  | DSP register block at 0x130000 (the routine's name says tone generator, but it is not)                                                       |
 
 ### 6. Main Loop (Wait for Payload)
 
 ```
-Address: 0xFF8405
+Address: 0xFF840C
 ```
 
 The sub CPU enters a loop waiting for the payload ready flag:
@@ -1041,7 +1047,7 @@ MAIN_LOOP:
 
 ### 7. Payload Execution
 
-Once `PAYLOAD_LOADED_FLAG` bit 6 is set (by E3 command), the sub CPU jumps to the payload entry point at `0x0400`. The payload takes over audio synthesis and tone generation duties.
+Once `PAYLOAD_LOADED_FLAG` bit 6 is set (by the last 256-byte block, which overwrites 0x400-0x4FF), the sub CPU jumps to the payload entry point at `0x0400`. The payload takes over audio synthesis and tone generation duties.
 
 ---
 
@@ -1051,14 +1057,14 @@ The main CPU and sub CPU communicate via a single-byte latch at `0x120000`.
 
 ### Command Format
 
-| Command | Description | Data Size | Buffer |
-|---------|-------------|-----------|--------|
-| 0x00-0x1F | Variable-length data | Low 5 bits + 1 | CMD_DATA_BUFFER |
-| 0xE1 | Two-phase transfer setup | 6 bytes | CMD_E1_BUFFER |
-| 0xE2 | Parameter block | 10 bytes | CMD_E2_BUFFER |
-| 0xE3 | Payload complete | 0 bytes | - |
+| Command        | Description                               | Data Size      | Buffer          |
+|----------------|-------------------------------------------|----------------|-----------------|
+| any other byte | Variable-length data (handler = bits 7-5) | Low 5 bits + 1 | CMD_DATA_BUFFER |
+| 0xE1           | Two-phase transfer setup                  | 6 bytes        | CMD_E1_BUFFER   |
+| 0xE2           | Parameter block                           | 10 bytes       | CMD_E2_BUFFER   |
+| 0xE3           | Payload complete                          | 0 bytes        | -               |
 
-### Variable-Length Commands (0x00-0x1F)
+### Variable-Length Commands (any other byte)
 
 ```
 Bits 7-5: Handler index (0-7) from jump table at 0xFF8000
@@ -1066,7 +1072,7 @@ Bits 4-0: Data length - 1 (so 0x00 = 1 byte, 0x1F = 32 bytes)
 ```
 
 That jump table is `CmdHandler_Table`, and every one of its eight entries is a
-`lds hl,0 / ret` stub: before the payload arrives the sub-CPU acknowledges the entire
+`ld hl,0:i3 / ret` stub: before the payload arrives the sub-CPU acknowledges the entire
 command set and implements none of it. See
 [Sub-CPU Boot ROM (IC30)]({{ site.baseurl }}/subcpu-boot-rom/#the-command-handler-jump-table-at-0xff8000).
 
@@ -1148,32 +1154,32 @@ Main CPU                          Sub CPU
 
 ### Sub CPU RAM Layout
 
-| Address | Size | Symbol | Description |
-|---------|------|--------|-------------|
-| 0x0400 | 225B | PAYLOAD_ENTRY | Interrupt vector trampolines |
-| 0x04FE | 1B | PAYLOAD_LOADED_FLAG | Payload ready flags |
-| 0x0502 | 10B | DMA_SETUP_PARAMS | DMA parameter block |
-| 0x050C | 6B | E1_XFER_PARAMS | E1 command parameters |
-| 0x0512 | 4B | DMA_TARGET_ADDR | Current DMA destination |
-| 0x0516 | 2B | DMA_XFER_STATE | DMA state machine |
-| 0x0518 | 2B | CMD_PROCESSING_STATE | Command processing phase |
-| 0x051A | 1B | LAST_CMD_BYTE | Last received command |
-| 0x051E | 32B | CMD_DATA_BUFFER | Variable-length command data |
-| 0x053E | 10B | E2_XFER_PARAMS | E2 command parameters |
-| 0x0544 | 6B | CMD_E1_BUFFER | E1 command buffer |
-| 0x054A | 10B | CMD_E2_BUFFER | E2 command buffer |
-| 0x0556 | 1B | MEMTEST_RESULT | Memory test result |
-| 0x0558 | 8B | SERIAL_STATUS | Serial status bytes |
-| 0x05A2 | - | STACK_INIT | Initial stack pointer |
+| Address | Size | Symbol               | Description                                                           |
+|---------|------|----------------------|-----------------------------------------------------------------------|
+| 0x0400  | 225B | PAYLOAD_ENTRY        | Interrupt vector trampolines                                          |
+| 0x04FE  | 1B   | PAYLOAD_LOADED_FLAG  | Payload ready flags                                                   |
+| 0x0502  | 10B  | DMA_SETUP_PARAMS     | DMA parameter block                                                   |
+| 0x050C  | 6B   | E1_XFER_PARAMS       | E1 command parameters                                                 |
+| 0x0512  | 4B   | DMA_TARGET_ADDR      | Current DMA destination                                               |
+| 0x0516  | 2B   | DMA_XFER_STATE       | DMA state machine                                                     |
+| 0x0518  | 2B   | CMD_PROCESSING_STATE | Command processing phase                                              |
+| 0x051A  | 1B   | LAST_CMD_BYTE        | Last received command                                                 |
+| 0x051E  | 32B  | CMD_DATA_BUFFER      | Variable-length command data                                          |
+| 0x053E  | 10B  | E2_XFER_PARAMS       | E2 command parameters                                                 |
+| 0x0544  | 6B   | CMD_E1_BUFFER        | E1 command buffer                                                     |
+| 0x054A  | 10B  | CMD_E2_BUFFER        | E2 command buffer                                                     |
+| 0x0556  | 1B   | MEMTEST_RESULT       | Memory test result                                                    |
+| 0x0558  | 8B   | SERIAL_STATUS        | Key-down bitmap (the equate keeps an older name; not a serial buffer) |
+| 0x05A2  | -    | STACK_INIT           | Initial stack pointer                                                 |
 
 ### Hardware Addresses
 
-| Address | Description |
-|---------|-------------|
-| 0x100000 | Audio hardware registers (DSP/DAC) |
-| 0x110000 | Tone generator data/status (P6.7 controlled) |
-| 0x120000 | Inter-CPU communication latch |
-| 0x130000 | Tone generator DSP control registers |
+| Address  | Description                                                                                               |
+|----------|-----------------------------------------------------------------------------------------------------------|
+| 0x100000 | Tone generator IC303 register interface (address 0x100000, data 0x100002, status 0x100004)                |
+| 0x110000 | Tone generator keybed event data (status at 0x110002, P6.7 selects)                                       |
+| 0x120000 | Inter-CPU communication latch                                                                             |
+| 0x130000 | DSP register block (address/data; MAME maps it to DSP1 IC311). The boot ROM's `INIT_TONE_GEN` writes here |
 
 ### Sub CPU Payload Command Dispatch
 
@@ -1195,14 +1201,14 @@ After payload loading, the `MICRODMA_CH0_HANDLER` at 0x020F1F processes commands
 
 ### Boot Time Estimates
 
-| Phase | Duration | Notes |
-|-------|----------|-------|
-| Hardware init | ~1ms | SFR configuration |
-| Memory test | ~10ms | RAM pattern test |
-| ROM checksum | ~5ms | 4KB verification |
-| Tone gen init | ~1ms | 4 channel setup |
-| Payload load | ~100ms | 192KB via DMA |
-| **Total** | **~120ms** | To payload execution |
+| Phase         | Duration   | Notes                                                        |
+|---------------|------------|--------------------------------------------------------------|
+| Hardware init | ~1ms       | SFR configuration                                            |
+| Memory test   | ~10ms      | RAM pattern test (diagnostic strap only; 0 in a normal boot) |
+| ROM checksum  | ~5ms       | 4KB verification (diagnostic strap only; 0 in a normal boot) |
+| Tone gen init | ~1ms       | 4 channel setup                                              |
+| Payload load  | ~100ms     | 192KB via DMA                                                |
+| **Total**     | **~120ms** | To payload execution                                         |
 
 ### DMA Transfer Rates
 
@@ -1212,7 +1218,7 @@ After payload loading, the `MICRODMA_CH0_HANDLER` at 0x020F1F processes commands
 
 ### MAME Emulation Timing
 
-> **Status: Boot fully working** as of 2026-02-17. The SubCPU payload loads (524K HDMA transfers), executes, initializes audio hardware, and communicates bidirectionally with the Main CPU. Required 11 fixes to MAME's TMP94C241 emulation. See [SubCPU Payload Loading]({{ site.baseurl }}/subcpu-payload-loading/) for the full fix history.
+> **Status: Boot fully working** as of 2026-02-17. The SubCPU payload loads (524K HDMA transfers), executes, initializes audio hardware, and communicates bidirectionally with the Main CPU. Required 12 fixes to MAME's TMP94C241 emulation and the KN5000 driver. See [SubCPU Payload Loading]({{ site.baseurl }}/subcpu-payload-loading/) for the full fix history.
 
 Accurate emulation of the inter-CPU protocol requires careful CPU scheduling. See [Inter-CPU Protocol: MAME Emulation Notes]({{ site.baseurl }}/inter-cpu-protocol/#mame-emulation-notes) for details on:
 - Latch pending state management (force-clear before each write)
@@ -1225,11 +1231,12 @@ Accurate emulation of the inter-CPU protocol requires careful CPU scheduling. Se
 
 ### Memory Test Errors (MEMTEST_RESULT)
 
-| Bit | Meaning |
-|-----|---------|
-| 0-1 | Low word RAM errors |
-| 2-3 | High word RAM errors |
-| 3 | ROM checksum mismatch |
+| Bit | Meaning                                                     |
+|-----|-------------------------------------------------------------|
+| 0   | Low half-word RAM mismatch                                  |
+| 1   | High half-word RAM mismatch                                 |
+| 2   | ROM checksum mismatch                                       |
+| 3   | Tone-generator probe failed (HARDWARE_CALIBRATION_SEQUENCE) |
 
 ### DMA Timeouts
 
@@ -1254,23 +1261,17 @@ HALT_LOOP:
 
 ## HD-AE5000 Initialization (Optional)
 
-If the HD-AE5000 hard disk expansion is detected (PE port bit 0 = 0), the main CPU calls its initialization routines.
+Port E bit 0 (low = board present) gates only the PPI init: `Boot_FlashAndExtensions` calls `HDAE5000_Parport_Setup` when PE.0 = 0 and the region code is not 4. The extension ROM itself is found by its "XAPR" signature at 0x280000, with no PE.0 test. `Xapr_DetectOnInit` (init phase 0) sets `XAPR_PRESENT_FLAG` on a match. `Xapr_DetectAndCallBootInit` (the tail of `ScreenGroup_ReInit`) re-checks the signature, sets or clears the flag, and calls `0x280008` when it is set.
 
 ### Detection and Entry
 
 ```
-Main CPU checks PE.0
-    │
-    ├─> PE.0 = 1: No HD-AE5000, skip
-    │
-    └─> PE.0 = 0: HD-AE5000 present
-            │
-            v
-        Validate ROM header at 0x280000
-        Check for "XAPR" magic string
-            │
-            v
-        CALL 0x280008 (Boot Init entry)
+Boot_FlashAndExtensions: PE.0 = 0 and region != 4 → HDAE5000_Parport_Setup (PPI only)
+
+ScreenGroup_ReInit → Xapr_DetectAndCallBootInit   (no PE.0 test)
+    ├─> "XAPR" not at 0x280000: XAPR_PRESENT_FLAG = 0, skip
+    └─> "XAPR" at 0x280000:     XAPR_PRESENT_FLAG = 1
+            → CALL 0x280008 (Boot_Init, XWA = 0x027ED2)
 ```
 
 ### HDAE5000_Boot_Init (0x28F576)
@@ -1282,8 +1283,8 @@ The XAPR validation routine at `Xapr_DetectAndCallBootInit` handles detection an
 ```asm
 ; Validate XAPR signature at 0x280000
 PUSHW 0004h                          ; Compare 4 bytes
-PUSHW 00e1h
-PUSHW 0ffc6h                         ; Firmware's "XAPR" string
+PUSHW LoadExtROM_JumpEntry_Data@hi16
+PUSHW LoadExtROM_JumpEntry_Data@lo16 ; "XAPR" (0xE1FFC6)
 LD    XWA, 00280000h                 ; Extension ROM base
 PUSH  XWA
 CALL  String_Compare
@@ -1291,7 +1292,7 @@ ADD   XSP, 0000000ah
 CP    HL, 0
 JR    NZ, .no_extension
 
-LD    (03DD04h), 001h                ; Set XAPR detection flag
+LD    (XAPR_PRESENT_FLAG), 001h      ; 0x03DD04 (cleared to 0 when absent)
 
 ; Call Boot_Init with workspace pointer
 LD    XHL, 00280008h                 ; Boot_Init entry point
@@ -1389,10 +1390,10 @@ and [HDAE5000 Filesystem — Lyric Files]({{ site.baseurl }}/hdae5000-filesystem
 
 ## Subsystem Initialization Order
 
-After boot completes, subsystems initialize in this order:
+After boot completes, subsystems initialize roughly as below; the authoritative order is the `Subsys_HandlerTableList` order in [Subsystem Init Phases](#subsystem-init-phases):
 
 ```
-Sub CPU Payload Loaded (E3 command)
+Sub CPU Payload Loaded (last 256-byte block)
     │
     v
 ┌─────────────────────────────────────────────┐
@@ -1414,7 +1415,7 @@ Sub CPU Payload Loaded (E3 command)
 │                                             │
 │  4. HDAE5000 (if present)                   │
 │     - Call 0x280008 for initialization      │
-│     - Register frame handler                │
+│     - No registration: XAPR_PRESENT_FLAG    │
 │                                             │
 │  5. MIDI I/O                                │
 │     - Configure serial channels             │
@@ -1488,8 +1489,8 @@ If HD-AE5000 is present, its frame handler checks for PC parallel port commands:
 
 1. Check PPORT status register at 0x239000
 2. If active, load parameters from 0x23900A-0x239010
-3. Call PPORT_Setup (0x29511C) and PPORT_Dispatch (0x2950CC)
-4. Process command from jump table at 0x2953E2
+3. Call `HDAE5000_PPORT_ServiceDispatch` (0x29511C) and `HDAE5000_PPORT_ReturnToLink` (0x2950CC)
+4. Process command from `HDAE5000_PPORT_Cmd_Table` (0x2953E2)
 
 Available PPORT commands include file transfers, HD formatting, and PC communication.
 
@@ -1508,14 +1509,13 @@ Time    Event
         ├── Main CPU: Ports, memory controller, timers
         └── Sub CPU: Serial, DMA, tone generator
 
-10ms    Memory tests complete
-        └── Sub CPU: RAM pattern test, ROM checksum
+10ms    (diagnostic strap only) Sub CPU RAM pattern test, ROM checksum
 
 15ms    Sub CPU waiting for payload
         └── Main CPU: Begin payload transfer
 
 115ms   Payload loaded (192KB via DMA)
-        └── E3 command signals completion
+        └── Last 256-byte block sets bit 6 of 0x4FE
 
 120ms   Sub CPU executing payload
         ├── Audio engine active
@@ -1529,7 +1529,7 @@ Time    Event
 200ms   HDAE5000 init (if present)
         ├── 32KB RAM test
         ├── HD detection
-        └── Frame handler registered
+        └── XAPR_PRESENT_FLAG set (frame handler called every loop)
 
 250ms   System Ready
         └── Main event loop running

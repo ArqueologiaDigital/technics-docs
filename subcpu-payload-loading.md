@@ -9,6 +9,8 @@ permalink: /subcpu-payload-loading/
 This page documents the investigation into SubCPU firmware payload loading in MAME emulation. The investigation uncovered multiple bugs in MAME's TMP94C241 emulation that prevented DMA transfers and inter-CPU communication. All have been fixed, and the SubCPU payload now loads, executes, and communicates bidirectionally with the Main CPU.
 
 > **Status: RESOLVED.** As of 2026-02-17, the SubCPU payload transfer and inter-CPU communication are **fully working**. The "Sound Name Error" messages are gone. The display shows voice names (Piano, Bigband Brass, Modern E.P.1), rhythm patterns, mixer levels, and menu navigation works correctly. Button input is also functional. This required 12 fixes to MAME's TMP94C241 emulation spanning DMA, interrupts, port I/O, serial communication, and interrupt timing. See [Boot Sequence]({{ site.baseurl }}/boot-sequence/) for the overall boot flow and [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/) for latch communication details.
+>
+> **Where the fixes live (2026-10).** Fixes 1-4 and 6-11 are in mainline MAME: Fix 1 as mamedev/mame#14970 and Fix 8 as #14995. The DMA subsystem, DMAR, the INT0 level-detect re-assertion and direction-aware port reads came in #15003, and #15878 refined the re-assertion's HDMA guard. The sub-CPU peripheral stubs (Fix 11) came with #15143. Fix 5 (`perfect_quantum`) and Fix 12 (`clear_int0_level`) are only in the kn7000_mame overlay. A later recurrence of the "Sound Name Error" (2026-07-20) was caused by the overlay's SNS write tap and cured by removing it; see [SNS NMI Emulation]({{ site.baseurl }}/sns-nmi-emulation/).
 
 ## Background
 
@@ -92,7 +94,7 @@ Each E1 transfer follows this protocol:
 5. Set `MSTAT0`, send 6-byte header (dest addr + byte count) via `Audio_DMA_Transfer`
 6. Wait for state transition, send actual data payload via `Audio_DMA_Transfer`
 
-The Main CPU sends data byte-by-byte in a tight software loop (`Audio_DMA_Transfer` at `0xEF3415`). Each write to the latch triggers INT0 on the Sub CPU.
+The Main CPU sends data byte-by-byte in a tight software loop (`Audio_DMA_Transfer` at `0xEF341B`). Each write to the latch triggers INT0 on the Sub CPU.
 
 ### Sub CPU Reception (Boot ROM INT0 Handler)
 
@@ -203,11 +205,11 @@ zone A0 are named from their consumer's arithmetic rather than from understood s
 and at least one block (`VoiceParamFinalize_HandlerParams`, `0x00FB3E`) has no located
 consumer at all.
 
-| zone | Sub CPU range | size | contents |
-|------|---------------|------|----------|
-| A0 | `0x00F7E6`-`0x012114` | 10,543 B | audio-command jump tables and opcode→case maps, TG power-up defaults, per-key bend/pan/level/EG curve families, the 12-row `DSP_ChanFreq_CurvePool` (`0x011016`), the 14 × 39-byte `DSP_AlgoDescriptor_Records` (`0x011E16`), TVF and envelope curves, two DSP1 image-header strings |
-| A | `0x012195`-`0x014738` | 9,636 B | `DSP_EQ_FreqHz_Table` (`0x012397`, 27 × f32 ISO ⅓-octave centres) and `DSP_EQ_Q_Table` (`0x012403`, 32 × f32), five Q23 coefficient ladders (`DSP_FreqParamCurve_Algo0/1/2` at `0x012483`/`0x012613`/`0x0127A3`, `DSP_OscParamCurve` at `0x0129A3`, `DSP_CoeffCurve_Op62` at `0x012B33`), `DSP_FP_ConstPool` (`0x012CD3`), `DSP_MixerGain_Curve` (`0x0131CF`), and the per-effect parameter metadata complex from `0x0133CF` — `EFF_ParamCount_Table` (`0x0143AD`), `EFF_ParamRanges_PtrTable` (`0x014411`), `EFF_ParamDefaults_PtrTable` (`0x0145A1`) — which is a byte- and relocation-identical copy of main-CPU `0xEE4FC6-0xEE636B`, read by the main CPU's `DSPCfg_*` routines and by nothing in this payload ([details]({{ site.baseurl }}/dsp-effect-data-zone/#the-main-cpu-holds-the-same-metadata-and-reads-it)), plus the two interpreter offset tables `DSP_BytecodeInterpreter_CaseOffsets` and `DSP_Translator_CaseOffsets` |
-| B | `0x0147B3`-`0x01E17E` | 39,372 B | the DSP effect program + parameter zone: bytecode streams and parameter record tables for all 100 effect-algorithm numbers — documented on its own page, [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/) |
+| zone | Sub CPU range         | size     | contents                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+|------|-----------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| A0   | `0x00F7E6`-`0x012114` | 10,543 B | audio-command jump tables and opcode→case maps, TG power-up defaults, per-key bend/pan/level/EG curve families, the 12-row `DSP_ChanFreq_CurvePool` (`0x011016`), the 14 × 39-byte `DSP_AlgoDescriptor_Records` (`0x011E16`), TVF and envelope curves, two DSP1 image-header strings                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| A    | `0x012195`-`0x014738` | 9,636 B  | `DSP_EQ_FreqHz_Table` (`0x012397`, 27 × f32 ISO ⅓-octave centres) and `DSP_EQ_Q_Table` (`0x012403`, 32 × f32), five Q23 coefficient ladders (`DSP_FreqParamCurve_Algo0/1/2` at `0x012483`/`0x012613`/`0x0127A3`, `DSP_OscParamCurve` at `0x0129A3`, `DSP_CoeffCurve_Op62` at `0x012B33`), the DSP floating-point constant pool (`0x012CD3`-`0x0131CE`, 223 constants each labelled `FPConst_<reader>_<value>`), `DSP_MixerGain_Curve` (`0x0131CF`), and the per-effect parameter metadata complex from `0x0133CF` — `EFF_ParamCount_Table` (`0x0143AD`), `EFF_ParamRanges_PtrTable` (`0x014411`), `EFF_ParamDefaults_PtrTable` (`0x0145A1`) — which is a byte- and relocation-identical copy of main-CPU `0xEE4FC6-0xEE636B`, read by the main CPU's `DSPCfg_*` routines and by nothing in this payload ([details]({{ site.baseurl }}/dsp-effect-data-zone/#the-main-cpu-holds-the-same-metadata-and-reads-it)), plus the two interpreter offset tables `DSP_BytecodeInterpreter_CaseOffsets` and `DSP_Translator_CaseOffsets` |
+| B    | `0x0147B3`-`0x01E17E` | 39,372 B | the DSP effect program + parameter zone: bytecode streams and parameter record tables for all 100 effect-algorithm numbers — documented on its own page, [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 Two readings the earlier raw-blob banners carried were **refuted** by the carve and are
 withdrawn:
@@ -219,9 +221,9 @@ withdrawn:
   gain, feeding the mixer-gain product written to DSP2 registers `0xD0`/`0xD3`. Read as
   pitch, the middle segment would be 54.82 cents/step, which matches no musical law.
 * There are **no "two 128-byte tables at `0x00FF00` / `0x00FF80`"**. The "11 references
-  each" that produced that claim are `stiw_da 0x100002, 0xff00` / `0xff80` instructions —
-  immediate values written to the tone-generator address latch, not table addresses. No
-  table begins at either address.
+  each" that produced that claim are `ldw (ToneGen_RegDataPort:24), 0xff00` / `0xff80`
+  instructions (`ToneGen_RegDataPort` = `0x100002`) — immediate values written to the
+  tone-generator data port, not table addresses. No table begins at either address.
 
 Zone A0's split points are all consumer-verified: every boundary is an address some
 instruction references, and the set tiles the span with no orphan bytes.
@@ -402,9 +404,9 @@ The port_r fix affects BOTH Port D (PDCR=0x63: bits 0-1=output) AND Port Z (PZCR
 - New: `SET 0, (PZ)` + `SET 1, (PZ)` → MSTAT = 3 (bit 0 preserved from latch)
 - This is correct real hardware behavior — PZCR=0x03 is set during boot init (`LD (PZCR), 003h` in `shared/boot_hw_init.asm`)
 
-**Key finding: SubCPU still initializing.** The 7460 INT0 hits at 0x034C6F exactly match the `DSP_System_Init_Clear2_Loop` iteration count (clearing a 7,462-byte DSP state buffer). The boot ROM debug routine hits (~1023x at SUB_FEC1) are the payload calling boot ROM utility functions for diagnostic output. Both are normal initialization activity — the SubCPU hasn't reached the main event loop yet.
+**Key finding: SubCPU still initializing.** The 7460 INT0 hits at 0x034C6F exactly match the `DSP_System_Init_Clear2_Loop` iteration count (clearing a 7,462-byte DSP state buffer). The boot ROM debug routine hits (~1023x at `DEBUG_OUTPUT_CHAR_STUB`, 0xFFFEC1) are the payload calling boot ROM utility functions for diagnostic output. Both are normal initialization activity — the SubCPU hasn't reached the main event loop yet.
 
-### Test Run 8: After logging reduction (Pending)
+### Test Run 8: After logging reduction (superseded — Fixes 10-12 resolved the error)
 
 - Reduced INT0 dispatch logging to every 1000th occurrence
 - Reduced HDMA per-transfer logging to every 256th transfer
@@ -414,7 +416,7 @@ The port_r fix affects BOTH Port D (PDCR=0x63: bits 0-1=output) AND Port Z (PZCR
 
 ### Fix 6: DMAR Software-Triggered Burst DMA
 
-Analysis of the SubCPU payload's main loop revealed that `InterCPU_DMA_SendDataPacket` (at `0x020CF3`) uses the `DMAR` register to trigger DMA channel 2 for sending data back to the Main CPU. After triggering, it waits in `DMA_Chunk_Wait` for `DMA_XFER_STATE` to be cleared by the `MICRODMA_CH2_HANDLER` interrupt (INTTC2 at vector `0x9C`).
+Analysis of the SubCPU payload's main loop revealed that `InterCPU_DMA_SendDataPacket` (at `0x020CB0`) uses the `DMAR` register to trigger DMA channel 2 for sending data back to the Main CPU. After triggering, it waits in `DMA_Chunk_Wait` for `DMA_XFER_STATE` to be cleared by the `MICRODMA_CH2_HANDLER` interrupt (INTTC2 at vector `0x9C`).
 
 **Bug:** The previous `dmar_w()` implementation called `process_hdma()`, which requires a matching interrupt flag to be pending. Software-triggered DMA via DMAR should bypass the interrupt check and perform a burst transfer (all DMAC units at once), then fire INTTC on completion.
 
@@ -525,12 +527,12 @@ This fix improves ALL port reads:
 
 Detailed analysis of the SubCPU payload init sequence revealed that **initialization does NOT hang** -- all init-phase loops are bounded by timeouts or complete harmlessly with unmapped hardware returning 0:
 
-| Loop | Location | Reads From | Bounded? | Behavior with Unmapped HW |
-|------|----------|-----------|----------|--------------------------|
-| `DSP_Send_Command` wait | 0x036331 | Port PH bit 0 | Yes (8,000 iter) | PH output latch reads back 1 -- exits immediately |
-| `DSP_Send_Data` wait | 0x0367EE | Port PH bit 0 | Yes (8,000 iter) | Same as above |
-| `ToneGen_Poll_Delay` | 0x03D227 | Nothing (pure delay) | Yes (10,000 iter) | Runs 160,000 iterations total, completes |
-| `ToneGen_Poll_Read` | 0x03D239 | 0x110002 / 0x110000 | Single read | Returns 0, processes 16 fake note-off events |
+| Loop                    | Location | Reads From           | Bounded?          | Behavior with Unmapped HW                         |
+|-------------------------|----------|----------------------|-------------------|---------------------------------------------------|
+| `DSP_Send_Command` wait | 0x036331 | Port PH bit 0        | Yes (8,000 iter)  | PH output latch reads back 1 -- exits immediately |
+| `DSP_Send_Data` wait    | 0x0367EE | Port PH bit 0        | Yes (8,000 iter)  | Same as above                                     |
+| `ToneGen_Poll_Delay`    | 0x03D227 | Nothing (pure delay) | Yes (10,000 iter) | Runs 160,000 iterations total, completes          |
+| `ToneGen_Poll_Read`     | 0x03D230 | 0x110002 / 0x110000  | Single read       | Returns 0, processes 16 fake note-off events      |
 
 After init, the SubCPU enters the main event loop (`Audio_Main_Loop`), which runs continuously. The main loop does NOT hang because:
 - `ToneGen_Process_Notes` reads 0 from unmapped 0x110002 (no notes available)
@@ -551,12 +553,12 @@ The SubCPU payload's main loop polls several unmapped hardware devices, generati
 
 **Fix:** Added `noprw` stubs in the SubCPU memory map:
 
-| Address | Device | Chip |
-|---------|--------|------|
-| 0x100000-0x100003 | DAC interface | Audio DAC |
-| 0x110000-0x110003 | Tone generator | IC303 (TC183C230002) |
-| 0x130000-0x130003 | DSP1 registers | IC311 |
-| 0x1E0000-0x1EFFFF | Waveform/sample RAM | |
+| Address           | Device                                  | Chip                 |
+|-------------------|-----------------------------------------|----------------------|
+| 0x100000-0x100003 | Tone generator register interface       | IC303 (TC183C230002) |
+| 0x110000-0x110003 | Tone generator keybed event data/status | IC303                |
+| 0x130000-0x130003 | DSP1 registers                          | IC311                |
+| 0x1E0000-0x1EFFFF | Waveform/sample RAM                     |                      |
 
 ### Fix 12: INT0 Stale m_level Fix (clear_int0_level)
 
@@ -586,7 +588,7 @@ This is safe because: (1) same-CPU context — modifying the CPU's own state dur
 
 ### "Sound Name Error" Root Cause (Resolved)
 
-The "Sound Name Error" was triggered by the Main CPU's `MainGetSoundName()` function (at `0xF98D3E`). It sends a sound name request to the SubCPU via the inter-CPU latch, then waits for a 32-byte response with a timeout of ~60,000 iterations. When the SubCPU never responds, the timeout fires and displays the error.
+The "Sound Name Error" was triggered by the Main CPU's `MainGetSoundName()` function (at `0xF98CAE`). It sends a sound name request to the SubCPU via the inter-CPU latch, then waits for a 32-byte response with a timeout of ~60,000 iterations. When the SubCPU never responds, the timeout fires and displays the error.
 
 **All contributing factors have been fixed:**
 
@@ -699,6 +701,6 @@ The names had DMAC and DMAM swapped. Fixed in commit b4ed825 -- all macros now c
 > numbers no longer resolve. Current equivalents: `v10/maincpu/` (main CPU),
 > `v142/subcpu/kn5000_subprogram_v142.s` (payload code),
 > `v142/subcpu/subcpu_data_tables.s` (the three data zones described above),
-> `subcpu/kn5000_subcpu_boot.s` (boot ROM), and `table_data/tone_database_*.s`
-> (the `0x830000` region). Symbol addresses are in
-> `symbols/subcpu_symbols_reference.txt`.
+> `subcpu/boot/kn5000_subcpu_boot.s` (boot ROM), and `table_data/tone_database_*.s`
+> (the `0x830000` region). Symbol addresses are in `symbols/subcpu_symbols_reference.txt`
+> (payload) and `symbols/subcpu_boot_symbols_reference.txt` (boot ROM).
