@@ -520,7 +520,7 @@ and `welcome_step_t` in `naka_technichord_strings.c`. This page used to say the 
 pre-rendered bitmaps on the boot floppy (`FTBMP01`–`FTBMP06`). Those six are the
 [Feature Demo]({{ site.baseurl }}/feature-demo/)'s slides, stored in the table-data ROM at `0x880418`-`0x8CE01B`.
 
-**"ALL INITIAL SETTING!" screen**: the welcome screen opens it (`EVT_ALL_INITIAL`, view `AllInitial`) when `SubCPU_Payload_GetErrorFlag` is negative (0xFF). `SubCPU_Payload_Verify` sets 0xFF when the checksum of DRAM `0xF980` (0x280 words) does not match the value the power-off NMI stored at `0xFFD2`. A mismatch of the `0xF180` region alone gives 1, which the welcome screen treats as success. A cold start with no saved power-down state therefore shows this screen. Holding combo 2 (GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR) opens the `MPVersion` screen instead and shows the firmware version on the panel LEDs.
+**"ALL INITIAL SETTING!" screen**: the welcome screen opens it (`EVT_ALL_INITIAL`, view `AllInitial`) when `SubCPU_Payload_GetErrorFlag` is negative (0xFF). `SubCPU_Payload_Verify` sets 0xFF when the checksum of DRAM `0xF980` (0x280 bytes) does not match the value the power-off NMI stored at `0xFFD2`. A mismatch of the `0xF180` region alone gives 1, which the welcome screen treats as success. A cold start with no saved power-down state therefore shows this screen. Holding combo 2 (GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR) opens the `MPVersion` screen instead and shows the firmware version on the panel LEDs.
 
 > **MAME Note**: In MAME, as on hardware, a cold boot with no saved power-down checksums shows "ALL INITIAL SETTING!". The kn7000_mame overlay's modelled POWER switch lets the firmware's own NMI handler save them, so the next boot shows the splash. See [SNS NMI Emulation]({{ site.baseurl }}/sns-nmi-emulation/).
 
@@ -528,10 +528,12 @@ pre-rendered bitmaps on the boot floppy (`FTBMP01`–`FTBMP06`). Those six are t
 
 After the Main CPU transfers the 192KB Sub CPU firmware payload, `SubCPU_Payload_Verify` (0xEF092B) verifies it by computing one's-complement checksums of two DRAM regions and comparing them against reference values:
 
-| Region | DRAM range | Size | Reference stored at |
-|--------|-----------|------|---------------------|
-| Region 1 | 0xF180 | 0x800 words (2 KB) | DRAM[0xFFD4] |
-| Region 2 | 0xF980 | 0x280 words (1.25 KB) | DRAM[0xFFD2] |
+| Region   | DRAM range | Size                | Reference stored at |
+|----------|------------|---------------------|---------------------|
+| Region 1 | 0xF180     | 0x800 bytes (2 KB)  | DRAM[0xFFD4]        |
+| Region 2 | 0xF980     | 0x280 bytes (640 B) | DRAM[0xFFD2]        |
+
+`Checksum_ComputeComplement` sums each region as 32-bit longwords and complements the low 16 bits of the sum.
 
 **How reference checksums are stored**: `Boot_DisplayScreen` (0xEF0620) arms the NMI guard by writing `0x80` to internal CPU RAM[0x0400], then immediately clears `DRAM[0xFFD4] = 0`. On real hardware, the **SNS signal** (the power supply's "SNS" monitoring line) asserts the CPU's `~NMI` pin when power is removed. The NMI handler (at 0xEF08A5) calls `NMI_StorePayloadChecksums` (0xEF08D4), which:
 
