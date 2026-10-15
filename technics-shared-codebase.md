@@ -152,16 +152,17 @@ The sharing is not only in the firmware. Three custom parts on the 1995
 synthesizer carry **the same part numbers already reverse-engineered for the
 KN5000**:
 
-| part | WSA1 | KN5000 counterpart | certainty |
-|---|---|---|---|
-| panel MCU | Mitsubishi M37471M2196S | the same part | solid |
-| effects DSP | NEC uPD6383GF-3BA (×3) | [IC311]({{ site.baseurl }}/effects-dsp/) | solid |
-| tone generator | Matsushita TC183C230002 | IC303 | ⚠ **OCR-ambiguous** |
+| part           | WSA1                          | KN5000 counterpart                       | certainty                           |
+|----------------|-------------------------------|------------------------------------------|-------------------------------------|
+| panel MCU      | Mitsubishi M37471M2196S       | the same part                            | solid                               |
+| effects DSP    | NEC uPD6383GF-3BA (×3)        | [IC311]({{ site.baseurl }}/effects-dsp/) | solid                               |
+| tone generator | Matsushita TC183C230002 (IC4) | IC303                                    | solid (schematic sheet II-13/II-14) |
 
-⚠ The parts-list OCR prints the tone generator both as `TC183C230002` — matching
-the KN5000 — and as `TC1830230002`, differing in one character. **It is not
-established**, and it is the most consequential of the three, because it would
-mean an acoustic-modelling synth still carries the KN5000's PCM tone generator.
+The parts-list OCR printed the tone generator both as `TC183C230002` and as
+`TC1830230002`, but schematic sheet II-13/II-14 prints the label directly under the
+IC4 designator and settles it as `TC183C230002`. It is the most consequential of
+the three, because it means an acoustic-modelling synth still carries the KN5000's
+PCM tone generator.
 
 ### ★ And the framework is *absent* — which is the point
 
@@ -252,8 +253,9 @@ strings.
 | Symbol-table storage format | NUL-terminated + `0xFF` even-alignment pad (`ALIGNED_STRING`) | same contiguous NUL-terminated table | shared data-format design |
 | Developer/system objects | `Panel Simulator for HK`, `PanelSimulator`, `ClipBoard` | `Panel Simulator 2.1` / `for IK`, `ClipBoard`, `DefaultWindow` | same tool, matured (`2.1`) |
 
-The `Panel Simulator for <model-code>` template (HK on the KN5000, IK on the
-KN7000) and the whole class-introspection table survive the CPU change intact —
+The `Panel Simulator for <model-code>` template (HK on the KN5000; the KN7000 still
+says `for IK`, the KN6000's project code, because its source tree was forked from the
+KN6000's, see the [Roadmap]({{ site.baseurl }}/roadmap/)) and the whole class-introspection table survive the CPU change intact —
 the shared code is the entire event-dispatch + object-registration core, not just
 leaf widgets.
 
@@ -369,9 +371,11 @@ sub-CPU is a head start on the WSA1's CPU 2, and — because the WSA1 names real
 effects that the KN5000 ships as
 [programs byte-identical to NO OPERATION]({{ site.baseurl }}/dsp-effect-data-zone/)
 on the very same uPD6383GF DSP — the traffic may yet run the other way as well.
-⚠ Whether the WSA1's DSP microprograms are *usable* on the KN5000 is **not
-demonstrated**; the test is to find the WSA1's upload routine and check its
-tables against the grammar this site already documents.
+The shared instruction set is now demonstrated (kn5000-roms-disasm `d28b3bf8e`,
+2026-09-06): the WSA1R's `prom_c` program words use the KN5000's container and
+field layout and decode under its uPD6383 model at 34.48 %, against 38.53 % on the
+KN5000 and nulls of 0.03–0.40 %. ⚠ Whether the WSA1's programs for the named
+effects would be *usable* on the KN5000 is still **not demonstrated**.
 
 ## Method note
 

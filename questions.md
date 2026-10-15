@@ -117,14 +117,19 @@ lane's full list of what it could not do is in the disassembly repository,
 
 ### CPU 1's parameter-number space
 See [Parameter Records]({{ site.baseurl }}/wsa1-parameters/).
-- [ ] What do the four numbers of `Dispatch_By_60F080` that reach a handler with a body do —
-  `0x7A` (`sub_FABB61`), `0x98` (`sub_FABBD7`), `0xA8` (`sub_FABCD7`) and `0xB0`
-  (`sub_FABCEF`)? (Nine further numbers with entries of their own — `0x44`–`0x46`, `0x48`,
-  `0x60`, `0x70`, `0x72`, `0x90`, `0x91` — point at one-byte `ret` stubs, so they are no-ops
-  here like the 168 that share `sub_FAC845`.)
+- [ ] What does number `0xB0` of `Dispatch_By_60F080` do (`List2030_ParamB0_Dispatch`)?
+  Three of the four numbers that reach a handler with a body are now named: `0x7A` is the
+  tempo (`List2030_Tempo_Dispatch` → `Tempo_ApplyBpm`), `0x98` applies a program
+  (`List2030_Param98_Dispatch` → `List2030_Param98_ApplyProgram`), and `0xA8` passes its value
+  through unchanged (`List2030_ParamA8_PassThrough`). (Nine further numbers with entries of
+  their own — `0x44`–`0x46`, `0x48`, `0x60`, `0x70`, `0x72`, `0x90`, `0x91` — point at
+  one-byte `ret` stubs, so they are no-ops here, like the 168 that share
+  `Dispatch_By_60F080_Nop64`.)
 - [ ] Which controllers are numbers `0xB6` and `0xB7`? Two MIDI-in tables carry them for
   every part, but no controller number reaches their handlers.
-- [ ] What does bit 5 of RAM `0x7F36`, tested before every controller fan-out, switch off?
+- [x] What does bit 5 of RAM `0x7F36`, tested before every controller fan-out, switch off?
+  **The LOCAL TOTAL setting** of the MIDI screen (set = OFF): `MidiTotalMode_EditLocalTotal`
+  writes it, and `MidiTotalMode_PaintLocalTotal` shows it as ON/OFF.
 - [ ] What are the switch assignments `0x88`, `0x89` and `0x90`, and which physical controls
   are panel groups `0x0B`–`0x17`?
 - [ ] The part record's layout beyond the known classes; what `Dispatch_By_60F080__Tail` is.
@@ -134,7 +139,9 @@ See [Parameter Records]({{ site.baseurl }}/wsa1-parameters/).
   COMMON, `0x92` KEY SCALING / SCALE TUNING). `tools/wsa1_param_record_layout_check.py`
   shows those chunks and the parameter records occupy the same RAM, which makes the names a
   strong lead; they are not yet confirmed from `prom_a`'s own readers. (The default payload
-  of `0x78` is sixteen spaces, as a blank name would be.)
+  of `0x78` is sixteen spaces, as a blank name would be.) `0x7A` is now identified from
+  `prom_a`: it is the tempo (record RAM `0x7EE2`, applied by `List2030_Tempo_Dispatch` →
+  `Tempo_ApplyBpm`; factory default 120 BPM).
 - [ ] SysEx address-hi `0x11` reads RAM `0x7622 + lo` in the SMF exporter. Does the SysEx
   reference's address map agree, field by field, with the combination layout at those
   offsets?
@@ -150,8 +157,13 @@ See [Parameter Records]({{ site.baseurl }}/wsa1-parameters/).
 - [ ] Not yet attempted: `RecordTables_FB82A0` (2,566 B), `MixedTables_FC6626`, the hard-disk
   sectors `DiskImage_HardDisk_BootSector` / `DiskImage_HardDisk_MBR` (1,024 B), `Msg0716_ObjectRecords`, the `VersionScreen_*` objects,
   `RamInitTable_F96CA6_Addrs`, `MidiFile_Tables_FBA169`.
-- [ ] How are the `SoundCodeByGroupMember_*` words (6,660 B) encoded? `sub_FAAF91` splits a
-  low byte into kind bands; the consumers of parameter `0x98` are untraced.
+- [ ] How are the words of `SoundCodeByGroupMember_ModeOffsetGroup` encoded? Its reader,
+  `SoundSel_FromPresetProgramAndBank`, classifies the low byte into kind bands against `0x0F`,
+  `0x1F`, `0x20` and `0x21` (the compare at `prom_a` `0xFC248D`). Its two sibling tables were
+  re-identified on 2026-10-05: `PanelSoundSel_ByProgramAndBank` (indexed by program and bank,
+  word = group and member; the exact inverse of this table on all 272 panel selections) and
+  `ProgramChangeOut_ByProgramAndBank` (low byte = the program change transmitted, high byte =
+  the bank select).
 - [ ] What do a SysEx decode-tree leaf's result and pair bytes select (`LinkTable_F4FF61`)?
 - [ ] Is there more older-build residue? `relocated_copy_scan.py --boundaries` lists
   unchecked candidates in `prom_b`, and `prom_a`'s ~`0x400` stale twins suggest a systematic
@@ -179,7 +191,7 @@ See [Parameter Records]({{ site.baseurl }}/wsa1-parameters/).
 These areas would benefit from official datasheets or service manuals:
 
 - [ ] **TMP94C241F datasheet** - Full instruction encoding tables
-- [x] **HDAE5000 documentation** - ✓ Fully reverse engineered: ROM, IDE/ATA protocol, filesystem, PC software. See [HDAE5000]({{ site.baseurl }}/hdae5000/)
+- [x] **HDAE5000 documentation** - ✓ Reverse engineered in depth: ROM, IDE/ATA protocol, filesystem, PC link (the questions still open are under [HDAE5000 Hard Disk Expansion](#hdae5000-hard-disk-expansion) above). See [HDAE5000]({{ site.baseurl }}/hdae5000/)
 - [x] **KN5000 Service Manual** - ✓ Have it! (EMID971655 A5, 59 pages)
 - [x] **Control panel schematic** - ✓ Analyzed pages II-35 to II-38
 

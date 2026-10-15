@@ -37,9 +37,11 @@ A model is **done** when every subsystem is G2 and G3.
 
 Two consequences worth stating plainly, because they are unwelcome:
 
-- **G2/G3 for every model is not reachable on any horizon we can plan.** Roughly 30 undumped ROM
-  entries span 22 distinct devices, and the KN5000's own waveform trio is among them. The
-  *reachable* programme goal is **every model at G1, with an honest provenance register** saying
+- **G2/G3 for every model is not reachable on any horizon we can plan.** The five MN10300
+  machines alone have 30 undumped ROM entries over 22 distinct devices (see the
+  [ROM Dumping Roadmap]({{ site.baseurl }}/rom-dumping-roadmap/)). On top of those come the
+  KN5000's own waveform trio (IC304/305/306), the SX-WSA1R's six wave mask ROMs and its flash,
+  and the unread ranges of the KN5000 sub-CPU boot ROM. The *reachable* programme goal is **every model at G1, with an honest provenance register** saying
   exactly what is missing.
 - **"Perfect KN5000 audio" is structurally blocked.** IC304/305/306 hold about 75 % of what the
   instrument's sounds select; they are not dumps at all but placeholder copies of IC307, and unlike
@@ -61,23 +63,26 @@ claim than any bespoke rig.
 Effort is **per generation**, not per model: once one member of a silicon generation runs, its
 siblings are mostly ROM work.
 
-| gen | years | CPU | members | status |
-|---|---|---|---|---|
-| **G0** | 1963–83 | none / analogue | SX-601, Technitone organs, SX-U series | out of scope (document only) |
-| **G1** | 1982–84 | unknown | SX-K100/K200/K150/K250 | research; analogue solo path makes it poor value |
-| **G2** | 1985–86 | **unknown — the one blocker** | SX-K300/K350/K450 | ★ best *new-silicon* target: OKI MSM5232 TG is **already in MAME**; needs one new MSM6202 drum device |
-| **G3** | 1987–88 | unknown | SX-K500/K700 | first full-PCM Technics; one manual covers both |
-| **G4** | c.1989–95 | **NEC V25 (µPD70325)** | **KN1200 confirmed**; KN2000, KN800/600, KN1000/750, KN901, KN3000? | ★★ **an unexplored third of the line.** V25 core is upstream in MAME already |
-| **G5** | 1996–98 | **Toshiba TLCS-900** | KN1500, **KN5000**, **SX-WSA1** | in progress; deepest work |
-| **G6** | 1998–2003 | **Matsushita MN10300/AM33** + MILK | KN2400/2600/PR54, KN6000/6500, KN7000/PR804/PR604 | in progress; 6 of 7 drivers |
-| **G-ORG** | 1988–95 | unknown | GX/GN/FN3/EN/GA/EA console organs | ★ proven kinship, zero silicon data |
-| **G-PIANO** | — | CPU+ROM | SX-PX, SX-PC series | out of scope for drivers; ROM archival only |
+| gen         | years     | CPU                                | members                                                             | status                                                                                                |
+|-------------|-----------|------------------------------------|---------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
+| **G0**      | 1963–83   | none / analogue                    | SX-601, Technitone organs, SX-U series                              | out of scope (document only)                                                                          |
+| **G1**      | 1982–84   | unknown                            | SX-K100/K200/K150/K250                                              | research; analogue solo path makes it poor value                                                      |
+| **G2**      | 1985–86   | **unknown — the one blocker**      | SX-K300/K350/K450                                                   | ★ best *new-silicon* target: OKI MSM5232 TG is **already in MAME**; needs one new MSM6202 drum device |
+| **G3**      | 1987–88   | unknown                            | SX-K500/K700                                                        | first full-PCM Technics; one manual covers both                                                       |
+| **G4**      | c.1989–95 | **NEC V25 (µPD70325)**             | **KN1200 confirmed**; KN2000, KN800/600, KN1000/750, KN901, KN3000? | ★★ **an unexplored third of the line.** V25 core is upstream in MAME already                          |
+| **G5**      | 1995–97   | **Toshiba TLCS-900**               | KN1500, **KN5000**, **SX-WSA1**                                     | in progress; deepest work                                                                             |
+| **G6**      | 1999–2003 | **Matsushita MN10300/AM33** + MILK | KN2400/2600/PR54, KN6000/6500, KN7000/PR804/PR604                   | in progress; 5 machines upstream (mamedev/mame#16250); SX-PR54/PR604/PR804 have no driver             |
+| **G-ORG**   | 1988–95   | unknown                            | GX/GN/FN3/EN/GA/EA console organs                                   | ★ proven kinship, zero silicon data                                                                   |
+| **G-PIANO** | —         | CPU+ROM                            | SX-PX, SX-PC series                                                 | out of scope for drivers; ROM archival only                                                           |
 
 Seven MAME drivers existed as of this assessment — `kn1500`, `kn5000`, `kn6000`, `kn6500`, `kn2400`,
-`kn2600`, `kn7000` — all in the fork; **only `kn5000` is upstream**. **Since then (from 2026-08-25)
-an eighth, `wsa1`/`wsa1r` (`src/mame/matsushita/wsa1.cpp`), has been added** — see Phase 7 below,
-which is now stale about it being "unstarted". (The docs have claimed eight models; SX-PR54 is
-documented but still has no driver.)
+`kn2600`, `kn7000` — all in the fork, with only `kn5000` upstream. **Since then** an eighth,
+`wsa1`/`wsa1r` (`src/mame/matsushita/wsa1.cpp`), was added (2026-08-25), and upstreaming caught
+up: the five MN10300 machines were registered as ROM records by mamedev/mame#15911 (2026-08-23)
+and became a running driver, with an MN10300 execution core, in #16250 (2026-10-07); `wsa1r`
+merged as #16204 (2026-09-21). Only `kn1500` and the `wsa1` keyboard remain fork-only. Every
+upstream Technics machine is still `MACHINE_NOT_WORKING`. (SX-PR54 is documented but still has
+no driver.)
 
 **Models that do not exist and must not appear in any plan:** KN450 (a confusion with SX-K450),
 KN900 (the real number is KN901), KN2100, KN2200, KN4000, KN5500, and **KN8000** — zero hits across
@@ -106,11 +111,11 @@ with a completely different audio architecture — runs **dual TMP95C061** and s
 with the KN5000: the **M37471M2196S panel MCU** and the **uPD6383GF-3BA effects DSP**, both read
 straight from its parts list. Its panel is scanned the same way, over the same SIN/SOUT link.
 
-⚠ A third shared part, the **TC183C230002 tone generator**, is *probable but not yet safe to
-assert*: the WSA1R parts list OCR prints it both as `TC183C230002` (matching the KN5000's IC303)
-and as `TC1830230002`. If it holds, a physical-modelling synth carries the KN5000's PCM tone
-generator with the modelling engine bolted alongside — a significant claim, so corroborate it
-against the schematic page image before repeating it.
+A third shared part is the **TC183C230002 tone generator** (IC4 on the WSA1R, IC303 on the
+KN5000). The parts-list OCR also printed it as `TC1830230002`, but schematic sheet II-13/II-14
+prints the label directly under the IC4 designator and settles it. A physical-modelling synth
+therefore carries the KN5000's PCM tone generator, with the modelling LSI feeding it (see
+[WSA1 Modelling LSI]({{ site.baseurl }}/wsa1-modeling-lsi/)).
 
 Measured asset sharing (`technics_roms/tools/wsa1_kinship.py`):
 
@@ -169,15 +174,16 @@ Nothing else is safe until this is done, because these are the only **unrecovera
    chip-name space, `technics_roms/README.md` no longer calls them genuine dumps,
    `extract_kn5000_waves.py` refuses unverified donors by CRC instead of merely labelling them,
    and `publish-binary.sh` now quarantines any `*_rom.ic*` whose **basename and md5** are not both
-   in the manifest. **Still open:** the KN6000/KN6500 drivers declare the **KN7000's** table ROM as
-   `BAD_DUMP` when the honest flag is `NO_DUMP` — `BAD_DUMP` asserts "this chip, read badly", not
-   "a different chip entirely". Flipping it is a *behaviour* change (those models render no text
-   without a valid table header), so it needs a decision, not a quiet edit.
-4. **Correct false completeness claims** on the three pages a newcomer reads first. `help-wanted.md`
-   states all `.byte` code is eliminated (507 `.byte` lines still carry instruction comments, one of
-   them a called function) and all `LABEL_*` symbols are replaced (35,924 of 39,451 rows were
-   still `LABEL_*` when this was written; the maincpu symbol file regenerated at disassembly
-   `be376096` has none). `issues.md` was last built **2026-03-27**.
+   in the manifest. **Decided upstream:** mainline `kn6000`/`kn6500` have declared their
+   table/font ROMs IC13/IC14 `NO_DUMP` since mamedev/mame#15911 (2026-08-23). Only the fork
+   overlay still loads the **KN7000's** table files there as a `BAD_DUMP` placeholder, so that
+   text renders.
+4. **Correct false completeness claims** on the three pages a newcomer reads first. ✅ **Done.**
+   `help-wanted.md` once said all `.byte` code was eliminated (507 `.byte` lines still carried
+   instruction comments then; 131 at disassembly `3417969c0`) and all `LABEL_*` symbols replaced
+   (35,924 of 39,451 rows were still `LABEL_*`; none are now), and later that every symbol carried
+   a semantic name (v10 still has 638 positional names, the SX-WSA1R 568 unnamed `sub_`
+   routines); it now states what is open. The tracker dump `issues.md` was retired on 2026-09-04.
 5. **Fix the two standing autonomous authorisations. ✅ Done 2026-08-14.** `kn7000_disassembly/tools/coverage_score.py` now
    evaluates expression operands and asserts both that every directive parsed and that source bytes
    per instruction line fall in the 1–7 band MN10300 allows — the first assertion caught a bug in
@@ -215,9 +221,9 @@ rig error, and every hard-won rule currently lives as prose in a different file,
   been made here. Full run 2026-08-15: **17 passed, 0 failed, 1 skipped.**
   Still to add: wiring it to a cron tick and publishing the result as a committed status file.
 - **`tools/rig.sh`** — ✅ **built 2026-08-15.** One entry point for all rigs (117 at the time this
-  was written; `tools/gen_rig_index.py` now counts 136, as later phases added more), encoding the
-  hazards once: absolute rig path, throwaway cfg/NVRAM with a loud banner (and `--user-cfg` to
-  reproduce the *user's* environment, per RULE 20), timeout wrapper, visible video, correct skip
+  was written; `tools/gen_rig_index.py` counted 136 later, and 150 on 2026-10-15, as later phases
+  added more), encoding the hazards once: absolute rig path, throwaway cfg/NVRAM with a loud
+  banner (and `--user-cfg` to reproduce the *user's* environment, per RULE 20), timeout wrapper, visible video, correct skip
   flag, machine inferred from a `rig-machine:` header. It prints the exact command it ran, so a
   number a rig produces can be quoted beside its recipe. Fault-injected: a broken rig exits 1 with
   a named diagnosis (`tools/tests/test_rig_sh.sh`).
@@ -264,7 +270,8 @@ rig error, and every hard-won rule currently lives as prose in a different file,
   ✅ **All six devices audited 2026-08-15** with `tools/audit_savestate.py`, which compares
   declared members against registrations and annotates devices whose state is shadowed (without
   that it reports the just-fixed gains as still broken). `kn_cpanel`, `kn6000_cpanel` and
-  `kn7000_cpanel` are clean. **`kn5000_tonegen` — the one upstream driver — was missing its
+  `kn7000_cpanel` are clean. **`kn5000_tonegen` — the KN5000's tone-generator device, which
+  exists only in the fork (mainline `kn5000` stubs the tone generator out) — was missing its
   keybed FIFO and its pending-note deque**, the latter being how absolute pitch is recovered at
   all; both now shadowed, gate still 17/0/1 with both audio oracles bit-identical. The remaining
   unregistered members there stay unregistered on purpose: instrumentation counters, and four
@@ -279,15 +286,20 @@ rig error, and every hard-won rule currently lives as prose in a different file,
 ### Phase 2 — KN5000 audio, root-cause first · *3–5 weeks*
 
 `detect_period()` is the root node and is now fully unblocked. It gates the hand-off decode (which
-silences 738 of 1,762 organ note-ons), the P10 octave error, `compute_loop()`, the IC307 chunk
+silences 738 of 1,762 organ note-ons), `compute_loop()`, the IC307 chunk
 catalogue, and the shared wave helper the KN7000/KN6000 will reuse. Strict order:
 
 1. Build a period oracle from the firmware's own multisample zone table — **not** YIN, which breaks
    the circularity that stopped the last attempt. Use it as acceptance only, never as a fitting target.
 2. Rewrite `detect_period()`, dropping the `peak >= 0.5` gate that rejects a real period at 0.436.
 3. Fix the aperiodic fallback and `compute_loop()` (a one-shot currently repeats ~90 times).
-4. Flip the hand-off default; re-run the demo captures.
-5. **Only then** re-open P10 (the octave error) and P9 (the stall at 58 % of the song).
+4. ~~Flip the hand-off default~~ — **do not**: the `F000` hand-off's low byte is an output level
+   of zero, and without the mute the voice the boot leaves gated drones (`kn7000_mame` `af0148a`,
+   2026-08-19).
+5. **Only then** re-open P9 (the stall at 58 % of the song). P10 (the octave error) is a
+   measurement artefact on the keybed path: it compared spectral centroid with a sine reference,
+   and a played C4 measures 260.87 Hz, −5 cents (`kn7000_mame` `491148a`). The sequencer path is
+   untested.
 
 Deprioritise anything whose acceptance test needs the missing wave banks, and say why in the docs so
 an outside reader is not misled.
@@ -320,17 +332,22 @@ Small, independently-correct PRs beat one large one. Order:
    merge landed `CRC(aa4917ce)` for `kn5000_rhythm_data_rom.ic14` and the fork now carries the same
    hash (with the raw as-dumped bytes kept alongside as `kn5000_rhythm_data_rom.ic14.as-read-a19a21-swapped`,
    regenerable via `tools/kn5000_descramble_ic14.py` — the source comment in `kn5000.cpp` cites
-   a stale path, `tools/rom-record-review/ic14_descramble_check.py`, which does not exist).
+   the path `tools/rom-record-review/ic14_descramble_check.py`, a script in the KN7000 repository
+   rather than in kn7000_mame, where the comment sits).
    **Also since merged
    2026-08-31: PR #15919** (`13fd3ea396a`, "kn5000: emulate the TEMPO/PROGRAM data wheel").
-2. The one-character `mn10300` disassembler fix — costs nothing, starts the relationship.
-3. `spi_sdcard` CRC16 init-0.
+2. ✅ **Done.** The one-character `mn10300` disassembler fix merged as #16190 (2026-09-19,
+   `6efbfe9427f`).
+3. ✅ **Done upstream, not by us.** Curt Coder fixed the `spi_sdcard` CRC16 init in `cb329abc566`
+   (2026-09-06); #16394 then added the CSD (CMD9) CRC16.
 4. **Promote `mn89304_vga_device`** out of `kn5000.cpp`, where it hides as a driver-local class with
    a live `emu_fatalerror`. It is documented, self-contained and upstream has nothing like it.
-5. **Software lists** — `hash/kn5000_flop.xml` and friends. No Technics machine has one, and real
-   media sits unpreserved. Reconstructed disk images must be labelled reconstructions, never dumps.
-6. Ask mamedev the policy question about declaring update-disk payloads — **concurrently**, since it
-   gates the ROM-record PR.
+   (Still open: it is still a driver-local class in `kn5000.cpp`.)
+5. ✅ **Mostly done.** Software lists `kn7000_flop` (#16394, extended by #16413), `kn5000_flop`
+   (#16415) and `kn6000_flop` (#16416) are merged; `wsa1_flop` is open as #16414. Every image is
+   labelled a FAT12 reconstruction, never a dump.
+6. ✅ **Moot.** The ROM-record PR merged as #15911 (2026-08-23), and mainline `kn7000.cpp` now
+   declares update-disk payloads as program and table ROMs.
 
 Gate PR 8a/8b (tone generator) on a written verdict for each of the 27 `getenv` switches. One of
 them deletes held notes; per the project's own RULE 20 a diagnostic of exactly that kind cost a day
@@ -362,8 +379,10 @@ German and French catalogues where the English reads KN5000) and **KN2000**.
 ### Phase 7 — WSA1, and the organs · *months, gated on research*
 
 **⚠ Update: this phase started 2026-08-25**, after the 2026-08-14 assessment date above — a
-`wsa1`/`wsa1r` driver (`src/mame/matsushita/wsa1.cpp`) now exists in the fork with LCD, inter-CPU
-link and CPU2 register-file work, and boots to the real `SOUND MODE` screen; see
+`wsa1`/`wsa1r` driver (`src/mame/matsushita/wsa1.cpp`) with LCD, inter-CPU link and CPU2
+register-file work boots to the real `SOUND MODE` screen. The rack, `wsa1r`, has been upstream
+since mamedev/mame#16204 (2026-09-21), with placeholder sine sound; the keyboard, `wsa1`, stays in
+the fork; see
 [wsa1-emulation]({{ site.baseurl }}/wsa1-emulation/) for the milestone-by-milestone state. The
 framing below (written when this was still unstarted) is kept for its still-valid reasoning about
 *why* WSA1 was a good target.
@@ -375,8 +394,11 @@ new architecture. MAME already has a SED1330 device for its display.
 
 ★ **The WSA1 may also unblock the KN5000's DSP.** It drives the same uPD6383 and names real effects
 — SLOW ATTACKER, PITCH SHIFTER, PEDAL WAH, ROTARY SPEAKER — that the KN5000 ships as programs
-byte-identical to NO OPERATION. The link is **not yet demonstrated**: the test is to find the WSA1's
-DSP upload routine and check whether its tables parse under the documented KN5000 grammar.
+byte-identical to NO OPERATION. The shared container and instruction set are now demonstrated
+(kn5000-roms-disasm `d28b3bf8e`, 2026-09-06): the WSA1R's `prom_c` program words (5,777) use the
+KN5000's container and field layout and decode under its uPD6383 model at 34.48 %, against
+38.53 % on the KN5000 itself and nulls of 0.03–0.40 %. Whether the WSA1's programs for those
+named effects would be usable on the KN5000 is still not demonstrated.
 
 The console organs (GN7/GN9/FN3) cannot be emulated — no CPU, no dumps, 100 kg instruments — but a
 **format-analysis pass is possible today with zero new material**, because the KN keyboards
@@ -393,10 +415,12 @@ by what each item unblocks, each with: exact setup, exact takes *including the m
 control*, the pre-registered prediction with the artefact that computed it, and the acceptance
 criterion that would make the take void.
 
-★ **New device found 2026-08-14:** the KN2400/KN2600/PR54 family has a **separate table/font
-ROM that nobody has dumped** — the firmware reads `0x48000000` 164,300 times from t=0.84 s, all
-of them between t=0 and t=6, then never again. It was previously recorded as "reads nothing
-there". Add it to the undumped inventory.
+★ **Corrected:** the KN2400/KN2600/PR54 family has **no separate table/font ROM**; its
+schematics, board assembly drawings and block diagrams show none. The firmware reads
+`0x48000000` 164,300 times from t=0.84 s, all between t=0 and t=6, then never again, and those
+reads go to the other, never-read 4 MiB half of the IC12/IC13 program-flash pair
+(`C3FBNG000007`), which on the KN7000 holds the table data. That half belongs in the undumped
+inventory. (The experiments below were run on the same region and stand as written.)
 
 ⚠ **The causal half of that entry was wrong, and is corrected here (2026-08-15).** It said the
 empty region is why "text renders as solid blocks while icons draw correctly". Four measurements
@@ -443,10 +467,11 @@ cost a stranger minutes and are worth months here:
    for any model, including ones nobody here owns.
 2. **Raw images of original Panasonic disks** (a PC task, not bench time).
 3. **Any unrecognised `.SLD`/`.AST` payload** from a dealer CD. Every model carries a two- or
-   three-letter **project code** that keys its container magic, its user-data file signature and its
-   internal `Panel Simulator for <code>` string — `HK` = KN5000, `IK` = KN6000/KN6500, `JK` =
-   KN7000, `LKG` = KN2400/KN2600/PR54, `LKE` = KN1500 — so magics read `IKPRG4K`, `JKPRG4K`,
-   `LKGP14K`. **An unfamiliar project code is a fingerprint of a model nobody has catalogued.**
+   three-letter **project code** that keys its update-file names, its container magic from the
+   KN6000 on (the KN5000's is still `SLIDE4K`) and its user-data file signature, and, up to the
+   KN6000, its internal `Panel Simulator for <code>` string (the KN7000 and KN2400 still say
+   `for IK`, see §3) — `HK` = KN5000, `IK` = KN6000/KN6500, `JK` = KN7000, `LKG` =
+   KN2400/KN2600/PR54, `LKE` = KN1500 — so magics read `IKPRG4K`, `JKPRG4K`, `LKGP14K`. **An unfamiliar project code is a fingerprint of a model nobody has catalogued.**
 4. **A TMP94C241F hardware manual**, and any datasheet for the uPD6383 or uPD93083.
 
 Panasonic's own `TECHNICS.HDD` enumerates twelve KN6000 update payload classes, and **six are types
@@ -457,9 +482,12 @@ were field-distributable: a zero-risk software route to several currently "undum
 
 ## 7. Dead ends — do not retry
 
-- **The uPD6383 decode campaign must not be on the critical path.** Parked since 2026-08-01 at
-  38.53 % ALU decode with an honest ceiling near 45–50 %; the device is *compiled out by default*
-  and runtime-gated off; `run_frame()` discards every frame unless decode is total; 44 filed dead
+- **The uPD6383 decode campaign must not be on the critical path.** It was parked on 2026-08-01
+  at 38.53 % ALU decode. The pooled KN5000 + SX-WSA1R corpus reopened it in September: by a
+  different measure, distinct microcode words decoded, 80.8 % were decoded on 2026-09-15, with a
+  costed, hardware-free route to 95.2 %
+  ([µPD6383GF Decode — State of Play]({{ site.baseurl }}/upd6383-decode-status/)). In the
+  emulator, though, the device is *compiled out by default* and runtime-gated off; `run_frame()` discards every frame unless decode is total; 44 filed dead
   ends; the output stage is a proven null — "not starved, not connected". Even a perfect IC311 is
   capped, because **IC310 (MN19413), which the entire main mix passes through, is not emulated at
   all**. Keep the cheap hygiene items and the never-run acceptance test T5; drop the SRC 0x00

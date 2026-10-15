@@ -9,23 +9,24 @@ permalink: /rom-dumping-roadmap/
 Where every ROM in the MN10300 family of Technics keyboards stands: what is preserved, what is
 not, and — for each device still missing — a concrete proposal for how to obtain it.
 
-*Last reviewed: 2026-08-02. Status is taken from the MAME driver, which is the authoritative
-inventory; run `mame -listroms <machine>` to regenerate it.*
+*Last reviewed: 2026-10-15. Status is taken from the MAME driver (mainline
+`src/mame/matsushita/kn7000.cpp`), which is the authoritative inventory; run `mame -listroms <machine>` to regenerate it.*
 
 ---
 
 ## 1. Summary
 
-| machine | devices preserved | devices still undumped | missing volume |
-|---|---|---|---|
-| SX-KN7000 | 4 program/table + 9 custom-flash images | **7** | 80.5 MB |
-| SX-KN6000 | 2 program + 1 custom-flash image | **7** | 40 MB |
-| SX-KN6500 | 2 program + 1 custom-flash image | **9** | 56 MB |
-| SX-KN2400 | 2 program | **3** | 24 MB |
-| SX-KN2600 | 2 program (shared with KN2400) | **4** | 24.5 MB |
+| machine   | devices preserved                                                                                                                                       | devices still undumped        | missing volume |
+|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------|----------------|
+| SX-KN7000 | 4 program builds (v1.4 upper half only) + 2 table builds + the factory-default custom flash (all nine data sets are in the `kn7000_flop` software list) | **7**                         | 80.5 MB        |
+| SX-KN6000 | 2 program + 1 custom-flash image                                                                                                                        | **7**                         | 40 MB          |
+| SX-KN6500 | 2 program + 1 custom-flash image                                                                                                                        | **9**                         | 56 MB          |
+| SX-KN2400 | half of the 2-device program pair                                                                                                                       | **3** + the pair's other half | 28 MB          |
+| SX-KN2600 | half of the program pair (shared with KN2400)                                                                                                           | **4** + the pair's other half | 28.5 MB        |
 
 **30 undumped entries across the five ROM sets, but only 22 distinct physical devices** — five
-parts are fitted to both the KN6000 and the KN6500, so one donor instrument serves two machines.
+parts are fitted to both the KN6000 and the KN6500, and three to both the KN2400 and the KN2600,
+so one donor instrument serves two machines.
 
 Everything preserved so far was obtained **without opening an instrument**. That is the headline
 fact of this roadmap and it shapes every proposal below.
@@ -34,18 +35,23 @@ fact of this roadmap and it shapes every proposal below.
 
 ## 2. What is sorted out
 
-**Program and table firmware — all five machines.** Extracted from Panasonic's own update disks
-(`.SLD` payloads, SLIDE4K LZSS), not from chips. Ten of the eleven images validate against
-**Panasonic's own checksum oracles** — the `SMCK*.INF` files shipped alongside them, giving a
-32-bit total plus 16-bit sums of every `0x40000` block.
+**Program firmware — all five machines; table data — the KN7000 only.** Extracted from
+Panasonic's own update disks (`.SLD` payloads, SLIDE4K LZSS), not from chips. (The KN6000/KN6500
+`IK2`/`IKV2` parts are the program's upper half; their table/font devices are listed in §3.) The
+images validate against **Panasonic's own checksum oracles** — the `SMCK*.INF` files shipped
+alongside them, giving a 32-bit total plus 16-bit sums of every `0x40000` block — with two KN7000
+exceptions. In the SP7001 PLUG-iN set, the shipped program checksum predates the final payload,
+and the table matches except blocks 14–15. Of v1.4 only update disk 2 survives, and its eight
+blocks match.
 
-| model | oracle | total | blocks |
-|---|---|---|---|
-| KN7000 program | `SMCKPR1.INF` | `0x18CE8702` | 16/16 |
-| KN7000 table | `SMCKTB1.INF` | `0x13DCD1A3` | 16/16 |
-| KN6000 | `SMCKPR1.INF` | `0x166ADB67` | 16/16 |
-| KN6500 | `SMCKPV1.INF` | `0x157ED142` | 15/15 |
-| KN2400 | `SMCKPR1.INF` | `0x16DA58C4` | 15/15 |
+| model                           | oracle        | total        | blocks |
+|---------------------------------|---------------|--------------|--------|
+| KN7000 program v1.6 (build 941) | `SMCKPR1.INF` | `0x18CE8702` | 16/16  |
+| KN7000 program v1.5 (build 935) | `SMCK*.INF`   | `0x18C70719` | 16/16  |
+| KN7000 table                    | `SMCKTB1.INF` | `0x13DCD1A3` | 16/16  |
+| KN6000                          | `SMCKPR1.INF` | `0x166ADB67` | 16/16  |
+| KN6500                          | `SMCKPV1.INF` | `0x157ED142` | 15/15  |
+| KN2400                          | `SMCKPR1.INF` | `0x16DA58C4` | 15/15  |
 
 > ⚠ The KN6000/KN6500/KN2400 oracles sit **inside the self-extracting `.exe`**, not at the top
 > level of the `.zip`. A tool that reads only the archive's top level finds none and will report
@@ -53,13 +59,15 @@ fact of this roadmap and it shapes every proposal below.
 
 **Custom-data flash — KN7000, KN6000, KN6500.** Not chip reads, but the exact bytes the firmware
 writes: the Initial Data Disk payload is inflated and written **verbatim to flash offset
-`0x20000`**, the top 30 of the 64 KiB sectors of a 16 Mbit bottom-boot device. Nine images are
-declared for the KN7000 (factory default plus eight published data sets) and one shared IDD6000
-payload for the KN6000 and KN6500. See [Custom Data Flash]({{ site.baseurl }}/custom-data-flash/) and
+`0x20000`**, the top 30 of the 64 KiB sectors of a 16 Mbit bottom-boot device. For the KN7000,
+MAME preloads the factory default (`01ctmini.ic21`) and carries all nine data sets (the Initial
+Data Disk plus eight published sets) as three reconstructed floppies in the `kn7000_flop`
+software list (mamedev/mame#16394). One shared IDD6000 payload serves the KN6000 and KN6500. See [Custom Data Flash]({{ site.baseurl }}/custom-data-flash/) and
 [KN7000 Initial Data]({{ site.baseurl }}/kn7000-initial-data/).
 
-**HD-SX3 expansion firmware.** 768 KiB, decompressed from `EXTAPR.SLD` in 2026-08-02 — the first
-time this image had been recovered.
+**HD-SX6 expansion firmware** (Key Soft Service's HD-SX6 OS v1.1 REV3, for the KN6000/KN6500).
+768 KiB, decompressed from `EXTAPR.SLD` on 2026-08-02 — the first time this image had been
+recovered. No HD-SX3 image has been found.
 
 ---
 
@@ -67,15 +75,21 @@ time this image had been recovered.
 
 ### SX-KN7000 — 7 devices, 80.5 MB
 
-| device | part | size | type | role |
-|---|---|---|---|---|
-| IC203 | `C3CBQD000002` | 16 MB | mask ROM | wave, main TG bank Y |
-| IC204 | `C3CBQD000001` | 16 MB | mask ROM | wave, main TG bank X |
-| IC207 | `C3CBQD000004` | 16 MB | mask ROM | wave, sub TG bank Y |
-| IC208 | `C3CBQD000003` | 16 MB | mask ROM | wave, sub TG bank X |
-| IC18 | `C3CBND000046` | 8 MB | mask ROM | rhythm (later production) |
-| IC19 | `C3CBMD000098` | 8 MB | mask ROM | picture |
-| IC414 | `C3FBKD000162` | 512 KB | flash | SD card sub-CPU program |
+| device | part           | size   | type     | role                                                                                                                                |
+|--------|----------------|--------|----------|-------------------------------------------------------------------------------------------------------------------------------------|
+| IC203  | `C3CBQD000002` | 16 MB  | mask ROM | wave, main TG bank Y                                                                                                                |
+| IC204  | `C3CBQD000001` | 16 MB  | mask ROM | wave, main TG bank X                                                                                                                |
+| IC207  | `C3CBQD000004` | 16 MB  | mask ROM | wave, sub TG bank Y                                                                                                                 |
+| IC208  | `C3CBQD000003` | 16 MB  | mask ROM | wave, sub TG bank X                                                                                                                 |
+| IC18   | `C3CBND000046` | 8 MB   | mask ROM | rhythm (later production)                                                                                                           |
+| IC20   | `C3FBMD000050` | 4 MB   | flash    | rhythm, earlier production — the alternative fitted at IC18's site (a unit carries one or the other, so it is not counted in the 7) |
+| IC19   | `C3CBMD000098` | 8 MB   | mask ROM | picture                                                                                                                             |
+| IC414  | `C3FBKD000162` | 512 KB | flash    | SD card sub-CPU program                                                                                                             |
+
+Not devices, but still missing: the lower half of the v1.4 program (update disk 1,
+`kn7-14_1.exe`, which the Wayback Machine archived only as a 'page not found' stub), and
+build 893 / table 80, the firmware of the owner's unit, of which only 9,472 hand-transcribed
+bytes exist ([Build 893 Recovery]({{ site.baseurl }}/kn7000-build-893-recovery/)).
 
 ### SX-KN6000 — 7 devices, 40 MB
 
@@ -102,14 +116,15 @@ KN6500 comes with it. KN6500-only:
 > settles it (`RESET#`, `RY/BY#`, `VPP` are present). The two models' table/font parts are not
 > interchangeable evidence for each other.
 
-### SX-KN2400 / SX-KN2600 — 3 and 4 devices, 24 / 24.5 MB
+### SX-KN2400 / SX-KN2600 — 3 and 4 devices plus half the program pair, 28 / 28.5 MB
 
-| device | part | size | type | role |
-|---|---|---|---|---|
-| IC14 | `C3ZBNG000023` | 8 MB | flash | rhythm and other data |
-| IC302 | `C3ZBP0000003` | 8 MB | flash | wave bank Y |
-| IC303 | `C3ZBP0000004` | 8 MB | flash | wave bank X |
-| IC404 | `C3ZBK0000020` | 512 KB | flash | SD sub-CPU (KN2600 only) |
+| device                  | part           | size                  | type  | role                                                                                                        |
+|-------------------------|----------------|-----------------------|-------|-------------------------------------------------------------------------------------------------------------|
+| IC12 · IC13, other half | `C3FBNG000007` | 4 MB of the 8 MB pair | flash | the half the firmware reads at `0x48000000`; never read; on the KN7000 the same layout holds the table data |
+| IC14                    | `C3ZBNG000023` | 8 MB                  | flash | rhythm and other data                                                                                       |
+| IC302                   | `C3ZBP0000003` | 8 MB                  | flash | wave bank Y                                                                                                 |
+| IC303                   | `C3ZBP0000004` | 8 MB                  | flash | wave bank X                                                                                                 |
+| IC404                   | `C3ZBK0000020` | 512 KB                | flash | SD sub-CPU (KN2600 only)                                                                                    |
 
 **Everything undumped on these two models is flash, not mask ROM** — the easiest category to read,
 and the only family where that is true.
@@ -127,11 +142,18 @@ update payload classes we have never located**, including **Table DATA, Rhythm a
 Wave-Expansion**. If those files were ever distributed, they contain the contents of several of the
 mask ROMs above without anyone touching hardware.
 
+It has already worked on the KN7000 three more times. Wayback Machine captures of `kn7000.de`
+yielded the v1.4 update, a four-disk set (program `JK1`/`JK2`, table `JKT1`/`JKT2`) whose disk 1
+was archived only as a 'page not found' stub, and the complete v1.5 program; the SP7001 PLUG-iN
+update has been recovered too (all in MAME since #16394). **Still wanted: `kn7-14_1.exe`, disk 1
+of the v1.4 update.**
+
 **Proposal.** Sweep dealer archives, the Wayback Machine, European Technics user groups (the
 KN-series had an active German-language community), and collector CD-ROMs for `.SLD`/`.AST` files
 whose 8-byte magic is not one we already recognise. The container is documented in
-[LZSS Compression]({{ site.baseurl }}/lzss-compression/); the magic letter is sequential by generation
-(KN5000 `H`, KN6000 `I`, KN7000 `J`).
+[LZSS Compression]({{ site.baseurl }}/lzss-compression/); from the KN6000 on, the magic begins with
+the model's project code (KN6000 `IKPRG4K`, KN7000 `JKPRG4K`, KN2400 `LKGP14K`); the KN5000's
+magic is the generic `SLIDE4K`, though its file names carry its code `HK` (`HKMSPRG.SLD`).
 
 *Applies to:* potentially the table/font and rhythm devices on every model. Not the wave ROMs,
 which were almost certainly never updatable.
@@ -239,7 +261,9 @@ instruments that agree byte-for-byte are strong evidence against a bad read.
 
 ## 6. Priorities
 
-1. **Method A sweep** — free, non-invasive, and could resolve several devices at once.
+1. **Method A sweep** — free, non-invasive, and could resolve several devices at once; it has
+   already recovered KN7000 v1.4 (upper half), v1.5 and SP7001. First target: disk 1 of the v1.4
+   update.
 2. **ROM DEVICE TEST photographs** from any owner of any model — free, and makes everything else
    verifiable.
 3. **Method E** on the sub-CPU flash — pure firmware work, no hardware access needed.

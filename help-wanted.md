@@ -8,7 +8,7 @@ permalink: /help-wanted/
 
 This is a community reverse engineering project. Here's how you can contribute:
 
-**Current Progress:** thirteen ROM images — nine KN5000 and four SX-WSA1R — **rebuild byte-identically** from assembly source, gated by `make gate-all` and built with a custom LLVM TLCS-900 backend. Twelve of those images are 12,386,304 distinct bytes (the thirteenth is a compressed re-encoding of one of the others), and 95.04 % of them are code, data whose header states what it is and cites the evidence, or verified filler — the data census's strict grade after the September 25 semantic push (see [how much of the data is actually explained]({{ site.baseurl }}/rom-reconstruction/#how-much-of-the-data-is-actually-explained) for what that grade does and does not certify).
+**Current Progress:** thirteen ROM images — nine KN5000 and four SX-WSA1R — **rebuild byte-identically** from assembly source, gated by `make gate-all` and built with a custom LLVM TLCS-900 backend. Twelve of those images are 12,386,304 distinct bytes (the thirteenth is a compressed re-encoding of one of the others), and 96.34 % of them are code, data whose header states what it is and cites the evidence, or verified filler — the data census's strict grade on 2026-10-06 (95.04 % after the September 25 semantic push; a 2026-10-06 change in how one-line table blocks inherit their header accounts for part of the rise) (see [how much of the data is actually explained]({{ site.baseurl }}/rom-reconstruction/#how-much-of-the-data-is-actually-explained) for what that grade does and does not certify).
 
 Where to look for work: the open technical unknowns are on [Open Questions]({{ site.baseurl }}/questions/), the programme-level plan is on the [Roadmap]({{ site.baseurl }}/roadmap/), and what the emulator does not model yet is on [MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/).
 
@@ -24,26 +24,38 @@ If you have a KN5000 and can dump ROMs, please reach out!
 
 ### ROM Disassembly Improvements
 
-All thirteen images byte-match, every symbol carries a semantic name, and the NAKA widget and
-sound data files are typed C structs rather than raw byte arrays.
+All thirteen images byte-match, no `LABEL_*` placeholder remains, and the NAKA widget and
+sound data files are typed C structs rather than raw byte arrays. Not every symbol has a
+semantic name yet: v10 still has 638 positional names and the SX-WSA1R 568 unnamed `sub_`
+routines (semantic names: 92.57 % on 2026-10-06).
 
 **Byte-match is not the same as understood, and this is the honest backlog.** A 100 % byte
 match is preserved by construction and says nothing about how much of the build is real source
 rather than `.incbin` passthrough or code spelled as `.byte`. What is genuinely open:
 
-- **Code still written as `.byte`.** The v7 main-CPU tree holds 236,713 B in confirmed regions
-  plus 29,032 B in misframed islands; HD-AE5000 holds 13,168 B; SX-WSA1R `prom_a` holds 298
-  certified `.byte` instruction sites (1,318 B, 89 forms) at disassembly commit `be376096`;
-  under the current assembler pin (`8e188b215251`) 282 of them have no spelling found so far
-  that reassembles byte-identically, and the other 16 are spellable and being respelled.
-  Every other image is at zero.
+- **Code still written as `.byte`.** At disassembly commit `3417969c0`,
+  `scripts/analysis/v9_v10_undisassembled_census.py` finds in v7 8 data regions (1,236 B) that
+  its code/data rule calls code-like, plus 275 short literal `.byte` runs flanked by
+  instructions (2,043 B); v10 has 5 regions (389 B) and 139 runs (1,426 B), v9 5 regions
+  (389 B) and 145 runs (1,495 B). The rule ranks candidates for a hand audit; it is not a
+  verdict. HD-AE5000 holds 1,713 B of undocumented `.byte` operands (0.327 % of the ROM,
+  `hdae5000/tools/measure_debt.py`). SX-WSA1R `prom_a` holds 82 certified `.byte` instruction
+  sites (226 B, 42 forms); under the assembler pin (`a3a81863f87d`) 81 of them have no spelling
+  found so far that reassembles byte-identically, and one (`decf`) is spellable.
+  `scripts/analysis/semantic_debt_dashboard.py` also counts `.byte` lines that carry an
+  instruction reading: v10 21, v9 21, v7 33, sub-CPU payload 2, `prom_a` 54, and none
+  elsewhere. Several of the KN5000 ones are marked as forms the backend cannot spell yet
+  (e.g. `sll a,hl`, `srl a,bc`).
   Method and per-image measurement on
   [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/).
-- **Two LLVM wrapper mnemonics.** `lda_dpi` (669 sites) and `bit_dri` (189) cannot be renamed
-  until their operands are modelled in the backend — see
+- **LLVM wrapper mnemonics.** The site's census (`tools/wrapper_mnemonic_census.py`) finds 38
+  of 43 families at zero. `lda_dpi` is gone and `bit_dri` is down to 12 sites. The other four
+  are the extended-register LD pair, spelled `ldto_berp`/`ldfr_berp`/`ldto_werp`/`ldfr_werp`
+  (9,958 sites) since the backend renamed the backwards-named `stb_erp` family on 2026-09-25.
+  See
   [LLVM Semantic Instructions]({{ site.baseurl }}/llvm-semantic-instructions/).
 - **Firmware versions with no source tree.** v5, v6 and v8 on the main CPU; v1.40 and v1.41 on
-  the sub-CPU payload. v8 differs from v9 by the version byte alone, so it is the cheapest of
+  the sub-CPU payload; HD-AE5000 v1.10i, v1.15i and v2.01i. v8 differs from v9 by the version byte alone, so it is the cheapest of
   them by a wide margin.
 - **A C port beyond data.** The C files in the tree are all `__attribute__((packed))` struct
   initializers; **no firmware routine is written in C yet.** Converting leaf functions while
@@ -51,18 +63,14 @@ rather than `.incbin` passthrough or code spelled as `.byte`. What is genuinely 
 
 ### HDAE5000 ROM Disassembly
 
-The HD-AE5000 hard disk expansion ROM has been partially analyzed but needs complete disassembly:
-
-**Known Entry Points:**
-- Boot initialization at 0x28F576 (called via JP at 0x280008)
-- Frame handler at 0x28F662 (called via JP at 0x280010)
-
-**Analysis Tasks:**
-- Disassemble PPORT command handlers (15 commands documented)
-- Document FSB (File System Block) structure
-- Trace HD controller communication routines
-- Analyze Windows DLL callback interfaces
-- Document file transfer protocol details
+The HD-AE5000 expansion ROM is disassembled and rebuilds byte-identically with no raw
+`.incbin`. What is left is small: 1,713 B of undocumented `.byte`/`.word` operands (0.327 % of
+the ROM) plus 373 B documented but untyped (`hdae5000/tools/measure_debt.py`), and the
+filesystem and lyric-player questions on
+[Open Questions]({{ site.baseurl }}/questions/#hdae5000-hard-disk-expansion). Entry points:
+`HDAE5000_Boot_Init` at 0x28F576 (via JP at 0x280008) and `HDAE5000_Frame_Handler` at 0x28F662
+(via JP at 0x280010). The twenty PC-link command handlers are named, from
+`HDAE5000_PPORT_Cmd01_SendInfosAboutHd` to `HDAE5000_PPORT_Cmd20_SendXapFileFlash`.
 
 **Skills Needed:** TLCS-900 assembly, parallel port protocols, filesystem analysis
 
@@ -132,14 +140,14 @@ the firmware dump, not the service manual** — we have the manual.
 
 ### MAME Development
 
-- Help implement HLE for control panel MCUs
+- Extend the control-panel MCU HLE (upstream since mamedev/mame#15143)
 - Test emulation accuracy
 - Debug emulation issues
 - Improve audio emulation
 
 ### Tooling
 
-- Extend LLVM TLCS-900 backend for remaining niche encodings (compact zero-load, compact load-1, dec/inc N xsp)
+- Extend the LLVM TLCS-900 backend for the forms it still cannot spell: in the KN5000 trees a few dozen `.byte` lines such as shift-by-`A` on a register pair (`sll a,hl`, `srl a,bc`) and bank-register or `Q`-register operands (`add XBC,XBC3`, `cp xwa,(xix+qbc)`), and 81 certified `.byte` sites in SX-WSA1R `prom_a` (see [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/))
 - Create visualization tools for protocol analysis
 - Build comparison/diff tools for ROM analysis
 
@@ -209,7 +217,7 @@ A **custom LLVM backend for TLCS-900** is already operational and used as the au
 **Remaining compiler work:**
 - Optimization passes for code density
 - Standard library support for homebrew development
-- Niche encoding variants (compact zero-load, dec/inc xsp) for 100% assembler coverage
+- The forms still unspellable (a few dozen KN5000 `.byte` lines and 81 sites in SX-WSA1R `prom_a`), for 100 % assembler coverage
 
 ## Skills We Need
 
