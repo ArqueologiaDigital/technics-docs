@@ -85,12 +85,13 @@ stereo-out **Moorer-style reverberator with Dattorro-style input diffusion**
 *absorbing* allpass, and two long lowpass-damped feedback combs, closed by an
 output tone filter and a short stereo-decorrelation delay. The six records
 are essentially one program (four are byte-identical; two differ only in four
-early-tap immediates) with per-preset coefficient banks. The surprise is
-where the host keeps it: the effect types `0x10`–`0x1F`, which the selector's
-whitelist had been read as the "Enhancer" group, *are* this reverb engine —
-while the whitelist's "Reverb" types resolve to ensemble/flanger programs
-with no tail-capable structure. The whitelist's unit indices simply do not
-map onto GUI roles the way first assumed.
+early-tap immediates) with per-preset coefficient banks. The surprise was
+where the host keeps it: the effect types `0x10`–`0x1F`, which had been read
+as the whitelist's "Enhancer" group, *are* this reverb engine. Meanwhile the
+unit-9 types first labelled "Reverb" resolve to ensemble and flanger programs
+with no tail-capable structure. A live capture of the firmware's effect
+selections (2026-07-20) settled it: unit 0 is the REVERB unit and unit 9 the
+CHORUS unit. Only the role labels first attached to the whitelist were wrong.
 
 ### The rotary speaker is a real Leslie simulation
 
@@ -156,8 +157,11 @@ remarkable template: every section's numerator is the **bit-exact mirror**
 of its denominator (identical mantissas, flipped sign bits), so each of the
 five cascaded sections computes exactly unity and the flat preset passes
 signal through untouched. But the denominators are not trivial — the poles
-are **pre-placed at real, octave-spaced band centers** (496 / 992 / 1985 Hz
-mids with low and high shelves). A preset "boosts a band" by moving that
+are **pre-placed at real, octave-spaced band centers** (rec23: about 124 /
+496 / 992 / 1985 Hz; rec34: about 124 / 484 / 969 / 1940 Hz; each with a high
+band). At run time the host ignores rec34's template and computes the output
+EQ's bank from the screen's FC/GAIN/Q, with flat poles at 125 / 500 / 1k / 2k /
+8k Hz. A preset "boosts a band" by moving that
 section's zeros off its poles; an untouched band stays *exactly* flat rather
 than approximately flat. (Relatedly, the GUI "Enhancer" (rec08) turned out
 to be fully linear — a phase rotator with low/high emphasis and a Haas
@@ -190,8 +194,9 @@ saturated rails instead of wrapping, rec07's modulator sums (which can reach
 reverb's hold-gate debounce counts on saturating adds. An emulator that
 wraps where the chip saturates turns every such LFO into a permanent
 full-scale two-sample oscillation — exactly the reverb-rail bug found and
-fixed in MAME's SHARC recompiler
-([Effects DSP page]({{ site.baseurl }}/kn7000-effects-dsp/), fix
+fixed in the project's fork of MAME's SHARC recompiler (the kn7000_mame
+overlay and the branch `technics-kn7000-dsp`, not yet submitted upstream; see
+the [Effects DSP page]({{ site.baseurl }}/kn7000-effects-dsp/), fix
 catalogue). ALUSAT is not a detail; it is part of the algorithms.
 
 ## The full inventory
@@ -259,29 +264,33 @@ Everything structural above is ROM fact. What static analysis cannot pin is
 **host-runtime behavior**: the live values the CPU writes into each
 preset's coefficient bank at select time (the templates are known, the
 per-preset values are not), the handful of host-fed control cells (rec29's
-pedal cell, rec75/76's `PM 0x9801`, rec14's regeneration), the exact
-send-bank ↔ serial-line identity order behind the MULTI-unit routing
-verdict, FLAG3's physical driver on the board (its *function* is pinned by
+pedal cell, rec75/76's `PM 0x9801`, rec14's regeneration), FLAG3's
+physical driver on the board (its *function* is pinned by
 design necessity), and a few perceptual readings flagged as such.
 
-Two live experiments would close the remaining questions: a data-memory dump
-of the running EQ's coefficient bank, and a **unit-role capture** —
-breakpointing the firmware's effect selector (`DspEffectSelect`,
-`0x48405815`) while switching GUI effects and logging which unit, type, and
-call slot each selection rewrites. Both are queued against the emulator.
+Two live experiments, run on 2026-07-20, closed the unit-role questions. The
+first captured the firmware's effect selector (`DspEffectSelect`,
+`0x48405815`) and the host downloads while GUI effects were switched. It gives
+the unit map — 0 REVERB, 1 MULTI, 2–6 the per-part insert pool, 7 MIC REVERB,
+8 EQUALIZER, 9 CHORUS — and shows that the three TG send buses land on TDM
+input pairs of units 0, 1 and 9. The second, a data-memory dump of the running
+EQ, shows that its flat bank is an exact mirror bank, which the host computes
+from the EQUALIZER screen's FC/GAIN/Q instead of taking it from rec34's ROM
+template.
 
 ## Cross-model note
 
 The KN6000 and KN6500 carry the same ADSP-21065L and a byte-identical record
-pool to one another; against the KN7000 all the coefficient banks match
-while the kernel's program code is an older build — so this catalog's preset
+pool to one another; against the KN7000 all 80 records' data (coefficient
+banks and tables) match byte-for-byte, while the program code differs in 77 of
+them, the kernel included (an older build) — so this catalog's preset
 voicings carry over to those models nearly wholesale. See the
 [KN6000/KN6500 notes]({{ site.baseurl }}/kn6000-hardware/).
 
 ## Sources
 
 The instruction-level annotations live in the `dsp/` tree of the
-`kn7000_disassembly` repository (see
+`kn7000_disassembly` repository (not yet published; see
 [Firmware Images]({{ site.baseurl }}/kn7000-firmware/)): the kernel in
 `kernel-architecture.md`, and the effect families in `reverb-algorithm.md`,
 `chorus-family-algorithms.md`, `insert-effects-algorithms.md`,

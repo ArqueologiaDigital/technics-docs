@@ -8,9 +8,10 @@ permalink: /kn7000-effects-dsp/
 
 The KN7000's reverb, chorus, multi-effects and equalizer all run on **IC306**,
 an **Analog Devices ADSP-21065L** — a 32-bit floating-point "SHARC" DSP (part
-marking `S21065LKS240`, run at 66 MHz), with two 16-Mbit SDRAMs (IC307/IC308) for
-delay memory. It sits on the [sound board]({{ site.baseurl }}/kn7000-sound-subsystem/) between the
-tone generators and the main DAC.
+marking `S21065LKS240`, rated and run at 60 MHz), with two 16-Mbit SDRAMs
+(IC307/IC308) for delay memory. It sits on the
+[sound board]({{ site.baseurl }}/kn7000-sound-subsystem/) beside the tone
+generators, which send it audio and mix its returns into the main DAC feed.
 
 The striking result of reverse-engineering it: **the DSP has no boot ROM, and
 its programs are embedded in the main firmware.** So the entire effects engine —
@@ -64,24 +65,25 @@ program then loads *on top of it*. From its disassembly:
   7-instruction **passthrough** (read input, write it dry to the outputs).
 
 So the DSP is a **ten-slot insert processor**. The firmware assigns fixed roles
-to specific slots — a dedicated reverb unit, a chorus unit, an equalizer unit,
-an enhancer unit, and several general "insert" slots — matching the instrument's
-Reverb / Chorus / Multi / Sound-DSP / EQ effect structure.
+to the slots: reverb (unit 0), multi (unit 1), a pool of five per-part
+Sound-DSP / Digital-Effect inserts (units 2–6), mic reverb (unit 7), equalizer
+(unit 8) and chorus (unit 9). This matches the instrument's Reverb / Multi /
+Sound-DSP / Mic / EQ / Chorus effect structure.
 
 ## How the CPU chooses an effect
 
 When you change an effect on a menu, the firmware calls a selector with a
 **(unit, type)** pair: *which* of the ten slots, and *which* effect type
-(0–0x91). It validates the pair against a per-unit **whitelist** — this is how we
-know which slot is which:
+(0–0x91). It validates the pair against a per-unit **whitelist**, whose contents
+agree with the unit roles captured live on 2026-07-20:
 
-| Unit | Role | Accepted effect types |
-|---|---|---|
-| 0 | Enhancer group | `0x00`, `0x09`, `0x10`–`0x1F` |
-| 1–6 | Multi / Sound-DSP insert slots | large shared set |
-| 7 | Chorus | `0x00`, `0x58`–`0x5B` |
-| 8 | Equalizer (final 5-band bus) | `0x4F` only |
-| 9 | Reverb | `0x00`, `0x01`, `0x02`, `0x04`, `0x40`, `0x52` |
+| Unit | Role                                                                           | Accepted effect types                          |
+|------|--------------------------------------------------------------------------------|------------------------------------------------|
+| 0    | Reverb                                                                         | `0x00`, `0x09`, `0x10`–`0x1F`                  |
+| 1–6  | Multi (unit 1) and the per-part Sound-DSP / Digital-Effect inserts (units 2–6) | large shared set                               |
+| 7    | Mic reverb                                                                     | `0x00`, `0x58`–`0x5B`                          |
+| 8    | Equalizer (final 5-band bus)                                                   | `0x4F` only                                    |
+| 9    | Chorus                                                                         | `0x00`, `0x01`, `0x02`, `0x04`, `0x40`, `0x52` |
 
 An effect **type** is turned into a pool record through a **master table in ROM**
 (146 pointers). Decoding that table gives the authoritative type → program map —
@@ -116,20 +118,20 @@ code is **byte-identical** are pure preset variants — the same algorithm with
 different coefficient values — and this was verified by comparing the extracted
 code directly. Examples:
 
-| Group | Programs | Algorithm |
-|---|---|---|
-| Reverb unit | modulated reverbs + a plate/hall set | comb + allpass diffusion, some with an LFO for movement |
-| Chorus unit | 4 distinct programs | allpass-diffusion "ensemble" chorus |
-| Enhancer unit | 6 programs (3 distinct + presets) | allpass diffusion network |
-| Equalizer | 1 program | cascaded biquad, 5-band |
-| Multi / insert | distortion, delay, tremolo, phaser, compressor, pitch-shift, filter… | the full mix of the blocks above |
+| Group                | Programs                                                                                                        | Algorithm                                                                                      |
+|----------------------|-----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
+| Reverb unit (0)      | rec51–56: essentially one program (two records differ only in four early-tap immediates), six coefficient banks | Moorer-style reverb: early-reflection taps, allpass diffuser, two damped combs                 |
+| Chorus unit (9)      | rec06, 07, 09, 49, 70: five distinct programs                                                                   | quadrature-tap ensemble choruses, a flanger, the triangle-trio chorus and a delay+chorus combi |
+| Mic-reverb unit (7)  | rec58–61: one program whose variants differ only in six tap immediates and their data                           | half-rate series-allpass (Schroeder) reverb                                                    |
+| Equalizer (8)        | 1 program                                                                                                       | cascaded biquad, 5-band                                                                        |
+| Multi / insert (1–6) | distortion, delay, tremolo, phaser, compressor, pitch-shift, filter…                                            | the full mix of the blocks above                                                               |
 
 A per-program table — effect type, target unit/role, algorithm class, preset
 family, and confidence — is maintained in the project notes alongside the
 disassembly. The **algorithm** of each program is read with high confidence from
-the code; the exact **preset names** as they appear on the panel (e.g. which
-reverb is "Concert 1" vs "Dark 2") are partly inferred and are being finished by
-tracing the menu descriptor tables.
+the code, and the exact **preset names** as they appear on the panel are ROM
+fact: the firmware's preset-descriptor and group tables have been decoded (see
+[The Complete Algorithm Catalog]({{ site.baseurl }}/kn7000-dsp-algorithms/)).
 
 ## Two more record kinds
 
@@ -146,12 +148,15 @@ tracing the menu descriptor tables.
 ## Cross-model note
 
 The KN6000 and KN6500 use the **same** ADSP-21065L and carry a **byte-identical**
-program pool to one another; compared with the KN7000, the kernel's data tables
-match while the program code is a slightly older build. One DSP model and one
-effect analysis therefore serve all three instruments — see the
-[KN6000/KN6500 notes]({{ site.baseurl }}/kn6000-hardware/). (The KN5000 is different: its effects
-run on two fixed-function ASICs with undumped internal ROM, so its effect
-algorithms are *not* recoverable the way the KN7000's are.)
+program pool to one another; compared with the KN7000, all 80 records carry
+byte-identical data (coefficients and tables), while the program code differs in
+77 of them, the kernel included. The KN6000/KN6500 code is an older build. One
+DSP model and one effect analysis therefore serve all three instruments — see the
+[KN6000/KN6500 notes]({{ site.baseurl }}/kn6000-hardware/). (The KN5000 is
+different: its effects run on an NEC uPD6383GF (IC311) and an MN19413 (IC310).
+The sub CPU uploads IC311's microprograms at run time, but that chip's
+instruction set has no public documentation and is only partly decoded; see the
+KN5000 [Effects DSP]({{ site.baseurl }}/effects-dsp/) page.)
 
 ## Why this matters for emulation
 
@@ -163,7 +168,8 @@ exist, and the integration path is now completely mapped out:
 - **The DSP core is already in MAME.** MAME emulates the ADSP-2106x SHARC family
   (the `ADSP21062`/`ADSP21060` devices) — the same instruction set the 21065L
   uses — with a mature interpreter, a recompiler and a disassembler proven in
-  shipping arcade drivers. No instruction-level work is needed.
+  shipping arcade drivers. No new instruction decoding was needed, though the
+  recompiler still needed the fixes listed under *Fix catalogue* below.
 - **The programs are recovered** — all 80 records, kernel and effects, extracted
   and disassembled from the firmware (above).
 - **The 21065L's memory personality has been reverse-engineered from the program
@@ -176,15 +182,23 @@ exist, and the integration path is now completely mapped out:
   `adsp21065l` device variant needs.
 
 All of that device work has since been done — see the update below. The 21065L
-variant was added to MAME's SHARC core, the host-boot upload (the
-`0x98000000`/`0x9C000000` port) was wired so the firmware loads the DSP exactly as
-it does on hardware, and — the one piece with no MAME precedent — the serial-audio
-ports were modelled so sound flows tone-generators → DSP → DAC. The recovered
-programs *run* on MAME's SHARC core, which independently validated the whole
-disassembly. What was the best-understood path forward is now the most complete
-part of the KN7000 sound story.
+variant was added to the project's fork of MAME's SHARC core, the host-boot
+upload (the `0x98000000`/`0x9C000000` port) was wired so the firmware loads the
+DSP exactly as it does on hardware, and — the one piece with no MAME precedent —
+the serial-audio ports were modelled so sound flows from the tone generators into
+the DSP and back into the master tone generator, which mixes it into the DAC
+feed. The recovered programs *run* on MAME's SHARC core, which independently
+validated the whole disassembly. What was the best-understood path forward is
+now the most complete part of the KN7000 sound story.
 
 ## 2026-07 update: it works — the emulated DSP now plays real effects
+
+> **Where this runs.** Everything in this section is the project's own MAME work:
+> the kn7000_mame overlay, and a branch prepared for upstream,
+> `technics-kn7000-dsp`. That branch is queued behind the tone-generator branch
+> and has not been published or submitted yet. The `kn7000` driver in upstream
+> MAME ([mamedev/mame#16250](https://github.com/mamedev/mame/pull/16250), merged
+> 2026-10-07) leaves the effects DSP out and makes no sound (`MACHINE_NO_SOUND`).
 
 Everything above became a working emulation in July 2026: the MAME driver
 host-boots the recovered kernel, uploads the firmware's effect chain, and a
@@ -200,7 +214,7 @@ register set) was added as a device variant, the MN10300 host-boots it as the
 hardware does, and the **recompiler is enabled** — so stepping the effects kernel
 every audio frame costs little more than leaving the DSP idle (near-free).
 
-A **`kn7000_dsp_bridge_device`** sits between the tone generators and the speakers
+A bridge sits between the tone generators and the speakers
 and carries audio across the CPU/audio-thread boundary over two 44.1 kHz rings:
 one pushes each TG frame into the DSP, the other pops the DSP's processed frame
 back out. When the DSP is not yet producing (early boot) — or an effect is off —
@@ -210,7 +224,10 @@ the bridge simply passes the TG through, so the **dry baseline is bit-transparen
 (data memory `0xC342/43`, the runtime-derived TX0) and writes the TG **send** into
 its unit-0 SPORT **input** buffer (`0xC362/63`, RX0); the ring buffering is what
 keeps the CPU-timeline DSP and the audio-thread stream aligned (an earlier
-fixed-slot exchange produced a ring-misalignment artifact, since resolved).
+fixed-slot exchange produced a ring-misalignment artifact, since resolved). In
+the overlay the bridge is a `kn7000_dsp_bridge_device`; the branch prepared for
+upstream moves its rings and returns into the tone-generator device (see
+[why there is no bridge device]({{ site.baseurl }}/kn7000-driver-internals/#the-audio-path-and-why-there-is-no-bridge-device)).
 
 ### The runtime topology: a TDM patchbay into the tone generator
 
@@ -220,14 +237,14 @@ TX stream is a time-multiplexed **per-unit patchbay**: each of the kernel's 10
 effect units owns a stereo *return* pair in the frame, and reads its *input*
 from the matching slot 0x20 above it:
 
-| unit | program | return (L/R) | input |
-|---|---|---|---|
-| 0 (panel REVERB) | selected type | `0xC342/43` | `0xC362/63` |
-| 1..5 | per-part inserts | `0xC344/45` .. `0xC34C/4D` | +0x20 each |
-| 6 | chorus-class insert | `0xC358/59` | `0xC378/79` |
-| 7 (CHORUS) | rec58-family | `0xC350/51` | +0x20 |
-| 8 (EQ) | rec34 | `0xC352/53` | +0x20 |
-| 9 | rec49-family | `0xC356/57` | +0x20 |
+| unit                                | program         | return (L/R)               | input       |
+|-------------------------------------|-----------------|----------------------------|-------------|
+| 0 (panel REVERB)                    | selected type   | `0xC342/43`                | `0xC362/63` |
+| 1 (MULTI) / 2..5 (per-part inserts) | selected types  | `0xC344/45` .. `0xC34C/4D` | +0x20 each  |
+| 6                                   | per-part insert | `0xC358/59`                | `0xC378/79` |
+| 7 (MIC REVERB)                      | rec58-family    | `0xC350/51`                | +0x20       |
+| 8 (EQ)                              | rec34           | `0xC352/53`                | +0x20       |
+| 9 (CHORUS)                          | rec49-family    | `0xC356/57`                | +0x20       |
 
 The **tone generator** performs the final mix: its output-bus registers
 (group 0x20) crossfade each DAC channel between the TG's direct sound and the
@@ -250,11 +267,12 @@ DSP *returns* — the panel REVERB button toggles exactly that crossfade
   "index" written to `0x98000000` is literally the SHARC IOP register address
   (IIEP0/IMEP0/CEP0/DMAC-EP0/EPB0...). All runtime parameter and level traffic
   travels as ordinary framed DM/PM uploads; there are no hidden level registers.
-- **The DSP runs at 66 MHz** and completes exactly 44,100 effect frames per
-  second; per-frame the kernel walks the unit CALL chain (slots at PM
-  `0x8080-0x80A0`, patched to relocated programs at `0x8400 + unit×0x100`).
+- **The DSP runs at 60 MHz** (the KS-240 speed grade) and completes exactly
+  44,100 effect frames per second; per-frame the kernel walks the unit CALL
+  chain (slots at PM `0x8080-0x80A0`, patched to relocated programs at
+  `0x8400 + unit×0x100`).
 
-### Fix catalogue contributed to MAME's SHARC core
+### Fix catalogue for MAME's SHARC core
 
 Emulating this machine surfaced core bugs relevant to every SHARC system:
 missing ALUSAT in the recompiler's entire fixed-point ALU family (add/sub,
@@ -268,40 +286,49 @@ fell back to the interpreter. Measuring the fallback path showed the KN7000
 effects kernel hits it ~66 million times per second of audio; giving those a
 native code path (verified bit-identical) — together with the equally-unimplemented
 fixed-point average the same kernel uses — removes over 99 % of all interpreter
-fallbacks during a reverb (~82 million per run down to under half a million). The 21065L personality (vector base, host boot, memory
-map, IOP set) lives in the project's SHARC fork pending upstreaming.
+fallbacks during a reverb (~82 million per run down to under half a million).
+The 21065L personality (vector base, host boot, memory map, IOP set) lives, with
+the fixes above, in the project's SHARC fork: the published kn7000_mame overlay,
+and the branch `technics-kn7000-dsp` prepared for upstream, which has not been
+published or submitted yet. One fix reached upstream independently: the
+circular-buffer wrap, merged as
+[mamedev/mame#16016](https://github.com/mamedev/mame/pull/16016) on 2026-09-25.
 
 ### Emulation status: which effects are audible (2026-07)
 
 The MAME bridge carries tone-generator audio through the DSP. The boot-default
 **reverb executes on unit 0** and is fully audible and faithful (clean, decaying,
 robust under dense input). **Chorus is also audible** (July 2026): it runs on
-unit 4 (a non-flag-gated modulated-delay program), and the bridge now feeds that
+unit 9 (rec49, the triangle-trio chorus), and the bridge now feeds that
 unit its send (the low byte of sub-TG reg `0x8198`, tracking the on-screen CHORUS
 DEPTH) and sums its return as an independent wet — verified as a real chorus
 (LFO comb modulation, not a doubled note), with the reverb output kept
-bit-identical when chorus is off.
+bit-identical when chorus is off. (Until 2026-07-20 the bridge fed the chorus
+into unit 4 and SOUND DSP into unit 9. Each was audible only because the other
+effect's program sat in that slot. A live capture of the firmware's effect
+selections then re-pointed both.)
 
-**SOUND DSP** (unit 9, rec49) and **MULTI** (unit 1, rec15) are also audible
-(July 2026): each is fed from its send register (SOUND DSP `0x8098`, MULTI
-`0x8298` — both low bytes track the on-screen DEPTH) and summed as its own
-independent wet. MULTI's unit was pinned by diffing the coefficient blocks
-between two of its *types* (a delay vs a distortion) so the shared effect-bus
-refresh cancels — unit 1 rewrote 43 words while the rest moved 1–2. **Four
-effects are now audible** (reverb, chorus, SOUND DSP, MULTI), verified coexisting
-with no clipping. The remaining **EQ** (unit 8) is a master/insert (a different
-integration) and is a follow-up. All ten effect
-programs are loaded and run every frame; the silent ones were simply never fed
+**SOUND DSP** (unit 2 for part RIGHT 1, rec08 Enhancer by default) and **MULTI**
+(unit 1, rec15) are also audible (July 2026): each is fed from its send
+register (SOUND DSP `0x8098`, MULTI `0x8298` — both low bytes track the
+on-screen DEPTH) and summed as its own independent wet. MULTI's unit was pinned
+by diffing the coefficient blocks between two of its *types* (a delay vs a
+distortion) so the shared effect-bus refresh cancels — unit 1 rewrote 43 words
+while the rest moved 1–2. **Four effects are now audible** (reverb, chorus,
+SOUND DSP, MULTI), verified coexisting with no clipping. The remaining **EQ**
+(unit 8) is a master/insert (a different integration) and is a follow-up. All
+ten effect programs are loaded and run every frame; the silent ones were simply never fed
 (the bridge historically filled only unit 0's input slot). A special case: four
-of the seventy-two effect programs (a pitch-shifter + three specialty reverbs)
-gate on the SHARC **FLAG3** input pin, which is part of the DSP's double-buffered
-frame handshake; those need the faithful frame model, not just an input feed.
+of the seventy-two effect programs, the mic reverbs rec58–61 on unit 7,
+gate on the SHARC **FLAG3** input pin, which the kernel uses as an fs/2
+frame-parity strobe; those need the faithful frame model, not just an input
+feed.
 
 **Divergence sweep (July 2026): every effect type validated.** The reverb-rail
 bug was root-caused to the recompiler missing the SHARC's fixed-point saturation
 mode (a triangle LFO wrapped instead of clipping, and the feedback loop turned
-that into a permanent full-scale buzz). To prove the fix held for *all* ~200
-effect programs — not just the reverb — a harness walked every effect type on all
+that into a permanent full-scale buzz). To prove the fix held for *every*
+effect type — not just the reverb — a harness walked every effect type on all
 four screens (**241 selections**), reprogrammed each unit, played a note, and
 watched two independent alarms: a 60 Hz sampler on the DSP's own output slots
 (rail = 94 % of full scale, catches self-excitation even over silence) and a DAC
@@ -318,7 +345,12 @@ On real hardware the TG routes each part to multiple effect units through its
 per-channel output-bus / effect-send matrix (sub-TG register group `0x20`, 64
 channels × `0x10`) and sums all four returns into the DAC. Each effect has both a
 **send** (reg 8, how much signal enters the effect) and its own **return** (reg
-0xA low byte, how much of the effect's output reaches the DAC).
+0xA low byte, how much of the effect's output reaches the DAC). (Decoded
+2026-07-20: group `0x20` is a per-part send matrix, address
+`0x8000 | row<<8 | part<<4 | reg`. Row 0 is the reverb send, row 1 the chorus
+send, row 2 the multi send and row 3 the level/depth bank. The "channels" below
+are therefore rows of mixer parts, and parts 3, 6 and 9 are the reverb, multi
+and RIGHT 1 insert returns.)
 
 **Per-effect returns (July 2026).** A live per-effect toggle capture pinned each
 effect's own return register — REVERB = ch03 (`0x803A`), SOUND DSP = ch09

@@ -128,8 +128,8 @@ the same mapping table.
 
 The full engine — `TechniChordCompute`, all fourteen voicing routines and
 their helpers — is now converted to re-assemblable, byte-exact MN10300 source
-in the `kn7000_disassembly` project (`src/program.s`, names in
-`kn7000_manual.sym`).
+in the `kn7000_disassembly` project (not yet published; `src/program.s`, names
+in `kn7000_manual.sym`).
 
 ## Why this is dispositive — it is not hardware
 
@@ -168,9 +168,11 @@ Nothing extra is required to emulate Techni-chord. Because it is a pure-software
 feature that ends in ordinary note-ons, **a correct MN10300 running the firmware
 plus the existing tone-generator note path reproduces it for free** — the
 [MAME driver]({{ site.baseurl }}/kn7000-sound-subsystem/) already executes the
-harmony routine as part of normal firmware execution, and the added notes sound
-through the same pipeline as any key press. No harmony model, note-multiplier or
-special tone-generator mode has to be written.
+harmony routine as part of normal firmware execution. In the project's
+sound-enabled build (not yet upstream: upstream MAME's `kn7000` is
+`MACHINE_NO_SOUND`), the added notes sound through the same pipeline as any key
+press. No harmony model, note-multiplier or special tone-generator mode has to
+be written.
 
 ---
 

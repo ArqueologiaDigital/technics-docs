@@ -1,17 +1,24 @@
 ---
 layout: page
-title: KN7000 Built-in Rhythm/Style Catalog
+title: KN7000 Music Stylist Catalog
 permalink: /kn7000-rhythm-catalog/
 ---
 
 # Technics SX-KN7000 — built-in Music Stylist catalog
 
-The complete list of the KN7000's **built-in rhythm styles**, recovered directly from
-the program ROM. The names live in a genre&rarr;style table pair rooted at
-`StyleGenreTable` (program-ROM `0x4873ACC0`): each 8-byte genre entry points to a
-genre name and to that genre's style sub-table, whose entries carry the real style
-names. See the [reverse-engineering notes]({{ site.baseurl }}/kn7000/) for how the on-screen style list
-resolves these. Extracted by walking the table structure; **270 styles across 11 genres**.
+The complete list of the KN7000's built-in **Music Stylist** styles, recovered
+directly from the program ROM. These are the one-touch setups offered by
+MUSIC STYLIST &rarr; MUSICAL CATEGORY and ORGAN STYLIST (user's manual pp. 61–63).
+The names live in a genre&rarr;style table pair rooted at `StyleGenreTable`
+(program-ROM `0x4873ACC0`), which the MUSICAL CATEGORY list box
+(`AcCtgStyleListBoxProc`) walks. Each 8-byte genre entry points to a genre name
+and to that genre's style sub-table, whose entries carry the style names.
+Extracted by walking the table structure; **270 styles across 11 genres**.
+
+These are not the instrument's built-in rhythms. The user's manual (p. 207) lists
+220 rhythms × 4 variations in 14 rhythm groups, whose names come from a
+different, still-undumped resource; see
+[How the rhythm menu resolves a style name]({{ site.baseurl }}/kn7000-initial-data/#how-the-rhythm-menu-resolves-a-style-name).
 
 ## Rock & Pop (58 styles)
 
@@ -316,5 +323,5 @@ resolves these. Extracted by walking the table structure; **270 styles across 11
 - Party Tabs
 - Jive Organist
 
-*Total: 270 built-in styles across 11 genres. Names are reproduced verbatim
+*Total: 270 built-in Music Stylist styles across 11 genres. Names are reproduced verbatim
 (fixed 16-character fields in ROM).*

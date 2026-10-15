@@ -4,13 +4,19 @@ title: KN7000 Sound & Style Names
 permalink: /kn7000-sound-names/
 ---
 
-# KN7000 Built-in Sound & Style Inventory
+# KN7000 Sound & Style Names
 
 The complete list of the KN7000's built-in voice names, extracted from the table
-ROM with `table_names.py`. The instrument stores each sound as a variable-length
-record (a header plus one 122-byte block per tone-generator layer) containing a
+ROM with `table_names.py` (in the kn7000_extraction repository, not yet
+published). The instrument stores each sound as a variable-length record (a
+header plus one 122-byte block per tone-generator layer) containing a
 16-character space-padded name field; these names cluster into the tables below.
-**1454 names in 11 tables.**
+**1454 names in 11 tables.** Not all of them are sounds. The first table holds
+the performance-pad bank and slot names (repeated as *Pad bank / slot names* at
+the end of this page). The next three (23 + 26 + 9 names) are PAD phrase presets
+that reappear under [Sound Arranger PAD presets](#sound-arranger-pad-presets),
+and the last holds the 25 tuning-temperament entries. The user's manual
+(p. 207) counts 1,236 sounds.
 
 This is a preservation reference — the definitive list of what the instrument can
 play. (The multi-language help text and JPEG colour-profile strings that share
@@ -41,13 +47,13 @@ archives** in turn, and the first one that is fitted *and* contains the key wins
 The number of the winning source (0–4) is the "class" the rest of the firmware
 carries around with the sound.
 
-| class | address window | what it holds |
-|---|---|---|
-| **0** | `0x48000000` | the **internal** archive — the factory preset sounds listed on this page. Always present; the fallback for every lookup that misses everywhere else. |
-| **1** | `0x57000000` | the factory read-only data flash |
-| **2** | `0x56000000` | the **custom** flash, programmed from disk |
-| **3** | `0x41000000` | a further expansion window |
-| **4** | `0x41800000` | a further expansion window |
+| class | address window | what it holds                                                                                                                                        |
+|-------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **0** | `0x48000000`   | the **internal** archive — the factory preset sounds listed on this page. Always present; the fallback for every lookup that misses everywhere else. |
+| **1** | `0x57000000`   | an expansion window (SY-EW *SOUND RAM* slot)                                                                                                         |
+| **2** | `0x56000000`   | an expansion window (SY-EW *SOUND RAM* slot)                                                                                                         |
+| **3** | `0x41000000`   | an expansion window (SY-EW *SOUND RAM* slot)                                                                                                         |
+| **4** | `0x41800000`   | an expansion window (SY-EW *SOUND RAM* slot)                                                                                                         |
 
 Sources 1–4 are all validated the same way at boot: a header self-check, then a
 sixteen-byte comparison against a string held in the program flash — the string
@@ -55,7 +61,9 @@ is **`Expansion Board`**. Because all four windows are checked against that same
 signature, the firmware itself does not distinguish them by name; only the
 address differs. Which of them the front panel's **MEMORY** and **EW EXPANSION**
 buttons reach is therefore *not* determined from the code alone, and is left open
-here rather than guessed.
+here rather than guessed. The four windows are the `EXP.CS` slots described on
+the [Expansion Bus & Wave-ROM Dump Routes]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/)
+page; the user's custom flash (IC21) is a separate device at `0x96800000`.
 
 If a lookup misses everywhere, the parameter-record path degrades in four steps —
 exact key, then the bank LSB rounded down to a multiple of eight (a bank
@@ -65,7 +73,7 @@ sound on a KN7000 rather than silence.
 
 Full technical write-up: `notes/sound-bank-classes.md` in the emulation repository.
 
-## User / Compile voice banks  
+## Pad bank / slot names  
 <small>table @ `0x0406dd` — 19 names</small>
 
 <div style="columns:3;column-gap:1.5rem;font-size:0.85rem;">
@@ -90,7 +98,7 @@ Tom Flam 4<br>
 12 Bar In Minor<br>
 </div>
 
-## Effect & ambience voices  
+## PAD phrase presets: effects & ambience  
 <small>table @ `0x042d1f` — 23 names</small>
 
 <div style="columns:3;column-gap:1.5rem;font-size:0.85rem;">
@@ -119,7 +127,7 @@ Rock Gtr Strum<br>
 R&Roll Sax Maj<br>
 </div>
 
-## Latin & loop phrases  
+## PAD phrase presets: Latin & loops  
 <small>table @ `0x049ec5` — 26 names</small>
 
 <div style="columns:3;column-gap:1.5rem;font-size:0.85rem;">
@@ -151,7 +159,7 @@ Big Band Break<br>
 Big Band Reeds<br>
 </div>
 
-## Jazz & ensemble phrases  
+## PAD phrase presets: jazz & ensemble  
 <small>table @ `0x04edcf` — 9 names</small>
 
 <div style="columns:3;column-gap:1.5rem;font-size:0.85rem;">
@@ -1099,11 +1107,11 @@ Hip Hop Kit<br>
 Bongo&Conga Kit<br>
 Orchestral Kit<br>
 Voice Kit<br>
-<Jazz Drawbars><br>
-<Rock Drawbars><br>
-<  USA Tabs   ><br>
-<European Tabs><br>
-<Theatre Pipes><br>
+&lt;Jazz Drawbars&gt;<br>
+&lt;Rock Drawbars&gt;<br>
+&lt;  USA Tabs   &gt;<br>
+&lt;European Tabs&gt;<br>
+&lt;Theatre Pipes&gt;<br>
 Grand Piano *<br>
 Bright Piano *<br>
 Honky-Tonk  *<br>
@@ -1590,9 +1598,12 @@ ORCH<br>
 
 # Style / Music-Stylist Names
 
-The arranger's **931 accompaniment-style / Music-Stylist names**, extracted
-from the program ROM with `style_names.py` (fixed 17-byte records: a 16-char
-space-padded name + NUL).
+The **931 style / Music-Stylist names** that `style_names.py` finds by scanning
+program-ROM file offsets `0x1CF000`–`0x1D6000` for fixed 17-byte records (a
+16-char space-padded name + NUL). The scan is heuristic and not complete: 74 of
+the 270 names in the [Music Stylist catalog]({{ site.baseurl }}/kn7000-rhythm-catalog/),
+which walks `StyleGenreTable`, are missing from it (for example
+*Disco Orchestra* and *60s Blues Rock*).
 
 <div style="columns:3;column-gap:1.5rem;font-size:0.85rem;">
 Mersey Ballad<br>

@@ -40,18 +40,20 @@ flowchart LR
     WA --- MTG
     WB --- STG
     STG -->|"SUB0-3 serial mix"| MTG
-    MTG <-->|"serial audio"| DSP
+    MTG <-->|"sends out,<br/>effect returns back"| DSP
     SD --- DSP
-    DSP -->|"I2S-style serial"| DAC
+    MTG -->|"serial: direct mix<br/>+ effect returns"| DAC
     DAC --> ANA
 </pre>
 
 Read left to right: the CPU writes note and parameter data to the two tone
 generators; each TG fetches PCM samples from its own private pair of wave ROMs
 and renders voices; the **sub** TG mixes its output into the **master** TG over
-a four-wire serial link; the master TG exchanges serial audio with the effects
-DSP (reverb / chorus / EQ / insert effects); the DSP feeds the main stereo DAC,
-and the analog board applies the final EQ and drives the speakers.
+a four-wire serial link; the master TG sends serial audio to the effects DSP
+(reverb / chorus / EQ / insert effects) and takes the DSP's returns back on four
+serial lines; the master TG mixes its direct sound with those returns into the
+main stereo DAC, and the analog board applies the final EQ and drives the
+speakers.
 
 Everything digital sits on the **MAIN P.C.B.** The audio sample world runs at
 **44.1 kHz**, clocked from a 16.9344 MHz tone-generator crystal (= 384 × 44.1
@@ -67,11 +69,11 @@ events from a tone-generator port in parallel with the MIDI input.
 
 Each TG presents a small **register-indirect** interface on the CPU bus:
 
-| Port | Master (IC201) | Sub (IC205) | Meaning |
-|---|---|---|---|
-| register write | `0x98040000` / `0x98040002` | `0x98050000` / `0x98050002` | address half then data half of a 32-bit register write |
-| key/voice event | `0x98040004` | `0x98050004` | read a key-bed event (low byte = note, high byte = velocity; `0xFFFF` = empty) |
-| wave readback | `0x98040006/8/A` | `0x98050006/8/A` | page / offset / **raw sample data** window (used by the service ROM checksum test) |
+| Port            | Master (IC201)              | Sub (IC205)                 | Meaning                                                                                              |
+|-----------------|-----------------------------|-----------------------------|------------------------------------------------------------------------------------------------------|
+| register write  | `0x98040000` / `0x98040002` | `0x98050000` / `0x98050002` | address half then data half of a 32-bit register write                                               |
+| key/voice event | `0x98040004`                | `0x98050004`                | read a key-bed event (low byte = key index, bit 7 = release; high byte = velocity; `0xFFFF` = empty) |
+| wave readback   | `0x98040006/8/A`            | `0x98050006/8/A`            | page / offset / **raw sample data** window (used by the service ROM checksum test)                   |
 
 A register access packs a 16-bit **address** and 16-bit **data** into the two
 adjacent ports. At idle the firmware writes a cyclic `0xFC0x` "system refresh"
@@ -99,7 +101,9 @@ fetch a pair of samples per cycle for interpolation.
 | IC208 | sub (IC205) | BWAX | C3CBQD000003 |
 
 These four ROMs are **not** contained in the firmware-update disks, so they are
-currently **undumped** — the one remaining gap for fully audible emulation.
+currently **undumped** — the largest gap for faithful sound. The rhythm data is
+undumped too: IC18, or IC20 on earlier units; see the
+[ROM Dumping Roadmap]({{ site.baseurl }}/rom-dumping-roadmap/).
 Wave-ROM expansion boards (SY-EW01…04) plug into connectors on the same TG
 buses.
 
@@ -118,7 +122,8 @@ runtime, and every effect algorithm.
 ## DACs, ADCs and the analog path
 
 - **IC311** (`C0FBBK000025`, "D/A CONVERTER") — the main stereo DAC, fed serial
-  audio from the DSP; differential current outputs go to I/V converters and
+  audio from the master tone generator (its direct sound mixed with the DSP's
+  effect returns); differential current outputs go to I/V converters and
   low-pass filters (M5218 op-amps), then to the FAJ analog board.
 - **IC310** (PCM69BU) — a second stereo DAC on the SUB-OUT path.
 - **IC309 / IC410** (PCM1800E) — stereo ADCs that digitise MIC/LINE inputs (for
@@ -167,15 +172,17 @@ the MAME driver) shows a clear pipeline:
 
 1. **Key scan → FIFO.** The sub tone generator scans the key matrix in hardware
    and posts each event into its voice-event FIFO. The CPU reads it at
-   `0x98050004` as a 16-bit word — low byte = MIDI note, high byte = velocity
-   (velocity 0 = note-off), `0xFFFF` = empty.
+   `0x98050004` as a 16-bit word — low byte = key index (0 = the bottom C2; bit 7
+   set = key release), high byte = velocity (`0xFF` on a release), `0xFFFF` =
+   empty.
 2. **Key-bed service task.** A scheduled task (firmware address `0x48448015`)
    drains the FIFO, reading events until it sees `0xFFFF`, and gathers the
    note/velocity pairs.
 3. **Note → pitch.** Each event is decoded by a helper (`0x4844812D`) that turns
-   the MIDI note number into the tone generator's internal pitch value using the
-   instrument's tuning tables and a divide-by-twelve (one octave = 12 semitones),
-   then records it in a per-key voice descriptor.
+   the key index (plus 36, giving the MIDI note) into the tone generator's
+   internal pitch value using the instrument's tuning tables and a
+   divide-by-twelve (one octave = 12 semitones), then records it in a per-key
+   voice descriptor.
 4. **Voice allocation → tone-generator registers.** The sound engine assigns the
    note to a free tone-generator channel and programs that channel through the
    **register-indirect primitives** in the self-loaded library ROM. Voices
@@ -202,13 +209,21 @@ includes several sound tests that double as precise hardware descriptions:
 
 ## Emulation status
 
-**The KN7000 boots to its main play screen and sings in MAME, driven by its own
-firmware voice engine** — the machine is `MACHINE_IMPERFECT_SOUND`. Playing a note
-(PC key bed or MIDI in) travels through the firmware exactly as on hardware —
-key-event FIFO → key-bed task → note-to-pitch → voice allocation — and the firmware
-programs the tone-generator voice registers, which the emulator renders to audio.
-Pitch, polyphony and note timing are the firmware's own; sound is on by default and
-needs no switch.
+**In the project's own MAME builds, the KN7000 boots to its main play screen and
+sings, driven by its own firmware voice engine.** These are the kn7000_mame
+overlay and two branches prepared for upstream, `technics-kn7000-tonegen` (the
+tone-generator voice engine) and `technics-kn7000-dsp` (the effects DSP). Both
+branches are queued and neither has been published or submitted yet. All three
+flag the machine `MACHINE_NOT_WORKING | MACHINE_IMPERFECT_SOUND`. Upstream MAME
+differs: the `kn7000` driver merged as
+[mamedev/mame#16250](https://github.com/mamedev/mame/pull/16250) on 2026-10-07
+runs the same firmware, but it is `MACHINE_NOT_WORKING | MACHINE_NO_SOUND`. It decodes the tone-generator
+registers without producing sound, and it does not emulate the effects DSP.
+Playing a note (PC key bed or MIDI in) travels through the firmware exactly as
+on hardware — key-event FIFO → key-bed task → note-to-pitch → voice allocation —
+and the firmware programs the tone-generator voice registers, which the emulator
+renders to audio. Pitch, polyphony and note timing are the firmware's own; sound
+is on by default and needs no switch.
 
 Getting there turned on one missing bit. The firmware only programs voices when a
 **tone-generator-present strap** (read at `0x98070000`, tested at firmware
@@ -224,10 +239,17 @@ demo songs and the auto-accompaniment run off a modelled on-chip tempo timer —
 16-bit timer TM5 (mode `0x34001082`, reload `0x34001092`, count `0x340010A2`) whose
 underflow raises INTC group 7 and fires the firmware's **96-PPQN sequencer tick ISR**
 (`0x48447084`). Clocked at IOCLK ÷ 8 (16 MHz ÷ 8 = 2 MHz), its reload works out to
-1,250,000 ÷ BPM ticks per beat, so the sequenced parts run at the tempo the panel
-sets.
+1,250,000 ÷ BPM timer counts per sequencer tick (1/96 beat), so the sequenced
+parts run at the tempo the panel sets.
 
 ## How a note's pitch really works
+
+> **Two builds differ here.** The voice-record read described below is what the
+> kn7000_mame overlay does. The tone-generator branch prepared for upstream MAME
+> (`technics-kn7000-tonegen`, 2026-09-24, not yet submitted) drops it, because a
+> tone generator cannot read CPU RAM. It decodes pitch from the register alone
+> against one fixed anchor (pitch18 `0x1C838` = MIDI 96). That anchor is still
+> unsettled.
 
 The obvious reading of the TG pitch register — an absolute pitch value — turned
 out to be wrong, and the correction is worth recording. The 18-bit pitch field
@@ -273,11 +295,13 @@ ring its own multi-stage envelope; the placeholder holds those at their sustain
 level instead — a known limitation, alongside a still-provisional chip rate curve.
 
 One honest caveat remains above all: **placeholder timbre**. The four PCM wave ROMs
-are still undumped, so each voice is a stand-in **sine** at the correct pitch — real
-timbre awaits the ROMs. The tone descriptors in the dumped table ROM already map
-every voice to its wave sample number, so real-sample playback is ready to slot in
-once the ROMs are dumped (the firmware's readback window can extract them from a real
-unit).
+are still undumped, so in the branches prepared for upstream each voice plays a
+stand-in **sine**, stored as a one-cycle sample so it goes through the same
+sample-playback path. The overlay instead plays a labelled synthetic wave pack
+built from KN5000 donor samples. Real timbre awaits the ROMs. The tone
+descriptors in the dumped table ROM already map every voice to its wave sample
+number, so real-sample playback is ready to slot in once the ROMs are dumped (the
+firmware's readback window can extract them from a real unit).
 
 The **effects DSP** is fully recovered — its programs are in the firmware — and
 the emulator boots its ADSP-21065L kernel (running as low-level SHARC code, with
