@@ -296,7 +296,7 @@ The Sub CPU's primary role is real-time audio synthesis and effects processing. 
 
 **DSP Effects Processing (uPD6383GF-3BA):**
 - A DSP1-associated register block at 0x130000 (address) / 0x130002 (data); the uPD6383GF itself is loaded over port PZ with port-7 strobes
-- 4 effect channels × 32 registers each
+- 4 channels at a 0x20 register stride: 8 data registers at channel × 0x20 + 0x10 (`DSP_Write_Channel`, 0x01FCDE) and one more at channel × 0x20 + 0x1F (`DSP_Init_Channels`, 0x01FC95)
 - Bytecode interpreter `DSP_BytecodeInterpreter_Init` (0x03C259); six native opcode handlers (1,613 bytes) from 0x03C32E
 - Real-time parameter updates via `DSP_ParameterWriteEngine` (0x03C9E6)
 - See [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) for DSP details
