@@ -9,7 +9,10 @@ permalink: /wsa1-modeling-lsi/
 The [SX-WSA1 / SX-WSA1R]({{ site.baseurl }}/wsa1/) is named after its modelling
 engine, and this is that engine: **IC3, the service manual's `L7A1429 MODELING
 LSI`**, sitting in CPU 2's address space at `0x00104000` behind a two-word port
-pair. MAME models it as `l7a1429_device`, "Technics Acoustic Modeling LSI".
+pair. MAME models it as `l7a1429_device`: upstream as a register-file skeleton
+("Technics L7A1429 modeling LSI (skeleton)", #16204), and in this project's
+development driver as "Technics Acoustic Modeling LSI", with a decoded parameter
+view.
 
 It is **a per-channel pair of coupled linear resonators**, sixty-four channels
 of them. Each channel is programmed with a tuning, a damping one-pole filter, an
@@ -738,14 +741,16 @@ chance over the 65,536-pair key space would give 1.8, and the names round-trip
    can seed it. ★ The `M`/`S` naming lines up with MAIN and SUB, but that is a
    coincidence of initials between a schematic and a screen, and it is graded
    **WEAK**.
-8. **`0x00E093`**, a per-element block the three gate-opening routines fill with
-   both gains and both tuning words — the shape of a mix or coupling matrix over
-   the four elements. It has eleven writers and **no located reader**.
+8. **`0x00E093`** is the 68-byte argument block of the coupled-resonator detune
+   solver `Pack104_SolveCoupledDetune` (prom_c `0xFC4269`), which the three
+   gate-opening routines fill and pass by address — see
+   [The resonator coupling](#the-resonator-coupling). The open part is whether the
+   chip computes the same detune that the firmware's fixed-point solver does.
 
 **The cheapest thing that would close most of this list is still not the
 instrument.** The controls are named; what is missing is what the silicon does
-with three of them. The two nearest items are what the coefficients do with
-`R[+0x1A]` — where `RESO SCALE` reaches them — and the reader of `0x00E093`.
+with three of them. The nearest item is what the coefficients do with
+`R[+0x1A]`, where `RESO SCALE` reaches them.
 
 ## What a first implementation should do
 
@@ -779,12 +784,16 @@ with three of them. The two nearest items are what the coefficients do with
 
 ## A high-level-emulation reference now runs the model (2026-09-10)
 
-The MAME driver decodes this chip's registers into engineering units and stops there
-(`acoustic_modeling.cpp` / `l7a1429_device`, `decoded_channel()`) — correctly, because the
+By default the development MAME driver decodes this chip's registers into engineering units
+and stops there (`acoustic_modeling.cpp` / `l7a1429_device`, `decoded_channel()`; upstream's
+`L7A1429` is a bare register-file skeleton) — correctly, because the
 internal signal path and the excitation are unmeasured. That decode is now complete enough to
 build the *other* half: a reference that **runs the documented resonator model** so the physics
 on this page can be heard and shown implementation-complete for the settled parameters. It exists
 and runs: `wsa1/hle/` in the disassembly repo, built strictly from `wsa1/notes/HLE-GUIDE-l7a1429.md`.
+A C++ port of it now runs inside the development driver as well: `l7a1429_device` becomes a
+sound device wired to the speakers when the overlay is built with `WSA1R_ENABLE_ACOUSTIC_HLE=1`,
+which is off by default (kn7000_mame `4944c81`, 2026-09-10).
 
 It is **HLE, not LLE** — it realizes the block diagram the register vocabulary describes, not the
 chip's silicon — and it does not touch the register-decode device; it consumes the same decoded
@@ -796,7 +805,7 @@ excitation, and `SUB GAIN` mixes the coupled SUB resonator. It is self-validatin
 at the note's fundamental (220 / 440 / 880 Hz), **sustains past a second and decays gradually with
 no input** — the no-key-off requirement of §"There is no key-off register" — a brighter `MUTING`
 yields more high-frequency energy, and the `INTERACTION GAIN` coupling widens the normal-mode split
-(faithful to the `sub_FC4269` solver model, not its exact fixed-point arithmetic).
+(faithful to the `Pack104_SolveCoupledDetune` solver model, not its exact fixed-point arithmetic).
 
 Two inputs remain **honest stand-ins**, each behind a switch and drop-in replaceable: the `DRIVER`
 excitation — a synthetic shaped burst standing for IC4's undumped wave mask ROMs — and the

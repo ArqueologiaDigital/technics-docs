@@ -20,9 +20,13 @@ and both were recovered from the firmware images rather than from a databook.
 > the OUTPUT LEVEL register and silenced by the idle marker
 > (`wsa1_tonegen_device`) — standing in for the real samples, exactly as the
 > KN5000 does. **MIDI IN is wired**, and an external note now travels the
-> (fixed) inter-processor link to that placeholder. The three uPD6383GF DSPs and
-> the flash are still absent. So the machine draws a UI, responds to its panel,
-> and makes an unfaithful, placeholder sound — not the instrument's real voice.
+> (fixed) inter-processor link to that placeholder. The three uPD6383GF DSPs are
+> inert skeleton devices upstream. In the development driver they are a uPD6383
+> core that receives CPU 2's microcode upload and C-RAM coefficients when it is
+> built with `WSA1R_ENABLE_DSP`, but the core is held out of execution and makes
+> no audio. The flash is still absent. So the machine draws a UI, responds to its
+> panel, and makes an unfaithful, placeholder sound — not the instrument's real
+> voice.
 >
 > The modelling window at `0x00104000` has a
 > **placeholder device**, `l7a1429_device`. It models the *register
@@ -62,13 +66,11 @@ Eight distinct block numbers, every gap exactly `0x40`, and thirteen
 *not* proof the die holds no microcode of its own — a modelling engine with fixed
 on-die code exposing only coefficients would produce exactly this traffic.
 
-⚠ **And the device's name is an inference.** The service manual lists **IC3 =
-L7A1429, "MODELING LSI"**, so the part is named; what is *not* established is that
-`0x104000` decodes to it. What is established: `0x104000` is the only per-channel
-synthesis device CPU 2 drives that has no counterpart in the KN5000's PCM
-sibling, and its register file is a different shape from the tone generator's
-(19 contiguous blocks against 22 sparse). The disassembly still calls it
-`Dev104_` for that reason.
+The device's identity is **settled by the schematic**. IC27, a D74HC139GS,
+decodes CPU 2's `SCS0` with `SA14`/`SA15`, and its `1Y1` = `WFICS` = `0x104000`
+drives IC3's `NSGCE`. IC3 is `L7A1429 MODELING LSI`, and `NAD ← SA1` is the
+driver's `+0` select / `+2` data. The disassembly keeps the `Dev104_` labels.
+What is still inference is only the chip's internal signal path.
 
 Beyond the discriminant, the register file is decoded and not merely captured:
 twelve of the nineteen registers carry the tone editor's own names, the
@@ -77,23 +79,31 @@ and there is no key-off register at all — see
 [Acoustic Modelling LSI]({{ site.baseurl }}/wsa1-modeling-lsi/), which is also
 where the two limits above are stated in full.
 
-## ⚠ The driver is not upstream, and there are deliberately two of it
+## ⚠ There are deliberately two drivers, and only the smaller one is upstream
 
-Upstream MAME has **no `wsa1.cpp` at all**. What exists is:
+The rack is in MAME: `wsa1r` was merged as
+[mamedev/mame#16204](https://github.com/mamedev/mame/pull/16204) on 2026-09-21.
+What exists is:
 
-* a **development driver** in this project's `kn7000_mame` overlay —
-  `src/mame/matsushita/wsa1.cpp` (3,399 lines) plus `wsa1_cpanel.{cpp,h}` and
-  `src/mame/layout/wsa1r.lay`;
-* a deliberately **smaller submission candidate** on the branch `technics-wsa1`
-  of a separate MAME checkout — 610 lines carrying only the two processors, the
-  clock, and the part of the memory map that is evidence-complete enough to
-  offer. Five prep commits (a ROM record; instantiating both TMP95C061s with a
-  partial map; mapping the tone bank at `0xf00000` on CPU 2; naming the floppy
-  controller and the model strap; and correcting CPU 1's static RAM to reach
-  `0x7fff`, not `0x51ff`) sit on that branch **unmerged**.
+* the **merged driver** in MAME itself — `src/mame/matsushita/wsa1.cpp` (835
+  lines) plus `wsa1r_cpanel.{cpp,h}`, `wsa1_tonegen.{cpp,h}` and
+  `src/mame/layout/wsa1r.lay`, together with the `tmp95c061` core work the
+  firmware needs (see [below](#what-this-machine-requires-from-mames-tlcs-900-core)).
+  It declares only the rack, `wsa1r`, and carries the modelling LSI and the
+  three DSPs as inert skeletons. A floppy software list for both variants,
+  `wsa1_flop`, is open as
+  [mamedev/mame#16414](https://github.com/mamedev/mame/pull/16414);
+* the **development driver** stays in this project's `kn7000_mame` overlay:
+  `src/mame/matsushita/wsa1.cpp` (4,366 lines) plus `wsa1_cpanel.{cpp,h}`,
+  `wsa1_tonegen.{cpp,h}`, `acoustic_modeling.{cpp,h}` and
+  `src/mame/layout/wsa1r.lay`. Beyond the merged copy it adds the SX-WSA1
+  keyboard as a second system, the MIDI UART bridge, the 61-key keybed scanner,
+  the drive-motor line, a uPD6383 core behind `WSA1R_ENABLE_DSP`, and a research
+  acoustic HLE behind `WSA1R_ENABLE_ACOUSTIC_HLE`; both switches are off by
+  default.
 
 **The two files will diverge, and that is intentional.** Everything in the
-overlay beyond the submission copy is work in progress, and several pieces rest
+overlay beyond the merged copy is work in progress, and several pieces rest
 on inferences a MAME reviewer would rightly refuse until a schematic or a real
 machine confirms them. Do not describe one as the other, and do not "sync" them
 mechanically.
@@ -101,15 +111,19 @@ mechanically.
 ## Two systems, one ROM set
 
 ```
-SYST(1995, wsa1r, 0,     0, wsa1r, wsa1r, wsa1_state, init_wsa1r, "Technics", "SX-WSA1R", MACHINE_NOT_WORKING|MACHINE_NO_SOUND)
-SYST(1995, wsa1,  wsa1r, 0, wsa1,  wsa1,  wsa1_state, init_wsa1,  "Technics", "SX-WSA1",  MACHINE_NOT_WORKING|MACHINE_NO_SOUND)
+SYST(1995, wsa1r, 0,      0,      wsa1r,   wsa1r, wsa1_state, init_wsa1r, "Technics", "SX-WSA1R", MACHINE_NOT_WORKING|MACHINE_IMPERFECT_SOUND)
+SYST(1995, wsa1,  wsa1r,  0,      wsa1,    wsa1,  wsa1_state, init_wsa1,  "Technics", "SX-WSA1",  MACHINE_NOT_WORKING|MACHINE_IMPERFECT_SOUND)
 ```
+
+Upstream declares only the first, with `empty_init`.
 
 `wsa1` is declared a **clone of `wsa1r`** and shares its ROM definitions verbatim
 — *not because the rack matters more*, but because **every document the driver
 rests on is the rack's**: the service manual is SX-WSA1R only, and the
 redistributed image set is *said* by its uploader to have been read from a
-rack. (That is testimony, not something this project verified.)
+rack. (That is testimony, not something this project verified.) First-hand
+testimony recorded on 2026-09-21 adds that the keyboard ships the exact same set;
+that is testimony too.
 
 The *emulated machine configuration* is identical between the two, because
 everything the driver models is shared: one ROM set, the same pair of
@@ -151,16 +165,16 @@ Every step below is read by a named probe in `kn7000_mame/notes/wsa1-probes/`,
 and each probe states the question it answers; `wsa1_boot_milestones.lua` walks
 the sequence.
 
-| step | what happens |
-|---|---|
-| RESET at `0xF826A9` | watchdog off, ports, timers, chip selects, RAM cleared, then into prom_b through the thunk table |
-| the 488 Hz tick starts | the 8-bit timer that every firmware delay is written against, counting at RAM `0x0080` |
-| the **battery-RAM checksum pair** at `0xF82C80` | `0x100` words summed from `0x007620` against `(0x007FD2)`, then from `0x617800` against `(0x007FD4)` |
-| the SC1 module opens the control-panel link | and the panel answers |
-| `LCD_Init_SED1330` at `0xF8E822` | the display controller is initialised — first write at **t = 0.50 s** |
-| SWI7 text drawing begins | **t = 19.62 s** |
-| CPU 2 reaches MAIN | its key scanner goes live |
-| the screen settles on `SOUND MODE` | the panel carries drawn text and stops changing, while CPU 1 keeps running ordinary code across prom_a and prom_b — **a live system sitting on a screen, not a hang** |
+| step                                            | what happens                                                                                                                                                          |
+|-------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| RESET at `0xF826A9`                             | watchdog off, ports, timers, chip selects, RAM cleared, then into prom_b through the thunk table                                                                      |
+| the 488 Hz tick starts                          | the 8-bit timer that every firmware delay is written against, counting at RAM `0x0080`                                                                                |
+| the **battery-RAM checksum pair** at `0xF82C80` | `0x100` words summed from `0x007620` against `(0x007FD2)`, then from `0x617800` against `(0x007FD4)`                                                                  |
+| the SC1 module opens the control-panel link     | and the panel answers                                                                                                                                                 |
+| `LCD_Init_SED1330` at `0xF8E819`                | the display controller is initialised — first write at **t = 0.50 s**                                                                                                 |
+| SWI7 text drawing begins                        | **t = 19.62 s**                                                                                                                                                       |
+| CPU 2 reaches MAIN                              | its key scanner goes live                                                                                                                                             |
+| the screen settles on `SOUND MODE`              | the panel carries drawn text and stops changing, while CPU 1 keeps running ordinary code across prom_a and prom_b — **a live system sitting on a screen, not a hang** |
 
 *(The two absolute times are from `tlcs900_timer_control.sh` on the current core.
 They are meaningful only against a build whose timers are right — see below —
@@ -194,8 +208,15 @@ and each is stated here with the evidence that fixes its value:
    appears; see below.
 4. **P6 must be mapped to `PORT_6`**, not `PORT_7`.
 
-The overlay's `tmp95c061` additionally carries a **serial engine on channel 1**
-and **INT6 / INT7 in `execute_set_input()`**, neither of which exists upstream.
+Items 3 and 4 have been in MAME's `tmp95c061` since #16204, together with a
+**serial engine on both channels**, **INT6 / INT7 in `execute_set_input()`** and
+the micro-DMA vector fix. Items 1 and 2 are not. Upstream's 16-bit timers 4–7 do
+not count (its `tlcs900_handle_timers()` steps only timers 0–3, and nothing sets
+`INTET54`). And #16255 (merged 2026-09-25) restored the old 8-bit prescaler taps
+because the databook ones garbled `ngp`/`ngpc` music, so upstream's own `wsa1r`
+runs its 488 Hz tick at 30.5 Hz (the 900-tick boot wait takes 29.77 s instead of
+1.84 s). The overlay keeps both; a per-device prescaler is the candidate fix for
+item 1.
 
 `notes/wsa1-probes/tlcs900_timer_control.sh` re-measures rates 1 and 2 against a
 control build, which is how they are checked rather than assumed.
@@ -295,25 +316,21 @@ device of its own; the family does.
 need a CPU→FDC data phase and sit in the device→RAM group. Recorded, not
 explained.
 
-## ★ The fake that was deliberately not enabled
+## The DSP READY line is a pulled-up net
 
-CPU 2's uPD6383GF microcode upload polls the DSP's READY line on **P9 bit 3**
-(`0xF9A19F`: `ld C,(0x19) / and C,0x08`) at **eighteen sites**. MAME's unbound
-port read returns 0, so every byte of the upload burns the poll's full `0x1F40`
-iteration bound and sets the firmware's timeout flag. Measured: in a six-second
-run, CPU 2's program counter is concentrated in `0xF9A347-0xF9A399`, inside
-exactly that loop. **That is where its boot time goes.**
+CPU 2's uPD6383GF microcode upload polls the DSPs' shared READY line on **P9 bit
+3** (`0xF9A19F`: `ld C,(0x19) / and C,0x08`) at **eighteen sites**, each bounded
+by `0x1F40` iterations. An unbound MAME port reads 0, so the upload used to burn
+the full bound on every byte. CPU 2's program counter never left
+`0xF9A347-0xF9A490`, and the sound-name request from CPU 1 went unanswered
+(`Sound Name *****`).
 
-One line would make the handshake complete instantly:
-
-```cpp
-m_cpu2->port9_read().set_constant(0x08);
-```
-
-**It is not enabled, because it is a fake.** No schematic net has been read for
-that pin, and the poll is bounded, so nothing hangs without it — it is only slow.
-*Turning a measured stall into a fabricated ready signal would buy speed with a
-claim about the hardware that nobody has checked.*
+The schematic settles the level. Service manual page 20 (sheet II-9/II-10) shows
+IC2 pin 23, P93, on the net `DSPRDY`, pulled up by R79 (4.7 kΩ), because the three
+DSPs' RDY outputs are wired together; pin 20, AN0 (P9 bit 0), is strapped to +5 V.
+Both lines idle high, so both drivers return `0x09` for P9 (`cpu2_p9_r()`). With
+that, `SOUND MODE` prints the sound name: `Piano` on `wsa1r`, `WSA Piano` on
+`wsa1`.
 
 *(P5 bit 4 is not a candidate for the same treatment: it is the service
 CHECKING DEVICE's switch, and the manual says so in as many words.)*
@@ -326,9 +343,10 @@ CHECKING DEVICE's switch, and the manual says so in as many words.)*
 * **The link carries it now.** The CPU 2 → CPU 1 wedge — one packet, then stuck
   on a handshake CPU 1 never released — was a **CPU-core bug**: a micro-DMA
   channel's `INT0` was dispatched to the CPU instead of the channel it belonged
-  to. It is fixed in the overlay `tmp95c061` (`tlcs900_check_irqs` now skips an
-  interrupt an armed micro-DMA channel owns — as the `tmp94c241` already did),
-  plus a per-burst scheduling quantum so CPU 1 keeps up with the burst.
+  to. It is fixed in `tmp95c061`, in the overlay and in MAME since #16204
+  (`tlcs900_check_irqs` now skips an interrupt an armed micro-DMA channel owns —
+  as the `tmp94c241` already did), plus a per-burst scheduling quantum so CPU 1
+  keeps up with the burst.
 
 So a note now travels CPU 2 → CPU 1 → the link → CPU 2's note engine → the tone
 generator. **MIDI IN** is wired the same way (host MIDI → CPU 1's serial channel
@@ -440,8 +458,9 @@ Seven probe experiments, one per open axis of the instruction set, were designed
 put through a pass whose only instruction was to refute them. **All seven were refuted**, and
 the objections were not seven different objections — the wrong-CPU problem above is one of
 three that recur in every single design. The other two: there is **no audio readback**
-(the wave ROMs are undumped, so this machine makes no sound in MAME, and using the
-emulator's *model* of the DSP to decide what the real chip's instructions mean is circular);
+(the wave ROMs are undumped, so in MAME this machine plays only a placeholder sine and
+its DSPs do not execute, and using the emulator's *model* of the DSP to decide what the
+real chip's instructions mean is circular);
 and several designs read their positive control **through the very idiom under test**, so
 "the poke never arrived", "the instruction does not read the table" and "the instruction
 does nothing" collapse into one observation.
@@ -475,8 +494,8 @@ closed, or closed for one variant.
 One result from that traffic is worth carrying: **the CPU 2 → CPU 1 link wedge
 was a CPU-core bug, and is now fixed** (a micro-DMA channel's `INT0` was
 dispatched to the CPU instead of the channel; see the keybed/link section above).
-A separate CPU 2 stall — its uPD6383 READY poll (below) — is a different problem
-and is not the inter-processor link.
+A separate CPU 2 stall, the uPD6383 READY poll, was a port read of the wrong
+level and is fixed too (see above); it was never the inter-processor link.
 
 **Not every unreached routine is an emulation gap.** The disassembly has proven that three
 stretches of `prom_b` are relocated copies of live objects (at live − `0x23001`, − `0x1A401`
@@ -495,16 +514,16 @@ unused address would land at `0xFFFFFF`. That is read from the bytes and has not
 
 ## What is still missing
 
-| gap | state |
-|---|---|
-| **Real synthesis** | the tone generator plays a **placeholder sine** (`wsa1_tonegen_device`), scaled by the OUTPUT LEVEL register and silenced by the idle marker; the three DSPs, the modelling LSI's internal signal path and the six wave mask ROMs are all absent or undumped, so the instrument's real voice is not produced |
-| **Faithful release envelope shape** | *voice retirement now works* (see below) — a released note decays and the firmware frees it — but the decay is a fixed placeholder ramp, not the real time-varying segment envelope, whose rate/level semantics are not yet established |
-| **The six wave mask ROMs** | `NO_DUMP`. The manual gives their capacity (16 Mbit each) but not their organisation, and the scan does not resolve which sits on which of the tone generator's address buses — so each gets its own region rather than being concatenated |
-| **The AM29F400T flash** | not modelled; its data-poll and erase-verify loops are unbounded and will spin if reached |
-| **MIDI (in and out)** | *both directions now wired.* `tmp95c061` has a serial-channel-0 receive engine (`sc0_rxd` raises `INTRX0`) and, new, a transmit callback (`sc0_txd`, from `sc0buf_w`); a `wsa1_midi_uart` bridges MAME's bit-serial `midiin`/`midiout` to CPU 1's SC0 (the rear MIDI1 jack) in both directions. An external note reaches the tone generator, and the machine now transmits what the firmware sends — performance parameters as CC/aftertouch/pitch-bend as you play, plus bulk/group SysEx dumps and GM (`-mdin`/`-mdout`). A default-off **"Live parameter mirror"** option adds the one config value the firmware never emits on edit, tempo, as `F0 50 25 <lo> <hi> F7` — see the [live-sync analysis]({{ site.baseurl }}/sysex-messages/#live-sync-between-an-emulated-unit-and-real-hardware). ★ The bridge is now **validated in both directions against an external program** ([above](#the-midi-bridge-is-now-validated-in-both-directions-by-a-program-outside-the-emulator)), so a MIDI-touching pull request can cite a round trip rather than an inspection |
-| **The panel MCU's mask ROM** | not dumped, and no ROM region is declared for it — the manual does not give its capacity, and guessing one would be worse than leaving it out |
-| **`0x104000` and `0x10C000`** | shapes established; the labels deliberately read `Dev104_` and `Dev10C_` rather than anything that would imply a function. For `0x104000` most of the register *meanings* are recovered — twelve names, six exact units, [the whole map]({{ site.baseurl }}/wsa1-modeling-lsi/) — but nothing in the driver acts on them, and the internal signal path is unknown. A behavioural **HLE reference** of the documented resonator model now runs *outside* the driver (`wsa1/hle/`, [see the LSI page]({{ site.baseurl }}/wsa1-modeling-lsi/#a-high-level-emulation-reference-now-runs-the-model-2026-09-10)) — a realization of the model, not the chip's audio, which still needs the wave ROMs and an internal-path trace |
-| **The drive motor line** | the firmware **does** drive CPU 1's PA bit 3 — four writes, the only bit of PA it changes after RESET, and it *clears* the bit (`res 3,(0x1E)` at `0xFE18EF`) before a 307 ms spin-up delay. The driver still declines to wire it to the drive's motor, because *what the pin does* is not claimed — a drive-motor or drive-select line is only the obvious reading. The consequence is stated rather than papered over: with no motor modelled, an attached image never becomes READY, and a read reports the firmware's own error `0x31`, drive not ready |
+| gap                                 | state                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+|-------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Real synthesis**                  | the tone generator plays a **placeholder sine** (`wsa1_tonegen_device`), scaled by the OUTPUT LEVEL register and silenced by the idle marker; the three DSPs do not execute, the modelling LSI's internal signal path is unknown, and the six wave mask ROMs are undumped, so the instrument's real voice is not produced                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Faithful release envelope shape** | *voice retirement now works* (see below) — a released note decays and the firmware frees it — but the decay is a fixed placeholder ramp, not the real time-varying segment envelope, whose rate/level semantics are not yet established                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **The six wave mask ROMs**          | `NO_DUMP`. Sheet II-15/II-16 draws each as 1M × 16 (A0-A19, a BYTE pin, TGD0-TGD15): IC43-IC45 on the tone generator's Y address bus and IC47-IC49 on its X bus. Which chip select each answers is not established, so each gets its own region rather than being concatenated                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **The AM29F400T flash**             | not modelled; its data-poll and erase-verify loops are unbounded and will spin if reached                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **MIDI (in and out)**               | *both directions now wired.* `tmp95c061` has a serial-channel-0 receive engine (`sc0_rxd` raises `INTRX0`) and, new, a transmit callback (`sc0_txd`, from `sc0buf_w`); a `wsa1_midi_uart` bridges MAME's bit-serial `midiin`/`midiout` to CPU 1's SC0 (the rear MIDI1 jack) in both directions. An external note reaches the tone generator, and the machine now transmits what the firmware sends — performance parameters as CC/aftertouch/pitch-bend as you play, plus bulk/group SysEx dumps and GM (`-mdin`/`-mdout`). A default-off **"Live parameter mirror"** option adds the one config value the firmware never emits on edit, tempo, as `F0 50 25 <lo> <hi> F7` (⚠ only the SX-WSA1 keyboard acts on that message: the SysEx reference says the rack refuses the tempo message in both directions, so the mirror cannot sync a real SX-WSA1R) — see the [live-sync analysis]({{ site.baseurl }}/sysex-messages/#live-sync-between-an-emulated-unit-and-real-hardware). ★ The bridge is now **validated in both directions against an external program** ([above](#the-midi-bridge-is-now-validated-in-both-directions-by-a-program-outside-the-emulator)), so a MIDI-touching pull request can cite a round trip rather than an inspection |
+| **The panel MCU's mask ROM**        | not dumped, and no ROM region is declared for it — the manual does not give its capacity, and guessing one would be worse than leaving it out                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **`0x104000` and `0x10C000`**       | shapes established; the labels still read `Dev104_` and `Dev10C_`, although the schematic now names both devices (IC3 and IC4, the tone generator). For `0x104000` most of the register *meanings* are recovered — twelve names, six exact units, [the whole map]({{ site.baseurl }}/wsa1-modeling-lsi/) — and the internal signal path is unknown. A behavioural **HLE reference** of the documented resonator model runs in the disassembly tree, and since 2026-09-10 a C++ port of it can drive the speakers from `l7a1429_device` when the overlay is built with `WSA1R_ENABLE_ACOUSTIC_HLE=1` (off by default; synthetic excitation, unknown POSITION scale) (`wsa1/hle/`, [see the LSI page]({{ site.baseurl }}/wsa1-modeling-lsi/#a-high-level-emulation-reference-now-runs-the-model-2026-09-10)) — a realization of the model, not the chip's audio, which still needs the wave ROMs and an internal-path trace                                                                                                                                                                                                                                                                                                                             |
+| **The drive motor line**            | wired in the development driver since 2026-09-01. The firmware clears CPU 1's PA bit 3 (`res 3,(0x1E)` at `0xFE18EF`) before a 307 ms spin-up delay, and the schematic carries that pin as `FDMON` → Q10/Q9 → the drive's `MOT`; the FDC itself wires `DS0` but none of `ME0`-`ME3`. The driver passes it to `mon_w` (active low), so an attached image spins up. Upstream `wsa1r` does not wire it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 ## Reproducing any of this
 

@@ -12,6 +12,9 @@ bytes in total — are being converted to TLCS-900 assembly source that
 [KN5000 ROM reconstruction]({{ site.baseurl }}/rom-reconstruction/) and follows
 the same practices, including the same
 [LLVM TLCS-900 backend](https://github.com/felipesanches/llvm-project/tree/tlcs900_backend).
+⚠ As of 2026-10-15 that public branch is behind the commit `TOOLCHAIN_VERSION` pins, and
+the current sources use operand spellings its build cannot parse, so the published tree
+cannot be rebuilt from public sources until the branch is pushed.
 
 > **Status.** All four images rebuild byte-identically from source, and that is
 > checked centrally after every commit. **None of the four carries a single
@@ -65,6 +68,12 @@ quantified claim needs a committed script, tested on the **last** element as wel
 as the first; every borrowed name needs a byte diff with the differing count
 stated. **Prefer `sub_XXXXXX` plus a stated gap over a plausible guess.**
 
+The disassembly's README carries a measured **semantic score** (`make semantic-score`,
+`scripts/analysis/semantic_score.py`). For the SX-WSA1R it was **92.62 %** when last
+measured (2026-10-06, at `7936b0a2`): the mean of bytes understood (the census's strict
+grade, 94.75 %), semantic names (83.11 %) and jump tables resolved (762 of 762). Quote it
+with its date; the README badge is the current value.
+
 ## Coverage — three columns, and only one of them means understanding
 
 ```
@@ -80,24 +89,24 @@ Every image's bytes fall into exactly three buckets, and they are not equivalent
   is territory, not understanding, and prom_c/prom_d are mostly this;
 * **verbatim `.incbin`** — a blob with no generating source. This is the debt.
 
-Snapshot from the first command at disassembly commit `be376096` (after the 2026-09-25
-semantic push; span counts are `grep -rc '^\s*\.incbin' wsa1/prom_*/`):
+Snapshot from the first command at disassembly commit `3417969c0` (2026-10-06; span
+counts are `grep -rc '^\s*\.incbin' wsa1/prom_*/`):
 
-| source | image | substantive | verified filler | still `.incbin` | `.incbin` spans |
-|---|---|---:|---:|---:|---:|
-| `prom_a` | `wsa1_prom_a.ic12` | 457,874 | 66,414 | **0** | 0 |
-| `prom_b` | `wsa1_prom_b.ic13` | 452,985 | 71,303 | **0** | 0 |
-| `prom_c` | `wsa1_prom_c.ic28` | 395,072 | 129,216 | **0** | 0 |
-| `prom_d` | `wsa1_prom_d.bin` | 330,521 | 193,767 | **0** | 0 |
-| **total** | | **1,636,452 (78.0 %)** | 460,700 | **0** | 0 |
+| source    | image              | substantive            | verified filler | still `.incbin` | `.incbin` spans |
+|-----------|--------------------|-----------------------:|----------------:|----------------:|----------------:|
+| `prom_a`  | `wsa1_prom_a.ic12` | 457,875                | 66,413          | **0**           | 0               |
+| `prom_b`  | `wsa1_prom_b.ic13` | 452,994                | 71,294          | **0**           | 0               |
+| `prom_c`  | `wsa1_prom_c.ic28` | 395,072                | 129,216         | **0**           | 0               |
+| `prom_d`  | `wsa1_prom_d.bin`  | 330,521                | 193,767         | **0**           | 0               |
+| **total** |                    | **1,636,462 (78.0 %)** | 460,690         | **0**           | 0               |
 
-`prom_a`'s substantive count is 3,298 bytes *lower* than on 2026-09-02 and its filler 3,298
+`prom_a`'s substantive count is 3,297 bytes *lower* than on 2026-09-02 and its filler 3,297
 higher, and that is correct: runs that had been framed as code were shown to be uniform pad
 and are now emitted as verified `.fill` — for instance the two `nop` runs that
 `notes/proma-2026-09-25/retire_zero_runs.py` (disassembly repository) proves unreached.
 Territory moved from one column to the other; nothing was lost.
 
-⚠ **Quote substantive, not the ~99 % "incl. filler" total.** prom_c alone
+⚠ **Quote substantive, not the 100 % "incl. filler" total.** prom_c alone
 contributes a verified 118,298-byte run of `0x0E` pad; counting it as equal to
 decoded code inflates the headline without adding a byte of understanding.
 
@@ -162,15 +171,18 @@ git ls-files 'wsa1/notes/*.md' | wc -l                                          
 git ls-files 'wsa1/*.py' | wc -l                                                                  # committed analysis scripts
 ```
 
-At disassembly commit `be376096`: **6,294 unnamed routines** (3,794 in `prom_a`, 2,328 in
-`prom_b`, 173 in `prom_c`'s sources), 8,578 `Evidence:` lines, 152 notes documents (110 of
-them `FINDINGS-*`), 543 committed Python analysis scripts.
+At disassembly commit `3417969c0` (2026-10-06): **568 unnamed routines** (125 in `prom_a`,
+272 in `prom_b`, 171 in `prom_c`'s sources), 9,811 `Evidence:` lines, 175 notes documents
+(132 of them `FINDINGS-*`), 601 committed Python analysis scripts.
 
 The command reads every source file under the `prom_*` roots: `prom_c` is now 26 subject
-files in subdirectories, which a one-level `wsa1/prom_*/*.s` glob silently skips. The unnamed
-count is *higher* than the 4,752 recorded on 2026-09-02 because conversion and the operand
-symbolisers keep giving previously unlabelled entry points a `sub_` label — the number that
-measures meaning is not one that only falls.
+files in subdirectories, which a one-level `wsa1/prom_*/*.s` glob silently skips. The count
+rose from 4,752 (2026-09-02) to 6,294 (`be376096`) as conversion and the operand symbolisers
+gave unlabelled entry points a `sub_` label. It then fell to 568 by 2026-10-06: 5,357 just
+before naming round 1, 4,570 after it (2026-10-03, 787 renames in eight packs ending at
+`94f697933`), 1,613 after the subsystem-by-subsystem reading commits of 2026-10-03 to 10-05,
+and 568 after naming waves 2–11 (2026-10-06, ending at `3f4b6ad62`). It is not a number that
+only falls.
 
 ⚠ A label count depends on what you count — compiler-local `.L` labels in
 particular — so a figure without its command is meaningless here.
@@ -194,11 +206,12 @@ stack above the FDC driver, carrying `Disk_ReadSectors`, `Disk_WriteSectors`,
 `Disk_RequestSenseDriveStatus`, `Disk_SetRequestGeometry` and
 `Disk_CommandDispatch` — is named at the command-issue seam (see
 [storage]({{ site.baseurl }}/wsa1/#storage-and-a-fixed-disk-that-may-never-have-shipped)).
-⚠ These are three named subsystems, not a finished CPU: most of `prom_a` is still
-`sub_XXXXXX`, including the screen-object system's own ENTER methods, the disk
-dispatcher's handlers and the four parameter-dispatcher handlers that have bodies (numbers
-`0x7A`, `0x98`, `0xA8`, `0xB0`; see
-[the rest of the space]({{ site.baseurl }}/wsa1-parameters/#the-rest-of-the-space)).
+Since the October naming rounds, most of `prom_a` is named: 125 `sub_XXXXXX` routines
+remain in it (272 in `prom_b`, 171 in `prom_c`). No screen object's ENTER method, none of
+the disk dispatcher's fifteen handlers (`DiskCmd_*`) and none of the four
+parameter-dispatcher handlers with bodies (see
+[the rest of the space]({{ site.baseurl }}/wsa1-parameters/#the-rest-of-the-space)) is
+still `sub_XXXXXX`.
 
 ## ★★ ONE KERNEL, FOUR PROCESSORS, TWO PRODUCTS
 
@@ -366,7 +379,7 @@ sub-CPU are the same design.** The data format follows the controller — prom_d
 byte-shift and rotation nulls.
 
 ⚠ **Two different numbers exist and must not be conflated.** A separate,
-earlier script — `technics_roms/tools/wsa1_kinship.py` — reports **31,046 B in
+earlier script in the project's private ROM archive (`wsa1_kinship.py`) reports **31,046 B in
 588 runs (15.8 %)** with a null of 0 B against an unrelated Technics ROM. It is a
 different script over a different corpus, with no entropy guard and the WSA1
 images concatenated. **Pick one and name its script.** Do not average them.
@@ -396,32 +409,32 @@ Two properties of the script matter more than the count:
   disagree, so a mis-based run emits nothing rather than plausible wrong names.
 
 ⚠ Byte identity establishes that the *code* is the same, not that the surrounding
-machine is. Of the 105, exactly **one** (`Int_SignedDiv` / `FP_UnsignedDiv` at
-prom_a `0xFE68F3`) has been converted and read; the other 104 are **proposals,
-not renames.**
+machine is. Of the 105, 58 are now labels in the WSA1R sources, most with a header citing
+the KN5000 sibling (for example `Voice_DepthMirror_Table`, prom_c `0xFDD5AB`, whose header
+cites `v142/subcpu/subcpu_data_tables.s:1010`); 35 of the addresses carry a different name
+and 12 none. One routine, `Int_SignedDiv` / `FP_UnsignedDiv` at prom_a `0xFE68F3`, has been
+converted and read. A transplanted name records byte identity, not a reading of the WSA1
+code.
 
 ## What is left
 
 **All four images are at zero verbatim debt.** None of them hands a byte back through an
 `.incbin`. That is not the same as every byte being in its final form, in either direction:
 
-* **code still spelled as `.byte`** — at disassembly commit `be376096`, `prom_a` carries
-  **298 certified `.byte` instruction sites (1,318 B, 89 forms)**; `prom_b` and `prom_c`
-  carry none. How many of the 298 have a spelling that reassembles byte-identically depends
-  on the assembler build as well as the sources. Under the build that commit was made with
-  (llvm-mc `da00420dba8d`, sha256 `a7ee33d53676`), none does. The toolchain work after it
-  changed that: under `910b50efab49` 292 have no spelling and 6 are spellable
-  (`ld a,(-xix)`, `ld (-xiy),a`, `ld (xix+),a`, `ld (xix+),wa`, `ld (xix+),e`,
-  `tset 0,(0x2a1b76)`); under `8e188b215251`, the pin since `bc571542`, the ten
-  `mul WA,(XIZ+d)` sites join them, **282 without a spelling and 16 spellable**. The sources
-  are being respelled to match — at `e5f6cea1` the five post-increment / pre-decrement sites
-  are instructions and 293 certified sites remain — so quote the figure with both the
-  revision and the assembler. The commonest unspelt forms are `or (N),N` (26 sites) and
-  `sub (N),N` (24). Run `python3 notes/sound/wsa1_unspellable_forms.py` from `wsa1/` in the
-  disassembly repository; it counts a line only if its byte echo, the ROM at its address,
-  MAME's `unidasm` framing and a round trip all agree, and it uses whatever llvm-mc the
-  shared build holds. `tools/wsa1_unspelt_by_toolchain.py` in this repository runs it at a
-  pinned revision under named llvm-mc binaries and prints each binary's sha256.
+* **code still spelled as `.byte`** — at disassembly commit `3417969c0` (2026-10-06),
+  `prom_a` carries **82 certified `.byte` instruction sites (226 B, 42 forms)**; `prom_b`
+  and `prom_c` carry none. How many have a spelling that reassembles byte-identically
+  depends on the assembler build as well as the sources. Under the pin `TOOLCHAIN_VERSION`
+  names (`a3a81863f87d`, llvm-mc sha256 `118bb4d6766e`), **81 have no spelling and one form,
+  `decf`, is spellable**. At `be376096` (2026-09-25) there were 298 sites (1,318 B, 89
+  forms), 282 of them unspelt under the then pin `8e188b215251`; the respells of 2026-10-03
+  (`7a9cf4ff8`, `09cc4ae4d`) converted most of them. The commonest unspelt forms are now
+  `srl A,C` (7 sites) and `sla A,C` (6). Run `python3 notes/sound/wsa1_unspellable_forms.py`
+  from `wsa1/` in the disassembly repository; it counts a line only if its byte echo, the
+  ROM at its address, MAME's `unidasm` framing and a round trip all agree, and it uses
+  whatever llvm-mc the shared build holds. `tools/wsa1_unspelt_by_toolchain.py` in this
+  repository runs it at a pinned revision under named llvm-mc binaries and prints each
+  binary's sha256.
 * **data framed as code** — the earlier audit that called `prom_a` and `prom_b` clean did not
   hold: the 2026-09-25 lanes found and retyped data decoded as instructions in both (in
   `prom_a` 1,958 B plus eleven panel lookup tables and the LED wire maps; in `prom_b` nine
@@ -437,14 +450,14 @@ not renames.**
 *(2026-09-02, `python3 scripts/analysis/kn5000_source_coverage.py`.)*
 
 ⚠ **Zero verbatim debt is a statement about `.incbin`, not about understanding.** The
-per-range data census, run after the 2026-09-25 push, gives these images:
+per-range data census, run at `3417969c0` (2026-10-06), gives these images:
 
-| image | strict (CODE + evidenced data + filler) | UNKNOWN | name-only (KNOWN-B) | research targets |
-|---|---:|---:|---:|---:|
-| `prom_a` | 95.16 % | 1,355 B | 24,023 B | 21,094 B |
-| `prom_b` | 83.65 % | 620 B | 85,108 B | 69,348 B |
-| `prom_c` | 98.01 % | 0 | 10,409 B | 9,588 B |
-| `prom_d` | 99.79 % | 0 | 1,096 B | 1,096 B |
+| image    | strict (CODE + evidenced data + filler) | UNKNOWN | name-only (KNOWN-B) | research targets |
+|----------|----------------------------------------:|--------:|--------------------:|-----------------:|
+| `prom_a` | 95.33 %                                 | 245 B   | 24,255 B            | 20,262 B         |
+| `prom_b` | 85.86 %                                 | 436 B   | 73,687 B            | 61,020 B         |
+| `prom_c` | 98.01 %                                 | 0       | 10,409 B            | 9,584 B          |
+| `prom_d` | 99.79 %                                 | 0       | 1,096 B             | 1,096 B          |
 
 A research target is a range whose purpose is not established — no explanation, a header
 that admits a gap, or undocumented data between two instruction runs. `prom_b` is the
@@ -463,14 +476,14 @@ disagreeing with its handler can be a deliberate list terminator, not a misframe
 superseded walk; and one region's layout came off the `djnz` loop that walks it, where
 entry 0 duplicates entry 1 because the loop counts down to 1 and never reads entry 0 — a
 property of the reader that is invisible in the data.
-(`wsa1/notes/FINDINGS-prom_b-last-481-bytes-RESOLVED.md`, script
+(`notes/FINDINGS-prom_b-last-481-bytes-RESOLVED.md`, script
 `wsa1/notes/prom_b_residue_481.py --selftest`.)
 
 ⚠ **Anchor an `.incbin` count to the start of the line.** `grep -ac '\.incbin'` over
-`wsa1/prom_b/wsa1_prom_b.s` returns 322 — every one of them the word `.incbin` inside a
-*comment*, because each conversion documented what the region used to be. `grep -ac
-'^[[:space:]]*\.incbin'` returns 0. The unanchored form has already had a coverage tool
-double-counting hundreds of kilobytes of debt out of dead comments.
+`wsa1/prom_b/wsa1_prom_b.s` returns 319 at `3417969c0` — every one of them the word
+`.incbin` inside a *comment*, because each conversion documented what the region used to be.
+`grep -ac '^[[:space:]]*\.incbin'` returns 0. The unanchored form has already had a coverage
+tool double-counting hundreds of kilobytes of debt out of dead comments.
 
 `prom_d` contains **no code**. Flattened through the assembler it yields ten
 instruction encodings totalling 30 bytes, and every one is a verified data
@@ -495,37 +508,37 @@ content after it — the ASCII `wsad_54.ssf`. It is **not** a trailing tail.
 
 From the same census, merged the way its research-target list merges them
 (`tools/census_research_by_image.py OUT.json --ranges prom_a,prom_b,prom_c,prom_d` in this
-repository, over `data_range_census.py --json OUT.json`; re-run at `be376096`). The six
-largest are all in `prom_a` and `prom_b` and are the first six below; after them the list
-is a selection, one entry per image for `prom_c` and `prom_d`. Next in size after the six
-come `prom_b`'s `Font_Svc06_8x14` (2,800 B), `prom_a`'s `RecordTables_FB82A0` (2,566 B) and
-`prom_b`'s `EffectNames_F147AC` (2,048 B).
+repository, over `data_range_census.py --json OUT.json`; re-run at `3417969c0`). The six
+largest are all in `prom_a` and `prom_b`: the first four below, then `prom_b`'s
+`Font_Svc06_8x14` (2,800 B) and `prom_a`'s `RecordTables_FB82A0` (2,566 B). Next in size
+come `prom_b`'s `EffectNames_F147AC` (2,048 B), `prom_c`'s curve tables (1,772 B, below) and
+`prom_b`'s `SmfExport_ParamSysExTemplates` (1,718 B). After the first four, the list notes
+two former entries and is a selection, one entry per image for `prom_c` and `prom_d`.
 
 * **`prom_b` `0xF212B0`–`0xF24DC0`** (15,120 B), fonts `Font_Svc16_8x14` … `Font_Svc1F_16x16`.
   Their roles and metrics are established; each header keeps one open question, which is
   enough for the census to list the whole range.
-* **`prom_b` `0xF06800`–`0xF08CD8`** (9,432 B), `ScaleTuningOffsets` … the
-  `SoundCodeByGroupMember_*` tables. The word encoding of those tables (6,660 B) is not
-  decoded; prom_a `sub_FAAF91` splits a low byte into kind bands (`≤0x0F`, `0x10`–`0x1F`,
-  `0x20`–`0x21`), and the consumers of parameter `0x98` were not traced.
+* **`prom_b` `0xF06800`–`0xF08CD8`** (9,432 B), `ScaleTuningOffsets` …
+  `ProgramChangeOut_ByProgramAndBank`. `PanelSoundSel_ByProgramAndBank` (`0xF07134`) and
+  `ProgramChangeOut_ByProgramAndBank` (`0xF08514`) are indexed by (program, bank).
+  `SoundCodeByGroupMember_ModeOffsetGroup` (`0xF06EF4`) maps a panel selection to (program,
+  bank) and `PanelSoundSel_ByProgramAndBank` maps it back, exact inverses on all 272 panel
+  selections. What the words encode for a given sound is still open (the reader at prom_a
+  `0xFC248D`, in `SoundSel_FromPresetProgramAndBank`, classifies the low byte against
+  `0x0F`, `0x1F`, `0x20` and `0x21`).
 * **`prom_a` `0xFED90A`–`0xFEF746`** (7,740 B), `DrumKitNames_Block7` … `DrumKitNames_Block12`. No
   reader: their 24-bit block and base addresses occur in none of the four images, and a
   multiply by 1290 or 129 was ruled out in `prom_a`.
-* **`prom_b` `LinkTable_F4FF61`** (4,602 B) is the SysEx decode tree `prom_a` `sub_FB63D1`
+* **`prom_b` `LinkTable_F4FF61`** (4,602 B) is the SysEx decode tree `prom_a` `SysExRx_MatchTrie`
   walks (entered at its record 767, `0xF5115B`); every one of the 74 SysEx bodies the SMF
   exporter writes is a complete seven-byte path through it
   (`notes/promb-2026-09-25/sysex_decode_tree_probe.py`). What a leaf's result and pair bytes
   select is still open.
-* **`prom_b` `0xF7D2D8`–`0xF7E2D8`** (4,096 B), `ButtonTable_Edit_0C10Zero` …
-  `ButtonTable_SequencerMedley`: 32 tables of 32 panel-button handlers, indexed by the
-  button code of a class-`0xA9` UI event (`wsa1/notes/prom_b_screens_round8.py --layer2`).
-  What each table's selector byte means is not established; codes `0x0E` and `0x11`–`0x19`
-  are handled by some screen but emitted by no `prom_a` template, and their producer is
-  unfound; and the 124 handlers have no names.
-* **`prom_b` `RecordArray_F511DD`** (3,139 B): 110 variable-length records framed by
-  `RecordIndex_F51E8A` — 16 parameter bytes, then three `prom_a` pointers at `+0x10`,
-  `+0x14`, `+0x18`. What the 16 parameter bytes mean, and why 28 bytes precede the first
-  record, is open.
+* `prom_b`'s 32 `ButtonTable_*` tables (4,096 B, now evidenced data, with all but two of
+  their 491 distinct handlers named by table and slot) and `RecordArray_F511DD` (3,139 B,
+  the SysEx parameter descriptors `SysExParamDesc_*`, 56 B of it still a target) have left
+  the top of the research list; the producer of button codes `0x0E` and `0x11`–`0x19` is
+  still unfound.
 * **`prom_c` `0xFDF7E0`–`0xFDFECC`** (1,772 B), `Curve_Fitting_Exp2Decay_256` …
   `Dev104_Reg0100_Const_251` — `prom_c`'s largest research target. The four voice-driver
   curve tables' fits and readers are established; their headers keep what is not, such as
@@ -592,8 +605,9 @@ evidence of a missing interrupt, device or call path: it may be stale. Before tr
 unreached code as a MAME defect, check whether it is a remnant — and never take a routine's
 address from the stale half of a pair. That mistake has already happened on this site: the
 tempo consumer on [System Exclusive Messages]({{ site.baseurl }}/sysex-messages/#the-one-traced-live-parameter-tempo-slot-9)
-was cited at `0xFAA350`, inside the stale veneer copy; the live routine is `sub_FAA742`,
-called from five places in `prom_a` and published through the `prom_b` thunk `T_F40794`.
+was cited at `0xFAA350`, inside the stale veneer copy; the live routine is `Tempo_ApplyBpm`
+(`0xFAA742`), called directly from five places in `prom_a` and published through the `prom_b`
+thunk `T_Tempo_ApplyBpm` (`0xF40794`).
 A tool that "follows every pointer" has the complementary problem: a remnant's pointers name
 unrelated live bytes, and walking them paints data as code.
 

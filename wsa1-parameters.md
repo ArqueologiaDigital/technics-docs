@@ -127,21 +127,35 @@ the MIDI-out handler of the same controller. Two further tables carry numbers `0
 `0xB7` for every part; **which controllers those are is not established** — no controller
 number reaches their handlers, and both go out through `MidiOut_Param_Ignore`.
 
-⚠ Each `ParamMsg_*` entry first tests bit 5 of RAM `0x7F36`; what that bit switches off is
-not established.
+⚠ Each `ParamMsg_*` entry first tests bit 5 of RAM `0x7F36`, which the MIDI TOTAL MODE
+screen draws and edits as **LOCAL TOTAL** (set = `OFF`; `MidiTotalMode_PaintLocalTotal`,
+`MidiTotalMode_EditLocalTotal` at prom_a `0xF9A5E5`). What the fan-out skips when it is set
+is not traced.
 
 ### The rest of the space
 
 `Dispatch_By_60F080` has 256 entries (its reader multiplies by an 8-bit operand); 168 of
-them point at the shared one-instruction handler `sub_FAC845`, a lone `ret`. Beyond the
-parts and the controllers, thirteen more numbers have entries of their own, and nine of
-those are no-ops as well: `0x44`–`0x46` share `sub_FABB5D`, and `0x48`, `0x60`, `0x70`,
-`0x72`, `0x90`, `0x91` go to `sub_FABB60`, `sub_FABBD2`, `sub_FABBD4`, `sub_FABBD5`,
-`sub_FABBCF` and `sub_FABBD0` — each of them a one-byte `ret` stub. So 177 of the 256
-numbers do nothing in this dispatcher. **Only four numbers — `0x7A` (`sub_FABB61`), `0x98`
-(`sub_FABBD7`), `0xA8` (`sub_FABCD7`) and `0xB0` (`sub_FABCEF`) — reach a handler with a
-body, and those four are not decoded yet.** (The entries are read from the ROM table at
-prom_a `0xFAC8EA`; the byte at each stub's address is `0x0E`, `ret`.)
+them point at the shared one-instruction handler `Dispatch_By_60F080_Nop64`, a lone `ret`.
+Beyond the parts and the controllers, thirteen more numbers have entries of their own, and
+nine of those are no-ops as well: `0x44`–`0x46` share `Dispatch_By_60F080_Nop68`, and
+`0x48`, `0x60`, `0x70`, `0x72`, `0x90`, `0x91` go to `Dispatch_By_60F080_Nop72`,
+`Dispatch_By_60F080_Nop96`, `Dispatch_By_60F080_Nop112`, `Dispatch_By_60F080_Nop114`,
+`Dispatch_By_60F080_Nop144` and `Dispatch_By_60F080_Nop145` — each of them a one-byte
+`ret` stub. So 177 of the 256 numbers do nothing in this dispatcher. **Only four numbers
+reach a handler with a body, and three of them are decoded:**
+
+* `0x7A` is the **tempo** (`List2030_Tempo_Dispatch` → `List2030_Tempo_Apply`: record RAM
+  `0x7EE2`, whose low 9 bits `Tempo_ApplyBpm` takes as BPM — a value outside 40–300 is
+  reset to 120 — and turns into the timer constant it writes to `TREG5`);
+* `0x98` is a **combination program change** (`List2030_Param98_Dispatch` →
+  `List2030_Param98_ApplyProgram`, record RAM `0x7F02`), the twin of the part
+  program-change handler;
+* `0xA8` is a pass-through (`List2030_ParamA8_PassThrough`): it queues the value and mask
+  unchanged and writes no record;
+* what `0xB0` is (`List2030_ParamB0_Dispatch`) stays open.
+
+(The entries are read from the ROM table at prom_a `0xFAC8EA`; the byte at each stub's
+address is `0x0E`, `ret`.)
 
 `ParamNumber_RecordPtrs` (prom_a `0xFACDEA`) gives a RAM record to 77 numbers, in
 `0x7622`–`0x7F5A`: the 64 part halves and `0x60`–`0x63`, `0x78`–`0x7A`, `0x80`,
@@ -164,8 +178,9 @@ twice, in `PanelCtrl_AssignToParamNumber` and inline in `PanelAction_AssignableC
 — is value for value the MIDI-in map above: `0x01`→`0xB2`, `0x02`→`0xBC`, `0x04`→`0xBD`,
 `0x0B`→`0xB3`, `0x10`–`0x13`→`0xB8`–`0xBB`, `0x40`→`0xB5`, and `0x81`, which is not a
 controller number, → `0xB4`, channel pressure. A switch assigned `0x40` sends number `0xB5`
-with `0x7F` / `0x00`, i.e. Hold on and off (`sub_F8B298`, the `0x40` arm of
-`PanelAction_AssignableSwitch`) — what reading the byte as a CC number predicts.
+with `0x7F` / `0x00`, i.e. Hold on and off (`PanelAction_SwitchSendsHold`, `0xF8B298`, the
+`0x40` arm of `PanelAction_AssignableSwitch`) — what reading the byte as a CC number
+predicts.
 
 ⚠ Which physical controls panel groups `0x0B`–`0x17` are is not established, and neither
 are the switch assignments `0x88`, `0x89` and `0x90` that `PanelAction_AssignableSwitch`
@@ -180,10 +195,12 @@ The panel side of the chain — groups, action lists, held-button sets — is on
 `[id][len][payload]` records, and `ParamNumber_DefaultRecordPtrs` (prom_a `0xFAD28A`, 64
 entries) moves in lockstep with the RAM table: `entry[n] = ParamNumber_RecordPtrs[n] +
 0xF37DDE` for all 64. Three prom_a routines copy payload byte *H* to byte *H* of the RAM
-record with the same number — `sub_FAAE2A` for `0x00`–`0x3F`, `sub_FAAF91` for the thirteen
-others (through `ByteTable_FAD38A` and `PtrTable_FAD397`), `sub_FAA967` for bytes
-`0x0D`–`0x15` of the 32 first halves. The sources label them `Default_Part00_A` …,
-`Default_DspEffect1`–`3`, `Default_Record78` and so on. What the defaults say:
+record with the same number — `PartSettings_ResetToDefault` for `0x00`–`0x3F`,
+`SystemSettings_ResetToDefault` for the thirteen others (through `ByteTable_FAD38A` and
+`PtrTable_FAD397`), `MidiSettings_ResetToDefault` for bytes `0x0D`–`0x15` of the 32 first
+halves; they are what the INITIAL screen's items run. The sources label the records
+`Default_Part00_A` …, `Default_DspEffect1`–`3`, `Default_Record78` and so on. What the
+defaults say:
 
 * part *k*'s channel byte (`+0x0D`) defaults to *k*; part 9 — MIDI channel 10 — alone
   differs, in both halves;
@@ -196,9 +213,10 @@ Checks: `notes/promb-2026-09-25/factory_default_records.py` and
 `0xF80000`–`0xF965BF` is the factory COMBINATION memory — 16 banks × 8 combinations plus a
 record named `Clear`, 704 bytes each — and CPU 1 reads it over the inter-processor link:
 six prom_a routines build a CPU-2 address from the region's own constants and hand it to
-`Link_SendCommandE2`, the link's remote read. `sub_F98927` copies one 704-byte record to
-CPU-1 RAM `0x7620`. Each record is a chain of `[tag][length][payload]` chunks, and the tags
-are parameter-record numbers. The disassembly's SysEx reference
+`Link_SendCommandE2`, the link's remote read. `Combination_ReadFromCpu2` (`0xF98927`)
+copies one 704-byte record to CPU-1 RAM `0x7620`. Each record is a chain of
+`[tag][length][payload]` chunks, and the tags are parameter-record numbers. The
+disassembly's SysEx reference
 (`wsa1/docs/system-exclusive-reference/sec-blocks.tex`) names them:
 
 | tag | chunk |
@@ -261,10 +279,10 @@ The live-MIDI SysEx decoder is on [System Exclusive Messages]({{ site.baseurl }}
   — and the shared layout above makes those names a strong lead, not yet a reading of the
   code. (The `0x40`-byte step between part records, once called "a step, not a proof", is
   two chunks of 2 + 30 bytes.)
-* What the four numbers of `Dispatch_By_60F080` with a real handler do (`0x7A`, `0x98`,
-  `0xA8`, `0xB0`), and what the default-module ids listed above mean in prom_a's own code.
-* Which controllers numbers `0xB6` and `0xB7` stand for; what bit 5 of `0x7F36` gates; the
-  switch assignments `0x88`, `0x89`, `0x90`.
+* What parameter `0xB0` is (its handler stages a value from RAM `0x24F3`), and what the
+  default-module ids listed above other than `0x7A`, the tempo, mean in prom_a's own code.
+* Which controllers numbers `0xB6` and `0xB7` stand for; what the LOCAL TOTAL bit (bit 5
+  of `0x7F36`) skips; the switch assignments `0x88`, `0x89`, `0x90`.
 * `Dispatch_By_60F080__Tail` (64 words after the reachable table) and the stale copies of
   this module 0x400 lower — see
   [older-build remnants]({{ site.baseurl }}/wsa1-disassembly/#older-build-remnants-and-why-unreached-code-can-be-correct).

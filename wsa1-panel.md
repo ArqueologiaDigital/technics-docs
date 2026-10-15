@@ -164,7 +164,7 @@ Four live rows on SEG9 and two on SEG3 — exactly as the menu is drawn. **SEG9 
 the LEFT column.** Reproduce with
 `kn7000_mame/notes/wsa1-probes/wsa1_softkey_columns.sh`.
 
-<figure style="margin:1.5rem 0;text-align:center;"><img src="{{ "/assets/images/wsa1/wsa1r_layout_disk_menu.png" | relative_url }}" alt="The emulated SX-WSA1R with the DISK menu open and the DISK lamp lit" style="max-width:100%;border:1px solid #ccc;border-radius:3px;"><figcaption style="font-size:0.8rem;color:#777;">Pressing MENU DISK through the layout's own binding opens screen <code>0x40</code> and lights the DISK lamp — four entries down the left of the LCD, two down the right. The machine is <code>MACHINE_NOT_WORKING | MACHINE_NO_SOUND</code>.</figcaption></figure>
+<figure style="margin:1.5rem 0;text-align:center;"><img src="{{ "/assets/images/wsa1/wsa1r_layout_disk_menu.png" | relative_url }}" alt="The emulated SX-WSA1R with the DISK menu open and the DISK lamp lit" style="max-width:100%;border:1px solid #ccc;border-radius:3px;"><figcaption style="font-size:0.8rem;color:#777;">Pressing MENU DISK through the layout's own binding opens screen <code>0x40</code> and lights the DISK lamp — four entries down the left of the LCD, two down the right. The machine is <code>MACHINE_NOT_WORKING | MACHINE_IMPERFECT_SOUND</code>.</figcaption></figure>
 
 ## The lamps
 
@@ -183,8 +183,8 @@ is the data. `kn7000_mame/notes/wsa1-probes/wsa1_lamp_identification.py` reports
 The emulator exposes 64 LED outputs, `led0`..`led63`, because the register file
 is 8 registers × 8 bits. **Only 47 of them are lamps anywhere on this machine.**
 
-The **PANEL SW&LED CHECK**'s all-on sweep (`sub_F956B0`, prom_a `0xF956B0`) walks
-the word table at `0xF95C68` until `0xFFFF`, and that table is exactly
+The **PANEL SW&LED CHECK**'s all-on sweep (`PanelSwLedCheck_AllLedsOn`, prom_a
+`0xF956B0`) walks the word table at `0xF95C68` until `0xFFFF`, and that table is exactly
 `reg0=FF reg1=FF reg2=FF reg3=FF reg4=FF reg5=03 reg6=0F reg7=02`. At the
 driver's index `register × 8 + bit`, the **seventeen outputs the firmware's own
 test never lights** are `led42-47`, `led52-56` and `led58-63` — and they are
@@ -239,7 +239,8 @@ midpoints — while `0xD3`'s handler at `0xF89A8B` has **no** `(0xC4)` test at a
 because that control is present on both machines.
 
 ⚠ Also refuted: the two "software analogue channels" that variant 2 keeps in the
-`0xF8DC25` scan are **not controls**. `sub_F8DD4D` and `sub_F8DD62` read RAM
+`0xF8DC25` scan are **not controls**. `AnalogScan_RamChannel4` and
+`AnalogScan_RamChannel5` (`0xF8DD4D`, `0xF8DD62`) read RAM
 `(0x600000)` / `(0x600001)`, which are parked at `0x80` and written by prom_b's
 display-list interpreter.
 
@@ -262,9 +263,9 @@ Three chords are read from the panel's own change-mask shadow at RAM
 
 ### On the rack: the number pad
 
-`sub_F953CD` (prom_a) — reached once from RESET at `0xF827F8` → `0xF40148` →
-`0xF952FC`, and only when the strap says `(0xC4) == 2` — compares `(0x2B31)`,
-which is wire `0xC1` = SEG1, for **equality**:
+`TestMode_SelectFromPowerOnKeys_Variant2` (prom_a `0xF953CD`) — reached once from
+RESET at `0xF827F8` → `0xF40148` → `0xF952FC`, and only when the strap says
+`(0xC4) == 2` — compares `(0x2B31)`, which is wire `0xC1` = SEG1, for **equality**:
 
 | SEG1 bit | value | screen | title |
 |---|---|---|---|
@@ -281,9 +282,9 @@ test has already latched.
 
 ### ★ On the keyboard: from the keybed, which no sibling machine does
 
-On the `(0xC4) == 1` arm, `sub_F9530B` does a **link remote read of eight bytes
-from CPU 2's `0x0000FFF0`** and does nothing unless **exactly two bits are set**
-(`cps L,0x02 / jrl NZ` at `0xF95346`).
+On the `(0xC4) == 1` arm, `TestMode_SelectFromPowerOnKeys_Variant1` (`0xF9530B`)
+does a **link remote read of eight bytes from CPU 2's `0x0000FFF0`** and does
+nothing unless **exactly two bits are set** (`cps L,0x02 / jrl NZ` at `0xF95346`).
 
 `0x0000FFF0` is CPU 2's 61-key state bitmap: `KeyScan_InitKeyStateBitmap`
 (prom_c `0xF9988D`) clears eight bytes there and folds scanner events in at byte
@@ -307,8 +308,8 @@ note an octave apart. Key 0 is MIDI 36, the firmware adding 36 inside
 ★ **The decode is confirmed live, against a criterion that could have failed.**
 Holding D4 + D5 from t = 0 on the `wsa1` driver, CPU 2's bitmap reads
 `00 00 00 04 40 00 00 00` — **popcount 2** — steadily from t = 5 s: byte +3 bit 2
-is key 26 = D4 and byte +4 bit 6 is key 38 = D5, exactly the pair `sub_F9530B`
-tests for screen `0xD9`.
+is key 26 = D4 and byte +4 bit 6 is key 38 = D5, exactly the pair
+`TestMode_SelectFromPowerOnKeys_Variant1` tests for screen `0xD9`.
 
 ⚠ **And the chord still does not fire in the emulator**: RAM `(0x2070)` is never
 written with `0xD9`. That localises the failure to CPU 1's side of the remote
@@ -388,13 +389,13 @@ The DISK menu closes on itself, which is a check on the whole mapping. The menu
 screens' ids into the screen-request cells `(0x2070)`/`(0x2071)`, and every id it
 can write is one of the nine disk screens the same module owns.
 
-⚠ **This names the mechanism, not every screen.** Of the 175 live objects, 32
-carry a named ENTER method in prom_a and 36 have their ENTER in prom_b; the ENTER
-methods of about a hundred screens are still `sub_XXXXXX`, because most delegate
-their drawing to a helper rather than painting text inline, so a screen's title
-is two or three calls away from its object. Naming one ENTER method names that
-screen's LEAVE and BUTTON methods for free. Reproduce the table and its method
-offsets with `wsa1/notes/prom_a_naming_wave8_apply.py --screens` and
+No screen object's ENTER method is still `sub_XXXXXX`. Of the 175 live objects,
+123 enter a named routine in prom_a (for example `InstallPainter_SoundMode_Entry`,
+`ModeEnter_Combination`) and 36 one in prom_b, and the other 16 reach a bare
+`ret`. Most delegate their drawing to a helper rather than painting text inline,
+so a screen's title is often two or three calls away from its object. Naming one
+ENTER method names that screen's LEAVE and BUTTON methods for free. Reproduce
+the table and its method offsets with `wsa1/notes/prom_a_naming_wave8_apply.py --screens` and
 `wsa1/notes/prom_a_screen_methods_wave29.py`.
 
 ## From a switch to a parameter record
@@ -412,10 +413,10 @@ A press reaches the rest of CPU 1 along two routes out of the panel's group queu
 * **As actions.** `PanelGroupActionTable_Variant1/2`, indexed by group, point into
   `PanelGroupActionListPool`: 930 bytes of six-byte records `[group][mask][handler]`, keyed
   on the 16-bit (mask, group) pair, whose handler fields are now written as `.long <label>`
-  so the byte gate checks every target. Fifteen distinct handlers are reached; six are named
-  (`PanelAction_SoundSelectOrKeypad_V1`, `PanelAction_Keypad_V2`,
-  `PanelAction_AssignableController`, `PanelAction_AssignableSwitch`,
-  `PanelAction_OrdinalToEventValue_A` / `_B`) and nine are still `sub_XXXXXX`. Four of them
+  so the byte gate checks every target. Fifteen distinct handlers are reached, and all are
+  named, from `PanelAction_SoundSelectOrKeypad_V1`, `PanelAction_Keypad_V2`,
+  `PanelAction_BankButton` and `PanelAction_BankRemap` to `PanelAction_PitchBendToMsbLsb`,
+  `PanelAction_AssignableController` and `PanelAction_AssignableSwitch`. Four of them
   keep two **held-button sets** at RAM `0x2252` / `0x2256`: bit *code* set on press and
   cleared on release, a repeated press recorded as *code* + `0x11` at bit + 17 — the offset
   `PanelButton_InterlockMask32` tests.
@@ -464,8 +465,8 @@ with the current toolchain.
    ([above](#from-a-switch-to-a-parameter-record)): a group reaches
    `PanelGroupEventLists_Variant1/2` and `PanelGroupActionListPool`, and the event list it
    fills is run by `UiEventList_Run` through per-pass class tables. (The range
-   `0xF869F0-0xF86A23` this item used to name as a map is that runner's own code.) Nine of
-   the fifteen action handlers, the switch assignments `0x88`, `0x89` and `0x90`, and which
+   `0xF869F0-0xF86A23` this item used to name as a map is that runner's own code.) The
+   switch assignments `0x88`, `0x89` and `0x90`, and which
    physical control each assignable group `0x0B`–`0x17` is, remain open.
 4. **A better scan of the self-diagnostic pages.** They map the wave-ROM tests
    onto buttons, and the OCR loses the circled digits. ⚠ It is **seven** tests,

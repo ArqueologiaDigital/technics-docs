@@ -14,12 +14,16 @@ and two sets of MIDI ports. They are the first non-arranger machines documented 
 this site, and they are here because they turn out to share **both silicon and
 literal machine code** with the [KN5000]({{ site.baseurl }}/system-overview/).
 
-> **Status: early, and honest about it.** Both variants are declared in a
-> development MAME driver that boots them to their real `SOUND MODE` screen and
-> takes button presses. It makes **no sound at all** — the tone generator and the
-> three DSPs are not modelled, and **all six wave mask ROMs are undumped**. Since
-> 2026-09-01 the modelling window at `0x00104000` has a placeholder device that
-> models its register interface and synthesises nothing. A byte-exact disassembly of all four EPROM images exists;
+> **Status: early, and honest about it.** The rack is in MAME: `wsa1r` was merged
+> as [mamedev/mame#16204](https://github.com/mamedev/mame/pull/16204) on
+> 2026-09-21. This project's development driver also declares the keyboard,
+> `wsa1`. Both boot to their real `SOUND MODE` screen and take button presses,
+> flagged `MACHINE_NOT_WORKING | MACHINE_IMPERFECT_SOUND`. The tone generator
+> plays a **placeholder sine** per voice, because **all six wave mask ROMs are
+> undumped**. The three uPD6383GF DSPs are skeleton devices upstream; the
+> development driver has a uPD6383 core behind a default-off switch, held out of
+> execution. The modelling LSI at `0x00104000` is a register-file device that
+> synthesises nothing by default. A byte-exact disassembly of all four EPROM images exists;
 > every one rebuilds from source with **no `.incbin` at all**, and **78.0 %** of the
 > 2,097,152 bytes is substantive source, the remainder being verified uniform filler
 > (`wsa1/scripts/analysis/source_coverage.py`). See
@@ -31,10 +35,12 @@ literal machine code** with the [KN5000]({{ site.baseurl }}/system-overview/).
 **Nobody working on this driver has read an SX-WSA1R EPROM.** The four firmware
 images are the **publicly circulated "v2" OS set**, downloaded in August 2026 from
 the synthesizer-preservation site `dbwbp.com` (also mirrored on archive.org) and
-recorded in `technics_roms/roms/wsa1/PROVENANCE.md`. The uploader states the set
-was read from a rack SX-WSA1R and works unmodified in the keyboard SX-WSA1 —
-**that claim is the only basis for running the same images in both drivers**, and
-no SX-WSA1 material exists in these trees to check it against.
+recorded in the project's ROM archive and in the MAME driver's header. The
+uploader states the set was read from a rack SX-WSA1R and works unmodified in the
+keyboard SX-WSA1 — that claim, and first-hand testimony recorded on 2026-09-21
+that the keyboard ships the same set, are **the only basis for running the same
+images in both drivers**, and no SX-WSA1 material exists in these trees to check
+them against.
 
 They are declared **without** a dump-quality flag because nothing suggests the
 bytes are wrong: what is second-hand here is the provenance, not the integrity.
@@ -55,7 +61,9 @@ Four mutually independent checks agree —
 
 *"v2.0" is the name the set circulates under. It appears in neither the service
 manual nor in any of the four images*; the only version strings the firmware
-carries are those three build tags.
+carries are those three build tags. A **v1 OS** also shipped, and it is not
+dumped. Whether it used different factory part numbers is not known, which is why
+MAME carries the revision in the file names (`qsigcwsa1ax_v2.ic12` …).
 
 Everything about the **rack** rests on the SX-WSA1R service manual
 (ORDER NO. **EMID951604**, © 1995 Matsushita Electric Industrial), whose scan
@@ -65,28 +73,28 @@ the ROM alone.
 
 ## At a glance
 
-| Property | SX-WSA1 / SX-WSA1R | (KN5000 for comparison) |
-|----------|--------------------|--------------------------|
-| Year | **1995** | 1997 |
-| Category | acoustic-modelling **synthesizer**, keyboard + rack | arranger keyboard |
-| CPUs | **two Toshiba TMP95C061AF** (TLCS-900/H), IC1 "MAIN" + IC2 "SUB" | TMP94C241F (TLCS-900/H2) main + sub |
-| Clock | **fc = 28 MHz**, both parts (derived from the firmware) | 25 MHz |
-| Polyphony | 64 notes, 32 parts max. | — |
-| Sounds | PRESET 256 + 16 drum kits, 128 combinations; USER 256 + 4 kits, 128 combinations | — |
-| Effects | DIGITAL EFFECT 12 types; DSP EFFECT 44 types + REVERB 12 types | 50-effect DSP catalogue |
-| Display | **SED1330FBA**, 320 × 240 dot monochrome LCD | 320 × 240 colour, VGA-style controller |
-| Storage | 3.5″ floppy, 2HD 1.44 MB / 2DD 720 KB, uPD72070 FDC | 3.5″ floppy, uPD72067 |
-| MIDI | **MIDI IN / OUT / THRU × 2** | single set |
-| Program ROM | **four 4 Mbit EPROMs** (2 MB total), IC12/IC13/IC28 + the D image | 2 MB main + 192 KB sub payload |
-| Kernel | custom TLCS-900 RTOS, **the same one on both CPUs** | the same RTOS lineage (see below) |
-| MILK UI framework | **absent** | absent (it arrives with the MN10300 models) |
+| Property          | SX-WSA1 / SX-WSA1R                                                               | (KN5000 for comparison)                                  |
+|-------------------|----------------------------------------------------------------------------------|----------------------------------------------------------|
+| Year              | **1995**                                                                         | 1997                                                     |
+| Category          | acoustic-modelling **synthesizer**, keyboard + rack                              | arranger keyboard                                        |
+| CPUs              | **two Toshiba TMP95C061AF** (TLCS-900/H), IC1 "MAIN" + IC2 "SUB"                 | TMP94C241F (TLCS-900/H2) main + sub                      |
+| Clock             | **fc = 28 MHz**, both parts (derived from the firmware)                          | 16 MHz main, 20 MHz sub (8 and 10 MHz crystals, doubled) |
+| Polyphony         | 64 notes, 32 parts max.                                                          | —                                                        |
+| Sounds            | PRESET 256 + 16 drum kits, 128 combinations; USER 256 + 4 kits, 128 combinations | —                                                        |
+| Effects           | DIGITAL EFFECT 12 types; DSP EFFECT 44 types + REVERB 12 types                   | 50-effect DSP catalogue                                  |
+| Display           | **SED1330FBA**, 320 × 240 dot monochrome LCD                                     | 320 × 240 colour, VGA-style controller                   |
+| Storage           | 3.5″ floppy, 2HD 1.44 MB / 2DD 720 KB, uPD72070 FDC                              | 3.5″ floppy, uPD72067                                    |
+| MIDI              | **MIDI IN / OUT / THRU × 2**                                                     | single set                                               |
+| Program ROM       | **four 4 Mbit EPROMs** (2 MB total), IC12/IC13/IC28/IC21                         | 2 MB main + 192 KB sub payload                           |
+| Kernel            | custom TLCS-900 RTOS, **the same one on both CPUs**                              | the same RTOS lineage (see below)                        |
+| MILK UI framework | **absent**                                                                       | absent (it arrives with the MN10300 models)              |
 
 Rack dimensions 48.2 × 14.1 × 25.2 cm, 6.5 kg; accessories AC cord, **DEMO DISK**
 and a MIDI cable. Rear panel: PHONES, MAIN OUT (R, L/MONO), SUB OUT (R, L/MONO),
 MIDI IN/OUT/THRU × 2.
 *(Specification page of the SX-WSA1R service manual.)*
 
-<figure style="margin:1.5rem 0;text-align:center;"><img src="{{ "/assets/images/wsa1/wsa1r_layout_t45_sound_mode.png" | relative_url }}" alt="The emulated SX-WSA1R front panel showing the SOUND MODE screen" style="max-width:100%;border:1px solid #ccc;border-radius:3px;"><figcaption style="font-size:0.8rem;color:#777;">The SX-WSA1R in MAME, on its <code>SOUND MODE</code> screen at t = 45 s. The panel artwork is Felipe's own SVG redrawing of the manual's ARRANGEMENT OF CONTROL PANEL page; the LCD content is the firmware's. The machine is <code>MACHINE_NOT_WORKING | MACHINE_NO_SOUND</code> — <strong>it makes no sound</strong>.</figcaption></figure>
+<figure style="margin:1.5rem 0;text-align:center;"><img src="{{ "/assets/images/wsa1/wsa1r_layout_t45_sound_mode.png" | relative_url }}" alt="The emulated SX-WSA1R front panel showing the SOUND MODE screen" style="max-width:100%;border:1px solid #ccc;border-radius:3px;"><figcaption style="font-size:0.8rem;color:#777;">The SX-WSA1R in MAME, on its <code>SOUND MODE</code> screen at t = 45 s. The panel artwork is Felipe's own SVG redrawing of the manual's ARRANGEMENT OF CONTROL PANEL page; the LCD content is the firmware's. The machine is <code>MACHINE_NOT_WORKING | MACHINE_IMPERFECT_SOUND</code> — <strong>its sound is a placeholder sine</strong>, not the instrument's voice.</figcaption></figure>
 
 ## Two products, one ROM set, one strap bit
 
@@ -163,27 +171,27 @@ readings are recorded; where a designator is derived rather than read, it says s
 
 ### Main board
 
-| Ref | Part | Role |
-|-----|------|------|
-| **IC1** | **TMP95C061AF** | Toshiba TLCS-900/H, *"MICROCOMPUTER (MAIN)"* |
-| **IC2** | **TMP95C061AF** | Toshiba TLCS-900/H, *"MICROCOMPUTER (SUB)"* |
-| **IC3** | **L7A1429** | *"MODELING LSI"* — the engine the machine is named after: **64 channels of coupled linear resonators**, nineteen 16-bit parameter registers each. A MAME device (`l7a1429_device`) models the register interface at `0x00104000`; it synthesises nothing. ⚠ That `0x104000` decodes to *this part* is an inference — no ROM names a part number — so the disassembly still calls it `Dev104_`. Full account: [Acoustic Modelling LSI]({{ site.baseurl }}/wsa1-modeling-lsi/). |
-| **IC4** | **TC183C230002** | *"TONE GENELATOR LSI"* [sic] |
-| IC30 (+ two more) | **NEC uPD6383GF-3BA** | three digital signal processors — **the same part as the KN5000's IC311**. ⚠ Only the IC30 designator prints cleanly; the other two schematic instances read as IC5 and IC6, and the block diagram shows three DSP blocks, so three is the count used |
-| **IC7** | **SED1330FBA** | LCD controller for the 320 × 240 dot panel |
-| IC12 / IC13 | `QSIGCWSA1AX` / `QSIGCWSA1BX` | 4 Mbit programmed EPROMs, chip selects `PROMACS` / `PROMBCS` |
-| IC28 | `QSIGCWSA1CX` | 4 Mbit programmed EPROM, chip select `PROMCCS` |
-| *(designator not asserted)* | `QSIGCWSA1DX` | 4 Mbit programmed EPROM, chip select `PROMDCS`. The designator column is missing from both places this part is printed; the redistributed file is named `.ic21` and the parts-list row order agrees, but nothing in the scan available here confirms it |
-| *(designator not asserted)* | **AM29F400T** | 4 Mbit flash — same situation; the parts-list row order puts it at IC22 |
-| IC27 | D74HC139GS | decoder; generates `PROMCCS` and `PROMDCS` |
-| IC43–45, IC47–49 | `QSIGH3C16*` | **six 16 Mbit wave mask ROMs — all undumped.** There is no IC46 in either the parts list or the self-diagnostic |
-| IC52–54, IC59 | **PCM1702U** | four D/A converters |
-| IC55–58 | M5218AFP | operational amplifiers |
-| IC14 / IC15 | M5256CFP70LL / M5M44170AJ7S | 256 kbit static RAM, 4 Mbit DRAM |
-| IC23, IC31, IC32, IC51, IC61 | LC321664AJ80 | 1 Mbit DRAM |
-| IC33, IC34 | M5M44260AJ7S | 4 Mbit DRAM |
-| IC71 | LH5P832N-10 | 256 kbit RAM (schematic: pseudo-static; parts list: static) |
-| *(unknown)* | **uPD72070GF3BE** | NEC floppy disk controller, for the 3.5″ 2HD/2DD drive |
+| Ref                          | Part                          | Role                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+|------------------------------|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **IC1**                      | **TMP95C061AF**               | Toshiba TLCS-900/H, *"MICROCOMPUTER (MAIN)"*                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **IC2**                      | **TMP95C061AF**               | Toshiba TLCS-900/H, *"MICROCOMPUTER (SUB)"*                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **IC3**                      | **L7A1429**                   | *"MODELING LSI"* — the engine the machine is named after: **64 channels of coupled linear resonators**, nineteen 16-bit parameter registers each. A MAME device (`l7a1429_device`) models the register interface at `0x00104000`; it synthesises nothing. That `0x104000` decodes to *this part* is settled by the schematic: IC27's `1Y1` = `WFICS` = `0x104000` drives IC3's `NSGCE`. The disassembly's labels still read `Dev104_`. Full account: [Acoustic Modelling LSI]({{ site.baseurl }}/wsa1-modeling-lsi/). |
+| **IC4**                      | **TC183C230002**              | *"TONE GENELATOR LSI"* [sic]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| IC30 (+ two more)            | **NEC uPD6383GF-3BA**         | three digital signal processors — **the same part as the KN5000's IC311**. ⚠ Only the IC30 designator prints cleanly; the other two schematic instances read as IC5 and IC6, and the block diagram shows three DSP blocks, so three is the count used                                                                                                                                                                                                                                                                 |
+| **IC7**                      | **SED1330FBA**                | LCD controller for the 320 × 240 dot panel                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| IC12 / IC13                  | `QSIGCWSA1AX` / `QSIGCWSA1BX` | 4 Mbit programmed EPROMs, chip selects `PROMACS` / `PROMBCS`                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| IC28                         | `QSIGCWSA1CX`                 | 4 Mbit programmed EPROM, chip select `PROMCCS`                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **IC21**                     | `QSIGCWSA1DX`                 | 4 Mbit programmed EPROM, chip select `PROMDCS`. The parts list carries no designator for it, but schematic sheet II-11/II-12 prints IC21 twice beside the part, which is also the name the redistributed file and MAME's `qsigcwsa1dx_v2.ic21` use                                                                                                                                                                                                                                                                    |
+| **IC22**                     | **AM29F400T**                 | 4 Mbit flash, chip select `SFLSHCS` at `0xE80000` on CPU 2; sheet II-11/II-12 prints the designator above the part label (the parts list does not carry it)                                                                                                                                                                                                                                                                                                                                                           |
+| IC27                         | D74HC139GS                    | decoder; generates `PROMCCS` and `PROMDCS`                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| IC43–45, IC47–49             | `QSIGH3C16*`                  | **six 16 Mbit wave mask ROMs — all undumped.** There is no IC46 in either the parts list or the self-diagnostic                                                                                                                                                                                                                                                                                                                                                                                                       |
+| IC52–54, IC59                | **PCM1702U**                  | four D/A converters                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| IC55–58                      | M5218AFP                      | operational amplifiers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| IC14 / IC15                  | M5256CFP70LL / M5M44170AJ7S   | 256 kbit static RAM, 4 Mbit DRAM                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| IC23, IC31, IC32, IC51, IC61 | LC321664AJ80                  | 1 Mbit DRAM                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| IC33, IC34                   | M5M44260AJ7S                  | 4 Mbit DRAM                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| IC71                         | LH5P832N-10                   | 256 kbit RAM (schematic: pseudo-static; parts list: static)                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **IC8**                      | **uPD72070GF3BE**             | NEC floppy disk controller, for the 3.5″ 2HD/2DD drive; sheet II-9/II-10 prints IC8 above the part label, crystal X5 = 24 MHz                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ### Control panel 1 board
 
@@ -192,14 +200,12 @@ readings are recorded; where a designator is derived rather than read, it says s
 | **M37471M2196S** | Mitsubishi panel microcontroller — **the same part as the two MCUs in the KN5000's control panel**. Internal mask ROM **not dumped**; no ROM region is declared for it because the manual does not give its capacity. |
 | HD74LS07P | hex buffer |
 
-⚠ The tone-generator identity is **corroborated, not settled**. The parts-list OCR
-prints it both as `TC183C230002` — which would match the KN5000's IC303 — and as
-`TC1830230002`, differing in one character (`C` against `0`), which is the
-confusion this scan makes most often. `PROVENANCE.md` says in as many words:
-*do not repeat the tone-generator identity as established until it is checked
-against the schematic page image.* It is the most consequential of the three
-shared-silicon claims, because it would mean an acoustic-modelling synth still
-carries the KN5000's PCM tone generator.
+The tone-generator identity is **settled by the schematic**. The parts-list OCR
+prints it both as `TC183C230002` and as `TC1830230002`, but sheet II-13/II-14
+prints the part label directly under the IC4 designator, and both readings agree
+on `TC183C230002`, the KN5000's IC303. IC4 also takes the keybed select
+(`NKSCE` ← `KSCS`), and its crystal X4 is 33.8688 MHz = 768 × 44100. An
+acoustic-modelling synth therefore still carries the KN5000's PCM tone generator.
 
 ### The clock: fc = 28 MHz, and the firmware is what says so
 
@@ -224,21 +230,21 @@ makes the *same* prediction on either timer tap scale — 2048/8 = 256 and
 
 ## The four images
 
-| source | file | chip | base | role |
-|---|---|---|---|---|
-| `prom_a` | `qsigcwsa1ax.ic12` | IC12 | `0xF80000` on CPU 1 | **boot image of CPU 1**; reset vector at `0xFFFF00` |
-| `prom_b` | `qsigcwsa1bx.ic13` | IC13 | `0xF00000` on CPU 1 | the low half of the same 1 MiB space; most of the UI text (EN/DE/FR) and the service screens |
-| `prom_c` | `qsigcwsa1cx.ic28` | IC28 | `0xF80000` on CPU 2 | **boot image of CPU 2**; the factory COMBINATION memory at file `0x000000-0x0165BF` (a `ZZZZ` header, 16 banks × 8 combinations and a `Clear` record, which CPU 1 reads over the link — see [Parameter Records]({{ site.baseurl }}/wsa1-parameters/#factory-defaults-and-the-combination-memory)), code `0x018000-0x0621E4` |
-| `prom_d` | `qsigcwsa1dx.bin` | *(designator not asserted)* | `0xF00000` on CPU 2 | **data only** — a tone database; no vector table, essentially no branch structure |
+| source   | file                  | chip | base                | role                                                                                                                                                                                                                                                                                                                        |
+|----------|-----------------------|------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `prom_a` | `qsigcwsa1ax_v2.ic12` | IC12 | `0xF80000` on CPU 1 | **boot image of CPU 1**; reset vector at `0xFFFF00`                                                                                                                                                                                                                                                                         |
+| `prom_b` | `qsigcwsa1bx_v2.ic13` | IC13 | `0xF00000` on CPU 1 | the low half of the same 1 MiB space; most of the UI text (EN/DE/FR) and the service screens                                                                                                                                                                                                                                |
+| `prom_c` | `qsigcwsa1cx_v2.ic28` | IC28 | `0xF80000` on CPU 2 | **boot image of CPU 2**; the factory COMBINATION memory at file `0x000000-0x0165BF` (a `ZZZZ` header, 16 banks × 8 combinations and a `Clear` record, which CPU 1 reads over the link — see [Parameter Records]({{ site.baseurl }}/wsa1-parameters/#factory-defaults-and-the-combination-memory)), code `0x018000-0x0621E4` |
+| `prom_d` | `qsigcwsa1dx_v2.ic21` | IC21 | `0xF00000` on CPU 2 | **data only** — a tone database; no vector table, essentially no branch structure                                                                                                                                                                                                                                           |
 
 CRC32 / SHA1 as declared in the MAME driver:
 
-| file | CRC32 | SHA1 |
-|---|---|---|
-| `qsigcwsa1ax.ic12` | `5f34af46` | `90a2369f8e4d2fcdf26875272267624b07bc200d` |
-| `qsigcwsa1bx.ic13` | `f3f84441` | `93adec2a04b7d93a2ec2bfb059227ff3959906e0` |
-| `qsigcwsa1cx.ic28` | `855c8ac4` | `9b2911e4b21a08d9744b91844630489f54dde856` |
-| `qsigcwsa1dx.bin`  | `735ae465` | `82df50816c20cd8f2d29551326d2633e7791f306` |
+| file                  | CRC32      | SHA1                                       |
+|-----------------------|------------|--------------------------------------------|
+| `qsigcwsa1ax_v2.ic12` | `5f34af46` | `90a2369f8e4d2fcdf26875272267624b07bc200d` |
+| `qsigcwsa1bx_v2.ic13` | `f3f84441` | `93adec2a04b7d93a2ec2bfb059227ff3959906e0` |
+| `qsigcwsa1cx_v2.ic28` | `855c8ac4` | `9b2911e4b21a08d9744b91844630489f54dde856` |
+| `qsigcwsa1dx_v2.ic21` | `735ae465` | `82df50816c20cd8f2d29551326d2633e7791f306` |
 
 **prom_b's base is proven four independent ways** — prom_a's vectors land on a
 perfectly aligned `jp` thunk table there, the reset path jumps there, a
@@ -337,35 +343,35 @@ deliberately left unmapped.
 
 ### CPU 1 (prom_a + prom_b)
 
-| address | device | grade |
-|---|---|---|
-| `0x000080-0x0051FF` | static RAM cleared at boot — a **lower bound**, not the chip size | established |
-| `0x600000-0x60FFFF` | work DRAM on CS3; `0x603400-0x603FFF` deliberately *not* cleared (the block store's working bank); stack `0x60EB80` | established |
-| `0x610000 + n·0xC00` (n = 0..9) | ten 3 KiB banks; `0x617800 + n·0x100` = block-store heap, 256-byte records | established |
-| `0x790000/1` | **SED1330-family display controller** (status busy = bit 6) | established |
-| `0x7A0000` | FDC data register on the **DMA-acknowledged** decode (micro-DMA ch 0, armed on INT7) | established |
-| `0x7B0004 / 0x7B0005` | **uPD765-family FDC** MSR/control + data register | established |
-| `0x7C0000` | inter-processor link port | established |
-| `0x7E0008-0x7E0017` | the **second storage unit** of the same block-device layer — behaves as a FIFO, 256 iterations × 2 bytes = one 512-byte sector | role established, **part unknown** |
-| `0x7F0000 / 0x7F0002` | address+data register pair, 4 × 32 slots, 8 writes per slot | shape established, **part unknown** |
-| `0xF00000-0xF7FFFF` | prom_b | established (four proofs) |
-| `0xF80000-0xFFFFFF` | prom_a | established |
+| address                         | device                                                                                                                                                                                                                                               | grade                                                                                                 |
+|---------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
+| `0x000080-0x0051FF`             | static RAM cleared at boot — a **lower bound**, not the chip size                                                                                                                                                                                    | established                                                                                           |
+| `0x600000-0x60FFFF`             | work DRAM on CS3; `0x603400-0x603FFF` deliberately *not* cleared (the block store's working bank); stack `0x60EB80`                                                                                                                                  | established                                                                                           |
+| `0x610000 + n·0xC00` (n = 0..9) | ten 3 KiB banks; `0x617800 + n·0x100` = block-store heap, 256-byte records                                                                                                                                                                           | established                                                                                           |
+| `0x790000/1`                    | **SED1330-family display controller** (status busy = bit 6)                                                                                                                                                                                          | established                                                                                           |
+| `0x7A0000`                      | FDC data register on the **DMA-acknowledged** decode (micro-DMA ch 0, armed on INT7)                                                                                                                                                                 | established                                                                                           |
+| `0x7B0004 / 0x7B0005`           | **uPD765-family FDC** MSR/control + data register                                                                                                                                                                                                    | established                                                                                           |
+| `0x7C0000`                      | inter-processor link port                                                                                                                                                                                                                            | established                                                                                           |
+| `0x7E0008-0x7E0017`             | an **ATA (IDE) hard-disk task file**, the block-device layer's unit 1: IC18's `Y6` = `HDCS`, `HDINT` on INT4, `HDIORDY` on PB6; command block `0x7E0008-0x7E000F`, device control `0x7E0016`. The opcode names are the ATA standard's, not the ROM's | established from the schematic and the register protocol; **whether a drive was ever fitted is open** |
+| `0x7F0000 / 0x7F0002`           | address+data register pair, 4 × 32 slots, 8 writes per slot                                                                                                                                                                                          | shape established, **part unknown**                                                                   |
+| `0xF00000-0xF7FFFF`             | prom_b                                                                                                                                                                                                                                               | established (four proofs)                                                                             |
+| `0xF80000-0xFFFFFF`             | prom_a                                                                                                                                                                                                                                               | established                                                                                           |
 
 ### CPU 2 (prom_c)
 
-| address | device | grade |
-|---|---|---|
-| `0x000080-0x01007F` | work DRAM cleared at boot (lower bound); kernel stack `0x00FFF0`, later moved to `0x00FA00` | established |
-| `0x010000-0x01FFFF` | **flash staging buffer** — one whole 64 KiB sector held in RAM; block writers address it as `flash − 0x00E70000` | established |
-| `0x100000` | inter-processor link port | established |
-| `0x104000` (+0 select / +2 data) | **64 channels × 19 parameter registers** — the [acoustic modelling LSI]({{ site.baseurl }}/wsa1-modeling-lsi/): a pair of coupled resonators per channel, twelve registers named from the tone editor’s own captions, six with an exact closed form. That the window decodes to IC3 stays an inference, so the labels still say `Dev104_` | shape established; twelve registers named, six units derived |
-| `0x108000` (+0 event / +2 status) | **key-scan port** for the 61-key keybed; +0 is one 16-bit event, low byte `bit7 note-on \| bits6..0 key`, high byte a touch measurement | established |
-| `0x10C000` (+0/+2/+4) | **64 channels × ~22 registers**, three per-channel gate registers pulsed bit-15 set→clear. CPU 2's busiest device by 5× (102 pointer loads against 20). Role **not** established — labels say `Dev10C_` | shape established; four registers decoded |
-| `0xC00000` | **expansion board**, header at +0x18/+0x31, signature `WSA1 EXTBD` | established |
-| `0xE00000` (+0/+2) | address/data pair, byte-identical driver shape to CPU 1's `0x7F0000` | established |
-| `0xE80000-0xEFFFFF` | **flash, 512 KiB** — the size is established from the sector-erase routine's top/bottom boot-block special cases (16/8/8/32 at the bottom, 32/8/8/16 at the top, highest sector base `0xEFC000`). The **part** is *inferred* as Am29F400B/T-class from published device-ID tables (`0x2223` / `0x22AB` accepted); no datasheet is in these trees | size established, part inferred |
-| `0xF00000-0xF7FFFF` | prom_d | established |
-| `0xF80000-0xFFFFFF` | prom_c | established |
+| address                           | device                                                                                                                                                                                                                                                                                                                                                                         | grade                                                        |
+|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
+| `0x000080-0x01007F`               | work DRAM cleared at boot (lower bound); kernel stack `0x00FFF0`, later moved to `0x00FA00`                                                                                                                                                                                                                                                                                    | established                                                  |
+| `0x010000-0x01FFFF`               | **flash staging buffer** — one whole 64 KiB sector held in RAM; block writers address it as `flash − 0x00E70000`                                                                                                                                                                                                                                                               | established                                                  |
+| `0x100000`                        | inter-processor link port                                                                                                                                                                                                                                                                                                                                                      | established                                                  |
+| `0x104000` (+0 select / +2 data)  | **64 channels × 19 parameter registers** — the [acoustic modelling LSI]({{ site.baseurl }}/wsa1-modeling-lsi/): a pair of coupled resonators per channel, twelve registers named from the tone editor’s own captions, six with an exact closed form. The schematic settles that the window decodes to IC3 (IC27 `1Y1` = `WFICS` → IC3 `NSGCE`); the labels still say `Dev104_` | shape established; twelve registers named, six units derived |
+| `0x108000` (+0 event / +2 status) | **key-scan port** for the 61-key keybed; +0 is one 16-bit event, low byte `bit7 note-on \| bits6..0 key`, high byte a touch measurement                                                                                                                                                                                                                                        | established                                                  |
+| `0x10C000` (+0/+2/+4)             | **64 channels × ~22 registers**, three per-channel gate registers pulsed bit-15 set→clear. CPU 2's busiest device by 5× (102 pointer loads against 20). It is the **tone generator**, IC4 `TC183C230002`: IC27's `SGCS` = `0x10C000` drives IC4's `NSGCE`, and the keybed port `0x108000` is IC4's second select (`NKSCE` ← `KSCS`). The labels still say `Dev10C_`            | established (schematic); four registers decoded              |
+| `0xC00000`                        | **expansion board**, header at +0x18/+0x31, signature `WSA1 EXTBD`                                                                                                                                                                                                                                                                                                             | established                                                  |
+| `0xE00000` (+0/+2)                | address/data pair, byte-identical driver shape to CPU 1's `0x7F0000`                                                                                                                                                                                                                                                                                                           | established                                                  |
+| `0xE80000-0xEFFFFF`               | **flash, 512 KiB** — the size is established from the sector-erase routine's top/bottom boot-block special cases (16/8/8/32 at the bottom, 32/8/8/16 at the top, highest sector base `0xEFC000`). The **part** is *inferred* as Am29F400B/T-class from published device-ID tables (`0x2223` / `0x22AB` accepted); no datasheet is in these trees                               | size established, part inferred                              |
+| `0xF00000-0xF7FFFF`               | prom_d                                                                                                                                                                                                                                                                                                                                                                         | established                                                  |
+| `0xF80000-0xFFFFFF`               | prom_c                                                                                                                                                                                                                                                                                                                                                                         | established                                                  |
 
 Four registers of `0x10C000` now have meanings: `+0x0400` is pitch in
 1/256 semitone, `+0x0080` is an output level (bits 11..0 logarithmic, 256 counts
@@ -428,7 +434,8 @@ exactly three immediates, and the geometries and gap lengths are the IBM ones.
 
 Above the FDC driver and below the UI sits a **block-device command layer**
 (prom_a `0xFE0000`-`0xFE54B6`). `Disk_CommandDispatch` routes a command code
-through a jump table to roughly nineteen handlers; the sector-I/O builders
+(code 0, or one of 19 jump-table slots, five of which return the error `0xFF`)
+to fifteen distinct handlers; the sector-I/O builders
 `Disk_ReadSectors` and `Disk_WriteSectors` fill the FDC request block with
 operation codes **3** and **4**, `Disk_RequestSenseDriveStatus` issues operation
 **11**, and `Disk_SetRequestGeometry` converts a logical sector number to
@@ -436,10 +443,12 @@ head/track/sector (LBA→CHS) from the drive geometry before either read or writ
 The operation numbers are the FDC driver's own — `0` reset+identify, `3` read,
 `4` write, `5` format, `10` controller-present, `11` sense drive status — so a
 routine that writes a constant to the request block's op field and then reaches
-`Fdc_Request` (`0xFE66C7`) is issuing a named operation. ⚠ The dispatcher's
-individual handlers, and the file-system workers above them, are still
-`sub_XXXXXX`: naming the dispatcher does not name what it dispatches. Reproduce
-with `wsa1/notes/prom_a_disk_cmd_layer_checks.py --selftest`.
+`Fdc_Request` (`0xFE66C7`) is issuing a named operation. The fifteen handlers
+are named too (`DiskCmd_MountDrive`, `DiskCmd_OpenFile`, `DiskCmd_ReadSectors` …
+`DiskCmd_WriteFileBlock`), and so are most of the file-system workers above them
+(`DiskApi_*`, `DiskFile_*`, `Disk_ScanDirectory`); 16 `sub_XXXXXX` labels remain
+in `0xFE0000`-`0xFE54B6`. Reproduce with
+`wsa1/notes/prom_a_disk_cmd_layer_checks.py --selftest`.
 
 More surprisingly, **prom_a contains an x86 FAT16 boot sector *and* a matching MBR
 for a ~250 MiB fixed disk** — 568 × 15 × 60 = 511,200 sectors, stated three times
@@ -447,8 +456,11 @@ in two sectors through two different encodings, with media descriptor `0xF8`,
 BIOS drive `0x80` and the strings `This is Technics HDD.` and
 `Invalid partition table`. ⚠ **No consumer has been located**: nothing in either
 image copies those 1,024 bytes anywhere. It is evidence that a hard disk was
-planned, not proof that this firmware can use one. Read alongside the block-device
-layer's unidentified "second storage unit" at `0x7E0008`.
+planned, not proof that this firmware can use one. The block-device layer's unit
+1 at `0x7E0008` is an ATA task file on the schematic's `HDCS` select, and it
+issues INITIALIZE DEVICE PARAMETERS with this boot sector's geometry. Nothing
+traced sets a request's unit field to 1, though, so whether a drive was ever
+fitted to a rack is open.
 
 ## Service diagnostics
 
@@ -525,7 +537,7 @@ That decode, and the panel-side chords the rack uses, are on the
 Three custom parts on this 1995 synthesizer are **the same part numbers already
 reverse-engineered for the KN5000** — the M37471M2196S panel MCU (solid), the
 uPD6383GF-3BA effects DSP (solid; the KN5000's IC311), and the tone generator
-(⚠ OCR-ambiguous, see above). And the code is shared *literally*, not just in
+(solid; the KN5000's IC303, settled by the schematic). And the code is shared *literally*, not just in
 spirit: **both machines are TLCS-900**, so unlike the KN5000 ↔ KN7000 pair there
 is no CPU boundary to stop machine code crossing. **32,795 bytes survive an
 entropy guard as shared byte runs against a shuffle null of 0 bytes.**
