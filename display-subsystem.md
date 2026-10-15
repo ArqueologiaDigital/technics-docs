@@ -131,7 +131,7 @@ The `VGA_Setup` routine (0xEF55A7) configures the full register set at boot. Key
 | 0x06 | 0x01 | Miscellaneous (chain odd/even) |
 | 0x08 | 0xFF | Bit Mask |
 
-**Misc Output:** 0xE3 (25 MHz dot clock, negative H/V sync, 60 Hz)
+**Misc Output:** 0xE3 (clock select 0, which is 25.175 MHz on a PC VGA card; the KN5000's dot clock and refresh rate have not been measured, and MAME assumes that clock divided by 3; bits 6-7 select negative H/V sync)
 
 **Boot DAC Palette (9 basic colors):**
 
@@ -214,26 +214,29 @@ The framebuffer is linear and row-major, and the active display occupies the fir
 
 ## Display Update Mechanism
 
-### Main Loop Driven (Not VBI)
+### Draw Task, Not VBI
 
-The firmware's display updates are **not driven by a vertical blank interrupt**. Instead, they occur as part of the main event loop at `MainLoop`:
+The firmware's display updates are **not driven by a vertical blank interrupt**. UI code draws into `OFFSCREEN_BUFFER_1`, and `UpdateScreen` (0xFAA61D) copies the changed rectangle to VRAM. The copy runs in the draw task: called from any other task, `UpdateScreen` posts it to the draw ring (see [Rendering Pipeline](#rendering-pipeline)). Its callers include the UI task's loop `MainTitle_EventLoop`. `MainLoop` does not call it directly, so `MainLoop`'s order does not decide when VRAM is written. `MainLoop` runs, in order:
 
 ```
 Main Event Loop (MainLoop)
     |
-    +-- Control Panel Poll
-    +-- Display Update          <-- firmware draws its UI
-    +-- MIDI Processing
-    +-- FDC Handler
-    +-- HDAE5000 Frame_Handler  <-- extension ROM callback
-    +-- Audio Sync
+    +-- MIDI output; timer-gated: CPanel_RX_ProcessOrInit (panel packets -> button arrays)
+    +-- Sequencer and MIDI ticks (several, some timer-gated)
+    +-- PanelButton_ProcessChanges
+    +-- MainTitle_PrepareAndDispatch  (MainDispatchEvent, then MainTitleControl with EVT_MAIN_LOOP_COUNT)
+    +-- timer-gated: MIDI, CPanel_Poll, effect and demo timers
+    +-- Sequencer ticks, SeqStep_MainTimerTick
+    +-- Display_DirtyRegionDispatch   (step-record screen only, while 0x0D53 bit 3 is set)
+    +-- AccompSeq_PeriodicEntry
+    +-- Xapr_CallFrameHandler         <-- extension ROM's Frame_Handler (0x280010), last
     |
     (loop)
 ```
 
 This means:
-- Display updates happen at the main loop rate (not at a fixed refresh rate)
-- The HDAE5000 Frame_Handler runs **after** the firmware's display update
+- The firmware does not repaint on a fixed refresh: `UpdateScreen` copies a changed rectangle when UI code asks for one
+- The HDAE5000 Frame_Handler is the last call of each `MainLoop` pass
 - The UI reaches VRAM through `UpdateScreen`, which copies only the dirty area of `OFFSCREEN_BUFFER_1` (see [Rendering Pipeline](#rendering-pipeline-1)), so a pixel an extension ROM writes straight to VRAM survives until the firmware next redraws that area. No flag that stops the firmware's drawing has been identified (`0x0D53` bit 3, below, is not one)
 
 ### Step-record display flag (`0x0D53` bit 3)
@@ -745,7 +748,8 @@ Write to OFFSCREEN_BUFFER_1 (0x43C00)
         ↓
 Call SetChangeRect() → expand dirty bounding box at 0x030456
         ↓
-Main loop calls UpdateScreen (0xFAA61D)
+UpdateScreen (0xFAA61D), called by UI code such as MainTitle_EventLoop
+(not directly by MainLoop); the copy runs in the draw task
         ↓
 Check dirty bounding box:
   Full screen? → full-screen blit (0xFB30A9)
