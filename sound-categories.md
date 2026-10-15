@@ -82,7 +82,7 @@ When a user selects a sound:
 4. **Command encoding** — a formatting routine builds a MIDI Program Change (or extended command) with the voice/bank parameters. ⚠ This step used to be attributed to `Audio_SendCommand`; that symbol was renamed in March 2026 to `Sprintf_Locked` once it was found to be a general sprintf()-style formatter (parses `%d`/`%x`/`%f`/`%s` format strings), not an audio-specific command sender — see the correction below.
 5. **Inter-CPU transfer** — Command sent via `sendCOMM` → `InterCPU_Send_Data_Block` → latch at 0x140000 (0x120000 on the sub CPU's bus)
 6. **Sub CPU processing** — `Audio_CmdHandler_00_1F` writes to ring buffer → `MIDI_Dispatch` routes to `Voice_ProgChange`
-7. **Voice activation** — Sub CPU updates the voice parameter block (287 bytes at `0x041300 + channel × 0x11F`)
+7. **Voice activation** — `Voice_ProgChange` updates the part's 287-byte record (`Part_Record_Base`, `0x041368` + part × 0x11F)
 
 ## Instrument Patch Catalog
 
@@ -269,4 +269,4 @@ in the sound-selection path, but this page does not have a verified, current sym
 - [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/) - PCM waveform data layout in IC304-IC307
 - [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/) - Command transfer details
 - [SysEx Messages]({{ site.baseurl }}/sysex-messages/) - Sound parameter SysEx
-- [Storage Subsystem]({{ site.baseurl }}/storage-subsystem/) - Table Data ROM (waveform storage)
+- [Storage Subsystem]({{ site.baseurl }}/storage-subsystem/) - Table Data ROM (tone database storage)

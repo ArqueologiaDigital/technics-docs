@@ -60,30 +60,30 @@ uint16_t wave_start;      // Waveform start offset (same as index wave_offset)
 uint16_t params[];        // 0-N parameter words (key zones, tuning, flags)
 ```
 
-Record sizes range from 2 bytes (waveform offset only, no params) to 850 bytes (424 parameter words). The most common sizes are:
+Record sizes range from 2 bytes (waveform offset only, no params) to 850 bytes (424 parameter words). The most common sizes, for page 0's 198 records (`waverec.py`, kn7000_mame `tools/kn5000-rom-structure/`), are:
 
-| Record Size | Entries | Interpretation |
-|-------------|---------|----------------|
-| 2 bytes (0 params) | 1 | Single waveform, no key zones |
-| 4 bytes (1 param) | 31 | Single key zone boundary |
-| 6 bytes (2 params) | 25 | Two key zone boundaries |
-| 8 bytes (3 params) | 44 | Three zones + terminal flag |
-| 10 bytes (4 params) | 45 | Four zones (common for split instruments) |
-| 12+ bytes | 46 | Multi-zone or per-key tuning data |
+| Record Size         | Entries | Interpretation                            |
+|---------------------|---------|-------------------------------------------|
+| 2 bytes (0 params)  | 1       | Single waveform, no key zones             |
+| 4 bytes (1 param)   | 31      | Single key zone boundary                  |
+| 6 bytes (2 params)  | 25      | Two key zone boundaries                   |
+| 8 bytes (3 params)  | 44      | Three zones + terminal flag               |
+| 10 bytes (4 params) | 46      | Four zones (common for split instruments) |
+| 12+ bytes           | 51      | Multi-zone or per-key tuning data         |
 
 **Parameter word encoding:** Each parameter word is structured as `[flags:8][value:8]`:
 
-| High Byte (Flag) | Meaning                                                                                     |
-|------------------|---------------------------------------------------------------------------------------------|
-| 0x00             | Key-split boundary (unit 1/8 octave, not a MIDI note; see below)                            |
-| 0x01 - 0x2F      | Per-zone fine tune; values cluster in 0xEA-0xFF (small negative trims)                      |
-| bit 7 set        | End of record: only ever on a record's last pair (286 of 286), and not every record has one |
-| bit 6 set        | A marker (258 occurrences), not decoded                                                     |
+| High Byte (Flag) | Meaning                                                                                                                                                                     |
+|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0x00             | Key-split boundary (unit 1/8 octave, not a MIDI note; see below)                                                                                                            |
+| 0x01 - 0x2F      | Per-zone fine tune; values cluster in 0xEA-0xFF (small negative trims)                                                                                                      |
+| bit 7 set        | End of record: only ever on a record's last pair, not counting the zero words that pad each page's last record (286 of 286 in the whole chip), and not every record has one |
+| bit 6 set        | A marker (258 occurrences in the whole chip), not decoded                                                                                                                   |
 
-| Low Byte (Value) | Meaning                                                                                     |
-|------------------|---------------------------------------------------------------------------------------------|
-| flag 0x00        | Key-split boundary value (1/8-octave units; not limited to 0x00-0x7F, 0x80 occurs 52 times) |
-| 0xEA - 0xFF      | Signed pitch offset (for per-key tuning: 0xFF = -1, 0xFE = -2, etc.)                        |
+| Low Byte (Value) | Meaning                                                                                                       |
+|------------------|---------------------------------------------------------------------------------------------------------------|
+| flag 0x00        | Key-split boundary value (1/8-octave units; not limited to 0x00-0x7F, 0x80 occurs 52 times in the whole chip) |
+| 0xEA - 0xFF      | Signed pitch offset (for per-key tuning: 0xFF = -1, 0xFE = -2, etc.)                                          |
 
 **Key zone evidence:** Multiple entries sharing the same waveform offset have systematically transposed key zone parameters:
 
@@ -149,7 +149,7 @@ The waveform ROMs are separate from:
 
   Probes: `notes/rhythm-rom-tables-2026-10-02/locator_targets_probe.py` and
   `bank_program_map_probe.py` in kn5000-roms-disasm.
-- **Table Data ROM** (IC1/IC3, 2 MB) -- Contains voice parameter tables, pitch lookup tables, and other firmware data. Read by the main CPU, which copies its tone database (`0x830000`-`0x87FFFF`) to Sub CPU RAM `0x050000` at boot; the SubCPU reads it there ([Tone Database]({{ site.baseurl }}/tone-database/)).
+- **Table Data ROM** (IC1/IC3, 2 MB) -- Contains the tone database (voice records; multisample SET descriptors, which carry each SET's root key and base pitch; and the key maps and zone records that pick each zone's recording and pitch trims) and other firmware data. Read by the main CPU, which copies its tone database (`0x830000`-`0x87FFFF`) to Sub CPU RAM `0x050000` at boot; the SubCPU reads it there ([Tone Database]({{ site.baseurl }}/tone-database/)).
 - **No waveform/sample RAM** (sub-CPU address `0x1E0000-0x1EFFFF`) -- the sub CPU never accesses `0x1E0000` on its own bus. Every `0x1E0000` literal in the v1.42 payload is a destination argument of `InterCPU_E1_DMA_Transfer`, i.e. the main CPU's IC21 battery SRAM reached over the inter-CPU link. The `noprw()` line at that address in the MAME drivers maps nothing real. **Correction:** earlier revisions of this page named this region "IC308/IC309, 2 x 4Mbit DRAM" — that attribution is wrong. IC308 and IC309 have since been identified (Felipe, reading the chips directly) as the DSP1/DSP2 *effect delay-line* DRAMs: IC309 (M5M44260AJ-7S, 4-Mbit) is IC311/DSP1's external delay memory, and IC308 (M5M418128AJ-6, a **1**-Mbit, byte-wide DRAM) is DSP2's. Neither is waveform/sample RAM, and IC308 is not 4 Mbit.
 
 ## Open Questions
