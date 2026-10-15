@@ -80,10 +80,10 @@ Record sizes range from 2 bytes (waveform offset only, no params) to 850 bytes (
 | bit 7 set        | End of record: only ever on a record's last pair, not counting the zero words that pad each page's last record (286 of 286 in the whole chip), and not every record has one |
 | bit 6 set        | A marker (258 occurrences in the whole chip), not decoded                                                                                                                   |
 
-| Low Byte (Value) | Meaning                                                                                                       |
-|------------------|---------------------------------------------------------------------------------------------------------------|
+| Low Byte (Value) | Meaning                                                                                                                                         |
+|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
 | flag 0x00        | Key-split boundary value (1/8-octave units; not limited to 0x00-0x7F, 0x80 occurs 52 times in the whole chip, per `tools/ic307_flag_counts.py`) |
-| 0xEA - 0xFF      | Signed pitch offset (for per-key tuning: 0xFF = -1, 0xFE = -2, etc.)                                          |
+| 0xEA - 0xFF      | Signed pitch offset (for per-key tuning: 0xFF = -1, 0xFE = -2, etc.)                                                                            |
 
 **Key zone evidence:** Multiple entries sharing the same waveform offset have systematically transposed key zone parameters:
 
