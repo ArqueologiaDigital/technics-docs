@@ -389,8 +389,8 @@ data"; it is simply the tail of font 9.
 
 ## Music Stylist database (0x951000-0x987FFF)
 
-One thousand 198-byte records at `0x951000` hold the MUSIC STYLIST presets — 250 styles x 4
-arrangement variations across ten categories — reached exclusively through two 1000-entry
+One thousand 198-byte records at `0x951000` hold the MUSIC STYLIST presets — 250 sub categories x 4
+styles across ten categories — reached exclusively through two 1000-entry
 pointer tables at `0x986000` and `0x987000`.
 
 See **[Music Stylist Database]({{ site.baseurl }}/music-stylist-database/)** for the record layout,
