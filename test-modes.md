@@ -123,9 +123,9 @@ During boot, the firmware scans the control panel buttons via `CPanel_ScanButton
 
 **Buttons:** The three leftmost buttons in the RHYTHM GROUP section.
 
-This is the procedure described in the service manual under "INITIAL SETTING" (p I-3). It resets all programmable settings, functions, and memories to their factory-preset status. **Sequencer**, **Composer**, and **User MIDI** settings are initialized (Rhythm and Custom data are not affected).
+This is the procedure described in the service manual under "INITIAL SETTING" (p I-3). It resets all programmable settings, functions, and memories to their factory-preset status. Stored **Sequencer** and **Composer** data and other settings are initialized; **Rhythm Custom** data and **User MIDI** settings are not.
 
-**Firmware flow:** The combo code is stored at address `0x402`. At `Boot_HandleFactoryReset` (`0xEF07F3`), the firmware checks if `DRAM[0xFFCA] != 0x5AA5` (payload checksums invalid) **and** combo code == 1. If both conditions are true, it zero-fills all work DRAM (`0x400`–`0x100000`) and SRAM (`0x1E0000`–`0x200000`), then restarts the boot sequence. This is typically used after replacing Flash ROMs.
+**Firmware flow:** The combo code is stored at address `0x402`. At `Boot_HandleFactoryReset` (`0xEF07F3`), the firmware checks that the combo code is 1 **and** that the word at DRAM `0xFFCA` is not `0x5AA5`. If both hold, it zero-fills all work DRAM (`0x400`–`0x100000`) and SRAM (`0x1E0000`–`0x200000`), writes `0x5AA5` to `0xFFCA` and restarts the boot sequence. `0x5AA5` is a reset-done marker, not a checksum flag: it keeps the restarted boot, with the buttons still held, from clearing memory a second time, and every boot clears it again just after this check, so the combo works at any power-on.
 
 Combo 1 is the only combo that clears DRAM and SRAM. The "ALL INITIAL SETTING!" screen is a separate path: the welcome screen opens it (`EVT_ALL_INITIAL`, view `AllInitial`) when `SubCPU_Payload_GetErrorFlag` is negative, not in response to a button combo. See [Boot Sequence]({{ site.baseurl }}/boot-sequence/#welcome-screen-and-boot-animation).
 
@@ -162,7 +162,7 @@ The control panel consists of two MCUs (CPL = left, CPR = right) that communicat
 
 ## Keybed Service Modes
 
-These diagnostic tests are activated by holding specific pairs of piano keys while powering on the instrument. They do **not** require the checking device (except Test 4). The keys are always two adjacent notes in the same octave range.
+These diagnostic tests are activated by holding specific pairs of piano keys while powering on the instrument. They do **not** require the checking device (except Test 4). The two keys are always the same note an octave apart (for example G3 and G4).
 
 ### Service Mode Table
 
@@ -183,7 +183,7 @@ After the SubCPU payload is transferred and verified, the firmware calls `SelfTe
 2. Waits for the SubCPU response (polls bit 7 at address 1568)
 3. Reads 8 bytes of key scan data from address 36196 (the keybed state buffer)
 4. Counts the total number of pressed keys using a population count (`SelfTest_PopCount`)
-5. If exactly **2 keys** are pressed, checks which specific key bits are set
+5. If exactly **2 keys** are pressed, checks which specific key bits are set (C3 + C4, byte[3] bit 0 + byte[4] bit 4, is matched and does nothing). With any other count it instead tests the SRAM (`Test_SRAM_IC21`) and probes the panel MCUs (`CPanel_ProbePanelMcus`); a failure opens title `TT_TEST1` (`0xF4`) with the `TEST1RAM` or `TEST1CP` view
 6. Posts `UI_PostModeChangeEvent` with the appropriate mode code
 
 **Mode code dispatch:**
@@ -339,7 +339,7 @@ The test dialog displays three DIAGLIST widgets showing TOTAL, OK, and NG counte
 
 ### Memory Dump Tool (DbMemoryDumpProc)
 
-The HAMA diagnostic system includes a built-in **interactive memory hex viewer** — a complete debugging tool for inspecting arbitrary memory addresses across the KN5000's entire 24-bit address space.
+The firmware also includes a built-in **interactive memory hex viewer** — a complete debugging tool for inspecting arbitrary memory addresses across the KN5000's entire 24-bit address space. It is not part of the HAMA code: `InitializeHama` does not register it, and it is opened from the factory Panel Simulator screen (see [Activation](#activation)). Its only link to HAMA is a "MEMORY DUMP" caption on the HAMA "DEBUG SCREEN for HD-AE" page.
 
 **Implementation:** `DbMemoryDumpProc` in `ui/ui_widget_defs.s:6964` (`0xFA2EE6`–`0xFA3181`, 668 bytes, per `symbols/maincpu_v10_symbols_reference.txt`). Widget descriptor `NakaWidget_PanelSimulator_50_DbMemoryDump` (`0xEB31E8`) in `ui_widgets/debug_naming_panel_sim.s:135`.
 
@@ -374,7 +374,7 @@ The viewer supports **per-nibble address navigation** using 6 step sizes corresp
 
 Direction is determined by bit 7 of the WA register: if set, the step is **subtracted** (scroll up); if clear, it is **added** (scroll down). After each navigation, the address is **masked to 24 bits** (`AND 0xFFFFFF`), so it wraps at `0xFFFFFF`, then the display is refreshed.
 
-This per-nibble scheme means a Matsushita technician could quickly jump to any memory region: step xde=2 to select the major region (e.g., `0xE00000` for Program ROM, `0x200000` for DRAM), then refine with smaller steps.
+This per-nibble scheme means a Matsushita technician could quickly jump to any memory region: step xde=2 to select the major region (e.g., `0xE00000` for Program ROM, `0x000000` for work DRAM), then refine with smaller steps.
 
 #### Rendering Pipeline
 
@@ -442,7 +442,7 @@ The KN5000 was a professional-grade instrument sold to working musicians, music 
 - **Verify ROM integrity** by reading back Program ROM, Table Data ROM, and Custom Data ROM contents and comparing against known-good checksums
 - **Check SRAM battery backup** by inspecting the battery-backed SRAM region (`0x1E0000`+) to determine if user settings have been corrupted by a dying backup battery — a common failure mode in 1990s keyboard instruments
 - **Inspect live I/O state** by reading the main-bus I/O blocks (FDC at `0x110000`, inter-CPU latch at `0x140000`, VGA registers at `0x1703B0`) to identify communication failures between subsystems; the tone generator is on the sub-CPU bus and is not visible here
-- **Diagnose DRAM failures** by reading the extension DRAM region and checking for stuck bits or addressing failures that the power-on self-test (which only tests basic patterns) might miss
+- **Diagnose DRAM failures** by reading the work DRAM region (`0x000000`–`0x0FFFFF`) and checking for stuck bits or addressing failures that the power-on self-test (which only tests basic patterns) might miss
 
 **2. Factory Production Line Testing**
 
@@ -459,7 +459,7 @@ The tool's per-nibble navigation scheme (with step sizes from 1 byte to 1 MB) is
 - **Watch variable changes in real time** by navigating to DRAM work areas and observing how the firmware's state machines respond to user input
 - **Debug inter-CPU protocol issues** by inspecting the shared memory mailbox regions used for Main CPU ↔ SubCPU communication
 - **Verify NAKA widget descriptor integrity** by reading the widget tables in DRAM and confirming that `RegisterObjectTable` copied them correctly from ROM
-- **Test the HDAE5000 extension** (hence "DEBUG SCREEN for HD-AE" in the label) by reading the extension ROM region to verify that the hard disk expansion board's firmware is accessible
+- **Test the HDAE5000 extension** by reading the extension ROM region to verify that the hard disk expansion board's firmware is accessible
 
 **4. Cost-Effective Debug Infrastructure**
 
@@ -467,7 +467,7 @@ Including the tool in the shipping ROM (rather than maintaining a separate debug
 
 **5. The "HAMA" Codename Connection**
 
-The memory dump tool lives inside the "HAMA" diagnostic subsystem. "HAMA" is likely an abbreviation of **Hamamatsu** — the city where Matsushita's musical instrument division was headquartered and where the KN5000 was designed and manufactured. Embedding the factory's name as a codename in the diagnostic system is a common practice in Japanese engineering culture, connecting the diagnostic tools to the physical factory where they would be most frequently used.
+The memory dump tool is not part of the "HAMA" code (see [above](#memory-dump-tool-dbmemorydumpproc)); only the HAMA "DEBUG SCREEN for HD-AE" page carries a "MEMORY DUMP" caption. "HAMA" is likely an abbreviation of **Hamamatsu** — the city where Matsushita's musical instrument division was headquartered and where the KN5000 was designed and manufactured. Embedding the factory's name as a codename in the diagnostic system is a common practice in Japanese engineering culture, connecting the diagnostic tools to the physical factory where they would be most frequently used.
 
 ### HAMA Function Reference Table
 

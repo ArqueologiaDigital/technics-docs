@@ -317,64 +317,9 @@ dispute table in the disassembly's `CLAUDE.md` has not been updated yet. The sou
 lead is `notes/lanes/wave2-2026-09-25/lane-reports/tdata.json` (the `tdata` lane) and the
 `table_data/preset_banks.s` header.
 
-## Remaining Questions (Partially Disputed)
+## Remaining Questions
 
-While the 0x3E0000 address is now understood, some aspects of the preset data transfer remain unclear:
-
-**Decompressed Data Structure:**
-
-| Section | Offset | Size | Runtime Destination |
-|---------|--------|------|---------------------|
-| Main CPU Header | 0x0000-0x00AF | 176 bytes | Main CPU only (word at 0x100 → RAM 0x0404) |
-| Sub CPU Audio Params | 0x00B0-0x808D | 32,734 bytes | Sub CPU address 0xF000+ (uncertain) |
-
-*Note: this breakdown was derived from a truncated 32,910-byte decompression;
-the true output is 38,144 bytes (0x9500), so the section boundaries above need
-re-derivation.*
-
-**Outstanding questions:**
-- The bulk transfers send 64KB blocks (much larger than the ~37KB of meaningful data)
-- The fallback to `TABLE_DATA_ROM__BASE_ADDR` (0x800000) produces mostly 0xF7 bytes — now read as the transparent pixels of the bitmap bank there ([strong lead](#preset-data-destination-dispute), not confirmed in MAME)
-- The exact purpose of the preset parameters at Sub CPU 0xF000+ is not fully understood
-
-**Main CPU Header (0x00-0xAF):**
-- Mostly zero bytes with sparse configuration values
-- Key non-zero positions: 0x18-0x1B, 0x2E, 0x45, 0x57-0x5A, 0x61, 0x94-0x9E, 0xA4-0xA5
-- Contains record marker `00 03 01 00` at offset 0x94
-- Word at offset 0x100 is copied to Main CPU RAM 0x0404 before bulk transfer
-
-**Sub CPU Audio Parameters (0x100+) - per Claude's interpretation:**
-- **Destination**: Sub CPU address 0xF000 (overwrites ROM defaults) - *DISPUTED*
-- Variable-length records, often starting with `00 03` marker
-- 24 occurrences of `00 03` record markers
-- Flag byte `0x80` indicates "value set" (actual value in next byte)
-- Pattern `18 XX` appears to indicate parameter type codes
-- Common sequence: `64 03 00 7F 20 00 70 80`
-- Most values are MIDI-range (0-127), suggesting voice/audio parameters
-
-**Sub CPU 0xF000 Area Usage (IF Claude's interpretation is correct):**
-
-The Sub CPU ROM (`kn5000_subprogram_v142`) contains default values at 0xF000+. These are audio engine configuration tables:
-
-| Address | Purpose |
-|---------|---------|
-| 0xF000-0xF01F | System configuration, counters |
-| 0xF010-0xF100 | Voice parameters (ADSR envelopes) |
-| 0xF100-0xF420 | Pitch tables, envelope lookups |
-| 0xF420-0xF434 | Runtime buffer initialization |
-| 0xF434-0xF460 | Serial buffer structures |
-| 0xF48C+ | Voice polyphony/index tables |
-
-If the interpretation is correct, the preset data would overwrite these defaults during boot, configuring factory presets for the audio engine.
-
-**Open Questions - Preset Data Destination (Added due to AI/Human disagreement):**
-
-The following questions remain open regarding where the LZSS preset data actually ends up:
-
-1. **What does 0x3E0000 actually map to?** Answered: custom-data flash IC19 (see [above](#disputed-interpretations)).
-2. **Are there other ~33KB transfers?** Search for data transfers matching the preset data size.
-3. **What happens to the "extra" bytes?** The 64KB transfer vs ~37KB data discrepancy is suspicious.
-4. **Why does fallback produce 0xF7 bytes?** This suggests the fallback path may never be intended to work. *Lead (September 2026, not confirmed in MAME): `0x800000` is a bitmap bank whose transparent colour is `0xF7`; see [the dispute section](#preset-data-destination-dispute).*
+The SLIDE4K block at `0x8E0000` is demo-song preset 18: it decompresses to main-CPU RAM `0x69800` (see [above](#compressed-presetparameter-data-slide4k-format)) and is never sent to the Sub CPU, so it holds no Sub CPU audio parameters. The bulk transfers that `SubCPU_Send_Payload` makes from its payload base to Sub CPU `0xF000`, `0x1F000` and `0x2F000` (64 KB + 64 KB + 0xFF00 bytes, plus 256 bytes to `0x400`) carry the 192 KB Sub CPU payload (see [the dispute section](#preset-data-destination-dispute)). What remains open on the preset side is only the MAME confirmation of the `0x800000` fallback described there.
 
 **Open Questions - Sub CPU Payload Transfer:**
 
@@ -685,9 +630,12 @@ Returns HL = 0 on success, 0xFFFF when the `"SLIDE"` prefix is absent.
 ### Table Data ROM bootloader (SLIDE4K only)
 
 A second, self-contained decompressor lives in the first-stage bootloader at the
-end of the **table_data** ROM. It is used during boot and firmware-update
-operations, reads its input through a sector buffer, and paints a progress
-indicator. Source: `table_data/kn5000_table_data.s`.
+end of the **table_data** ROM. It belongs to the bootloader's copy of the flash
+updater: the bootloader's type-7 and type-8 handlers call it, but `Boot_Init`
+skips type-8 (and type-3) discs before dispatching, so in practice only a type-7
+disc reaches it. It reads its input from the floppy through a track buffer,
+programs its output into flash, and paints a progress indicator. Source:
+`table_data/kn5000_table_data.s`.
 
 #### LZSS_Decompress (Main Decompressor)
 
@@ -725,7 +673,7 @@ XSP+0x10: Window buffer pointer (from malloc)
 | **Purpose** | Read next byte from compressed input stream |
 | **Returns** | HL = byte read, or 0xFFFF if EOF |
 
-**Description:** Handles sector buffering for reading compressed data. Reads 0x2400 bytes per sector from the table_data ROM and manages sector advancement for large compressed data.
+**Description:** Returns the next input byte from a track buffer at RAM `0x99A4`. When the buffer is used up it refills it from the floppy: four `FDC_ReadSectorWrapper` reads of 18 sectors (one 0x2400-byte track) each, starting at the sector held in `0x0C34`. It returns 0xFFFF once the expected byte count has been reached.
 
 #### LZSS_OutputByte
 
@@ -736,7 +684,7 @@ XSP+0x10: Window buffer pointer (from malloc)
 | **Purpose** | Write decompressed byte to output buffer |
 | **Input** | A = byte to output |
 
-**Description:** Buffers 4 bytes and writes them as a 32-bit word to the destination for efficient memory access. Uses buffer at RAM address 0x0C0A.
+**Description:** Buffers 4 bytes at RAM 0x0C0A and programs them as one 32-bit word into the flash pair at the pointer held in 0x0C28 (starting at `0x800000`), through `Flash_ProgramWord_32bit`.
 
 #### LZSS_OutputByte_Alt
 
@@ -746,7 +694,7 @@ XSP+0x10: Window buffer pointer (from malloc)
 | **Label** | `LZSS_OutputByte_Alt` |
 | **Purpose** | Alternate output handler for different buffer |
 
-**Description:** Variant of LZSS_OutputByte that uses buffer at RAM address 0x0C0E instead of 0x0C0A. Used in flash update operations.
+**Description:** The 16-bit twin of LZSS_OutputByte: buffers 2 bytes at RAM 0x0C0E and programs them into Custom Data Flash at the pointer held in 0x0C38 (starting at `0x3E0000`), through `Flash_ProgramWord_16bit`. Used by `LZSS_ParseHeader`.
 
 #### LZSS_ParseHeader
 
@@ -756,12 +704,15 @@ XSP+0x10: Window buffer pointer (from malloc)
 | **Label** | `LZSS_ParseHeader` |
 | **Purpose** | Parse and validate LZSS header for flash updates |
 
-**Description:** Sets up the source address (0x3E0000 = Custom Data Flash),
-reads six header bytes and `memcmp`s five of them against the `"SLIDE"` string
-at 0xFFA150 (= table_data 0x9FA150), then pre-reads sectors for the initial
-buffer fill. Note that this bootloader path compares only the five-character
-prefix and always uses its 4K decoder — it has **no** SLIDE8K support. Only the
-Main CPU's `SLIDE_Parse_Header` inspects the `4`/`8` character.
+**Description:** Copies a type-7 file's second stream (the compressed sub-CPU
+payload) verbatim into Custom Data Flash. It points the write pointer (0x0C38) at
+`0x3E0000`, raises the expected byte count by `0x20000`, reads the next six bytes
+from the floppy and `memcmp`s five of them against the `"SLIDE"` string at
+0xFFA150 (= table_data 0x9FA150). On a match it writes them and the rest of the
+`0x20000` bytes through `LZSS_OutputByte_Alt`; otherwise it returns 0xFFFF and
+writes nothing. The bootloader never decodes a SLIDE8K block: `LZSS_Decompress`
+skips the magic of the stream it decodes without checking it and always uses the
+4K ring. Only the Main CPU's `SLIDE_Parse_Header` inspects the `4`/`8` character.
 
 ---
 
@@ -769,18 +720,19 @@ Main CPU's `SLIDE_Parse_Header` inspects the `4`/`8` character.
 
 The table_data bootloader's LZSS routines use the following RAM locations:
 
-| Address | Size | Purpose |
-|---------|------|---------|
-| `0x0C20` | 4 | Expected decompressed output size |
-| `0x0C24` | 4 | Current output position |
-| `0x0C28` | 4 | Source ROM address pointer |
-| `0x0C2C` | 4 | Sector read buffer pointer |
-| `0x0C30` | 2 | Display X coordinate (progress) |
-| `0x0C32` | 2 | Display Y coordinate (progress) |
-| `0x0C34` | 2 | Sector offset for progress display |
-| `0x0C36` | 1 | Output byte counter (0-3 for 32-bit writes) |
-| `0x0C0A` | 4 | Temporary output buffer (LZSS_OutputByte) |
-| `0x0C0E` | 4 | Temporary output buffer (LZSS_OutputByte_Alt) |
+| Address  | Size | Purpose                                                                        |
+|----------|------|--------------------------------------------------------------------------------|
+| `0x0C20` | 4    | Expected byte count (the decompressed size; `LZSS_ParseHeader` adds `0x20000`) |
+| `0x0C24` | 4    | Current output position                                                        |
+| `0x0C28` | 4    | Flash write pointer for `LZSS_OutputByte` (starts at `0x800000`)               |
+| `0x0C2C` | 4    | Read pointer into the track buffer at `0x99A4`                                 |
+| `0x0C30` | 2    | Display X coordinate (progress)                                                |
+| `0x0C32` | 2    | Display Y coordinate (progress)                                                |
+| `0x0C34` | 2    | Next floppy sector (LBA) to read; starts at 36, advances by 18 per track       |
+| `0x0C36` | 1    | Output byte counter (0-3 for 32-bit writes, 0-1 for 16-bit)                    |
+| `0x0C38` | 4    | Flash write pointer for `LZSS_OutputByte_Alt` (starts at `0x3E0000`)           |
+| `0x0C0A` | 4    | Temporary output buffer (LZSS_OutputByte)                                      |
+| `0x0C0E` | 4    | Temporary output buffer (LZSS_OutputByte_Alt)                                  |
 
 The Main CPU's `SLIDE_Decompress_*_Init` routines keep their state on the stack
 and in the malloc'd ring instead; the ring pointer is stashed at RAM 0x0622.

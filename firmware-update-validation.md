@@ -24,7 +24,7 @@ The firmware version byte at ROM address `0xFFFFE8` must equal `0xFF` to enter u
 
 ### 3. Button Held During Boot
 
-The control panel scan (`CPanel_ScanButtons`) must return value 4, indicating a specific button combination is held during boot. Without this, the update is skipped even if the sentinel and disc are present.
+The control panel scan (`CPanel_ScanButtons`) must return combo code 4: all four PANEL MEMORY buttons held during boot. Without this, the update is skipped even if the sentinel and disc are present.
 
 **Code:** `cp (1026:16), 4` at `0xEF05DB` (in `BootInit_SeqAndPanel`).
 
@@ -133,16 +133,18 @@ flash with a 512 KB window, bank by bank. Each bank number is written to the por
 compares `0x40000` words. It returns `XHL = 0` when everything matches, and otherwise the flash address just
 after the first mismatch.
 
-`HDAE5000_TableData_Write` (`0xEF49A5`) uses it as the read-back check of its own programming. It runs:
+Two HD-AE5000 boot paths use it as the read-back check of their own programming:
 
-1. `HDAE5000_ProgramTableDataFlash` (`0xEF4953`): programs the 2 MB table-data flash at `0x800000` from the window
-   at `0x280000`, banks 0-3.
-2. `HDAE5000_ProgramCustomDataFlash` (`0xEF4901`): programs the custom-data flash at `0x300000` from the window
-   at `0x200000`, banks 0-1.
-3. This routine, on each of the two flashes. On a mismatch the firmware halts in `LED_BlinkBit2Forever` or
-   `LED_BlinkBit3Forever`.
+- `HDAE5000_Init_BytecodeBlock` (`0xEF49F7`, no direct caller) chip-erases each of the two flashes that is not blank,
+  then runs `HDAE5000_ProgramTableDataFlash` (`0xEF4953`: the 2 MB table-data flash at `0x800000` from the window
+  at `0x280000`, banks 0-3) and `HDAE5000_ProgramCustomDataFlash` (`0xEF4901`: the custom-data flash at `0x300000`
+  from the window at `0x200000`, banks 0-1), and then this routine on each of the two flashes. On a mismatch it
+  halts in `LED_BlinkBit2Forever` (table data) or `LED_BlinkBit3Forever` (custom data).
+- `HDAE5000_Init_DetectAndVerify` (`0xEF4B54`) programs the table-data flash with `HDAE5000_TableData_Write`
+  (`0xEF49A5`: from the window at `0x280000`, banks 4-7) and then runs this routine on banks 4-7, halting in
+  `LED_BlinkBit2Forever` on a mismatch.
 
-That path runs from the HD-AE5000 side at boot, not during the floppy update process.
+Both paths run from the HD-AE5000 side at boot, not during the floppy update process.
 
 ## Error States
 

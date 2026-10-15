@@ -38,7 +38,7 @@ FG/BG values are palette indices pushed onto the stack before calling the draw r
 **Algorithm:**
 1. For each byte in the 616-byte bitmap (28 bytes x 22 rows):
 2. Divide byte index by 28 to determine the current row
-3. For each bit in the byte, use a bit mask lookup table (at DRAM address from `0xE34A`)
+3. For each bit in the byte, use a bit mask lookup table (at DRAM address `0xE36A`)
 4. If bit is set: write foreground color to pixel; otherwise: write background color
 5. Pixel address = offscreen buffer (`0x43C00`) + Y*320 + X
 6. After rendering all pixels, blit the entire offscreen buffer to VRAM
@@ -66,7 +66,7 @@ The bar is drawn using `VRAM_FillRect` with parameters (X=IZ, Y=0xB4, width impl
 The firmware update is triggered during boot when **all three conditions** are met:
 1. Firmware version byte at `0xFFFFE8` equals `0xFF` (update-mode sentinel)
 2. A floppy disc is present (disc change signal on port PD bit 6)
-3. Button scan returns value 4 (specific key held during boot)
+3. The button scan returns combo code 4 (all four PANEL MEMORY buttons held during boot)
 
 ### Boot-Time Pre-Update Display
 

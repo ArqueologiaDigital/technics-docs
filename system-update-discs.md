@@ -68,12 +68,12 @@ Unused sectors in the data area are filled with `0xE5` (standard DOS format fill
 
 Used for compressed program ROM updates (versions 5–10).
 
-| File | Size | Content |
-|------|------|---------|
-| `TECHNICS.PRP` | 56 bytes | Signature + author credit |
-| `DUMMY.1` | 64 bytes | Table data signature placeholder |
-| `DUMMY.2` | 64 bytes | Table data signature placeholder |
-| `HKMSPRG.SLD` | ~1 MB | SLIDE4K compressed program ROM |
+| File           | Size     | Content                                                             |
+|----------------|----------|---------------------------------------------------------------------|
+| `TECHNICS.PRP` | 56 bytes | Signature + author credit                                           |
+| `DUMMY.1`      | 64 bytes | Table data signature placeholder                                    |
+| `DUMMY.2`      | 64 bytes | Table data signature placeholder                                    |
+| `HKMSPRG.SLD`  | ~1 MB    | SLIDE4K compressed program ROM, then the compressed sub-CPU payload |
 
 **TECHNICS.PRP** (56 bytes):
 ```
@@ -89,7 +89,7 @@ Technics KN5000 Table    DATA FILE 1/2 by Nishino Teruhiko !!!\r\n
 
 These are non-functional placeholders. Their content matches the Table Data disc type 3 signature, suggesting they were leftover from the uncompressed 2-disc format (types 1–4) where program and table data were split across multiple floppies.
 
-**HKMSPRG.SLD** — SLIDE4K compressed program ROM:
+**HKMSPRG.SLD** — two SLIDE4K streams back to back: the compressed program ROM, then the compressed sub-CPU payload (see [Update Handlers by Type](#update-handlers-by-type)). The first stream's header:
 
 | Offset | Size | Field |
 |--------|------|-------|
@@ -246,19 +246,26 @@ python tools/make_update_disc.py out/custom_program.rom out/update_disc.img --ty
 python tools/make_update_disc.py out/extension.rom out/update_disc.img --type 6
 ```
 
-The tool creates byte-identical disc images (boot sector, FAT structure, file layout, fill bytes) matching the original Technics format.
+The tool reproduces the original disc layout (boot sector, FAT structure, file layout, fill bytes), but not the original `HKMSPRG.SLD`. It writes a single SLIDE4K stream, a plain re-encoding of the ROM: valid, but not the factory bytes (see [Byte-Exact Recompression]({{ site.baseurl }}/lzss-compression/#byte-exact-recompression)), and with no second stream.
+
+> ⚠ **A type-7 disc made with this tool lacks the sub-CPU payload.** An original `HKMSPRG.SLD`
+> carries the compressed sub-CPU payload as a second stream (see [Update Handlers by Type](#update-handlers-by-type)).
+> The type-7 handler erases IC19 `0x3E0000`–`0x3FFFFF` before it reads `HKMSPRG.SLD` and rewrites
+> that area only when a second `SLIDE` header follows the program stream. Read from the code, not
+> tested: installing such a disc would leave that area erased, and `SubCPU_Send_Payload` would then
+> fall back to `0x800000`, which holds table data, not a payload.
 
 ---
 
 ## No Code Execution from Floppy
 
-An important architectural finding: **none of the 8 system-update disc types makes the KN5000 execute code from floppy disc.** All of them write data to flash memory; none load code into RAM for execution. The one exception in the firmware is a hidden factory loader, not an update disc: on the "DEBUG SCREEN for HD-AE" page, the LOAD switch reads `A:HKEXT.XAP` (32 KB) from floppy into RAM at `0x200000`, and the GO switch checks for the `XAPR` id there and jumps to `0x200008` (`HamaDeb_HdaeDebugScreenFunc`, `CheckFDStatusLoad_Entry` and `LoadExtROM_Entry` in `factory_test/test_init.s`). How a user reaches that page has not been established.
+An important architectural finding: **none of the 8 system-update disc types makes the KN5000 execute code from floppy disc.** Each of them either writes data to flash memory or is refused; none load code into RAM for execution. The one exception in the firmware is a hidden factory loader, not an update disc: on the "DEBUG SCREEN for HD-AE" page, the LOAD switch reads `A:HKEXT.XAP` (32 KB) from floppy into RAM at `0x200000`, and the GO switch checks for the `XAPR` id there and jumps to `0x200008` (`HamaDeb_HdaeDebugScreenFunc`, `CheckFDStatusLoad_Entry` and `LoadExtROM_Entry` in `factory_test/test_init.s`). How a user reaches that page has not been established.
 
 ### Evidence
 
 1. **Boot sector is never read.** All 9 calls to the FDC read routine (`FDC_ReadSectors`) use sector 33 or higher. The `Detect_Disk_Type` routine reads the data area to find the signature file — it never examines sector 0, the BPB, or any boot code.
 
-2. **All update handlers write to flash.** Every disc type handler (types 1–8) programs flash memory and then enters an infinite loop displaying "Turn On AGAIN!!" (`0xEF05E6`). No handler copies data to RAM and jumps to it.
+2. **Update handlers write to flash or halt.** The handlers for types 1, 3 and 5–8 program flash memory; after "Completed!" and "Turn On AGAIN!!" the boot code spins in an endless loop (`Boot_MainSequence_Trampoline`, `0xEF05E6`). Types 2 and 4, and an unrecognised disc, halt at "Illegal Disk!" (`SHOW_ILLEGAL_DISK_MESSAGE`) without writing; on a Region 4 unit, or when the `0x800000` pair is not recognised, every disc except type 6 is ignored without a message and the boot code still ends in that loop (see [Firmware Update Validation]({{ site.baseurl }}/firmware-update-validation/#7-region-code-check)). No handler copies data to RAM and jumps to it.
 
 3. **No disc type for executable content.** The 8-entry signature table at `0x9FA000` covers firmware images (types 1–4, 7–8), custom data (type 5), and HDAE5000 extension firmware (type 6). There is no signature for an executable or loadable code disc.
 

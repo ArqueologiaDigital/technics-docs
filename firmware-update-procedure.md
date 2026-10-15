@@ -31,7 +31,7 @@ Compressed ("PCK") discs are the standard format for v5 and later. Older uncompr
 
 1. **Power off** the KN5000.
 2. **Insert** the update floppy disc into the disc drive.
-3. **Hold all four PANEL MEMORY buttons (1, 2, 3 and 4)** and **power on** the keyboard.
+3. **Hold all four PANEL MEMORY buttons (1, 2, 3 and 4)** and **power on** the keyboard. Keep holding them until **"Flash Memory Update"** appears (service manual p. I-24).
 4. The screen will display **"Please Wait !!"** while the system initializes.
 5. After initialization:
    - **"Flash Memory Update"** appears at the top of the screen.
@@ -43,6 +43,8 @@ Compressed ("PCK") discs are the standard format for v5 and later. Older uncompr
    - **"Turn On AGAIN !!"** appears below it.
 7. **Power off** the keyboard, **remove** the floppy disc, and **power on** again.
 8. The keyboard will boot with the new firmware.
+
+> The service manual gives this procedure for programming replacement flash chips (pp. I-23 and I-24). In the program ROM's own updater, entry also needs the version byte at `0xFFFFE8` to read `0xFF`; a programmed v10 ROM holds `0x0A` there, and how a stock unit meets that check is open (see [Firmware Update Validation]({{ site.baseurl }}/firmware-update-validation/#1-update-mode-sentinel-0xffffe8)).
 
 ### HDAE5000 Extension Update
 
@@ -117,7 +119,7 @@ Custom firmware update discs can be created with `tools/make_update_disc.py` fro
 python tools/make_update_disc.py <rom_file> <output_disc.img> --type 7
 ```
 
-See [System Update Discs]({{ site.baseurl }}/system-update-discs/#creating-update-discs) for details.
+See [System Update Discs]({{ site.baseurl }}/system-update-discs/#creating-update-discs) for details. Read the warning there first: the tool writes only the program stream, so, read from the code (not tested), a type-7 disc made with it leaves the sub-CPU payload area of IC19 erased.
 
 ---
 

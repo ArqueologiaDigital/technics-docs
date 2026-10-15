@@ -45,6 +45,8 @@ No routine sends flash commands at `0xE00000`; which physical pair answers at `0
 5. base+0x2AAA = 0x55
 6. base+0x5555 = 0x10
 
+The addresses above are JEDEC word addresses. The KN5000 routines write them as byte offsets: `base+0xAAAA`/`base+0x5554` for a single ×16 chip and `0x815554`/`0x80AAA8` for the 32-bit pair (see [Address Translation](#address-translation-16-bit--32-bit)).
+
 ## Table Data Boot ROM Routines (16-bit)
 
 These routines operate on HDAE5000 and Custom Data Flash using 16-bit bus access.
@@ -140,7 +142,7 @@ The unlock addresses are the JEDEC word addresses `0x5555` and `0x2AAA` scaled b
 **Purpose:** Read Table Data ROM flash IDs
 
 **Exit:**
-- XIZ = device ID if valid, 0xFFFFFFFF otherwise
+- XHL = device-ID pair (`0x22D622D6` or `0x22582258`) if valid, 0xFFFFFFFF otherwise
 
 **Sequence:**
 ```
@@ -156,7 +158,7 @@ The unlock addresses are the JEDEC word addresses `0x5555` and `0x2AAA` scaled b
 
 **Entry:**
 - XWA = destination address
-- XIZ = data (32 bits)
+- XBC = data (32 bits; a value of 0xFFFFFFFF is skipped)
 
 ### Flash_ChipErase_32bit (0x9FBD17)
 
@@ -176,12 +178,12 @@ Located in `v10/maincpu/boot/system_handlers.s`.
 
 ### HDAE5000_Detect (0xEF3D0E)
 
-**Purpose:** Detect presence of HDAE5000 expansion board
+**Purpose:** Read the flash IDs of the 32-bit pair at `0x800000` -- the program ROM's twin of `Flash_ReadID_32bit`. Despite its name it does not look for the HD-AE5000 board.
 
-**Method:** Probe Table Data ROM with flash ID command
+**Method:** 32-bit Read ID sequence at `0x815554`/`0x80AAA8`; accepts manufacturer `0x01` or `0x04` and device `0x22D6` or `0x2258` on both chips
 
 **Exit:**
-- XWA at (XSP+8) = 0 if detected, 0xFFFFFFFF if not present
+- XHL = the device-ID pair (`0x22D622D6` or `0x22582258`), or `0xFFFFFFFF` if not recognised
 
 ### FlashWrite (0xEF3C3C)
 
@@ -243,12 +245,12 @@ Creating shared source code is **possible** but complex:
 
 The Table Data Boot ROM contains simplified FDC routines for firmware updates:
 
-| Address  | Function                | Purpose                                   |
-|----------|-------------------------|-------------------------------------------|
-| 0x9FBF07 | `FDC_Reset`             | Initialize FDC controller for update mode |
-| 0x9FBF37 | `FDC_ReadSector`        | Read a single sector from floppy          |
-| 0x9FBF92 | `FDC_ReadSectorWrapper` | Read multiple sectors with retry loop     |
-| 0x9FBFC4 | `Boot_DetectDiskType`   | Check disk header signatures              |
+| Address  | Function                | Purpose                                                        |
+|----------|-------------------------|----------------------------------------------------------------|
+| 0x9FBF07 | `FDC_Reset`             | Initialize FDC controller for update mode                      |
+| 0x9FBF37 | `FDC_ReadSector`        | Build a read request (LBA, sector count, buffer) at RAM 0x0C10 |
+| 0x9FBF92 | `FDC_ReadSectorWrapper` | Issue that read; reset the FDC and retry on failure            |
+| 0x9FBFC4 | `Boot_DetectDiskType`   | Check disk header signatures                                   |
 
 ### FDC_Reset (0x9FBF07)
 
@@ -259,17 +261,17 @@ Initializes the FDC controller:
 
 ### FDC_ReadSector (0x9FBF37)
 
-Reads a single sector:
-- Entry: XWA = sector info, BC = sector number, XDE = destination buffer
-- Calculates head/track from sector number
-- Uses parameters at RAM 0x0C10
+Builds a read request; it does not touch the FDC itself:
+- Entry: XWA = first sector (linear, LBA), BC = sector count, XDE = destination buffer
+- Converts the LBA to track, head and sector (18 sectors per track, two heads)
+- Writes the request into the FDC parameter block at RAM 0x0C10
 
 ### FDC_ReadSectorWrapper (0x9FBF92)
 
-Multi-sector read with retry:
-- Calls FDC_ReadSector in a loop
-- On failure, calls FDC_Reset and retries
-- Returns success in HL
+Read with retry:
+- Calls FDC_ReadSector, sets command 3 (read) in the block at 0x0C10 and passes it to `FDC_Request`
+- On failure, calls FDC_Reset and retries, with no retry limit
+- Returns HL = 0 on success
 
 ## Disk Type Detection
 

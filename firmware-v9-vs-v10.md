@@ -26,7 +26,7 @@ The v10 version adds **14 bytes** of net code growth. Because both source trees 
 
 ### 3. Flash Memory Save/Restore Adjustments
 
-The `TmFlash_WriteRoutine` (now `Flash_GetSlotAddressAndSize`) and `PostTmSave`/`PostTmLoad` functions received minor adjustments to their internal branch targets and parameter passing, likely to accommodate the SendPartDataBlock restructuring.
+`Flash_GetSlotAddressAndSize` (formerly `TmFlash_WriteRoutine`), `PostTmLoad` and `PostTmSave` sit after the two edits. Aligned for the 14-byte shift, they differ only in moved addresses and branch displacements, like every other differing byte; their code did not change.
 
 ### 4. Debug Utility Code: Unchanged
 
@@ -34,7 +34,7 @@ The `TmFlash_WriteRoutine` (now `Flash_GetSlotAddressAndSize`) and `PostTmSave`/
 
 ### 5. Version Byte
 
-The firmware version identifier at address `0xFFFFE8` changed from `0x09` (v9) to `0x0A` (v10). This byte is read by `Get_Firmware_Version` and displayed on the splash screen.
+The firmware version identifier at address `0xFFFFE8` changed from `0x09` (v9) to `0x0A` (v10). This byte is read by `Get_Firmware_Version`; the MPVersion screen prints it (`MPver_ShowHide`, "Ver%2X"), and power-on combo 2 shows it on the panel LEDs.
 
 ### 6. Main-Program Version Number
 
@@ -55,35 +55,35 @@ One data word changed: `Softver_MainProgramVersion` in `naka_style_bitmaps.c` we
 
 ## The Engineering Story
 
-The v9-to-v10 firmware update tells a clear story when read at the instruction level. Matsushita's engineers made **one targeted fix** in the SubCPU voice parameter transfer system, and the rest of the ROM differences are mechanical consequences of that fix.
+The v9-to-v10 firmware update tells a clear story when read at the instruction level. Matsushita's engineers made **one targeted change**, two small edits to the SubCPU data block transfer routines, and the rest of the ROM differences are mechanical consequences of that change.
 
-### The Bug: Silent Failures in SubCPU Communication
+### The First Edit: `SendPartDataBlock_DoGetError`
 
-The root cause is in `SendPartDataBlock_DoGetError` -- the function called when the main CPU needs to verify that a data block transfer to the SubCPU completed successfully.
+The change is in `SendPartDataBlock_DoGetError`, the sound-RAM subsystem's phase-2 handler (entry 2 of `SoundRam_HandlerTable`). The boot code runs it through `ScreenGroup_Dispatch` slot 2 when `SubCPU_Payload_GetErrorFlag` is non-zero; `MainSysControl` runs it during a system initialisation (`EVT_SYS_INI`); and the MIDI transfer-abort recovery (`MidiSysEx_RecoverAbortedXferGroup`) calls it for the sound-RAM data group. It does not verify a transfer.
 
-**v9 (broken):**
+**v9:**
 ```asm
 SendPartDataBlock_DoGetError:
-    ldw  wa, 0xff        ; load "error" response
+    ldw  wa, 0xff        ; packet bytes 0xFF, 0xFF
     ldw  bc, 0xff
     jp   COMM_BuildAndSendPacket   ; tail-call: send and return
 ```
 
-**v10 (fixed):**
+**v10:**
 ```asm
 SendPartDataBlock_DoGetError:
-    call SubCPU_Payload_GetErrorFlag   ; actually check for errors
-    cp   hl, 0xffff                    ; was there an error?
-    ret  nz                            ; if yes, abort early
+    call SubCPU_Payload_GetErrorFlag   ; HL = byte at 0x1E53E, sign-extended
+    cp   hl, 0xffff                    ; is that byte 0xFF?
+    ret  nz                            ; no: return without sending
     ldw  wa, 0xff
     ldw  bc, 0xff
     call COMM_BuildAndSendPacket       ; changed from jp to call
     ret                                ; explicit return
 ```
 
-In v9, `DoGetError` was **not checking for errors at all**. It blindly sent a "success" packet regardless of whether the SubCPU payload transfer actually succeeded. The v10 fix adds a call to `SubCPU_Payload_GetErrorFlag`, checks the return value, and aborts early if an error occurred. This grew the function from 10 bytes to 21 bytes (**+11 bytes**).
+In v9, `SendPartDataBlock_DoGetError` sent its `0xFF`/`0xFF` message to the sub-CPU (`COMM_BuildAndSendPacket`) every time it was called. v10 first reads the flag byte at `0x1E53E` (`SubCPU_Payload_GetErrorFlag`) and sends the message only when that byte is `0xFF`; for `0x00` or `0x01` it returns without sending. The byte is `0xFF` when `SubCPU_Payload_Verify` finds no valid saved power-down state (the `0xF980` region fails its check) and `0x01` when only the `0xF180` region fails (see [Boot Sequence]({{ site.baseurl }}/boot-sequence/#welcome-screen-and-boot-animation)). Because the boot code runs the routine whenever the byte is non-zero (see [Subsystem Init Phases]({{ site.baseurl }}/boot-sequence/#subsystem-init-phases)), the two versions differ at boot only for `0x01`: v9 sent the message and v10 does not. `MainSysControl` sets the byte to `0xFF` (`SubCPU_PayloadErrorStore`) before it dispatches a system initialisation (`EVT_SYS_INI`), so that path still sends the message, and the MIDI transfer-abort recovery (`MidiSysEx_RecoverAbortedXferGroup`) now sends it only while the byte reads `0xFF`. This grew the function from 10 bytes to 21 bytes (**+11 bytes**).
 
-### The Second Fix: Return Value Corruption
+### The Second Edit: Return Value Handling
 
 A second change in the same region fixes return value handling:
 
@@ -95,7 +95,7 @@ A second change in the same region fixes return value handling:
 **v10:**
 ```asm
     calr SendPartDataBlock_SetWord7   ; call (returns here)
-    lds  hl, 0                        ; clear return value to "success"
+    ld   hl, 0:i3                     ; clear return value to "success"
     ret                               ; explicit return
 ```
 
@@ -131,7 +131,7 @@ None of the five single-byte differences listed here is an independent fix. Item
 
 ### Conclusion
 
-**The v9-to-v10 update was a targeted reliability fix.** The SubCPU data transfer system in v9 had a silent failure mode: when the SubCPU reported a payload error, the main CPU ignored it and sent a "success" response anyway. This could cause the tone generator to operate with corrupted voice parameters -- resulting in wrong sounds, missing notes, or audio glitches that would be difficult to reproduce and diagnose.
+**The v9-to-v10 update was a small, targeted code change.** v10 makes `SendPartDataBlock_DoGetError` send its `0xFF`/`0xFF` message only while the flag byte at `0x1E53E` reads `0xFF`, and makes `HdaeRom_DataDispatch_Block` return `HL = 0`. What that message does on the sub-CPU side, and so which user-visible fault the change addresses, has not been established.
 
 The fix was surgical: add 14 bytes of error checking code, fix a return value corruption path, and let the existing 0xFF padding absorb the growth.
 
@@ -141,15 +141,15 @@ The 7-month gap between releases (January to August 1999) is consistent with a f
 
 In March 2026 the source diff between the two trees had been minimized to **95 lines** across 9 files (+ 2 entry point renames), from 5,388. The trees have since been relabelled and restructured separately, so the table below describes that March 2026 diff, not today's sources.
 
-| Category | Files | Lines | Description |
-|----------|-------|-------|-------------|
-| SubCPU error handling fix | 1 | ~15 | The core bug fix (+14 bytes) |
-| Address cascade (`.long + N`) | 3 | ~14 | Pointer adjustments from code growth |
-| Callback address shift | 1 | 4 | `Sprintf_OutputCallback` pushw values |
-| Padding absorption | 1 | 2 | Fill size 12,710 -> 12,696 |
-| Version byte | 1 | 2 | `0x09` -> `0x0A` |
-| Unrelated single-byte fixes | 2 | ~6 | Constants, opcodes, registers |
-| **Total** | **9** | **95** | |
+| Category                      | Files | Lines  | Description                                                                                                    |
+|-------------------------------|-------|--------|----------------------------------------------------------------------------------------------------------------|
+| SubCPU error handling fix     | 1     | ~15    | The core bug fix (+14 bytes)                                                                                   |
+| Address cascade (`.long + N`) | 3     | ~14    | Pointer adjustments from code growth                                                                           |
+| Callback address shift        | 1     | 4      | `Sprintf_OutputCallback` pushw values                                                                          |
+| Padding absorption            | 1     | 2      | Fill size 12,710 -> 12,696                                                                                     |
+| Version byte                  | 1     | 2      | `0x09` -> `0x0A`                                                                                               |
+| Single-byte differences       | 2     | ~6     | Moved addresses and a branch displacement, not fixes (see [Single-Byte Differences](#single-byte-differences)) |
+| **Total**                     | **9** | **95** |                                                                                                                |
 
 ```
 Diff reduction history:
