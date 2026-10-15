@@ -392,9 +392,14 @@ hand** and verified, its service manual is free, its CPU is one we already emula
 custom chips are parts we have already reverse-engineered. Budget it as a new *application*, not a
 new architecture. MAME already has a SED1330 device for its display.
 
-★ **The WSA1 may also unblock the KN5000's DSP.** It drives the same uPD6383 and names real effects
-— SLOW ATTACKER, PITCH SHIFTER, PEDAL WAH, ROTARY SPEAKER — that the KN5000 ships as programs
-byte-identical to NO OPERATION. The shared container and instruction set are now demonstrated
+★ **The WSA1 has already widened the KN5000's DSP decode.** It drives three of the same uPD6383
+chips, its effect microcode disassembles under the same instruction-set model (48 distinct program
+bodies in `wsa1/dsp/disasm/` since 2026-09-07; see [Effects DSP]({{ site.baseurl }}/effects-dsp/),
+§8), and the [decode state of play]({{ site.baseurl }}/upd6383-decode-status/) is measured over
+the pooled KN5000 + WSA1R corpus. Its ROM holds real bodies for SLOW ATTACKER, PITCH SHIFTER,
+PEDAL WAH and PEDAL WAH+DELAY, four of the twelve named effects that the KN5000 points at its one
+shared NO OPERATION program. (ROTARY SPEAKER is not among them: on the KN5000 it shares one
+program with ROCK ROTARY.) The shared container and instruction set are now demonstrated
 (kn5000-roms-disasm `d28b3bf8e`, 2026-09-06): the WSA1R's `prom_c` program words (5,777) use the
 KN5000's container and field layout and decode under its uPD6383 model at 34.48 %, against
 38.53 % on the KN5000 itself and nulls of 0.03–0.40 %. Whether the WSA1's programs for those
@@ -490,9 +495,11 @@ were field-distributable: a zero-risk software route to several currently "undum
   emulator, though, the device is *compiled out by default* and runtime-gated off; `run_frame()` discards every frame unless decode is total; 44 filed dead
   ends; the output stage is a proven null — "not starved, not connected". Even a perfect IC311 is
   capped, because **IC310 (MN19413), which the entire main mix passes through, is not emulated at
-  all**. Keep the cheap hygiene items and the never-run acceptance test T5; drop the SRC 0x00
-  adjudication, the kernel-A forward-gain hunt and the base-0x90 falsifier. Redirect that budget to
-  IC310, where a few days of desk work buys a first-order gain on the whole mix.
+  all**. Keep the cheap hygiene items and the never-run acceptance test T5; drop the kernel-A
+  forward-gain hunt and the base-0x90 falsifier. (The SRC 0x00 adjudication was done in any case:
+  `SRC 0x00` reads `mem[ptr]`, anchored on 2026-09-13; see
+  [Effects DSP]({{ site.baseurl }}/effects-dsp/), §3.) Redirect that budget to IC310, where a few
+  days of desk work buys a first-order gain on the whole mix.
 - **The "~93.3 % decode ceiling"** is a misread of a stale diagnostic line. It is not a real number.
 - **The PR804 CD-ROM** contains no firmware — PC drivers, an MSI and 100 score PDFs. Closed.
 - **The `EA5` string** in our firmware is an interleaving artefact; zero hits in any merged image.
