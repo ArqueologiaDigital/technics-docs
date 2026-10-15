@@ -699,7 +699,7 @@ It waits for the sequencer transport to stop before `Banner_Loop_Check` silences
 
 ### Demo Timer Behavior in MAME
 
-When the timer reaches 10, `Demo_SelectEntry_PlaySong` is called. It calls `SwbtWr_ReinitBothBanks`, which runs the SwbtWr dispatch loop inline, so the main loop and the countdown wait until every buffered tone generator event has been dispatched. In the March 2026 MAME build that took about 16 seconds; in the August 2026 kn7000_mame overlay build the countdown goes from 10 to 9 in about half a second (kn7000_mame `notes/p9-countdown-2026-08-15.log`).
+When the timer reaches 10, `Demo_SelectEntry_PlaySong` is called. It calls `SwbtWr_ReinitBothBanks`, which runs the SwbtWr dispatch loop inline, so the main loop and the countdown wait until every buffered parameter-change event has been handed to its listeners (see [SwbtWr Event Dispatch]({{ site.baseurl }}/swbwr-tone-init/)). In the March 2026 MAME build that took about 16 seconds; in the August 2026 kn7000_mame overlay build the countdown goes from 10 to 9 in about half a second (kn7000_mame `notes/p9-countdown-2026-08-15.log`).
 
 `PlaySong` then sets `DRAM[0x8F4E]` to `0x06` and returns, and the countdown resumes from 10. In the overlay build one song plays to a correct STOP at about 139 s and the countdown is not re-armed, so nothing follows (see [MAME Emulation Status](#mame-emulation-status)).
 
