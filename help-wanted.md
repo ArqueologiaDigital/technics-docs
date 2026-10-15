@@ -43,12 +43,15 @@ rather than `.incbin` passthrough or code spelled as `.byte`. What is genuinely 
   (389 B) and 145 runs (1,495 B). The rule ranks candidates for a hand audit; it is not a
   verdict. HD-AE5000 holds 1,713 B of undocumented `.byte` operands (0.327 % of the ROM,
   `hdae5000/tools/measure_debt.py`). SX-WSA1R `prom_a` holds 82 certified `.byte` instruction
-  sites (226 B, 42 forms); under the assembler pin (`a3a81863f87d`) 81 of them have no spelling
-  found so far that reassembles byte-identically, and one (`decf`) is spellable.
+  sites (226 B, 42 forms); under the assembler pin (`a3a81863f87d`)
+  `wsa1/notes/sound/wsa1_unspellable_forms.py` spells one form (`decf`), and 34 more sites in
+  13 shift-by-`A` forms reassemble byte-identically as `slaa`/`slla`/`srla` (this site's
+  `tools/wsa1_shift_by_a_spellings.py`), so 47 sites in 28 forms have no spelling found so far.
   `scripts/analysis/semantic_debt_dashboard.py` also counts `.byte` lines that carry an
   instruction reading: v10 21, v9 21, v7 33, sub-CPU payload 2, `prom_a` 54, and none
-  elsewhere. Several of the KN5000 ones are marked as forms the backend cannot spell yet
-  (e.g. `sll a,hl`, `srl a,bc`).
+  elsewhere. Nine in each of v10, v9 and v7 are commented as forms the backend cannot spell
+  (e.g. `sll a,hl`, `srl a,bc`), but all of them are shift-by-`A`, which the pinned llvm-mc
+  spells byte-identically (`slla hl`, `srla bc`), so they need respelling, not backend work.
   Method and per-image measurement on
   [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/).
 - **LLVM wrapper mnemonics.** The site's census (`tools/wrapper_mnemonic_census.py`) finds 38
@@ -150,7 +153,7 @@ the firmware dump, not the service manual** — we have the manual.
 
 ### Tooling
 
-- Extend the LLVM TLCS-900 backend for the forms it still cannot spell: in the KN5000 trees a few dozen `.byte` lines such as shift-by-`A` on a register pair (`sll a,hl`, `srl a,bc`) and bank-register or `Q`-register operands (`add XBC,XBC3`, `cp xwa,(xix+qbc)`), and 81 certified `.byte` sites in SX-WSA1R `prom_a` (see [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/))
+- Extend the LLVM TLCS-900 backend for the forms it still cannot spell: in the KN5000 trees, `.byte` lines with bank-register or `Q`-register operands (`add XBC,XBC3`, `cp xwa,(xix+qbc)`); in SX-WSA1R `prom_a`, the 47 certified `.byte` sites with no spelling found yet, among them the rotate-by-`A` group (`rrc A,H`, bytes `ce f9`), which the backend does not define (see [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/))
 - Create visualization tools for protocol analysis
 - Build comparison/diff tools for ROM analysis
 
