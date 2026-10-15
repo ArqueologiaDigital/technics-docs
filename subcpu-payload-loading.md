@@ -10,7 +10,7 @@ This page documents the investigation into SubCPU firmware payload loading in MA
 
 > **Status: RESOLVED.** As of 2026-02-17, the SubCPU payload transfer and inter-CPU communication are **fully working**. The "Sound Name Error" messages are gone. The display shows voice names (Piano, Bigband Brass, Modern E.P.1), rhythm patterns, mixer levels, and menu navigation works correctly. Button input is also functional. This required 12 fixes to MAME's TMP94C241 emulation spanning DMA, interrupts, port I/O, serial communication, and interrupt timing. See [Boot Sequence]({{ site.baseurl }}/boot-sequence/) for the overall boot flow and [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/) for latch communication details.
 >
-> **Where the fixes live (2026-10).** Fixes 1-4 and 6-11 are in mainline MAME: Fix 1 as mamedev/mame#14970 and Fix 8 as #14995. The DMA subsystem, DMAR, the INT0 level-detect re-assertion and direction-aware port reads came in #15003, and #15878 refined the re-assertion's HDMA guard. The sub-CPU peripheral stubs (Fix 11) came with #15143. Fix 5 (`perfect_quantum`) and Fix 12 (`clear_int0_level`) are only in the kn7000_mame overlay. A later recurrence of the "Sound Name Error" (2026-07-20) was caused by the overlay's SNS write tap and cured by removing it; see [SNS NMI Emulation]({{ site.baseurl }}/sns-nmi-emulation/).
+> **Where the fixes live (2026-10).** Fixes 1-4 and 6-11 are in mainline MAME: Fix 1 as mamedev/mame#14970 and Fix 8 as #14995. The DMA subsystem, DMAR, the INT0 level-detect re-assertion and direction-aware port reads came in #15003, and #15878 refined the re-assertion's HDMA guard. The sub-CPU peripheral stubs (Fix 11) came with #15143. Fix 5 (`perfect_quantum`) and Fix 12 (`clear_int0_level`) are only in the kn7000_mame overlay. The overlay has since dropped Fix 7's re-assertion itself (`3fd44f3`, 2026-08-05); see [Fix 12](#fix-12-int0-stale-m_level-fix-clear_int0_level). A later recurrence of the "Sound Name Error" (2026-07-20) was caused by the overlay's SNS write tap and cured by removing it; see [SNS NMI Emulation]({{ site.baseurl }}/sns-nmi-emulation/).
 
 ## Background
 
@@ -561,6 +561,8 @@ The SubCPU payload's main loop polls several unmapped hardware devices, generati
 | 0x1E0000-0x1EFFFF | Waveform/sample RAM                     |                      |
 
 ### Fix 12: INT0 Stale m_level Fix (clear_int0_level)
+
+> **Superseded in the overlay (2026-08-05).** kn7000_mame commit `3fd44f3` later removed Fix 7's /INT0 level re-assertion altogether: it had changed the outcome only twice in 59,300 latch bytes, and both times as a duplicate, nested dispatch of the main CPU's non-reentrant receive ISR. `clear_int0_level()` is still called from both latch-read handlers, and with no re-assertion the latch writes, INT0 dispatches and latch reads are 1:1:1. Mainline MAME keeps the re-assertion (guarded against micro-DMA, #15003/#15878) and has no `clear_int0_level()`. This section records the February 2026 state.
 
 **Root cause of boot timeout regression:** Fix 7's re-assertion logic checks `m_level[INT0] == ASSERT_LINE` to decide whether to re-assert the interrupt flag. However, `set_input_line(CLEAR_LINE)` in MAME goes through `synchronize()` (see `diexec.cpp:663-691`), which defers the actual `execute_set_input()` call until **after the current timeslice ends**. When the ISR reads the latch, `generic_latch::read()` calls `set_input_line(INT0, CLEAR)`, but `m_level` stays `ASSERT_LINE` until the deferred callback runs.
 
