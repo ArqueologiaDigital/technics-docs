@@ -248,8 +248,9 @@ descriptions were not:
   database; where the runtime code payload is sourced from is a separate question.
 - `HDAE5000_UiObject_PtrTable` (0x2A5D2C, once labelled `HDAE5000_GFX_DATA_1`) is neither
   graphics nor code: all 3,160 bytes of it group into valid little-endian pointers — 769
-  into the UI descriptor pool, 20 into sub-CPU work RAM, and one NULL terminator. Its
-  `0x315` is an *entry count*, not a byte size.
+  into the UI descriptor pool, 20 into the RAM copy of the HD-AE5000's `.data` image
+  (0x239CC4–0x239FAE), and one NULL terminator. Its `0x315` is an *entry count*, not a byte
+  size.
 - There is no `HDAE5000_Font_Data` region. The address that label named holds no font, and
   fell 0x11818 bytes *inside* a 320×240 bitmap.
 - A 320×240 boot splash sits at 0x2E61CE, immediately after the 0x400-byte VGA palette.
@@ -795,12 +796,12 @@ independent structural anchors land exactly where the firmware's own hardcoded p
 say they should, which rules out any rotated, offset or wrapped read.
 
 But the last non-`0xFF` byte is at chip `0x0D344F`, and chip `0x0E0000-0x0FFFFF`
-(CPU `0x3E0000-0x3FFFFF`) — the sub-CPU payload staging area — is entirely blank. Since
-every dumped firmware version reaches that source, **a machine matching this image could
-not start its sub-CPU**. Whether the region was never programmed on that unit, or an
-install was interrupted, or the dump is truncated and `0xFF`-padded, is **unresolved**:
-the three are byte-indistinguishable in the file. The full argument, and the two free
-measurements that would decide, are on
+(CPU `0x3E0000-0x3FFFFF`) — where a type-7 update disc writes the compressed sub-CPU
+payload — is entirely blank. Since every dumped firmware version reaches that source, **a
+machine matching this image could not start its sub-CPU**. Whether the region was never
+programmed on that unit, or an install was interrupted, or the dump is truncated and
+`0xFF`-padded, is **unresolved**: the three are byte-indistinguishable in the file. The
+full argument, and the two free measurements that would decide, are on
 [Sub-CPU Payload Provenance]({{ site.baseurl }}/subcpu-payload-provenance/).
 
 The MAME driver papers over the gap with a `ROMX_LOAD` overlay of the compressed payload
