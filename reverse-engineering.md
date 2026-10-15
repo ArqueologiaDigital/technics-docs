@@ -63,12 +63,12 @@ The main CPU communicates with the HDAE5000 via an 8255 PPI (Programmable Periph
 
 **PPI Port Addresses:**
 
-| Address | Port | Direction | Function |
-|---------|------|-----------|----------|
-| 0x160000 | Port A | Output | Data output |
-| 0x160002 | Port B | Input | Status input |
-| 0x160004 | Port C | Output | Control signals |
-| 0x160006 | Control | Write | PPI configuration |
+| Address  | Port    | Direction             | Function                                                                                                |
+|----------|---------|-----------------------|---------------------------------------------------------------------------------------------------------|
+| 0x160000 | Port A  | Output at boot (0x82) | Data byte to or from the PC                                                                             |
+| 0x160002 | Port B  | Input at boot         | Handshake lines to the PC (an output under 0x89 / 0x99 in PC-link mode)                                 |
+| 0x160004 | Port C  | Output at boot        | Handshake lines from the PC (an input in PC-link mode); at boot the main CPU drives bits 0-3, see below |
+| 0x160006 | Control | Write                 | PPI configuration                                                                                       |
 
 **PPI Control Register Value: 0x82**
 - Bit 7 = 1: Mode set active
@@ -76,14 +76,16 @@ The main CPU communicates with the HDAE5000 via an 8255 PPI (Programmable Periph
 - Port B: Mode 0, Input
 - Port C: Output (both nibbles)
 
-**Port C Control Signals:**
+**Port C at boot (main CPU, control word 0x82).** The disassembly calls 0x160004 the LED port. The main CPU uses bits 0-3 as status outputs:
 
-| Bit | Function | Usage |
-|-----|----------|-------|
-| 0 | Strobe | SET 0 / RES 0 for pulse |
-| 1 | Secondary strobe | Secondary handshake |
-| 2 | Data direction/select | CHG 2 toggles |
-| 3 | Control signal | CHG 3 toggles |
+| Bit | Main-CPU use                                                                                                                                                                                                          |
+|-----|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0   | Set while flash is programmed from the board (`HDAE5000_TableData_Write` in `HDAE5000_Init_DetectAndVerify`; `HDAE5000_ProgramTableDataFlash` and `HDAE5000_ProgramCustomDataFlash` in `HDAE5000_Init_BytecodeBlock`) |
+| 1   | Set when programming is done, before the verify                                                                                                                                                                       |
+| 2   | Set when `HDAE5000_Detect` fails; blinked forever (`chg 2`) by `LED_BlinkBit2Forever` when the table-data verify fails                                                                                                |
+| 3   | In `HDAE5000_Init_BytecodeBlock` only (no direct caller): set when `Flash_IdentifyAndValidateChip` fails; blinked forever (`chg 3`) by `LED_BlinkBit3Forever` when the custom-data verify fails                       |
+
+`LED_CyclePattern` steps through bits 0-3 while the code waits, after a chip erase, for `HDAE5000_Status_Check` (P7 bit 5) to report ready.
 
 **Initialization Sequence (HDAE5000_Parport_Setup at 0xEF4BCC):**
 
@@ -95,9 +97,12 @@ The main CPU communicates with the HDAE5000 via an 8255 PPI (Programmable Periph
 5. Delay loop (0xDBBA0 iterations)
 6. Port C = 0x00 (clear control)
 7. Poll Port B bit 0 until clear (wait for ready)
+8. Jump to HDAE5000_Init_DetectAndVerify (0xEF4B54): reprogram the table-data flash from the board and halt (it halts at once if HDAE5000_Detect fails)
 ```
 
-**HDAE5000 Detection (at 0xEF05B0):**
+`HDAE5000_Parport_Setup` therefore never returns; see [Firmware Update Validation]({{ site.baseurl }}/firmware-update-validation/#fatal-boot-time-rom-verification-failure).
+
+**HDAE5000 Detection (at 0xEF05A6, in `Boot_FlashAndExtensions`):**
 
 ```asm
 BIT 0, (PE)           ; Check PE port bit 0
@@ -206,12 +211,12 @@ The main and sub CPUs communicate through a pair of 8-bit latches (IC22/IC23, on
 
 **Command Encoding:**
 
-| Byte Range | Format | Description |
-|------------|--------|-------------|
-| 0x00-0x1F | `HHHLLLLL` | Handler (bits 7-5) + data length-1 (bits 4-0) |
-| 0xE1 | Fixed | Multi-stage DMA, 6-byte param block at 0x0544 |
-| 0xE2 | Fixed | Payload transfer, 10-byte param block at 0x054A |
-| 0xE3 | Fixed | Payload ready signal |
+| Byte Range     | Format     | Description                                     |
+|----------------|------------|-------------------------------------------------|
+| any other byte | `HHHLLLLL` | Handler (bits 7-5) + data length-1 (bits 4-0)   |
+| 0xE1           | Fixed      | Multi-stage DMA, 6-byte param block at 0x0544   |
+| 0xE2           | Fixed      | Payload transfer, 10-byte param block at 0x054A |
+| 0xE3           | Fixed      | Payload ready signal                            |
 
 **Handshaking Register (INTERCPU_STATUS at SFR 0x34):**
 
@@ -306,37 +311,37 @@ Bits 4-0 encode the data length minus one (1-32 bytes).
 
 The payload's sound-hardware windows:
 
-| Address             | Register       | Description                                                            |
-|---------------------|----------------|------------------------------------------------------------------------|
-| 0x100000 / 0x100002 | Tone generator | IC303 register-address latch / data port                               |
-| 0x110002            | Keybed status  | Bit 0: a keybed event is ready (read with P6.7 set)                    |
-| 0x110000            | Keybed data    | Keybed event: low byte note, high byte velocity (read with P6.7 clear) |
-| 0x130000            | DSP block      | 4 channels × 8 registers (`DSP_Init_Channels`, `DSP_Write_Channel`)    |
+| Address             | Register       | Description                                                                                                 |
+|---------------------|----------------|-------------------------------------------------------------------------------------------------------------|
+| 0x100000 / 0x100002 | Tone generator | IC303 register-address latch / data port                                                                    |
+| 0x110002            | Keybed status  | Bit 0: a keybed event is ready (read with P6.7 set)                                                         |
+| 0x110000            | Keybed data    | Keybed event: low byte key index (bit 7 set = key down), high byte raw touch reading (read with P6.7 clear) |
+| 0x130000            | DSP block      | 4 channels × 8 registers (`DSP_Init_Channels`, `DSP_Write_Channel`)                                         |
 
-Port P6 bit 7 controls the A23 address line for tone generator access.
+Port P6 bit 7 (SFR 0x18) is driven by hand before each tone-generator and keybed access, and its level matches address bit 1: low for 0x100000 and 0x110000, high for 0x100002 and 0x110002. The source reads the pin as the CPU's A23 line, but that is an inference, and the boot ROM makes the same accesses without touching P6 (see the `ToneGen_WriteVoiceParams` header in `v142/subcpu/kn5000_subprogram_v142.s`).
 
 **Tone generator and keybed routines (0x03D0xx):**
 
-| Routine                 | Address  | Description                                                                   |
-|-------------------------|----------|-------------------------------------------------------------------------------|
-| `ToneGen_Init`          | 0x03D016 | Initialize tone gen (mode = 6)                                                |
-| `ToneGen_Process_Notes` | 0x03D01E | Process incoming note events                                                  |
-| `Keybed_Read_Event`     | 0x03D0C5 | Read one keybed event (status 0x110002, data 0x110000) with P6.7 control      |
-| `Keybed_Decode_Event`   | 0x03D11F | Decode the event: note, black-key velocity trim and clamping                  |
-| `ToneGen_Poll_Init`     | 0x03D1FB | Clear 8 voice buffers                                                         |
-| `ToneGen_Poll_All`      | 0x03D217 | Poll all 16 channels                                                          |
-| `FP_dcmp`               | 0x03D2AC | Floating-point double compare (8-byte operands); not a tone-generator routine |
+| Routine                 | Address  | Description                                                                                                                    |
+|-------------------------|----------|--------------------------------------------------------------------------------------------------------------------------------|
+| `ToneGen_Init`          | 0x03D016 | Keybed init (the name is historical): touch curve 6 into 0x4A48, then `ToneGen_Poll_Init`                                      |
+| `ToneGen_Process_Notes` | 0x03D01E | Keybed service: forwards key events to the main CPU as MIDI (only when 0x4A4A = 1)                                             |
+| `Keybed_Read_Event`     | 0x03D0C5 | Read one keybed event (status 0x110002, data 0x110000) with P6.7 control                                                       |
+| `Keybed_Decode_Event`   | 0x03D11F | Decode the event: note, black-key velocity trim and clamping                                                                   |
+| `ToneGen_Poll_Init`     | 0x03D1FB | Keybed power-on scan: clear the 8-byte key bitmap at 0xF002 (`ToneGen_Voice_Active_Bitmap`), then fall into `ToneGen_Poll_All` |
+| `ToneGen_Poll_All`      | 0x03D217 | 16 keybed reads, each after a 10,000-step delay, setting or clearing bits in that bitmap                                       |
+| `FP_dcmp`               | 0x03D2AC | Floating-point double compare (8-byte operands); not a tone-generator routine                                                  |
 
-**Voice State Buffer:**
+**Keybed state:**
 
-| Address | Size | Description |
-|---------|------|-------------|
-| 0x4A42 | 1B | DMA command byte |
-| 0x4A43 | 1B | Note number |
-| 0x4A44 | 1B | Velocity |
-| 0x4A48 | 1B | Tone gen mode (0-6) |
-| 0x4A4A | 1B | DMA enabled flag |
-| 0x4A4C | 16B | Voice slot table (one per channel) |
+| Address       | Size        | Description                                                                                             |
+|---------------|-------------|---------------------------------------------------------------------------------------------------------|
+| 0x4A42        | 1B          | MIDI status byte (0x90) of the 3-byte message sent to the main CPU                                      |
+| 0x4A43        | 1B          | Note number                                                                                             |
+| 0x4A44        | 1B          | Velocity                                                                                                |
+| 0x4A48        | 1B          | Touch-curve number (0-9, default 6; set by `Audio_CmdHandler_A0_BF`)                                    |
+| 0x4A4A        | 1B          | Keybed-to-main forwarding enable (`InterCPU_DMA_Send` is called only when it is 1)                      |
+| 0x4A4C + note | 1B per note | Held-key map (0xFF = key down); see [Keybed Scanning]({{ site.baseurl }}/keybed-scanning/#held-key-map) |
 
 **Serial Port Routines:**
 
@@ -503,14 +508,14 @@ The sub CPU boot ROM handles commands from the main CPU via the latch at `0x1200
 
 #### Command Format
 
-| Command | Action | DMA Buffer | DMA Size |
-|---------|--------|------------|----------|
-| `E1` | Set up DMA transfer | `CMD_E1_BUFFER` (0x0544) | 6 bytes |
-| `E2` | Set up DMA transfer | `CMD_E2_BUFFER` (0x054A) | 10 bytes |
-| `E3` | Signal payload ready | - | - |
-| `00-1F` | Variable-length data | `CMD_DATA_BUFFER` (0x051E) | low 5 bits + 1 (1-32 bytes) |
+| Command   | Action               | DMA Buffer                 | DMA Size                    |
+|-----------|----------------------|----------------------------|-----------------------------|
+| `E1`      | Set up DMA transfer  | `CMD_E1_BUFFER` (0x0544)   | 6 bytes                     |
+| `E2`      | Set up DMA transfer  | `CMD_E2_BUFFER` (0x054A)   | 10 bytes                    |
+| `E3`      | Signal payload ready | -                          | -                           |
+| any other | Variable-length data | `CMD_DATA_BUFFER` (0x051E) | low 5 bits + 1 (1-32 bytes) |
 
-For commands `00-1F`, the command byte encodes both the handler index and data length:
+For every other command byte, the byte encodes both the handler index and the data length:
 - **Bits 7-5**: Handler index (0-7), selects function from jump table at 0xFF8000
 - **Bits 4-0**: Data length - 1 (0-31 = 1-32 bytes)
 
@@ -556,7 +561,7 @@ Main processing interrupt that handles received data after DMA completes.
    - State 4: Finalize transfer
      - Clear bit 7 of SUBCPU_STATUS_FLAGS (0x04FE)
      - Set CMD_PROCESSING_STATE=0
-3. Manage watchdog (toggle bit 2 of WDMOD if set)
+3. If timer 2 is running (bit 2 of T8RUN, SFR 0x80), restart it: res 2 / set 2 clears its count (the boot source's comments call this the watchdog; WDMOD is not touched)
 4. Restore all registers
 ```
 
@@ -565,8 +570,8 @@ Main processing interrupt that handles received data after DMA completes.
 Handles DMA transfer completion by advancing the state machine.
 
 ```
-1. Clear bit 2 of WDMOD (watchdog)
-2. Check DMA_STATE (0x0516):
+1. Stop timer 2 (res 2 of T8RUN, SFR 0x80), the INTT2 source that paces channel 2 (the boot source's comment says "watchdog bit")
+2. Check DMA_XFER_STATE (0x0516):
    - If 1: Set to 0 (transfer complete)
    - If 2: Set to 1 (first phase complete)
 3. Return from interrupt
@@ -579,7 +584,7 @@ Handles DMA transfer completion by advancing the state machine.
                            │
               ┌────────────┴────────────┐
               │                         │
-         E1/E2 cmd               Other cmd (00-1F)
+         E1/E2 cmd                  Other cmd
               │                         │
               v                         v
   CMD_PROCESSING_STATE = 2/3    CMD_PROCESSING_STATE = 1
@@ -786,12 +791,7 @@ The ROMs contain icons, UI elements, and splash screens for the LCD display.
 
 The LCD controller is IC206 (MN89304) with 4Mbit Video RAM (IC207).
 
-**Format characteristics to document:**
-- Pixel depth (1bpp, 4bpp, 8bpp, or RGB)
-- Dimension encoding
-- Palette format (if indexed color)
-- Compression (if any)
-- Header structure
+The pixel and palette formats found so far are listed in [Image Gallery — Image Format Notes]({{ site.baseurl }}/image-gallery/#image-format-notes).
 
 ### Extraction Workflow
 
@@ -966,15 +966,15 @@ The confirmed initialization order (from RESET_HANDLER analysis):
 
 **Sub CPU Initialization (after main init):**
 
-| Order | Peripheral      | Registers                                            | Values            |
-|-------|-----------------|------------------------------------------------------|-------------------|
-| 1     | Watchdog        | WDMOD_REAL, WDCR_REAL                                | 0x00, 0xB1        |
-| 2     | Interrupt       | INT_CTRL (0x10A)                                     | 0x04              |
-| 3     | Port Functions  | P0FC-PBFC                                            | 0xFF (most ports) |
-| 4     | Port C          | PC (0x30; the boot source's `INTTC01` is a misnomer) | 0x03              |
-| 5     | 8-bit Timers    | T01MOD, T23MOD                                       | 0x1D, 0x0A        |
-| 6     | 16-bit Timer 4  | T4MOD, T4FFCR                                        | 0x05, 0x00        |
-| 7     | Serial Channels | SER0_MOD, SER1_MOD                                   | 0x01, 0x29        |
+| Order | Peripheral      | Registers                                                  | Values                          |
+|-------|-----------------|------------------------------------------------------------|---------------------------------|
+| 1     | Watchdog        | WDMOD_REAL, WDCR_REAL                                      | 0x00, 0xB1                      |
+| 2     | Clock           | CLKMOD (0x10A; the boot source's `INT_CTRL` is a misnomer) | 0x04                            |
+| 3     | Port Functions  | P1FC-P3FC, P7FC, P8FC, PAFC, PBFC                          | 0xFF ×3, 0x07, 0x3F, 0x08, 0x1F |
+| 4     | Port C          | PC (0x30; the boot source's `INTTC01` is a misnomer)       | 0x03                            |
+| 5     | 8-bit Timers    | T01MOD, T23MOD                                             | 0x1D, 0x1D                      |
+| 6     | 16-bit Timer 4  | T4MOD, T4FFCR                                              | 0x05, 0x00                      |
+| 7     | Serial Channels | SER0_MOD, SER1_MOD                                         | 0x01, 0x29                      |
 
 ### Sub CPU Startup
 
@@ -1007,7 +1007,7 @@ The KN5000 has a 320x240 QVGA LCD display for user interface.
 
 The MN89304 is a Panasonic LCD controller providing **VGA-compatible register interface**.
 
-**I/O Port Addresses (memory-mapped):**
+**I/O Port Addresses (memory-mapped at 0x170000 + port, e.g. 0x1703C8 for 0x3C8):**
 
 | Port      | Register             | Function                              |
 |-----------|----------------------|---------------------------------------|
@@ -1024,26 +1024,26 @@ The MN89304 is a Panasonic LCD controller providing **VGA-compatible register in
 
 **Display Configuration:**
 
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| Resolution | 320x240 | QVGA |
-| Color Depth | 8bpp | 256 indexed colors |
-| Dot Clock | 25 MHz | From Misc Output = 0xE3 |
-| Refresh | ~60 Hz | Standard VGA timing |
+| Parameter   | Value        | Description                                                                                          |
+|-------------|--------------|------------------------------------------------------------------------------------------------------|
+| Resolution  | 320x240      | QVGA                                                                                                 |
+| Color Depth | 8bpp         | 256 indexed colors                                                                                   |
+| Dot Clock   | not measured | Misc Output 0xE3 selects clock 0 (25.175 MHz on a PC VGA card); MAME assumes that clock divided by 3 |
+| Refresh     | not measured | Depends on the unmeasured dot clock                                                                  |
 
 **Initialization Sequence (`VGA_Setup` at 0xEF55A7):**
 
-| Step | Port | Value | Action |
-|------|------|-------|--------|
-| 1 | 0x3C3 | 0x01 | Global enable |
-| 2 | 0x3C2 | 0xE3 | 25MHz clock, 60Hz |
-| 3 | Seq 00 | 0x00 | Reset sequencer |
-| 4 | Seq 01 | 0x21 | Screen off, 8-dot clock |
-| 5 | Seq 00 | 0x03 | Release reset |
-| 6 | Seq 02 | 0x0F | All planes writable |
-| 7 | Seq 04 | 0x06 | Sequential, extended mem |
-| 8 | GC 05 | 0x00 | Write mode 0, read mode 0 |
-| 9 | GC 08 | 0xFF | Bit mask all bits |
+| Step | Port   | Value | Action                    |
+|------|--------|-------|---------------------------|
+| 1    | 0x3C3  | 0x01  | Global enable             |
+| 2    | 0x3C2  | 0xE3  | Clock select 0            |
+| 3    | Seq 00 | 0x00  | Reset sequencer           |
+| 4    | Seq 01 | 0x21  | Screen off, 8-dot clock   |
+| 5    | Seq 00 | 0x03  | Release reset             |
+| 6    | Seq 02 | 0x0F  | All planes writable       |
+| 7    | Seq 04 | 0x06  | Sequential, extended mem  |
+| 8    | GC 05  | 0x00  | Write mode 0, read mode 0 |
+| 9    | GC 08  | 0xFF  | Bit mask all bits         |
 
 **CRTC Timing Registers:**
 
@@ -1097,10 +1097,8 @@ See also [Display Subsystem]({{ site.baseurl }}/display-subsystem/#video-ram).
 - Current config: Start Address = 0x0000 (buffer 0)
 
 **Display Timing:**
-- Pixel clock: 25 MHz
-- Horizontal: 320 visible + blanking ≈ 400 total
-- Vertical: 240 visible + blanking ≈ 262 total
-- Frame rate: 25MHz / (400 × 262) ≈ 60 Hz
+- The dot clock and frame rate have not been measured. Misc Output 0xE3 selects clock 0, which is 25.175 MHz on a PC VGA card.
+- MAME's `mn89304_vga_device::recompute_params` (`src/mame/matsushita/kn5000.cpp`) assumes clock 0 is 25.175 MHz divided by 3; its comment says the undivided clock would give 155 Hz with the firmware's timing. The driver's initial `screen.set_raw(XTAL(40'000'000)/6, 424, 0, 320, 262, 0, 240)` is replaced once the firmware programs the CRTC. The driver's comment names a 24 MHz crystal at IC206.
 
 ### Pixel Format and Palette
 
@@ -1190,12 +1188,6 @@ SLIDE_BEGIN 1, FTBMP01, 5000, DemoMidi1
     RECT 50, 150, 200, 30, COLOR_BLUE, COLOR_WHITE
 SLIDE_END
 ```
-
-**Tasks:**
-1. Design macro syntax for each structure
-2. Implement macros in ASL format
-3. Ensure macros emit correct binary
-4. Add to `feature_demo.inc`
 
 ### Demo songs
 
@@ -1365,11 +1357,11 @@ Types 2 and 4 show "ILLEGAL DISK" if loaded before 1 and 3 respectively.
 
 **Entry Conditions (all must be true; checked in `BootInit_SeqAndPanel`, around 0xEF05C5):**
 
-| Condition | Check | Description |
-|-----------|-------|-------------|
-| 1 | Firmware version = 0xFF | Running from boot ROM, not flash |
-| 2 | Floppy disk inserted | `Check_for_Floppy_Disk_Change` ≠ 0 |
-| 3 | Button code = 0x04 | Specific button held at power-on |
+| Condition | Check                   | Description                                                                                                                                     |
+|-----------|-------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1         | Firmware version = 0xFF | Version byte at 0xFFFFE8 (`Get_Firmware_Version`); the program images hold their version number there, and only the table-data image holds 0xFF |
+| 2         | Floppy disk inserted    | `Check_for_Floppy_Disk_Change` ≠ 0                                                                                                              |
+| 3         | Button code = 0x04      | Combo 4: all four PANEL MEMORY buttons held at power-on (see [Test Modes]({{ site.baseurl }}/test-modes/#combo-4-flash-memory-update))          |
 
 **Detection Code:**
 
@@ -1388,22 +1380,22 @@ CALL FLASH_MEM_UPDATE            ; Enter update mode
 ```
 
 **Notes:**
-- Update mode only accessible from boot ROM (virgin/corrupted flash)
+- The version byte at 0xFFFFE8 reads 0xFF only in the table-data image; how a stock unit meets this check is open (see [MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/))
 - "Please Wait !!" bitmap displayed at 0xEF0536 when in boot ROM mode
 - System halts after update (infinite loop at Boot_MainSequence_Trampoline)
 
 ### File Types and Target Components
 
-| File ID | Header        | Target                                                           | Address                                                         | Size        |
-|---------|---------------|------------------------------------------------------------------|-----------------------------------------------------------------|-------------|
-| 1       | Program 1/2   | Main CPU ROM (first half)                                        | 0xE00000+                                                       | 1MB         |
-| 2       | Program 2/2   | Main CPU ROM (second half)                                       | 0xF00000+                                                       | 1MB         |
-| 3       | Table 1/2     | Table Data (first half)                                          | 0x800000+                                                       | 1MB         |
-| 4       | Table 2/2     | Table Data (second half)                                         | 0x900000+                                                       | 1MB         |
-| 5       | CMPCUSTOMDATA | Custom Data Flash                                                | 0x300000                                                        | 1MB         |
-| 6       | HD-AEPRG      | HDAE5000 ROM                                                     | 0x280000                                                        | 512KB       |
-| 7       | Program PCK   | Main CPU program (packed) **and** the compressed sub-CPU payload | program as for types 1/2; payload to Custom Data Flash 0x3E0000 | 2MB + 128KB |
-| 8       | Table PCK     | Table Data (packed)                                              | 0x800000                                                        | 2MB         |
+| File ID | Header        | Target                                                           | Address                                                                                       | Size        |
+|---------|---------------|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|-------------|
+| 1       | Program 1/2   | Main CPU ROM (first half)                                        | 0x800000+ (the updater's write window)                                                        | 1MB         |
+| 2       | Program 2/2   | Main CPU ROM (second half)                                       | 0x900000+, read by the type-1 handler (a type-2 disc inserted first is refused: Illegal Disk) | 1MB         |
+| 3       | Table 1/2     | Table Data (first half)                                          | 0x800000+                                                                                     | 1MB         |
+| 4       | Table 2/2     | Table Data (second half)                                         | 0x900000+, read by the type-3 handler (a type-4 disc inserted first is refused)               | 1MB         |
+| 5       | CMPCUSTOMDATA | Custom Data Flash                                                | 0x300000                                                                                      | 1MB         |
+| 6       | HD-AEPRG      | HDAE5000 ROM                                                     | 0x280000                                                                                      | 512KB       |
+| 7       | Program PCK   | Main CPU program (packed) **and** the compressed sub-CPU payload | program into the 0x800000 window; payload to Custom Data Flash 0x3E0000                       | 2MB + 128KB |
+| 8       | Table PCK     | Table Data (packed)                                              | 0x800000                                                                                      | 2MB         |
 
 **Component Sizes:**
 
@@ -1415,6 +1407,8 @@ CALL FLASH_MEM_UPDATE            ; Enter update mode
 | HDAE5000 ROM | 512KB | 1 disk |
 
 **Note:** the sub-CPU payload is not a separate update file: a type-7 file carries it as a second SLIDE4K stream, which the installer writes verbatim to Custom Data Flash 0x3E0000 (see [System Update Discs]({{ site.baseurl }}/system-update-discs/#update-handlers-by-type)).
+
+Program and table images are both written through the 0x800000-0x9FFFFF window. Which flash pair answers there depends on which copy of the updater is running; see [System Update Discs]({{ site.baseurl }}/system-update-discs/#update-handlers-by-type).
 
 ### Flash ROM Chips
 
