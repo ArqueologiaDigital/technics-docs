@@ -233,12 +233,12 @@ The HD-AE5000 is an optional expansion providing 1.08GB storage.
 
 **PPI Port Mapping:**
 
-| Address  | Port    | Function                                      |
-|----------|---------|-----------------------------------------------|
-| 0x160000 | Port A  | Data byte to/from the PC parallel port        |
-| 0x160002 | Port B  | Status input from the PC                      |
-| 0x160004 | Port C  | Control signals to the PC (strobe, handshake) |
-| 0x160006 | Control | PPI mode configuration (0x82)                 |
+| Address  | Port    | Function                                                             |
+|----------|---------|----------------------------------------------------------------------|
+| 0x160000 | Port A  | Data byte to/from the PC parallel port (bidirectional)               |
+| 0x160002 | Port B  | Handshake lines to the PC (output in PC-link mode)                   |
+| 0x160004 | Port C  | Handshake lines from the PC (input in PC-link mode)                  |
+| 0x160006 | Control | 0x82 at boot (`HDAE5000_Parport_Setup`); 0x89 / 0x99 in PC-link mode |
 
 **Detection:** PE port bit 0 (active low) indicates HDAE5000 presence and gates only the PPI set-up (`HDAE5000_Parport_Setup`); the extension ROM itself is found by its `XAPR` signature at `0x280000` (`Xapr_DetectAndCallBootInit`), independently of PE.0.
 
