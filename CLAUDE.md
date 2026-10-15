@@ -25,7 +25,7 @@ Check with `python3 tools/check_nav.py` (dead entries, duplicates, order, unlist
 ## Checks
 
 - `python3 tools/check_tables.py <pages>`: every table touched since HEAD has aligned,
-  space-padded columns (`--all` checks every table on the page).
+  space-padded columns (`--all` checks every table on the page, `--fix` re-pads).
 - `python3 tools/check_links.py <built site>`: dead internal links and `#anchors` in a local
   build (`JEKYLL_NO_BUNDLER_REQUIRE=true jekyll build -s . -d ~/compartilhado/tmp/<dir>`).
 - `python3 tools/check_doc_symbols.py <pages>`: symbol names that no longer exist in the
