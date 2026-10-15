@@ -18,9 +18,12 @@ Where to look for work: the open technical unknowns are on [Open Questions]({{ s
 
 We're missing ROM dumps for several chips:
 - **Control Panel MCUs** (Mitsubishi M37471M2196S) - Custom-masked ROMs handling buttons, LEDs, and rotary encoders. These would require decapping to dump.
-- **Any other undumped chips** on the KN5000 board
+- **Waveform ROMs IC304, IC305 and IC306** (4 MB mask ROMs). Only IC307 is dumped, so voices that select the other three banks cannot sound right.
+- **Sub-CPU boot ROM IC30**: only 14,336 of its 131,072 bytes have ever been read (see [Sub-CPU Boot ROM (IC30)]({{ site.baseurl }}/subcpu-boot-rom/)).
+- **Rhythm ROM IC14**: a re-dump to confirm the corrected image (CRC `aa4917ce`).
+- **Other models**: disk 1 of the KN7000 v1.4 update (`kn7-14_1.exe`) and the MN10300 family's undumped wave, rhythm, picture, table/font and SD sub-CPU devices (see the [ROM Dumping Roadmap]({{ site.baseurl }}/rom-dumping-roadmap/)); a re-dump of the [KN1500]({{ site.baseurl }}/kn1500/)'s program ROM IC15; the [SX-WSA1R]({{ site.baseurl }}/wsa1/)'s six wave mask ROMs, its AM29F400T flash and its v1 OS.
 
-If you have a KN5000 and can dump ROMs, please reach out!
+If you own one of these instruments and can dump ROMs, please reach out!
 
 ### ROM Disassembly Improvements
 

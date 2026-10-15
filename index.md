@@ -30,7 +30,7 @@ protocols — as the physical hardware becomes scarce.
 | **[Technics SX-KN5000](#technics-kn5000)**                           | 1997     | Toshiba TLCS-900/H2 (TMP94C241F) | Extensive — nine ROM images rebuild byte-identically from source, MAME driver, homebrew SDK                                                                                                                                                                                                                                               |
 | **[Technics SX-KN6000]({{ site.baseurl }}/kn6000-hardware/)**        | 1999     | Panasonic MN10300 (MN103002A)    | New — firmware extracted, hardware mapped from the service manual, MAME driver upstream (mamedev/mame#16250; not working, no sound); ~85 % of its strings shared with the KN7000                                                                                                                                                          |
 | **[Technics SX-KN6500]({{ site.baseurl }}/kn6000-hardware/)**        | 2001     | Panasonic MN10300 (MN103002A)    | New — firmware extracted, hardware mapped from the service manual, MAME driver upstream (mamedev/mame#16250; not working, no sound)                                                                                                                                                                                                       |
-| **[Technics SX-KN7000]({{ site.baseurl }}/kn7000/)**                 | 2002     | Panasonic MN10300/AM33           | MAME driver upstream (mamedev/mame#16250: LCD, panel, floppy, SD and MIDI; no sound, because the wave ROMs are undumped and the effects DSP is not emulated); four program builds selectable as BIOS options (#16394; v1.4 upper half only); firmware disassembly under way                                                               |
+| **[Technics SX-KN7000]({{ site.baseurl }}/kn7000/)**                 | 2002     | Panasonic MN10300 (MN103002A)    | MAME driver upstream (mamedev/mame#16250: LCD, panel, floppy, SD and MIDI; no sound, because the wave ROMs are undumped and the effects DSP is not emulated); four program builds selectable as BIOS options (#16394; v1.4 upper half only); firmware disassembly under way                                                               |
 | **[Technics SX-KN2400 / KN2600]({{ site.baseurl }}/kn2400-kn2600/)** | 2003     | Panasonic MN10300 (MN103002A)    | New — MAME drivers upstream (mamedev/mame#16250; not working, no sound); the KN7000's closest sibling (one firmware serves KN2400/KN2600/PR54)                                                                                                                                                                                            |
 
 These instruments span **two CPU architectures** — the earlier TLCS-900 group
@@ -106,20 +106,20 @@ and hardware have been reverse engineered in depth.
 
 ### Subsystems
 
-| Page | Status | Description |
-|------|--------|-------------|
-| [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/) | Documented | Serial protocol for buttons, LEDs, encoders |
-| [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) | Documented | DSP effects, tone generation, voice management |
-| [Effects DSP (NEC uPD6383GF)]({{ site.baseurl }}/effects-dsp/) | Documented | IC311 effects processor — chip, instruction word, decoded EQ/reverb, 50-effect parameter catalogue |
-| [Effects-DSP Flowcharts]({{ site.baseurl }}/effects-dsp/flowcharts/) | Documented | Signal-flow Mermaid diagrams — the shared kernel + 38 effect microprograms, synced from the disassembly |
-| [µPD6383GF Unofficial Datasheet]({{ site.baseurl }}/upd6383-datasheet/) | Documented | Pinout, memories, host interface and instruction set of a chip NEC never documented |
-| [µPD6383GF Decode — State of Play]({{ site.baseurl }}/upd6383-decode-status/) | Documented | 80.8 % decoded: what is left, what has been ruled out, and the cost-ranked route to 100 % |
-| [Keybed Scanning]({{ site.baseurl }}/keybed-scanning/) | Documented | Hardware key scanning, note encoding, voice slots |
-| [Display Subsystem]({{ site.baseurl }}/display-subsystem/) | Documented | Framebuffer layout, palette, VGA registers |
-| [Storage Subsystem]({{ site.baseurl }}/storage-subsystem/) | Documented | Floppy, flash, Table Data ROM, HDAE5000 |
-| [MIDI Subsystem]({{ site.baseurl }}/midi-subsystem/) | Documented | 26-channel voice routing, CC handlers, SysEx |
-| [UI Framework]({{ site.baseurl }}/ui-framework/) | Documented | 550+ widget handlers, event system, drawing API |
-| [Sequencer]({{ site.baseurl }}/sequencer/) | Documented | 16-track engine, ring buffer, style system |
+| Page                                                                          | Status     | Description                                                                                             |
+|-------------------------------------------------------------------------------|------------|---------------------------------------------------------------------------------------------------------|
+| [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/)          | Documented | Serial protocol for buttons, LEDs, encoders                                                             |
+| [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/)                        | Documented | DSP effects, tone generation, voice management                                                          |
+| [Effects DSP (NEC uPD6383GF)]({{ site.baseurl }}/effects-dsp/)                | Documented | IC311 effects processor — chip, instruction word, decoded EQ/reverb, 50-effect parameter catalogue      |
+| [Effects-DSP Flowcharts]({{ site.baseurl }}/effects-dsp/flowcharts/)          | Documented | Signal-flow Mermaid diagrams — the shared kernel + 38 effect microprograms, synced from the disassembly |
+| [µPD6383GF Unofficial Datasheet]({{ site.baseurl }}/upd6383-datasheet/)       | Documented | Pinout, memories, host interface and instruction set of a chip NEC never documented                     |
+| [µPD6383GF Decode — State of Play]({{ site.baseurl }}/upd6383-decode-status/) | Documented | 80.8 % decoded: what is left, what has been ruled out, and the cost-ranked route to 100 %               |
+| [Keybed Scanning]({{ site.baseurl }}/keybed-scanning/)                        | Documented | Hardware key scanning, note encoding, held-key map                                                      |
+| [Display Subsystem]({{ site.baseurl }}/display-subsystem/)                    | Documented | Framebuffer layout, palette, VGA registers                                                              |
+| [Storage Subsystem]({{ site.baseurl }}/storage-subsystem/)                    | Documented | Floppy, flash, Table Data ROM, HDAE5000                                                                 |
+| [MIDI Subsystem]({{ site.baseurl }}/midi-subsystem/)                          | Documented | 26-channel voice routing, CC handlers, SysEx                                                            |
+| [UI Framework]({{ site.baseurl }}/ui-framework/)                              | Documented | 550+ widget handlers, event system, drawing API                                                         |
+| [Sequencer]({{ site.baseurl }}/sequencer/)                                    | Documented | 16-track engine, ring buffer, style system                                                              |
 
 ### Protocols
 
@@ -154,13 +154,13 @@ and hardware have been reverse engineered in depth.
 
 ### Resources
 
-| Page | Description |
-|------|-------------|
-| [Image Gallery]({{ site.baseurl }}/image-gallery/) | 46+ extracted graphics (42 main CPU, 4 HDAE5000) |
-| [ROM Strings]({{ site.baseurl }}/rom-strings/) | Extracted text resources |
-| [Reverse Engineering]({{ site.baseurl }}/reverse-engineering/) | Methodology and strategies |
-| [Help Wanted]({{ site.baseurl }}/help-wanted/) | Contribution guide |
-| [Open Questions]({{ site.baseurl }}/questions/) | Unsolved mysteries |
+| Page                                                           | Description                                                   |
+|----------------------------------------------------------------|---------------------------------------------------------------|
+| [Image Gallery]({{ site.baseurl }}/image-gallery/)             | 56 extracted graphics (42 main CPU, 5 HDAE5000, 9 table data) |
+| [ROM Strings]({{ site.baseurl }}/rom-strings/)                 | Extracted text resources                                      |
+| [Reverse Engineering]({{ site.baseurl }}/reverse-engineering/) | Methodology and strategies                                    |
+| [Help Wanted]({{ site.baseurl }}/help-wanted/)                 | Contribution guide                                            |
+| [Open Questions]({{ site.baseurl }}/questions/)                | Unsolved mysteries                                            |
 
 ## Learning Paths
 
@@ -248,7 +248,7 @@ A [homebrew SDK]({{ site.baseurl }}/hdae5000-homebrew/) is available for writing
 
 - [Service Manual PDF]({{ site.baseurl }}/service_manual/technics_sx-kn5000.pdf) (26MB, EMID971655 A5) - Schematics, board layouts, IC pinouts
 - [GitHub: ROM Disassembly](https://github.com/ArqueologiaDigital/kn5000-roms-disasm) - Source code
-- [GitHub: Homebrew](https://github.com/felipesanches/kn5000_homebrew/) - Custom software
+- [GitHub: Mines (KN5000 port)](https://github.com/ArqueologiaDigital/Mines/tree/kn5000_port/platforms/kn5000) and [GitHub: Another World](https://github.com/felipesanches/kn5000-anotherworld) - Homebrew games (the earlier [kn5000_homebrew](https://github.com/felipesanches/kn5000_homebrew/) holds firmware-customisation scripts and early assembly demos)
 - [MAME Pull Requests]({{ site.baseurl }}/mame-pull-requests/) - the KN5000 pull-request series; current upstreaming state is on [MAME Branch Review]({{ site.baseurl }}/mame-branch-review/)
 - [Discussion Forum](https://forum.fiozera.com.br/t/technics-kn5000-homebrew-development/321)
 - [Firmware Archive](https://archive.org/details/technics-kn5000-system-update-disks) - All versions (v5-v10, HD-AE5000 updates)
@@ -258,6 +258,6 @@ A [homebrew SDK]({{ site.baseurl }}/hdae5000-homebrew/) is available for writing
 
 **Project Lead**: Felipe Sanches | [Arqueologia Digital](https://github.com/ArqueologiaDigital)
 
-This documentation is developed with AI assistance from [Claude Code](https://claude.ai/code). All content is verified against actual hardware behavior and service documentation. Contributions and corrections are welcome via GitHub issues.
+This documentation is developed with AI assistance from [Claude Code](https://claude.ai/code). Content is checked against the firmware, the service manuals and the emulator; where a claim rests on real hardware, or is still unverified, the page says so. Contributions and corrections are welcome via GitHub issues.
 
 We believe preserving technical knowledge of instruments like the Technics KN5000 and KN7000 is essential for cultural heritage. Our long-term goal is to preserve the history of Technics musical keyboards as a whole. If you find errors or have additions, please contribute.

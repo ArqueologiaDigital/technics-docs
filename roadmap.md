@@ -63,17 +63,17 @@ claim than any bespoke rig.
 Effort is **per generation**, not per model: once one member of a silicon generation runs, its
 siblings are mostly ROM work.
 
-| gen         | years     | CPU                                | members                                                             | status                                                                                                |
-|-------------|-----------|------------------------------------|---------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
-| **G0**      | 1963–83   | none / analogue                    | SX-601, Technitone organs, SX-U series                              | out of scope (document only)                                                                          |
-| **G1**      | 1982–84   | unknown                            | SX-K100/K200/K150/K250                                              | research; analogue solo path makes it poor value                                                      |
-| **G2**      | 1985–86   | **unknown — the one blocker**      | SX-K300/K350/K450                                                   | ★ best *new-silicon* target: OKI MSM5232 TG is **already in MAME**; needs one new MSM6202 drum device |
-| **G3**      | 1987–88   | unknown                            | SX-K500/K700                                                        | first full-PCM Technics; one manual covers both                                                       |
-| **G4**      | c.1989–95 | **NEC V25 (µPD70325)**             | **KN1200 confirmed**; KN2000, KN800/600, KN1000/750, KN901, KN3000? | ★★ **an unexplored third of the line.** V25 core is upstream in MAME already                          |
-| **G5**      | 1995–97   | **Toshiba TLCS-900**               | KN1500, **KN5000**, **SX-WSA1**                                     | in progress; deepest work                                                                             |
-| **G6**      | 1999–2003 | **Matsushita MN10300/AM33** + MILK | KN2400/2600/PR54, KN6000/6500, KN7000/PR804/PR604                   | in progress; 5 machines upstream (mamedev/mame#16250); SX-PR54/PR604/PR804 have no driver             |
-| **G-ORG**   | 1988–95   | unknown                            | GX/GN/FN3/EN/GA/EA console organs                                   | ★ proven kinship, zero silicon data                                                                   |
-| **G-PIANO** | —         | CPU+ROM                            | SX-PX, SX-PC series                                                 | out of scope for drivers; ROM archival only                                                           |
+| gen         | years     | CPU                                       | members                                                             | status                                                                                                |
+|-------------|-----------|-------------------------------------------|---------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
+| **G0**      | 1963–83   | none / analogue                           | SX-601, Technitone organs, SX-U series                              | out of scope (document only)                                                                          |
+| **G1**      | 1982–84   | unknown                                   | SX-K100/K200/K150/K250                                              | research; analogue solo path makes it poor value                                                      |
+| **G2**      | 1985–86   | **unknown — the one blocker**             | SX-K300/K350/K450                                                   | ★ best *new-silicon* target: OKI MSM5232 TG is **already in MAME**; needs one new MSM6202 drum device |
+| **G3**      | 1987–88   | unknown                                   | SX-K500/K700                                                        | first full-PCM Technics; one manual covers both                                                       |
+| **G4**      | c.1989–95 | **NEC V25 (µPD70325)**                    | **KN1200 confirmed**; KN2000, KN800/600, KN1000/750, KN901, KN3000? | ★★ **an unexplored third of the line.** V25 core is upstream in MAME already                          |
+| **G5**      | 1995–97   | **Toshiba TLCS-900**                      | KN1500, **KN5000**, **SX-WSA1**                                     | in progress; deepest work                                                                             |
+| **G6**      | 1999–2003 | **Matsushita MN10300 (MN103002A)** + MILK | KN2400/2600/PR54, KN6000/6500, KN7000/PR804/PR604                   | in progress; 5 machines upstream (mamedev/mame#16250); SX-PR54/PR604/PR804 have no driver             |
+| **G-ORG**   | 1988–95   | unknown                                   | GX/GN/FN3/EN/GA/EA console organs                                   | ★ proven kinship, zero silicon data                                                                   |
+| **G-PIANO** | —         | CPU+ROM                                   | SX-PX, SX-PC series                                                 | out of scope for drivers; ROM archival only                                                           |
 
 Seven MAME drivers existed as of this assessment — `kn1500`, `kn5000`, `kn6000`, `kn6500`, `kn2400`,
 `kn2600`, `kn7000` — all in the fork, with only `kn5000` upstream. **Since then** an eighth,

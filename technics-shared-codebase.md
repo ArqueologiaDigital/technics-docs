@@ -13,7 +13,7 @@ CPU architectures**, so any similarity must originate above the machine-code
 level, in shared *source*.
 
 > **The key constraint:** the [KN5000]({{ site.baseurl }}/cpu-subsystem/) runs a Toshiba
-> **TLCS-900/H2**; the [KN7000]({{ site.baseurl }}/kn7000/) runs a Panasonic **MN10300/AM33**.
+> **TLCS-900/H2**; the [KN7000]({{ site.baseurl }}/kn7000/) runs a Panasonic **MN10300 (MN103002A)**.
 > Compiled machine code therefore **cannot** be shared. Everything that *does*
 > match — identifier names, resource tables, message text, numeric constants —
 > is evidence of a shared source tree that was **recompiled** for each target.
@@ -36,8 +36,8 @@ while the platform layer (CPU port, RTOS, compression, image pipeline) was
 rewritten.
 
 Every match below was located at exact byte offsets in **both** program ROMs
-(`kn5000_v10_program.rom` and `kn7000_program.rom`) or table ROMs, and the
-headline claims were independently re-verified.
+(`kn5000_v10_program.rom` and `kn7000_program.rom`, the KN7000's v1.6 program,
+build 941) or table ROMs, and the headline claims were independently re-verified.
 
 ## The smoking gun: a shared misspelling
 
@@ -55,12 +55,12 @@ source tree**. (Confirmed present in both program ROMs by direct search.)
 
 ## What cannot be shared: machine code
 
-| | KN5000 | KN7000 |
-|--|--------|--------|
-| Main CPU | Toshiba TLCS-900/H2 (TMP94C241F) | Panasonic MN10300/AM33 |
-| Program flash mapping | CPU `0xE00000` | CPU `0x48400000` |
-| Instruction encoding | TLCS-900 | MN10300 (byte-aligned CISC) |
-| RTOS | custom | named `MILK MN10300 Ver1.0R1` |
+|                       | KN5000                           | KN7000                        |
+|-----------------------|----------------------------------|-------------------------------|
+| Main CPU              | Toshiba TLCS-900/H2 (TMP94C241F) | Panasonic MN10300 (MN103002A) |
+| Program flash mapping | CPU `0xE00000`                   | CPU `0x48400000`              |
+| Instruction encoding  | TLCS-900                         | MN10300 (byte-aligned CISC)   |
+| RTOS                  | custom                           | named `MILK MN10300 Ver1.0R1` |
 
 Because the instruction sets differ, no byte-run of executable code is common to
 the two images. Every match below is therefore source-level reuse, made visible
@@ -314,7 +314,8 @@ codebase that kept developing:
 
 - **Version screen**: both share the `SOFT VERSION` caption and the internal
   `MPVersion` symbol; the KN7000 added `RHYTHM`/`PICTURE` rows and dropped the
-  MAIN/SUB split (reflecting its single-CPU design).
+  MAIN/SUB split (it has no sound-side sub-CPU; its tone generators sit on the
+  main CPU's bus).
 - **`<model> SOUND RAM` convention**: the KN7000 extends it to a predecessor list
   at `0x1B8517` — `KN6000 / KN5000 / KN3000 / KN2000 / KN1600 SOUND RAM` — i.e. it
   explicitly reaches back to import the **KN5000's own** sound-RAM data format.

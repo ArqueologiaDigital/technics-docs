@@ -160,8 +160,10 @@ which were almost certainly never updatable.
 
 ### Method B — read it with the instrument's own CPU *(no desoldering)*
 
-The main CPU can address several of these devices directly. A small program uploaded over an
-existing path can read a ROM and stream it out.
+The main CPU can address several of these devices directly. A small program run on that CPU can
+read a ROM and stream it out. On the KN7000 the stock firmware runs no outside code, so the program
+needs the same carrier as Method B′ (a modified update disk or an SP7001 plug-in), with the same
+restriction: only on a unit whose build is already preserved.
 
 **Proposal.** Establish which regions the CPU can see from the memory map
 ([Memory Map]({{ site.baseurl }}/memory-map/)), then use one of the exfiltration routes the firmware already
@@ -214,8 +216,8 @@ twice with different address orderings to catch a floating line.
 
 Hot-air rework, TSOP adapter socket, universal programmer.
 
-**Proposal of last resort.** These parts are irreplaceable and the boards are thirty-year-old
-consumer instruments; lifting a pad ends that instrument. Reserve for a machine that is already
+**Proposal of last resort.** These parts are irreplaceable and the boards are consumer instruments
+more than twenty years old; lifting a pad ends that instrument. Reserve for a machine that is already
 beyond repair — a water-damaged or otherwise dead unit is the ideal donor and is far cheaper to
 acquire than a working one. **Prefer a dead donor over a working instrument in every case.**
 
@@ -275,7 +277,8 @@ instruments that agree byte-for-byte are strong evidence against a bad read.
 3. **Method E** on the sub-CPU flash — pure firmware work, no hardware access needed.
 4. **A dead donor KN6000** — five of its devices also serve the KN6500, the best ratio available.
 5. **Method B′** on the KN7000's four wave ROMs — 64 MB, no hardware work, and verifiable against
-   the firmware's own golden checksums before anyone opens a case.
+   the firmware's own golden checksums before anyone opens a case; its carrier replaces the
+   firmware, so only on a unit whose build is already preserved.
 6. **The remaining wave ROMs** (KN5000, KN6xxx, KN2400) — the bulk of the missing data, and the
    only devices with no non-invasive route at all.
 

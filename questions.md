@@ -27,31 +27,31 @@ Things we don't know yet and need to investigate.
 - [x] What is the addressing scheme? **Segment outputs SEG00-SEG15** via HD74LS07P drivers
 - [ ] Can LEDs be dimmed or only on/off?
 - [x] Is there multiplexing? **Yes**, MCU multiplexes via segment outputs
-- [x] What do the 4 LED packet types (bits 4-5) represent? **Dispatched via `CPanel_LED_PacketHandlers` (0xFC4B85)**: types 0-2 share `CPanel_LED_HandlePacket2` (0xFC4B95, 48 bytes) which transfers a fixed 2-byte row-select+pattern pair; type 3 uses `CPanel_LED_HandlePacketN` (0xFC4BC5, 66 bytes) for variable-length data, whose byte-1 low nibble encodes a count (`nibble + 2` bytes total). See [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/).
+- [x] What do the 4 LED packet types (bits 4-5) represent? **Dispatched via `CPanel_LED_PacketHandlers` (0xFC4B85)**: types 0-2 share `CPanel_LED_HandlePacket2` (0xFC4B95, 48 bytes) which transfers a fixed 2-byte row-select+pattern pair; type 3 uses `CPanel_LED_HandlePacketN` (0xFC4BC5, 66 bytes) for variable-length data, whose first byte's low nibble is a count: the handler copies that byte plus `nibble + 2` more (`nibble + 3` bytes in all). See [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/).
 - [x] LED packet format? **Bits 4-5 select handler, bits 5-0 = row, bits 7-6 = panel select**
 - [x] LED row mapping? **CPR: rows 0x00-0x0C, CPL: rows 0xC0-0xC8** - see [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/)
 
 ### Rotary Encoders
 - [x] How many encoders are there? **6 active encoder IDs** (2, 5, 25, 26, 27, 31)
-- [x] Absolute or relative encoding? **Relative** (quadrature: ROTA/ROTB signals)
+- [x] Absolute or relative encoding? **Both.** The five analog IDs (2, 5, 25, 26, 27) send absolute 8-bit ADC readings; ID 31, the data wheel, sends a signed detent count that the CPL MCU decodes from ROTA/ROTB quadrature
 - [ ] What is the resolution (steps per rotation)?
 - [x] How is direction determined? **Quadrature decoding** of ROTA/ROTB phase relationship
 - [x] Encoder ID encoding? **5-bit ID from bits 0-2 and 6-7 of packet byte 0**
-- [x] Which physical encoders map to which IDs? **ID 2=Modwheel, 5=Volume, 25=Breath, 26=Foot, 27=Expression, 31=Passthrough**
-- [x] Does the TEMPO/PROGRAM data wheel travel through this system? **No** — it is a control-panel serial input with its own frame and acceleration curve, on [Data Wheel]({{ site.baseurl }}/data-wheel-investigation/)
+- [x] Which physical encoders map to which IDs? **ID 2=Modwheel, 5=Volume, 25=Breath, 26=Foot, 27=Expression, 31=TEMPO/PROGRAM data wheel** (`Encoder_PassthroughIdentity` passes its count through)
+- [x] Does the TEMPO/PROGRAM data wheel travel through this system? **Yes** — its header `0xD7` is a Type 2 frame with encoder ID 31, whose handler `Encoder_PassthroughIdentity` passes the signed detent count through unchanged; `CtrlPanel_HandleSerialPort` then applies the wheel's acceleration curve (`CtrlPanel_DialStepByDelta`) and posts `EVT_DIAL`. See [Data Wheel]({{ site.baseurl }}/data-wheel-investigation/#the-wheel-is-the-type-2-pass-through-entry)
 
 ## Hardware Architecture
 
 ### Control Panel MCUs
 - [x] What MCU model is used? **Mitsubishi M37471M2196S** (8-bit CMOS, 740 series)
 - [x] How many MCUs are on the control panel board? **2** (CPL board and CPR board)
-- [x] What is the serial baud rate? **250 kHz normal operation, 31.25 kHz during init** (fc/16/4 and fc/64/8)
-- [x] Is it UART, SPI, or custom protocol? **UART** (M37471 has built-in serial interface)
+- [x] What is the serial baud rate? **250 kHz for the command bytes** (fc/16/4); 31.25 kHz (fc/64/8) arms each command and 62.5 kHz (fc/64/4) carries the phantom/turnaround bytes. See [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/#baud-rate-transitions)
+- [x] Is it UART, SPI, or custom protocol? **Clock-synchronous serial**: the CPU runs SC1 in I/O interface mode (`SC1MOD = 0x00`), 8 bits LSB first over a shared SCLK1; the CPU clocks its commands and each panel clocks its own replies. See [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/)
 
 ### Inter-CPU Communication
 - [x] How do main CPU and sub CPU coordinate? **Command/response via the IC22/IC23 latch — `0x140000` on the main-CPU bus, `0x120000` on the sub-CPU bus — with DMA for bulk transfers**
-- [x] What data passes through the latches? **Commands (E1/E2/E3/00-1F), response bytes, status flags**
-- [x] Are there handshaking signals? **Yes: status flags at 0x04FE (bit 6=payload ready, bit 7=xfer complete)**
+- [x] What data passes through the latches? **Header-framed packets, in both directions.** Each packet is a header byte followed by its data: bits 7-5 of the header pick one of eight handlers and bits 4-0 give the length (1-32 bytes). Main → Sub, the Sub CPU dispatches through `CMD_DISPATCH_TABLE` (0x00-0x1F MIDI/audio data, 0x60-0x7F DSP data, 0x80-0x9F serial-port-1 data, 0xA0-0xBF keybed settings; the rest are no-ops or a byte drain). Sub → Main (`InterCPU_DMA_Send`, which carries the keybed's note events among others), the Main CPU dispatches through `SeqRingBuf_WriteDispatch_Table`. Headers `0xE1` (6-byte address/count block) and `0xE2` (10-byte parameter block) bypass both tables and set up block transfers. The status lines are separate (next answer). See [Sub-CPU Command Format]({{ site.baseurl }}/subcpu-command-format/)
+- [x] Are there handshaking signals? **Yes: two status lines each way.** The Main CPU drives `MSTAT0`/`MSTAT1` (its port Z bits 0-1) and reads `SSTAT0`/`SSTAT1` (port Z bits 2-3), which the Sub CPU drives from its port D; every E1 transfer waits on `SSTAT1` ([SubCPU Payload Loading]({{ site.baseurl }}/subcpu-payload-loading/#e1-bulk-transfer-protocol)). The byte at `0x04FE` in Sub-CPU RAM (bit 6 = payload ready, bit 7 = transfer active) is the Sub CPU's own state, which the boot ROM and the payload both write; it is not a handshake line. During boot the last E1 block, which covers `0x0400`-`0x04FF`, sets bit 6, and the boot ROM's main loop polls that bit before it calls the payload ([Payload Execution Trigger]({{ site.baseurl }}/subcpu-payload-loading/#payload-execution-trigger))
 
 ### HDAE5000 Hard Disk Expansion
 - [x] What is the command interface via PPI at `0x160000`? **i8255 PPI for PC parallel port (LPT) communication** — used by HD-TechManager5000 Windows software for backup/restore. See [HDAE5000]({{ site.baseurl }}/hdae5000/) and [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/)
