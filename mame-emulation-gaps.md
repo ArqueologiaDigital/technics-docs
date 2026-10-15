@@ -170,8 +170,11 @@ swap: pre-handover `0x800000` is the program pair, post-handover it is the table
 But the **program-flash** copy of the type-007 handler decompresses stream 1 (the 2 MB main
 program) to `0x800000`, which post-handover is the *table-data* pair. Either that handler
 is unreachable in practice — updates always enter through the bootloader, which owns the
-boot FDC driver — or a second remap exists that nobody has found. **Settle this before
-designing the view**, because a second remap would change its shape.
+boot FDC driver — or a second remap exists that nobody has found. The update gate (Gap 3.5)
+favours the first: in the program flash the type-007 handler is reached only through
+`FLASH_MEM_UPDATE`, whose one caller (`BootInit_SeqAndPanel`) needs `0xFFFFE8` to read
+`0xFF`, and the v7, v9 and v10 program images hold their version byte there. **Settle this
+before designing the view**, because a second remap would change its shape.
 
 ## Dependency order
 

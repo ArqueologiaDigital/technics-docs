@@ -102,13 +102,13 @@ branch has no remaining PR value.
 
 ### Other local branches
 
-| Branch                                          | Commits ahead | Content                                                                                                                |
-|-------------------------------------------------|---------------|------------------------------------------------------------------------------------------------------------------------|
-| `kn5000_pr6_hdae5000`                           | 1             | HDAE5000 extension work on top of PR6                                                                                  |
-| `kn5000_pr6_on_kn7000base`                      | 26            | PR6 rebased onto the KN7000 base                                                                                       |
-| `kn5000_research_techmanager`                   | 9             | TechManager5000: HDAE5000 parallel-port null cable, PC LPT PS/2 bidirectional mode, KN5000↔PC signal path via PPI taps |
-| `kn5000_minimal_tonegen`                        | 5             | Reduced tone-generator variant                                                                                         |
-| `kn5000_tonegen_pcm`, `kn5000_tonegen_combined` | 9 each        | Tone-generator variants; the owner's PR plan elects `kn5000_tonegen_pcm` for a partial-tone-generator PR               |
+| Branch                                          | Commits ahead | Content                                                                                                                                                                                                                       |
+|-------------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kn5000_pr6_hdae5000`                           | 1             | HD-AE5000: ATA interface with INTRQ to INT9, PPI parallel-port callbacks, boot-hang fix; one commit on `upstream/master`, not on PR6                                                                                          |
+| `kn5000_pr6_on_kn7000base`                      | 26            | PR6 plus the `kn5000_research_tonegen` fixes (not the reverted SSF pair), the first data-wheel commit and the control-panel ioport move, rebased onto the KN7000 overlay's base (`upstream/master` `957e9dec1b4`, 2026-07-14) |
+| `kn5000_research_techmanager`                   | 9             | TechManager5000: HDAE5000 parallel-port null cable, PC LPT PS/2 bidirectional mode, KN5000↔PC signal path via PPI taps                                                                                                        |
+| `kn5000_minimal_tonegen`                        | 5             | Reduced tone-generator variant                                                                                                                                                                                                |
+| `kn5000_tonegen_pcm`, `kn5000_tonegen_combined` | 9 each        | Tone-generator variants; the owner's PR plan elects `kn5000_tonegen_pcm` for a partial-tone-generator PR                                                                                                                      |
 
 ### `kn5000_power_off_nmi` --- 2 commits
 
@@ -125,28 +125,28 @@ Power-off sequence emulation (alternative approach to PR6's boot-time write tap)
 
 Kept only for reference:
 
-| Branch | Original Purpose | Reason Archived |
-|--------|-----------------|-----------------|
-| `MERGED_kn5000_pr1_ldc_cr_mapping` | PR 1 | Merged upstream |
-| `MERGED_kn5000_pr2_irq_inhibit` | PR 2 | Merged upstream |
-| `MERGED_kn5000_pr3_dma_and_port` | PR 3 | Merged upstream |
-| `MERGED_kn5000_pr4_serial` | PR 4 | Merged upstream |
-| `MERGED_kn5000_pr5_driver` | PR 5 (original) | Merged upstream |
-| `MERGED_kn5000_pr5_driver_v2` | PR 5 (final version) | Merged upstream as #15143 |
-| `MERGED_kn5000_interactive_control_panel` | PR 5 (identical to v2) | Merged upstream |
-| `ARCHIVED_kn5000_aided_by_claude` | Early research branch | Superseded by PR branches |
-| `ARCHIVED_kn5000_pr4_serial_downcast` | PR 4 downcast experiment | Superseded by merged PR 4 |
-| `ARCHIVED_kn5000_pr5_driver_aided_by_claude` | PR 5 with research additions | Superseded by research branches |
-| `ARCHIVED_kn5000_research_encoder` | Data wheel encoder (v1) | Superseded by datawheel branch |
-| `ARCHIVED_kn5000_research_encoder_v2` | Data wheel encoder (v2, WIP) | Superseded by datawheel branch |
-| `ARCHIVED_kn5000_research_ssf` | SSF presentation research | Identical to tonegen branch |
-| `ARCHIVED_kn5000_pr4_serial_to2_trigger` | TO2 trigger for serial | Superseded by merged serial work |
-| `ARCHIVED_kn5000_minor_fix` | Old misc fixes | Superseded by PR 5 |
-| `ARCHIVED_kn5000_squash_attempt_2025_08_14` | Early squash attempt | Superseded by PR branches |
-| `ARCHIVED_kn5000_research_tonegen_pre_rebase` | Pre-rebase snapshot | Replaced by rebased branch |
-| `ARCHIVED_kn5000_research_datawheel_pre_rebase` | Pre-rebase snapshot | Replaced by rebased branch |
-| `MERGED_kn5000_feature_presentation_demo_PR15878` | Feature presentation demo | Merged upstream as #15878 |
-| `MERGED_kn5000_tempo_program_wheel_PR15919` | TEMPO/PROGRAM data wheel | Merged upstream as #15919 |
+| Branch                                            | Original Purpose             | Reason Archived                                              |
+|---------------------------------------------------|------------------------------|--------------------------------------------------------------|
+| `MERGED_kn5000_pr1_ldc_cr_mapping`                | PR 1                         | Merged upstream                                              |
+| `MERGED_kn5000_pr2_irq_inhibit`                   | PR 2                         | Merged upstream                                              |
+| `MERGED_kn5000_pr3_dma_and_port`                  | PR 3                         | Merged upstream                                              |
+| `MERGED_kn5000_pr4_serial`                        | PR 4                         | Merged upstream                                              |
+| `MERGED_kn5000_pr5_driver`                        | PR 5 (original)              | Not merged as such: superseded by v2, which merged as #15143 |
+| `MERGED_kn5000_pr5_driver_v2`                     | PR 5 (final version)         | Merged upstream as #15143                                    |
+| `MERGED_kn5000_interactive_control_panel`         | PR 5 (identical to v2)       | Merged upstream                                              |
+| `ARCHIVED_kn5000_aided_by_claude`                 | Early research branch        | Superseded by PR branches                                    |
+| `ARCHIVED_kn5000_pr4_serial_downcast`             | PR 4 downcast experiment     | Superseded by merged PR 4                                    |
+| `ARCHIVED_kn5000_pr5_driver_aided_by_claude`      | PR 5 with research additions | Superseded by research branches                              |
+| `ARCHIVED_kn5000_research_encoder`                | Data wheel encoder (v1)      | Superseded by datawheel branch                               |
+| `ARCHIVED_kn5000_research_encoder_v2`             | Data wheel encoder (v2, WIP) | Superseded by datawheel branch                               |
+| `ARCHIVED_kn5000_research_ssf`                    | SSF presentation research    | Identical to tonegen branch                                  |
+| `ARCHIVED_kn5000_pr4_serial_to2_trigger`          | TO2 trigger for serial       | Superseded by merged serial work                             |
+| `ARCHIVED_kn5000_minor_fix`                       | Old misc fixes               | Superseded by PR 5                                           |
+| `ARCHIVED_kn5000_squash_attempt_2025_08_14`       | Early squash attempt         | Superseded by PR branches                                    |
+| `ARCHIVED_kn5000_research_tonegen_pre_rebase`     | Pre-rebase snapshot          | Replaced by rebased branch                                   |
+| `ARCHIVED_kn5000_research_datawheel_pre_rebase`   | Pre-rebase snapshot          | Replaced by rebased branch                                   |
+| `MERGED_kn5000_feature_presentation_demo_PR15878` | Feature presentation demo    | Merged upstream as #15878                                    |
+| `MERGED_kn5000_tempo_program_wheel_PR15919`       | TEMPO/PROGRAM data wheel     | Merged upstream as #15919                                    |
 
 ## Roadmap: Future PR Candidates
 

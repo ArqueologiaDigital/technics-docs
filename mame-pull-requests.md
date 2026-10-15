@@ -60,7 +60,7 @@ MAME's existing implementation only handles the TMP96C141/TMP95C061/TMP95C063 en
 | DMAC0-3 (CR16) | 0x20, 0x24, 0x28, 0x2C | 0x40, 0x44, 0x48, 0x4C |
 | DMAD0-3 (CR32) | 0x10, 0x14, 0x18, 0x1C | 0x20, 0x24, 0x28, 0x2C |
 
-Without the TMP94C241 cases, `LDC cr,DMAMn` instructions write to a dummy register and DMA never configures correctly. This was the first bug identified in the KN5000 payload loading investigation --- the Main CPU's firmware uses `LDC` extensively to set up the HDMA transfers that carry the 192 KB sub-CPU payload (nine blocks, 524,288 B in all).
+Without the TMP94C241 cases, `LDC cr,DMAMn` instructions write to a dummy register and DMA never configures correctly. This was the first bug identified in the KN5000 payload loading investigation --- the Main CPU's firmware uses `LDC` extensively to set up the HDMA transfers that carry the sub-CPU boot data: nine blocks, 524,288 B in all, of which 192 KB is the payload.
 
 Additionally, the disassembler had all variants' CR register names hardcoded in the shared `dasm900.cpp`, which doesn't scale well as new variants are added. The existing SFR symbolic names already use a model-specific table pattern --- CR register names should follow the same approach.
 
@@ -96,7 +96,9 @@ The disassembler refactoring was worthwhile because disassembly is not performan
 
 ### Datasheet Reference
 
-The TMP94C241 control register map is documented in the Toshiba TMP94C241F Data Sheet, Section 5 "DMA Controller", Table 5-1 "DMA Register Map". The offsets differ from TMP96C141 because the TMP94C241 has a larger internal register file with additional peripheral blocks occupying the 0x20-0x3F range.
+The merged PR cites the Toshiba TMP94C241F Data Sheet, Section 5 "DMA Controller", Table 5-1 "DMA Register Map".
+
+> None of the section or table numbers in this page's Datasheet Reference blocks has been checked: no TMP94C241 datasheet exists on this project's machines (see [TMP94C241 Memory Controller]({{ site.baseurl }}/tmp94c241-memory-controller/)). The PR 3 and PR 4 blocks are not in those PRs' descriptions either.
 
 ---
 
@@ -108,13 +110,13 @@ The TMP94C241 control register map is documented in the Toshiba TMP94C241F Data 
 
 ### Summary
 
-Implement the documented 1-instruction interrupt deferral after `EI` and `RETI` instructions, matching real TLCS-900/H hardware behavior.
+Implement a 1-instruction interrupt deferral after `EI` and `RETI` instructions, which the PR takes to be TLCS-900/H hardware behaviour (see the Datasheet Reference below).
 
 ### Problem
 
-Per the Toshiba TLCS-900/H Programming Manual (Section 8.2 "Interrupt Processing"), interrupt acceptance is inhibited for one instruction following `EI` or `RETI`. This is an architectural feature of the TLCS-900/H family, not specific to any single variant.
+The PR takes interrupt acceptance to be inhibited for one instruction following `EI` or `RETI`, as an architectural feature of the TLCS-900/H family. For its source, and a datasheet that disagrees about `EI`, see the Datasheet Reference below.
 
-Without this deferral, the common firmware pattern:
+Without this deferral, the firmware pattern:
 
 ```asm
 EI 0        ; Enable all interrupt levels
@@ -124,7 +126,7 @@ EI 6        ; Restrict to level 6+ only
 
 fails because `EI 0` immediately triggers a pending interrupt before `NOP` executes. The interrupt handler runs, returns via `RETI`, and the CPU re-enters the handler infinitely --- `EI 6` never executes, and the CPU is stuck.
 
-This pattern appears extensively in the KN5000 firmware (hundreds of occurrences) and likely in other TLCS-900/H firmware as well. The real hardware's 1-instruction shadow prevents this problem.
+In the KN5000 firmware this exact sequence is the task-scheduler entry: `INTT3_EnterScheduler` in the main-CPU program and `TaskSwitch_Expired` in the sub-CPU payload. The one-instruction shadow this PR adds lets the emulated CPU get past it.
 
 ### Changes
 
@@ -139,7 +141,7 @@ This pattern appears extensively in the KN5000 firmware (hundreds of occurrences
 
 ### Risk Assessment
 
-**Low.** This change affects all TLCS-900/H variants (TMP96C141, TMP95C061, TMP95C063, TMP94C241). It is documented hardware behavior, and the implementation is minimal (a single boolean flag). If any existing driver were relying on the incorrect immediate-acceptance behavior (e.g., using `EI` without a guard `NOP`), it could see a timing change. However, real hardware has always had this shadow, so any such driver was already accidentally working.
+**Low** in code terms: this change affects all TLCS-900/H variants (TMP96C141, TMP95C061, TMP95C063, TMP94C241), and the implementation is minimal (a single boolean flag). Any existing driver that relied on immediate acceptance after `EI` could see a timing change. The TMP95C061F data sheet describes exactly that immediate behaviour (see the Datasheet Reference below), so the change is not established as correct for every variant.
 
 Drivers using TLCS-900/H variants that should be regression-tested:
 - `ngp` (Neo Geo Pocket --- TMP95C061)
@@ -147,7 +149,7 @@ Drivers using TLCS-900/H variants that should be regression-tested:
 
 ### Datasheet Reference
 
-Toshiba TLCS-900/H Programming Manual, Section 8.2: "After the EI instruction or RETI instruction is executed, the interrupt acceptance is inhibited for one instruction period."
+The merged PR cites the Toshiba TMP94C241F Data Sheet, Section 2.6.5 "Interrupt Processing", as saying that the instruction after `EI` or `RETI` always executes before any interrupt is accepted. That citation is unchecked: no TMP94C241 datasheet or TLCS-900/H manual exists on this project's machines. The TMP95C061F data sheet (another 900/H-core part), Section 3.3 "Interrupts", says the opposite for `EI`: "The EI instruction becomes effective immediately after execution. (With the TLCS-90, the EI instruction becomes effective after execution of the subsequent instruction.)"
 
 ---
 
@@ -228,12 +230,12 @@ The existing TMP94C241 serial implementation consists of inline stubs that immed
   - SFR register accessors: `scNbuf_r/w`, `scNcr_r/w`, `scNmod_r/w`, `brNcr_r/w`
 
 - **`tmp94c241_serial.cpp`** (new file): Full implementation:
-  - **I/O interface mode** (SCxMOD bits 1:0 = 0): Synchronous clocked serial. Supports internal clock (baud rate generator) and external clock (IOC=1) sources. Data is shifted MSB-first on clock edges.
+  - **I/O interface mode** (SCxMOD bits 3:2 = 0): Synchronous clocked serial. Supports internal clock (baud rate generator) and external clock (IOC=1) sources. Data is shifted LSB-first on clock edges.
   - **Baud rate generator**: Configurable via BRxCR register with 4-bit divisor and clock source selection. Drives a timer that toggles SCLK at the configured rate.
   - **TX double buffering**: CPU writes to SCxBUF go to the TX buffer. If the shift register is idle, the buffer auto-transfers immediately. If the shift register is busy, the buffer holds data until the current byte finishes, then auto-loads on the trailing rising edge. This matches real TMP94C241 hardware behavior and prevents byte loss during back-to-back transmissions.
   - **TX/RX shift registers**: 8-bit shift with proper edge timing. TX pre-outputs bit 0 before the first clock edge so the receiver can sample it on the rising edge. RX samples on rising edges and fires INTRX when 8 bits are received.
   - **SCLK output**: Forwarded to connected devices via callbacks, enabling clocked protocols.
-  - **TO2 trigger**: Timer 1 match events are forwarded to serial channels for mode 0 transfer gating.
+  - **TO2 trigger**: not implemented. The selection (SCxMOD bits 1:0 = 0) is logged as "TO2 trigger (Not implemented yet)", and its only effect is that with IOC=1 the baud-rate timer stops clocking the channel, so the external SCLK clocks it. TO2 itself drives nothing. The 7/8/9-bit UART modes are likewise recognised and logged but not implemented. Forwarding Timer 1 matches to the serial channels was tried on the `ARCHIVED_kn5000_pr4_serial_to2_trigger` branch and not merged.
 
 - **`tmp94c241.cpp`**: Replace inline serial stubs with sub-device delegation. Serial register mappings in `internal_mem()` now route to `m_serial[0]` and `m_serial[1]`. Add `device_add_mconfig()` to instantiate the two serial sub-devices. Set TX-complete flags (`INTES0`/`INTES1` bit 7) at `device_reset()` to indicate empty TX buffers at power-on.
 
@@ -270,7 +272,7 @@ Rework the KN5000 machine driver from a non-functional skeleton to a working sys
 The existing KN5000 driver defines the basic hardware layout (two TMP94C241 CPUs, ROM regions, LCD) but cannot proceed past early boot because:
 
 1. The firmware validates backup SRAM contents and enters diagnostic mode if validation fails (NVRAM is empty on first run). Not addressed by the merged PR: IC21 became NVRAM only in #15878, and no factory-default seeding was merged.
-2. The SubCPU memory map lacks mappings for the tone generator, DSP, inter-CPU latch, and waveform RAM, causing unmapped memory accesses.
+2. The SubCPU memory map lacks mappings for the tone generator, its keybed port, DSP1 and the waveform RAM, causing unmapped memory accesses. (The inter-CPU latches at `0x120000` were already mapped.)
 3. No scheduling synchronization between CPUs, making the latched inter-CPU communication unreliable. Not addressed by the merged PR, which has no `perfect_quantum`.
 4. The control panel MCU ROM is not dumped, so the serial protocol to the panel has no responder.
 5. No keybed input mechanism exists. Not addressed: the keybed port is a `noprw()` stub.
@@ -319,8 +321,7 @@ The complete change set has been tested with the following ROM set:
 - `kn5000_waveform_rom.ic307` (Wave ROM, 4 MB; IC304-IC306 are `NO_DUMP`)
 
 **Test scenarios verified:**
-- Cold boot with empty NVRAM
-- Warm boot with existing NVRAM (user settings preserved)
+- Cold boot (#15143 has no NVRAM: IC21 is plain RAM there and became NVRAM only in #15878, so every boot starts cold)
 - SubCPU boot transfers complete (9 HDMA blocks, 524,288 B, including the 192 KB payload)
 - Sound program selection via control panel buttons
 - Menu navigation (display updates correctly)
