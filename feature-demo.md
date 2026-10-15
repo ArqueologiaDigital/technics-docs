@@ -260,7 +260,7 @@ No disc holding a `FEATURE.PRE` is known, and it is not established whether such
 
 When `AcPresentationControlProc` processes a `<SHOW OBJ="ftdemo01">` action, the firmware:
 
-1. **Looks up the object name** (`ftdemo01`) in the UI object table (`NAKA_UIObjectTable`, ~141 entries). The entry is a `TtlScreen`; its bitmap is drawn by a `VwUserBitmapByName` child (`ftdemobmptop` for the globe).
+1. **Looks up the object name** (`ftdemo01`) in the UI object table (`NAKA_UIObjectTable`, Viewable slot 0xFD, 478 entries; their names are in the parallel ResName table, slot 0x3FD). The entry is a `TtlScreen`; its bitmap is drawn by a `VwUserBitmapByName` child (`ftdemobmptop` for the globe).
 
 2. **Takes the file key** stored inside that child: an 8-byte string, `.ftdemobmptop_file = "FTBMP01"` (`naka_perf_style.c:2179`).
 
@@ -370,7 +370,7 @@ The gate table entry for state `0xE4` (FEATURE PRESENTATION sub-menu) contains t
 
 ## MAME Emulation Status
 
-> **Superseded (October 2026).** This status dates from March 2026. [#15878](https://github.com/mamedev/mame/pull/15878) (merged 2026-08-17) makes the Feature Presentation run in mainline MAME, without sound because the tone generator is not emulated: DEMO, LEFT 4, LEFT 2 starts it. The four defects it fixed are the IC14 rhythm-ROM dump (address lines A19 and A21 swapped), the TMP94C241 16-bit timer interrupts, the IC21 backup SRAM (now NVRAM) and INT0 re-assertion under micro-DMA; none of them is the workspace-tag mechanism blamed below. In the kn7000_mame overlay build (2026-08-15), one song plays to a correct STOP at about 139 s and nothing follows. The demo countdown at 0x0D2F is armed once and not re-armed. Whether anything should follow is open: the owner describes the presentation as one continuous piece. What follows records the March 2026 investigation.
+> **Superseded (October 2026).** This status dates from March 2026. [#15878](https://github.com/mamedev/mame/pull/15878) (merged 2026-08-17) makes the Feature Presentation run in mainline MAME, without sound because the tone generator is not emulated: DEMO, LEFT 4, LEFT 2 starts it. The visual presentation does start. Its first slide, the Technics globe (FTBMP01), is drawn, so the `0xB80A` workspace-tag explanation in the March record below is wrong (kn7000_mame `notes/HANDOFF-kn5000-demo-playback.md`, §1–2). The four defects it fixed are the IC14 rhythm-ROM dump (address lines A19 and A21 swapped), the TMP94C241 16-bit timer interrupts, the IC21 backup SRAM (now NVRAM) and INT0 re-assertion under micro-DMA; none of them is the workspace-tag mechanism blamed below. In the kn7000_mame overlay build (2026-08-15), one song plays to a correct STOP at about 139 s and nothing follows. The demo countdown at 0x0D2F is armed once and not re-armed. Whether anything should follow is open: the owner describes the presentation as one continuous piece. What follows records the March 2026 investigation.
 
 **Partially working (March 2026).** The Demo Timer System (song cycling) works correctly in MAME — the timer counts down, songs cycle, and `PlaySong` returns after ~16 seconds of SwbtWr buffer processing. The SSF Visual Presentation (FTBMP bitmap rendering) does not trigger because the automated demo path uses workspace tags (`0x82xx`) that fail the `0xB80A` check in `AcPresentCtrl_CheckSSFStart`.
 
@@ -445,7 +445,7 @@ When this event reaches `AcPresentCtrl_CheckSSFStart`, the type-tag check **pass
 
 #### Root cause summary
 
-The Feature Demo has two distinct activation paths with fundamentally different workspace tag behavior (see "Two Distinct Activation Paths" above):
+March 2026, superseded (see [MAME Emulation Status](#mame-emulation-status)): the Feature Demo has two distinct activation paths with fundamentally different workspace tag behavior (see "Two Distinct Activation Paths" above):
 
 - **Manual path** (physical button press in state `0xE4`): `UIState_KeyScan_Dispatch` → event `0x1C00038` → `GroupBoxProc_StartSSFPresentation` → workspace tag `0xB80A` → `AcPresentCtrl_CheckSSFStart` passes → SSF starts
 - **`MainMemDrawControl` path** (not the demo timer): `DemoMenu_BuildItemWorkspace` → workspace tag `0x82xx` → `AcPresentCtrl_CheckSSFStart` fails → SSF never starts
@@ -569,7 +569,7 @@ times, all during boot with `8D38 = 0x00`, and the `0xEF0797` pre-condition (bit
 
 ### Observed behaviour
 
-Pressing DEMO in state `0xE4` transitions directly to `0x01` (normal mode), exiting the demo menu entirely. It does NOT trigger SSF. Pressing LEFT 2 starts the demo timer (song cycling) but does NOT trigger SSF visual presentation. The presentation-loaded flag at DRAM `0x0251D8` remains `0x0000` throughout, which is expected: only a presentation started from disk sets it.
+March 2026, superseded (see [MAME Emulation Status](#mame-emulation-status)): pressing DEMO in state `0xE4` transitions directly to `0x01` (normal mode), exiting the demo menu entirely. It does NOT trigger SSF. Pressing LEFT 2 starts the demo timer (song cycling) but does NOT trigger SSF visual presentation. The presentation-loaded flag at DRAM `0x0251D8` remains `0x0000` throughout, which is expected: only a presentation started from disk sets it.
 
 **Two independent bugs remain:**
 1. **Song cycling stuck:** Sequencer parts never complete, preventing the timer from resetting for the next song
