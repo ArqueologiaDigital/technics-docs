@@ -215,19 +215,19 @@ The `MIDI_Dispatch` routine parses MIDI-like status bytes and routes to handlers
 
 The `Voice_CtrlChange` handler supports these controllers:
 
-| CC# | Handler | Parameter |
-|-----|---------|-----------|
-| 0x01 | `Voice_CC_ModWheel` | Modulation Wheel |
-| 0x07 | `Voice_CC_Volume` | Main Volume |
-| 0x0A | `Voice_CC_Pan` | Pan/Balance |
-| 0x0B | `Voice_CC_Expression` | Expression |
-| 0x40 | `Voice_CC_Sustain` | Sustain Pedal |
-| 0x5B | `Voice_CC_Sostenuto` | Sostenuto Pedal |
-| 0x5D | `Voice_CC_Soft` | Soft Pedal |
-| 0x5E | `Voice_CC_Portamento` | Portamento |
-| 0x91 | `Voice_CC_91` | Reverb Depth |
-| 0x95 | `Voice_CC_95` | Chorus Depth |
-| 0x97-0x9D | `Voice_CC_97`-`Voice_CC_9D` | Proprietary effects |
+| CC#       | Handler                                    | Parameter                                                                                         |
+|-----------|--------------------------------------------|---------------------------------------------------------------------------------------------------|
+| 0x01      | `Voice_CC_ModWheel`                        | Modulation Wheel                                                                                  |
+| 0x07      | `Voice_CC_Volume`                          | Main Volume                                                                                       |
+| 0x0A      | `Voice_CC_Pan`                             | Pan/Balance                                                                                       |
+| 0x0B      | `Voice_CC_Expression`                      | Expression                                                                                        |
+| 0x40      | `Voice_CC_Sustain`                         | Sustain Pedal                                                                                     |
+| 0x5B      | `Voice_CC_Sostenuto`                       | Sostenuto Pedal                                                                                   |
+| 0x5D      | `Voice_CC_Soft`                            | Soft Pedal                                                                                        |
+| 0x5E      | `Voice_CC_Portamento`                      | Portamento                                                                                        |
+| 0x91      | `Voice_CC_91` → `Voice_CC_SetReverbDepth`  | Reverb depth (label; see Proprietary Control Changes)                                             |
+| 0x95      | `Voice_CC_95` → `Voice_CC_SetChorusEnable` | Chorus on/off (label)                                                                             |
+| 0x97-0x9D | `Voice_CC_97`-`Voice_CC_9D`                | Chorus depth, delay depth, delay on/off, delay feedback (labels; see Proprietary Control Changes) |
 
 ## DSP Configuration
 
@@ -343,12 +343,12 @@ For each of 8 registers (sequential):
 
 Data sources for 8 registers:
   Reg 0-1: From BC (caller's direct parameters)
-  Reg 2-3: From prevbank QBC (alternate register bank)
+  Reg 2-3: From QBC (upper word of XBC)
   Reg 4-5: From DE (caller's direct parameters)
-  Reg 6-7: From prevbank QDE (alternate register bank)
+  Reg 6-7: From QDE (upper word of XDE)
 ```
 
-The prevbank register usage allows passing 8 bytes of data using only 4 register pairs, by using the TLCS-900/H2's alternate register bank.
+The caller passes the 8 bytes in two 32-bit registers, XBC and XDE. `ld bc, qbc` / `ld bc, qde` fetch their upper words. No register bank is involved: QBC/QDE are current-bank register codes 0xE6/0xEA.
 
 **Utility Functions (Sub CPU):**
 
@@ -532,9 +532,9 @@ The Sub CPU uses several lookup tables for DSP configuration:
 
 `DSP_WriteParameter` (at 0x03C190) translates a parameter index + algorithm ID into DSP register writes:
 
-1. Look up `0x1F22C[algo_id]` → pointer to parameter mapping data (XDE)
-2. Look up `0x1F09C[algo_id]` → pointer to register address data (XBC)
-3. Call `DSP_ParameterWriteEngine` (at 0x03C9E6) which uses 12-byte stride tables at those pointers
+1. Look up `0x1F22C[effect]` → descriptor records (each lists the DSP register cells for one parameter id), passed in XDE
+2. Look up `0x1F09C[effect]` → value records (translator opstreams ending 0x7A), pushed as an argument (XBC = `ToneGen_WorkArea`)
+3. Call `DSP_ParameterWriteEngine` (0x03C9E6), which walks those variable-length records
 4. The inner loop reads 3 words per parameter from the mapping data
 5. The resulting DSP writes go out through `DSP_DispatchCommand`/`DSP_DispatchData` (Port PZ/P7 for DSP1, the PF serial link for DSP2), not through 0x130000
 
@@ -627,7 +627,7 @@ Opcodes 0-5 dispatch to native TLCS-900 machine code subroutines at `DSP_Bytecod
 | 4 | 0x473 | 0x03C7A1 | 26 bytes |
 | 5 | 0x48D | 0x03C7BB | 448 bytes |
 
-Total native handler code: 1,613 bytes. These handlers use prevbank registers (D7 prefix), auto-increment addressing `ld C,(XWA+)`, and register-indirect compact forms to efficiently read data from the bytecode stream and route it to the DSP hardware via the parallel bus protocol. After completing, each handler jumps to `DSP_BytecodeInterpreter_CheckEnd` to continue the interpreter loop.
+Total native handler code: 1,613 bytes. These handlers keep a status word in QIZ (the upper word of XIZ, reached through the D7 extended-register prefix) and use auto-increment addressing `ld C,(XWA+)` and register-indirect compact forms to efficiently read data from the bytecode stream and route it to the DSP hardware via the parallel bus protocol. After completing, each handler jumps to `DSP_BytecodeInterpreter_CheckEnd` to continue the interpreter loop.
 
 **Common Handler Idiom:**
 
@@ -640,7 +640,7 @@ ld A,C                 ; copy byte to A
 extz WA                ; zero-extend to 16-bit
 ld BC,(XSP+0x14)       ; load DSP chip_id from stack (0=DSP1, 1=DSP2)
 call DSP_DispatchCommand ; or DSP_DispatchData
-ld QIZ,HL              ; save return status to prevbank register
+ld QIZ,HL              ; save return status in the upper word of XIZ
 ```
 
 **Stack Frame Layout (set up by `DSP_BytecodeInterpreter_Init`):**
@@ -789,7 +789,7 @@ This allows a single MIDI parameter change to update multiple DSP registers simu
 
 ### Effect Type Bytecode Programs
 
-Each of the 16 effect types has two bytecode programs: an **algorithm program** (Primary Table at 0x1ED7C) that loads the DSP algorithm, and a **parameter program** (Secondary Table at 0x1EF0C) that writes tunable coefficients.
+Each of the 16 effect types has two bytecode programs: an **algorithm program** (Primary Table at 0x1ED7C) that loads the DSP algorithm, and a **coefficient program** (0x1EF0C) that writes tunable coefficients.
 
 **Algorithm Programs (Primary Table):** All use a single Handler 3 instruction with CMD=0x01 and DSP address 0x0054 (generic channels) or 0x00C8 (channel 1 reverb/chorus). The Handler 3 data size varies by algorithm complexity:
 
@@ -850,25 +850,20 @@ Per-slot settle times are stored at 0x1ED72 (5 bytes, one per slot).
 
 The SubCPU ROM contains 6 key tables for DSP effect configuration:
 
-| Table                 | Address | Format   | Entries | Purpose                                                                        |
-|-----------------------|---------|----------|---------|--------------------------------------------------------------------------------|
-| Chip Mapping          | 0x1ED6D | 1B × 5   | 5       | Channel → DSP chip (0=DSP1, 1=DSP2)                                            |
-| Slot settle time      | 0x1ED72 | 1B × 5   | 5       | Per-slot settle time (28, 24, 46, 20, 20), max-folded by the dispatcher        |
-| Algorithm Programs    | 0x1ED7C | 4B × 100 | 100     | Pointers to algorithm bytecode (indexed by full algo ID 0-99)                  |
-| Parameter Programs    | 0x1EF0C | 4B × 100 | 100     | Pointers to parameter bytecode (47 unique programs)                            |
-| Parameter values      | 0x1F09C | 4B × 100 | 100     | Per-effect parameter VALUE record pointers (0 = none)                          |
-| Parameter descriptors | 0x1F22C | 4B × 100 | 100     | Per-effect parameter DESCRIPTOR record pointers (0x017425 = NO OPERATION stub) |
+| Table                 | Address | Format   | Entries | Purpose                                                                              |
+|-----------------------|---------|----------|---------|--------------------------------------------------------------------------------------|
+| Chip Mapping          | 0x1ED6D | 1B × 5   | 5       | Channel → DSP chip (0=DSP1, 1=DSP2)                                                  |
+| Slot settle time      | 0x1ED72 | 1B × 5   | 5       | Per-slot settle time (28, 24, 46, 20, 20), max-folded by the dispatcher              |
+| Algorithm Programs    | 0x1ED7C | 4B × 100 | 100     | Pointers to algorithm bytecode (indexed by full algo ID 0-99)                        |
+| Coefficient Programs  | 0x1EF0C | 4B × 100 | 100     | Pointers to coefficient bytecode streams (59 distinct), uploaded after the algorithm |
+| Parameter values      | 0x1F09C | 4B × 100 | 100     | Per-effect parameter VALUE record pointers (0 = none)                                |
+| Parameter descriptors | 0x1F22C | 4B × 100 | 100     | Per-effect parameter DESCRIPTOR record pointers (0x017425 = NO OPERATION stub)       |
 
-**Algorithm Program Table (0x1ED7C):** 100 entries indexed by full algorithm ID. Unique programs for types 2-6, 8-10, 15 (Rotary). Types 0, 7, 11 share a common program at 0x017263. Extended IDs 16-27 (reverb subtypes) share algorithm programs with their base type but have unique parameter programs.
+**Algorithm Program Table (0x1ED7C):** 100 entries indexed by full algorithm ID. Unique programs for types 2-6, 8-10, 15 (Rotary). Types 0, 7, 11 share a common program at 0x017263. Extended IDs 16-27 (reverb subtypes) share algorithm programs with their base type but have unique coefficient programs.
 
-**Parameter Program Table (0x1EF0C):** 47 unique parameter programs covering:
-- 10 base algorithm types
-- 12 individual reverb subtypes (IDs 16-27)
-- 6 distortion/dynamics variants (IDs 32-36, 39)
-- 6 extended effects (auto pan, pitch shifter, pedal wah, rotary, ring mod, HARS)
-- Combination effects, presets, GEQ
+**Coefficient Program Table (0x1EF0C, `EFF_CoefProgram_PtrTable`):** 59 distinct coefficient streams; 42 effect numbers share the NO OPERATION stream `DSP_Eff00_Coef_Bytecode`. The per-effect list is on [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/).
 
-**Register and Parameter Mapping Tables (0x1F09C, 0x1F22C):** Both are 100-entry arrays indexed by effect number (0-99). 41 effects (0, 7, 11-14 and others) have a NULL value pointer, and their descriptor pointer is the NO OPERATION stub 0x017425. Both tables point to variable-length bytecode programs with opcodes like 0x21 (interpolation), 0x40 (pan scaling), 0x61-0x78 (dispatch), terminated by 0x7A/0xF0.
+**Parameter Value and Descriptor Tables (0x1F09C, 0x1F22C):** Both are 100-entry arrays indexed by effect number (0-99). 41 effects (0, 7, 11-14 and others) have a NULL value pointer, and their descriptor pointer is the NO OPERATION stub 0x017425. Value records (0x1F09C) are translator opstreams (opcodes 0x21/0x24/0x40 and 0x61-0x79) ending in 0x7A. The descriptor record with the same id (0x1F22C) lists the DSP register cells that the value stream's field-index bytes select. Both tables end in 0xF0. See [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/).
 
 ### Parameter Translation Opcodes (Level 2 Bytecodes)
 
@@ -970,7 +965,7 @@ does anything. The twelve: `MODULATION DELAY`, `SLOW ATTACKER`, `NOISE FLANGER`,
 `OVER_D`. Of these, only `SLOW ATTACKER` is reachable from a front-panel effect-type list
 (DSP EFFECT TYPE 14); the rest are not selectable through either array-driven editor page.
 
-**Register Address Programs (ROM table at 0x1F09C):** Each effect also has a register address program that specifies which DSP register addresses each parameter writes to. The register programs use the same bytecode format as the parameter mapping but contain DSP coefficient addresses (12-bit or 16-bit) and fixed-point default values. Effects whose 0x1F09C entry is NULL (0, 7, 11-14 and others) have none.
+**Register cells (descriptor records at 0x1F22C):** The DSP register cells each parameter writes are listed in the effect's descriptor records at 0x1F22C, not in the value records at 0x1F09C. The 12-bit or 16-bit DSP coefficient addresses belong to the coefficient streams at 0x1EF0C. Effects whose 0x1F09C entry is NULL (0, 7, 11-14 and others) have no value records.
 
 ### DSP Coefficient Setup Pipeline
 
@@ -1060,8 +1055,8 @@ MIDI Note On (channel, note, velocity)
   │     └─ mute the slot, build its registers (Voice_Init_Type1), write the key-on word
   │
   └─ ToneGen_WriteVoiceParams
-        └─ Write 21 register pairs to 0x100000/0x100002
-        └─ Set key-on flag (bit 15 at register offset 0x0080)
+        └─ 23 writes to 22 registers through 0x100000/0x100002
+        └─ mid-burst: literal 0x8100 to the control register (+0x000); bit 15 of +0x080 is a frame strobe (up on write 2, down on write 23)
 ```
 
 ### Keybed Event Decoding
@@ -1078,7 +1073,7 @@ Pan (CC 0x0A) is a direct value (0-127) written to channel offset +0x08 and tran
 
 The KN5000 uses **hardware envelopes** in the tone generator IC303 — the Sub CPU firmware does not implement software ADSR:
 
-- **Key-on** (Note On): Sets bit 15 at tone gen register 0x0080, which triggers the hardware's internal attack phase
+- **Key-on** (Note On): `ToneGen_WriteVoiceParams` writes the literal `0x8100` to the voice's control register (`+0x000`) in the middle of its 23-write burst. The disassembly reads this as the note-on gate from its position in the burst. Bit 15 of `+0x080` only frames the burst: it is raised on the second write and dropped on the last.
 - **Key-off** (Note Off): Clears the enable flag, triggering hardware release
 - **Sustain pedal** (CC 0x40): `Voice_CC_Sustain` (0x02A383) stores the pedal state (`Voice_CC_SetSustain`, 0x028962), then runs `Voice_AllocateForSustain` and the sustain retrigger scan over the part's held notes
 - **Sostenuto** (CC 0x5B): Similar hold behavior for notes already sounding
@@ -1289,8 +1284,8 @@ All observed states (0x00, 0x01, 0xE0, 0xE4) are outside the 0x10-0x16 skip rang
 
 **Startup flag always zero:**
 - `startflag=0000` at RAM `(0x0251D8)` — never set to a non-zero value
-- This flag controls whether `Seq_StartMainControlAlt` (called from `DemoMode_Initialize`) configures audio hardware at 0xF42EA4
-- On real hardware, something sets this flag during boot or demo initialization
+- This flag controls whether `Seq_StartMainControlAlt` (called from `DemoMode_Initialize`) calls `Part_InitFromPreset` (0xF42EA4)
+- It is the presentation-loaded flag. Only `Seq_InitializeAndStart` sets it, when a presentation is executed (`EVT_EXEC_PRESENTATION_REQ`). `Seq_StartMainControlAlt` sends `EVT_EXIT_PRESENTATION`, which calls `Part_InitFromPreset` only if the flag is set and then clears it. So 0 is the expected value during the ROM Feature Demo.
 
 **Event loop rate drops 60x after demo init:**
 - Before demo: ~11,500 event loop iterations/sec
@@ -1986,7 +1981,7 @@ The MAME driver includes device classes for the audio chips. The tone generator 
 ## Research Needed
 
 - [x] ~~Document waveform ROM format and sample layout~~ -- Complete: IC307 analyzed. 198-entry index table, 186 unique signed 16-bit PCM waveforms, x16 byte offset addressing, key zone parameter records. See [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/)
-- [x] ~~Decode per-algorithm parameter mapping tables at `0x1F22C`/`0x1F09C`~~ — Complete: both are 100-entry pointer arrays indexed by effect number pointing to variable-length bytecode programs with opcodes 0x21/0x24/0x40/0x61-0x78, terminated by 0x7A/0xF0
+- [x] ~~Decode per-algorithm parameter mapping tables at `0x1F22C`/`0x1F09C`~~ — Complete: both are 100-entry pointer arrays indexed by effect number: 0x1F09C points to value records (translator opstreams ending 0x7A) and 0x1F22C to descriptor records (register-cell lists), each table ending in 0xF0
 - [x] ~~Map MainCPU parameter indices to EFF block word positions~~ — Partial: 84 named parameters extracted from MainCPU 0xE324C4. DSP2 master list at 0xE4475C maps 14 SubCPU param indices to UI names. Final register-to-parameter mapping requires runtime bytecode tracing
 - [x] ~~Decode DSP register semantics per channel~~ — Partial: DSP2 112-register map from boot-time analysis (stride-0x10 channel regs at offset 0x_8, control regs 0x00/0x40/0x80, coefficient regs 0xE6/0xE7). DSP1 channel regs 0x10-0x17 still need semantic mapping.
 - [ ] Document remaining inter-CPU command types (beyond 0x2D and 0xE1/E2/E3)
@@ -2007,6 +2002,6 @@ The MAME driver includes device classes for the audio chips. The tone generator 
 - [x] ~~Map remaining proprietary CC handlers (0x97-0x9D)~~ — Storage traced (see Proprietary Control Changes); meanings open
 - [x] ~~Decode tone generator register semantics~~ — Partial: voice control state machine, key-on/off flags, volume/level groups, latched parameter updates documented; pitch/envelope/filter register mapping still needs work
 - [x] ~~Document synthesis architecture~~ — Complete: 64-voice wavetable, 26 MIDI channels, dynamic voice allocation, hardware ADSR, LFO modes, proprietary CCs
-- [ ] Reverse-engineer DSP register semantics by runtime bytecode tracing — static analysis decoded all table structures (6 ROM tables, 47 unique parameter programs, 100 algorithm entries) but actual register addresses are embedded in variable-length bytecode and require interpreter execution to extract
+- [ ] Reverse-engineer DSP register semantics by runtime bytecode tracing — static analysis decoded all table structures (6 ROM tables, 59 distinct coefficient streams, 100 algorithm entries) but actual register addresses are embedded in variable-length bytecode and require interpreter execution to extract
 - [x] ~~Analyze the native code handlers (DSP_Bytecode_Op00 … Op05)~~ — **Fully decoded** (1,613 bytes → 6 handlers). Op0/5: complex 5-byte groups with 3-way branching (static/raw/parameter-modified coefficients). Op1: 5-byte groups with 12-bit address. Op2: 3-byte raw groups. Op3: 16-bit address + raw tail. Op4: command-only. Key finding: Handlers 0/5 Branch C implement real-time parameter control by mixing a 32-bit runtime parameter into template coefficient data during DSP writes.
 - [x] ~~Document bytecode interpreter opcode set completely (opcodes 0x0-0xF)~~ — Complete: 2-byte header format, opcodes 0-5 (native code dispatch), 0xD (yield), 0xE (send command+data), 0xF (end). Config entries are 12 bytes (4 words + 1 pointer). The handlers, `DSP_Bytecode_Op00_Groups5_ParamMix` (0x3C32E) through `DSP_Bytecode_Op05_Groups5_Masked`, are native TLCS-900 subroutines.
