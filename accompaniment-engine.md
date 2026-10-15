@@ -169,6 +169,9 @@ The Program ROM holds the style browser's ten group tables, one per category; ea
 | `StyleGroup_WorldMusic_Table`     | `0xECF7E8` | Country                              |
 | `StyleGroup_LatinWorld_PairTable` | `0xECF9AA` | Latin / World                        |
 
+The category column is read from the browser root by `tools/style_browser_groups.py` in this
+repository.
+
 ## Chord Detection
 
 `AccChord_ReadAndStoreKeys` scans the lower keyboard for held notes and determines the current chord:
