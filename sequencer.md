@@ -246,7 +246,7 @@ The demo mode handler `SeqState_DemoModeHandler` (0xF993AD) responds to event `E
 
 1. The current title (`CURRENT_TITLE`, 0x8D36) becomes 0xE0, `TT_DEMOMENU` (`DemoMode_Main_Operation` entry)
 2. The current title becomes 0xE4, `TT_DEMOFEATURE` (`DemoMode_Initialize` completion)
-3. Startup flag at `0x0251D8` controls whether `Seq_StartMainControlAlt` configures audio hardware
+3. `Seq_StartMainControlAlt` sends `MT_ExitPresentation` (`EVT_EXIT_PRESENTATION`). `MainPreControl` calls `Part_InitFromPreset` only when the presentation-loaded flag at `0x0251D8` is set, and then clears it (`demo/file_demo_proc.s:199-203`). Only a presentation started from disk sets that flag, so during the ROM Feature Demo it is 0 and the call is skipped.
 
 ### Built-in demo/default style image
 
@@ -496,7 +496,7 @@ Sequences and styles can be stored:
 > ⚠ These are the symptoms recorded in early 2026, before kn7000_mame `3fd44f3` (2026-08-05) fixed a duplicate `/INT0` dispatch in MAME's TMP94C241 core that wedged the sub→main link. Since that fix the demo runs well past 100 seconds with real voice names; see [Audio Subsystem - Feature Demo]({{ site.baseurl }}/audio-subsystem/#feature-demo). They are kept as the record of that investigation, not as current behaviour.
 
 - **Ring buffer never written**: The main sequencer ring buffer at 0x01F37B always has write position == read position (both 0x0000). The song engine never generates MIDI events into the buffer.
-- **Startup flag stuck at 0**: The flag at `0x0251D8` is always 0, which may cause `Seq_StartMainControlAlt` to skip audio hardware configuration.
+- **Startup flag stuck at 0**: The flag at `0x0251D8` read 0 throughout. This is expected. It is the presentation-loaded flag, which `Seq_InitializeAndStart` sets only when a presentation is started from disk (`demo/fdemotext_routines.s:2917-2921`), so it stays 0 during the ROM Feature Demo. It gates no audio hardware configuration (see [Feature Demo]({{ site.baseurl }}/feature-demo/#presentations-loaded-from-disk)).
 - **Event loop rate drops 60x**: After demo initialization, the event processing loop drops from ~11,500 iterations/sec to ~168-180/sec. The sequencer is busy processing but producing no output.
 - **No Note On/Off events**: The demo sends CC, Pitch Bend, Channel Pressure, and SysEx commands, but never Note On (0x90) or Note Off (0x80).
 
@@ -512,8 +512,7 @@ See [Audio Subsystem - Feature Demo]({{ site.baseurl }}/audio-subsystem/#feature
 
 ## Research Needed
 
-- [ ] Re-measure the ring-buffer and startup-flag behaviour after the 2026-08-05 /INT0 fix
-- [ ] Investigate the startup flag at `0x0251D8` — what sets it on real hardware?
+- [ ] Re-measure the ring-buffer behaviour after the 2026-08-05 /INT0 fix
 - [ ] Trace the path from rhythm ROM data reading to ring buffer writing
 - [ ] Document sequence data structure format
 - [ ] Analyze playback timing engine (Timer7 involvement)
