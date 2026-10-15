@@ -55,7 +55,7 @@ Things we don't know yet and need to investigate.
 
 ### HDAE5000 Hard Disk Expansion
 - [x] What is the command interface via PPI at `0x160000`? **i8255 PPI for PC parallel port (LPT) communication** — used by HD-TechManager5000 Windows software for backup/restore. See [HDAE5000]({{ site.baseurl }}/hdae5000/) and [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/)
-- [x] How does it communicate file data to the keyboard? **IDE/ATA at 0x130010-0x130020** (CHS addressing, PIO mode, 4 ATA commands: Read Sectors, Write Sectors, Identify Device, Set Features). See [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/)
+- [x] How does it communicate file data to the keyboard? **IDE/ATA at 0x130010-0x130020** (CHS addressing, PIO mode, 4 ATA commands: Read Sectors, Write Sectors, Identify Device, Standby Immediate (0x94)). See [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/)
 - [ ] Which of a song record's ten first-cluster slots holds which part (nine part types are known), and what are the FLS item bytes at +80/+112? ([HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/#open-questions))
 - [ ] Is "FSB" (PC-link commands 03-06) the whole table set or only the song-record block?
 - [ ] Lyric player: the byte at `0x230882`, meta type `0x7E` beyond its chord case, the tempo and measure lyric objects, and the meaning of the main-CPU variables `sqbtof` / `sq_beadt` / `sqsrtc`.
@@ -95,7 +95,6 @@ The firmware's own class definitions answered most of this section in September 
 
 - [x] **`0x01C00015` versus `0x01C00016`.** Both are title requests carrying a `0x01A0nnnn` title id and reaching `TitleProc`, but they take different cases (`EventDispatch_SelectMatch` / `EventDispatch_OK`). What is the difference? **The firmware's own names settle it:** `0x01C00015` is `EV_CHANGE_TITLE` (change the current title) and `0x01C00016` is `EV_INTERRUPT_TITLE` (show a title on top of the current one until `EV_RETURN_TITLE` closes it). ([Event Codes]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016))
 - [ ] **HD-AE5000 boot title request.** `HDAE5000_Boot_Init` requests title 0x7F when `HDAE5000_Check_HD_Present` returns non-zero. Per its header, that means the drive is *not* ready. Per the call site's comments, it means it *is*. Which reading is right? ([Boot Sequence]({{ site.baseurl }}/boot-sequence/#hdae5000_boot_init-0x28f576))
-- [x] Rename `EVT_INTERRUPT_TITLE` (0x01C00016), `EVT_HDAE_SEQ_STOP` (0x01CA0000) and `EVT_HDAE_TICKS` (0x01CA0004) in both `event_codes.s` files. They are a title request and the HD-AE5000's `EV_SeqStop` / `EV_TICKS`. **Done:** `EVT_INTERRUPT_TITLE` is the firmware's own `EV_INTERRUPT_TITLE`, and the `event_codes.s` comments now describe all three by their firmware names.
 - [ ] Does anything besides `InheritedProc` read `allsize`/`selfsize` of a class that re-classes an existing record (as `HDTitleMenu` re-classes view object `0x00600002`)? A class with parent `0xFFFFFFFF` has no inherited behaviour; whether the view system tolerates that for a DISK MENU item is untested. ([HDAE5000 Homebrew]({{ site.baseurl }}/hdae5000-homebrew/))
 
 ## Data Tables (September 2026 leads)
@@ -104,7 +103,7 @@ The firmware's own class definitions answered most of this section in September 
 - [ ] **Preset Data Destination.** Confirm in MAME that the `0x800000` fallback of `SubCPU_Send_Payload` ships the bitmap bank (and so the `0xF7` bytes). ([LZSS Compression]({{ site.baseurl }}/lzss-compression/#preset-data-destination-dispute))
 - [ ] **Section directory at `0x800000`.** Nothing in any ROM we hold reads it or the bitmap copies it indexes. What uses it?
 - [ ] **Wallpaper palette entries 0xE0-0xEF.** What writes the RAM table at `0x3F1E4` that `ChangeWallPalette_Impl` loads them from?
-- [ ] **Tone database.** What does the class nibble of a zone record's recording selector mean at the tone generator? What are SET descriptor `+0x0E` and flags bit 3, and the third id byte (`+13`) of each catalogue row? ([Tone Database]({{ site.baseurl }}/tone-database/#what-is-still-open))
+- [ ] **Tone database.** The class nibble of a zone record's recording selector appears to pick a 1 MB page of the wave space (page = class & 3, bank = class >> 2; classes 4, 5 and 7 match IC307's pages 0, 1 and 3 exactly). Which socket holds the other banks? Why does `Voice_Init_Type1` add `(tick & 7)` to the whole selector, and what does `WaveSel_StageB_Store_Reg040`'s doubling of the class (bit 2 of `Voice_GlobalFlags`) select? What are SET descriptor `+0x0E` and flags bit 3, and the third id byte (`+13`) of each catalogue row? ([Tone Database]({{ site.baseurl }}/tone-database/#what-is-still-open))
 - [ ] **Music Stylist.** Does parameter id 0x4900 resolve to tag 0x61 +0 (style record `+0x9E`), naming each of the 1000 styles' DSP effect? What reads record byte `+0xBE`, and which panel part is "PART 4"?
 - [ ] **Effect-parameter metadata.** Why does the Sub CPU payload carry a byte-identical copy of the main CPU's effect-parameter metadata (`0x0133CF`) that it never reads? ([DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/#the-main-cpu-holds-the-same-metadata-and-reads-it))
 - [ ] **`InterCPU_E1_DMA_Transfer` (Sub CPU).** The tonedb lane reports that its header probably has source and destination swapped (`DSP_Reinit_VoiceSlots` passes `XWA = 0x007800`, its own staging image, and `XDE = 0x1E0000`). Unverified.
@@ -158,13 +157,16 @@ See [Parameter Records]({{ site.baseurl }}/wsa1-parameters/).
 - [ ] Not yet attempted: `RecordTables_FB82A0` (2,566 B), `MixedTables_FC6626`, the hard-disk
   sectors `DiskImage_HardDisk_BootSector` / `DiskImage_HardDisk_MBR` (1,024 B), `Msg0716_ObjectRecords`, the `VersionScreen_*` objects,
   `RamInitTable_F96CA6_Addrs`, `MidiFile_Tables_FBA169`.
-- [ ] How are the words of `SoundCodeByGroupMember_ModeOffsetGroup` encoded? Its reader,
-  `SoundSel_FromPresetProgramAndBank`, classifies the low byte into kind bands against `0x0F`,
-  `0x1F`, `0x20` and `0x21` (the compare at `prom_a` `0xFC248D`). Its two sibling tables were
-  re-identified on 2026-10-05: `PanelSoundSel_ByProgramAndBank` (indexed by program and bank,
-  word = group and member; the exact inverse of this table on all 272 panel selections) and
-  `ProgramChangeOut_ByProgramAndBank` (low byte = the program change transmitted, high byte =
-  the bank select).
+- [x] How are the words of `SoundCodeByGroupMember_ModeOffsetGroup` (`0xF06EF4`) and
+  `PanelSoundSel_ByProgramAndBank` (`0xF07134`) encoded? **They are inverse maps between a
+  part's panel selection and its PROGRAM CHANGE & BANK.** `SoundCode_FromGroupMember_ModeOffset`
+  reads the first at (group + bias, member) and gets (program, bank) as (low byte, high byte);
+  `SoundSel_FromPresetProgramAndBank` reads the second at (program, bank) and gets (group,
+  member), sorting the group byte into R1 / R2 / RD at `prom_a` `0xFC248D`. All 272 panel
+  selections round-trip (`wsa1/notes/prom_ab_sound_selection_tables.py` in the disassembly).
+- [ ] What do the words of `ProgramChangeOut_ByProgramAndBank` (`0xF08514`; low byte = the
+  program change transmitted, high byte = the bank select) say for a given sound? The table is
+  not an identity map.
 - [ ] What do a SysEx decode-tree leaf's result and pair bytes select (`LinkTable_F4FF61`)?
 - [ ] Is there more older-build residue? `relocated_copy_scan.py --boundaries` lists
   unchecked candidates in `prom_b`, and `prom_a`'s ~`0x400` stale twins suggest a systematic
