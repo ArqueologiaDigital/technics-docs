@@ -152,20 +152,26 @@ debt, which is measured, rather than progress.
 
 ### LLVM Backend Encodings Added
 
-All previously missing instruction encodings have been implemented in the LLVM TLCS-900 backend:
+The encodings in the table below, which the March 2026 audit of the KN5000 trees found
+missing, have all been implemented in the LLVM TLCS-900 backend. That does not extend to the
+SX-WSA1R: `prom_a` still carries 81 certified `.byte` sites (41 forms) for which the census
+script finds no spelling (see above). Some of those forms have no instruction in the backend
+at the pin `a3a81863f87d`: the rotate-by-A group (`ce f9` is `rrc A,H`), `push` of a byte
+register named by code (`c7 f8 04`, `push IZL`) and ALU operations on an `(xrr+r8)` operand
+(`c3 03 f0 e0 e8`, `or (XIX+A),W`).
 
-| Category | Prefix | Count Converted | LLVM Status |
-|----------|--------|-----------------|-------------|
-| JR/JRL/CALR branch instructions | `0x1E` etc. | 1,214 | **Fixed** (label-based) |
-| Compact register loads (d8 prefix) | `0xD8-0xEF` | 2,680 reg-reg + 831 ALU/LD/BIT | **Implemented** |
-| PrevBank (D7 prefix) | `0xD7` | 147 | **Implemented** |
-| Memory R+d8 addressing | various | 3,616 | **Implemented** |
-| Compact dst (CALL/JP/CPW/LD) | various | 1,038 | **Implemented** |
-| Short LD (compact load) | `0x20-0x3F` | 523 | **Implemented** |
-| Compact imm32 loads | various | 684 | **Implemented** |
-| ld A, (R+d16) source loads | `0xC3` | ~970 | **Implemented** (Mar 14) |
-| ld (R+d16), A stores | `0xF3` | ~400 | **Implemented** |
-| Shifts/Rotates/MUL/DIV | various | 246 | **Implemented** |
+| Category                                                               | Prefix      | Count Converted                | LLVM Status              |
+|------------------------------------------------------------------------|-------------|--------------------------------|--------------------------|
+| JR/JRL/CALR branch instructions                                        | `0x1E` etc. | 1,214                          | **Fixed** (label-based)  |
+| Compact register loads (d8 prefix)                                     | `0xD8-0xEF` | 2,680 reg-reg + 831 ALU/LD/BIT | **Implemented**          |
+| Word register by code (D7 prefix: QWA–QSP, the upper words of XWA–XSP) | `0xD7`      | 147                            | **Implemented**          |
+| Memory R+d8 addressing                                                 | various     | 3,616                          | **Implemented**          |
+| Compact dst (CALL/JP/CPW/LD)                                           | various     | 1,038                          | **Implemented**          |
+| Short LD (compact load)                                                | `0x20-0x3F` | 523                            | **Implemented**          |
+| Compact imm32 loads                                                    | various     | 684                            | **Implemented**          |
+| ld A, (R+d16) source loads                                             | `0xC3`      | ~970                           | **Implemented** (Mar 14) |
+| ld (R+d16), A stores                                                   | `0xF3`      | ~400                           | **Implemented**          |
+| Shifts/Rotates/MUL/DIV                                                 | various     | 246                            | **Implemented**          |
 
 ### HDAE5000: not complete
 
@@ -226,9 +232,9 @@ Add encoding support for the F2-prefix `ld (mem), imm` instructions that store i
 
 Add encoding support for `ld A, (R+d16)` source addressing (C3 prefix). ~216 occurrences. Note: the D3/E3/F3 destination variants already work; this is the source (load) direction.
 
-### Step 8: LLVM Backend — Remaining D7 Prevbank
+### Step 8: LLVM Backend — Remaining D7 (word-register-by-code) Forms
 
-Add `cps qiz, 0` and any other prevbank instructions not yet supported (~4 occurrences for cps, ~182 total D7-prefix).
+Add `cps qiz, 0` and any other D7-prefix (word register by code) instructions not yet supported (~4 occurrences for cps, ~182 total D7-prefix).
 
 ### Step 9: Batch Convert .byte → Native Mnemonics
 
