@@ -20,9 +20,10 @@ cannot be rebuilt from public sources until the branch is pushed.
 > checked centrally after every commit. **None of the four carries a single
 > `.incbin` directive** — every byte of all 2,097,152 comes from real source,
 > so there is no verbatim debt anywhere in this product.
-> Recursive descent over the three code images finds essentially no
-> reachable-and-unconverted code left — the entire STRONG total is one span of
-> `prom_b`, and it is formally refused ([why](#the-reachability-column-and-what-is-still-on-it)).
+> Recursive descent over the three code images finds no
+> reachable-and-unconverted code left: with no `.incbin` remaining,
+> `wsa1/notes/reachability.py` reports STRONG 0 and ANY 0 at `3417969c0`
+> ([the column](#the-reachability-column-and-what-is-still-on-it)).
 > Every figure on this page is regenerable; regenerate it rather than quoting it,
 > because these numbers move within hours while conversion lanes run.
 
@@ -133,26 +134,31 @@ python3 wsa1/notes/reachability.py            # the coverage report
 python3 wsa1/notes/reachability.py --targets  # the ranked work list
 ```
 
-As of 2026-09-02 the whole product reports **STRONG 9 bytes** and **ANY
-(STRONG+WEAK) 1,531 bytes across 30 spans**, with `prom_a` and `prom_c` at zero
-STRONG. `prom_d` is data with no established load base and is not walked at all.
+At disassembly commit `3417969c0` (2026-10-06), with no `.incbin` left,
+`--targets` reports **STRONG 0 bytes, ANY 0, in 0 spans**; on 2026-09-02 it
+reported STRONG 9 and ANY (STRONG+WEAK) 1,531 bytes across 30 spans. `prom_d` is
+data with no established load base and is not walked at all.
 
-**Those 9 STRONG bytes are refused, not pending.** They sit inside one 149-byte
-span of `prom_b`, `0xF283A8-0xF2843D`. Its only matching display-list handler is
+**Those 9 STRONG bytes were refused, not pending.** They sat inside one 149-byte
+span of `prom_b`, `0xF283A8-0xF2843D`. Its only matching display-list handler was
 the bare-`ret` family, whose implied-length rule is "min 2" — true of any byte
-pair, so it corroborates nothing — and `unidasm` renders the span as incoherent
-code from that offset. It is the walk-decoded-its-way-into-data pattern, and it
-is documented as excluded at the source
+pair, so it corroborated nothing — and `unidasm` rendered the span as incoherent
+code from that offset. It was the walk-decoded-its-way-into-data pattern, and was
+documented as excluded at the source
 (`wsa1/notes/gen_prom_b_untouched_pool_module.py`, `wsa1/notes/README-prom_b.md`).
+The span has since been identified as data: it lies inside `Data_F283A7`, the
+5 × 30 bitmap (150 bytes) that 32 interpreter-A op-0x03 display-list records draw
+(`wsa1/notes/gen_promB5_spans.py`).
 
 ⚠ **The walk's own reach is a claim about the walk, not about the ROM.** A seed
 of the wrong grade paints data as code, and the byte gate cannot object, because
 re-assembling a wrong interpretation reproduces the same bytes. That is why the
 grading exists and why the STRONG column is the only one converted on.
 
-What remains outside that column: the WEAK-only bytes, which need a byte-level
-audit before anything is converted; and runs with no start evidence of any
-grade, which are refused until evidence appears.
+Nothing is left outside that column either. If a span ever goes back to
+`.incbin`, the same rule applies: WEAK-only bytes need a byte-level audit before
+anything is converted, and runs with no start evidence of any grade are refused
+until evidence appears.
 
 ### ★ The number that measures meaning
 
@@ -175,14 +181,14 @@ At disassembly commit `3417969c0` (2026-10-06): **568 unnamed routines** (125 in
 272 in `prom_b`, 171 in `prom_c`'s sources), 9,811 `Evidence:` lines, 175 notes documents
 (132 of them `FINDINGS-*`), 601 committed Python analysis scripts.
 
-The command reads every source file under the `prom_*` roots: `prom_c` is now 26 subject
-files in subdirectories, which a one-level `wsa1/prom_*/*.s` glob silently skips. The count
-rose from 4,752 (2026-09-02) to 6,294 (`be376096`) as conversion and the operand symbolisers
-gave unlabelled entry points a `sub_` label. It then fell to 568 by 2026-10-06: 5,357 just
-before naming round 1, 4,570 after it (2026-10-03, 787 renames in eight packs ending at
-`94f697933`), 1,613 after the subsystem-by-subsystem reading commits of 2026-10-03 to 10-05,
-and 568 after naming waves 2–11 (2026-10-06, ending at `3f4b6ad62`). It is not a number that
-only falls.
+The command reads every source file under the `prom_*` roots: `prom_c` is now 27 source
+files, 25 of them in subdirectories, which a one-level `wsa1/prom_*/*.s` glob silently
+skips. The count rose from 4,752 (2026-09-02) to 6,294 (`be376096`) as conversion and the
+operand symbolisers gave unlabelled entry points a `sub_` label. It then fell to 568 by
+2026-10-06: 5,357 just before naming round 1, 4,570 after it (2026-10-03, 787 renames in
+eight packs ending at `94f697933`), 1,613 after the subsystem-by-subsystem reading commits
+of 2026-10-03 to 10-05, and 568 after naming waves 2–11 (2026-10-06, ending at
+`3f4b6ad62`). It is not a number that only falls.
 
 ⚠ A label count depends on what you count — compiler-local `.L` labels in
 particular — so a figure without its command is meaningless here.
@@ -412,9 +418,9 @@ Two properties of the script matter more than the count:
 machine is. Of the 105, 58 are now labels in the WSA1R sources, most with a header citing
 the KN5000 sibling (for example `Voice_DepthMirror_Table`, prom_c `0xFDD5AB`, whose header
 cites `v142/subcpu/subcpu_data_tables.s:1010`); 35 of the addresses carry a different name
-and 12 none. One routine, `Int_SignedDiv` / `FP_UnsignedDiv` at prom_a `0xFE68F3`, has been
-converted and read. A transplanted name records byte identity, not a reading of the WSA1
-code.
+and 12 none. One transplanted pair, `Int_SignedDiv` (prom_a `0xFE68F3`) and
+`FP_UnsignedDiv` (`0xFE6948`), has been converted and read. A transplanted name records
+byte identity, not a reading of the WSA1 code.
 
 ## What is left
 
@@ -639,11 +645,11 @@ heuristic seeds drag data in as code, and three known false positives are named
 in its README.
 
 **And recursive descent does not reach everything.** `wsa1/notes/reachability.py`
-reached 377,559 B of prom_a plus 302,686 B of prom_b (CPU 1) and 232,116 B of
-prom_c (CPU 2) on 2026-09-02 — well under each CPU's megabyte and half-megabyte
-of EPROM. A device touched only from code the walk never reaches would still be
-missing from the [memory map]({{ site.baseurl }}/wsa1/#memory-maps), so absence
-from that map is not evidence that a device does not exist.
+reached 323,618 B of prom_a plus 262,049 B of prom_b (CPU 1) and 223,065 B of
+prom_c (CPU 2) at `3417969c0` (2026-10-06) — well under each CPU's megabyte and
+half-megabyte of EPROM. A device touched only from code the walk never reaches
+would still be missing from the [memory map]({{ site.baseurl }}/wsa1/#memory-maps),
+so absence from that map is not evidence that a device does not exist.
 
 ## Related
 

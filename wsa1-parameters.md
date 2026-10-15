@@ -280,7 +280,8 @@ The live-MIDI SysEx decoder is on [System Exclusive Messages]({{ site.baseurl }}
   code. (The `0x40`-byte step between part records, once called "a step, not a proof", is
   two chunks of 2 + 30 bytes.)
 * What parameter `0xB0` is (its handler stages a value from RAM `0x24F3`), and what the
-  default-module ids listed above other than `0x7A`, the tempo, mean in prom_a's own code.
+  default-module ids listed above other than `0x7A`, the tempo, and `0x98`, the combination
+  program change, mean in prom_a's own code.
 * Which controllers numbers `0xB6` and `0xB7` stand for; what the LOCAL TOTAL bit (bit 5
   of `0x7F36`) skips; the switch assignments `0x88`, `0x89`, `0x90`.
 * `Dispatch_By_60F080__Tail` (64 words after the reachable table) and the stale copies of
