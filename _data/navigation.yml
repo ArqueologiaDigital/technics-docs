@@ -11,9 +11,9 @@
 #   2003  KN2400 / KN2600   unveiled at Summer NAMM 2003 (Harmony Central, 2003-07-24:
 #         https://web.archive.org/web/20241113144010/https://www.harmonycentral.com/news/keyboards-and-pianos/technics-launches-sx-kn2400-and-sx-kn2600-digital-keyboards-r3962/)
 #   2002  KN7000            demodb.org/en/technics; kn7000.md
-#   1999  KN6000 (KN6500 2001)  demodb.org/en/technics and Synth Site (sonicstate.com)
-#         give 1999; index.md said 2000
-#   1997  KN5000            demodb.org/en/technics; Sound On Sound review, early 1998
+#   1999  KN6000 (KN6500 2001)  service manual EMID9908016C0 (the number encodes 1999-08);
+#         demodb.org/en/technics and Synth Site (sonicstate.com) also give 1999
+#   1997  KN5000            demodb.org/en/technics; Sound On Sound review, April 1998
 #   1996  KN1500            demodb.org/en/technics; kn1500.md
 #   1995  SX-WSA1 / WSA1R   demodb.org/en/technics; wsa1.md
 #
@@ -26,7 +26,7 @@
       url: /
     - title: Project Roadmap (what's next)
       url: /roadmap/
-    - title: ROM Dumping Roadmap
+    - title: ROM Dumping Roadmap (MN10300 models)
       url: /rom-dumping-roadmap/
     - title: Shared Codebase Map
       url: /technics-shared-codebase/
@@ -34,6 +34,12 @@
       url: /help-wanted/
     - title: Open Questions
       url: /questions/
+    - title: TLCS-900 Toolchain
+      children:
+        - title: LLVM Semantic Instructions
+          url: /llvm-semantic-instructions/
+        - title: TLCS-900 Instruction Encoding
+          url: /tlcs900-instruction-encoding/
 
 - title: Technics KN2400 / KN2600
   released: 2003
@@ -46,79 +52,91 @@
   pages:
     - title: KN7000 Overview
       url: /kn7000/
-    - title: System Update Discs
-      url: /kn7000-system-update-discs/
-    - title: Firmware Images
-      url: /kn7000-firmware/
-    - title: SOFT VERSION Screen
-      url: /kn7000-soft-version/
-    - title: MEMORY DUMP Screen (hidden hex viewer)
-      url: /kn7000-memory-dump-screen/
-    - title: "Build 893 Recovery (photo transcription)"
-      url: /kn7000-build-893-recovery/
-    - title: "Reading ROM out of the Screen (dumpgrab)"
-      url: /kn7000-rom-from-the-screen/
-    - title: "SD PLUG-iN (SP7001) & the reserved region"
-      url: /kn7000-sd-plugin/
-    - title: "SP7001 Activation & Key Generator"
-      url: /kn7000-sp7001-activation/
-    - title: Tasks & Scheduler
-      url: /kn7000-task-scheduler/
-    - title: Event & Dispatch System
-      url: /kn7000-event-system/
-    - title: Display Subsystem
-      url: /kn7000-display-subsystem/
-    - title: Sound Subsystem
-      url: /kn7000-sound-subsystem/
-    - title: Effects DSP (ADSP-21065L)
-      url: /kn7000-effects-dsp/
-    - title: DSP Algorithm Catalog
-      url: /kn7000-dsp-algorithms/
-    - title: Sound GUI Map
-      url: /kn7000-sound-gui-map/
-    - title: "Techni-chord (auto-harmony)"
-      url: /kn7000-technichord/
-    - title: Expansion Bus & Wave-ROM Dump
-      url: /kn7000-expansion-and-wave-dump/
-    - title: "Wave-ROM Dump Tutorial (Pi Pico)"
-      url: /kn7000-wave-rom-dump/
-    - title: Firmware Robustness & ROM Archival
-      url: /kn7000-firmware-security/
-    - title: "Program-ROM Clip Read (IC16/IC17)"
-      url: /kn7000-program-rom-clip-read/
-    - title: Storage & File System
-      url: /kn7000-storage-subsystem/
-    - title: USB Subsystem
-      url: /kn7000-usb-subsystem/
-    - title: User Data & Initial Data Disk
-      url: /kn7000-initial-data/
-    - title: Rhythm/Style Catalog
-      url: /kn7000-rhythm-catalog/
-    - title: Table ROM (Resources)
-      url: /kn7000-table-rom/
-    - title: Sequencer
-      url: /kn7000-sequencer/
-    - title: Control Panel Protocol
-      url: /kn7000-control-panel/
-    - title: Panel Design Language
-      url: /kn7000-design-language/
-    - title: Image Gallery
-      url: /kn7000-image-gallery/
-    - title: Sound & Style Names
-      url: /kn7000-sound-names/
-    - title: Determining Panel Bindings
-      url: /kn7000-panel-mapping/
-    - title: MAME Driver Internals
-      url: /kn7000-driver-internals/
     - title: Roadmap (vs KN5000)
       url: /kn7000-roadmap/
+    - title: MAME Driver Internals
+      url: /kn7000-driver-internals/
+    - title: Firmware
+      children:
+        - title: System Update Discs
+          url: /kn7000-system-update-discs/
+        - title: Firmware Images
+          url: /kn7000-firmware/
+        - title: SOFT VERSION Screen
+          url: /kn7000-soft-version/
+        - title: MEMORY DUMP Screen (hidden hex viewer)
+          url: /kn7000-memory-dump-screen/
+        - title: Table ROM (Resources)
+          url: /kn7000-table-rom/
+        - title: Image Gallery
+          url: /kn7000-image-gallery/
+    - title: Firmware Internals
+      children:
+        - title: Tasks & Scheduler
+          url: /kn7000-task-scheduler/
+        - title: Event & Dispatch System
+          url: /kn7000-event-system/
+        - title: Display Subsystem
+          url: /kn7000-display-subsystem/
+        - title: Storage & File System
+          url: /kn7000-storage-subsystem/
+        - title: USB Subsystem
+          url: /kn7000-usb-subsystem/
+        - title: User Data & Initial Data Disk
+          url: /kn7000-initial-data/
+        - title: Sequencer
+          url: /kn7000-sequencer/
+    - title: Sound
+      children:
+        - title: Sound Subsystem
+          url: /kn7000-sound-subsystem/
+        - title: Effects DSP (ADSP-21065L)
+          url: /kn7000-effects-dsp/
+        - title: DSP Algorithm Catalog
+          url: /kn7000-dsp-algorithms/
+        - title: Sound GUI Map
+          url: /kn7000-sound-gui-map/
+        - title: "Techni-chord (auto-harmony)"
+          url: /kn7000-technichord/
+        - title: Sound & Style Names
+          url: /kn7000-sound-names/
+        - title: Music Stylist Catalog
+          url: /kn7000-rhythm-catalog/
+    - title: Control Panel
+      children:
+        - title: Control Panel Protocol
+          url: /kn7000-control-panel/
+        - title: Panel Design Language
+          url: /kn7000-design-language/
+        - title: Determining Panel Bindings
+          url: /kn7000-panel-mapping/
+    - title: ROM Dumping & Archival
+      children:
+        - title: "Build 893 Recovery (photo transcription)"
+          url: /kn7000-build-893-recovery/
+        - title: "Reading ROM out of the Screen (dumpgrab)"
+          url: /kn7000-rom-from-the-screen/
+        - title: "Program-ROM Clip Read (IC16/IC17)"
+          url: /kn7000-program-rom-clip-read/
+        - title: Expansion Bus & Wave-ROM Dump
+          url: /kn7000-expansion-and-wave-dump/
+        - title: "Wave-ROM Dump Tutorial (Pi Pico)"
+          url: /kn7000-wave-rom-dump/
+        - title: Firmware Robustness & ROM Archival
+          url: /kn7000-firmware-security/
+    - title: SD PLUG-iN (SP7001)
+      children:
+        - title: "SD PLUG-iN (SP7001) & the reserved region"
+          url: /kn7000-sd-plugin/
+        - title: "SP7001 Activation & Key Generator"
+          url: /kn7000-sp7001-activation/
 
 - title: Technics KN6000 / KN6500
   released: 1999
   pages:
     - title: Hardware Architecture
       url: /kn6000-hardware/
-    - title: Names & Symbols
+    - title: Firmware Names & Symbols
       url: /kn6000-names/
     - title: Roadmap & Plan
       url: /kn6000-roadmap/
@@ -148,14 +166,14 @@
           url: /boot-sequence/
         - title: Sub-CPU Boot ROM (IC30)
           url: /subcpu-boot-rom/
-        - title: SubCPU Payload Loading
+        - title: Sub-CPU Payload Loading
           url: /subcpu-payload-loading/
         - title: Sub-CPU Payload Provenance
           url: /subcpu-payload-provenance/
-        - title: MEMORY DUMP Screen (built-in hex viewer)
-          url: /memory-dump-screen/
         - title: Sub-CPU Firmware Images
           url: /subcpu-firmware-images/
+        - title: MEMORY DUMP Screen (built-in hex viewer)
+          url: /memory-dump-screen/
         - title: ROM Reconstruction
           url: /rom-reconstruction/
         - title: Source Code Map
@@ -178,6 +196,8 @@
               url: /firmware-update-display/
             - title: System Update Discs
               url: /system-update-discs/
+            - title: Flash Programming
+              url: /flash-programming/
         - title: Firmware v9 vs v10
           url: /firmware-v9-vs-v10/
         - title: Test Modes
@@ -190,6 +210,8 @@
           url: /effects-dsp/
         - title: Effects-DSP Flowcharts
           url: /effects-dsp/flowcharts/
+        - title: Effect HLE + Bytecode
+          url: /effects-dsp/impl/
         - title: uPD6383GF Unofficial Datasheet
           url: /upd6383-datasheet/
         - title: uPD6383GF Decode — State of Play
@@ -242,15 +264,17 @@
           url: /boot-cpserial-link/
         - title: Inter-CPU Protocol
           url: /inter-cpu-protocol/
-        - title: SubCPU Command Format
+        - title: Sub-CPU Command Format
           url: /subcpu-command-format/
         - title: Sound Parameter Protocol
           url: /sound-parameter-protocol/
-        - title: Serial Firmware Compat
+        - title: Driving the Panel Link from Firmware
           url: /serial-firmware-compatibility/
-    - title: HDAE5000
+        - title: Control-Panel Serial Timing
+          url: /serial-debugging/
+    - title: HD-AE5000
       children:
-        - title: HDAE5000 Overview
+        - title: HD-AE5000 Overview
           url: /hdae5000/
         - title: Resources & Object Registry
           url: /hdae5000-resources/
@@ -258,50 +282,38 @@
           url: /hdae5000-disk-interface/
         - title: Filesystem
           url: /hdae5000-filesystem/
-        - title: MAME Setup Guide
+        - title: MAME Setup Guide (overlay build)
           url: /hdae5000-mame-setup/
-        - title: TechManager5000 Emulation Plan
+        - title: HD-TechManager5000 Emulation
           url: /hdae5000-techmanager/
     - title: Homebrew
       children:
+        - title: Playing Games in MAME
+          url: /playing-games/
         - title: Homebrew Development
           url: /hdae5000-homebrew/
         - title: App Loader
           url: /app-loader/
         - title: Event Codes
           url: /event-codes/
-        - title: Playing Games in MAME
-          url: /playing-games/
         - title: Another World VM
           url: /another-world-vm/
     - title: Analysis
       children:
         - title: Dispatch Tables
           url: /dispatch-tables/
-        - title: Feature Demo
+        - title: Feature Demo & Presentation System
           url: /feature-demo/
         - title: SSF Presentation System
           url: /ssf-presentation/
-        - title: Floppy Security Analysis
-          url: /floppy-security-analysis/
-        - title: LZSS Compression
-          url: /lzss-compression/
-        - title: LLVM Semantic Instructions
-          url: /llvm-semantic-instructions/
-        - title: TLCS-900 Instruction Encoding
-          url: /tlcs900-instruction-encoding/
-        - title: Cross-Version Diff Guidebook
-          url: /cross-version-diff-guidebook/
-        - title: Flash Programming
-          url: /flash-programming/
-    - title: Timing and Serial
-      children:
         - title: Feature Demo Timer Behaviour
           url: /feature-demo-investigation-2026-03-09/
         - title: Timer 4/5 and the Sequencer Clock
           url: /feature-demo-timer-bug-2026-03-09/
-        - title: Control-Panel Serial Timing
-          url: /serial-debugging/
+        - title: Floppy Security Analysis
+          url: /floppy-security-analysis/
+        - title: LZSS Compression
+          url: /lzss-compression/
     - title: Resources
       children:
         - title: Image Gallery
@@ -310,6 +322,8 @@
           url: /rom-strings/
         - title: Disassembly Workflow
           url: /disassembly-workflow/
+        - title: Cross-Version Diff Guidebook
+          url: /cross-version-diff-guidebook/
         - title: Raw Byte Code Elimination
           url: /raw-byte-code-elimination/
         - title: ScreenData C Conversion
@@ -318,7 +332,7 @@
           url: /reverse-engineering/
         - title: MAME Pull Requests
           url: /mame-pull-requests/
-        - title: MAME Branch Review
+        - title: MAME Branch Review & Roadmap
           url: /mame-branch-review/
         - title: MAME Emulation Gaps
           url: /mame-emulation-gaps/
