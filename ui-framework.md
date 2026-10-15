@@ -6,7 +6,7 @@ permalink: /ui-framework/
 
 # UI Framework
 
-The KN5000 firmware contains an object-oriented UI framework with 550+ widget handlers ("Proc" classes), event-driven dispatch, property introspection, and a drawing primitives API. The framework manages the 320x240 LCD display, processes control panel input, and routes MIDI events to UI elements.
+The KN5000 firmware contains an object-oriented UI framework with 293 classes in v10 (each class record names its "Proc" procedure), event-driven dispatch, property introspection, and a drawing primitives API. The framework manages the 320x240 LCD display, processes control panel input, and routes MIDI events to UI elements.
 
 ## Architecture
 
@@ -38,7 +38,7 @@ that carries the routine's ROM address range, which is why several sit outside `
 | **Scoop** | `InitializeScoop` | 0xF028E3      | `display/scoop_display.s`         | Sound Editor mode and its 32 titles (`TT_SEMENU`, `TT_SE*`); no classes                                                                                                                                                                                                             |
 | **Yoko**  | `InitializeYoko`  | 0xF29E6D      | `sequencer/sequencer_ui.s`        | Demo mode and the sequencer step mode: disk direct play (`TT_DP*`) and medleys, track select, step, track assign, song select and song name, demo menus; 22 classes                                                                                                                 |
 | **Kubo**  | `InitializeKubo`  | 0xF2D2C4      | `sequencer/sequencer_ui.s`        | Entertainer, sequencer (play, easy record, real-time record, edit) and help modes; reverb, DSP-effect, equalizer and `TT_SDACCILL` titles; 26 classes                                                                                                                               |
-| **Hama**  | `InitializeHama`  | 0xF1E146      | `factory_test/test_init.s`        | Factory floppy test: two titles (slots 0x7F and 0xFC) handled by `TestTitleFunc`; 1 class, `HamaList`                                                                                                                                                                               |
+| **Hama**  | `InitializeHama`  | 0xF1E146      | `factory_test/test_init.s`        | Factory floppy test (title 0xFC); title 0x7F, `TT_HDDEXT`, on the same `TestTitleFunc` until the HD-AE5000 re-registers it as its hard-disk title; 1 class, `HamaList`; Function table 0x109, the file, disk and system calls the HD-AE5000 uses                                    |
 | **KSS**   | `InitializeKSS`   | 0xFC3E4F      | `kn5000_v10_program.s`            | None: the routine is a bare `ret` in v7, v9 and v10, so it registers nothing                                                                                                                                                                                                        |
 | **Naka**  | `InitializeNaka`  | 0xF165EB      | `storage/flash_floppy_handlers.s` | UI widget descriptor tables (Viewable table 0xFD, 478 entries) and the `TT_FDMSP` title                                                                                                                                                                                             |
 
@@ -173,8 +173,7 @@ with `"CC"`. The nakarest table resolves it with `C` = 1 byte.
 Reproduce with `python3 scripts/analysis/nakarest_objtab_map.py v10 --classes`,
 which prints every class with its fields at their offsets, and with
 `--check-classes`, which asserts the invariants. Both need a built
-`rebuilt_ROMs/kn5000_v10_program.llvm.elf`. The nakabig lane's extractor is
-`scripts/analysis/naka_class_descriptors.py`.
+`rebuilt_ROMs/kn5000_v10_program.llvm.elf`.
 
 The widget records in the NAKA C blobs are now typed through this model. The
 nakarest lane typed 3,197 of 3,234 records in 14 C files as per-class
@@ -448,19 +447,20 @@ The index names a control on the LCD. A button pair shares one switch number: th
 `EVT_SW_IN` with the pair's number, or with the number OR 0x80 for the pair's other button.
 `GetEditSwPoint` places the numbers on screen:
 
-| handler index | switch number | control | handler label |
-|---|---|---|---|
-| 0–7 | 0–7 (17–24 also land here, with bank bit 7) | the eight button columns under the LCD (x = 20, 60 … 300) | `SeXxx_OnColumn1` … `8` |
-| 8–12 | 8–12, and 0x88–0x8C with bit 7 | side rows 1–5: RIGHT is the plain number, LEFT adds bit 7 | `SeXxx_OnSideRow1` … `5` |
-| 13–15 | 13–15 | not identified | `SeXxx_OnSwitch13` … `15` |
-| 16 | 25 | not identified | `SeXxx_OnSwitch25` |
+| handler index | switch number                               | control                                                   | handler label                             |
+|---------------|---------------------------------------------|-----------------------------------------------------------|-------------------------------------------|
+| 0–7           | 0–7 (17–24 also land here, with bank bit 7) | the eight button columns under the LCD (x = 20, 60 … 300) | `SeXxx_OnColumn1` … `8`                   |
+| 8–12          | 8–12, and 0x88–0x8C with bit 7              | side rows 1–5: RIGHT is the plain number, LEFT adds bit 7 | `SeXxx_OnSideRow1` … `5`                  |
+| 13–14         | 13–14                                       | not identified                                            | `SeMenu_SwitchNop` in every table         |
+| 15            | 15                                          | not identified                                            | `SeXxx_OnSwitch15`                        |
+| 16            | 16 and 25                                   | not identified                                            | `SeXxx_OnSwitch25`, or `SeMenu_SwitchNop` |
 
 For 31 titles, `SeXxxTitleFunc_DispatchSwitch` then calls `SeXxxTitleFunc_SwitchHandlers[index]` with WA = the
-bank byte. In v10, 30 of those tables hold 17 code pointers (indices 0–16) and a zero. SeFilLfo1's is cut by a label
-after 14 slots and continues past it. Only `SeMenu` decodes the switch the same way but acts on it in code, with no
-table. Source: `audio/sound_editor_routines.s` (the stubs), `audio/presentation_sound_nav.s`
-(`DirmdEmulator`), `audio/semenu_routines.s` (`SeTitle_DecodeSwitch`), and the tables in `kn5000_v*_program.s`.
-The same in v7, v9 and v10.
+bank byte. In v10, 30 of those tables hold 17 code pointers (indices 0–16) and a zero. A slot a title does not use
+holds `SeMenu_SwitchNop`, a bare `ret`. SeFilLfo1's is cut by a label after 14 slots and continues past it. Only
+`SeMenu` decodes the switch the same way but acts on it in code, with no table. Source: `audio/sound_editor_routines.s`
+(the stubs), `audio/presentation_sound_nav.s` (`DirmdEmulator`), `audio/semenu_routines.s` (`SeTitle_DecodeSwitch`),
+and the tables in `kn5000_v*_program.s`. The same in v7, v9 and v10.
 
 ## Drawing Primitives API
 

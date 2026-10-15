@@ -53,7 +53,7 @@ The rest of this page records the March 9, 2026 labelling sprint. It counted ind
 
 ## Dispatch Patterns
 
-The firmware uses three main patterns for runtime code dispatch:
+The firmware uses four main patterns for runtime code dispatch:
 
 ### Pattern 1: Pointer Table via `call (xreg)` / `jp (xreg)`
 

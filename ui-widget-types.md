@@ -252,22 +252,22 @@ Evidence: handler_table values increment by 2 per consecutive menu item (e.g., `
 
 ## FD SAVE/LOAD TEST — Diagnostic Screen
 
-The FD SAVE/LOAD TEST is a factory diagnostic screen that exercises the floppy disk I/O subsystem. It is the only user of type `0x16` (DIAGLIST) widgets and provides a complete example of the Title-based screen activation system.
+The FD SAVE/LOAD TEST is a factory diagnostic screen that exercises the floppy disk I/O subsystem. It is the only user of class 0x16, `PsNumEditBox` (`NAKA_TYPE_DIAGLIST` in the sources), and provides a complete example of the Title-based screen activation system.
 
 ### Activation Path
 
 The diagnostic screen is part of the **HAMA** (file/disk) subsystem, initialized at boot by `InitializeHama` (ROM `0xF1E146`):
 
-1. **Boot registration.** `InitializeHama` calls `RegisterTitle` twice to register two diagnostic titles with the firmware's title management system:
+1. **Boot registration.** `InitializeHama` calls `RegisterTitle` twice to register two titles with the firmware's title management system:
 
-   | Title String | Address | Widget Table | Purpose |
-   |-------------|---------|-------------|---------|
-   | `TT_HDDEXT` | `0xE1FD18` | `0x7f` | FDD / HD extension test |
-   | `TT_EXTAPR` | `0xE1FD22` | `0xfc` | Extension APR test |
+   | Title string | Address    | Title  | Purpose                                                                            |
+   |--------------|------------|--------|------------------------------------------------------------------------------------|
+   | `TT_HDDEXT`  | `0xE1FD18` | `0x7F` | The hard-disk title: the HD-AE5000 re-registers it with its own view and procedure |
+   | `TT_EXTAPR`  | `0xE1FD22` | `0xFC` | FD SAVE/LOAD TEST, the service manual's Test 8                                     |
 
-   Both titles share the same lifecycle callback: `TestTitleFunc` at `0xF1E39A` (pointer stored at `0xE1FD2C` in `fd_test_data.s`).
+   Both titles share the same lifecycle callback, `TestTitleFunc` at `0xF1E39A` (pointer stored at `0xE1FD2C` in `fd_test_data.s`), and the same view, `NAKA_VIEW_FDD_TEST` (`0x00FC0000`, entry 0 of Viewable table 0xFC). The Viewable table `InitializeHama` registers at 0x7F is empty.
 
-2. **Title activation.** The 0xFC title (`TT_EXTAPR`) is the service manual's Test 8: holding B3 + B4 at power-on makes `SelfTest_FirmwareVersionCheck` request title `0x01A000FC` (see [Test Modes]({{ site.baseurl }}/test-modes/#test-8-floppy-disk-saveload-test-b3--b4)). How the 0x7F title is reached has not been traced; both titles show the same view. The title system sends `EVT_ACTIVATE_STATE` (`0x1C00013`) to `TestTitleFunc`, and phases 2-7 each print one line through `FDTest_PrintDiag` (`TestTitleFunc_CaseTable`, `0xE1FE0E`):
+2. **Title activation.** The 0xFC title (`TT_EXTAPR`) is the service manual's Test 8: holding B3 + B4 at power-on makes `SelfTest_FirmwareVersionCheck` request title `0x01A000FC` (see [Test Modes]({{ site.baseurl }}/test-modes/#test-8-floppy-disk-saveload-test-b3--b4)). Title 0x7F is the HD-AE5000's hard-disk title: the DISK MENU's "HARD DISK MAIN MENU" item points at it, and the HD-AE5000 re-registers it with its own view and requests it at boot with `EVT_INTERRUPT_TITLE`, depending on `HDAE5000_Check_HD_Present`'s result (see [HDAE5000 Homebrew]({{ site.baseurl }}/hdae5000-homebrew/#disk-menu-slot-registration-workspace0x0e0a0x02c4)). The title system sends `EVT_ACTIVATE_STATE` (`0x1C00013`) to `TestTitleFunc`, and phases 2-7 each print one line through `FDTest_PrintDiag` (`TestTitleFunc_CaseTable`, `0xE1FE0E`):
 
    | Event       | Parameter (xde) | Prints                  |
    |-------------|-----------------|-------------------------|
@@ -296,7 +296,7 @@ The diagnostic screen is part of the **HAMA** (file/disk) subsystem, initialized
 
 ### Screen Layout
 
-The diagnostic screen uses 3 type-`0x16` DIAGLIST widgets displaying live counters:
+The diagnostic screen uses 3 `PsNumEditBox` (class 0x16) widgets displaying live counters:
 
 | Widget | Address | Label | Purpose |
 |--------|---------|-------|---------|
