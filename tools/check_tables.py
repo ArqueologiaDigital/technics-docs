@@ -94,6 +94,14 @@ def repad(rows):
     return out
 
 
+def pad_tables(text):
+    """Return text with every table outside a code fence re-padded (for generators)."""
+    lines = text.split("\n")
+    for first, rows in tables(text):
+        lines[first - 1:first - 1 + len(rows)] = repad(rows)
+    return "\n".join(lines)
+
+
 def changed_lines(path):
     """Line numbers (1-based) of the working-tree file that differ from HEAD."""
     diff = subprocess.run(["git", "diff", "-U0", "HEAD", "--", path],

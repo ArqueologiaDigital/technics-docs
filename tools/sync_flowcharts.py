@@ -12,6 +12,7 @@ transforms them. For each source chart it:
   * adds Jekyll front matter (layout: page; title from the `# ...` heading;
     a stable permalink /effects-dsp/flowcharts/<name>/, kernel -> .../kernel/),
   * keeps every ```mermaid block verbatim (they render client-side on the site),
+  * re-pads Markdown tables to aligned, space-padded columns,
   * rewrites the source's repo-relative links so they resolve on the site:
       - chart -> chart links (kernel.md, prog05_phaser.md) -> the site permalink,
       - README.md (the source index) -> the site flowcharts index,
@@ -31,6 +32,9 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from check_tables import pad_tables  # noqa: E402  (aligned, space-padded tables)
 
 # --- output layout on the site -------------------------------------------------
 SITE_SUBDIR = "flowcharts"                      # technics-docs/flowcharts/
@@ -182,7 +186,9 @@ def build_page(src_path: Path, rewriter: LinkRewriter, is_index: bool, github_sl
     else:
         permalink = chart_permalink(name)
         out_name = name + ".md"
-    rewritten = rewriter.apply(body)
+    # Tables are re-padded to aligned columns, as every table on the site is;
+    # mermaid blocks sit inside code fences, which pad_tables leaves alone.
+    rewritten = pad_tables(rewriter.apply(body))
     page = front_matter(title, permalink, src_path.name) + rewritten
     if is_index:
         if not page.endswith("\n"):
