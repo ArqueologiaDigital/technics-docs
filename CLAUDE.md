@@ -22,6 +22,15 @@ add a second root entry for the same model. Pages about several models go under 
 Every new page gets a menu entry unless an index page links to it (`flowcharts/`, `effect-impl/`).
 Check with `python3 tools/check_nav.py` (dead entries, duplicates, order, unlisted pages).
 
+## Checks
+
+- `python3 tools/check_tables.py <pages>`: every table touched since HEAD has aligned,
+  space-padded columns (`--all` checks every table on the page).
+- `python3 tools/check_links.py <built site>`: dead internal links and `#anchors` in a local
+  build (`JEKYLL_NO_BUNDLER_REQUIRE=true jekyll build -s . -d ~/compartilhado/tmp/<dir>`).
+- `python3 tools/check_doc_symbols.py <pages>`: symbol names that no longer exist in the
+  disassembly.
+
 ## Policies
 
 - **Keep in sync** with reverse engineering discoveries across all subprojects (see Documentation Freshness policy in central CLAUDE.md).
