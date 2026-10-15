@@ -6,7 +6,7 @@ permalink: /cross-version-diff-guidebook/
 
 # Cross-Version Source Diff Guidebook
 
-Best practices for producing the cleanest possible source-level diffs between KN5000 firmware versions. Derived from the v9-to-v10 diff minimization journey (5,388 lines reduced to 95 by August 2026) and applied to all version pairs.
+Best practices for producing the cleanest possible source-level diffs between KN5000 firmware versions. Derived from the v9-to-v10 diff minimization journey (5,388 lines reduced to 44 on 2026-03-25: `diffs/v9_vs_v10_maincpu.diff` in the disassembly repository, `46f2e935b`) and applied to all version pairs.
 
 ## Principles
 
@@ -124,5 +124,5 @@ NOT: `.incbin "v7_postshift_blob.bin"` replacing 43 `.include` directives.
 
 ## See Also
 
-- [Firmware Changes: v9 vs v10]({{ site.baseurl }}/firmware-v9-vs-v10/) -- the 95-line diff the trees had until August 2026; since the September 2026 v10-only conversions they differ by 87 files (+15,289 / −2,565 lines at disassembly `3417969c0`), so the minimisation needs redoing
+- [Firmware Changes: v9 vs v10]({{ site.baseurl }}/firmware-v9-vs-v10/) -- the diff at its 95-line stage of 2026-03-25 (it reached 44 lines the same day: `diffs/v9_vs_v10_maincpu.diff`, `46f2e935b`, not regenerated since); at disassembly `3417969c0` the trees differ in 121 files, 34 of them PNGs only v10 carries (+15,289 / −2,565 lines: `git diff --shortstat 3417969c0:v9/maincpu 3417969c0:v10/maincpu`), so the minimisation needs redoing
 - [LLVM Semantic Instructions]({{ site.baseurl }}/llvm-semantic-instructions/) -- Parenthesized operand syntax

@@ -92,14 +92,15 @@ and v1.41 are held as verified artifacts with no source tree — see
 The project's original ASL sources are kept in `archive/asl/` and are still built and
 compared: maincpu, subcpu boot, subcpu payload, table data, custom data and hdae5000 —
 six more sections, all at 100.00%. They are built by `make asl-all`, which is **not** a
-dependency of `make all`; that is the whole reason the gate command has to name it
-explicitly.
+dependency of `make all` (nor of `make gate-all`, which never builds or checks the mirror),
+so the full similarity run under [Assembler](#assembler) has to name it explicitly.
 
 The mirror is not a museum piece; it constrains the work. The ASL sources still
-`binclude` several data blobs *whole* (`initial_data.bin`, `icons_to_strings.bin`,
-`wallpaper1_to_icons.bin`, …), so those files must stay byte-identical on disk even
-after the LLVM sources stop referencing them. Conversions therefore slice with
-`.incbin "file", offset, length` rather than splitting a blob into new files.
+`binclude` several data blobs (`initial_data.bin`, `wallpaper1_to_icons.bin` and
+`icon_pixel_data.bin` whole, `icons_to_strings.bin` up to file offset 0x7F2D8, …), so those
+files must stay byte-identical on disk even after the LLVM sources stop referencing them.
+Conversions therefore slice with `.incbin "file", offset, length` rather than splitting a
+blob into new files.
 
 ### The v1.42 sub-CPU firmware-update image
 
@@ -209,7 +210,7 @@ Symbol counts follow, from each file's generated header at disassembly `3417969c
 
 | Region                                       | ROM range         | Now                                                                                                                                                                                                                                                                                         |
 |----------------------------------------------|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Section directory + bitmap bank              | 0x800000–0x82FFFF | `table_data/preset_banks.s` (+ generator) — 26 bitmaps the program ROM also carries; no preset data, despite the file name                                                                                                                                                                  |
+| Section directory + bitmap bank              | 0x800000–0x82FFFF | `table_data/preset_banks.s` (+ generator) — 27 bitmaps the program ROM also carries; no preset data, despite the file name                                                                                                                                                                  |
 | Tone database                                | 0x830000–0x87FFEF | three modules: directory/offset table, 579 tone records, aux tables                                                                                                                                                                                                                         |
 | UI bitmaps, frames, icon tables              | 0x913000–0x944D77 | `table_data/ui_bitmaps.s`, symbolic descriptor tables                                                                                                                                                                                                                                       |
 | Font descriptors + glyph banks               | 0x945C00–0x950A5F | `table_data/fonts.s` (10 fonts)                                                                                                                                                                                                                                                             |
@@ -565,7 +566,10 @@ At `7936b0a2` (2026-10-06), after the census fix `d6c4e0ead`, the strict share p
 v10 95.48 %, v9 95.02 %, v7 94.71 %, v142 99.41 %, sub-CPU boot 99.97 %, table data 98.93 %,
 custom data 100 %, HD-AE5000 98.15 %, `prom_a` 95.33 %, `prom_b` 85.86 %, `prom_c` 98.01 %
 and `prom_d` 99.79 %, or 96.34 % overall (`docs/badges/semantic-score.json`). The
-five-bucket split above has not been republished since Wave 2.
+five-bucket split above has not been republished here since Wave 2; the HD-AE5000's at
+`3417969c0` is on [HD-AE5000]({{ site.baseurl }}/hdae5000/#disassembly-status), and the
+SX-WSA1R images' UNKNOWN, KNOWN-B and research-target figures at `3417969c0` are on
+[SX-WSA1R Disassembly]({{ site.baseurl }}/wsa1-disassembly/#what-is-left).
 
 | | before Wave 2 (`3958235e`) | after (`5fc8d5bd`) |
 |---|---:|---:|
@@ -919,7 +923,7 @@ rather than modelled operands, so no rename reaches them until the operand is mo
 retiring the rest would take is on [LLVM Semantic Instructions]({{ site.baseurl
 }}/llvm-semantic-instructions/).
 
-Symbol count is a `wc -l` on the reference file, which carries one symbol per line:
+No `LABEL_` placeholder is left in the reference file:
 
 ```
 grep -c LABEL_ symbols/maincpu_symbols_reference.txt   # 0
@@ -1170,13 +1174,16 @@ ASL sometimes chooses different (but functionally equivalent) encodings than the
 ### Code spelled as data
 
 Executable code is written as native TLCS-900 mnemonics wherever it has been identified as
-code. It is **not** true that no code remains as `.byte`: the sub-CPU payload, the sub-CPU
-boot ROM, table data, custom data, `prom_b` and `prom_c` are at zero, while v7, HD-AE5000
-and `prom_a` still hold instructions spelled as data — in `prom_a`, 82 certified `.byte`
-instruction sites (226 B, 42 forms) at disassembly commit `3417969c0`; under the current
-assembler pin (`a3a81863f87d`) 81 of them have no spelling found so far that reassembles
-byte-identically, and one form (`decf`) is spellable. The per-image figures and the method
-that measures them are on
+code. It is **not** true that no code remains as `.byte`: the sub-CPU boot ROM, table data,
+custom data and `prom_c` are at zero, while v10, v9, v7, the sub-CPU payload (twelve single
+instructions), `prom_a` and `prom_b` still hold instructions spelled as data (the HD-AE5000's
+1,713 B of uncommented `.byte` is not shown to be code: 1,654 B of it is the palette
+`HDAE5000_Palette_Button01` and the bitmap `HDAE5000_Bitmap_Button01`) — in `prom_a`, 82
+certified `.byte` instruction sites (226 B, 42 forms) at disassembly commit `3417969c0`;
+under the current assembler pin (`a3a81863f87d`) the census script spells one form (`decf`),
+and 34 more sites in thirteen shift-by-A forms reassemble byte-identically as `slaa`, `slla`
+or `srla`, which the script does not try, so 47 sites in 28 forms have no spelling found so
+far. The per-image figures and the method that measures them are on
 [Raw Byte Code Elimination]({{ site.baseurl }}/raw-byte-code-elimination/).
 
 ### Data tables held as C

@@ -83,7 +83,7 @@ Located in `v10/maincpu/sequencer/accomp_screens/`. Compiled and `.incbin`'d by 
 ## Tooling
 
 - `screendata_parser.py` — Generic ScreenData bytecode parser + C code generator library. Supports 16 opcodes with automatic SD_PTR detection for self-referential WIDGET handlers.
-- `generate_all_screendata.py` — Batch generator for all non-Style-UI blocks (25 files). Includes compilation and ROM byte-match verification.
+- `generate_all_screendata.py` — Batch generator for the non-Style-UI blocks known in March 2026: 25 of today's 30 files (22 Sound Editor, 3 Accompaniment); it does not produce `se_rhythm_transport_tables.c` or the four v10-only `se_screen_*.c`. Includes compilation and ROM byte-match verification. Since its move into `scripts/generators/` it resolves its repository root to `scripts/` and writes to the pre-split `maincpu/` paths, so it does not run as committed.
 - `generate_screendata_main_c.py` — Style UI main block generator with typed setup/control fields.
 
 ### Conversion Pipeline

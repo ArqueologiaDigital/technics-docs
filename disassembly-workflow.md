@@ -115,7 +115,8 @@ The waves then refuted several claims the plan itself had carried forward: there
 claiming two 128-byte tables at 0x00FF00/0x00FF80 was retracted (those addresses are
 immediate values written to a hardware address latch, not table pointers); the HD-AE5000
 "graphics data" at 0x2A5D2C is two 790-entry pointer arrays and a string pool; and the
-sub-CPU boot ROM's 96 KB of `0xFF` is **undumped**, not erased.
+sub-CPU boot ROM's 96 KB of `0xFF` is **undumped** apart from 2 KB read blank at each end,
+not erased.
 
 ## The wave shape
 
@@ -159,10 +160,11 @@ integration, someone has already proved it reproduces the ROM.
 ### 2. One integration manager — the only writer
 
 A single agent owns the branch and applies packages **one at a time**. After each package:
-the full gate command above. On fifteen sections at 100.00% it commits (one commit per
-package, succinct message, toolchain-provenance line). On anything less it reverts — by
-hand, surgically, never with `git checkout`/`reset`/`stash`, because those would take
-uncommitted work with them.
+the full similarity run of the time (`make clean-all && make all && make asl-all`, then
+`compare_roms.py`; the byte gate `make gate-all` replaced it on 2026-09-01). On fifteen
+sections at 100.00% it commits (one commit per package, succinct message,
+toolchain-provenance line). On anything less it reverts — by hand, surgically, never with
+`git checkout`/`reset`/`stash`, because those would take uncommitted work with them.
 
 Serial integration is the expensive-looking part and the reason the gate held. Parallel
 drafting is safe because drafts are text in a scratch directory; parallel *merging* would
@@ -223,9 +225,9 @@ scouting pass searched for writes to the TMP94C241's memory-controller registers
 none, and concluded the firmware never programs them. All twenty-four registers are in fact
 programmed, in one block at `table_data/shared/boot_hw_init.s:85-134` — but they are emitted
 as direct SFR addresses in **decimal**, so MSAR0 (`0x143`) appears as `ld (323:16), 30`.
-Searching for the *name* is no better: `shared/sfr_tmp94c241.s:210` defines
-`.equ MSAR0, 0x143`, so a grep for `MSAR0` returns exactly one hit — the definition — and
-zero writes. See [TMP94C241 Memory Controller]({{ site.baseurl }}/tmp94c241-memory-controller/)
+Searching for the *name* is no better: `table_data/shared/sfr_tmp94c241.s:210` defines
+`.equ MSAR0, 0x143`, so a grep for `MSAR0` in `table_data/` returns exactly one hit — the
+definition — and zero writes. See [TMP94C241 Memory Controller]({{ site.baseurl }}/tmp94c241-memory-controller/)
 for what those writes do.
 
 **3. Text is not always stored as text.** The DSP effect-name and parameter-name tables were
@@ -267,9 +269,10 @@ repository root.
 
 The same instinct produced a permanent check for the opposite problem — bytes that are
 present but unexplained. `make audit-icons-blob` accounts for all 742,024 bytes of
-`icons_to_strings.bin`: none read by the LLVM build since 2026-09-02, 520,920 bytes
-`binclude`d whole by the ASL mirror, and a 221,104-byte dead tail beyond file offset 0x7F2D8
-that is a stale duplicate of the demo-preset region and is read by nothing. A coverage tool
+`icons_to_strings.bin`: none read by the LLVM build since 2026-09-02, the first 520,920
+bytes (file offsets 0x0–0x7F2D7) `binclude`d by the ASL mirror, and a 221,104-byte dead
+tail beyond file offset 0x7F2D8 that is a stale duplicate of the demo-preset region and is
+read by nothing. A coverage tool
 that can report an unexplained gap is worth more than a comment claiming there is none.
 
 ## House constraints that keep the gate honest
@@ -283,8 +286,8 @@ Some of these look like bureaucracy until you notice what each one prevents.
 - **Every commit records the exact LLVM toolchain commit** that produced the artifacts
   (`LLVM: <branch>@<hash>`), and LLVM history is immutable once it has produced verified
   ROMs. A byte-match is only meaningful if you can say which assembler produced it.
-- **Symbol reference files are uppercase and address-sorted**, so they diff cleanly and
-  external tools can bisect them.
+- **Symbol reference files are address-sorted, with upper-case hex addresses**, so they
+  diff cleanly and external tools can bisect them.
 - **Documentation commits must build.** A docs change that breaks `jekyll build` is not
   finished.
 - **Nothing is pushed** during an autonomous run.
@@ -301,9 +304,10 @@ Two are structural and cost nothing when they happen; the third is the one that 
 - **A byte-safe change whose *comment* is a false claim.** The sub-CPU boot ROM's 98,304
   lines of `.byte 0xff` were collapsed to a single `.fill` on 2026-09-02 (`cccbe2978`), with
   no byte changing, and the directive's comment calls the region "erased flash". It is not
-  erased flash. It is **undumped**: 14,336 of the chip's 131,072 bytes were ever read, and
-  only 4,352 are not `0xFF`. So the bytes pass the gate while the comment states something
-  about the physical part that the dump does not support, and the comment needs correcting.
+  erased flash. Apart from 2 KB read at each end, it is **undumped**: 14,336 of the chip's
+  131,072 bytes were ever read, and only 4,352 are not `0xFF`. So the bytes pass the gate
+  while the comment states something about the physical part that the dump does not
+  support, and the comment needs correcting.
 
 **The gate protects the bytes; only the reviewer protects the meaning.** Rejecting a
 byte-safe change on the strength of what its comment would claim is the standard here, not

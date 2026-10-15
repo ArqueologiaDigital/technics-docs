@@ -9,8 +9,9 @@ permalink: /raw-byte-code-elimination/
 **Status: IN PROGRESS.** All thirteen gated images are byte-identical to their physical
 dumps, but that is a build-match guarantee, not a disassembly guarantee: a `.byte` run that spells real
 code reassembles to the same bytes as an `.incbin` of those bytes, and passes the gate
-identically either way. Measured code-as-`.byte` remains in the Main CPU, HDAE5000 and SX-WSA1R
-`prom_a` ROMs; the Sub CPU Payload reached zero.
+identically either way. Measured code-as-`.byte` remains in the Main CPU, Sub CPU Payload
+and SX-WSA1R `prom_a` and `prom_b` ROMs; the HDAE5000's remaining uncommented `.byte` is not
+shown to be code (1,654 of its 1,713 B are a palette and a bitmap).
 **Goal:** Convert all executable code currently represented as raw `.byte` sequences to native TLCS-900 assembly mnemonics.
 
 ## Context
@@ -23,9 +24,12 @@ settled by a per-byte disassembly attempt (Step 1's method, below), not by count
 `.incbin` directives — the table under **Current Status** states what that measurement
 currently finds, ROM by ROM.
 
-**The sub-CPU payload is now at zero code-as-`.byte`.** Its last two blocked families are
-both closed: `DSP_Bytecode_Op01/02/03` (569 B) needed a decoder fix before the encoder's own
-output could round-trip (see [LLVM Semantic Instructions]({{ site.baseurl
+**The sub-CPU payload is down to twelve single instructions spelled as `.byte`** (46 B in
+`kn5000_subprogram_v142.s`: ten `minc1` and two `ldc` to DMA control registers), each
+commented "no llvm-mc spelling" although the pinned backend spells them as `minc1_16`,
+`ldc_cr32` and `ldc_cr16`. Its last two blocked families are both closed:
+`DSP_Bytecode_Op01/02/03` (569 B) needed a decoder fix before the encoder's own output could
+round-trip (see [LLVM Semantic Instructions]({{ site.baseurl
 }}/llvm-semantic-instructions/)), and the `TaskEvent`/`FIFO`/`TaskSched` family's apparent
 ~407 B gap turned out to be a measurement bug in the round-trip prober, not a decoder
 limitation — of the 672 B it flagged, 50 B is genuine data (loaded as an address, never
@@ -45,18 +49,18 @@ thirteen gated images. Data tables, strings, bitmaps, firmware bytecode for soft
 
 ### By ROM
 
-| ROM                          | Code `.byte` remaining                                                                                                                                                                                                                                                                                | Instruction statements       | Status           |
-|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------:|------------------|
-| Main CPU (v9 / v10, each)    | confirmed-region backlog 0 B (the census rule still fires on 5 regions, 389 B, per image; in v10 all five are text strings: the Italian, French and German wallpaper messages, a floppy-test message and a widget-name string) + misframed islands: 145 runs / 1,495 B (v9), 139 runs / 1,426 B (v10) | 330,449 (v9) / 329,465 (v10) | **Not complete** |
-| Main CPU (v7)                | 8 regions (1,236 B) the census rule still fires on, four of them the same strings as v10 and four (914 B) not yet hand-audited, plus 275 misframed islands (2,043 B), 203 of them (1,338 B) in genuine-code context                                                                                   | 331,379                      | **Not complete** |
-| Sub CPU Payload              | **0**                                                                                                                                                                                                                                                                                                 | 45,981                       | **Complete**     |
-| Sub CPU Boot                 | **0**                                                                                                                                                                                                                                                                                                 | 1,358                        | **Complete**     |
-| Table Data                   | **0**                                                                                                                                                                                                                                                                                                 | 10,097                       | **Complete**     |
-| Custom Data                  | **0** (data only)                                                                                                                                                                                                                                                                                     | 0                            | **Complete**     |
-| HDAE5000                     | 1,713 B                                                                                                                                                                                                                                                                                               | 35,281                       | **Not complete** |
-| SX-WSA1R `prom_a`            | 82 certified `.byte` instruction sites (226 B, 42 forms); under the current assembler pin `a3a81863f87d`, 81 of them have no spelling found so far that reassembles byte-identically and one (`decf`) is spellable (see below)                                                                        | 119,190                      | **Not complete** |
-| SX-WSA1R `prom_b`            | **0**                                                                                                                                                                                                                                                                                                 | 67,855                       | **Complete**     |
-| SX-WSA1R `prom_c` / `prom_d` | **0** — survived a falsification attack                                                                                                                                                                                                                                                               | 75,701 / 0                   | **Complete**     |
+| ROM                          | Code `.byte` remaining                                                                                                                                                                                                                                                                                                                                 | Instruction statements       | Status           |
+|------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------:|------------------|
+| Main CPU (v9 / v10, each)    | confirmed-region backlog 0 B (the census rule still fires on 5 regions, 389 B, per image; in v10 all five are text strings: the Italian, French and German wallpaper messages, a floppy-test message and a widget-name string) + misframed islands: 145 runs / 1,495 B (v9), 139 runs / 1,426 B (v10)                                                  | 330,449 (v9) / 329,465 (v10) | **Not complete** |
+| Main CPU (v7)                | 8 regions (1,236 B) the census rule still fires on, four of them the same strings as v10 and four (914 B) not yet hand-audited, plus 275 misframed islands (2,043 B), 203 of them (1,338 B) in genuine-code context                                                                                                                                    | 331,379                      | **Not complete** |
+| Sub CPU Payload              | twelve single instructions (46 B) left as `.byte` with the comment "no llvm-mc spelling": ten `minc1 …,IX` and two `ldc` to DMA control registers (`kn5000_subprogram_v142.s:2538`–`2979`); the pinned llvm-mc emits all twelve byte-exactly as `minc1_16`, `ldc_cr32` and `ldc_cr16`                                                                  | 45,981                       | **Not complete** |
+| Sub CPU Boot                 | **0**                                                                                                                                                                                                                                                                                                                                                  | 1,358                        | **Complete**     |
+| Table Data                   | **0**                                                                                                                                                                                                                                                                                                                                                  | 10,097                       | **Complete**     |
+| Custom Data                  | **0** (data only)                                                                                                                                                                                                                                                                                                                                      | 0                            | **Complete**     |
+| HDAE5000                     | 1,713 B of `.byte` with no per-line comment (`hdae5000/tools/measure_debt.py`), not shown to be code: 1,654 B of it is the palette `HDAE5000_Palette_Button01` (1,024 B) and the bitmap `HDAE5000_Bitmap_Button01` (630 B) (see [below](#hdae5000-not-complete))                                                                                       | 35,281                       | **Not complete** |
+| SX-WSA1R `prom_a`            | 82 certified `.byte` instruction sites (226 B, 42 forms); under the current assembler pin `a3a81863f87d` the census script spells one form (`decf`), and 34 more sites in 13 shift-by-A forms reassemble byte-identically as `slaa`, `slla` or `srla`, which it does not try, so 47 sites in 28 forms have no spelling found so far (see below)        | 119,190                      | **Not complete** |
+| SX-WSA1R `prom_b`            | 68 `.byte` rows marked `[llvm-mc cannot encode this]`, all between instruction lines (`wsa1/notes/promb_macro_rewrite.py --census`): 66 carry an instruction reading (`rrc`/`rlc` by a count, shift-by-A, `ldir`, `ex BC,QBC`, …) and two carry unidasm's `db`. The census script below counts none of them, because their comments carry no byte echo | 67,855                       | **Not complete** |
+| SX-WSA1R `prom_c` / `prom_d` | **0** — survived a falsification attack                                                                                                                                                                                                                                                                                                                | 75,701 / 0                   | **Complete**     |
 
 All figures at disassembly `3417969c0` (2026-10-06).
 
@@ -76,7 +80,7 @@ processors share (`wsa1/kernel/`, 938 statements; `wsa1/dsp/`, 97) are assembled
 and `prom_c` but live outside both roots.
 
 The SX-WSA1R code-as-`.byte` figures come from `wsa1/notes/sound/wsa1_unspellable_forms.py`
-(run from `wsa1/`, disassembly commit `be376096`), which counts a `.byte` line only when
+(run from `wsa1/`), which counts a `.byte` line only when
 four gates agree — its comment echoes exactly its bytes, the ROM holds those bytes at the
 address it claims, MAME's committed `unidasm` listing frames them as one instruction, and a
 spelling route is tried and judged by the bytes it assembles to. At `be376096`, `prom_a`'s
@@ -102,7 +106,13 @@ instructions and 293 certified sites remain.
 At disassembly `3417969c0`, under the current pin `a3a81863f87d` (llvm-mc sha256
 `118bb4d6766e`), the same tool reports `prom_a: 82 certified sites, 226 B, 42 forms; 81 with
 NO SPELLING`; the one spellable form is `decf`. The 2026-10-03 respells `7a9cf4ff8`
-(150 instructions) and `09cc4ae4d` (53) converted most of the 298.
+(150 instructions) and `09cc4ae4d` (53) converted most of the 298. The 81 overstate what is
+unspellable: for the thirteen shift-by-A forms (34 sites, among them the commonest,
+`srl A,C` with 7 and `sla A,C` with 6) the script tries only unidasm's spelling `srl a,c`,
+which llvm-mc rejects, but the backend spells these `slaa`, `slla` and `srla` (`SLA_A_8` …
+`SRL_A_32` in `TLCS900InstrInfo.td`), and the pinned llvm-mc emits their bytes exactly
+(`echo 'srla c' | llvm-mc -triple=tlcs900 -show-encoding` prints `[0xcb,0xff]`). At most 47
+sites in 28 forms lack a spelling.
 
 The earlier "0 — byte runs audited and typed" for `prom_a` did not survive this census. Separately, the 2026-09-25 lanes
 retyped *data* framed as code in `prom_a` and `prom_b` — the opposite hazard — per their
@@ -120,21 +130,22 @@ this page, before being used for planning.
 scratch tree and is run as `--prepare`, then `--judge v7` and `--islands v7 --max-island 63`.
 `hdae5000/tools/measure_debt.py` is the HDAE5000 one and prints to stdout with no arguments.
 
-> **The HD-AE5000 figure rises as work lands, and that is correct.** Twelve regions of
-> mis-disassembled data were retyped *back* into `.byte`, which moved the measurement up
-> rather than down. A number that only ever falls would mean the instrument cannot see
-> data-framed-as-code, which is the third kind of debt and the one the byte gate is blind to
-> in both directions.
+> **The HD-AE5000 figure can rise as work lands, and that is correct.** When twelve regions
+> of mis-disassembled data were retyped *back* into `.byte`
+> (`hdae5000/tools/convert_misframed_data_regions.py`), the measurement moved up rather than
+> down; it has since fallen to the 1,713 B above. A number that only ever falls would mean
+> the instrument cannot see data-framed-as-code, which is the third kind of debt and the one
+> the byte gate is blind to in both directions.
 
 ### Why the column says "instruction statements"
 
 The figures that once occupied that column — 239,683 for the main CPU, 35,721, 1,357, 1,678
 and 502 for the others, labelled *native instruction counts* — could not be reproduced from
 anything in the repository: they predate the LLVM toolchain, and they were not merely stale.
-The HD-AE5000's was off by a factor of about seventy (502 against the census's 35,285). A
-figure with no producer does not get restored; the column is filled from the census and
-labelled by what the census counts, which is every instruction-shaped statement, native or
-synthetic.
+The HD-AE5000's was off by a factor of about seventy (502 against the census's 35,281 at
+`3417969c0`). A figure with no producer does not get restored; the column is filled from the
+census and labelled by what the census counts, which is every instruction-shaped statement,
+native or synthetic.
 
 Two instruments exist and measure different things, so they cannot share a column:
 
@@ -155,8 +166,9 @@ debt, which is measured, rather than progress.
 The encodings in the table below, which the March 2026 audit of the KN5000 trees found
 missing, have all been implemented in the LLVM TLCS-900 backend. That does not extend to the
 SX-WSA1R: `prom_a` still carries 81 certified `.byte` sites (41 forms) for which the census
-script finds no spelling (see above). Some of those forms have no instruction in the backend
-at the pin `a3a81863f87d`: the rotate-by-A group (`ce f9` is `rrc A,H`), `push` of a byte
+script finds no spelling — 47 sites in 28 forms once the shift-by-A spellings it does not try
+are counted (see above). Some of those forms have no instruction in the backend at the pin
+`a3a81863f87d`: the rotate-by-A group (`ce f9` is `rrc A,H`), `push` of a byte
 register named by code (`c7 f8 04`, `push IZL`) and ALU operations on an `(xrr+r8)` operand
 (`c3 03 f0 e0 e8`, `or (XIX+A),W`).
 
@@ -176,8 +188,10 @@ register named by code (`c7 f8 04`, `push IZL`) and ALU operations on an `(xrr+r
 ### HDAE5000: not complete
 
 `hdae5000/tools/measure_debt.py` counts **1,713 B** of undocumented `.byte`/`.word` operand
-bytes — overwhelmingly scattered single-byte numeric fields rather than one contiguous block
-— plus **373 B** more that carries a decoding comment but has not been converted to real
+bytes — 1,654 B of it in two contiguous blocks whose headers say what they are, the palette
+`HDAE5000_Palette_Button01` (1,024 B) and the bitmap `HDAE5000_Bitmap_Button01` (630 B;
+`hdae5000/hdae5000_data_tables.s:14772-14865`), the other 59 B in 15 short runs — plus
+**373 B** more that carries a decoding comment but has not been converted to real
 instructions. Against a 512 KB ROM that is 0.327 % debt and 99.602 % real source
 (disassembly `3417969c0`). Most remaining `.byte` in the tree is genuine data
 (custom-filesystem templates — the HD-AE5000 filesystem is *not* FAT16 — string constants,
