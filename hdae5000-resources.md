@@ -136,7 +136,7 @@ The 14 name strings live at `0x2A849A`-`0x2A858D`, under the label `HDAE5000_GFX
 
 ## UI classes and their parameters
 
-Registration IDs 0x010A (procedures) and 0x040A (names), class id 0x01600001 (`FunctionProc`; not a "PPI port"), count `0x0D` = 13. The same 13 classes are described by `HDAE5000_RECORD_TABLE` at `0x29C0AA`: 13 **class definitions** of 24 bytes, in the main CPU's format (field names from the firmware's root class `Class`; see [UI Framework]({{ site.baseurl }}/ui-framework/#the-class-system-describes-itself)):
+Registration IDs 0x010A (procedures) and 0x040A (names), class id 0x01600001 (`Function`, whose procedure is `FunctionProc`; not a "PPI port"), count `0x0D` = 13. The same 13 classes are described by `HDAE5000_RECORD_TABLE` at `0x29C0AA`: 13 **class definitions** of 24 bytes, in the main CPU's format (field names from the firmware's root class `Class`; see [UI Framework]({{ site.baseurl }}/ui-framework/#the-class-system-describes-itself)):
 
 | Record field | Contents |
 |--------------|----------|
@@ -177,11 +177,11 @@ Two more index-parallel arrays, each 790 `.long` entries, registered as object-s
 
 Structure of the descriptor array at `0x2A5D2C`:
 
-| Kind | Count | Range |
-|------|------:|-------|
-| Pointers into the ROM descriptor pool | 769 | 0x29DC12-0x2A5D2B, strictly ascending |
-| Pointers into sub-CPU work RAM | 20 | 0x239CC4-0x239FAE — objects whose descriptor is built at run time |
-| Terminator | 1 | `0x00000000` |
+| Kind                                            | Count | Range                                                                                                   |
+|-------------------------------------------------|------:|---------------------------------------------------------------------------------------------------------|
+| Pointers into the ROM descriptor pool           | 769   | 0x29DC12-0x2A5D2B, strictly ascending                                                                   |
+| Pointers into the RAM copy of the `.data` image | 20    | 0x239CC4-0x239FAE — descriptors copied there at boot from ROM 0x2F9C4C (`HDAE5000_WindowGeometry_Init`) |
+| Terminator                                      | 1     | `0x00000000`                                                                                            |
 
 All 20 RAM-descriptor entries are soft-key or tab objects (`HddNamingABC` / `abc` / `Symbol`, `*_SW_EDIT`, `CP_FD_HDSW*`, `*_EXIT`, `*inLyric`).
 
@@ -398,19 +398,19 @@ Where the firmware's own title and this site's earlier expansion disagree, the t
 
 3,202 bytes copied verbatim to RAM `0x23952A` by `HDAE5000_Clear_Work_Buffer` before anything else in `HDAE5000_Boot_Init` runs. Nine pointer tables, 96 code pointers and 166 string pointers, followed by the initial contents of the window/dialog state records and a handful of scalars.
 
-| ROM | RAM | Entries | Registration | Contents |
-|-----|-----|--------:|--------------|----------|
-| 0x2F94B2 | 0x23952A | 69 | ID 0x012A | Object handler entry points |
-| 0x2F95CA | 0x239642 | 69 | ID 0x042A | Object names |
-| 0x2F96E2 | 0x23975A | 36 slots | via `RECORD_TABLE+0x14` | Per-class parameter names (23 names + 13 terminators) |
-| 0x2F9772 | 0x2397EA | 13 | ID 0x01CA | `EV_*` event names |
-| 0x2F97AC | 0x239824 | 18 | ID 0x01EA | `MT_*` message names |
-| 0x2F97FA | 0x239872 | 13 | ID 0x010A | UI class procedures |
-| 0x2F9832 | 0x2398AA | 13 | ID 0x040A | UI class names |
-| 0x2F986A | 0x2398E2 | — | — | Window/dialog run-time state, initial values (from 0x2F9CA6 it becomes a 40-byte-stride geometry array) |
-| 0x2F9F5A | 0x239FD2 | 14 | ID 0x014A | Screen procedures |
-| 0x2F9F96 | 0x23A00E | 14 | ID 0x044A | Screen names |
-| 0x2F9FD2 | 0x23A04A | — | — | File-format version, name edit buffers, browser state, directory slots |
+| ROM      | RAM      | Entries  | Registration            | Contents                                                                                                                                               |
+|----------|----------|---------:|-------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0x2F94B2 | 0x23952A | 69       | ID 0x012A               | Object handler entry points                                                                                                                            |
+| 0x2F95CA | 0x239642 | 69       | ID 0x042A               | Object names                                                                                                                                           |
+| 0x2F96E2 | 0x23975A | 36 slots | via `RECORD_TABLE+0x14` | Per-class parameter names (23 names + 13 terminators)                                                                                                  |
+| 0x2F9772 | 0x2397EA | 13       | ID 0x01CA               | `EV_*` event names                                                                                                                                     |
+| 0x2F97AC | 0x239824 | 18       | ID 0x01EA               | `MT_*` message names                                                                                                                                   |
+| 0x2F97FA | 0x239872 | 13       | ID 0x010A               | UI class procedures                                                                                                                                    |
+| 0x2F9832 | 0x2398AA | 13       | ID 0x040A               | UI class names                                                                                                                                         |
+| 0x2F986A | 0x2398E2 | —        | —                       | Window/dialog run-time state, initial values; from 0x2F9C4C, the descriptor records of the 20 RAM-resident UI objects (`HDAE5000_WindowGeometry_Init`) |
+| 0x2F9F5A | 0x239FD2 | 14       | ID 0x014A               | Screen procedures                                                                                                                                      |
+| 0x2F9F96 | 0x23A00E | 14       | ID 0x044A               | Screen names                                                                                                                                           |
+| 0x2F9FD2 | 0x23A04A | —        | —                       | File-format version, name edit buffers, browser state, directory slots                                                                                 |
 
 The first two words of that last group are `0x0002` and `0x0006` — the "2.06" of the ROM's own version string "V2.06i". The disassembly traces their low bytes into a saved-file header (0x238FF6/0x238FF7), with the major compared against 0x2390F4 on load, so they are the file-format version the HD-AE5000 stamps on what it writes. They are followed by a 30-character column ruler (`"123456789012345678901234567890"`) and a 30-space name edit buffer.
 
@@ -418,7 +418,7 @@ The counts registered by `HDAE5000_Handler_Registration` (`0x45` = 69, `0x0D` = 
 
 ### Why the image must be copied, not read in place
 
-Four pointers inside the block are already resolved to RAM addresses within the copy — `0x23999A`, `0x239B84`, `0x239B86` and `0x239B88`, which are `0x23952A + 0x470 / 0x65A / 0x65C / 0x65E`. They are only meaningful once the image sits at `0x23952A`. The three 44-byte records that carry them are the naming-screen character-set selectors: each cites two identical copies of its caption ("ABC", "abc", "!#$") plus a pointer back into the RAM copy.
+Four pointers inside the block are already resolved to RAM addresses within the copy — `0x23999A`, `0x239B84`, `0x239B86` and `0x239B88`, which are `0x23952A + 0x470 / 0x65A / 0x65C / 0x65E`. They are only meaningful once the image sits at `0x23952A`. Three of them (`0x239B84`, `0x239B86`, `0x239B88`) sit in the three 44-byte records of the naming-screen character-set selectors, each of which cites two identical copies of its caption ("ABC", "abc", "!#$") plus that pointer. The fourth, `0x23999A`, sits in the 54-byte record of `SW_HD_FORMAT` (object 128).
 
 ### The window state block
 
@@ -430,7 +430,7 @@ The block from `0x2F986A` is kept in the disassembly as annotated 16-bit words r
 
 Those 32-bit fields look like pointers but are **not** treated as such: nothing in this ROM references them, and the address window they fall in belongs to the main CPU's rhythm ROM. They are recorded as opaque handles patched at run time, which is a deliberately weaker claim than "pointers".
 
-From `0x2F9CA6` the block becomes a 40-byte-stride record array whose second word is always `0x0160` (352) and whose remaining words are the coordinate magnitudes `0x0137`, `0x00F2` and `0x00D2` that also appear in the UI descriptors at `0x29DC14`.
+From `0x2F9C4C` (RAM `0x239CC4`) the block is not state at all. It holds the descriptor records of the 20 UI objects whose descriptor lives in RAM (`HDAE5000_WindowGeometry_Init`), in the same format as the ROM pool at `0x29DC12`. There is no fixed stride: the 20 records are 26 to 54 bytes long. The recurring `0x0160` is the high half of each record's `.long` class id. After it come the parent, first-child, next and previous object indices, an attribute word, the box x1, y1, x2, y2, and then the class body. `0x0137` (311) is the right edge that many of these soft keys share. `0x00D2` is object 210 (`CP_FD`), the parent of the `CP_FD_HDSWTO`, `CP_FD_HDSWSEL` and `CP_FD_HDALLSEL` keys. `0x00F2` is the first body word of most class `0160:001F` records, not a coordinate.
 
 ## What is still open
 

@@ -22,7 +22,7 @@ To boot the KN5000 with the HDAE5000 extension board but no hard disk attached:
 mame kn5000 -ui_active -window -extension hdae5000
 ```
 
-The firmware will display the HD-AE5000 splash screen ("Start-up! Please wait..."), poll for the drive, time out after a few seconds, and display **"Hard disk reset error"**. This is normal --- it means the firmware correctly detected that no drive is present. After dismissing the error, the keyboard boots normally with disk-related features disabled.
+In the overlay build a drive is fitted to the ATA slot by default (see [Boot hangs at splash screen](#boot-hangs-at-splash-screen)), so "no disk" means a drive with no image, and what the firmware then does has not been recorded. A MAME drive without an image still reports DRDY but answers IDENTIFY DEVICE with an error and no DRQ, and `HDAE5000_ATA_IdentifyDevice` waits for DRQ without a timeout, so expect the splash screen to stay up. The **"Hard disk reset error"** described [below](#what-happens-without-a-disk) (the soft reset times out, step code 3) was seen on the fork branch `kn5000_pr6_hdae5000`, whose ATA slot is empty by default.
 
 ### Running with a Hard Disk Image
 
@@ -47,7 +47,7 @@ Create a blank raw disk image:
 dd if=/dev/zero of=kn5000_disk.hd bs=512 count=20480
 ```
 
-MAME's ATA HLE device calculates CHS geometry from the file size automatically.
+MAME guesses a CHS geometry from the file size (`hard_disk_file` in `src/lib/util/harddisk.cpp`), and the drive reports it in IDENTIFY DEVICE words 54-58, which is what `HDAE5000_HD_ParseIdentify` reads.
 
 ### Use raw images
 
@@ -93,7 +93,7 @@ When the KN5000 boots with the HDAE5000 extension:
 
 ### What Happens Without a Disk
 
-Without a disk image (or with an empty ATA slot), step 4 times out after ~4 million polling iterations. The firmware then displays:
+With an empty ATA slot (the default on the fork branch `kn5000_pr6_hdae5000`, not in the overlay build), step 4 times out after ~4 million polling iterations. The firmware then displays:
 
 ```
 !SYSTEM ERROR!
@@ -149,9 +149,7 @@ The firmware uses **CHS addressing** exclusively and **PIO mode** for all data t
 
 ### Boot hangs at splash screen
 
-If the emulator appears stuck on "Start-up! Please wait..." for more than 10 seconds, the ATA device is instantiated but not answering with DRDY.
-
-**Mechanism**: MAME's ATA HLE device goes through a multi-millisecond reset/diagnostic sequence during which the status register returns BSY=1. The firmware's tight polling loop (4M iterations) becomes extremely slow when every read hits the ATA device subsystem.
+If the emulator appears stuck on "Start-up! Please wait..." for more than 10 seconds, check that an image is mounted. The overlay build always fits a drive (below). A MAME drive without an image still reports DRDY, but it answers IDENTIFY DEVICE with an error and no DRQ, and `HDAE5000_ATA_IdentifyDevice` waits for DRQ with no timeout. The drive's own reset holds BSY for only a few milliseconds of emulated time (`DETECT_DEVICE1_TIME` and `DIAGNOSTIC_TIME` in MAME's `src/devices/machine/atahle.cpp`), so the drive-ready poll cannot by itself cause a long hang. No run of the overlay build without an image has been recorded.
 
 **The slot is populated by default.** `hdae5000.cpp` configures
 `ATA_INTERFACE(config, m_ata).options(ata_devices, "hdd", nullptr, false)`, so a drive exists

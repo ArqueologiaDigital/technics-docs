@@ -76,12 +76,12 @@ This allows file transfer between a PC and the HDAE5000's hard disk via the PC's
 
 ### PPI Port Assignments
 
-| Address  | Port    | Direction     | Function                                                                    |
-|----------|---------|---------------|-----------------------------------------------------------------------------|
-| 0x160000 | Port A  | Bidirectional | Data byte to/from PC (input while the control word is 0x99, output at 0x89) |
-| 0x160002 | Port B  | Output        | Handshake lines to PC (bit 3 toggled per received byte)                     |
-| 0x160004 | Port C  | Input         | Handshake lines from PC (bits 0-2 polled)                                   |
-| 0x160006 | Control | Write         | 0x82 at boot (main CPU), 0x89 / 0x99 in PC-link mode                        |
+| Address  | Port    | Direction     | Function                                                                               |
+|----------|---------|---------------|----------------------------------------------------------------------------------------|
+| 0x160000 | Port A  | Bidirectional | Data byte to/from PC (input while the control word is 0x99, output at 0x89)            |
+| 0x160002 | Port B  | Output        | Handshake lines to PC (bit 3 cleared and set again for every byte, in both directions) |
+| 0x160004 | Port C  | Input         | Handshake lines from PC (bits 0-2 polled)                                              |
+| 0x160006 | Control | Write         | 0x82 at boot (main CPU), 0x89 / 0x99 in PC-link mode                                   |
 
 ## Disk Access Protocol
 
@@ -155,7 +155,7 @@ HDAE5000_ATA_IdentifyDevice:
     4. Write 0xEC (Identify) to Command (0x13001E)
     5. Wait for DRQ
     6. Read 256 words from Data register to 0x200000
-    7. Parse CHS geometry from identification data (HDAE5000_HD_ParseIdentify)
+    7. Wait for completion; error flag = status bit 0 (the caller, HDAE5000_HD_Init, then runs HDAE5000_HD_ParseIdentify)
 ```
 
 ### 6. Reset Controller (0x29747A)
@@ -409,7 +409,7 @@ The HDAE5000 uses CHS (Cylinder/Head/Sector) addressing rather than the newer LB
 ### Drive Protection
 
 The firmware includes protective features:
-- **Motor timeout**: Spins down drive during inactivity
+- **Spin-down after use**: disk operations end with STANDBY IMMEDIATE (0x94, `HDAE5000_ATA_Standby`); there is no idle timer
 - **No real-time playback**: Files must be loaded to RAM first
 - **Verification**: Reads back written data to confirm
 
