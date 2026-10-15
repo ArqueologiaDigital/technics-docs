@@ -139,7 +139,7 @@ The 7-month gap between releases (January to August 1999) is consistent with a f
 
 ## Source Diff Statistics
 
-In March 2026 the source diff between the two trees had been minimized to **95 lines** across 9 files (+ 2 entry point renames), from 5,388. The trees have since been relabelled and restructured separately, so the table below describes that March 2026 diff, not today's sources.
+On 2026-03-25 the source diff between the two trees was minimized to **95 lines** across 9 files (+ 2 entry point renames), from 5,388, and the table below describes that stage. Later the same day it reached 44 lines in 5 files (`diffs/v9_vs_v10_maincpu.diff` at kn5000-roms-disasm `46f2e935b`, not regenerated since). By then the address-cascade and callback rows had gone, and so had single-byte differences 3 and 4 listed above, which were disassembly misalignments. The trees have since been relabelled and restructured separately, so neither figure describes today's sources.
 
 | Category                      | Files | Lines  | Description                                                                                                    |
 |-------------------------------|-------|--------|----------------------------------------------------------------------------------------------------------------|
@@ -157,5 +157,8 @@ Diff reduction history:
   After symbolic call/jp/lda_24:         ~300 lines
   After pointer offset elimination:        231 lines
   After parenthesized direct addr:        106 lines
-  After symbolic calr + formatting:         95 lines (March 2026)
+  After symbolic calr + formatting:         95 lines (2026-03-25)
+  After per-version .set aliases:           66 lines
+  After raw .long data pointers:            52 lines
+  After two disassembly alignment fixes:    44 lines (2026-03-25, kn5000-roms-disasm 46f2e935b)
 ```
