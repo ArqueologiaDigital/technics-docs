@@ -188,6 +188,8 @@ This is not a barrier against a malicious update disc. `Flash_ProgramByte` (the 
 
 The TLCS-900/H2 executes code from Program ROM (`0xE00000`–`0xFFFFFF`). Interrupt vectors are also in ROM. A RAM buffer overflow from `0x050000` upward corrupts RAM data but does not directly overwrite executable code.
 
+One firmware path does run code loaded from floppy, outside the update handlers. On the hidden factory "DEBUG SCREEN for HD-AE" page, the LOAD switch reads `A:HKEXT.XAP` (32 KB) into the HD-AE5000's SRAM at `0x200000`, which is present only when the board is fitted. The GO switch then checks for the `XAPR` id there and jumps to `0x200008` (`HamaDeb_HdaeDebugScreenFunc`, `CheckFDStatusLoad_Entry` and `LoadExtROM_Entry` in `factory_test/test_init.s`). How a user reaches that page has not been established (see [System Update Discs]({{ site.baseurl }}/system-update-discs/#no-code-execution-from-floppy)).
+
 ### Stack location
 
 The boot stack starts at `0xC00`, the top of on-chip RAM (`0x000400`–`0x000BFF`; `ld xsp, 0xc00` in `kn5000_v10_program.s`), and `TaskSched_Init` later moves it to `0x01E53A` in work DRAM. Both are below the overflow origin at `0x050000`, so a sequential upward overflow cannot reach the stack.
@@ -247,7 +249,7 @@ These areas require further investigation to determine whether the data-control 
 
 ## Related Pages
 
-- [System Update Discs]({{ site.baseurl }}/system-update-discs/) — Disc format, signatures, update flow, no-code-execution finding
+- [System Update Discs]({{ site.baseurl }}/system-update-discs/) — Disc format, signatures, update flow, no-code-execution finding and its one factory exception
 - [LZSS Compression]({{ site.baseurl }}/lzss-compression/) — SLIDE4K format specification
 - [Flash Programming]({{ site.baseurl }}/flash-programming/) — Flash erase/program routines
 - [FDC Subsystem]({{ site.baseurl }}/fdc-subsystem/) — Floppy disk controller handlers
