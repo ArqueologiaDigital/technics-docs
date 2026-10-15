@@ -8,7 +8,7 @@ permalink: /keybed-scanning/
 
 The KN5000's 61-key velocity-sensitive keyboard connects directly to the tone generator IC303 (TC183C230002), which performs hardware key scanning internally. The Sub CPU reads completed note events from IC303's keyboard output interface — the CPU does **not** scan the keyboard matrix itself.
 
-> **Status:** Note encoding and voice slot management fully reverse-engineered from SubCPU firmware. HLE keybed implemented in the kn7000_mame overlay's driver (`kn5000.cpp` feeding `kn5000_tonegen`); mainline MAME still maps 0x110000 as a stub, so it has no keybed.
+> **Status:** Note encoding and the sub-CPU's keybed event handling fully reverse-engineered from SubCPU firmware. HLE keybed implemented in the kn7000_mame overlay's driver (`kn5000.cpp` feeding `kn5000_tonegen`); mainline MAME still maps 0x110000 as a stub, so it has no keybed.
 >
 > **Correction (2026).** The disassembly has since renamed the two routines this page
 > describes and corrected their behaviour: `ToneGen_Read_Voice_Data` is `Keybed_Read_Event`
@@ -46,7 +46,7 @@ The note flow is bidirectional — keybed events travel through the Sub CPU to t
 **Forward path** (keybed to display):
 1. Physical key press detected by IC303 hardware scanner
 2. IC303 presents the key index and a raw touch reading at 0x110000, sets status bit at 0x110002
-3. `Keybed_Read_Event` (formerly mis-named `ToneGen_Read_Voice_Data`) reads the event, calls `Keybed_Decode_Event` to curve-map the touch reading into a MIDI velocity, and allocates a voice slot
+3. `Keybed_Read_Event` (formerly mis-named `ToneGen_Read_Voice_Data`) reads the event, calls `Keybed_Decode_Event` to curve-map the touch reading into a MIDI velocity; `ToneGen_Process_Notes` then marks the note in the held-key map at 0x4A4C + note (no voice is allocated here)
 4. `InterCPU_DMA_Send` transmits `[0x90, note, velocity]` to Main CPU via latch
 5. Main CPU updates display (key indicators, voice allocation) and emits MIDI
 
@@ -137,20 +137,23 @@ status (0x110002):      bit 0 = 1 (data ready), bit 1 = release qualifier
   arm regardless of the key-state bit; `Keybed_Decode_Event` still runs (for the note number)
   but the delivered velocity is forced to 0.
 
-## Voice Slot Table
+## Held-Key Map
 
-The Sub CPU maintains a 16-entry voice slot table at RAM address **0x4A4C**:
+`ToneGen_Process_Notes` keeps one byte per MIDI note at RAM address **0x4A4C + note**, where
+`note = (key_byte & 0x7F) + 0x24`, so the bytes actually used start at 0x4A70. With a 61-key
+bed (MIDI 36-96) the map would cover 0x4A70-0x4AAC; that range is an inference from the key
+count, not something the firmware states.
 
-| Address | Size | Description |
-|---------|------|-------------|
-| 0x4A4A | 2 bytes | DMA enable flag (non-zero = DMA relay active) |
-| 0x4A4C | 16 bytes | Voice slot states (one byte per slot) |
+| Address       | Size            | Description                                                                        |
+|---------------|-----------------|------------------------------------------------------------------------------------|
+| 0x4A4A        | 1 byte          | Keybed-to-main forwarding enable (`InterCPU_DMA_Send` is called only when it is 1) |
+| 0x4A4C + note | 1 byte per note | Held-key flag (0xFF = held)                                                        |
 
-Each slot byte:
-- **0xFF** = note active (slot in use)
-- **0x00** = slot available
+- A note-on sets the note's byte to **0xFF**.
+- A note-off is forwarded only if the byte was **0xFF**, and the byte is then cleared to 0x00.
 
-When a note-on event arrives, `Keybed_Read_Event` scans the 16 slots for an available one. When a note-off arrives, the corresponding slot is freed.
+Its only job is to suppress a note-off that has no matching note-on. There is no voice
+allocation here.
 
 ## DMA Packet Format
 
@@ -175,15 +178,15 @@ Byte 2: 0x00 (zero velocity = note off)
 
 ## Key Firmware Routines
 
-| Routine                 | Address  | Description                                                                                                                                    |
-|-------------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ToneGen_Init`          | 0x03D016 | Set tone generator mode to 6, begin polling                                                                                                    |
-| `ToneGen_Process_Notes` | 0x03D01E | Main loop: read and process all pending events                                                                                                 |
-| `Keybed_Read_Event`     | 0x03D0C5 | Read one event from 0x110000, manage voice slots (formerly mis-named `ToneGen_Read_Voice_Data` — it does not touch tone-generator voice state) |
-| `Keybed_Decode_Event`   | 0x03D11F | Convert raw key byte + touch reading to MIDI note and curve-mapped velocity (formerly mis-named `ToneGen_Calc_Pitch`)                          |
-| `ToneGen_Poll_Init`     | 0x03D1FB | Initial polling: read 16 slots with delay loops (`ToneGen_Poll_Delay`, the inner busy-wait sub-block, is at 0x03D227)                          |
-| `ToneGen_Config_Init`   | 0x02DFCF | Configure all 64 IC303 voices and global registers                                                                                             |
-| `InterCPU_DMA_Send`     | 0x020C6B | Send 3-byte note packet to Main CPU via latch                                                                                                  |
+| Routine                 | Address  | Description                                                                                                                                                                |
+|-------------------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ToneGen_Init`          | 0x03D016 | Set tone generator mode to 6, begin polling                                                                                                                                |
+| `ToneGen_Process_Notes` | 0x03D01E | Main loop: read and process all pending events                                                                                                                             |
+| `Keybed_Read_Event`     | 0x03D0C5 | Read one event from 0x110000/0x110002 and decode it via `Keybed_Decode_Event` (formerly mis-named `ToneGen_Read_Voice_Data`; it does not touch tone-generator voice state) |
+| `Keybed_Decode_Event`   | 0x03D11F | Convert raw key byte + touch reading to MIDI note and curve-mapped velocity (formerly mis-named `ToneGen_Calc_Pitch`)                                                      |
+| `ToneGen_Poll_Init`     | 0x03D1FB | Initial polling: read 16 slots with delay loops (`ToneGen_Poll_Delay`, the inner busy-wait sub-block, is at 0x03D227)                                                      |
+| `ToneGen_Config_Init`   | 0x02DFCF | Configure all 64 IC303 voices and global registers                                                                                                                         |
+| `InterCPU_DMA_Send`     | 0x020C6B | Send 3-byte note packet to Main CPU via latch                                                                                                                              |
 
 ## MAME HLE Implementation
 
