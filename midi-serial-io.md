@@ -45,7 +45,7 @@ The KN5000 rear panel has a rotary switch read from **Port Z** bits 7-4 (SFR `0x
 
 `READ_COM_SELECT_SWITCH` (`0xFCF8F6`) reads `PZ`, shifts the upper nibble down and indexes `MidiSerial_OffsetTable`, a 16-entry lookup that maps every bit pattern to one of the four modes; invalid switch states (more than one low bit) map to MIDI. The result is stored at DRAM `0xB7E0` (47072), the `COM_SELECT` byte.
 
-The TX dispatch (`MIDI_SC0_TX_DISPATCH`) checks this value: `0x00` uses the MIDI-specific TX path (`MIDI_SC0_ENABLE_TX`), all other values use an alternate serial handler.
+The TX dispatch (`MIDI_SC0_TX_DISPATCH`) checks this value: `0x00` uses the MIDI-specific TX path (`MIDI_SC0_ENABLE_TX`); any other value calls `CompIface_SerialEnableTx`, an empty `ret`. Computer-interface output goes to the Sub CPU instead, as inter-CPU handler 4, which the Sub CPU's serial channel 1 transmits (see [Sub CPU Command Format]({{ site.baseurl }}/subcpu-command-format/#0x80-0x9f-serial-port-1-tx-serial1_datatransmit_loop)).
 
 ## Baud Rate Tables
 
@@ -170,12 +170,14 @@ If matched: set SysEx capture flag (DRAM 1074 bit 1), write both bytes to `SeqBu
 
 The TX interrupt fires when SC0BUF is ready for the next byte:
 
-1. **Check flag byte** (DRAM 1065) for pending system messages:
-   - Bit 0: Send `0xF8` (MIDI Clock) — then clear flag
-   - Bit 1: Send `0xFA` (Start) — then clear flag
-   - Bit 2: Send `0xFB` (Continue) — then clear flag
-   - Bit 3: Send `0xFC` (Stop) — then clear flag
-   - Bit 4: Send `0xFE` (Active Sense) — then clear flag
+1. **Check flag byte** (DRAM 1065) for pending system messages, in this priority order (each clears its flag):
+   - Bit 0: Send `0xF8` (MIDI Clock)
+   - Bit 4: Send `0xFE` (Active Sense)
+   - Bit 1: Send `0xFA` (Start)
+   - Bit 2: Send `0xFB` (Continue)
+   - Bit 3: Send `0xFC` (Stop)
+
+   While bit 4 of DRAM `0xFD50` is set, a pending clock, start, continue or stop flag is cleared but `0xFE` is sent in its place.
 
 2. **Dequeue next byte** from the MIDI OUT queue via `SeqBuf_MidiOut_ReadByte`. If nothing is pending (`SeqBuf_MidiOut_CheckEmpty`), disable the TX interrupt (INTES0 = 0xFD).
 
@@ -185,7 +187,7 @@ The TX interrupt fires when SC0BUF is ready for the next byte:
 
 Called when new data is available for transmission:
 
-1. If MIDI is active (DRAM 1140 == 0x55): reinitialize the queue (`SeqBuf_MidiOut_Init`) and clear flags.
+1. If DRAM 1140 == 0x55: reinitialize the queue (`SeqBuf_MidiOut_Init`) and clear the pending flags, without enabling the TX interrupt.
 2. Otherwise: set TX interrupt enable (INTES0 = 0xDD) to trigger the TX interrupt handler.
 
 ## System Real-Time Messages
@@ -272,23 +274,23 @@ The MIDI THRU port is a hardware echo of the MIDI IN signal. It does not pass th
 
 Key MIDI state variables maintained in DRAM:
 
-| Address | Size | Purpose |
-|---------|------|---------|
-| 1059 | 1 | Running status byte |
-| 1063 | 1 | Status flags (bit 2: overflow, bit 6: SysEx active, bit 7: Active Sense) |
-| 1065 | 1 | TX pending flags (bits 0-4: F8/FA/FB/FC/FE) |
-| 1066 | 1 | Clock tempo accumulator |
-| 1074 | 1 | SysEx state (bit 0: in progress, bit 1: capturing, bit 5: error) |
-| 1080-1104 | 28 | RX context save area (7 registers x 4 bytes) |
-| 1140 | 1 | MIDI active flag (0x55 = active) |
-| 32523 | 1 | External sync mode |
-| 47060-47068 | 10 | Baud rate configuration table |
-| 47069 | 1 | Queue overflow counter |
-| 47070 | 1 | Serial error counter |
-| 47071 | 1 | Last received byte |
-| 47072 | 1 | COM SELECT switch value (0=MIDI, 1=MAC, 2=PC1, 3=PC2) |
-| 47074 | 1 | Transport flags |
-| 64848 | 1 | MIDI control flags (bit 2: ext clock enable, bit 4: MIDI disable) |
+| Address     | Size | Purpose                                                                                                                             |
+|-------------|------|-------------------------------------------------------------------------------------------------------------------------------------|
+| 1059        | 1    | Running status byte                                                                                                                 |
+| 1063        | 1    | Status flags (bit 2: overflow, bit 6: SysEx active, bit 7: Active Sense)                                                            |
+| 1065        | 1    | TX pending flags (bits 0-4: F8/FA/FB/FC/FE)                                                                                         |
+| 1066        | 1    | Clock tempo accumulator                                                                                                             |
+| 1074        | 1    | SysEx state (bit 0: in progress, bit 1: capturing, bit 5: error)                                                                    |
+| 1080-1104   | 28   | RX context save area (7 registers x 4 bytes)                                                                                        |
+| 1140        | 1    | Compared with 0x55: when equal, `MIDI_SC0_ENABLE_TX` discards the MIDI OUT queue and `Seq_EventProcessingTick` skips its event loop |
+| 32523       | 1    | External sync mode                                                                                                                  |
+| 47060-47068 | 10   | Baud rate configuration table                                                                                                       |
+| 47069       | 1    | Queue overflow counter                                                                                                              |
+| 47070       | 1    | Serial error counter                                                                                                                |
+| 47071       | 1    | Last received byte                                                                                                                  |
+| 47072       | 1    | COM SELECT switch value (0=MIDI, 1=MAC, 2=PC1, 3=PC2)                                                                               |
+| 47074       | 1    | Transport flags                                                                                                                     |
+| 64848       | 1    | MIDI control flags (bit 2: ext clock enable, bit 4: MIDI disable)                                                                   |
 
 ## Code References
 

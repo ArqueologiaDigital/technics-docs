@@ -39,7 +39,7 @@ F0 50 87 <param>
 | `0x10` | Panel button press (specific modes)                                        | Rhythm-mode byte (bits 7-4 = 1 → word table 0x00F6F3 index 1 → 0x041360)    |
 | `0x68` | Sound initialization                                                       | Rhythm-mode byte (bits 7-4 = 6, bit 3 set)                                  |
 
-The `0x08` value is the most common, with 13 call sites; it is sent after operations that change the rhythm/sound configuration (sequencer start/stop, drum kit selection, tempo changes, accompaniment mode switching).
+The `0x08` value is the most common; it is sent after operations that change the rhythm/sound configuration (sequencer start/stop, drum kit selection, tempo changes, accompaniment mode switching). `MIDI_SendSysExFromW` (`0xEF6085`) is a second entry point that copies W into A; its callers, all in `display/scoop_display.s`, pass `0x62`, `0x68`, `0x72` and `0x76`, and one passes a byte of `SysInit_BytecodeBlock` with bit 1 set.
 
 ### Implementation
 
@@ -212,9 +212,14 @@ F0 50 <cmd> 04 <md> 11 [<adr×3> <siz×3> <data…> <cn> <sm>] F7
 | `50`       | Manufacturer ID | Technics/Panasonic (Matsushita) — `MIDI_SysExHeader`, `prom_a 0xFA5CB8`                                                                                                                      |
 | `cmd`      | Command byte    | Selects the operation (see the tables below)                                                                                                                                                 |
 | `04 md 11` | PC / MD / VER   | `04` = product, `md` = `00` on the SX-WSA1 keyboard and `01` on the SX-WSA1R rack (both are accepted), `11` = exclusive-spec version (`wsa1/docs/system-exclusive-reference/sec-glance.tex`) |
-| `address…` | Target address  | Present on the transfer commands; 3 bytes in the bulk templates                                                                                                                              |
-| `data…`    | Payload         | Length depends on the command                                                                                                                                                                |
+| `adr×3`    | Address         | On `2B`, `2C` and `2D` (not on `7E` continuation frames): a 21-bit address in three 7-bit bytes, most significant first                                                                      |
+| `siz×3`    | Size            | On the same commands: the length in source bytes (before the nibble split), same 21-bit encoding                                                                                             |
+| `data…`    | Payload         | Each source byte goes out as two bytes, high nibble first; length depends on the command                                                                                                     |
+| `cn`       | Continue        | `01` while more frames follow, `00` on the last                                                                                                                                              |
+| `sm`       | Checksum        | `(0 − S) & 0x7F`, where S sums every byte from `50` through `cn`; verified on reception for `7E`, `2B`, `2C` and `2D` only                                                                   |
 | `F7`       | SysEx end       | Standard terminator                                                                                                                                                                          |
+
+(Field rules: `wsa1/docs/system-exclusive-reference/sec-glance.tex` and `sec-message-set.tex`.)
 
 The WSA1R also accepts MIDI's **Universal Non-Real Time** id `0x7E` (used for GM
 System On/Off), exactly as the KN5000 does.
@@ -258,9 +263,11 @@ The transmit side is `SysExTx_Append` (append n bytes to the frame at 0x60FC88),
 **Crucially, these are reached only from (i) request→response (a received dump
 request), (ii) explicit menu actions** (the ROM strings `"BULK DUMP"`,
 `"SYSEX BULK DUMP"`, `"GROUP DUMP"` exist in `prom_b`), **and (iii) the SX-WSA1
-keyboard's tempo message**: `Tempo_ApplyBpm` calls `SysExTx_Tempo` on every tempo
-change unless `MidiCfg_ModeBits` bit 4 is set or the tempo came from SysEx, and the
-rack never sends it (see the acceptance gate below). No other per-parameter edit
+keyboard's tempo message**: `Tempo_ApplyBpm` calls `SysExTx_Tempo` on a tempo change
+unless `MidiCfg_ModeBits` bit 4 is set or the tempo came from SysEx, and `SysExTx_Tempo`
+then applies the receiver's gates (see the acceptance gate below) plus `(0x0922)` bit 0
+clear, so the rack never sends it and the keyboard sends it only while
+`MidiFilter_Exclusive` bit 3 is set. No other per-parameter edit
 handler calls a transmit builder (**STRONG**, from a caller census). Apart from
 tempo, the unit does **not** echo panel edits as SysEx.
 

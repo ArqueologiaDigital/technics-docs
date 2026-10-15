@@ -75,7 +75,7 @@ eight of its targets are `lds hl,0 / ret` stubs**. See
    - Increment write pointer and byte count
 3. Return HL = 0 (success)
 
-**Usage:** This is the primary path for all MIDI messages from Main CPU to Sub CPU. The ring buffer is consumed by `MIDI_Dispatch` (`0x034D93`), which parses MIDI status bytes (0x80-0xF0) and routes to voice parameter handlers (Note On/Off, Control Change, Program Change, etc.).
+**Usage:** This is the primary path for all MIDI messages from Main CPU to Sub CPU. The ring buffer is consumed by `MIDI_Dispatch` (`0x034D93`), which reads fixed-width records by status class (0x80-0xF0) and routes them to the voice handlers: `Voice_ParamFinalize` for the 0x80 class (parameter query/action records, not Note Off), `Voice_NoteOn` for 0x90, then Control Change, Program Change, Channel Pressure, Pitch Bend and system records (see [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/#midi-message-format-ring-buffer-at-0x2b0d)).
 
 **Payload Format:**
 ```
@@ -88,7 +88,7 @@ Where `cmd_byte & 0x1F` = N − 1 (N bytes follow). The bytes are fixed-width in
 
 **Purpose:** Does nothing. Returns HL = 0 immediately.
 
-This range is reserved/unused. The Main CPU may send these commands for padding or synchronization purposes.
+This range is unused: no `sendCOMM` caller passes handler 1 (the Main CPU uses 0, 3, 4 and 5).
 
 ### 0x40-0x5F: Data Drain (`Audio_CmdHandler_40_5F`)
 
@@ -99,7 +99,7 @@ This range is reserved/unused. The Main CPU may send these commands for padding 
 2. Decrement count to 0 in a loop (no data processing)
 3. Return HL = 0
 
-**Usage:** Used to discard unwanted data that was already committed to the DMA transfer. Acts as a "null sink" for payload bytes.
+**Usage:** None found: no `sendCOMM` caller passes handler 2. The handler is a null sink for payload bytes.
 
 ### 0x60-0x7F: DSP Streaming Data (`Audio_CmdHandler_60_7F`)
 
@@ -107,17 +107,17 @@ This range is reserved/unused. The Main CPU may send these commands for padding 
 
 **State Machine** (state stored at DRAM 17548):
 
-| State | Condition | Action |
-|-------|-----------|--------|
-| 0 (Init) | Payload = 32 bytes | Extract 14-bit size from bytes 5-6, init stream counter |
-| 0 (Init) | Payload != 32 bytes | Reset state, enqueue data |
-| 1+ (Streaming) | Accumulated < total | Add to running count, enqueue data |
-| 1+ (Streaming) | Accumulated >= total | Reset state (stream complete) |
+| State          | Condition            | Action                                               |
+|----------------|----------------------|------------------------------------------------------|
+| 0 (Init)       | Payload = 32 bytes   | Extract the size from bytes 5-6, init stream counter |
+| 0 (Init)       | Payload != 32 bytes  | Reset state, enqueue data                            |
+| 1+ (Streaming) | Accumulated < total  | Add to running count, enqueue data                   |
+| 1+ (Streaming) | Accumulated >= total | Reset state (stream complete)                        |
 
 **Stream Header** (first 32-byte packet):
-- Byte 5: Size high (bits 10-4), encoded as `(value & 0x7FF)`
-- Byte 6: Size low (bits 6-0)
-- Total size = `(byte5 & 0x7FF) << 7 + (byte6 & 0x7F) + 8`
+- Byte 5: size, high part (shifted left by 7; the code's `and 0x7FF` on the zero-extended byte changes nothing)
+- Byte 6: size, low part (added unmasked)
+- Total size = `(byte5 << 7) + byte6 + 8`
 
 **Output:** Data bytes are written to a 2KB ring buffer:
 - Control block at DRAM `0x3B60` (address 15200)
@@ -130,17 +130,17 @@ This range is reserved/unused. The Main CPU may send these commands for padding 
 
 ### 0x80-0x9F: Serial Port 1 TX (`Serial1_DataTransmit_Loop`)
 
-**Purpose:** Transmits payload bytes via Serial Channel 1 (SC1), used for communication with tone generator hardware or external devices.
+**Purpose:** Transmits payload bytes via Serial Channel 1 (SC1), the Sub CPU's computer-interface (TO HOST) port (see [Tone Generator]({{ site.baseurl }}/tone-generator/#serial-port-1-sa-interface)). The Main CPU sends it MIDI-out data for that port (`MidiOut_FlushBuffer`, `MIDI_BroadcastControlChange`, `MidiSysEx_SendParamViaCOMM` and its siblings) and the port-type byte `0xF5` (MAC, PC1) or `0xF4` (PC2) from `CompIface_SendActiveSensing`.
 
 **Algorithm:**
 1. For each byte in the payload:
-   - If DRAM 4148 bit 2 is clear: call `Serial1_HandleEnableCommand` directly (synchronous TX)
+   - If DRAM 4148 (`SERIAL_1_VAR_1034`) bit 2 is clear (link disabled): pass the byte to `Serial1_HandleEnableCommand`, which transmits nothing: `0xF4` enables the link in mode 3 and rewrites SC1MOD from 0x29 to 0x2B, `0xF5` enables it in mode 2, any other byte is dropped
    - If DRAM 4148 bit 2 is set: write byte to SC1 ring buffer (`0x1016`) and enable TX interrupt (buffered TX)
 2. Return HL = 0
 
 **Two TX Modes:**
-- **Direct mode** (bit 2 clear): Bytes are processed immediately by the serial command handler. Used during initialization or when real-time response is needed.
-- **Buffered mode** (bit 2 set): Bytes are queued in a ring buffer and transmitted asynchronously via SC1 TX interrupts. Used during normal operation.
+- **Link disabled** (bit 2 clear): nothing is transmitted; only `0xF4` and `0xF5` have an effect, and either one sets bit 2.
+- **Link enabled** (bit 2 set): Bytes are queued in a ring buffer and transmitted asynchronously via SC1 TX interrupts. Used during normal operation.
 
 ### 0xA0-0xBF: Keybed Local Control (`Audio_CmdHandler_A0_BF`)
 
@@ -203,7 +203,7 @@ Commands `0xE1`, `0xE2` and `0xE3` are recognised by `INT0_HANDLER` (0x020E86) w
 
 ### E3: Payload Ready Signal
 
-Used as a handshake signal during multi-step transfers.
+`INT0_HANDLER` only sets bit 6 of `PAYLOAD_LOADED_FLAG` (0x04FE), the bit the boot ROM's `MAIN_LOOP` polls before it calls the payload, and acknowledges; no DMA is armed and nothing is dispatched. No payload code reads that bit, and no Main CPU code sends `0xE3` (see [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/#special-command-cross-reference)).
 
 ## Second-level dispatch: jump-offset tables and case maps
 

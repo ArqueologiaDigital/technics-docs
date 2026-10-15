@@ -30,7 +30,7 @@ The KN5000 has two distinct MIDI paths: external MIDI I/O (handled by Main CPU) 
                     │                   └──────┬───────┘       │
                     └──────────────────────────┼───────────────┘
                                                │
-                              Latch @ 0x120000 │
+                     Latch 0x140000 → 0x120000 │
                                                v
                     ┌──────────────────────────────────────────┐
                     │             SUB CPU                       │

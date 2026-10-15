@@ -83,7 +83,7 @@ are historical; see [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/#the-two-kn
 - Counter: `(0x0532 + lock_index)` - Decremented on acquire, incremented on release
 - Wait queues: one per semaphore, head at `0x04FF + 4 × lock_index`. `(0x0487)` holds the current task, which `Audio_Lock_Acquire` moves onto that queue when the count is zero
 
-### DMA Transfer
+### Latch Transfer (`Audio_DMA_Transfer`)
 
 Despite its name, `Audio_DMA_Transfer` uses no micro-DMA. It is a software loop that writes one byte at a time to the latch at 0x140000, with a 3-iteration delay between bytes, and each write raises the Sub CPU's /INT0:
 
@@ -97,7 +97,7 @@ Audio_DMA_Transfer:
 **Transfer Variables:**
 - Data Pointer: 0x05DA (XWA)
 - Byte Count: 0x05DE (16-bit)
-- Completion Flag: 0x05E0
+- Transfer state: 0x05E0 (0 = idle; 1 while a packet or E2 header is sent; E1 sets 2, then 1 for its data phase)
 
 ## Sub CPU: Receiving Commands
 
@@ -147,7 +147,7 @@ generic_latch data_pending → set_input_line(INT0, ASSERT)
 │     - E1: DMAD0=0x1116, DMAC0=6                  │
 │     - E2: DMAD0=0x111C, DMAC0=10                 │
 │     - E3: Set PAYLOAD_LOADED_FLAG, return         │
-│     - Standard (0x00-0xDF):                       │
+│     - Any other byte (standard command):          │
 │       DMAD0=0x10F0, DMAC0=(byte & 0x1F)+1        │
 │                                                   │
 │  3. Write DMA0V = 0x0A (INT0 vector)              │
@@ -405,12 +405,12 @@ InterCPU_RX_Handler:           ; 0xFF881F
 
 ### E1/E2/E3 Command Protocol
 
-| Command | Byte | Action | Data Size |
-|---------|------|--------|-----------|
-| E1 | 0xE1 | Bulk data transfer header | 6 bytes (dest addr + count) |
-| E2 | 0xE2 | Extended transfer header | 10 bytes |
-| E3 | 0xE3 | **Payload complete signal** | 0 bytes |
-| Data | 0x00-0xDF | Data packet | Low 5 bits + 1 |
+| Command | Byte                                  | Action                      | Data Size                   |
+|---------|---------------------------------------|-----------------------------|-----------------------------|
+| E1      | 0xE1                                  | Bulk data transfer header   | 6 bytes (dest addr + count) |
+| E2      | 0xE2                                  | Extended transfer header    | 10 bytes                    |
+| E3      | 0xE3                                  | **Payload complete signal** | 0 bytes                     |
+| Data    | any other byte (0x00-0xE0, 0xE4-0xFF) | Data packet                 | Low 5 bits + 1              |
 
 ### PAYLOAD_LOADED_FLAG (0x04FE)
 
@@ -499,11 +499,19 @@ SubCPU_Send_Payload:           ; 0xEF068A
 
     ; ... 3 more 64KB chunks (0x850000, 0x860000, 0x870000) ...
 
-    ; Optional LZSS decompression from 0x3E0000
-    CP   (0xFFFEED), 0xFF      ; Check decompression flag
-    JR   Z, .skip_decompress
-    CALL SLIDE_Parse_Header          ; Decompress SLIDE4K data
-    ; ... copy decompressed data to Sub CPU ...
+    ; Pick the image: a SLIDE4K update at 0x3E0000, else 0x800000
+    LD   XIZ, 0x800000         ; Default image: Table Data ROM
+    CP   (0xFFFEED), 0xFF      ; SubCPU_FlashPayloadEnableFlag
+    JR   NZ, .send_image       ; Not 0xFF: send the 0x800000 image
+    LD   XIZ, 0x050000         ; Image = Main CPU RAM 0x050000
+    LD   XWA, 0x3E0000         ; Source: SLIDE4K image in custom-data flash
+    LD   XBC, 0x050000         ; Destination: Main CPU RAM
+    CALL SLIDE_Parse_Header
+    CP   HL, 0xFFFF
+    JR   NZ, .send_image       ; Success: send the decompressed image
+    LD   XIZ, 0x800000         ; Failure: fall back to 0x800000
+.send_image:
+    ; ... E1: XIZ+0x100 to 0x00F000, 0x01F000, 0x02F000; XIZ to 0x000400 ...
 
 .skip_transfer:
     POP  XIZ
@@ -512,11 +520,11 @@ SubCPU_Send_Payload:           ; 0xEF068A
 
 **Transfer Summary:**
 
-| Chunk | Source | Sub CPU Dest | Size |
-|-------|--------|--------------|------|
-| 1-5 | 0x830000-0x870000 | 0x050000-0x090000 | 5 × 64KB | *(the [tone database]({{ site.baseurl }}/tone-database/) — data, not the Sub CPU executable)* |
-| 6-8 | Decompressed/Fallback | 0x00F000-0x02F000 | 3 × 64KB |
-| 9 | Buffer | 0x000400 | 256 bytes |
+| Chunk | Source                                                                                            | Sub CPU Dest      | Size                                                                                               |
+|-------|---------------------------------------------------------------------------------------------------|-------------------|----------------------------------------------------------------------------------------------------|
+| 1-5   | 0x830000-0x870000                                                                                 | 0x050000-0x090000 | 5 × 64KB: the [tone database]({{ site.baseurl }}/tone-database/), data, not the Sub CPU executable |
+| 6-8   | image + 0x100 (image = 0x800000, or the SLIDE4K image decompressed into Main CPU RAM at 0x050000) | 0x00F000-0x02F000 | 0x10000 + 0x10000 + 0xFF00 bytes                                                                   |
+| 9     | image + 0                                                                                         | 0x000400          | 256 bytes                                                                                          |
 
 ### InterCPU_E1_Bulk_Transfer (0xEF3457)
 
@@ -544,9 +552,9 @@ InterCPU_E1_Bulk_Transfer:     ; 0xEF3457
 
     ; Send 6-byte header (dest addr + byte count)
     LDA  XHL, 0x0608
-    LD   (XHL), XWA            ; Store dest address
+    LD   (XHL), XWA            ; Main CPU source address (phase 2 sends the data from here)
     LDA  XWA, 0x05D0
-    LD   (XWA), XDE            ; Store source address
+    LD   (XWA), XDE            ; Sub CPU destination: header bytes 0-3
     LD   (XHL+4), BC           ; Store count
     LD   (XWA+4), BC
     LD   (0x05DA), XWA         ; Setup for Audio_DMA_Transfer
@@ -668,16 +676,16 @@ sendCOMM (WA = handler, XDE = buffer, BC = count)
 
 ### Command Range Cross-Reference
 
-| Cmd Range | Main CPU Sender  | Main CPU Address | Sub CPU Handler             | Purpose                                                                      |
-|-----------|------------------|------------------|-----------------------------|------------------------------------------------------------------------------|
-| 0x00-0x1F | `sendCOMM` (A=0) | 0xEF32F4         | `Audio_CmdHandler_00_1F`    | MIDI/audio data → ring buffer → `MIDI_Dispatch`                              |
-| 0x20-0x3F | `sendCOMM` (A=1) | 0xEF32F4         | `Audio_CmdHandler_20_3F`    | No-op (returns HL = 0)                                                       |
-| 0x40-0x5F | `sendCOMM` (A=2) | 0xEF32F4         | `Audio_CmdHandler_40_5F`    | Buffer drain/flush (skips data)                                              |
-| 0x60-0x7F | `sendCOMM` (A=3) | 0xEF32F4         | `Audio_CmdHandler_60_7F`    | DSP streaming state machine                                                  |
-| 0x80-0x9F | `sendCOMM` (A=4) | 0xEF32F4         | `Serial1_DataTransmit_Loop` | Serial/MIDI TX to external port                                              |
-| 0xA0-0xBF | `sendCOMM` (A=5) | 0xEF32F4         | `Audio_CmdHandler_A0_BF`    | Keybed touch-curve index (0x4A48) and keybed→main forwarding enable (0x4A4A) |
-| 0xC0-0xDF | `sendCOMM` (A=6) | 0xEF32F4         | `Audio_CmdHandler_C0_FF`    | Reserved (stub)                                                              |
-| 0xE0-0xFF | `sendCOMM` (A=7) | 0xEF32F4         | `Audio_CmdHandler_C0_FF`    | Reserved (stub); E1/E2/E3 handled separately                                 |
+| Cmd Range | Main CPU Sender             | Main CPU Address | Sub CPU Handler             | Purpose                                                                      |
+|-----------|-----------------------------|------------------|-----------------------------|------------------------------------------------------------------------------|
+| 0x00-0x1F | `sendCOMM` (A=0)            | 0xEF32F4         | `Audio_CmdHandler_00_1F`    | MIDI/audio data → ring buffer → `MIDI_Dispatch`                              |
+| 0x20-0x3F | none (no caller passes A=1) | —                | `Audio_CmdHandler_20_3F`    | No-op (returns HL = 0)                                                       |
+| 0x40-0x5F | none (no caller passes A=2) | —                | `Audio_CmdHandler_40_5F`    | Buffer drain/flush (skips data)                                              |
+| 0x60-0x7F | `sendCOMM` (A=3)            | 0xEF32F4         | `Audio_CmdHandler_60_7F`    | DSP streaming state machine                                                  |
+| 0x80-0x9F | `sendCOMM` (A=4)            | 0xEF32F4         | `Serial1_DataTransmit_Loop` | Computer-interface (TO HOST) output on the Sub CPU's SC1                     |
+| 0xA0-0xBF | `sendCOMM` (A=5)            | 0xEF32F4         | `Audio_CmdHandler_A0_BF`    | Keybed touch-curve index (0x4A48) and keybed→main forwarding enable (0x4A4A) |
+| 0xC0-0xDF | none (no caller passes A=6) | —                | `Audio_CmdHandler_C0_FF`    | Reserved (stub)                                                              |
+| 0xE0-0xFF | none (no caller passes A=7) | —                | `Audio_CmdHandler_C0_FF`    | Reserved (stub); E1/E2/E3 handled separately                                 |
 
 ### Special Command Cross-Reference
 
@@ -689,12 +697,12 @@ sendCOMM (WA = handler, XDE = buffer, BC = count)
 
 ### Boot-Time Transfer Cross-Reference
 
-| Step | Main CPU Routine                      | Main CPU Address | Sub CPU Handler        | Description                                                                                             |
-|------|---------------------------------------|------------------|------------------------|---------------------------------------------------------------------------------------------------------|
-| 1    | `SubCPU_Send_Payload`                 | 0xEF068A         | `InterCPU_RX_Handler`  | Transfer 192KB firmware payload via E1 bulk transfers                                                   |
-| 2    | `SubCPU_Send_Payload` (last E1 block) | 0xEF068A         | `InterCPU_RX_Handler`  | The 256-byte block to 0x0400-0x04FF sets bit 6 of 0x04FE, and the boot ROM's `MAIN_LOOP` calls 0x000400 |
-| 3    | `SubCPU_Init_DMA_Channels`            | 0xEF329E         | `InterCPU_Latch_Setup` | Both CPUs configure DMA channels for runtime communication                                              |
-| 4    | `SubCPU_Payload_Verify`               | 0xEF092B         | —                      | Main CPU verifies payload checksums (no Sub CPU involvement)                                            |
+| Step | Main CPU Routine                      | Main CPU Address | Sub CPU Handler        | Description                                                                                                                                                                                                                                              |
+|------|---------------------------------------|------------------|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1    | `SubCPU_Send_Payload`                 | 0xEF068A         | `InterCPU_RX_Handler`  | Transfer 192KB firmware payload via E1 bulk transfers                                                                                                                                                                                                    |
+| 2    | `SubCPU_Send_Payload` (last E1 block) | 0xEF068A         | `InterCPU_RX_Handler`  | The 256-byte block to 0x0400-0x04FF sets bit 6 of 0x04FE, and the boot ROM's `MAIN_LOOP` calls 0x000400                                                                                                                                                  |
+| 3    | `SubCPU_Init_DMA_Channels`            | 0xEF329E         | `InterCPU_Latch_Setup` | The Main CPU's half runs before step 1 (`kn5000_v10_program.s:1405`); the Sub CPU's half runs when the payload starts (`Audio_System_Init`)                                                                                                              |
+| 4    | `SubCPU_Payload_Verify`               | 0xEF092B         | —                      | Checksums the Main CPU's own DRAM, 0xF180-0xF97F and 0xF980-0xFBFF, against the values the power-off NMI stored at 0xFFD4/0xFFD2; despite its name it reads nothing sent to the Sub CPU (see [SNS NMI Emulation]({{ site.baseurl }}/sns-nmi-emulation/)) |
 
 ### Audio Command Pipeline (Runtime)
 
@@ -728,16 +736,17 @@ After `MIDI_Dispatch` parses the ring buffer, it routes MIDI messages to these v
 
 The following naming patterns are used consistently across both CPUs:
 
-| Main CPU Pattern | Sub CPU Pattern | Relationship |
-|-----------------|-----------------|--------------|
-| `Audio_Lock_*`, `AudioLock_*` | `TaskSem_*`, `TaskSched_Wait` | Kernel semaphores (the same code on both CPUs; the main-CPU names are historical) |
-| `Audio_DMA_Transfer` | `InterCPU_DMA_Send` | Core DMA routines (one per CPU direction) |
-| `InterCPU_E1_*` | `InterCPU_E1_DMA_Transfer` | E1 bulk transfer protocol (both sides) |
-| `InterCPU_E2_Send` | `Cmd_Check_E2_Pending` | E2 parameter transfer (send vs. deferred receive) |
-| `InterCPU_Send_Data_Block` | `MICRODMA_CH0_HANDLER` | Standard command send vs. receive dispatch |
-| `SubCPU_Send_Payload` | `InterCPU_RX_Handler` (boot) | Boot-time payload transfer |
-| `SubCPU_Init_DMA_Channels` | `InterCPU_Latch_Setup` | DMA channel initialization |
-| `sendCOMM` | `Audio_CmdHandler_*` | High-level send wrapper vs. per-range handlers |
+| Main CPU Pattern                                  | Sub CPU Pattern               | Relationship                                                                                                                                                                                      |
+|---------------------------------------------------|-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Audio_Lock_*`, `AudioLock_*`                     | `TaskSem_*`, `TaskSched_Wait` | Kernel semaphores (the same code on both CPUs; the main-CPU names are historical)                                                                                                                 |
+| `InterCPU_Send_Data_Block` + `Audio_DMA_Transfer` | `InterCPU_DMA_SendDataPacket` | One packet onto the latch (handshake, header byte, up to 32 data bytes); the data bytes go by a software loop on the Main CPU (no DMA despite the name) and by micro-DMA channel 2 on the Sub CPU |
+| `sendCOMM`                                        | `InterCPU_DMA_Send`           | 32-byte chunkers (only `sendCOMM` takes semaphore #2)                                                                                                                                             |
+| `InterCPU_E1_*`                                   | `InterCPU_E1_DMA_Transfer`    | E1 bulk transfer protocol (both sides)                                                                                                                                                            |
+| `InterCPU_E2_Send`                                | `Cmd_Check_E2_Pending`        | E2 parameter transfer (send vs. deferred receive)                                                                                                                                                 |
+| `InterCPU_Send_Data_Block`                        | `MICRODMA_CH0_HANDLER`        | Standard command send vs. receive dispatch                                                                                                                                                        |
+| `SubCPU_Send_Payload`                             | `InterCPU_RX_Handler` (boot)  | Boot-time payload transfer                                                                                                                                                                        |
+| `SubCPU_Init_DMA_Channels`                        | `InterCPU_Latch_Setup`        | DMA channel initialization                                                                                                                                                                        |
+| `sendCOMM`                                        | `Audio_CmdHandler_*`          | High-level send wrapper vs. per-range handlers                                                                                                                                                    |
 
 ## Research Needed
 

@@ -71,10 +71,8 @@ When a reverb preset is selected on the REVERB & EQ PRESETS screen:
    byte 0 and `99` in byte 22; every EQ record starts `0x4F`. The `*_FindMatch` routines compare
    the RAM copies with every record to show which preset is current
 
-(Earlier text here read step 3 as "a loop sending 24 commands, one per MIDI channel". It is one
-24-byte record, posted byte by byte under one event code. Source: the ext lane's header over the records in
-`v10/maincpu/extensions/extension_data.s` and `ReverbPreset_Load`'s header in
-`v10/maincpu/audio/audio_control_engine.s`.)
+(Sources: the header over the preset records in `v10/maincpu/extensions/extension_data.s`, and
+`ReverbPreset_Load` in `v10/maincpu/audio/audio_control_engine.s`.)
 
 ## What we have to work with
 
@@ -147,23 +145,23 @@ Each part has a **287-byte (0x11F)** record; the 26 records start at `Part_Recor
 
 ### Complete CC → Voice Offset Mapping
 
-| MIDI CC | Name | Handler | Voice Offset | Size | Operation | Default |
-|---------|------|---------|-------------|------|-----------|---------|
-| 0x01 | Mod Wheel | Voice_ModWheel_Apply | (complex) | - | Multi-register update | - |
-| 0x07 | Volume | Voice_CC_SetVolume | +0x74 | 2 | Lookup table at 0x011D16 | 0xFE00 |
-| 0x0A | Pan | Voice_CC_SetPan | +0x76 | 2 | Store direct | - |
-| 0x0B | Expression | Voice_CC_SetExpression | +0x78 | 2 | Lookup table at 0x011D16 | 0xFE00 |
-| 0x40 | Sustain | Voice_CC_SetSustain | +0x72 | bit 0 | Set/clear bit 0 | 0 |
-| 0x5B | Sostenuto | Voice_CC_SetSostenuto | +0x77 | 2 | Store direct | - |
-| 0x5D | Soft Pedal | Voice_CC_SetSoftPedal | +0x7A | 2 | Store direct | - |
-| 0x5E | Portamento | Voice_Portamento_OnHandler | (complex) | - | Multi-function chain | - |
-| 0x78-0x82 | (Extended) | Jump table at 0x00F739 | various | - | See extended table | - |
-| 0x91 | **Reverb Depth** | **Voice_CC_SetReverbDepth** | **+0x7F** | **2** | **Store direct** | **0x00** |
-| 0x95 | Chorus Enable | Voice_CC_SetChorusEnable | +0x72 | bit 2 | Set/clear bit 2 | 0 |
-| 0x97 | Unknown | Voice_CC_SetChorusDepth | +0x80 | 2 | Store direct | 0x06 |
-| 0x9B | Unknown | Voice_CC_SetDelayDepth | +0x8D | 2 | Store direct | 0x01 |
-| 0x9C | Pedal Control | Voice_CC_SetDelayEnable | +0x6A | bit 8 | Set/clear bit 8 | 0x00 |
-| 0x9D | Unknown | Voice_CC_SetDelayFeedback | +0x8E | 2 | Store direct | 0x00 |
+| MIDI CC   | Name             | Handler                     | Voice Offset | Size  | Operation                | Default  |
+|-----------|------------------|-----------------------------|--------------|-------|--------------------------|----------|
+| 0x01      | Mod Wheel        | Voice_ModWheel_Apply        | (complex)    | -     | Multi-register update    | -        |
+| 0x07      | Volume           | Voice_CC_SetVolume          | +0x74        | 2     | Lookup table at 0x011D16 | 0xFE00   |
+| 0x0A      | Pan              | Voice_CC_SetPan             | +0x76        | 1     | Store direct             | -        |
+| 0x0B      | Expression       | Voice_CC_SetExpression      | +0x78        | 2     | Lookup table at 0x011D16 | 0xFE00   |
+| 0x40      | Sustain          | Voice_CC_SetSustain         | +0x72        | bit 0 | Set/clear bit 0          | 0        |
+| 0x5B      | Sostenuto        | Voice_CC_SetSostenuto       | +0x77        | 1     | Store direct             | -        |
+| 0x5D      | Soft Pedal       | Voice_CC_SetSoftPedal       | +0x7A        | 1     | Store direct             | -        |
+| 0x5E      | Portamento       | Voice_Portamento_OnHandler  | (complex)    | -     | Multi-function chain     | -        |
+| 0x78-0x82 | (Extended)       | Jump table at 0x00F739      | various      | -     | See extended table       | -        |
+| 0x91      | **Reverb Depth** | **Voice_CC_SetReverbDepth** | **+0x7F**    | **1** | **Store direct**         | **0x00** |
+| 0x95      | Chorus Enable    | Voice_CC_SetChorusEnable    | +0x72        | bit 2 | Set/clear bit 2          | 0        |
+| 0x97      | Chorus Depth     | Voice_CC_SetChorusDepth     | +0x80        | 1     | Store direct             | 0x06     |
+| 0x9B      | Delay Depth      | Voice_CC_SetDelayDepth      | +0x8D        | 1     | Store direct             | 0x01     |
+| 0x9C      | Delay Enable     | Voice_CC_SetDelayEnable     | +0x6A        | bit 8 | Set/clear bit 8          | 0x00     |
+| 0x9D      | Delay Feedback   | Voice_CC_SetDelayFeedback   | +0x8E        | 1     | Store direct             | 0x00     |
 
 ### Extended CC Table (0x78-0x82)
 
@@ -213,7 +211,7 @@ Inter-CPU Transport:
       Handshake: wait SSTAT1 high → write command byte → wait SSTAT1 low → payload
 
 Sub CPU:
-  INT0 ISR: receives from latch, HDMA transfers payload to ring buffer 0x2B0D
+  INT0 ISR: reads the command byte; micro-DMA ch0 moves the payload to 0x10F0, and Audio_CmdHandler_00_1F copies it into the ring buffer at 0x2B0D
   Main loop: reads 4-byte packet [type, channel, cc#, value]
     → Voice_CtrlChange (02A282):
       channel = (xiz+1) = 0x00-0x19
@@ -222,8 +220,8 @@ Sub CPU:
     → Voice_CC_SetReverbDepth:
       extz wa                      ; wa = channel
       muls wa, 0x11F               ; wa = channel × 287
-      lda_24 xde, 0x04137f         ; de = base + 0x7F
-      lda_dri3 XHL, 0x07, 0xE8, 0xE0  ; store value at [de + wa]
+      lda xde, (0x04137f:24)       ; de = base + 0x7F
+      ld (xde+wa), c               ; store the value byte at [de + wa]
       ret
     → Reverb depth stored at: 0x041300 + (channel × 0x11F) + 0x7F
 ```
@@ -242,7 +240,7 @@ Main CPU:
         type 2 (combined): calls CombinedPreset_Load
 
   For type 0 (reverb preset):
-    → 0xFF0D99: unpacks preset data (24 bytes) from ROM table
+    → Mem_Copy (0xFF0D99): copies the 24-byte record from the ROM table to RAM 0xFC8E
     → Loop 24 times (iz = 0..23, one per byte of the record at 0xFC8E):
         pushw 0xFF          ; target specifier
         ldw wa, 0x63        ; SwbtWr event code 0x63
@@ -664,7 +662,7 @@ The pointer table at 0xE32A7A has **128 entries**; beyond the 40 above, the ones
 
 ### Remaining Questions
 
-1. **Main CPU dispatch formatting:** The function `HdaeRom_ProcessBlock` reformats the 4-byte AssswbWr entries into DMA payloads. Further analysis would reveal exactly how preset bytes map to DSP ring buffer message fields.
+1. **Main CPU dispatch formatting:** `SwbtWr_DispatchLoop` delivers `ReverbPreset_Load`'s code-`0x63` events to `SwbtB2_Code63_Listeners` (`SwbtB2_Code63_Listener`, `UIState_KeyScan_Dispatch`, `EffEdit_DSPConfigBlock`; `ui_widgets/widget_dispatch.s`). `SwbtB2_Code63_Listener`, the same code as the code-`0x61` listener `HdaeRom_ProcessBlock`, passes each event to `SndParam_ApplyEventField`. How these listeners turn preset bytes into DSP ring messages has not been traced.
 2. **DSP hardware path:** see the pages linked under Phase 4.
 3. **WAVE REVERB extra parameters:** Preset 9 (WAVE REVERB 2) has non-zero B7-B8 values (18, 84). These likely control waveform modulation parameters unique to the WAVE REVERB algorithm.
 4. **EQ crossover frequencies:** The 4 big-endian 16-bit values in EQ presets need verification as frequency values (Hz). The monotonic ordering suggests crossover points for a 4-band parametric EQ.
