@@ -157,7 +157,7 @@ This matters for the Sub CPU boot: `SubCPU_Send_Payload`'s fallback ships table 
 
 ## Tone database (0x830000-0x87FFEF)
 
-The upper 320 KB of the first megabyte is the **tone database** — the sound-parameter data
+The upper 320 KB of the first 512 KB is the **tone database** — the sound-parameter data
 the Main CPU ships wholesale to the Sub CPU at boot. `SubCPU_Send_Payload` issues five
 64 KB InterCPU E1 bulk transfers copying ROM `0x830000-0x87FFFF` to Sub-CPU work RAM
 `0x050000-0x09FFFF`, so every offset inside the database is equally readable as a Sub-CPU
