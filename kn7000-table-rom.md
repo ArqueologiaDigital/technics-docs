@@ -49,7 +49,7 @@ Example full-screen reference screens, extracted verbatim from the ROM:
 ![KN7000 ORGAN STYLIST style-list reference]({{ site.baseurl }}/assets/images/table-rom/organ-stylist.jpg)
 
 The ORGAN STYLIST list above shows real style names (`Swing Tonewheels`, `Classic B3 Jazz`, …) that
-match the [built-in rhythm catalog]({{ site.baseurl }}/kn7000-rhythm-catalog/) recovered from the program ROM.
+match the [built-in Music Stylist catalog]({{ site.baseurl }}/kn7000-rhythm-catalog/) recovered from the program ROM.
 
 A smaller `240×160` panel graphic:
 
