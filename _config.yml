@@ -21,6 +21,7 @@ exclude:
   - CLAUDE.md
   - Makefile
   - tools
+  - notes
   - technics-docs
   - KN5000-docs
   - Gemfile

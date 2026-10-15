@@ -10,7 +10,7 @@ There is **no automated issue tracker**. Beads was decommissioned on 2026-07-27 
 
 There is no `issues.md` page and there should not be one. A dump of a tracker is a changelog, and the site is not a changelog. Open work belongs on the page that owns the subject: unanswered technical questions on `questions.md`, contributor-actionable work on `help-wanted.md`, programme planning on `roadmap.md`, emulator shortfalls on `mame-emulation-gaps.md`, upstreaming state on `mame-branch-review.md`.
 
-**After meaningful work, agents MUST:** record follow-ups in this repository's own Markdown notes so the next session can pick them up.
+**After meaningful work, agents MUST:** record follow-ups in this repository's own Markdown notes so the next session can pick them up. Follow-ups that belong outside the site (source repositories, upstream MAME, owner decisions) go in `notes/`, which `_config.yml` keeps off the published site; `notes/2026-10-15-review-owner-actions.md` is the list the 2026-10-15 full review left.
 
 ## Sidebar menu
 
