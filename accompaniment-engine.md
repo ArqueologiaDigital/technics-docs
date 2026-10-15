@@ -27,11 +27,11 @@ The KN5000's accompaniment (auto-accompaniment) system automatically generates m
                           │
                           v
 ┌──────────────────────────────────────────────────────┐
-│           ACCOMPANIMENT SEQUENCER (AccompSeq)         │
+│           ACCOMPANIMENT SEQUENCER (AccompSeq)        │
 │  Two independent channels (0 and 1)                  │
 │  Each has: position, beat counter, pattern pointer   │
-│  Processes events: notes (0x90/0x91), CC (0xD1-D7),  │
-│  program change (0xC0), timing (0x84), beat (0x81)   │
+│  Events: notes (0x90/0x91), part ctl (0xD1-D5, D7),  │
+│  program change (0xC0), position (0x84), beat (0x81) │
 └──────────────────────────────────────────────────────┘
               │                    │
               v                    v
@@ -66,7 +66,7 @@ The KN5000's accompaniment (auto-accompaniment) system automatically generates m
 
 ## Main Loop Integration
 
-The accompaniment engine is called from the main firmware loop in Phase 6 (Sequencer Finalization):
+The accompaniment engine is called from three phases of the main firmware loop (the phase numbers of the comment above `MainLoop` in `boot/system_handlers.s`):
 
 | Function                  | Address    | Main-loop phase / purpose                            |
 |---------------------------|------------|------------------------------------------------------|
@@ -154,17 +154,20 @@ Each variation group (A, B, C) has these sections. The `StyleVarGrp_*` labels ar
 
 ### Style Groups (Built-in Styles)
 
-The Program ROM holds the style browser's group tables, one per category; each entry is a style-name pointer and a variation-table pointer (`ui_widgets/style_bitmaps.s`):
+The Program ROM holds the style browser's ten group tables, one per category; each entry is a style-name pointer and a variation-table pointer (`ui_widgets/style_bitmaps.s`). The browser reaches them through its root at `0xECFCA4` (`MstStyle1Grid_CellSelect_Data`), ten {group name, group table} pairs. The categories are the ten of the [Music Stylist database]({{ site.baseurl }}/music-stylist-database/#the-ten-categories). The category words in the `StyleGroup_*` labels are older guesses that do not match them, and `StyleGroup_LatinDance_Table` (`0xECFCA8`) is not a group table: it lies 4 bytes into the root.
 
-| Table                          | Address    | Style Category      |
-|--------------------------------|------------|---------------------|
-| `StyleGroup_ModernDance_Table` | `0xECE2F0` | Modern Dance styles |
-| `StyleGroup_PopBallad_Table`   | `0xECE980` | Pop/Ballad styles   |
-| `StyleGroup_Swing_Table`       | `0xECED38` | Swing/Jazz styles   |
-| `StyleGroup_FunkFusion_Table`  | `0xECEF18` | Funk/Fusion styles  |
-| `StyleGroup_JazzCombo_Table`   | `0xECF228` | Jazz Combo styles   |
-| `StyleGroup_WorldMusic_Table`  | `0xECF7E8` | World Music styles  |
-| `StyleGroup_LatinDance_Table`  | `0xECFCA8` | Latin Dance styles  |
+| Table                             | Address    | Category (the firmware's group name) |
+|-----------------------------------|------------|--------------------------------------|
+| `StyleGroup_ModernDance_Table`    | `0xECE2F0` | Easy Listening                       |
+| `StyleGroup_RockPop_PairTable`    | `0xECE61E` | Rock & Pop                           |
+| `StyleGroup_PopBallad_Table`      | `0xECE980` | Dance Pop                            |
+| `StyleGroup_PartyMusic_PairTable` | `0xECEB42` | Party Music                          |
+| `StyleGroup_Swing_Table`          | `0xECED38` | Gospel/Blues/R&B                     |
+| `StyleGroup_FunkFusion_Separator` | `0xECEF14` | Jazz & Swing                         |
+| `StyleGroup_JazzCombo_Table`      | `0xECF228` | Show/Trad Dance                      |
+| `StyleGroup_TradFolk_PairTable`   | `0xECF556` | Trad & Folk                          |
+| `StyleGroup_WorldMusic_Table`     | `0xECF7E8` | Country                              |
+| `StyleGroup_LatinWorld_PairTable` | `0xECF9AA` | Latin / World                        |
 
 ## Chord Detection
 

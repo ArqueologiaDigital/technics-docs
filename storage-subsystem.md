@@ -193,15 +193,15 @@ The KN5000 can receive firmware updates via floppy disk. See [System Update Disc
 
 ### Update Process
 
-1. Insert update disk
-2. Power on with specific key held
-3. Firmware detects update file
-4. Flash programming begins
-5. Verification and reboot
+1. Insert the update disc
+2. Hold all four PANEL MEMORY buttons and power on
+3. The firmware matches the disc's 38-byte signature
+4. The target flash is erased and programmed
+5. "Completed!" and "Turn On AGAIN !!" appear; the unit stays there until it is powered off and on again
 
 ### No Code Execution from Floppy
 
-The floppy subsystem is strictly a data transport. The firmware **never executes code loaded from floppy** — all 8 disc types write to flash memory, and standard file I/O handles only data formats (MIDI, styles, registrations). The boot sector is never read, and there is no disc type signature for executable content. Custom code can only be installed via flash update (replacing the entire Program ROM or Extension ROM). See [System Update Discs]({{ site.baseurl }}/system-update-discs/#no-code-execution-from-floppy) for full analysis.
+None of the 8 update disc types makes the firmware **execute code loaded from floppy**: each of them writes to flash memory or is refused, and standard file I/O handles only data formats (MIDI, styles, registrations). The boot sector is never read, and there is no disc type signature for executable content. Custom code can only be installed via flash update (replacing the entire Program ROM or Extension ROM). The one exception is a hidden factory loader, not an update disc: on the "DEBUG SCREEN for HD-AE" page, LOAD reads `A:HKEXT.XAP` into the HD-AE5000's SRAM at `0x200000` (present only with the board fitted) and GO jumps to `0x200008`. See [System Update Discs]({{ site.baseurl }}/system-update-discs/#no-code-execution-from-floppy) for full analysis.
 
 ## Related Pages
 
@@ -244,9 +244,6 @@ The floppy subsystem is strictly a data transport. The firmware **never executes
 | `HDAE5000_HD_Init` | `0x2971B7` | Bring the drive up: SRAM test, IDENTIFY, signature, tables |
 | `HDAE5000_HD_ReadTables` / `HDAE5000_HD_WriteTables` | `0x297BE9` / `0x297A8D` | The 323 filesystem-table sectors |
 | `HDAE5000_HD_WriteFile` / `HDAE5000_HD_ReadFile` | `0x297E16` / `0x29811C` | A file as a FAT cluster chain |
-
-(The rows this table used to carry, `ATA_ReadSectors` at `0x28C100`, `FSB_Init` at `0x28D000`
-and so on, matched no routine. See [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/).)
 
 ## External References
 

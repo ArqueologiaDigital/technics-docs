@@ -15,7 +15,7 @@ Security analysis of the KN5000 v10 Program ROM's floppy handling code, examinin
 
 ## Executive Summary
 
-The firmware has **no cryptographic authentication** of floppy disc content — disc type detection uses a 38-byte ASCII string comparison against known signatures. Combined with an LZSS decompressor that trusts a header-specified output size, there is a viable chain for injecting attacker-controlled data into RAM during boot. No exploit is needed for code execution. A type 7 disc *is* a program update: anyone who writes its 38-byte signature and a SLIDE4K image gets an arbitrary main-CPU program installed by the bootloader's updater, and a type 6 disc installs an arbitrary HD-AE5000 extension ROM the same way. The site's homebrew ROM replacements can be packaged as such a disc with `tools/make_update_disc.py` (see [Firmware Update Procedure]({{ site.baseurl }}/firmware-update-procedure/)). The same disc's second stream, written to `0x3E0000`, is the sub-CPU's executable payload, which `SubCPU_Send_Payload` decompresses and sends to the sub CPU on every boot. The unbounded decompression below matters as a way to corrupt main-CPU RAM, not as the route to code execution.
+The firmware has **no cryptographic authentication** of floppy disc content — disc type detection uses a 38-byte ASCII string comparison against known signatures. Combined with an LZSS decompressor that trusts a header-specified output size, there is a viable chain for injecting attacker-controlled data into RAM during boot. No exploit is needed for code execution. A type 7 disc *is* a program update: anyone who writes its 38-byte signature and a SLIDE4K image gets an arbitrary main-CPU program installed by the bootloader's updater, and a type 6 disc installs an arbitrary HD-AE5000 extension ROM the same way. The site's homebrew ROM replacements can be packaged as such a disc with `tools/make_update_disc.py` from the [kn5000-anotherworld](https://github.com/felipesanches/kn5000-anotherworld) repository (see [Firmware Update Procedure]({{ site.baseurl }}/firmware-update-procedure/)). The same disc's second stream, written to `0x3E0000`, is the sub-CPU's executable payload, which `SubCPU_Send_Payload` decompresses and sends to the sub CPU on every boot. The unbounded decompression below matters as a way to corrupt main-CPU RAM, not as the route to code execution.
 
 ---
 
@@ -66,7 +66,7 @@ The attacker controls the entire compressed payload on the floppy disc.
 
 #### Step 2 — Every boot decompresses to RAM
 
-During every boot, in `SubCPU_Send_Payload` (at `0xEF0710`):
+During every boot, in `SubCPU_Send_Payload` (the call at `0xEF071B`):
 ```asm
 CP (0FFFEEDh), 0ffh       ; SubCPU_FlashPayloadEnableFlag (ROM byte, 0xFF in v7/v9/v10)
 JR NZ, SubCPU_Payload_TransferPart2       ; Use the 0x800000 copy if not 0xFF
@@ -202,11 +202,11 @@ The dictionary index in both LZSS variants uses `AND BC, 0fffh` (4KB) or `AND BC
 
 The SLIDE4K wrapper `SLIDE_Parse_Header` has only 3 callers:
 
-| Call Site | Source | Destination | Floppy-Reachable? |
-|-----------|--------|-------------|-------------------|
-| Boot (`0xEF0710`) | Custom Data Flash `0x3E0000` | RAM `0x050000` | **Yes** (via type 7 update) |
-| `0xF477D3` | Table Data ROM `0x988018`+ | RAM `0x069800` | Indirectly (if Table Data ROM corrupted) |
-| `0xF871A0` | Table Data ROM `0x9C4000`+ | RAM `0x069800` | Indirectly (if Table Data ROM corrupted) |
+| Call Site                                   | Source                       | Destination    | Floppy-Reachable?                        |
+|---------------------------------------------|------------------------------|----------------|------------------------------------------|
+| `0xEF071B` (boot, in `SubCPU_Send_Payload`) | Custom Data Flash `0x3E0000` | RAM `0x050000` | **Yes** (via type 7 update)              |
+| `0xF477D3` (`HelpLang_ParseSlideHeader`)    | Table Data ROM `0x988018`+   | RAM `0x069800` | Indirectly (if Table Data ROM corrupted) |
+| `0xF871A1` (`Demo_ParseSlideHeader`)        | Table Data ROM `0x9C4000`+   | RAM `0x069800` | Indirectly (if Table Data ROM corrupted) |
 
 No callers decompress directly from floppy to RAM. The boot-time path is the only one reachable from floppy data, via the sub-CPU payload that a type 7 disc writes to Custom Data Flash.
 

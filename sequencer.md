@@ -198,10 +198,10 @@ The 4MB Rhythm ROM (0x400000-0x7FFFFF) contains factory preset rhythm patterns, 
 
 At boot, the firmware validates the rhythm ROM:
 
-| Routine | Address | Purpose |
-|---------|---------|---------|
-| `RhythmROM_ValidateHeader` | 0xF54651 | Reads magic bytes at 0x400000, expects LE word 0x05040100 |
-| `RhythmROM_CheckValid` | 0xF5452F | Checks if `(3277h)` == 0xFFFFFFFF; if so, returns C=1 (invalid) |
+| Routine                    | Address  | Purpose                                                                                                                                                                                        |
+|----------------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `RhythmROM_ValidateHeader` | 0xF54651 | Compares the 12 bytes at 0x400000 with `RHYTHMROM_SIG_0`-`RHYTHMROM_SIG_2` (LE words 0x05040100, 0x04010083, 0x01008305); sets `RHYTHM_ROM_BASE` (0x3277) to 0, or to 0xFFFFFFFF on a mismatch |
+| `RhythmROM_CheckValid`     | 0xF5452F | Checks if `(3277h)` == 0xFFFFFFFF; if so, returns C=1 (invalid)                                                                                                                                |
 
 The validation result is stored at RAM `0x3277`:
 - **0x00000000** = Valid (rhythm ROM present and header matches)
@@ -246,7 +246,7 @@ The demo mode handler `SeqState_DemoModeHandler` (0xF993AD) responds to event `E
 
 1. The current title (`CURRENT_TITLE`, 0x8D36) becomes 0xE0, `TT_DEMOMENU` (`DemoMode_Main_Operation` entry)
 2. The current title becomes 0xE4, `TT_DEMOFEATURE` (`DemoMode_Initialize` completion)
-3. `Seq_StartMainControlAlt` sends `MT_ExitPresentation` (`EVT_EXIT_PRESENTATION`). `MainPreControl` calls `Part_InitFromPreset` only when the presentation-loaded flag at `0x0251D8` is set, and then clears it (`demo/file_demo_proc.s:199-203`). Only a presentation started from disk sets that flag, so during the ROM Feature Demo it is 0 and the call is skipped.
+3. `Seq_StartMainControlAlt` sends `MT_ExitPresentation` (`EVT_EXIT_PRESENTATION`). `MainPreControl` calls `Part_InitFromPreset` only when the presentation-loaded flag at `0x0251D8` is set, and then clears it (`demo/file_demo_proc.s:199-203`; the clear is `MainPreControl_Dispatch`, `:158-159`). Only a presentation started from disk sets that flag, so during the ROM Feature Demo it is 0 and the call is skipped.
 
 ### Built-in demo/default style image
 
@@ -426,18 +426,16 @@ Each channel's metadata block is stored at a fixed offset within the pattern buf
 
 #### Pattern Loading Pipeline
 
-`RhythmROM_PatternDispatcher` (0xF634F3) loads patterns using this address calculation:
+`RhythmROM_PatternDispatcher` (0xF634F3) finds a rhythm by its program (RAM 0x34ED) and bank (RAM 0x34EE): it reads a {high, low} word pair from `RhythmROM_BankProgramLocators` (8 banks × 128 programs), and `RhythmROM_CalcPatternAddr` forms the address:
 
 ```
-ROM address = 0x400000 + base_offset + (selector << 8) + (type_index << 14)
+ROM address = 0x400000 + RHYTHM_ROM_BASE + ((high & 0xFF) << 16) + low
 ```
 
 Where:
-- `selector` is read from RAM at 0x348D-0x348F (pattern selectors A/B/type)
-- `type_index` selects the channel type (drums, bass, accomp, etc.)
-- Each pattern block is 1024 bytes (0x400)
-
-The loaded pattern data goes into RAM buffers at 0x94800 and 0x95C00 for double-buffering during playback.
+- `RHYTHM_ROM_BASE` is RAM 0x3277, which is 0 once the Rhythm ROM header has validated
+- every non-zero locator is a multiple of 0x800; `RhythmROM_LoadPattern` copies 0x400 words (2 KB) from that address into the 2 KB buffer that `AccPat_Dispatch_AllocAndProcess` allocates (`Malloc(0x800)`, pointer at RAM 0x3564)
+- the section index at RAM 0x34D6 (0..29, the 3 × 10 sections) selects, through `RhythmTiming_OffsetTable`, the pointer into `RHYTHM_PATTERN_BUF_A` (0x94800) kept at RAM 0x3560
 
 #### Chord Detection
 
@@ -455,18 +453,18 @@ Each chord map stores note-to-chord mappings that translate detected chord roots
 
 #### Key RAM Addresses
 
-| Address | Purpose |
-|---------|---------|
-| 0x8D36 | `CURRENT_TITLE`, the current title id (formerly read as the sequencer's master state) |
-| 0x041B | `SEQ_BEAT_TICK` (firmware name `sq_beadt`): tick within the beat, 0..95 |
-| 0x041C | `SEQ_BEAT_COUNT` (`sqbtof`): beats since the start (word) |
-| 0x0421 | `SEQ_TRANSPORT_STATE` (`sqsrtc`): bit 0 start pending, bits 1-2 running (bit 2 gates the clock), bit 3 stop requested, bit 4 stopped |
-| 0x3277 | Rhythm ROM validation (0 = valid, 0xFFFFFFFF = invalid) |
-| 0x348D-0x348F | Pattern selectors (A/B/type) |
-| 0x3476 | Variation index (0-0x1E) |
-| 0x35A0-0x35A1 | Error flags and drum kit selection |
-| 0x94800 | Pattern buffer A (1024 bytes per pattern) |
-| 0x95C00 | Pattern buffer B (double-buffer) |
+| Address       | Purpose                                                                                                                                   |
+|---------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| 0x8D36        | `CURRENT_TITLE`, the current title id (formerly read as the sequencer's master state)                                                     |
+| 0x041B        | `SEQ_BEAT_TICK` (firmware name `sq_beadt`): tick within the beat, 0..95                                                                   |
+| 0x041C        | `SEQ_BEAT_COUNT` (`sqbtof`): beats since the start (word)                                                                                 |
+| 0x0421        | `SEQ_TRANSPORT_STATE` (`sqsrtc`): bit 0 start pending, bits 1-2 running (bit 2 gates the clock), bit 3 stop requested, bit 4 stopped      |
+| 0x3277        | `RHYTHM_ROM_BASE`: Rhythm ROM validation (0 = valid, 0xFFFFFFFF = invalid), added to the Rhythm ROM addresses the pattern loaders compute |
+| 0x34ED-0x34EF | Program (0x34ED) and bank (0x34EE) of the rhythm `RhythmROM_PatternDispatcher` loads, and the part within it (0x34EF)                     |
+| 0x34D6        | Section within the style, 0..29 (`RhythmROM_PatternDispatcher` treats 0x1E and above as 0)                                                |
+| 0x35A0-0x35A1 | Error flags and drum kit selection                                                                                                        |
+| 0x94800       | Pattern buffer A (`RHYTHM_PATTERN_BUF_A`)                                                                                                 |
+| 0x95C00       | `RHYTHM_PATTERN_BUF_B`: a pool of 256-byte entries, entry n at 0x95C00 + n × 0x100 (`AccPatch_GetEntryAddr`)                              |
 
 #### Drum Kit Loading
 
@@ -517,10 +515,10 @@ See [Audio Subsystem - Feature Demo]({{ site.baseurl }}/audio-subsystem/#feature
 - [ ] Document sequence data structure format
 - [ ] Analyze playback timing engine (Timer7 involvement)
 - [ ] Map recording routines
-- [ ] Decode full pattern data format within 1024-byte pattern blocks
+- [ ] Decode full pattern data format within the 2 KB rhythm blocks
 - [ ] Map chord detection algorithm (chord maps 1-5)
 - [ ] Identify quantization algorithms
-- [x] ~~Understand style format in Rhythm ROM~~ — 3 groups × 10 sections (30), 5 channels per pattern, 1024-byte blocks
+- [x] ~~Understand style format in Rhythm ROM~~ — 3 groups × 10 sections (30), 5 channels per pattern, rhythms located through `RhythmROM_BankProgramLocators`
 - [x] ~~Document chord recognition~~ — Partial: 5 chord maps identified, chord detection modes documented
 - [x] Document medley playback system
 - [x] Document main loop and dispatcher architecture

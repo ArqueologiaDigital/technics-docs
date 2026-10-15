@@ -12,7 +12,7 @@ There are **two** FDC drivers in the machine, and they are different code:
 
 | driver                        | where                                                               | status                                                                                           |
 |-------------------------------|---------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
-| runtime driver                | Program ROM 0xF96B13-0xF97E80, `v10/maincpu/storage/fdc_routines.s` | fully disassembled (no `.byte` lines); several routines still carry their original guessed names |
+| runtime driver                | Program ROM 0xF96B13-0xF9800B, `v10/maincpu/storage/fdc_routines.s` | fully disassembled (no `.byte` lines); several routines still carry their original guessed names |
 | first-stage bootloader driver | Table Data ROM 0x9FD8A5-0x9FEA9C, `table_data/boot_fdc_driver.s`    | **fully labelled**: 84 labels, byte-matching rebuild                                             |
 
 The bootloader driver is a compact port of the runtime one, and each of its routine
@@ -95,36 +95,41 @@ Actual_delay_ms = WA / 2
 
 ## FDC Memory Map
 
-| Address     | Size | Name                                    | Description                                                         |
-|-------------|------|-----------------------------------------|---------------------------------------------------------------------|
-| 0x8A10      | 2    | FDC_DRIVE_TYPE                          | Drive type identifier                                               |
-| 0x8A16      | 2    | FDC_STATUS_FLAG                         | Status/ready flag                                                   |
-| 0x8A1C      | 2    | FDC_SECTOR_COUNT                        | Sector count register                                               |
-| 0x8A1E      | 2    | FDC_SECTOR_SIZE                         | Sector size (0x200 or 0x400)                                        |
-| 0x8A20      | 1    | FDC_INIT_FLAG                           | Initialization flag (0xFF=init done)                                |
-| 0x8A24      | 1    | FDC_ERROR_CODE                          | Current error code                                                  |
-| 0x8A26      | 1    | FDC_CACHED_STATUS                       | Cached status value                                                 |
-| 0x8A28      | 1    | FDC_COMMAND_REG                         | Command register                                                    |
-| 0x8A2B-8A36 | -    | FDC_MODE_PARAMS                         | Mode configuration parameters                                       |
-| 0x8A40      | 2    | FDC_HANDLER_INDEX                       | Handler dispatch index                                              |
-| 0x8A44      | 2    | FDC_OUTPUT_MODE                         | Output control mode                                                 |
-| 0x8A48      | 2    | FDC_TRACK_NUMBER                        | Current track number                                                |
-| 0x8A4A      | 2    | FDC_TRANSFER_PTR                        | Data transfer pointer                                               |
-| 0x8A5C      | 4    | FDC_XWA_SAVE                            | XWA register save area                                              |
-| 0x8A68      | 1    | FDC_OPERATION_MODE                      | Current operation mode                                              |
-| 0x8A6A      | 1    | FDC_OUTPUT_FLAG                         | Output enable flag                                                  |
-| 0x8A6C      | 1    | FDC_DRIVE_MODE                          | Drive mode (0-5)                                                    |
-| 0x8B00      | 1    | FDC_RESERVED_00                         | Reserved                                                            |
-| 0x8B04      | 1    | — (the source calls it the track cache) | Cylinder last sought to (0xFF = unknown); compared by `FDC_CmdSeek` |
-| 0x8B0C      | 2    | FDC_MAX_TRACK                           | Maximum track number                                                |
-| 0x8B10      | 2    | FDC_CURRENT_TRACK                       | Current track cache                                                 |
+| Address     | Size | Name                                    | Description                                                                                                                                                               |
+|-------------|------|-----------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0x8A10      | 2    | —                                       | Media-probe flag: 0xFFFF while a caller probes the disk format; a one-sector read of track 0, head 0 then gets a single try (`FDC_DETECT_CHECK`, `FDC_DRIVE_DETECT`)      |
+| 0x8A16      | 1    | FDC_STATUS_FLAG                         | Busy latch: 0xA5 while a request runs, 0x5A when it ends; a request that finds 0xA5 fails with 0xFB                                                                       |
+| 0x8A1C      | 2    | FDC_SECTOR_COUNT                        | Transfer byte count, despite the name: sector size × sectors of one same-track burst for a read or write, ID bytes for a format; `FDC_Setup_DMA_Mode` loads it into DMAC3 |
+| 0x8A1E      | 2    | FDC_SECTOR_SIZE                         | Sector size (0x200 or 0x400)                                                                                                                                              |
+| 0x8A20      | 1    | FDC_INIT_FLAG                           | Initialization flag (0xFF=init done)                                                                                                                                      |
+| 0x8A24      | 1    | FDC_ERROR_CODE                          | Current error code                                                                                                                                                        |
+| 0x8A26      | 1    | FDC_CACHED_STATUS                       | Cached status value                                                                                                                                                       |
+| 0x8A28      | 1    | FDC_COMMAND_REG                         | Command register                                                                                                                                                          |
+| 0x8A2B-8A35 | -    | —                                       | uPD765 command parameters: C, H, R, N, EOT, GPL, DTL (0x8A2B-0x8A31), format SC, gap and filler (0x8A32-0x8A34), STP (0x8A35)                                             |
+| 0x8A36      | 1    | FDC_TARGET_TRACK                        | Seek target cylinder, copied from the request's track                                                                                                                     |
+| 0x8A40      | 2    | FDC_COMMAND_INDEX                       | Request +0x00: command number, the 0..11 dispatch index                                                                                                                   |
+| 0x8A42      | 2    | —                                       | Request +0x02: drive                                                                                                                                                      |
+| 0x8A44      | 2    | —                                       | Request +0x04: head (0 or 1); command 9 reads it as the new disk-changed flag                                                                                             |
+| 0x8A46      | 2    | —                                       | Request +0x06: track (command 0: the media-type code)                                                                                                                     |
+| 0x8A48      | 2    | —                                       | Request +0x08: starting sector (1-based)                                                                                                                                  |
+| 0x8A4A      | 2    | —                                       | Request +0x0A: sector count                                                                                                                                               |
+| 0x8A4C      | 4    | —                                       | Request +0x0C: buffer address, the DMA memory address; advanced by `FDC_SECTOR_COUNT` before each further burst (a format points it at RAM 0x8A70 instead)                |
+| 0x8A5C      | 4    | —                                       | Mirror of the request's buffer address (+0x0C)                                                                                                                            |
+| 0x8A68      | 1    | —                                       | Retry counter: 8 for a read or write (1 for a probe read); a failed burst decrements it, and at 0 the command fails with error 16 (read) or 32 (write)                    |
+| 0x8A6A      | 1    | —                                       | Disk-changed flag: command 9 sets it to 0xFF (request +0x04 = 1) or 0 (= 0); cleared at initialization                                                                    |
+| 0x8A6C      | 1    | FDC_DRIVE_MODE                          | Drive mode (0-5)                                                                                                                                                          |
+| 0x8B00      | 1    | FDC_RESERVED_00                         | Reserved                                                                                                                                                                  |
+| 0x8B04      | 1    | — (the source calls it the track cache) | Cylinder last sought to (0xFF = unknown); compared by `FDC_CmdSeek`                                                                                                       |
+| 0x8B0C      | 2    | —                                       | One more than the sectors per track (10, 9 or 19 by media type); bounds the sector number in the read and write loops                                                     |
+| 0x8B10      | 2    | —                                       | Starting sector, saved while the read and write loops count a batch of sectors                                                                                            |
 
 Named in the source since 2026-10-03 (each maincpu tree's `shared/ram_variables.s`; v7 0x9C lower), only
-where the code agrees with this table: `FDC_SECTOR_COUNT` (0x8A1C, cleared per command, `incw` per
-sector), `FDC_ERROR_CODE` (0x8A24, set by `FDC_Set_Status`), `FDC_COMMAND_INDEX` (0x8A40, the 0..11
-dispatch index) and `FDC_TARGET_TRACK` (0x8A36 -- `fdc_routines.s` calls it the caller's target track,
-which this table's `FDC_MODE_PARAMS` range and reverse-engineering.md's "address register" contradict).
-`0x8A4A`, listed as the transfer pointer, is compared with constants (`cpw (0x8a4a),N`) and stays a number.
+where the code agrees with this table: `FDC_SECTOR_COUNT` (0x8A1C, cleared before each transfer burst; it counts
+bytes, not sectors), `FDC_ERROR_CODE` (0x8A24, set by `FDC_Set_Status`), `FDC_COMMAND_INDEX` (0x8A40, the 0..11
+dispatch index) and `FDC_TARGET_TRACK` (0x8A36, the cylinder `FDC_CmdSeek` seeks to).
+`FDC_CommandEntry_CopyParams` copies the caller's 16-byte request block to 0x8A40-0x8A4F and again to
+0x8A50-0x8A5F; the layout is the one the bootloader twin's
+[`FDC_Request`](#fdc_request--the-single-public-entry-boot-0xffe944) takes.
 
 ## Routine Addresses
 
@@ -595,7 +600,7 @@ Data-rate bits for the aux control-internal-mode command: 0x00 = 250 kbps, 0x40 
 
 ### `FDC_Request` — the single public entry (boot 0xFFE944)
 
-The caller pushes a pointer to a **14-byte request block**:
+The caller pushes a pointer to a **16-byte request block**:
 
 | Offset | Size | Field |
 |--------|------|-------|
@@ -708,7 +713,7 @@ Sticky per request — the first error wins (`FDC_Error`), and command 8 returns
 
 `FDC_ProbeDiskFormat` (ROM 0x9FEB3D, boot 0xFFEB3D) in `table_data/boot_disk_probe.s`
 sits on top of `FDC_Request`. It sets `PHFC = 0x1E`, returns immediately if Port D bit 6
-says there is no disk, then builds and submits five 14-byte request blocks at RAM 0x0D52:
+says there is no disk, then builds and submits five 16-byte request blocks at RAM 0x0D52:
 
 | # | Command | Track | Sector | Count | Buffer |
 |---|---------|-------|--------|-------|--------|
