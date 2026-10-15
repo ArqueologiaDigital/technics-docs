@@ -109,13 +109,13 @@ During boot, the firmware scans the control panel buttons via `CPanel_ScanButton
 
 ### Button Combination Table
 
-| Code | Buttons Held at Power-On | Panel | Bit Pattern | Effect |
-|------|--------------------------|-------|-------------|--------|
-| 0 | (none) | — | — | Normal boot |
-| 1 | MARCH & WALTZ + PARTY TIME + SHOW TIME & TRAD DANCE | Left, SEG6 | `0x38` | Factory Reset (Initial Setting) |
-| 2 | GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR | Right, SEG1 | `0x70` | "ALL INITIAL SETTING!" screen + firmware version on LEDs |
-| 3 | AUTO PLAY CHORD + SPLIT POINT + VARIATION 4 + VARIATION 3 | Left, SEG4 | `0x6C` | Software version / internal build numbers |
-| 4 | PM 1 + PM 2 + PM 3 + PM 4 (all 4 Panel Memory buttons) | Right, SEG6 | `0x0F` | Flash Memory Update |
+| Code | Buttons Held at Power-On                                  | Panel       | Bit Pattern | Effect                                                         |
+|------|-----------------------------------------------------------|-------------|-------------|----------------------------------------------------------------|
+| 0    | (none)                                                    | —           | —           | Normal boot                                                    |
+| 1    | MARCH & WALTZ + PARTY TIME + SHOW TIME & TRAD DANCE       | Left, SEG6  | `0x38`      | Factory Reset (Initial Setting)                                |
+| 2    | GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR         | Right, SEG1 | `0x70`      | MPVersion screen (`EVT_MP_VERSION`) + firmware version on LEDs |
+| 3    | AUTO PLAY CHORD + SPLIT POINT + VARIATION 4 + VARIATION 3 | Left, SEG4  | `0x6C`      | Software version / internal build numbers                      |
+| 4    | PM 1 + PM 2 + PM 3 + PM 4 (all 4 Panel Memory buttons)    | Right, SEG6 | `0x0F`      | Flash Memory Update                                            |
 
 ### Detailed Descriptions
 
@@ -127,13 +127,13 @@ This is the procedure described in the service manual under "INITIAL SETTING" (p
 
 **Firmware flow:** The combo code is stored at address `0x402`. At `Boot_HandleFactoryReset` (`0xEF07F3`), the firmware checks if `DRAM[0xFFCA] != 0x5AA5` (payload checksums invalid) **and** combo code == 1. If both conditions are true, it zero-fills all work DRAM (`0x400`–`0x100000`) and SRAM (`0x1E0000`–`0x200000`), then restarts the boot sequence. This is typically used after replacing Flash ROMs.
 
-For normal users, the factory reset is handled through the welcome screen UI widget when combo 2 is detected.
+Combo 1 is the only combo that clears DRAM and SRAM. The "ALL INITIAL SETTING!" screen is a separate path: the welcome screen opens it (`EVT_ALL_INITIAL`, view `AllInitial`) when `SubCPU_Payload_GetErrorFlag` is negative, not in response to a button combo. See [Boot Sequence]({{ site.baseurl }}/boot-sequence/#welcome-screen-and-boot-animation).
 
-#### Combo 2: ALL INITIAL SETTING / Firmware Version
+#### Combo 2: MPVersion Screen / Firmware Version
 
 **Buttons:** Three buttons from the SOUND GROUP section on the right panel.
 
-Displays "ALL INITIAL SETTING!" on the LCD screen and shows the firmware version number on the control panel LEDs. At `Boot_HandleComboDisplay` (`0xEF07A2`), the firmware reads the version byte from `0xFFFFE8` (currently `0x0A` = version 10), looks up the LED pattern from the table at `0xE00000`, and calls `Set_LEDs`.
+Opens the MPVersion screen (`AcWelcomScreenProc` posts `EVT_MP_VERSION` when the combo code is 2) and shows the firmware version number on the control panel LEDs. At `Boot_HandleComboDisplay` (`0xEF07A2`), the firmware reads the version byte from `0xFFFFE8` (currently `0x0A` = version 10), looks up the LED pattern from the table at `0xE00000`, and calls `Set_LEDs`.
 
 #### Combo 3: Software Version Screen
 
