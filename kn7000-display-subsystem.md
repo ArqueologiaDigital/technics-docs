@@ -39,7 +39,8 @@ codebase.
 ## Palette-indexed bitmaps
 
 UI artwork is stored as **headerless palette-indexed bitmaps** (the same design
-as the KN5000 — see the [Table image format]({{ site.baseurl }}/kn7000-firmware/)). Pixels are
+as the KN5000 — see
+[Raw UI bitmaps]({{ site.baseurl }}/kn7000-image-gallery/#raw-ui-bitmaps-table-rom)). Pixels are
 raw palette indices, row-major; the bit depth is 2, 4 or 8 bpp. The blit API has
 a **dedicated fast path per depth**, which is how the depths are known:
 
@@ -73,9 +74,9 @@ greyscale ramp from it.
 ### Named colours
 
 The firmware refers to palette entries by name through a `CL_*` constant table
-(recovered by `tools/gen_constants.py`). The base is a **VGA-16 layout** — the
-eight dark colours at indices `0x00`–`0x07` and the eight bright ones at
-`0xF8`–`0xFF`:
+(recovered by the KN7000 disassembly's `tools/gen_constants.py`). The base is a
+**VGA-16 layout** — the eight dark colours at indices `0x00`–`0x07` and the eight
+bright ones at `0xF8`–`0xFF`:
 
 | Index | Name | | Index | Name |
 |-------|------|-|-------|------|

@@ -76,13 +76,18 @@ address the same way (`base + id*0x38`), which is how the geometry is known;
 
 ```
 GetCurrentTarget:                 # CPU 0x4842943B
-    call    GetCurrentObjectId    # d0 <- id of the active object (see below)
+    add     -0x10, sp
+    mov     sp, a0
+    add     0xc, a0               # a0 -> a halfword on the stack
+    call    func_48414A4F, [a2], 4  # GetCurrentObjectId (below): id -> (a0)
+    movhu   (0xc, sp), d0         # d0 <- the active object's id
     mov     0x38, d1
+    exth    d0
     mul     d1, d0                # id * 0x38
     add     0x5000757c, d0        # + table base  => &slot[id]
     mov     d0, a0
-    movhu   (0x10, a0), d0        # slot + 0x10 = the object's current target
-    ret
+    mov     (0x10, a0), d0        # slot + 0x10 = the object's current target
+    ret     0, 0x10
 ```
 
 So **offset `+0x10`** within a slot holds the object's current target reference.

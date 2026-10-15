@@ -42,15 +42,15 @@ naming (`SdcCustomFileNaming`, `SdcTechnicsFileNaming`, `FormatSdNaming`).
 FMM handles a family of file types, each with its own load/save path; the
 extensions `.MID` and `.CST` appear in a type table at `0x2637E4`:
 
-| Type | Extension | Contents |
-|------|-----------|----------|
-| SMF | `.MID` | Standard MIDI File (songs) |
-| Custom | `.CST` | registration / "custom" panel setups |
-| Technics song | — | native song format |
-| Composer | — | user rhythm/style (see the Composer/`TCMP` data) |
-| Sequence | — | the on-board sequencer's songs |
-| Wallpaper / Picture | — | user display images |
-| Playlist | — | ordered play sets (`PlaylistSetting`, `0x265A18`) |
+| Type                | Extension | Contents                                                  |
+|---------------------|-----------|-----------------------------------------------------------|
+| SMF                 | `.MID`    | Standard MIDI File (songs)                                |
+| Custom              | `.CST`    | registration / "custom" panel setups                      |
+| Technics song       | —         | native song format                                        |
+| Composer            | —         | user rhythm/style (see the Composer/`TCMP` data)          |
+| Sequence            | —         | the on-board sequencer's songs                            |
+| Wallpaper / Picture | —         | user display images                                       |
+| Playlist            | —         | ordered play sets (`FE_SeqPlaylistSetting`, `0x4853F009`) |
 
 FMM entry points are named per type: `FmmSmfLoadTitleFunc` /
 `FmmSmfSaveTitleFunc`, `FmmCstLSTitleFunc`, `FmmComposerLoadFunc`,
@@ -77,7 +77,7 @@ The file-manager screen strings — `- LOAD -`, `- SAVE -`, `CHECKING`,
 
 ## SD subsystem internals
 
-Note before reading the register map: **the second SIO serial channel
+Note before reading the register map: **SIO channel 2
 (`0x34000820`) is the MIDI-2 UART, not the SD link** (its RX handler is a
 standard MIDI parser; the hot status polling seen on SD screens is just the
 engine loop's idle MIDI pump).
@@ -85,8 +85,9 @@ engine loop's idle MIDI pump).
 The SD stack proper is a layered, DOS-like design:
 
 * A **state machine** over the state byte `0x50083cd8`
-  (`SD_GetState`/`SD_SetState`), ticked from the engine loop
-  (`0x485519bc`). In state 0 it queries the MILK GUI **property system** —
+  (`SD_GetState`/`SD_SetState`), ticked by `SdStateMachineTick`
+  (`0x485519B7`), which the engine loop calls. In state 0 it queries the MILK GUI
+  **property system** —
   `GetProperty(object 0x0210033F, property 0x60047)` — and does nothing while
   the answer is −1. That property is the firmware's own "SD present/enabled"
   source, and it is the gate the emulator must satisfy first.

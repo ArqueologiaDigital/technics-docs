@@ -401,7 +401,8 @@ buffers, which exist only because MAME's sound stream pulls samples while the SH
 runs on its own schedule. A `DEFINE_DEVICE_TYPE` for it put a name in MAME's device
 list with no chip behind it.
 
-It is gone. The rings, the returns and the master gain now live in
+It is gone from the driver these notes describe, though the research overlay's
+`kn7000.cpp` still carries it. The rings, the returns and the master gain now live in
 `kn_tonegen_base_device`, which is where the send/direct/return/depth gains already
 were -- the driver had been copying them into the bridge on every volume tick. The
 tone generator now produces the signal that reaches the DACs, and the buffering is a

@@ -67,8 +67,8 @@ histogram is just well-compressed DEFLATE output.) The decoded image is genuine 
 but it is not the source of the "all 8 Beat 1" style-list bug. (An early test that preloaded
 it at `0x56020000` and saw no reads there proved nothing either way: `0x56000000` is an
 empty expansion window, not this flash.) That bug's real mechanism — a different, undumped
-~4.1 MB "Technics Rhythms" resource, with a shipped synthetic-ROM mitigation — is described
-under [How the rhythm menu resolves a style
+~4.1 MB "Technics Rhythms" resource, with a synthetic-ROM mitigation in the research
+overlay only — is described under [How the rhythm menu resolves a style
 name](#how-the-rhythm-menu-resolves-a-style-name) below; an earlier "templated at boot by
 `0x484420CB`" theory was investigated and superseded by that finding.
 

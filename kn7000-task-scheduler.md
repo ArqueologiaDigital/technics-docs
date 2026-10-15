@@ -27,8 +27,9 @@ work RAM:
 | `0x5038002C` | handle of the **main** task |
 
 Code decides "am I the main or the AP task?" by comparing them — exactly what the
-event layer's `GetCurrentObjectId` helper does before it picks the active task's
-focused-object id (`0x500D3C60` for main, `0x500D3C5C` for AP; see the
+event layer's `GetCurrentObjectId` helper (`func_48414A4F` in the disassembly) does
+before it picks the active task's focused-object id (`0x500D3C60` for main,
+`0x500D3C5C` for AP; see the
 [event page]({{ site.baseurl }}/kn7000-event-system/)). So each task carries its own focused UI
 object, and the event dispatcher always acts on the running task's object.
 
