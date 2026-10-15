@@ -68,33 +68,38 @@ chunks, terminated by a `0xFF` tag; a second `0xFF` byte pads the record out to 
 bytes. All 80 records carry the **same 34-chunk sequence in the same order** (verified
 across all 80).
 
-| # | tag | payload | role |
-|:---|:---|---:|:---|
-| 1 | `0x78` | 18 | 16-char preset name + 2 spare bytes (`00 00` in all 80) |
-| 2-5 | `0x00`-`0x03` | 24 each | sound-part blocks, the four realtime parts |
-| 6 | `0x0F` | 24 | sound-part block |
-| 7-13 | `0x10`-`0x16` | 24 each | sound-part blocks (accompaniment/rhythm side) |
-| 14 | `0x19` | 24 | sound-part block |
-| 15-17 | `0x44`-`0x46` | 10 each | parameter groups (undecoded) |
-| 18 | `0x47` | 8 | parameter group (undecoded) |
-| 19 | `0x43` | 4 | parameter group (undecoded) |
-| 20 | `0x48` | 10 | parameter group (undecoded) |
-| 21 | `0x90` | 6 | parameter group (undecoded) |
-| 22 | `0x60` | 4 | parameter group (undecoded) |
-| 23-27 | `0x61`, `0x63`-`0x66` | 24 each | part-block-sized groups (undecoded) |
-| 28 | `0x68` | 10 | undecoded |
-| 29 | `0x70` | 8 | undecoded |
-| 30 | `0x72` | 14 | undecoded |
-| 31 | `0x92` | 14 | undecoded |
-| 32 | `0x71` | 2 | undecoded |
-| 33 | `0x99` | 30 | undecoded |
-| 34 | `0x80` | 14 | undecoded |
-| -- | `0xFF` | -- | terminator, then one `0xFF` pad byte |
+| #     | tag                   | payload | role                                                                       |
+|:------|:----------------------|--------:|:---------------------------------------------------------------------------|
+| 1     | `0x78`                | 18      | 16-char preset name + 2 spare bytes (`00 00` in all 80)                    |
+| 2-5   | `0x00`-`0x03`         | 24 each | sound-part blocks, the four realtime parts                                 |
+| 6     | `0x0F`                | 24      | sound-part block                                                           |
+| 7-13  | `0x10`-`0x16`         | 24 each | sound-part blocks (accompaniment/rhythm side)                              |
+| 14    | `0x19`                | 24      | sound-part block                                                           |
+| 15-17 | `0x44`-`0x46`         | 10 each | drawbar registrations of RIGHT 1 / RIGHT 2 / LEFT (footages at `+3`..`+7`) |
+| 18    | `0x47`                | 8       | parameter group (undecoded)                                                |
+| 19    | `0x43`                | 4       | parameter group (undecoded)                                                |
+| 20    | `0x48`                | 10      | style number (`+0`/`+1`, 11 bits) and tempo (`+8`/`+9`)                    |
+| 21    | `0x90`                | 6       | parameter group (undecoded)                                                |
+| 22    | `0x60`                | 4       | parameter group (undecoded)                                                |
+| 23-27 | `0x61`, `0x63`-`0x66` | 24 each | the five DSP-effect slot blocks (see below)                                |
+| 28    | `0x68`                | 10      | undecoded                                                                  |
+| 29    | `0x70`                | 8       | digital-effect selection                                                   |
+| 30    | `0x72`                | 14      | undecoded                                                                  |
+| 31    | `0x92`                | 14      | undecoded                                                                  |
+| 32    | `0x71`                | 2       | per-panel-memory ON/OFF flag (bit 1 of `+0`)                               |
+| 33    | `0x99`                | 30      | undecoded                                                                  |
+| 34    | `0x80`                | 14      | sequencer / MIDI-clock control                                             |
+| --    | `0xFF`                | --      | terminator, then one `0xFF` pad byte                                       |
 
 That adds up: 20 + 13x26 + 78 + 5x26 + 106 + 2 = 674.
 
 Note the chunk order in the stream is not tag order -- `0x44 0x45 0x46 0x47 0x43 0x48`
 is the literal sequence in every record.
+
+The tag names come from `analysis/disk-format-probes/README-lsw-nonpart-records.md`,
+`README-lsw-drawbar-records.md` and its `-ADDENDUM` (for `0x71`) in kn5000-roms-disasm. Where
+they overlap, they agree with the [Music Stylist parameter block]({{ site.baseurl }}/music-stylist-database/#the-parameter-block),
+which writes into the same panel stream.
 
 ### The firmware's own schema: layout tables and field rules
 
@@ -150,7 +155,7 @@ panel name with spaces. `PanelTlv_CompanionPartTags` (`0xED92F2`) lists the 23 r
 validate (which zeroes every companion), recompute the companions, rewrite every header.
 
 The lists, written out with one `RULE_*` macro per rule, are C:
-`v10/maincpu/ui_widgets/naka_extension_device.c` (`PanelTlv_Rules_<tag>`, `panel_tlv_layout_t`), by
+`v10/maincpu/ui_widgets/naka_extension_device.c` (`PanelTlv_Rules_Tag<tag>`, `panel_tlv_layout_t`), by
 `scripts/converters/panel_tlv_schema_retype.py`; the routines are in
 `v10/maincpu/audio/tonegen_fileio_handlers.s`.
 
@@ -304,12 +309,12 @@ nothing addresses inside the image, the block stays a single labelled `.incbin` 
 
 Structure observed in the image (offsets are image-relative; add 0x9B4000 for ROM):
 
-| image offset | contents                                                                                                                                                                                               |
-|:-------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `+0x0000`    | header: memory-configuration words, part lists `01 02 03 04`, a `5A 5A 5A` (`"ZZZ"`) tag                                                                                                               |
-| `+0x0080`    | 30 style-slot records, 0x60 bytes each, 16-char name at slot offset +0x20                                                                                                                              |
-| `+0x0C00`    | zero fill to `+0x12FF`                                                                                                                                                                                 |
-| `+0x1300`    | style event pool: zero to `+0x13BF`, a 64-byte misaligned pseudo-cell at `+0x13C0`, 234 linked 256-byte cells from `+0x1400` to `+0xFDFF`, and two empty `0x00`-marker blocks at `+0xFE00` / `+0xFF00` |
+| image offset | contents                                                                                                                                                                                                                                    |
+|:-------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `+0x0000`    | 96-byte bank header, as in an IC19 style section: the `48 00 4B 00` ("H", "K" in 16-bit characters) magic and a `5A 5A 5A` (`"ZZZ"`) tag at `+0x0B`                                                                                         |
+| `+0x0060`    | style directory in the IC19 layout: 30 records of 0x60 bytes, 16-char name at record +0x40, the style's five chain pointers at +0x00 and +0x04..+0x0A (read this way by `scripts/analysis/style_directory_chains.py` in kn5000-roms-disasm) |
+| `+0x0BA0`    | zero fill to `+0x12FF`                                                                                                                                                                                                                      |
+| `+0x1300`    | style event pool: zero to `+0x13BF`, a 64-byte misaligned pseudo-cell at `+0x13C0`, 234 linked 256-byte cells from `+0x1400` to `+0xFDFF`, and two empty `0x00`-marker blocks at `+0xFE00` / `+0xFF00`                                      |
 
 The 30 slot names are three factory user styles at four variations each --
 ` Pop Samba 1`..` Pop Samba 4`, `GentleSwing 1`..`GentleSwing 4`,
@@ -358,12 +363,14 @@ byte-identical on disk.
 
 Open items on this block:
 
-* every chunk except the name chunk is undecoded at field level; the sound-part field
-  guesses above have not been checked against the tone-generator command format;
-  the firmware's own per-byte validation rules are decoded (above), which constrains every
-  field but does not name it;
-* the meaning of the tags themselves (why `0x43`-`0x48`, `0x60`-`0x66`, `0x70`-`0x72`,
-  `0x80`, `0x90`-`0x99`) is unknown;
+* outside the name chunk, the part-record fields that the parameter descriptors name (above),
+  the style number and tempo in `0x48` and the drawbar footages in `0x44`-`0x46` (`+3`..`+7`),
+  the chunks are undecoded at field level. The firmware's own per-byte validation rules are
+  decoded (above), which constrains every field but does not name it;
+* tags `0x43`, `0x47`, `0x60` and `0x68` have field shapes but no meaning yet; the readings of
+  `0x72`, `0x90`, `0x92` and `0x99` are partly inference; and which effects the DSP slots
+  `0x61`, `0x65` and `0x66` drive is not settled
+  (`analysis/disk-format-probes/README-lsw-nonpart-records.md` in kn5000-roms-disasm);
 * the preset-15 `0x19`/`0xC0` outlier is unexplained;
 * the Composer image's header words, and the misaligned 64-byte pseudo-cell at `+0x13C0`,
   are undescribed;

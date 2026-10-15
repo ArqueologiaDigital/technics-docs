@@ -19,7 +19,7 @@ This page documents meaningful strings found in each KN5000 ROM through systemat
 ⚠ **Corrected 2026-09 — the address and exact text below were wrong.** The string is
 `KN5000 ~95 VOCALIST WORKSTATION` (no `Technics` prefix in this particular string) at
 file offset `0x5957E`, CPU address **`0xE5957E`**, not `0xE023F0` (that address is
-actually the start of the instrument-category table below). A separate string,
+actually the start of the sound-category table below). A separate string,
 `Technics KN5000 Program  DATA FILE 1/2`, exists near the very start of the ROM
 (`0xE00038`).
 
@@ -31,39 +31,33 @@ This product ID string confirms the keyboard model and its "Vocalist Workstation
 
 ### Key String Tables
 
-| Address  | Description                                | Count |
-|----------|--------------------------------------------|-------|
-| 0xE023F0 | Instrument categories                      | ~50   |
-| 0xE0C3BE | Chord database                             | ~200  |
-| 0xECFDFE | Part names (RIGHT1, RIGHT2, LEFT, PART4 …) | ~30   |
+| Address  | Description                                                                                          | Count |
+|----------|------------------------------------------------------------------------------------------------------|-------|
+| 0xE023F0 | Sound categories (`SOUND_CATEGORY_NAMES`, 16 characters each)                                        | 18    |
+| 0xEFF5B9 | Chord-type names (`Tbl_ChordTypeNames`, 5 characters each)                                           | 64    |
+| 0xECFDFE | Part names (`VariScreen_HandlePaint_Data`), 7 characters each (RIGHT1, RIGHT2, LEFT, PART4 … PART32) | 32    |
 
 ### String Categories
 
-**Instrument Names:**
-- Piano variations (Grand Piano, Upright, Electric)
-- String ensembles (Strings, Violin, Cello, Orchestra)
-- Wind instruments (Flute, Clarinet, Oboe, Saxophone)
-- Brass section (Trumpet, Trombone, French Horn)
-- Guitars (Acoustic, Electric, Nylon, Steel)
-- Synthesizer patches (Synth Pad, Synth Lead, Analog)
+**Sound Names:**
+- Only the 18 sound-category names (PIANO, GUITAR, STRINGS & VOCAL, BRASS, … DRUM KITS, MEMORY A, MEMORY B) are in this ROM. The names of the sounds themselves are in the Table Data ROM's tone database (see [Tone Database]({{ site.baseurl }}/tone-database/)).
+- Instrument words such as "Flute" or "Clarinet" occur here only inside Music Stylist preset names ("Soulful Flute", "German Clarinet").
 
 **Menu Text:**
 - Main menu items (Sound, Rhythm, Sequencer, Disk)
 - Sub-menu options (Edit, Copy, Delete, Save, Load)
-- Dialog prompts (Yes/No, OK/Cancel, Continue?)
-- Error messages (Disk Error, Memory Full, File Not Found)
+- Dialog prompts ("Are You Sure?" with YES / NO buttons)
+- Error messages, numbered up to `ERROR 64`, with their text in English, German, French, Spanish and Indonesian ("There is no disk in the disk drive", "An error has occurred while the disk was loading. Please try again!")
 
 **Effects Names:**
-- Reverb types (Hall, Room, Plate, Spring)
+- Reverb presets (Huge Room, Box Room, Small Plate, Sports Hall, Bright Hall, Dark Confines)
 - Chorus/Delay effects
 - EQ and filter settings
 - DSP processing modes
 
 **System Messages:**
-- Boot messages
-- Memory test strings
-- Calibration routines
-- Debug output
+- System error dialogs ("CAUTION!!", "\*\* ERROR in back-up SRAM \*\*", "\*\* ERROR in CPU data transmission \*\*")
+- Factory test screens and their diagnostics ("LCD PANEL TEST", "FD SAVE/LOAD TEST", "Debug Test", "DEBUG SCREEN for HD-AE", "Media Error", "Not Enough memory!"); see [Test & Service Modes]({{ site.baseurl }}/test-modes/)
 
 ---
 
@@ -71,7 +65,7 @@ This product ID string confirms the keyboard model and its "Vocalist Workstation
 
 **Size:** 192KB (196,608 bytes)
 **Purpose:** Tone generator and audio synthesis control
-**Total Meaningful Strings:** 88
+**Total Strings Found:** 88
 
 ### Key Strings
 
@@ -80,17 +74,9 @@ This product ID string confirms the keyboard model and its "Vocalist Workstation
 | 0x31E3 | `KN5000 SOUND RAM` | Memory region identifier |
 | 0x31F4 | `User Kit` | User-defined drum kit designation |
 
-### DSP Control Messages
+### DSP Debug-Trace Messages
 
-The sub CPU firmware contains control messages for the DSP subsystem:
-
-| Category | Strings |
-|----------|---------|
-| Reset | DSP reset commands |
-| Mute | Channel mute control |
-| Disconnect | Audio path disconnect |
-| Link | Channel linking |
-| Edit | Parameter editing |
+The sub CPU payload carries debug-trace message fragments for its DSP and effect routines (`v142/subcpu/subcpu_data_tables.s:2803-2881` in kn5000-roms-disasm): `DSP <n> reset.`, `anti reset.`, `mute.`, `antimute.`, `EFF <n> disconnect.`, `link.`, `headder` (sic), `change`, `data change`, `para<m> edit`, `vol`, plus `argo change` (sic). The routines that use them (`DSP_Reset_WithDebug`, `EFF_Disconnect`, `EFF_Link`, `DSP_AlgorithmChange` and others) print them through `Debug_Print_String`, which calls a boot-ROM routine. In the dumped boot ROM, that routine's character sink outputs nothing, so the messages never appear.
 
 ### String Distribution
 
@@ -131,17 +117,10 @@ The sparse string content indicates this ROM focuses on:
 
 **Total Size:** 2MB (1MB odd + 1MB even)
 **Organization:** two ×16 chips on a 32-bit bus, word-interleaved: `kn5000_table_data_rom_even.ic3` holds bytes 0-1 of each 32-bit word, `kn5000_table_data_rom_odd.ic1` bytes 2-3
-**Total Strings Found:** 164+
 
 ### Bass Instruments
 
-| String | Type |
-|--------|------|
-| Acoustic Bass | Standard |
-| Electric Bass | Standard |
-| Slap Bass | Extended |
-| Fretless Bass | Extended |
-| Synth Bass | Electronic |
+The tone database names each sound individually and has no finer bass types. Tone records 210-229 (`ToneRec_210`..`ToneRec_229` in `table_data/tone_database_directory.s`) are one run of bass sounds: Acoustic Bass, Mellow Ac.Bass, Electric Bass, Bright E.Bass, Fusion E.Bass, Funky E.Bass, Fretless Bass, Picked E.Bass, Mute Bass, Slap Bass 1, Slap Bass 2, Killer Bass, Analog Bass, Soul Bass, Wow Bass, Dance Bass, House Bass, Plastic Bass, Basic Synth Bass and Techno Bass. The directory names more outside that run, for example `ToneRec_355`..`ToneRec_357` (Straight Bass, Wet Bass, Analog Bass 2). See [Tone Database]({{ site.baseurl }}/tone-database/).
 
 ### Drum Kits
 
@@ -154,7 +133,7 @@ The tone database's kit names include Standard Kit, Room Kit, Power Kit, Brush K
 **Size:** 1MB (1,048,576 bytes)
 **Load Address:** 0x300000
 **Total Strings Found:** 324
-**Unique Rhythm/Style Names:** 89
+**Style directory records:** 210 (7 sections × 30; `docs/accompaniment-style-format.md` in kn5000-roms-disasm)
 
 ### Purpose
 
@@ -162,7 +141,7 @@ This flash memory stores user-customizable data including:
 - custom accompaniment styles (sections 0-6) and section 7's block slot store
 - three user banks of sound-parameter settings
 - the LCD wallpaper image
-- the sub-CPU payload staging area
+- the compressed sub-CPU payload (`0x3E0000`)
 
 Panel Memory is not stored here; see [Custom Data Flash]({{ site.baseurl }}/custom-data-flash/).
 
@@ -227,18 +206,7 @@ Handler names such as LyricBackColorCheck and FlsOverWrSwCatch belong to the fir
 
 ## String Extraction Methodology
 
-Strings were extracted using systematic scanning with the following criteria:
-
-1. **Minimum Length:** 4 characters
-2. **Character Set:** Printable ASCII (0x20-0x7E)
-3. **Termination:** Null-terminated (0x00) or fixed-length fields
-4. **Filtering:** Manual review to exclude false positives from binary data
-
-### Tools Used
-
-- Binary string extraction (custom scripts)
-- Cross-reference with disassembly
-- Pattern matching for structured data
+The counts on this page are raw `strings(1)` line counts, with no filtering. The main CPU figure is `strings -n 8` (9,446, as recorded in `analysis/strings/README.md` in kn5000-roms-disasm). The other figures reproduce with `strings -n 6` (sub-CPU payload, 88; IC19 flash, 324) and `strings -n 4` (sub-CPU boot ROM, 11), run on the images in that repository's `original_ROMs/`. They count printable-ASCII runs, so they include runs that are really pixel or table data. The string tables named above were then identified against the disassembly.
 
 ---
 

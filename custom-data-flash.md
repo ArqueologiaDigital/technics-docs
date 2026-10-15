@@ -6,7 +6,7 @@ permalink: /custom-data-flash/
 
 # Custom Data Flash Organization
 
-The Custom Data Flash is a 1 MB flash device at IC19, mapped at **0x300000-0x3FFFFF**. It stores user-writable data: custom accompaniment styles, three banks of sound-parameter settings, LCD wallpaper screenshots, and the SubCPU payload staging area.
+The Custom Data Flash is a 1 MB flash device at IC19, mapped at **0x300000-0x3FFFFF**. It stores user-writable data: custom accompaniment styles, three banks of sound-parameter settings, LCD wallpaper screenshots, and the compressed SubCPU payload.
 
 ## Hardware
 
@@ -57,7 +57,7 @@ The chip is programmed from the "initial data disk" during factory setup.
 | `0x3C0000-0x3D2FFF` | 78KB  | LCD Wallpaper/Screenshot Storage                                                           |
 | `0x3D3000-0x3D3FFF` | 4KB   | Sound-parameter user banks (`CustomData_SndParamBanks`)                                    |
 | `0x3D4000-0x3DFFFF` | 48KB  | Unused (erased)                                                                            |
-| `0x3E0000-0x3FFFFF` | 128KB | SubCPU Payload Staging Area — **blank in our dump**, see below                             |
+| `0x3E0000-0x3FFFFF` | 128KB | Compressed SubCPU payload — **blank in our dump**, see below                               |
 
 The erased runs are the unused ends of the style areas: each one stops where the next section begins (`0x319800`, `0x349800`, `0x379800`). They fall inside 64 KiB sectors and have nothing to do with the boot block.
 
@@ -106,14 +106,14 @@ addresses in v7): `FLASH_SECTION_PTR_0` .. `FLASH_SECTION_PTR_7`. The same routi
 
 ## "HK" Header Format
 
-Style sections (0-7) begin with a 4-byte header using 16-bit character encoding:
+Sections 0-7 begin with an `H`, `K` magic in 16-bit characters. In the style sections (0-6) it opens a 96-byte header, and the style directory follows at +0x60 (below):
 
-| Offset | Size | Value | Description |
-|:---|:---|:---|:---|
-| +0x00 | word | 0x0048 | 'H' (16-bit) |
-| +0x02 | word | 0x004B | 'K' (16-bit) |
-| +0x04 | 4 bytes | varies | Flags/configuration |
-| +0x08 | varies | data | Style parameters, names, MIDI patterns |
+| Offset | Size       | Value  | Description                                                                                                                  |
+|:-------|:-----------|:-------|:-----------------------------------------------------------------------------------------------------------------------------|
+| +0x00  | word       | 0x0048 | 'H' (16-bit)                                                                                                                 |
+| +0x02  | word       | 0x004B | 'K' (16-bit)                                                                                                                 |
+| +0x04  | 4 bytes    | varies | Flags/configuration                                                                                                          |
+| +0x08  | 0x58 bytes | varies | rest of the header (in section 7, the slot counts at +0x08 / +0x0A and the owner maps, [above](#section-7-block-slot-store)) |
 
 Style data contains accompaniment arrangement data including style names (e.g., "Bolero puro"), MIDI patterns, and configuration parameters.
 
@@ -179,7 +179,7 @@ uses a hard-coded `0xF400`**, and `0x63800 + 0xF400 = 0x72C00`, exactly EOF:
 byte-identical to chip `0xB0000`–`0xBEFFF`. One section transformed, one not, both as predicted.
 
 Erase is **per-sector, never chip-wide** — twelve 64 KiB sectors covering `0x300000`–`0x3BFFFF`
-only. Wallpaper (`0x3C0000`), the sound-parameter banks (`0x3D3000`) and SubCPU staging (`0x3E0000`) are not
+only. Wallpaper (`0x3C0000`), the sound-parameter banks (`0x3D3000`) and the SubCPU payload (`0x3E0000`) are not
 touched by a disk install.
 
 > **Contrast with the KN6000/KN6500/KN7000**, whose `.AST` payload *is* written verbatim, at flash
@@ -236,7 +236,7 @@ only: the unit's user had edited them. Source: the `CustomData_SndParamBanks` he
 `custom_data/kn5000_custom_data.s`. The main-CPU routines still use the numeric addresses
 `0x3D3000`-`0x3D3400`; making them cross-ROM symbolic references is an open lead of the hdae lane.
 
-## SubCPU Payload Staging (0x3E0000)
+## Compressed SubCPU Payload (0x3E0000)
 
 The 128 KB region at `0x3E0000-0x3FFFFF` is where a File Type 007 ("Program DATA FILE
 PCK") update disc writes the compressed SubCPU executable payload — verbatim, as a raw

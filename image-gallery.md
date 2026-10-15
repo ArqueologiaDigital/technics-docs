@@ -157,6 +157,8 @@ These images show keyboard split point notes displayed when configuring the keyb
 | ![Ntedt0d]({{ "/assets/images/gallery/BitmapNtedt0d.png" | relative_url }})   | `BitmapNtedt0d.bin`  | 240x127, 8-bit | Note-edit screen grid                 |
 | ![Ntedt0k]({{ "/assets/images/gallery/BitmapNtedt0k.png" | relative_url }})   | `BitmapNtedt0k.bin`  | 16x127, 8-bit  | Note-edit screen vertical piano ruler |
 
+> **Render caveat.** The Ntedt0k render above is an old 127×16 mis-decode of this 16×127 image. `convert_images.py` in kn5000-roms-disasm now decodes it at 16×127 (`scripts/build/convert_images.py:148-150`), but the PNG has not been regenerated.
+
 ---
 
 ## HDAE5000 Hard Disk Expansion ROM Images
@@ -239,7 +241,7 @@ These background wallpapers are built into the firmware for the LCD display. The
 
 ![Wallpaper 0]({{ "/assets/images/gallery/Wallpaper_0.png" | relative_url }})
 
-*320x240, 8-bit indexed color - Table Data ROM offset: 0x8ED000-0x8FFC00*
+*320x240, 8-bit indexed color - Table Data ROM address: 0x8ED000-0x8FFBFF*
 
 Blue textured pattern resembling fabric or carpet.
 
@@ -247,7 +249,7 @@ Blue textured pattern resembling fabric or carpet.
 
 ![Wallpaper 1]({{ "/assets/images/gallery/Wallpaper_1.png" | relative_url }})
 
-*320x240, 8-bit indexed color - Table Data ROM offset: 0x900000-0x912C00*
+*320x240, 8-bit indexed color - Table Data ROM address: 0x900000-0x912BFF*
 
 Blue textured pattern with subtle "Technics" watermark.
 
