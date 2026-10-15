@@ -1333,16 +1333,16 @@ Official updates distributed as executable files on floppy disk.
 
 **File Type Identifiers (38-byte header at 0xE00038):**
 
-| ID | Header String | Description |
-|----|---------------|-------------|
-| 1 | `Technics KN5000 Program  DATA FILE 1/2` | Main CPU ROM disk 1 |
-| 2 | `Technics KN5000 Program  DATA FILE 2/2` | Main CPU ROM disk 2 |
-| 3 | `Technics KN5000 Table    DATA FILE 1/2` | Table data disk 1 |
-| 4 | `Technics KN5000 Table    DATA FILE 2/2` | Table data disk 2 |
-| 5 | `Technics KN5000 CMPCUSTOMDATA FILE    ` | Custom data (compressed?) |
-| 6 | `Technics KN5000 HD-AEPRG DATA FILE    ` | HDAE5000 ROM |
-| 7 | `Technics KN5000 Program  DATA FILE PCK` | Main CPU ROM (packed) |
-| 8 | `Technics KN5000 Table    DATA FILE PCK` | Table data (packed) |
+| ID  | Header String                            | Description                    |
+|-----|------------------------------------------|--------------------------------|
+| 1   | `Technics KN5000 Program  DATA FILE 1/2` | Main CPU ROM disk 1            |
+| 2   | `Technics KN5000 Program  DATA FILE 2/2` | Main CPU ROM disk 2            |
+| 3   | `Technics KN5000 Table    DATA FILE 1/2` | Table data disk 1              |
+| 4   | `Technics KN5000 Table    DATA FILE 2/2` | Table data disk 2              |
+| 5   | `Technics KN5000 CMPCUSTOMDATA FILE    ` | Custom data (written verbatim) |
+| 6   | `Technics KN5000 HD-AEPRG DATA FILE    ` | HDAE5000 ROM                   |
+| 7   | `Technics KN5000 Program  DATA FILE PCK` | Main CPU ROM (packed)          |
+| 8   | `Technics KN5000 Table    DATA FILE PCK` | Table data (packed)            |
 
 **File Structure:**
 - 38-byte identification header string
@@ -1399,12 +1399,12 @@ CALL FLASH_MEM_UPDATE            ; Enter update mode
 
 **Component Sizes:**
 
-| Component | Size | Distribution |
-|-----------|------|--------------|
-| Main CPU ROM | 2MB | 2 disks (1/2, 2/2) or 1 packed |
-| Table Data | 2MB | 2 disks (1/2, 2/2) or 1 packed |
-| Custom Data | 1MB | 1 disk (compressed?) |
-| HDAE5000 ROM | 512KB | 1 disk |
+| Component    | Size  | Distribution                   |
+|--------------|-------|--------------------------------|
+| Main CPU ROM | 2MB   | 2 disks (1/2, 2/2) or 1 packed |
+| Table Data   | 2MB   | 2 disks (1/2, 2/2) or 1 packed |
+| Custom Data  | 1MB   | 1 disk (written verbatim)      |
+| HDAE5000 ROM | 512KB | 1 disk                         |
 
 **Note:** the sub-CPU payload is not a separate update file: a type-7 file carries it as a second SLIDE4K stream, which the installer writes verbatim to Custom Data Flash 0x3E0000 (see [System Update Discs]({{ site.baseurl }}/system-update-discs/#update-handlers-by-type)).
 
@@ -1554,20 +1554,20 @@ Every jump table in the KN5000 images is resolved: the disassembly's semantic sc
 
 FDC handler routines access these RAM locations:
 
-| Address | Purpose |
-|---------|---------|
-| 0x8A20 | FDC status/mode flag (0xFF = active) |
-| 0x8A24 | Error indicator (0x00 = success) |
-| 0x8A26 | Cached FDC status |
-| 0x8A2E | FDC timing parameter |
-| 0x8A34 | FDC control value |
-| 0x8A36 | FDC address register |
-| 0x8A40 | FDC command code (0-11) |
-| 0x8A44 | FDC output control flag |
-| 0x8A48-4A | Sector/track/head |
-| 0x8A6A | FDC output enable flag |
-| 0x8A6C | FDC drive/mode selector |
-| 0x8B04 | FDC control register |
+| Address   | Purpose                                                                                               |
+|-----------|-------------------------------------------------------------------------------------------------------|
+| 0x8A20    | FDC status/mode flag (0xFF = active)                                                                  |
+| 0x8A24    | Error indicator (0x00 = success)                                                                      |
+| 0x8A26    | Cached FDC status                                                                                     |
+| 0x8A2E    | N, the sector-size code (2 = 512, 3 = 1024)                                                           |
+| 0x8A34    | Format filler byte (0xE5)                                                                             |
+| 0x8A36    | Seek target cylinder (`FDC_TARGET_TRACK`)                                                             |
+| 0x8A40    | Request command number, 0-11 (`FDC_COMMAND_INDEX`)                                                    |
+| 0x8A44    | Request head (0/1); command 9 copies it into the disk-changed flag at 0x8A6A                          |
+| 0x8A48-4A | Request starting sector (0x8A48) and sector count (0x8A4A)                                            |
+| 0x8A6A    | Disk-changed flag: command 9 sets it to 0xFF (request head = 1) or 0 (= 0); cleared at initialization |
+| 0x8A6C    | FDC drive/mode selector                                                                               |
+| 0x8B04    | Cylinder last sought to (0xFF = unknown)                                                              |
 
 ### FDC Handler Routines
 
@@ -1594,22 +1594,16 @@ The FDC subsystem uses a handler dispatch table at 0xF97D8D with 12 handlers. Fu
 
 These helper routines support the main FDC handlers:
 
-| Address  | Name             | Size      | Description                                          |
-|----------|------------------|-----------|------------------------------------------------------|
-| 0xF97544 | FDC_DRIVE_DETECT | 78 bytes  | 6-check drive detection (returns HL=0xFFFF if found) |
-| 0xF97592 | FDC_DRIVE_STATUS | 26 bytes  | Quick 2-check status validation                      |
-| 0xF972F9 | FDC_CMD_SEND     | 231 bytes | NEC uPD765 command protocol                          |
-| 0xF975DC | FDC_TIMING_DELAY | 6 bytes   | Set wait flag for timeout protection                 |
-| 0xF975E2 | FDC_POST_OP      | 48 bytes  | Wait with 500ms timeout (error 0x09)                 |
-| 0xF97612 | SOME_DELAY       | 32 bytes  | Millisecond delay (WA/2 ms)                          |
+| Address  | Name             | Size      | Description                                                                                                          |
+|----------|------------------|-----------|----------------------------------------------------------------------------------------------------------------------|
+| 0xF97544 | FDC_DRIVE_DETECT | 78 bytes  | Media-probe test on the current request (HL=0xFFFF for a one-sector probe read of track 0, head 0, sector 2 or 0xFF) |
+| 0xF97592 | FDC_DRIVE_STATUS | 26 bytes  | Quick 2-check status validation                                                                                      |
+| 0xF972F9 | FDC_CMD_SEND     | 231 bytes | NEC uPD765 command protocol                                                                                          |
+| 0xF975DC | FDC_TIMING_DELAY | 6 bytes   | Set wait flag for timeout protection                                                                                 |
+| 0xF975E2 | FDC_POST_OP      | 48 bytes  | Wait with 500ms timeout (error 0x09)                                                                                 |
+| 0xF97612 | SOME_DELAY       | 32 bytes  | Millisecond delay (WA/2 ms)                                                                                          |
 
-**FDC_DRIVE_DETECT (0xF97544)** validates 6 conditions:
-1. (8A46h) == 0 - Status register 3 clear
-2. (8A44h) == 0 - Status register 2 clear
-3. (8A40h) == 3 - Command = Sense Drive Status
-4. (8A4Ah) == 1 - Result count = 1
-5. (8A10h) == 0xFFFF - Detection mode active
-6. (8A48h) == 2 or 0xFF - Valid drive response
+**FDC_DRIVE_DETECT (0xF97544)** is a media-probe test, not drive detection: it returns HL = 0xFFFF when the current request is a one-sector read (command 3) of track 0 (8A46h == 0), head 0 (8A44h == 0), sector count 1 (8A4Ah == 1), starting sector 2 or 0xFF (8A48h), with the media-probe flag (8A10h) == 0xFFFF. `FDC_CMD_EXEC` then allows the read a single try, and `FDC_CONFIG_VERIFY` keeps the cached cylinder at 0x8B04.
 
 **FDC_CMD_SEND (0xF972F9)** implements the NEC uPD765 protocol:
 - Command byte structure: MT(7), MF(6), SK(5), Command(4-0)
@@ -1643,14 +1637,22 @@ These helper routines support the main FDC handlers:
 The update file handler uses offset-based dispatch:
 
 ```asm
-Erase_and_Burn____when_disk_is_valid:
-    LD A, (0F23Ch)              ; Get file type ID
-    EXTZ WA                     ; Zero-extend to 16-bit
-    SLL 1, WA                   ; Multiply by 2 (word offset)
-    LDA XIX, HANDLE_UPDATE_OFFSETS
-    LD WA, (XIX + WA)           ; Load offset from table
-    LDA XIX, HANDLE_UPDATE_FILE_TYPE_ID_001h  ; Base address
-    JP T, XIX + WA              ; Jump to handler
+Erase_and_Burn____when_disk_is_valid:   ; A = file type ID (1-8), passed by the caller
+    dec 2, xsp
+    ld (xsp), a                 ; keep the type ID
+    ...                         ; draw "Now Erasing!!"
+    ld a, (xsp)
+    extz wa
+    dec 1, wa                   ; type 1-8 -> index 0-7
+    cp wa, 0:i3
+    jrl lt, SHOW_ILLEGAL_DISK_MESSAGE
+    cp wa, 7:i3
+    jrl gt, SHOW_ILLEGAL_DISK_MESSAGE
+    add wa, wa                  ; word offset
+    lda xix, (HANDLE_UPDATE_OFFSETS:24)
+    ld wa, (xix+wa)             ; offset from the table
+    lda xix, (HANDLE_UPDATE_FILE_TYPE_ID_001h:24)  ; base
+    jp t, (xix+wa)              ; jump to the handler
 ```
 
 ### State Machine Pattern
@@ -1719,8 +1721,8 @@ The firmware implements a sophisticated event-driven UI system with multiple dis
 The main event loop uses a multi-level dispatch system:
 
 **APP_EVENT_HANDLER_TABLE (0xF44169):**
-- 32 inline code handlers for application events
-- Used for LED control, button handling, and UI updates
+- 32 cases: EVT_INC_VAL on sequencer-edit parameters 0-31, reached from `ApEditSyori`
+- The cases of `AppEvent_ChainDispatch1` (XWA 0-0x1F): sequencer-edit increment handlers (`AppEvent_ChainDispatch1_IncFromMeasure`, `AppEvent_ChainDispatch1_IncTranspose`, `AppEvent_ChainDispatch1_IncQtzValue`, …)
 
 **UI_COMPONENT_DISPATCH (0xF1A7CB):**
 - 8 inline code handlers for UI grid/focus components
