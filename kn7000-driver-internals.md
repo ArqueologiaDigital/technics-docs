@@ -384,11 +384,15 @@ BIOS axis now selects the program build: `sp7001`, `v16` (the default), `v15` or
 
 The signal chain on the machine is
 
-    tone generator (IC201/IC205) -> effects DSP (IC306, ADSP-21065L) -> IC311 main DAC
-                                                                     -> IC310 (PCM69BU, SUB OUT)
+    sub TG (IC205) -> master TG (IC201) -> sends  -> effects DSP (IC306, ADSP-21065L)
+                      master TG (IC201) <- returns <- effects DSP (four serial lines, SDIE0-3)
+                      master TG (IC201): direct sound + returns -> IC311 main DAC
+                      IC310 (PCM69BU) drives SUB OUT
 
 with IC25 (a 74HC174) latching the main DAC's mode pins. There is no part between the
-tone generator and the DSP.
+tone generator and the DSP, and no DSP output pin feeds a DAC: all four of the DSP's serial
+transmit lines loop back into the master tone generator, which mixes its direct sound with
+the effect returns ([Sound Subsystem]({{ site.baseurl }}/kn7000-sound-subsystem/)).
 
 An earlier revision of the driver had a `kn7000_dsp_bridge_device` sitting in MAME's
 sound graph at that position. It mixed two unlike things: the send/direct/return
