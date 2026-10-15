@@ -16,12 +16,19 @@ against the checksums shipped on the disks.
 
 ## Disc contents
 
-Each update spans two floppies. As distributed, the two update sets are:
+Program and table updates each span two floppies; the v1.4 update (kn7-14)
+carried both, on four. The sets this project holds:
 
-| Set | Purpose | Disk 1 | Disk 2 |
-|-----|---------|--------|--------|
-| **kn7-16** | Program (firmware) | `JK1.SLD`, `SMCKPR1.INF`, `TECHNICS.PR1` | `JK2.SLD`, `SMCKPR2.INF`, `TECHNICS.PR2` |
-| **kn7-14** | Table (data) | `JKT1.SLD`, `SMCKTB1.INF`, `TECHNICS.TB1` | `JKT2.SLD`, `SMCKTB2.INF`, `TECHNICS.TB2` |
+| Set                   | Purpose                  | Disk 1                                                   | Disk 2                                    |
+|-----------------------|--------------------------|----------------------------------------------------------|-------------------------------------------|
+| **kn7-16**            | Program v1.6 (build 941) | `JK1.SLD`, `SMCKPR1.INF`, `TECHNICS.PR1`                 | `JK2.SLD`, `SMCKPR2.INF`, `TECHNICS.PR2`  |
+| **kn7-15**            | Program v1.5 (build 935) | `JK1.SLD`, `SMCKPR1.INF`, `TECHNICS.PR1`                 | `JK2.SLD`, `SMCKPR2.INF`, `TECHNICS.PR2`  |
+| **kn7-14**, disks 1–2 | Program v1.4 (build 929) | lost (the archived copy is only a 'page not found' stub) | `JK2.SLD`, `SMCKPR2.INF`, `TECHNICS.PR2`  |
+| **kn7-14**, disks 3–4 | Table (build 84)         | `JKT1.SLD`, `SMCKTB1.INF`, `TECHNICS.TB1`                | `JKT2.SLD`, `SMCKTB2.INF`, `TECHNICS.TB2` |
+
+Key Soft Service's SP7001 PLUG-iN update (program build 942, table build 83)
+follows the same two-disk scheme and adds `BASEEXT.XAP` to its second table
+disk; see [SD PLUG-iN]({{ site.baseurl }}/kn7000-sd-plugin/).
 
 - `*.SLD` — one LZSS-compressed flash payload each.
 - `SMCK*.INF` — checksum manifest for the combined image (identical on both disks of a set).
@@ -75,13 +82,18 @@ combined image — a `@`-prefixed hex value per line:
 ```
 
 The target flash is nominally 4 MB (16 × `0x40000`); the Program update ships
-`0x3F6F01` bytes, deliberately omitting the top `0x90FF` of the part. Both
-extracted images verify perfectly against these manifests:
+`0x3F6F01` bytes, leaving the top `0x90FF` of the part unwritten (the length
+varies by build). Both extracted images verify perfectly against these manifests:
 
 | Image | Total sum | Blocks |
 |-------|-----------|--------|
 | Program | `0x18CE8702` | 16/16 match |
 | Table | `0x13DCD1A3` | 16/16 match |
+
+Of the builds found since: the v1.5 program also verifies 16/16; the surviving
+v1.4 disk 2 verifies its eight blocks (8–15); the SP7001 program's shipped
+`.INF` matches none of the 16 blocks, because it predates the final payload;
+and the SP7001 table matches all but blocks 14–15, the plug-in area.
 
 ## Extraction
 
@@ -91,14 +103,19 @@ writing `kn7000_program.rom` and `kn7000_table.rom`. It reuses the same LZSS
 decompressor used for the KN5000 (`pylzss`, 4 KB window, zero-initialized).
 
 > **What that omitted `0x90FF` is *not*.** It is not the home of the resident flash
-> updater. On a real instrument the top of the program flash
+> updater. On the owner's build-893 instrument the top of the program flash
 > (`0x487F55CF`–`0x487FFFFF`) reads as one unbroken block of `0xFF`, so nothing
-> resident lives there. The omission is real; the explanation for it is open. See
+> resident lives there. Nor is the omission a reserved block: the payload length
+> simply varies by build (`0x3F6E9D` bytes for v1.5, `0x3F6F01` for v1.6,
+> `0x3F8BDB` for the SP7001 build 942, which writes into the very range v1.6
+> leaves blank). See
 > [Where does the flash updater live?]({{ site.baseurl }}/kn7000-firmware-security/#45-where-does-the-flash-updater-live-unresolved).
 >
-> The only never-read part of the IC16/IC17 pair is at the *other* end of the
-> address space: **`0x483E94D4`–`0x483FFFFF`**, immediately above where the table
-> payload stops.
+> The only never-read part of the IC16/IC17 pair on a unit without the SP7001
+> PLUG-iN is at the *other* end of the address space: **`0x483E94D4`–`0x483FFFFF`**,
+> immediately above where the standard table payload stops. The SP7001 PLUG-iN
+> table update does write it: its table image is a full `0x400000` bytes, with
+> plug-in code and strings up to `0x483FB59F`.
 
 See the [Firmware Images]({{ site.baseurl }}/kn7000-firmware/) page for what the extracted images
 contain.

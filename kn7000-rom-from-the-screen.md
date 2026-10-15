@@ -26,8 +26,9 @@ instrument reads its own flash out loud for about fifty minutes per 4 MB chip.
 
 Where it lives: `kn7000_mame/tools/dumpgrab/` (commits `74a3457`, and `bf5e97f`
 for the real-capture work in progress). The side quest that produced it is
-deliberately still filed under `pending/`, because nothing in it has met real
-hardware yet.
+deliberately still filed under `pending/` (in the KN7000 repository's
+`side-quests/`), because it has not yet recovered a byte from a real instrument:
+every real composite frame tried so far (§6) is refused.
 
 ## 1. What the screen gives you for free
 
@@ -400,19 +401,19 @@ unknown quality and should be treated as raw material, not as a result.
 
 ## Provenance
 
-| Claim | How it was checked |
-|---|---|
-| Accuracy table, `agree` result, deterministic 24-byte page | measured end to end on this machine on 2026-08-09 against `kn7000_program.rom`; recorded in `tools/dumpgrab/README.md` |
-| Voting curve, uncompressed vs H.264, 72.45 % / 99.17 % resize | measured in the video-pipeline and extractor work packages; the curve is over a 500-frame / 42-page corpus |
-| 29.2 % and 34 % damaged-frame shares; salvage 99.41 %; 0.00 % tear false positives | two separate emulator sweeps; recorded in `notes/FINDINGS-kn7000-debug-screens.md` §10 and the side-quest findings |
-| Repaint period ~2,952 ms; sweep 5.17–5.21 pages/s | `tools/dumpgrab/capture/measure_repaint_idle.lua` and the capture harness's own `SWEEP hold:` log lines |
-| MTF / sampling / noise-floor table | `wip-real/r4-capture-side/score_capture.py`, same screen through three paths |
-| NTSC 539 px vs PAL 433 px | same page, same VLC snapshot path, same 720×576 frame |
-| Video-out circuit, unconnected RGB/sync pins | SX-KN7000 service-manual schematic |
-| PAL/NTSC is one bit | firmware: `0x500D35B2`, the two-byte copy to the LCD-controller register, and the 26-word defaults table |
-| Refusal on real frames (4/16 rows, 237/256 cells) | the shipped tool run against `real-NTSC-48019000.png` |
-| Calibration page contents | table page `0x48019000` verified row-by-row against `kn7000_table.rom` |
-| **Nothing here has met real hardware** | stated by the tool's own README and the reason the side quest stays in `pending/` |
+| Claim                                                                              | How it was checked                                                                                                                              |
+|------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| Accuracy table, `agree` result, deterministic 24-byte page                         | measured end to end on this machine on 2026-08-09 against `kn7000_program.rom`; recorded in `tools/dumpgrab/README.md`                          |
+| Voting curve, uncompressed vs H.264, 72.45 % / 99.17 % resize                      | measured in the video-pipeline and extractor work packages; the curve is over a 500-frame / 42-page corpus                                      |
+| 29.2 % and 34 % damaged-frame shares; salvage 99.41 %; 0.00 % tear false positives | two separate emulator sweeps; recorded in `notes/FINDINGS-kn7000-debug-screens.md` §10 and the side-quest findings                              |
+| Repaint period ~2,952 ms; sweep 5.17–5.21 pages/s                                  | `tools/dumpgrab/capture/measure_repaint_idle.lua` and the capture harness's own `SWEEP hold:` log lines                                         |
+| MTF / sampling / noise-floor table                                                 | `wip-real/r4-capture-side/score_capture.py`, same screen through three paths                                                                    |
+| NTSC 539 px vs PAL 433 px                                                          | same page, same VLC snapshot path, same 720×576 frame                                                                                           |
+| Video-out circuit, unconnected RGB/sync pins                                       | SX-KN7000 service-manual schematic                                                                                                              |
+| PAL/NTSC is one bit                                                                | firmware: `0x500D35B2`, the two-byte copy to the LCD-controller register, and the 26-word defaults table                                        |
+| Refusal on real frames (4/16 rows, 237/256 cells)                                  | the shipped tool run against `real-NTSC-48019000.png`                                                                                           |
+| Calibration page contents                                                          | table page `0x48019000` verified row-by-row against `kn7000_table.rom`                                                                          |
+| **No byte has yet been recovered from real hardware**                              | the shipped tool declines every real composite frame tried to date, including `real-NTSC-48019000.png` (§6); the side quest stays in `pending/` |
 
 ## Related pages
 

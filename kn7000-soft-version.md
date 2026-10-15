@@ -13,7 +13,7 @@ changes nothing, and it is the one preservation measurement that every KN7000
 owner in the world can perform today.
 
 It has already paid off. In August 2026 the project owner opened it on his own
-instrument and read numbers that **do not match either of the firmware images
+instrument and read numbers that **do not match any of the firmware images
 this project holds**.
 
 > ### The finding
@@ -25,8 +25,8 @@ this project holds**.
 > **`PROGRAM : 941`** and **`TABLE : 84`**. His instrument therefore runs an
 > **earlier program revision *and* an earlier table revision**, and *neither of
 > them is preserved anywhere* — not in this project, not on the update disks,
-> not in any dump we are aware of. Every emulator run this project has ever
-> made executed program 941. Program 893 has never been executed by anything
+> not in any dump we are aware of. Until October 2026 every emulator run this
+> project made executed program 941. Program 893 has never been executed by anything
 > except the machines that shipped with it.
 >
 > Recorded as owner testimony, read off the instrument's own LCD. No photograph
@@ -72,12 +72,12 @@ among the service-mode entries catalogued on this site.
 The screen is drawn under the header `--- SOFTWARE VERSION ---` and each row is
 produced by its own window procedure formatting a `%4d`:
 
-| Row | Format string | Where the number comes from | Do we hold that flash? |
-|-----|---------------|-----------------------------|------------------------|
-| `PROGRAM : %4d` | program flash `0x1D67E0` | a **constant compiled into the program flash**: the `u16` at CPU `0x4873660C` (file offset `0x33660C`) | ✅ yes — one revision, reading **941** |
-| `TABLE   : %4d` | `0x1D67F0` | an **ASCII decimal string read out of the table flash** at boot: the firmware follows the u32 at `0x4800001C` (segment 7 of the table directory) and parses the digits it finds | ✅ yes — one revision, holding `"84\n"` |
-| `RHYTHM  : %4d` | `0x1D6800` | an ASCII decimal parsed out of the **rhythm flash**, near the top of its 4 MB span | ❌ **undumped** |
-| `PICTURE : %4d` | `0x1D6810` | an ASCII decimal parsed out of the **picture flash** at `0x57800000`, via the u32 pointer stored at its base | ❌ **undumped** |
+| Row             | Format string            | Where the number comes from                                                                                                                                                     | Do we hold that flash?                                                                                                                      |
+|-----------------|--------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `PROGRAM : %4d` | program flash `0x1D67E0` | a **constant compiled into the program flash**: the `u16` at CPU `0x4873660C` (file offset `0x33660C`)                                                                          | ✅ yes — four builds: **941** (v1.6), **942** (SP7001), **935** (v1.5) and the upper half of **929** (v1.4); the stamp moves between builds |
+| `TABLE   : %4d` | `0x1D67F0`               | an **ASCII decimal string read out of the table flash** at boot: the firmware follows the u32 at `0x4800001C` (segment 7 of the table directory) and parses the digits it finds | ✅ yes — two builds: `"84\n"` and `"83\n"` (SP7001)                                                                                         |
+| `RHYTHM  : %4d` | `0x1D6800`               | an ASCII decimal parsed out of the **rhythm flash**, near the top of its 4 MB span                                                                                              | ❌ **undumped**                                                                                                                             |
+| `PICTURE : %4d` | `0x1D6810`               | an ASCII decimal parsed out of the **picture flash** at `0x57800000`, via the u32 pointer stored at its base                                                                    | ❌ **undumped**                                                                                                                             |
 
 Two consequences follow directly from that table, and they are the reason the
 owner's reading matters so much:
@@ -97,10 +97,10 @@ self-consistency is a mild corroboration that the reading is a genuine earlier
 release pair rather than a misread.
 
 The **RHYTHM** and **PICTURE** rows cannot be reproduced in emulation at all:
-those two flash devices have never been dumped. (MAME's KN7000 driver leaves the
-`0x57800000` picture region unmapped — the `ROM_REGION` for it is commented out
-and marked `NO_DUMP` — and substitutes a clearly-labelled synthetic `BAD_DUMP`
-stand-in for the rhythm resource.) Anything those rows show in the emulator is
+those two flash devices have never been dumped. (Upstream MAME's KN7000 driver
+declares both devices `NO_DUMP` and maps nothing at `0x57800000`; the development
+driver in the kn7000_mame overlay also substitutes a clearly-labelled synthetic
+`BAD_DUMP` stand-in for the rhythm resource.) Anything those rows show in the emulator is
 an artefact, not a firmware fact.
 
 ## The firmware evidence
@@ -128,7 +128,7 @@ disassembly names `AcProgVerBoxProc` (CPU `0x48488897`) and `AcTableVerBoxProc`
 ```
 484888d0: fc cc e0 67 5d 48   mov     0x485d67e0, d0     ; "PROGRAM : %4d"
 484888da: fc ac c4 7d 00 50   movhu   (0x50007dc4), d0
-484888e3: dd 65 91 b7 03 20 20 call   0x4c001a48         ; formatter (in the undumped 0x4C… library ROM)
+484888e3: dd 65 91 b7 03 20 20 call   0x4c001a48         ; formatter (library code, copied from program flash at boot)
 ```
 
 ```
@@ -170,17 +170,17 @@ firmware's developer symbol tables carry the matching tags `TtSoftver`,
 
 ## Why program 893 matters
 
-It is a **different firmware from the one every emulator run has ever
+It is a **different firmware from any that an emulator run has ever
 executed.** Not a different setting or a different data disk — different code.
 Everything this project has concluded about KN7000 behaviour by running or
 disassembling `kn7000_program.rom` is a statement about build 941. Build 893
 may differ in bug fixes, in sound or style tables, in panel handling, in the
 boot sequence; nobody can say, because nobody has the bytes.
 
-Preservation-wise the situation is worse than "we lack a second version to
-diff". The two images this project holds were both *reconstructed from public
-update floppies* ([system update discs]({{ site.baseurl }}/kn7000-system-update-discs/)) —
-that is, they are the **last** publicly distributed revisions. The revision that
+Preservation-wise the problem is not a lack of versions to diff. Every program
+image this project holds — builds 929 (upper half), 935, 941 and 942 — was
+*reconstructed from update floppies*
+([system update discs]({{ site.baseurl }}/kn7000-system-update-discs/)). The revision that
 was **factory-installed** in at least one surviving instrument is older than
 anything the updates carry, and update packages by their nature overwrite it.
 Every time a KN7000 owner applies the kn7-16 program update, one more copy of
@@ -190,8 +190,9 @@ whatever earlier build that machine carried is destroyed. Build 893 is not
 The
 [cross-version diff work]({{ site.baseurl }}/cross-version-diff-guidebook/) done for
 the KN5000 — where holding v7, v9 and v10 made it possible to tell deliberate
-change from coincidence — is simply not available for the KN7000 until a second
-program image exists.
+change from coincidence — is now possible for the KN7000 between builds 935, 941
+and 942 (and the upper half of 929), though it has not been done yet; for build
+893 it still needs that build's bytes.
 
 ### What it would take
 
@@ -222,10 +223,10 @@ machine:
 2. Hold the UP **and** DOWN caps of part-mixer columns **1**, **6** and **8**
    together until the SOFT VERSION screen appears.
 3. **Photograph it**, all four rows.
-4. Report the numbers. Anything other than `PROGRAM : 941` is a firmware
-   revision the world does not have — and knowing *which* machines carry which
-   builds is itself new information, since no serial-number-to-revision mapping
-   exists.
+4. Report the numbers. Anything other than `PROGRAM : 935`, `941` or `942` is a
+   firmware revision the world does not have in full (of build 929 only the upper
+   half survives) — and knowing *which* machines carry which builds is itself
+   new information, since no serial-number-to-revision mapping exists.
 
 Even a reading that matches 941 is useful: it tells us how widely the public
 update was applied.

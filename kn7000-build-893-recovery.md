@@ -6,8 +6,10 @@ permalink: /kn7000-build-893-recovery/
 
 # Recovering build 893 — a photographic transcription, not a dump
 
-The project owner's SX-KN7000 runs **PROGRAM 893 / TABLE 80**. Every image this
-project holds is **PROGRAM 941 / TABLE 84**. Neither of his is preserved
+The project owner's SX-KN7000 runs **PROGRAM 893 / TABLE 80**. The images this
+work was compared against are **PROGRAM 941 / TABLE 84**; the project has since
+also obtained builds 942/83 (SP7001), 935 (v1.5) and the upper half of 929
+(v1.4), all later than 893. Neither of his is preserved
 anywhere — see [the SOFT VERSION screen]({{ site.baseurl }}/kn7000-soft-version/)
 for how that was discovered and why it matters.
 
@@ -186,6 +188,11 @@ need ~16,000 photographs to find.
 
 Before requesting new photography, the **23 untranscribed photographs already in
 hand** should be read — they may collapse some brackets for free.
+
+The correlation has so far been run only against build 941. Builds 935 (v1.5,
+complete) and 929 (v1.4, upper half) are closer to 893 in build number and are
+now held; correlating the 37 screens against them costs nothing and may shrink
+the drift.
 
 ## 6. What this does and does not buy
 

@@ -155,9 +155,11 @@ has exactly **one** reference in the entire 4 MB image.
 What it actually switches: the viewer always free-runs while its window is open.
 `MT_Draw` paints the frame and sends `MT_SeleDraw`; `MT_SeleDraw` repaints and
 re-arms itself with `SetApTimer(0x78, …)`, so the watched address is re-read and
-redrawn roughly eight times a second. When the window closes, the `EV_HIDE`
-handler normally kills those timers — **but only if the FULLTIME shadow at
-`0x5006B528` is clear**:
+redrawn periodically: measured in the emulator, an idle repaint comes every
+~2.95 s and itself takes ~112 ms (see
+[Reading ROM out of the screen §4]({{ site.baseurl }}/kn7000-rom-from-the-screen/#4-the-firmwares-repaint-is-not-atomic--and-that-is-not-tearing)).
+When the window closes, the `EV_HIDE` handler normally kills those timers —
+**but only if the FULLTIME shadow at `0x5006B528` is clear**:
 
 ```
 48487993: fc a4 28 b5 06 50   mov  (0x5006b528), d0     ; the FULLTIME shadow
@@ -433,6 +435,12 @@ The LCD screen-capture chord is gated the *other* way: it requires the byte to
 **be** `0xFF`, so capture is dead on our image and live on a Panel-Simulator
 unit.
 
+The byte follows the release: it is `0x16` in v1.6 (build 941) and `0x15` in
+the v1.5 image (build 935), whose gate code is the same, so a v1.5 unit also
+opens the viewer directly. In the SP7001 build 942 it is `0xFF`, so on an
+SP7001-updated unit the chord is expected to open the Panel Simulator, with LCD
+capture live (read from the image, not yet run).
+
 ## What it can read
 
 READ: any address the CPU can address, 256 bytes per screenful. The renderer
@@ -450,13 +458,13 @@ You do not have to guess at the chip names: the firmware's own service ROM test
 prints them, and those label strings are in the image we hold (at CPU
 `0x48609728` onwards).
 
-| Firmware's label | Window to dial | Preservation status |
-|---|---|---|
-| `PROGRAM ROM: IC16 = , IC17 = ` | `0x48000000`–`0x487FFFFF` (**8 MB**: the table image is the *lower* half, the program image the upper half) | **Dumped** for build 941/84 from the update disks, except one hole: **`0x483E94D4`–`0x483FFFFF` (93,484 bytes)**, the top of the lower half, which no update payload ships and nobody has ever read. **Your build is the archival target.** |
-| `RHYTHM ROM: IC18 (IC20) = ` | not directly CPU-mapped in our model | **Undumped.** MAME substitutes a clearly-labelled synthetic name resource at `0x54E00000`, a genuine firmware probe window. Anything you see there *in the emulator* is synthetic. |
-| `PICTURE ROM: IC19 = ` | `0x57800000`–`0x57FFFFFF` (4 firmware references) | **Undumped**, and unmapped in MAME (reads `0x00` there). On real hardware it has content. |
-| `CUSTOM FLASH: IC21 = ` | read view `0x56000000` (170 refs); ⛔ command/write view `0x96800000` | A real, writable Fujitsu MBM29LV160B holding your own custom data. **Never park the repainting viewer on `0x96800000`** — that is the flash command window. |
-| `MAIN TG BANK 0-15 ROM: IC203= , IC204= ` and `SUB TG BANK 0-15 ROM: IC207= , IC208= ` | **not CPU-mapped at all** | **Undumped** wave/sample mask ROMs, reachable only through the tone generator's readback registers. They cannot appear in this viewer. See [Expansion Bus & Wave-ROM Dump]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/). |
+| Firmware's label                                                                       | Window to dial                                                                                              | Preservation status                                                                                                                                                                                                                                                                                                                                                        |
+|----------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `PROGRAM ROM: IC16 = , IC17 = `                                                        | `0x48000000`–`0x487FFFFF` (**8 MB**: the table image is the *lower* half, the program image the upper half) | **Dumped** from the update disks for builds 941/84, 935, 942/83 (SP7001) and the upper half of 929, except one hole on standard builds: **`0x483E94D4`–`0x483FFFFF` (92,972 bytes)**, the top of the lower half, which no standard update payload ships (the SP7001 table update does fill it) and nobody has read on a stock unit. **Your build is the archival target.** |
+| `RHYTHM ROM: IC18 (IC20) = `                                                           | not directly CPU-mapped in our model                                                                        | **Undumped.** Upstream MAME declares it `NO_DUMP`; the development driver in the kn7000_mame overlay substitutes a clearly-labelled synthetic name resource at `0x54E00000`, a genuine firmware probe window. Anything you see there *in the emulator* is synthetic.                                                                                                       |
+| `PICTURE ROM: IC19 = `                                                                 | `0x57800000`–`0x57FFFFFF` (4 firmware references)                                                           | **Undumped**, and unmapped in MAME (reads `0x00` there). On real hardware it has content.                                                                                                                                                                                                                                                                                  |
+| `CUSTOM FLASH: IC21 = `                                                                | read view `0x56000000` (170 refs); ⛔ command/write view `0x96800000`                                       | A real, writable 16 Mbit flash (house code C3FBMD000050; the firmware accepts a Fujitsu MBM29LV160B, Macronix MX29LV160B or Atmel AT49BV16X4) holding your own custom data. **Never park the repainting viewer on `0x96800000`** — that is the flash command window.                                                                                                       |
+| `MAIN TG BANK 0-15 ROM: IC203= , IC204= ` and `SUB TG BANK 0-15 ROM: IC207= , IC208= ` | **not CPU-mapped at all**                                                                                   | **Undumped** wave/sample mask ROMs, reachable only through the tone generator's readback registers. They cannot appear in this viewer. See [Expansion Bus & Wave-ROM Dump]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/).                                                                                                                                            |
 
 Two more windows the firmware reads heavily and MAME does not model: a factory
 data region at `0x57000000` (89 references) whose chip designator is unresolved,
@@ -475,8 +483,9 @@ preserved inside the IC16/IC17 dump.
 > 4-byte stride = 8 MB — printed under the screen row
 > `PROGRAM ROM: IC16 = , IC17 = `. Two consequences: there is **no** separate
 > unread upper half at `0x48800000`, and the only never-read part of the pair is
-> `0x483E94D4`–`0x483FFFFF`. Any older note calling the custom-data flash "IC18"
-> is wrong either way — the firmware calls it IC21.
+> `0x483E94D4`–`0x483FFFFF` on units without the SP7001 PLUG-iN, whose table
+> update fills it. Any older note calling the custom-data flash "IC18" is wrong
+> either way — the firmware calls it IC21.
 
 ## ⛔ DANGER — power-on combinations that erase or reprogram flash
 
@@ -520,8 +529,8 @@ page, which touches nothing.
 - Not every chord has been swept behaviourally. All 56 three-column combinations over columns 1..8 *were* swept, with exactly one positive (`0xA1`). Four-column chords were not exhaustively swept — only `0x99` positive and `0x9B` negative. The disassembly closes the gap, but as a completeness statement this rests on the ROM scan rather than on measurement.
 - **Which physical caps produce the `0x110000` capture chord is not established.** `0x110000` is bits 16 and 20 of the same held-switch accumulator, and the mask table at `0x4859E1A0` runs `1 << N` well past bit 23 — so those two bits are held-switch *indices* 16 and 20, which lie beyond the sixteen part-mixer columns and therefore belong to some other switch group. The gating and the file-writing behaviour are proven; the button identification is not.
 - ADR3's target (the 11-entry table of `0x8E0`-byte records at `0x501A5800`) is **plausibly** the sequencer song slots — the bound is 11, the manual says `10 SONG MAX.`, and a sequencer initialiser is one of its callers — but nothing names it, so treat the identification as unproven.
-- The viewer repaints continuously, so a parked address is re-read many times per second. That is harmless in ROM and RAM and is **not** harmless over I/O. Keep it in `0x48000000`–`0x487FFFFF` or `0x50000000`+ / `0x84000000`+, and stay off the flash command window, the TG/FDC window, the DSP port, the SD interface and CPU-internal I/O including the MIDI transmitter. FULLTIME makes this worse, not better.
-- RHYTHM and PICTURE read 0 in the emulator because those two flash devices have never been dumped and MAME substitutes a synthetic stand-in for one and leaves the other unmapped. **Any RHYTHM or PICTURE number seen in emulation is an artefact.** On real hardware those two rows show numbers this project holds from no source at all, which makes them worth photographing.
+- The viewer keeps repainting while it is open (measured in the emulator: about every 3 s when idle), so a parked address is re-read over and over. That is harmless in ROM and RAM and is **not** harmless over I/O. Keep it in `0x48000000`–`0x487FFFFF` or `0x50000000`+ / `0x84000000`+, and stay off the flash command window, the TG/FDC window, the DSP port, the SD interface and CPU-internal I/O including the MIDI transmitter. FULLTIME makes this worse, not better.
+- RHYTHM and PICTURE read 0 in the emulator because those two flash devices have never been dumped and upstream MAME declares both `NO_DUMP` and maps neither (the kn7000_mame overlay substitutes a synthetic stand-in for the rhythm resource). **Any RHYTHM or PICTURE number seen in emulation is an artefact.** On real hardware those two rows show numbers this project holds from no source at all, which makes them worth photographing.
 - The service manual documents no memory-dump screen. Its diagnostics are power-on combinations and jig-based device tests. The chord on this page is firmware-proven and manual-silent.
 - No photograph of a KN7000 MEMORY DUMP screen exists in this repository yet — neither from the emulator nor from hardware. The KN5000 page has screenshots; this one does not, and should get them.
 

@@ -6,8 +6,10 @@ permalink: /kn7000-firmware/
 
 # KN7000 Firmware Images
 
-Two flash images are recovered from the [system-update discs]({{ site.baseurl }}/kn7000-system-update-discs/):
-`kn7000_program.rom` (main firmware) and `kn7000_table.rom` (resource archive).
+Flash images are recovered from the [system-update discs]({{ site.baseurl }}/kn7000-system-update-discs/).
+This page describes `kn7000_program.rom` (main firmware, build 941) and
+`kn7000_table.rom` (resource archive, build 84); the other builds now held are
+listed under [Version numbers](#version-numbers).
 Offsets below are file offsets in hex; integers are little-endian **except** the
 `.SLD` size field.
 
@@ -18,36 +20,36 @@ Panasonic **MN10300/AM33** code, mapped at CPU address `0x48400000`
 
 ### Boot header (0x0 – 0x80)
 
-Two absolute jumps and a marker byte, then `0xFF` fill to the start of code:
+Two absolute jumps and a configuration byte, then `0xFF` fill to the start of code:
 
 ```
 0x00: dc 7e ff 00 00   jmp  0x4840FF7E     ; reset entry
 0x05: cb ×5            nop                  ; padding
 0x0a: dc c5 77 0d 00   jmp  0x484D77CF
-0x0f: 16               ROM-present marker   ; firmware only ever compares it to 0xFF
+0x0f: 16               configuration byte   ; 0x15 in v1.5; compared with 0xFF and 0x77 (see MEMORY DUMP Screen)
 0x10..0x7f: ff         fill
 0x80: code begins
 ```
 
 `jmp` on the MN10300 is `0xDC` + a 32-bit little-endian target; the stored value
 plus the `0x48400000` base gives the destination. There is **no in-image
-reset-vector table and no version byte** — the true CPU reset vector and the
-library/kernel code at `0x4C000000` live in a separate, still-undumped internal
-boot ROM.
+reset-vector table**: the CPU starts executing at the base of the program flash
+itself (the board's MMODE/BMODE straps select that boot mode; MAME sets the reset
+PC to `0x48400000`). The library/kernel code at `0x4C000000` is copied out of
+this image at boot (see below).
 
-### Dependency on the undumped library ROM (`0x4C000000`)
+### The library at `0x4C000000` is copied out of this image
 
-The program image is only *half* the code. It makes **7,965 calls to 298
-distinct entry points** in a second ROM at `0x4C000000` that is **not present on
-the system-update floppies** and has not been dumped. The called addresses span
-up to `0x4C5E9A3A`, so that ROM is **at least ~6 MiB**. The way arguments are set
-up at the call sites identifies it as the **C runtime + MILK kernel**: e.g.
-`0x4C001A48` (1,201 calls — a `printf`/`sprintf`-family formatter fed a
-format-string pointer and stacked arguments), `0x4C003051` (a `memcpy`/`strcpy`
-taking dest/src pointers), `0x4C0019D5` (a numeric formatter). This is why a
-running emulator needs that ROM dumped (or the hot entry points high-level
-emulated): the [boot interpreter]({{ site.baseurl }}/kn7000/) runs 3.06 M instructions and then
-calls straight into `0x4C0…`.
+The firmware makes **7,965 calls to 298 distinct entry points** at `0x4C000000`:
+the **C runtime + MILK kernel**, e.g. `0x4C001A48` (1,201 calls — a
+`printf`/`sprintf`-family formatter), `0x4C003051` (a `memcpy`/`strcpy`) and
+`0x4C0019D5` (a numeric formatter). That code is **not a separate ROM**. Early in
+kernel init `InitializeBlock27` (`0x484D7BBD`) copies ~253 KB from program-flash
+`0x487B8FD1` (file `0x3B8FD1`–`0x3F6EE8`, inside code region 2 below) into RAM
+that is aliased at both `0x4C000000` and `0x8C000000`. Every entry point the
+firmware calls (the highest is `0x4C03DE26`) lies inside that block, so MAME maps
+the two aliases to one RAM and runs the real library code, with no dump and no
+HLE.
 
 ### Region map
 
@@ -60,14 +62,23 @@ calls straight into `0x4C0…`.
 
 ### Version numbers
 
-The package labels ("v16" program / "v14" table) come only from the download
-filenames; the firmware carries **its own internal version counters**, unrelated
-to those:
+The package labels come from the download filenames: `kn7-16` is the v1.6
+program update, and `kn7-14` is the four-disk v1.4 update, whose table disks
+(3–4) the table image comes from. The firmware carries **its own internal build
+numbers**, unrelated to those:
 
 | Component | Value | Where |
 |-----------|-------|-------|
 | PROGRAM | **941** | `u16` at file `0x33660C` (the loader reads 32 bits but keeps only the low half), shown by `PROGRAM : %4d` (`0x1D67E0`) |
 | TABLE | **84** | ASCII `"84\n"` at table file `0x139EE8`, reached via the pointer at table offset `0x1C` |
+
+Three more program builds have since been recovered from update disks, and all
+four have been MAME BIOS options since
+[mamedev/mame#16394](https://github.com/mamedev/mame/pull/16394) (2026-10-11):
+**942** with table **83** (Key Soft Service's SP7001 PLUG-iN update, stamp at CPU
+`0x48737630`; see [SD PLUG-iN]({{ site.baseurl }}/kn7000-sd-plugin/)), **935**
+(v1.5, complete, stamp at `0x487365A8`) and the upper half of **929** (v1.4; its
+first program floppy is lost).
 
 RHYTHM and PICTURE versions are read from flash regions not covered by these
 updates (the rhythm ROM and the `0x57800000` picture flash).
@@ -91,7 +102,7 @@ for the capture route meant to replace hand photography.
 - Version screen: `SOFT VERSION` (`0x1D5AD8`), `--- SOFTWARE VERSION ---` (`0x1D5D9C`), `PROGRAM : %4d` / `TABLE   : %4d` / `RHYTHM  : %4d` / `PICTURE : %4d` (`0x1D67E0`+)
 - Kernel banner `MILK MN10300 Ver1.0R1` (`0x3B8AAC`); zlib deflate/inflate banners (`0x3B8604` / `0x3B863C`)
 - FAT boot template `Technics    NO NAME    FAT12   FAT16` (`0x1BA4BB`)
-- Flash-chip IDs `MBM29LV160B`, `MX29LV160B`, `AT49BV16X4` (`0x1CF9EA`+) for the sound-RAM expansion
+- Flash-chip IDs `MBM29LV160B`, `MX29LV160B`, `AT49BV16X4` (`0x1CF9EA`+): the table at `0x485CF9E0` of parts the firmware accepts for the custom-data flash IC21, checked against the chip's autoselect ID before it programs it
 - Model-compatibility list `@Expansion Board KN7000 SOUND RAM`, then `KN6000`/`KN5000`/`KN3000`/`KN2000`/`KN1600 SOUND RAM` (`0x1B8517`+)
 - UI languages: English / German / French / Spanish / Indonesian message blocks (Italian has a menu entry but no translated text), plus an EUC-JP developer easter-egg entry at `0x1A0C4D`
 - Developer symbol tables: `_TT_*` tag names, `*Proc` window-procedure names (`AcProgVerBoxProc`, `IvMpVerWinProc`, …), `MT_*` API names (`MT_GetLanguagePtr`, `MT_FLASHWRITE`), GUI object names (`PanelSimulator`, `ClipBoard`, `DefaultWindow`) — the same conventions as the KN5000 (see [Shared Codebase Map]({{ site.baseurl }}/technics-shared-codebase/))
@@ -122,9 +133,10 @@ baseline JPEGs** (built-in demo slideshows, all verified decodable, 160×80 up t
 > **Where the image stops is not where the chip stops.** IC16 + IC17 are one
 > 8 MB flash pair spanning `0x48000000`–`0x487FFFFF`, with this table image as the
 > lower half and the program image as the upper half. The table payload ends at
-> `0x483E94D3`, which leaves **`0x483E94D4`–`0x483FFFFF` (93,484 bytes) that no
-> update disk ships and nobody has ever read** — the exact positional analogue of
-> the KN5000's resident updater block. See
+> `0x483E94D3`, which leaves **`0x483E94D4`–`0x483FFFFF` (92,972 bytes)** that no
+> standard update ships. The SP7001 PLUG-iN table update is a full `0x400000`
+> bytes and writes its plug-in code and strings there (up to `0x483FB59F`); what a
+> stock unit holds in that range has never been read. See
 > [Where does the flash updater live?]({{ site.baseurl }}/kn7000-firmware-security/#45-where-does-the-flash-updater-live-unresolved).
 
 ## Byte-exact disassembly project
@@ -166,15 +178,23 @@ helpers — so the reconstruction reads like ordinary source. For example the
 object-visibility accessor `SetVisible`:
 
 ```
-SetVisible:                      # CPU 0x4842D406
+SetVisible:                        # CPU 0x4842D3DF
+    movm    [d2], (sp)
     add     -0xc, sp
-    call    GetLinkView, 0, 0    # fetch the linked view object
-    movhu   (0xc, a0), d1        # load its flag word
-    clr     d0
-    btst    0x01, d1             # test the "visible" bit
-    bne     0x4842d419
-    mov     1, d0
-    ret     0, 0xc
+    mov     d1, d2                 # the requested state
+    call    GetViewInstance, 0, 0  # a0 = the view object
+    cmp     0, d2
+    beq     0x4842d3fa
+    add     0xc, a0
+    movhu   (a0), d0               # its flag word
+    and     0xfffe, d0             # state != 0: clear bit 0 (shown)
+    movhu   d0, (a0)
+    bra     0x4842d403
+    add     0xc, a0
+    movhu   (a0), d0
+    or      0x01, d0               # state == 0: set bit 0 (hidden)
+    movhu   d0, (a0)
+    ret     [d2], 0x10
 ```
 
 111 functions are converted this way so far: the task/event and display/object
