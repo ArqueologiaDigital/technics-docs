@@ -8,8 +8,9 @@ permalink: /serial-firmware-compatibility/
 
 The MAME KN5000 driver runs the **original KN5000 program ROM** and the **Another World VM**
 custom ROM over the same emulated serial hardware. Both boot without the "ERROR in CPU data
-transmission" dialog, and all control-panel buttons on both panel boards produce the correct LED
-and menu responses.
+transmission" dialog, and the control-panel buttons on both panel boards produce the correct LED
+and menu responses, apart from an occasional phase-dependent packet misframe that is still open
+(see the known-limitation note on [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/)).
 
 The two firmwares drive the link in completely different ways, and the driver has to satisfy
 both. This page states what each one does and what the emulation must therefore provide. The
@@ -70,7 +71,7 @@ After the firmware finishes transmitting, it waits for the panel to assert INTA:
   SCLK stops
                                     Receives 2-byte command
                                     Queues response (2 bytes)
-                                    Detects SCLK idle (250 µs)
+                                    Detects SCLK idle (50 µs)
                                     Asserts INTA on PE.5
   ┌─────────────────────────────────────────────┐
   │ INTA_HANDLER:                               │
@@ -88,7 +89,7 @@ After the firmware finishes transmitting, it waits for the panel to assert INTA:
 
 ## CPanel_WaitTXReady: The Timeout Gate
 
-Before each command, the firmware calls `CPanel_WaitTXReady` which polls four conditions:
+Before each command, the firmware calls `CPanel_WaitTXReady` which polls five conditions:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -102,11 +103,11 @@ Before each command, the firmware calls `CPanel_WaitTXReady` which polls four co
 │                                                         │
 │  ALL must pass → proceed to send command                │
 │  ANY fails → DELAY_1500_LOOPS (~1 ms), retry            │
-│  200 failures → set PROTOCOL_FLAGS.7 → ERROR dialog     │
+│  200 failures → stop waiting, send anyway (bit 7 set)   │
 └─────────────────────────────────────────────────────────┘
 ```
 
-The ERROR dialog appears when this 200-retry (~200 ms) timeout is exhausted.
+After 200 retries (~200 ms) the firmware stops waiting and sends anyway; both exits set bit 7 of `CPANEL_PROTOCOL_FLAGS`. The "ERROR in CPU data transmission" view (`TEST1CP`) is posted by the boot self-test (`SelfTest_SramAndRom_CheckROM`) when `CPanel_ProbePanelMcus` reports that the left (bit 0) or right (bit 3) panel did not answer its ping.
 
 ## Boot Sequence Timing Diagram
 
@@ -144,7 +145,7 @@ Time    CPU Firmware                  MAME Serial Device    Control Panel HLE
         │                                                    → queue sync
         │                                                       response
         │                                                    → start idle_detect
-        │                                                        (250 µs timer)
+        │                                                        (50 µs timer)
         │ SM_TXDelay2: phantom SC1BUF  62.5 kHz             tx_start(0), reject
         │   └─INTTX1─>                                      *** MUST NOT cancel
         │ SM_TXComplete → IDLE                                 idle_detect! ***
@@ -175,7 +176,7 @@ Time    CPU Firmware                  MAME Serial Device    Control Panel HLE
         │ Enable interrupts
         │
 ~40 ms  CPanel_PollStartup:
-        │ CPanel_WaitTXReady              <── Must pass all 4 checks
+        │ CPanel_WaitTXReady              <── Must pass all 5 checks
         │ SendCommand(0x20, 0x0B)
         │ DELAY_6_TICKS
         │ Process response
@@ -195,22 +196,21 @@ Time    CPU Firmware                  MAME Serial Device    Control Panel HLE
 
 ## What the Emulation Must Provide
 
-Sixteen behaviours are load-bearing. Removing any one of them reintroduces a visible failure.
+Seventeen behaviours are load-bearing. Removing any one of them reintroduces a visible failure.
 
 ### CPU serial device (`tmp94c241_serial.cpp`)
 
-| Behaviour | Why |
-|---|---|
-| The clock keeps running while **either** a TX or an RX byte is incomplete | Bytes complete correctly |
-| A trailing rising edge is owed after TX's last falling edge | Bit 7 is sampled before INTTX1 fires |
-| RXD is captured **before** the clock is forwarded | No sampling race |
-| `IOC` is **bit 0** of `SCxCR`, and only gates the timer in TO2 mode (`SC1MOD & 3 == 0`) | The AW VM sets IOC=1 in baud-rate mode; gating on IOC alone would stop its clock |
-| TO2 trigger drives SCLK only during active transfers | Idle detection can fire |
-| PFFC state is passed to the panel through `tx_start`, and the internal shift register runs regardless | Phantom bytes reach neither the panel nor a stalled TX state machine |
-| INTRX1 is flagged when RX completes | The firmware is told a byte arrived |
-| Writing `SC1MOD` does **not** raise INTTX | The firmware writes SC1MOD at the start of every TX sequence; a spurious INTTX advances the state machine a byte early and corrupts LED state |
-| Writing `SCxCR` does **not** abort an in-progress RX byte | The INTRX1 ISR rewrites SC1CR between bytes |
-| `SC1BUF` residue is cleared on `scNcr_w` | A stale byte otherwise starts a phantom reception and desynchronises the button state arrays |
+| Behaviour                                                                                             | Why                                                                                                                                           |
+|-------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| The clock keeps running while **either** a TX or an RX byte is incomplete                             | Bytes complete correctly                                                                                                                      |
+| A trailing rising edge is owed after TX's last falling edge                                           | Bit 7 is sampled before INTTX1 fires                                                                                                          |
+| RXD is captured **before** the clock is forwarded                                                     | No sampling race                                                                                                                              |
+| `IOC` is **bit 0** of `SCxCR`, and only gates the timer in TO2 mode (`SC1MOD & 3 == 0`)               | The AW VM sets IOC=1 in baud-rate mode; gating on IOC alone would stop its clock                                                              |
+| TO2 trigger drives SCLK only during active transfers                                                  | Idle detection can fire                                                                                                                       |
+| PFFC state is passed to the panel through `tx_start`, and the internal shift register runs regardless | Phantom bytes reach neither the panel nor a stalled TX state machine                                                                          |
+| INTRX1 is flagged when RX completes                                                                   | The firmware is told a byte arrived                                                                                                           |
+| Writing `SC1MOD` does **not** raise INTTX                                                             | The firmware writes SC1MOD at the start of every TX sequence; a spurious INTTX advances the state machine a byte early and corrupts LED state |
+| Writing `SCxCR` does **not** abort an in-progress RX byte                                             | The INTRX1 ISR rewrites SC1CR between bytes                                                                                                   |
 
 ### Control-panel HLE (`kn5000_cpanel.cpp`)
 
@@ -283,4 +283,4 @@ Loop timing: DEC 1, WA (2) + CP WA, 0 (2) + JR Z (2) + JR T (4) = ~10 cycles = 6
 
 ---
 
-*This is part of the ongoing effort to create a working MAME emulator for the Technics KN5000 music keyboard. See the [main documentation](/) for more details on the project.*
+*This is part of the ongoing effort to create a working MAME emulator for the Technics KN5000 music keyboard. See the [main documentation]({{ site.baseurl }}/) for more details on the project.*

@@ -8,17 +8,15 @@ permalink: /control-panel-protocol/
 
 This document provides comprehensive information for implementing High Level Emulation (HLE) of the KN5000 control panel MCUs in MAME.
 
-> ### ⚠ Known limitation of the current implementation (2026-07-21)
+> ### ⚠ Known limitation of the current implementation (2026-07-22)
 >
-> This guide describes the protocol and the HLE as designed. Two defects found since it was written are **not** reflected in the design notes below, and anyone implementing from this document should know about both.
+> This guide describes the protocol and the HLE as designed. The link still occasionally misframes or loses a packet, depending on the exact timing (phase) of a button press. The fault was already present in the February 2026 driver and is still open.
 >
-> **1. The receiver must gate its byte latch on the clock source.** A synchronous serial receiver that latches a byte every eight rising edges *regardless of who drove them* will manufacture one spurious inbound byte per byte the CPU transmits, because the link is full-duplex and the CPU's own transmit edges also shift eight bits in off the idle line. In MAME this produced 521 spurious bytes per boot, which decoded as real panel events: a spurious `0x00` is right-panel segment 0 = the TRANSPOSE row, and an odd count of them swaps the (header, state) pairing so one button reads as another. The fix is to latch only when the external clock is actually selected (`(SCxMOD & 3) == 0 && IOC`).
+> **Do not gate the receiver's byte latch on the clock source.** The link is full-duplex, so the CPU's own transmit edges also shift eight bits in off the idle line, and the CPU-side receiver latches one spurious inbound byte per byte the CPU transmits. A gate that latched only when the external clock was selected (`(SCxMOD & 3) == 0 && IOC`) was added on 2026-07-21, on the theory that these bytes decoded as panel events (a spurious `0x00` being right-panel segment 0, the TRANSPOSE row). It was measured the next day and reverted. The spurious bytes never reach the firmware's receive ring (the segment-0 header count there is exactly 1 in every measured run, with or without the gate), the gate corrected no button mapping, and when it closed *mid-byte* it stranded the receiver's bit counter, so the internal baud generator free-ran and wedged the link for the rest of the session (see the sliding-window note in §"Critical implementation notes"). The serial device latches ungated, as it did before.
 >
-> **2. That fix, as shipped, is incomplete — it can wedge the link permanently.** If the gate closes and reopens *mid-byte*, the receiver's bit counter is stranded, the "still need clocks" condition never clears, the internal baud generator free-runs, and — see the sliding-window note in §"Critical implementation notes" — those dead edges retrigger the 50 µs idle timer faster than it can expire, so INTA is never asserted again and the panel is never granted the bus. **The link is then dead for the rest of the session.** Three candidate fixes (a livelock guard, a receiver-side resync, and a sender-side bus handshake) were each implemented and measured, and all three were rejected. The governing result: **the residue is loss, not misframe** — a byte the receiver never got cannot be reconstructed by any receiver-side change, because a resync restores *bit* framing while leaving *packet* framing shifted.
+> Full state and measurements: `kn7000_mame/notes/kn5000-cpserial-INDEX.md`. Where its older sections disagree with the 2026-07-22 adjudication at the top, the adjudication is the measured result.
 >
-> Full state, measurements and the rejected candidates: `kn7000_mame/notes/kn5000-cpserial-INDEX.md` in the project notes.
->
-> **Terminology warning:** "phantom byte" is used in *two different senses*. In this document it means the firmware's own deliberate dummy `SC1BUF` writes (PFFC off), which the HLE filters. In the investigation notes and the blog it means the spurious RX-during-TX latches described in (1). They are unrelated.
+> **Terminology warning:** "phantom byte" is used in *two different senses*. In this document it means the firmware's own deliberate dummy `SC1BUF` writes (PFFC off), which the HLE filters. In the investigation notes and the blog it means the spurious RX-during-TX latches described above. They are unrelated.
 
 ## 1. Overview
 
@@ -67,28 +65,28 @@ Main CPU (TMP94C241F)                Control Panel MCUs
         |------ CNTR1 ------------>|  CNTR1--|  |--CNTR1  |
         |                          +---------+  +---------+
         |
-   PF.5 (INTA) <---- Interrupt from panels
+   PE.5 (INTA) <---- Interrupt from panels
    PF.6 (SCLK1) ---> Serial clock output / clock detect input
 ```
 
 ### Serial Interface Specifications
 
-| Parameter | Value | Notes |
-|-----------|-------|-------|
-| **Serial Channel** | SC1 (Serial Channel 1) | TMP94C241F UART |
-| **Clock Source** | Internal, derived from fc=16MHz | |
-| **TX Baud Rate** | 250 kHz | fc/16/4 (BR1CR=0x14) during data TX |
-| **Initial Baud Rate** | 31.25 kHz | fc/64/8 (BR1CR=0x28) during init |
-| **Data Format** | 8-bit, odd parity (disabled), async | SC1MOD, SC1CR config |
-| **Flow Control** | Software (CNTR1 pin for chip select) | |
+| Parameter            | Value                                                             | Notes                                                                                                                                                                                                                                                |
+|----------------------|-------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Serial Channel**   | SC1 (Serial Channel 1)                                            | TMP94C241F SIO channel 1, I/O interface mode                                                                                                                                                                                                         |
+| **Clock Source**     | Internal, derived from fc=16MHz                                   |                                                                                                                                                                                                                                                      |
+| **TX Baud Rate**     | 250 kHz                                                           | fc/16/4 (BR1CR=0x14) during data TX                                                                                                                                                                                                                  |
+| **Arming Baud Rate** | 31.25 kHz                                                         | fc/64/8 (BR1CR=0x28), written for the first (phantom) byte of every command by `CPanel_SendCommand`, by `CPanel_SM_TXComplete` when it chains the next queued command, and by `CPanel_InterruptPoll_MainLoop` when it starts sending queued LED data |
+| **Data Format**      | 8-bit, LSB first, synchronous (I/O interface mode, SC1MOD = 0x00) | SC1MOD, SC1CR config                                                                                                                                                                                                                                 |
+| **Flow Control**     | Software (CNTR1 pin for chip select)                              |                                                                                                                                                                                                                                                      |
 
 ### Clock Configuration (from BR1CR register)
 
-| BR1CR Value | Prescaler | Divider | Baud Rate | Usage |
-|-------------|-----------|---------|-----------|-------|
-| `0x14` | T2 (fc/16) | /4 | 250 kHz | Normal data transfer |
-| `0x24` | T8 (fc/64) | /4 | 62.5 kHz | Idle/reset state |
-| `0x28` | T8 (fc/64) | /8 | 31.25 kHz | Initialization |
+| BR1CR Value | Prescaler  | Divider | Baud Rate | Usage                                                                                                                                       |
+|-------------|------------|---------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x14`      | T2 (fc/16) | /4      | 250 kHz   | The two real command bytes (`CPanel_SM_SendByte1`, `CPanel_SM_SendByteN`)                                                                   |
+| `0x24`      | T8 (fc/64) | /4      | 62.5 kHz  | Phantom/turnaround bytes (`CPanel_SM_StartTX`, `CPanel_SM_TXDelay1`, `CPanel_SM_TXDelay2`); also the value left set when the link goes idle |
+| `0x28`      | T8 (fc/64) | /8      | 31.25 kHz | Arming each command (`CPanel_SendCommand`, `CPanel_SM_TXComplete`, `CPanel_InterruptPoll_MainLoop`)                                         |
 
 ## 3. Protocol Specification
 
@@ -188,7 +186,7 @@ LED commands are 2-byte pairs (row select + pattern) queued in `CPANEL_LED_TX_BU
 
 ### Response Packet Format
 
-Responses from control panel MCUs are processed by `CPanel_RX_ParseNext` at address `0xFC491A`.
+Responses from control panel MCUs are processed by `CPanel_RX_ParseNext` at address `0xFC492B`.
 
 #### Packet Type Encoding
 
@@ -202,16 +200,16 @@ Byte 0: [ X | X | Type2 | Type1 | Type0 | X | X | X ]
 
 #### Packet Type Handlers
 
-| Type | Bits 5-3 | Handler | Address | Purpose |
-|------|----------|---------|---------|---------|
-| 0 | `000` | `CPanel_RX_ButtonPacket` | 0xFC4985 | Button state (left panel) |
-| 1 | `001` | `CPanel_RX_ButtonPacket` | 0xFC4985 | Button state (right panel) |
-| 2 | `010` | `CPanel_RX_EncoderPacket` | 0xFC49E0 | Rotary encoder delta |
-| 3 | `011` | `CPanel_RX_SyncPacket` | 0xFC4B10 | Sync/ACK |
-| 4 | `100` | `CPanel_RX_SyncPacket` | 0xFC4B10 | Sync/ACK |
-| 5 | `101` | `CPanel_RX_SyncPacket` | 0xFC4B10 | Sync/ACK |
-| 6 | `110` | `CPanel_RX_MultiBytePacket` | 0xFC4A40 | Multi-byte data |
-| 7 | `111` | `CPanel_RX_MultiBytePacket` | 0xFC4A40 | Multi-byte data |
+| Type | Bits 5-3 | Handler                     | Address  | Purpose                                                    |
+|------|----------|-----------------------------|----------|------------------------------------------------------------|
+| 0    | `000`    | `CPanel_RX_ButtonPacket`    | 0xFC4985 | Button state (left panel)                                  |
+| 1    | `001`    | `CPanel_RX_ButtonPacket`    | 0xFC4985 | Button state (right panel)                                 |
+| 2    | `010`    | `CPanel_RX_EncoderPacket`   | 0xFC49E0 | Analog value / data-wheel count (dispatched by encoder ID) |
+| 3    | `011`    | `CPanel_RX_SyncPacket`      | 0xFC4B10 | Sync/ACK                                                   |
+| 4    | `100`    | `CPanel_RX_SyncPacket`      | 0xFC4B10 | Sync/ACK                                                   |
+| 5    | `101`    | `CPanel_RX_SyncPacket`      | 0xFC4B10 | Sync/ACK                                                   |
+| 6    | `110`    | `CPanel_RX_MultiBytePacket` | 0xFC4A40 | Multi-byte data                                            |
+| 7    | `111`    | `CPanel_RX_MultiBytePacket` | 0xFC4A40 | Multi-byte data                                            |
 
 ### Button State Packet Format (Types 0, 1)
 
@@ -255,7 +253,7 @@ Event indices ≤ 0x15 → LED dispatch (visible button reactions). Indices > 0x
 Byte 0: [ ID_hi[1:0] | 0 | 1 | 0 | ID_lo[2:0] ]
          bits 7-6     5   4   3   bits 2-0
 
-Byte 1: [ Delta value (signed 8-bit) ]
+Byte 1: [ Value: absolute 8-bit ADC reading for the analog IDs; signed detent count for ID 31, the data wheel ]
 ```
 
 **Encoder ID Encoding:**
@@ -272,15 +270,15 @@ The encoder dispatch routine `CPanel_EncoderDispatch` (0xFC6C5F):
 
 **Known Encoder IDs:**
 
-| ID | Handler | Output Variable | Physical Control |
-|----|---------|-----------------|------------------|
-| 2 | `Encoder_ProcessModwheel` | `MIDI_CC_MODWHEEL_VALUE` | Modulation wheel |
-| 5 | `Encoder_ProcessVolume` | `MIDI_CC_VOLUME_VALUE` | Volume slider |
-| 25 | `Encoder_ProcessBreath` | `MIDI_CC_BREATH_VALUE` | Breath controller |
-| 26 | `Encoder_ProcessFoot` | `MIDI_CC_FOOT_VALUE` | Foot controller |
-| 27 | `Encoder_ProcessExpression` | `MIDI_CC_EXPRESSION_VALUE` | Expression pedal |
-| 31 | `Encoder_ReturnValue` | Direct passthrough | Raw value output |
-| 0-1,3-4,6-24,28-30 | `Encoder_ReturnOne` | Returns 1 | Unused |
+| ID                 | Handler                         | Output Variable            | Physical Control                         |
+|--------------------|---------------------------------|----------------------------|------------------------------------------|
+| 2                  | `Encoder_ProcessModwheel`       | `MIDI_CC_MODWHEEL_VALUE`   | Modulation wheel                         |
+| 5                  | `Encoder_ProcessVolume`         | `MIDI_CC_VOLUME_VALUE`     | Volume slider                            |
+| 25                 | `Encoder_ProcessBreath`         | `MIDI_CC_BREATH_VALUE`     | Breath controller                        |
+| 26                 | `Encoder_ProcessFoot`           | `MIDI_CC_FOOT_VALUE`       | Foot controller                          |
+| 27                 | `Encoder_ProcessExpression`     | `MIDI_CC_EXPRESSION_VALUE` | Expression pedal                         |
+| 31                 | `Encoder_PassthroughIdentity`   | Direct passthrough         | TEMPO/PROGRAM data wheel (header `0xD7`) |
+| 0-1,3-4,6-24,28-30 | `Encoder_ReturnDefaultConstant` | Returns 1                  | Unused                                   |
 
 **Encoder Processing:**
 - Raw input values are inverted (`CPL A`) and stored in `ENCODER_RAW_*` variables
@@ -290,11 +288,11 @@ The encoder dispatch routine `CPanel_EncoderDispatch` (0xFC6C5F):
 
 ### Timing Requirements
 
-| Operation | Delay | Method |
-|-----------|-------|--------|
-| Post-command wait | 6 system ticks | `DELAY_6_TICKS` (0xFC4213) |
-| Init command wait | 3000 loop iterations | `DELAY_3000_LOOPS` (0xFC4118) |
-| Ready check timeout | 200 attempts * 1500 loops | `CPanel_WaitTXReady` |
+| Operation           | Delay                     | Method                        |
+|---------------------|---------------------------|-------------------------------|
+| Post-command wait   | 6 system ticks            | `DELAY_6_TICKS` (0xFC4139)    |
+| Init command wait   | 3000 loop iterations      | `DELAY_3000_LOOPS` (0xFC4118) |
+| Ready check timeout | 200 attempts * 1500 loops | `CPanel_WaitTXReady`          |
 
 ### INTA Response Mechanism
 
@@ -308,7 +306,7 @@ The control panel MCUs use a bidirectional serial protocol. The CPU is master fo
   SCLK stops
                                     Receives 2-byte command
                                     Queues response (2 bytes)
-                                    Detects SCLK idle (~250 µs)
+                                    Detects SCLK idle (50 µs)
                                     Asserts INTA on PE.5
   ┌──────────────────────────────────────────────────┐
   │ INTA_HANDLER:                                    │
@@ -362,9 +360,9 @@ Without filtering, these produce 2 INTA sessions per ghost toggle, flooding the 
 
 A segment change becomes a 3-byte record `{event index, new state, changed bits}` in a queue at RAM `0x8E94`
 (count at `0x8EC4`). The event index is the one above: 0-10 = left-panel segments 0-10,
-11-21 = right-panel segments 0-10, 22-24 = left-panel headers `0xD1`, `0xD2`, `0xD3`, 25 = header `0xD7`, the TEMPO/PROGRAM data wheel (records
-`{0x19, ±delta, 0xFF}`: the kn7000_mame data-wheel patch feeds exactly these and was verified on screen, see its
-`notes/upstream-patches/README.md`, PR 9), 26 = the
+11-21 = right-panel segments 0-10, 22-24 = left-panel headers `0xD1`, `0xD2`, `0xD3` (Type 2 frames of encoder IDs 25-27: `Encoder_ProcessBreath`, `Encoder_ProcessFoot`, `Encoder_ProcessExpression`), 25 = header `0xD7`, the TEMPO/PROGRAM data wheel (records
+`{0x19, ±delta, 0xFF}`: MAME's panel device has sent the `[0xD7, count]` frame that produces these records since
+[mamedev/mame#15919](https://github.com/mamedev/mame/pull/15919)), 26 = the
 modulation wheel and 27 = the volume slider (`ENCODER_0` / `ENCODER_1`, queued by `PanelInput_QueueWheelChanges`),
 28 = foot switches FS1/FS2 (PG.2-3), 29 = foot controllers FC1-FC4 (PG.4-7), 30 = PD.6 (the pedal records of
 `PanelInput_ScanPedalPorts`; see [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/)). For each record, `PanelButton_DispatchChange` walks one **action list**, chosen by the event
@@ -411,106 +409,106 @@ the LCD buttons and HELP goes to `PanelButton_HelpMode`. Produced by
 `python3 scripts/converters/panel_button_actions_retype.py --report` (kn5000-roms-disasm); the lists are
 typed in `ui_widgets/naka_extension_device.c` (`panel_button_action_t`, `PanelActions_*`).
 
-| index | segment | buttons (mask) | event id, arg | handler |
-|---:|:---|:---|:---|:---|
-| 0 | CPL 0 | STANDARD ROCK, R & ROLL & BLUES, POP & BALLAD, FUNK & FUSION, SOUL & MODERN DANCE, BIG BAND & SWING, JAZZ COMBO (`0x7F`) | `0x48`, `0x00` | `PanelButton_RhythmGroup` |
-| 1 | CPL 1 | MEMORY (`0x01`) | `0x48`, `0x00` | `PanelButton_RhythmGroup` |
-| 1 | CPL 1 | MENU (`0x02`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
-| 1 | CPL 1 | SET (`0x04`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
-| 1 | CPL 1 | ON/OFF (`0x08`) | `0xA8`, `0x06` | `PanelAction_PostUnlessDemoOrParamC0` |
-| 1 | CPL 1 | MUSIC STYLIST (`0x10`) | `0xA8`, `0x02` | `PanelAction_PostUnlessDemoOrParamC0` |
-| 1 | CPL 1 | FADE IN (`0x20`) | `0x98`, `0x0B` | `PanelAction_PostUnlessDemo` |
-| 1 | CPL 1 | FADE OUT (`0x40`) | `0x98`, `0x0B` | `PanelAction_PostUnlessDemo` |
-| 2 | CPL 2 | FILL IN 1 (`0x01`) | `0x48`, `0x05` | `PanelAction_PostUnlessDemo` |
-| 2 | CPL 2 | FILL IN 2 (`0x02`) | `0x48`, `0x05` | `PanelAction_PostUnlessDemo` |
-| 2 | CPL 2 | INTRO & ENDING 1 (`0x04`) | `0x48`, `0x05` | `PanelAction_PostUnlessDemo` |
-| 2 | CPL 2 | INTRO & ENDING 2 (`0x08`) | `0x48`, `0x06` | `PanelAction_PostUnlessDemo` |
-| 2 | CPL 2 | PAGE DOWN (`0x40`) | `0xA9`, `0x10` | `PanelButton_PairDown` |
-| 2 | CPL 2 | PAGE UP (`0x80`) | `0xA9`, `0x10` | `PanelButton_PairUp` |
-| 3 | CPL 3 | DEMO (`0x01`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
-| 3 | CPL 3 | MSP BANK (`0x02`) | `0xA8`, `0x09` | `PanelAction_PostUnlessDemoOrParamC0` |
-| 3 | CPL 3 | MSP MENU (`0x04`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
-| 3 | CPL 3 | MSP STOP/RECORD (`0x08`) | `0xA8`, `0x09` | `PanelAction_PostUnlessDemoOrParamC0` |
-| 4 | CPL 4 | VARIATION 1, VARIATION 2, VARIATION 3, VARIATION 4 (`0x0F`) | `0x48`, `0x07` | `PanelButton_Variation` |
-| 4 | CPL 4 | MUSIC STYLE ARRANGER (`0x10`) | `0x98`, `0x03` | `PanelButton_MusicStyleArranger` |
-| 4 | CPL 4 | SPLIT POINT (`0x20`) | `0x70`, `0x00` | `PanelButton_SplitPoint` |
-| 4 | CPL 4 | AUTO PLAY CHORD (`0x40`) | `0xA8`, `0x05` | `PanelButton_AutoPlayChord` |
-| 5 | CPL 5 | MSP 1, MSP 2, MSP 3, MSP 4, MSP 5, MSP 6 (`0x3F`) | `0xA8`, `0x09` | `PanelButton_MspNumber` |
-| 6 | CPL 6 | U.S. TRAD, COUNTRY, LATIN, MARCH & WALTZ, PARTY TIME, SHOWTIME & TRAD DANCE, WORLD, CUSTOM (`0xFF`) | `0x48`, `0x00` | `PanelButton_RhythmGroup` |
-| 7 | CPL 7 | RIGHT 5 (`0x01`) | `0xA9`, `0x0C` | `PanelButton_PairUp` |
-| 7 | CPL 7 | RIGHT 4 (`0x02`) | `0xA9`, `0x0B` | `PanelButton_PairUp` |
-| 7 | CPL 7 | DISPLAY HOLD (`0x04`) | `0xA8`, `0x03` | `PanelAction_PostUnlessDemo` |
-| 7 | CPL 7 | EXIT (`0x08`) | `0xA9`, `0x0F` | `PanelButton_PairUp` |
-| 7 | CPL 7 | DOWN 7 (`0x10`) | `0xA9`, `0x06` | `PanelButton_PairDown` |
-| 7 | CPL 7 | UP 7 (`0x20`) | `0xA9`, `0x06` | `PanelButton_PairUp` |
-| 7 | CPL 7 | DOWN 8 (`0x40`) | `0xA9`, `0x07` | `PanelButton_PairDown` |
-| 7 | CPL 7 | UP 8 (`0x80`) | `0xA9`, `0x07` | `PanelButton_PairUp` |
-| 8 | CPL 8 | RIGHT 3 (`0x01`) | `0xA9`, `0x0A` | `PanelButton_PairUp` |
-| 8 | CPL 8 | RIGHT 2 (`0x02`) | `0xA9`, `0x09` | `PanelButton_PairUp` |
-| 8 | CPL 8 | RIGHT 1 (`0x04`) | `0xA9`, `0x08` | `PanelButton_PairUp` |
-| 8 | CPL 8 | DOWN 5 (`0x10`) | `0xA9`, `0x04` | `PanelButton_PairDown` |
-| 8 | CPL 8 | UP 5 (`0x20`) | `0xA9`, `0x04` | `PanelButton_PairUp` |
-| 8 | CPL 8 | DOWN 6 (`0x40`) | `0xA9`, `0x05` | `PanelButton_PairDown` |
-| 8 | CPL 8 | UP 6 (`0x80`) | `0xA9`, `0x05` | `PanelButton_PairUp` |
-| 9 | CPL 9 | LEFT 5 (`0x01`) | `0xA9`, `0x0C` | `PanelButton_PairDown` |
-| 9 | CPL 9 | LEFT 4 (`0x02`) | `0xA9`, `0x0B` | `PanelButton_PairDown` |
-| 9 | CPL 9 | LEFT 3 (`0x04`) | `0xA9`, `0x0A` | `PanelButton_PairDown` |
-| 9 | CPL 9 | DOWN 3 (`0x10`) | `0xA9`, `0x02` | `PanelButton_PairDown` |
-| 9 | CPL 9 | UP 3 (`0x20`) | `0xA9`, `0x02` | `PanelButton_PairUp` |
-| 9 | CPL 9 | DOWN 4 (`0x40`) | `0xA9`, `0x03` | `PanelButton_PairDown` |
-| 9 | CPL 9 | UP 4 (`0x80`) | `0xA9`, `0x03` | `PanelButton_PairUp` |
-| 10 | CPL 10 | LEFT 2 (`0x01`) | `0xA9`, `0x09` | `PanelButton_PairDown` |
-| 10 | CPL 10 | LEFT 1 (`0x02`) | `0xA9`, `0x08` | `PanelButton_PairDown` |
-| 10 | CPL 10 | HELP (`0x04`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
-| 10 | CPL 10 | OTHER PARTS/TR (`0x08`) | `0xA9`, `0x0F` | `PanelButton_PairDown` |
-| 10 | CPL 10 | DOWN 1 (`0x10`) | `0xA9`, `0x00` | `PanelButton_PairDown` |
-| 10 | CPL 10 | UP 1 (`0x20`) | `0xA9`, `0x00` | `PanelButton_PairUp` |
-| 10 | CPL 10 | DOWN 2 (`0x40`) | `0xA9`, `0x01` | `PanelButton_PairDown` |
-| 10 | CPL 10 | UP 2 (`0x80`) | `0xA9`, `0x01` | `PanelButton_PairUp` |
-| 11 | CPR 0 | TRANSPOSE - (`0x20`) | `0xA9`, `0x0E` | `PanelButton_PairDown` |
-| 11 | CPR 0 | TRANSPOSE + (`0x40`) | `0xA9`, `0x0E` | `PanelButton_PairUp` |
-| 12 | CPR 1 | ORGAN & ACCORDION, ORCHESTRAL PAD, SYNTH, BASS, DIGITAL DRAWBAR, ACCORDION REGISTER, GM SPECIAL, DRUM KITS (`0xFF`) | `0x00`, `0x00` | `PanelButton_SoundGroup` |
-| 13 | CPR 2 | PIANO, GUITAR, STRINGS & VOCAL, BRASS, FLUTE, SAX & REED, MALLET & ORCH PERC, WORLD PERC (`0xFF`) | `0x00`, `0x00` | `PanelButton_SoundGroup` |
-| 14 | CPR 3 | SUSTAIN (`0x01`) | `0x00`, `0x04` | `PanelButton_Sustain` |
-| 14 | CPR 3 | DIGITAL EFFECT (`0x02`) | `0x00`, `0x04` | `PanelButton_DigitalEffect` |
-| 14 | CPR 3 | DSP EFFECT (`0x04`) | `0x00`, `0x05` | `PanelButton_DspEffect` |
-| 14 | CPR 3 | DIGITAL REVERB (`0x08`) | `0x60`, `0x01` | `PanelButton_DigitalReverb` |
-| 14 | CPR 3 | ACOUSTIC ILLUSION (`0x10`) | `0x60`, `0x01` | `PanelButton_AcousticIllusion` |
-| 15 | CPR 4 | LEFT, RIGHT 2, RIGHT 1 (`0x07`) | `0x90`, `0x10` | `PanelButton_PartSelect` |
-| 15 | CPR 4 | ENTERTAINER (`0x08`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
-| 15 | CPR 4 | CONDUCTOR: LEFT (`0x10`) | `0x90`, `0x01` | `PanelButton_Conductor` |
-| 15 | CPR 4 | CONDUCTOR: RIGHT 2 (`0x20`) | `0x90`, `0x00` | `PanelButton_Conductor` |
-| 15 | CPR 4 | CONDUCTOR: RIGHT 1 (`0x40`) | `0x90`, `0x00` | `PanelButton_Conductor` |
-| 15 | CPR 4 | TECHNI CHORD (`0x80`) | `0x48`, `0x04` | `PanelAction_PostUnlessDemoOrParamC0` |
-| 16 | CPR 5 | SEQUENCER: PLAY (`0x08`) | `0xA8`, `0x14` | `PanelButton_SequencerPlay` |
-| 16 | CPR 5 | SEQUENCER: EASY REC (`0x10`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
-| 16 | CPR 5 | SEQUENCER: MENU (`0x20`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
-| 17 | CPR 6 | PM 1, PM 2, PM 3, PM 4, PM 5, PM 6, PM 7, PM 8 (`0xFF`) | `0x98`, `0x01` | `PanelButton_PanelMemoryNumber` |
-| 18 | CPR 7 | PANEL MEMORY: SET (`0x01`) | `0x98`, `0x01` | `PanelButton_PanelMemorySet` |
-| 18 | CPR 7 | PANEL MEMORY: NEXT BANK (`0x02`) | `0xA8`, `0x04` | `PanelButton_PanelMemoryNextBank` |
-| 18 | CPR 7 | PANEL MEMORY: BANK VIEW (`0x04`) | `0xA8`, `0x05` | `PanelButton_PanelMemorySet` |
-| 19 | CPR 8 | R1/R2 OCTAVE -, R1/R2 OCTAVE + (`0x18`) | `0x90`, `0x04` | `PanelButton_Octave` |
-| 19 | CPR 8 | START/STOP (`0x20`) | `0x48`, `0x05` | `PanelButton_StartStop` |
-| 19 | CPR 8 | SYNCHRO & BREAK (`0x40`) | `0x48`, `0x05` | `PanelButton_SynchroBreak` |
-| 19 | CPR 8 | TAP TEMPO (`0x80`) | `0xA8`, `0x12` | `PanelAction_PostUnlessDemo` |
-| 20 | CPR 9 | MEMORY A, MEMORY B (`0xC0`) | `0x00`, `0x00` | `PanelButton_SoundGroup` |
-| 21 | CPR 10 | MENU: SOUND (`0x04`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
-| 21 | CPR 10 | MENU: CONTROL (`0x08`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
-| 21 | CPR 10 | MENU: MIDI (`0x10`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
-| 21 | CPR 10 | MENU: DISK (`0x20`) | `0xA9`, `0x20` | `PanelButton_ModeKey` |
-| 22 | -- | -- (`0xFF`) | `0xB1`, `0x00` | `PanelAction_Event22` |
-| 23 | -- | -- (`0x7F`) | `0xB2`, `0x00` | `PanelAction_Event23` |
-| 24 | -- | -- (`0x7F`) | `0xB0`, `0x00` | `PanelEvent_Post` |
-| 25 | -- | TEMPO/PROGRAM data wheel (header 0xD7; records {0x19, delta, 0xFF}, kn7000_mame PR 9) (`0xFF`) | `0xA9`, `0x21` | `PanelAction_PostUnlessDemo` |
-| 26 | -- | modulation wheel (ENCODER_0) (`0x7F`) | `0xB0`, `0x01` | `PanelAction_ModWheel` |
-| 27 | -- | volume slider (ENCODER_1) (`0x7F`) | `0xB4`, `0x00` | `PanelAction_Volume` |
-| 28 | -- | foot switch FS1 (PG.2) (`0x01`) | `0xA9`, `0x32` | `PanelAction_FootSwitch1` |
-| 28 | -- | foot switch FS2 (PG.3) (`0x02`) | `0xA9`, `0x33` | `PanelAction_FootSwitch2` |
-| 29 | -- | foot controller FC1 (PG.4) (`0x01`) | `0xA9`, `0x34` | `PanelAction_FootController1` |
-| 29 | -- | FC2 (PG.5) (`0x02`) | `0xA9`, `0x35` | `PanelAction_FootController2` |
-| 29 | -- | FC3 (PG.6) (`0x04`) | `0xA9`, `0x36` | `PanelAction_FootController3` |
-| 29 | -- | FC4 (PG.7) (`0x08`) | `0xA9`, `0x37` | `PanelAction_FootController4` |
-| 30 | -- | PD.6 (`0x01`) | `0xA8`, `0x41` | `PanelEvent_Post` |
+| index | segment | buttons (mask)                                                                                                           | event id, arg  | handler                               |
+|------:|:--------|:-------------------------------------------------------------------------------------------------------------------------|:---------------|:--------------------------------------|
+| 0     | CPL 0   | STANDARD ROCK, R & ROLL & BLUES, POP & BALLAD, FUNK & FUSION, SOUL & MODERN DANCE, BIG BAND & SWING, JAZZ COMBO (`0x7F`) | `0x48`, `0x00` | `PanelButton_RhythmGroup`             |
+| 1     | CPL 1   | MEMORY (`0x01`)                                                                                                          | `0x48`, `0x00` | `PanelButton_RhythmGroup`             |
+| 1     | CPL 1   | MENU (`0x02`)                                                                                                            | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
+| 1     | CPL 1   | SET (`0x04`)                                                                                                             | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
+| 1     | CPL 1   | ON/OFF (`0x08`)                                                                                                          | `0xA8`, `0x06` | `PanelAction_PostUnlessDemoOrParamC0` |
+| 1     | CPL 1   | MUSIC STYLIST (`0x10`)                                                                                                   | `0xA8`, `0x02` | `PanelAction_PostUnlessDemoOrParamC0` |
+| 1     | CPL 1   | FADE IN (`0x20`)                                                                                                         | `0x98`, `0x0B` | `PanelAction_PostUnlessDemo`          |
+| 1     | CPL 1   | FADE OUT (`0x40`)                                                                                                        | `0x98`, `0x0B` | `PanelAction_PostUnlessDemo`          |
+| 2     | CPL 2   | FILL IN 1 (`0x01`)                                                                                                       | `0x48`, `0x05` | `PanelAction_PostUnlessDemo`          |
+| 2     | CPL 2   | FILL IN 2 (`0x02`)                                                                                                       | `0x48`, `0x05` | `PanelAction_PostUnlessDemo`          |
+| 2     | CPL 2   | INTRO & ENDING 1 (`0x04`)                                                                                                | `0x48`, `0x05` | `PanelAction_PostUnlessDemo`          |
+| 2     | CPL 2   | INTRO & ENDING 2 (`0x08`)                                                                                                | `0x48`, `0x06` | `PanelAction_PostUnlessDemo`          |
+| 2     | CPL 2   | PAGE DOWN (`0x40`)                                                                                                       | `0xA9`, `0x10` | `PanelButton_PairDown`                |
+| 2     | CPL 2   | PAGE UP (`0x80`)                                                                                                         | `0xA9`, `0x10` | `PanelButton_PairUp`                  |
+| 3     | CPL 3   | DEMO (`0x01`)                                                                                                            | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
+| 3     | CPL 3   | MSP BANK (`0x02`)                                                                                                        | `0xA8`, `0x09` | `PanelAction_PostUnlessDemoOrParamC0` |
+| 3     | CPL 3   | MSP MENU (`0x04`)                                                                                                        | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
+| 3     | CPL 3   | MSP STOP/RECORD (`0x08`)                                                                                                 | `0xA8`, `0x09` | `PanelAction_PostUnlessDemoOrParamC0` |
+| 4     | CPL 4   | VARIATION 1, VARIATION 2, VARIATION 3, VARIATION 4 (`0x0F`)                                                              | `0x48`, `0x07` | `PanelButton_Variation`               |
+| 4     | CPL 4   | MUSIC STYLE ARRANGER (`0x10`)                                                                                            | `0x98`, `0x03` | `PanelButton_MusicStyleArranger`      |
+| 4     | CPL 4   | SPLIT POINT (`0x20`)                                                                                                     | `0x70`, `0x00` | `PanelButton_SplitPoint`              |
+| 4     | CPL 4   | AUTO PLAY CHORD (`0x40`)                                                                                                 | `0xA8`, `0x05` | `PanelButton_AutoPlayChord`           |
+| 5     | CPL 5   | MSP 1, MSP 2, MSP 3, MSP 4, MSP 5, MSP 6 (`0x3F`)                                                                        | `0xA8`, `0x09` | `PanelButton_MspNumber`               |
+| 6     | CPL 6   | U.S. TRAD, COUNTRY, LATIN, MARCH & WALTZ, PARTY TIME, SHOWTIME & TRAD DANCE, WORLD, CUSTOM (`0xFF`)                      | `0x48`, `0x00` | `PanelButton_RhythmGroup`             |
+| 7     | CPL 7   | RIGHT 5 (`0x01`)                                                                                                         | `0xA9`, `0x0C` | `PanelButton_PairUp`                  |
+| 7     | CPL 7   | RIGHT 4 (`0x02`)                                                                                                         | `0xA9`, `0x0B` | `PanelButton_PairUp`                  |
+| 7     | CPL 7   | DISPLAY HOLD (`0x04`)                                                                                                    | `0xA8`, `0x03` | `PanelAction_PostUnlessDemo`          |
+| 7     | CPL 7   | EXIT (`0x08`)                                                                                                            | `0xA9`, `0x0F` | `PanelButton_PairUp`                  |
+| 7     | CPL 7   | DOWN 7 (`0x10`)                                                                                                          | `0xA9`, `0x06` | `PanelButton_PairDown`                |
+| 7     | CPL 7   | UP 7 (`0x20`)                                                                                                            | `0xA9`, `0x06` | `PanelButton_PairUp`                  |
+| 7     | CPL 7   | DOWN 8 (`0x40`)                                                                                                          | `0xA9`, `0x07` | `PanelButton_PairDown`                |
+| 7     | CPL 7   | UP 8 (`0x80`)                                                                                                            | `0xA9`, `0x07` | `PanelButton_PairUp`                  |
+| 8     | CPL 8   | RIGHT 3 (`0x01`)                                                                                                         | `0xA9`, `0x0A` | `PanelButton_PairUp`                  |
+| 8     | CPL 8   | RIGHT 2 (`0x02`)                                                                                                         | `0xA9`, `0x09` | `PanelButton_PairUp`                  |
+| 8     | CPL 8   | RIGHT 1 (`0x04`)                                                                                                         | `0xA9`, `0x08` | `PanelButton_PairUp`                  |
+| 8     | CPL 8   | DOWN 5 (`0x10`)                                                                                                          | `0xA9`, `0x04` | `PanelButton_PairDown`                |
+| 8     | CPL 8   | UP 5 (`0x20`)                                                                                                            | `0xA9`, `0x04` | `PanelButton_PairUp`                  |
+| 8     | CPL 8   | DOWN 6 (`0x40`)                                                                                                          | `0xA9`, `0x05` | `PanelButton_PairDown`                |
+| 8     | CPL 8   | UP 6 (`0x80`)                                                                                                            | `0xA9`, `0x05` | `PanelButton_PairUp`                  |
+| 9     | CPL 9   | LEFT 5 (`0x01`)                                                                                                          | `0xA9`, `0x0C` | `PanelButton_PairDown`                |
+| 9     | CPL 9   | LEFT 4 (`0x02`)                                                                                                          | `0xA9`, `0x0B` | `PanelButton_PairDown`                |
+| 9     | CPL 9   | LEFT 3 (`0x04`)                                                                                                          | `0xA9`, `0x0A` | `PanelButton_PairDown`                |
+| 9     | CPL 9   | DOWN 3 (`0x10`)                                                                                                          | `0xA9`, `0x02` | `PanelButton_PairDown`                |
+| 9     | CPL 9   | UP 3 (`0x20`)                                                                                                            | `0xA9`, `0x02` | `PanelButton_PairUp`                  |
+| 9     | CPL 9   | DOWN 4 (`0x40`)                                                                                                          | `0xA9`, `0x03` | `PanelButton_PairDown`                |
+| 9     | CPL 9   | UP 4 (`0x80`)                                                                                                            | `0xA9`, `0x03` | `PanelButton_PairUp`                  |
+| 10    | CPL 10  | LEFT 2 (`0x01`)                                                                                                          | `0xA9`, `0x09` | `PanelButton_PairDown`                |
+| 10    | CPL 10  | LEFT 1 (`0x02`)                                                                                                          | `0xA9`, `0x08` | `PanelButton_PairDown`                |
+| 10    | CPL 10  | HELP (`0x04`)                                                                                                            | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
+| 10    | CPL 10  | OTHER PARTS/TR (`0x08`)                                                                                                  | `0xA9`, `0x0F` | `PanelButton_PairDown`                |
+| 10    | CPL 10  | DOWN 1 (`0x10`)                                                                                                          | `0xA9`, `0x00` | `PanelButton_PairDown`                |
+| 10    | CPL 10  | UP 1 (`0x20`)                                                                                                            | `0xA9`, `0x00` | `PanelButton_PairUp`                  |
+| 10    | CPL 10  | DOWN 2 (`0x40`)                                                                                                          | `0xA9`, `0x01` | `PanelButton_PairDown`                |
+| 10    | CPL 10  | UP 2 (`0x80`)                                                                                                            | `0xA9`, `0x01` | `PanelButton_PairUp`                  |
+| 11    | CPR 0   | TRANSPOSE - (`0x20`)                                                                                                     | `0xA9`, `0x0E` | `PanelButton_PairDown`                |
+| 11    | CPR 0   | TRANSPOSE + (`0x40`)                                                                                                     | `0xA9`, `0x0E` | `PanelButton_PairUp`                  |
+| 12    | CPR 1   | ORGAN & ACCORDION, ORCHESTRAL PAD, SYNTH, BASS, DIGITAL DRAWBAR, ACCORDION REGISTER, GM SPECIAL, DRUM KITS (`0xFF`)      | `0x00`, `0x00` | `PanelButton_SoundGroup`              |
+| 13    | CPR 2   | PIANO, GUITAR, STRINGS & VOCAL, BRASS, FLUTE, SAX & REED, MALLET & ORCH PERC, WORLD PERC (`0xFF`)                        | `0x00`, `0x00` | `PanelButton_SoundGroup`              |
+| 14    | CPR 3   | SUSTAIN (`0x01`)                                                                                                         | `0x00`, `0x04` | `PanelButton_Sustain`                 |
+| 14    | CPR 3   | DIGITAL EFFECT (`0x02`)                                                                                                  | `0x00`, `0x04` | `PanelButton_DigitalEffect`           |
+| 14    | CPR 3   | DSP EFFECT (`0x04`)                                                                                                      | `0x00`, `0x05` | `PanelButton_DspEffect`               |
+| 14    | CPR 3   | DIGITAL REVERB (`0x08`)                                                                                                  | `0x60`, `0x01` | `PanelButton_DigitalReverb`           |
+| 14    | CPR 3   | ACOUSTIC ILLUSION (`0x10`)                                                                                               | `0x60`, `0x01` | `PanelButton_AcousticIllusion`        |
+| 15    | CPR 4   | LEFT, RIGHT 2, RIGHT 1 (`0x07`)                                                                                          | `0x90`, `0x10` | `PanelButton_PartSelect`              |
+| 15    | CPR 4   | ENTERTAINER (`0x08`)                                                                                                     | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
+| 15    | CPR 4   | CONDUCTOR: LEFT (`0x10`)                                                                                                 | `0x90`, `0x01` | `PanelButton_Conductor`               |
+| 15    | CPR 4   | CONDUCTOR: RIGHT 2 (`0x20`)                                                                                              | `0x90`, `0x00` | `PanelButton_Conductor`               |
+| 15    | CPR 4   | CONDUCTOR: RIGHT 1 (`0x40`)                                                                                              | `0x90`, `0x00` | `PanelButton_Conductor`               |
+| 15    | CPR 4   | TECHNI CHORD (`0x80`)                                                                                                    | `0x48`, `0x04` | `PanelAction_PostUnlessDemoOrParamC0` |
+| 16    | CPR 5   | SEQUENCER: PLAY (`0x08`)                                                                                                 | `0xA8`, `0x14` | `PanelButton_SequencerPlay`           |
+| 16    | CPR 5   | SEQUENCER: EASY REC (`0x10`)                                                                                             | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
+| 16    | CPR 5   | SEQUENCER: MENU (`0x20`)                                                                                                 | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
+| 17    | CPR 6   | PM 1, PM 2, PM 3, PM 4, PM 5, PM 6, PM 7, PM 8 (`0xFF`)                                                                  | `0x98`, `0x01` | `PanelButton_PanelMemoryNumber`       |
+| 18    | CPR 7   | PANEL MEMORY: SET (`0x01`)                                                                                               | `0x98`, `0x01` | `PanelButton_PanelMemorySet`          |
+| 18    | CPR 7   | PANEL MEMORY: NEXT BANK (`0x02`)                                                                                         | `0xA8`, `0x04` | `PanelButton_PanelMemoryNextBank`     |
+| 18    | CPR 7   | PANEL MEMORY: BANK VIEW (`0x04`)                                                                                         | `0xA8`, `0x05` | `PanelButton_PanelMemorySet`          |
+| 19    | CPR 8   | R1/R2 OCTAVE -, R1/R2 OCTAVE + (`0x18`)                                                                                  | `0x90`, `0x04` | `PanelButton_Octave`                  |
+| 19    | CPR 8   | START/STOP (`0x20`)                                                                                                      | `0x48`, `0x05` | `PanelButton_StartStop`               |
+| 19    | CPR 8   | SYNCHRO & BREAK (`0x40`)                                                                                                 | `0x48`, `0x05` | `PanelButton_SynchroBreak`            |
+| 19    | CPR 8   | TAP TEMPO (`0x80`)                                                                                                       | `0xA8`, `0x12` | `PanelAction_PostUnlessDemo`          |
+| 20    | CPR 9   | MEMORY A, MEMORY B (`0xC0`)                                                                                              | `0x00`, `0x00` | `PanelButton_SoundGroup`              |
+| 21    | CPR 10  | MENU: SOUND (`0x04`)                                                                                                     | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
+| 21    | CPR 10  | MENU: CONTROL (`0x08`)                                                                                                   | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
+| 21    | CPR 10  | MENU: MIDI (`0x10`)                                                                                                      | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
+| 21    | CPR 10  | MENU: DISK (`0x20`)                                                                                                      | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
+| 22    | --      | -- (`0xFF`)                                                                                                              | `0xB1`, `0x00` | `PanelAction_Event22`                 |
+| 23    | --      | -- (`0x7F`)                                                                                                              | `0xB2`, `0x00` | `PanelAction_Event23`                 |
+| 24    | --      | -- (`0x7F`)                                                                                                              | `0xB0`, `0x00` | `PanelEvent_Post`                     |
+| 25    | --      | TEMPO/PROGRAM data wheel (header 0xD7; records {0x19, delta, 0xFF}, mamedev/mame#15919) (`0xFF`)                         | `0xA9`, `0x21` | `PanelAction_PostUnlessDemo`          |
+| 26    | --      | modulation wheel (ENCODER_0) (`0x7F`)                                                                                    | `0xB0`, `0x01` | `PanelAction_ModWheel`                |
+| 27    | --      | volume slider (ENCODER_1) (`0x7F`)                                                                                       | `0xB4`, `0x00` | `PanelAction_Volume`                  |
+| 28    | --      | foot switch FS1 (PG.2) (`0x01`)                                                                                          | `0xA9`, `0x32` | `PanelAction_FootSwitch1`             |
+| 28    | --      | foot switch FS2 (PG.3) (`0x02`)                                                                                          | `0xA9`, `0x33` | `PanelAction_FootSwitch2`             |
+| 29    | --      | foot controller FC1 (PG.4) (`0x01`)                                                                                      | `0xA9`, `0x34` | `PanelAction_FootController1`         |
+| 29    | --      | FC2 (PG.5) (`0x02`)                                                                                                      | `0xA9`, `0x35` | `PanelAction_FootController2`         |
+| 29    | --      | FC3 (PG.6) (`0x04`)                                                                                                      | `0xA9`, `0x36` | `PanelAction_FootController3`         |
+| 29    | --      | FC4 (PG.7) (`0x08`)                                                                                                      | `0xA9`, `0x37` | `PanelAction_FootController4`         |
+| 30    | --      | PD.6 (`0x01`)                                                                                                            | `0xA8`, `0x41` | `PanelEvent_Post`                     |
 
 The `arg` of the LCD buttons is the sound editor's switch number (see [UI Framework]({{ site.baseurl }}/ui-framework/)):
 0-7 the bottom columns, 8-12 the side rows. The `PanelButton_PairDown` side (DOWN n, LEFT n, PAGE DOWN,
@@ -526,52 +524,52 @@ The main CPU uses a state machine indexed by `CPANEL_STATE_MACHINE_INDEX` (addre
 ```
 State Transition Diagram:
 
-    ┌─────────────────────────────────────────────────────────────────┐
-    │                                                                 │
-    │  IDLE (0)                                                       │
-    │    │                                                            │
-    │    │ CPanel_SendCommand called                                  │
-    │    v                                                            │
-    │  ROUTINE_1 (1) ──> Start TX, check SCLK1                        │
-    │    │                │                                           │
-    │    │ SCLK1=1        │ SCLK1=0 (panel talking)                   │
-    │    v                v                                           │
-    │  ROUTINE_2 (2)    Back to IDLE (0)                              │
-    │    │                                                            │
-    │    │ TX byte, update LED index                                  │
-    │    v                                                            │
-    │  ROUTINE_3 (3) ──> Disable serial pins                          │
-    │    │                                                            │
-    │    v                                                            │
-    │  ROUTINE_4 (4) ──> Continue TX, count down STATE_0_TO_17        │
-    │    │                │                                           │
-    │    │ count > 1      │ count <= 1                                │
-    │    v                v                                           │
-    │  ROUTINE_3 (loop)  ROUTINE_5 (5)                                │
-    │                      │                                          │
-    │                      v                                          │
-    │                    ROUTINE_6 (6) ──> Check if more LED data     │
-    │                      │       │                                  │
-    │                      │ more  │ done                             │
-    │                      v       v                                  │
-    │                    ROUTINE_1  IDLE (0)                          │
-    │                                                                 │
-    │  ═══════════════════════════════════════════════════════════    │
-    │                                                                 │
-    │  ROUTINE_7 (8) ──> RX phase 1, first byte from panel            │
-    │    │                                                            │
-    │    │ Byte received, calculate STATE_0_TO_17                     │
-    │    v                                                            │
-    │  ROUTINE_8 (9) ──> RX phase 2, additional bytes                 │
-    │    │                │                                           │
-    │    │ count > 1      │ count <= 1                                │
-    │    v                v                                           │
-    │  ROUTINE_8 (loop)  IDLE (0)                                     │
-    │                                                                 │
-    └─────────────────────────────────────────────────────────────────┘
+    ┌───────────────────────────────────────────────────────────────────────────────────┐
+    │                                                                                   │
+    │  IDLE (0)                                                                         │
+    │    │                                                                              │
+    │    │ CPanel_SendCommand called                                                    │
+    │    v                                                                              │
+    │  CPanel_SM_StartTX (1) ──> Start TX, check SCLK1                                  │
+    │    │                       │                                                      │
+    │    │ SCLK1=1               │ SCLK1=0 (panel talking)                              │
+    │    v                       v                                                      │
+    │  CPanel_SM_SendByte1 (2)   Back to IDLE (0)                                       │
+    │    │                                                                              │
+    │    │ TX byte, update LED index                                                    │
+    │    v                                                                              │
+    │  CPanel_SM_TXDelay1 (3) ──> Disable serial pins                                   │
+    │    │                                                                              │
+    │    v                                                                              │
+    │  CPanel_SM_SendByteN (4) ──> Continue TX, count down CPANEL_PACKET_BYTE_COUNT     │
+    │    │                         │                                                    │
+    │    │ count > 1               │ count <= 1                                         │
+    │    v                         v                                                    │
+    │  CPanel_SM_TXDelay1 (loop)   CPanel_SM_TXDelay2 (5)                               │
+    │                                │                                                  │
+    │                                v                                                  │
+    │                              CPanel_SM_TXComplete (6) ──> Check if more LED data  │
+    │                                │                  │                               │
+    │                                │ more             │ done                          │
+    │                                v                  v                               │
+    │                              CPanel_SM_StartTX    IDLE (0)                        │
+    │                                                                                   │
+    │  ═════════════════════════════════════════════════════════════════════════════    │
+    │                                                                                   │
+    │  CPanel_SM_RXByte1 (8) ──> RX phase 1, first byte from panel                      │
+    │    │                                                                              │
+    │    │ Byte received, calculate CPANEL_PACKET_BYTE_COUNT                            │
+    │    v                                                                              │
+    │  CPanel_SM_RXByteN (9) ──> RX phase 2, additional bytes                           │
+    │    │                       │                                                      │
+    │    │ count > 1             │ count <= 1                                           │
+    │    v                       v                                                      │
+    │  CPanel_SM_RXByteN (loop)  IDLE (0)                                               │
+    │                                                                                   │
+    └───────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### STATE_0_TO_17 Meaning
+### CPANEL_PACKET_BYTE_COUNT Meaning
 
 The variable `CPANEL_PACKET_BYTE_COUNT` (address 0x8D8B) tracks the expected byte count in multi-byte transfers:
 
@@ -585,9 +583,9 @@ The variable `CPANEL_PACKET_BYTE_COUNT` (address 0x8D8B) tracks the expected byt
 **Calculation (from received byte A):**
 ```c
 if ((A & 0x3F) < 0x30) {
-    STATE_0_TO_17 = 2;
+    CPANEL_PACKET_BYTE_COUNT = 2;
 } else {
-    STATE_0_TO_17 = (A & 0x0F) + 3;  // 3 to 18 bytes
+    CPANEL_PACKET_BYTE_COUNT = (A & 0x0F) + 3;  // 3 to 18 bytes
 }
 ```
 
@@ -595,19 +593,19 @@ if ((A & 0x3F) < 0x30) {
 
 Located at `CPANEL_STATE_MACHINE_TABLE` (0xFC4489):
 
-| Offset | Routine | Address | Purpose |
-|--------|---------|---------|---------|
-| 0x00 | ROUTINE_0 | 0xFC47E9 | Idle state |
-| 0x04 | ROUTINE_1 | 0xFC44F9 | Start TX sequence |
-| 0x08 | ROUTINE_2 | 0xFC45A8 | Send LED data byte |
-| 0x0C | ROUTINE_3 | 0xFC4544 | Disable pins, next byte |
-| 0x10 | ROUTINE_4 | 0xFC460D | Continue LED data |
-| 0x14 | ROUTINE_5 | 0xFC4573 | Finalize LED group |
-| 0x18 | ROUTINE_6 | 0xFC4672 | Check for more data |
-| 0x1C | ROUTINE_0 | 0xFC47E9 | (duplicate) Idle |
-| 0x20 | ROUTINE_7 | 0xFC46EA | RX first byte |
-| 0x24 | ROUTINE_8 | 0xFC4767 | RX subsequent bytes |
-| 0x28 | ROUTINE_0 | 0xFC47E9 | (duplicate) Unreachable |
+| Offset | Routine                | Address  | Purpose                 |
+|--------|------------------------|----------|-------------------------|
+| 0x00   | `CPanel_SM_Idle`       | 0xFC47E9 | Idle state              |
+| 0x04   | `CPanel_SM_StartTX`    | 0xFC44F9 | Start TX sequence       |
+| 0x08   | `CPanel_SM_SendByte1`  | 0xFC45A8 | Send LED data byte      |
+| 0x0C   | `CPanel_SM_TXDelay1`   | 0xFC4544 | Disable pins, next byte |
+| 0x10   | `CPanel_SM_SendByteN`  | 0xFC460D | Continue LED data       |
+| 0x14   | `CPanel_SM_TXDelay2`   | 0xFC4573 | Finalize LED group      |
+| 0x18   | `CPanel_SM_TXComplete` | 0xFC4672 | Check for more data     |
+| 0x1C   | `CPanel_SM_Idle`       | 0xFC47E9 | (duplicate) Idle        |
+| 0x20   | `CPanel_SM_RXByte1`    | 0xFC46EA | RX first byte           |
+| 0x24   | `CPanel_SM_RXByteN`    | 0xFC4767 | RX subsequent bytes     |
+| 0x28   | `CPanel_SM_Idle`       | 0xFC47E9 | (duplicate) Unreachable |
 
 ## 5. HLE Implementation Guide
 
@@ -641,6 +639,7 @@ public:
     void set_baudrate(uint16_t br);
     void set_cpl_port(int n, ioport_port *port);    // Left panel segment 0-10
     void set_cpr_port(int n, ioport_port *port);    // Right panel segment 0-10
+    void encoder_detent(int delta);                 // one data-wheel step, reported on the next scan
 
 protected:
     virtual void device_start() override;
@@ -687,6 +686,7 @@ private:
     // Input port pointers (set by main driver)
     ioport_port *m_cpl_ports[11];    // Left panel segments 0-10
     ioport_port *m_cpr_ports[11];    // Right panel segments 0-10
+    int32_t m_encoder_accum;         // data-wheel detents not yet reported
 
     // LED outputs
     output_finder<50> m_cpl_leds;
@@ -698,6 +698,7 @@ private:
     void process_received_byte(uint8_t data);
     void send_sync_packet();
     void send_button_packet(int segment, bool is_left_panel);
+    void send_encoder_packet(int8_t detents);       // [0xD7, count]
     void send_all_button_states(bool is_left_panel);
     void process_led_command(uint8_t row, uint8_t data);
     uint8_t read_button_segment(int segment, bool is_left_panel);
@@ -845,12 +846,12 @@ Buttons are organized in 11 segments per panel, with 8 buttons per segment.
 
 **Known button combinations (from firmware):**
 
-| Segment | Bitmask | Buttons | Effect |
-|---------|---------|---------|--------|
-| CPL_SEG4 | 0x6C | AUTO PLAY CHORD + SPLIT POINT + VAR4 + VAR3 | Display software build numbers |
-| CPR_SEG1 | 0x70 | GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR | Display firmware version |
-| CPL_SEG6 | 0x38 | SHOWTIME & TRAD DANCE + PARTY TIME + MARCH & WALTZ | Unknown function |
-| CPR_SEG6 | 0x0F | PM 1 + PM 2 + PM 3 + PM 4 | Firmware update mode |
+| Segment  | Bitmask | Buttons                                            | Effect                                                                            |
+|----------|---------|----------------------------------------------------|-----------------------------------------------------------------------------------|
+| CPL_SEG4 | 0x6C    | AUTO PLAY CHORD + SPLIT POINT + VAR4 + VAR3        | Display software build numbers                                                    |
+| CPR_SEG1 | 0x70    | GM SPECIAL + ACCORDION REGISTER + DIGITAL DRAWBAR  | "ALL INITIAL SETTING!" screen + firmware version on the LEDs                      |
+| CPL_SEG6 | 0x38    | SHOWTIME & TRAD DANCE + PARTY TIME + MARCH & WALTZ | Factory reset (Initial Setting); see [Test Modes]({{ site.baseurl }}/test-modes/) |
+| CPR_SEG6 | 0x0F    | PM 1 + PM 2 + PM 3 + PM 4                          | Firmware update mode                                                              |
 
 ### LED Control Interface
 
@@ -920,15 +921,15 @@ encoder_id = (byte0 & 0x07) | ((byte0 & 0xC0) >> 3)  // 5-bit ID, range 0-31
 
 **Active Encoder IDs and Handlers:**
 
-| ID | Handler | Controller | Processing | MIDI CC | Output Variable |
-|----|---------|-----------|------------|---------|----------------|
-| 2 | `Encoder_ProcessModwheel` | Modulation wheel | Invert, /2, 128-entry LUT | CC#1 | `MIDI_CC_MODWHEEL_VALUE` (0x8EE4) |
-| 5 | `Encoder_ProcessVolume` | Volume slider | /2, 128-entry LUT, clamp+scale | CC#7 | `MIDI_CC_VOLUME_VALUE` (0x8EF4) |
-| 25 | `Encoder_ProcessBreath` | Breath controller | Invert, LUT, mode-dependent scaling | CC#2 | `MIDI_CC_BREATH_VALUE` (0x8EE8) |
-| 26 | `Encoder_ProcessFoot` | Foot controller | /2, 128-entry LUT | CC#4 | `MIDI_CC_FOOT_VALUE` (0x8EEA) |
-| 27 | `Encoder_ProcessExpression` | Expression pedal | Invert, /2, 128-entry LUT | CC#0 | `MIDI_CC_EXPRESSION_VALUE` (0x8EE6) |
-| 31 | `Encoder_PassthroughIdentity` | Raw passthrough | No processing | N/A | Direct return |
-| 0-1,3-4,6-24,28-30 | `Encoder_ReturnDefaultConstant` | Unused | Returns 1 | N/A | N/A |
+| ID                 | Handler                         | Controller               | Processing                          | MIDI CC | Output Variable                     |
+|--------------------|---------------------------------|--------------------------|-------------------------------------|---------|-------------------------------------|
+| 2                  | `Encoder_ProcessModwheel`       | Modulation wheel         | Invert, /2, 128-entry LUT           | CC#1    | `MIDI_CC_MODWHEEL_VALUE` (0x8EE4)   |
+| 5                  | `Encoder_ProcessVolume`         | Volume slider            | /2, 128-entry LUT, clamp+scale      | CC#7    | `MIDI_CC_VOLUME_VALUE` (0x8EF4)     |
+| 25                 | `Encoder_ProcessBreath`         | Breath controller        | Invert, LUT, mode-dependent scaling | CC#2    | `MIDI_CC_BREATH_VALUE` (0x8EE8)     |
+| 26                 | `Encoder_ProcessFoot`           | Foot controller          | /2, 128-entry LUT                   | CC#4    | `MIDI_CC_FOOT_VALUE` (0x8EEA)       |
+| 27                 | `Encoder_ProcessExpression`     | Expression pedal         | Invert, /2, 128-entry LUT           | CC#0    | `MIDI_CC_EXPRESSION_VALUE` (0x8EE6) |
+| 31                 | `Encoder_PassthroughIdentity`   | TEMPO/PROGRAM data wheel | No processing (signed detent count) | N/A     | Direct return                       |
+| 0-1,3-4,6-24,28-30 | `Encoder_ReturnDefaultConstant` | Unused                   | Returns 1                           | N/A     | N/A                                 |
 
 **Value Processing Pipeline (typical):**
 1. Raw 8-bit value from MCU ADC (0-255)
@@ -983,20 +984,24 @@ so `0xD7` maps to index `0x77`, where the translation table holds record `0x19`.
 The translation table's address moves between revisions (`0xED9F28` on v5, `0xED9F40` on v6,
 `0xEDA03C` on v7-v10) but its content is byte-identical in all six.
 
-The wheel does **not** use Type 2 encoder packets. The Type 2 dispatch table at `0xEDA0BC` has no
-data-wheel entry — every ID except modwheel(2), volume(5), breath(25), foot(26), expression(27)
-and passthrough(31) returns a constant 1.
+The wheel's frame *is* a Type 2 packet. Header `0xD7` has type bits 5:3 = `010`, so
+`CPanel_RX_ParseNext` hands it to `CPanel_RX_EncoderPacket`. Its ID bits give
+`(0xD7 & 0x07) | ((0xD7 & 0xC0) >> 3)` = 31: the pass-through entry `Encoder_PassthroughIdentity`
+of the table at `0xEDA0BC`. That entry returns the count unchanged, with no lookup table and no
+MIDI CC. `CPanel_RX_EncoderPacket` then queues `{0xD7, count, 0xFF}`, where `0xFF` is the record's
+changed-bits byte. The analog IDs are modwheel(2), volume(5), breath(25), foot(26) and
+expression(27). Every other ID returns a constant 1.
 
 #### Segment 0x0B: a boot-time settling register
 
-During boot only, `CPanel_PollStartup` / `CPanel_ButtonPollLoop` (`cpanel_routines.s:504-549`)
+During boot only, `CPanel_PollStartup` / `CPanel_ButtonPollLoop` (`cpanel_routines.s:505-549`)
 sends `0x20 0x0B` to the left panel MCU and stores the reply at DRAM[0x8E55]:
 
-| Bit | Direction | Derived state at DRAM[0x8E6A] |
-|-----|-----------|------|
-| 7   | Clockwise   | 0x0D |
-| 6   | Counter-clockwise | 0x0E |
-| neither | Neutral | 0x0C |
+| Bit set in the reply | Derived state at DRAM[0x8E6A] |
+|----------------------|-------------------------------|
+| 7                    | 0x0D                          |
+| 6 (bit 7 clear)      | 0x0E                          |
+| neither              | 0x0C                          |
 
 `CPanel_EncoderCheck` re-polls until the value repeats on two consecutive reads, then returns.
 Steady state never sends `0x20 0x0B` again and never reads DRAM[0x8E55]; the only steady-state
@@ -1008,20 +1013,21 @@ settling check, not the rotation path.
 ```
 detent -> panel MCU count -> [0xD7, count] -> record 0x19
   -> SwbtWr event: payload 0x21 at DRAM[0xC07D], count at DRAM[0xC07E]
-  -> CtrlPanel_HandleSerialPort (main_title_ctrl_panel.s:300)
+  -> CtrlPanel_HandleSerialPort (main_title_ctrl_panel.s:301)
   -> acceleration curve -> event 0x1C0001F
-  -> GroupBox_HandleCursorNav (ui_control_panel.s:3302)
+  -> GroupBox_HandleCursorNav (ui_control_panel.s:3985)
 ```
 
 `CtrlPanel_HandleSerialPort` requires DRAM[0xC07D] == 0x21 and a non-zero count at DRAM[0xC07E].
-It deletes any pending `0x1C0001F`, computes `sext8(count + 0x10)`, indexes a **32-entry table of
+It deletes any pending `0x1C0001F`, computes `sext8(count + 0x10)`, indexes a **33-entry table of
 signed longs** (`0xEA98E2` on v10, `0xEA97CE` on v5) and posts `0x1C0001F` with the entry as its
 parameter. The table is an acceleration curve running monotonically from `+7` at index 0 to `-7`
-at index 31, so a **clockwise turn must be reported as a negative count** to raise the value, and
+at index 32, so a **clockwise turn must be reported as a negative count** to raise the value, and
 a larger magnitude moves the value further per detent.
 
-> ⚠ The index is computed with no bounds check, so only wire magnitudes **-16..+15** are legal.
-> Clamping is the panel's responsibility.
+> ⚠ The index is computed with no bounds check. The table (`CtrlPanel_DialStepByDelta`) has 33
+> entries for deltas -16..+16, so only wire magnitudes **-16..+16** are legal (MAME clamps
+> to -16..+15). Clamping is the panel's responsibility.
 
 Full derivation, per-revision tables and the reproducing probes: see
 [Data Wheel (TEMPO/PROGRAM Encoder)]({{ site.baseurl }}/data-wheel-investigation/).
@@ -1041,7 +1047,7 @@ Once the 0x1C0001F event is posted, it reaches the focused widget through the NA
 | 0x3EF66 | SetDialDown param | XDE component |
 | 0x3EF6A | Dial Focus | Currently focused UI object (32-bit) |
 
-`SetDialUp` / `SetDialDown` (presentation_sound_nav.s:375-385) are **setup functions** that register callbacks — they store workspace, event code, and parameter into the dial callback table. The actual invocation of these callbacks is triggered by the 0x1C0001F event reaching `GroupBox_HandleCursorNav`.
+`SetDialUp` / `SetDialDown` (presentation_sound_nav.s:381-391) are **setup functions** that register callbacks — they store workspace, event code, and parameter into the dial callback table. The actual invocation of these callbacks is triggered by the 0x1C0001F event reaching `GroupBox_HandleCursorNav`.
 
 **Related NAKA widget events:**
 - 0x1E0006F: GroupBox_DialEnable
@@ -1054,22 +1060,22 @@ Once the 0x1C0001F event is posted, it reaches the focused widget through the NA
 
 The firmware has two separate polling loops:
 
-1. **Startup mode** (`CPanel_PollStartup` + `CPanel_ButtonPollLoop`, lines 504-549): sends `0x20 0x0B`, settles the encoder register, runs only during boot.
-2. **Steady-state mode** (`CPanel_InterruptPoll_MainLoop`, lines 1057-1174): sends `E0 13` periodically, updates LEDs, handles INTA packets. There is no encoder poll here — the wheel pushes its `[0xD7, count]` frames over INTA like any other panel change.
+1. **Startup mode** (`CPanel_PollStartup` + `CPanel_ButtonPollLoop`, lines 505-549): sends `0x20 0x0B`, settles the encoder register, runs only during boot.
+2. **Steady-state mode** (`CPanel_InterruptPoll_MainLoop`, lines 1060-1177): sends `E0 13` periodically, updates LEDs, handles INTA packets. There is no encoder poll here — the wheel pushes its `[0xD7, count]` frames over INTA like any other panel change.
 
 
 ### MIDI Parameter Delta Processing
 
-The main loop calls `MidiParam_ProcessDeltas` (0xFC6ED1) every iteration (when input processing is enabled) to detect changes in MIDI controller parameters and re-route them through the encoder value processing pipeline.
+The main loop calls `MidiParam_ProcessDeltas` (0xFC6ED1) every iteration (when input processing is enabled) to detect changes in the main CPU's A/D results ADREG04 and ADREG15 (modulation wheel and volume slider) and re-route them through the encoder value processing pipeline.
 
 **Two-channel processing:**
 
-| Channel | Status Register | Output Buffer | Previous Value | Encoder ID | Controller |
-|---------|----------------|---------------|---------------|------------|------------|
-| 0 | `ENCODER_0_STATUS` (0x8F04) | `ENCODER_0_OUTPUT` (0x8F10) | 0x8EDC | 2 (Modwheel) | Modulation |
-| 1 | `ENCODER_1_STATUS` (0x8F06) | `ENCODER_1_OUTPUT` (0x8F16) | 0x8EDE | 5 (Volume) | Volume |
+| Channel | Status Register             | Output Buffer               | Previous Value                  | Encoder ID   | Controller |
+|---------|-----------------------------|-----------------------------|---------------------------------|--------------|------------|
+| 0       | `ENCODER_0_STATUS` (0x8F04) | `ENCODER_0_OUTPUT` (0x8F10) | `ENCODER_0_LAST_VALUE` (0x8EFC) | 2 (Modwheel) | Modulation |
+| 1       | `ENCODER_1_STATUS` (0x8F06) | `ENCODER_1_OUTPUT` (0x8F16) | `ENCODER_1_LAST_VALUE` (0x8EFE) | 5 (Volume)   | Volume     |
 
-Each channel reads the current MIDI parameter value via `MidiChannel_GetParamByIndex`, computes the delta against the previously stored value, applies debounce filtering through `MIDI_ComputeParamDelta`, and if the delta is confirmed valid, re-dispatches through `CPanel_EncoderDispatch` to apply lookup table conversion. The result is stored in the output buffer with bit 7 of the flags byte set to indicate a value change.
+Each channel reads its current A/D result via `MidiChannel_GetParamByIndex`, computes the delta against the previously stored value, applies debounce filtering through `MIDI_ComputeParamDelta`, and if the delta is confirmed valid, re-dispatches through `CPanel_EncoderDispatch` to apply lookup table conversion. The result is stored in the output buffer with bit 7 of the flags byte set to indicate a value change.
 
 **`MIDI_ComputeParamDelta` — Noise/Debounce Filter (0xFC6F86):**
 
@@ -1086,16 +1092,16 @@ Status register bit definitions:
 - **Bit 2:** Debounce active flag (change detected, awaiting confirmation)
 - **Bit 3:** Valid delta flag (checked and cleared by caller to accept the change)
 
-**`MidiChannel_GetParamByIndex` (0xFC6EA8):**
+**`MidiChannel_GetParamByIndex` (0xFC6EA7):**
 
-Returns a pointer to MIDI channel parameters based on channel index (0-3). The parameter block base addresses in internal RAM:
+Returns, in L, the high byte of one of the main CPU's four A/D conversion result registers (`ld l, (xbc + 1)` with XBC = 0x120 / 0x122 / 0x124 / 0x126, the TMP94C241's `ADREG04L` / `ADREG15L` / `ADREG26L` / `ADREG37L`, for index 0-3). The modulation wheel (ID 2) and the volume slider (ID 5) are read from `ADREG04` and `ADREG15` (index 0 and 1):
 
-| Channel | Base Address (decimal) | RAM |
-|---------|----------------------|-----|
-| 0 | 288 (0x120) | Internal |
-| 1 | 290 (0x122) | Internal |
-| 2 | 292 (0x124) | Internal |
-| 3 | 294 (0x126) | Internal |
+| Channel | Base Address (decimal) | Register        |
+|---------|------------------------|-----------------|
+| 0       | 288 (0x120)            | `ADREG04` (SFR) |
+| 1       | 290 (0x122)            | `ADREG15` (SFR) |
+| 2       | 292 (0x124)            | `ADREG26` (SFR) |
+| 3       | 294 (0x126)            | `ADREG37` (SFR) |
 
 ### MIDI Controller Output
 
@@ -1135,45 +1141,45 @@ stores of status + first data byte); v7 0x9C lower.
 
 ### Control Panel RAM Variables
 
-| Address | Name | Size | Description |
-|---------|------|------|-------------|
-| 0x8D8A | `CPANEL_STATE_MACHINE_INDEX` | byte | Current serial state machine index (0-10) |
-| 0x8D8B | `CPANEL_PACKET_BYTE_COUNT` | byte | Byte count for multi-byte packets |
-| 0x8D8C | `CPANEL_TX_RX_FLAGS` | byte | Flags: bits 0,1,2,4,6,7 used |
-| 0x8D8E | `PFCR_VALUE` | byte | Shadow of Port F Control Register |
-| 0x8D8F | `PFFC_VALUE` | byte | Shadow of Port F Function Control |
-| 0x8D92 | `CPANEL_PROTOCOL_FLAGS` | byte | Flags: bits 0,1,2,3,6,7 used |
-| 0x8D93 | `CPANEL_PANEL_DETECT_FLAGS` | byte | Communication test results |
-| 0x8D94 | `CPANEL_RX_PACKET_BYTE_1` | byte | First byte of received packet |
-| 0x8D95 | `CPANEL_RX_PACKET_BYTE_2` | byte | Second byte of received packet |
-| 0x8D96 | `CPANEL_LAST_EVENT_VALUE` | byte | Changed button bits (XOR result) |
-| 0x8D97 | `CPANEL_COUNTER_DOWN_FROM_200` | byte | Ready check timeout counter |
-| 0x8D98 | `CPANEL_COUNTER_UP_TO_20` | byte | General counter |
-| 0x8D9A | `CPANEL_COUNTER_UP_TO_42` | byte | Main loop iteration counter |
-| 0x8D9B | `TIMESTAMP_FOR_DELAY` | word | Timestamp for delay routines |
-| 0x8D9D | `CPANEL_RX_READ_PTR` | word | Backup of RX buffer position |
-| 0x8D9F | `CPANEL_RX_WRITE_PTR` | word | Current RX buffer write position |
-| 0x8DA1 | `CPANEL_RX_DATA` | 92 bytes | Circular RX buffer |
-| 0x8DFD | `CPANEL_LED_READ_PTR` | word | LED TX buffer read pointer |
-| 0x8DFF | `CPANEL_LED_WRITE_PTR` | word | LED TX buffer write pointer |
-| 0x8E01 | `CPANEL_LED_TX_BUFFER` | 60 bytes | LED state TX buffer |
-| 0x8E4A | `STATE_OF_CPANEL_BUTTONS` | 16 bytes | Button state (right panel) |
-| 0x8E5A | `STATE_OF_CPANEL_BUTTONS_LEFT` | 16 bytes | Button state (left panel) |
-| 0x8EE0 | `MIDI_CC_MODWHEEL_PENDING` | byte | Modulation value with change flag (bit 7) |
-| 0x8EE2 | `MIDI_CC_EXPRESSION_PENDING` | byte | Expression value with change flag (bit 7) |
-| 0x8EE4 | `MIDI_CC_MODWHEEL_VALUE` | byte | Current modulation wheel value (CC#1) |
-| 0x8EE6 | `MIDI_CC_EXPRESSION_VALUE` | byte | Current expression value (CC#0) |
-| 0x8EE8 | `MIDI_CC_BREATH_VALUE` | byte | Breath controller value (CC#2?) |
-| 0x8EEA | `MIDI_CC_FOOT_VALUE` | byte | Foot controller value (CC#4?) |
-| 0x8EF4 | `MIDI_CC_VOLUME_VALUE` | byte | Volume controller value |
-| 0x8EFC | `ENCODER_0_LAST_VALUE` | byte | Previous encoder 0 reading |
-| 0x8EFE | `ENCODER_1_LAST_VALUE` | byte | Previous encoder 1 reading |
-| 0x8F04 | `ENCODER_0_STATUS` | byte | Encoder 0 flags (bit 3 = changed) |
-| 0x8F06 | `ENCODER_1_STATUS` | byte | Encoder 1 flags (bit 3 = changed) |
-| 0x8F10 | `ENCODER_0_OUTPUT` | 2 bytes | Encoder 0 output (value + flags) |
-| 0x8F16 | `ENCODER_1_OUTPUT` | 2 bytes | Encoder 1 output (value + flags) |
-| 0x8F18 | `ENCODER_STATE_BASE` | struct | Base of encoder state structure |
-| 0x8F38 | `CPANEL_LEDS__ROW_AND_PATTERN_BYTES` | word | Current LED row/pattern |
+| Address | Name                                 | Size     | Description                               |
+|---------|--------------------------------------|----------|-------------------------------------------|
+| 0x8D8A  | `CPANEL_STATE_MACHINE_INDEX`         | byte     | Current serial state machine index (0-10) |
+| 0x8D8B  | `CPANEL_PACKET_BYTE_COUNT`           | byte     | Byte count for multi-byte packets         |
+| 0x8D8C  | `CPANEL_TX_RX_FLAGS`                 | byte     | Flags: bits 0,1,2,4,6,7 used              |
+| 0x8D8E  | `PFCR_VALUE`                         | byte     | Shadow of Port F Control Register         |
+| 0x8D8F  | `PFFC_VALUE`                         | byte     | Shadow of Port F Function Control         |
+| 0x8D92  | `CPANEL_PROTOCOL_FLAGS`              | byte     | Flags: bits 0,1,2,3,6,7 used              |
+| 0x8D93  | `CPANEL_PANEL_DETECT_FLAGS`          | byte     | Communication test results                |
+| 0x8D94  | `CPANEL_RX_PACKET_BYTE_1`            | byte     | First byte of received packet             |
+| 0x8D95  | `CPANEL_RX_PACKET_BYTE_2`            | byte     | Second byte of received packet            |
+| 0x8D96  | `CPANEL_LAST_EVENT_VALUE`            | byte     | Changed button bits (XOR result)          |
+| 0x8D97  | `CPANEL_COUNTER_DOWN_FROM_200`       | byte     | Ready check timeout counter               |
+| 0x8D98  | `CPANEL_COUNTER_UP_TO_20`            | byte     | General counter                           |
+| 0x8D9A  | `CPANEL_COUNTER_UP_TO_42`            | byte     | Main loop iteration counter               |
+| 0x8D9B  | `TIMESTAMP_FOR_DELAY`                | word     | Timestamp for delay routines              |
+| 0x8D9D  | `CPANEL_RX_READ_PTR`                 | word     | Backup of RX buffer position              |
+| 0x8D9F  | `CPANEL_RX_WRITE_PTR`                | word     | Current RX buffer write position          |
+| 0x8DA1  | `CPANEL_RX_RING_BUFFER`              | 92 bytes | Circular RX buffer                        |
+| 0x8DFD  | `CPANEL_LED_READ_PTR`                | word     | LED TX buffer read pointer                |
+| 0x8DFF  | `CPANEL_LED_WRITE_PTR`               | word     | LED TX buffer write pointer               |
+| 0x8E01  | `CPANEL_LED_TX_BUFFER`               | 60 bytes | LED state TX buffer                       |
+| 0x8E4A  | `STATE_OF_CPANEL_BUTTONS`            | 16 bytes | Button state (right panel)                |
+| 0x8E5A  | `STATE_OF_CPANEL_BUTTONS_LEFT`       | 16 bytes | Button state (left panel)                 |
+| 0x8EE0  | `MIDI_CC_MODWHEEL_PENDING`           | byte     | Modulation value with change flag (bit 7) |
+| 0x8EE2  | `MIDI_CC_EXPRESSION_PENDING`         | byte     | Expression value with change flag (bit 7) |
+| 0x8EE4  | `MIDI_CC_MODWHEEL_VALUE`             | byte     | Current modulation wheel value (CC#1)     |
+| 0x8EE6  | `MIDI_CC_EXPRESSION_VALUE`           | byte     | Current expression value (CC#0)           |
+| 0x8EE8  | `MIDI_CC_BREATH_VALUE`               | byte     | Breath controller value (CC#2?)           |
+| 0x8EEA  | `MIDI_CC_FOOT_VALUE`                 | byte     | Foot controller value (CC#4?)             |
+| 0x8EF4  | `MIDI_CC_VOLUME_VALUE`               | byte     | Volume controller value                   |
+| 0x8EFC  | `ENCODER_0_LAST_VALUE`               | byte     | Previous encoder 0 reading                |
+| 0x8EFE  | `ENCODER_1_LAST_VALUE`               | byte     | Previous encoder 1 reading                |
+| 0x8F04  | `ENCODER_0_STATUS`                   | byte     | Encoder 0 flags (bit 3 = changed)         |
+| 0x8F06  | `ENCODER_1_STATUS`                   | byte     | Encoder 1 flags (bit 3 = changed)         |
+| 0x8F10  | `ENCODER_0_OUTPUT`                   | 2 bytes  | Encoder 0 output (value + flags)          |
+| 0x8F16  | `ENCODER_1_OUTPUT`                   | 2 bytes  | Encoder 1 output (value + flags)          |
+| 0x8F18  | `ENCODER_STATE_BASE`                 | struct   | Base of encoder state structure           |
+| 0x8F38  | `CPANEL_LEDS__ROW_AND_PATTERN_BYTES` | word     | Current LED row/pattern                   |
 
 ### Circular Buffer Parameters
 
@@ -1187,14 +1193,14 @@ stores of status + first data byte); v7 0x9C lower.
 
 #### CPANEL_TX_RX_FLAGS (0x8D8C)
 
-| Bit | Usage |
-|-----|-------|
-| 0 | TX in progress |
-| 1 | TX active |
-| 2 | RX flag (set/clear by CPanel_RX_* functions) |
-| 4 | Extended mode (never set?) |
-| 6 | Initialized |
-| 7 | Reserved |
+| Bit | Usage                                                                                                    |
+|-----|----------------------------------------------------------------------------------------------------------|
+| 0   | RX in progress (set by `INTA_HANDLER`, cleared when the last reply byte arrives)                         |
+| 1   | TX in progress (set by `CPanel_SendCommand`, `CPanel_SM_TXComplete` and `CPanel_InterruptPoll_MainLoop`) |
+| 2   | Set by `CPanel_RX_ProcessWithFlag`, cleared by `CPanel_RX_Process`; no reader found                      |
+| 4   | Extended mode (never set?)                                                                               |
+| 6   | Initialized                                                                                              |
+| 7   | Reserved                                                                                                 |
 
 #### CPANEL_PROTOCOL_FLAGS (0x8D92)
 
@@ -1209,10 +1215,10 @@ stores of status + first data byte); v7 0x9C lower.
 
 #### CPANEL_PANEL_DETECT_FLAGS (0x8D93)
 
-| Bit | Usage |
-|-----|-------|
-| 0 | Left panel responded to ping |
-| 3 | (bit 4 in some code) Right panel responded to ping |
+| Bit | Usage                                                               |
+|-----|---------------------------------------------------------------------|
+| 0   | Left panel responded to ping                                        |
+| 3   | Right panel responded to ping (`CPanel_PanelDetection` ORs in 0x08) |
 
 ## 7. Code Reference
 
@@ -1301,26 +1307,26 @@ stores of status + first data byte); v7 0x9C lower.
 
 The following bugs in MAME's TMP94C241 serial emulation were discovered and fixed during control panel HLE development. All fixes are compatible with the original KN5000 firmware.
 
-| Bug | Root Cause | Fix |
-|-----|-----------|-----|
-| **Timer stops early** | `timer_callback` only checked `m_tx_clock_count`, missing final rising edge for RX | Add `m_rx_clock_count != 8` condition |
-| **Queue byte corrupts last bit** | Loading next TX byte pre-output bit 0, overwriting bit 7 of previous byte | Use `tx_clock_count = 8`, defer bit 0 to next falling edge |
-| **Rising-edge race** | CPU's `sioclk()` forwarded clock to cpanel before sampling `m_rxd` | Capture `m_rxd` before forwarding clock |
-| **SCLK ignores PFFC** | Clock edges forwarded to cpanel even when PFFC disabled the pin | Gate `sclk_out_cb` with `ioc \|\| pffc_enabled` |
-| **TO2 checks wrong IOC bit** | `BIT(m_serial_control, 1)` checked SCLKS instead of IOC (bit 0) | `BIT(m_serial_control, 0)` |
-| **SC1MOD gate kills firmware** | Gating `timer_callback` on `SC1MOD!=1` disabled the 250 kHz clock | Gate on `(SC1MOD & 3)==0 && IOC==1` only |
-| **TO2 prevents idle detect** | Continuous TO2 at 12.5 kHz prevented cpanel idle detection (250 µs) | Gate TO2_trigger on TX/RX activity |
-| **Missing INTRX1 interrupt** | RX byte received but INTRX1 flag never set in compiled binary | Code existed in source, needed rebuild |
-| **Wrong header encoding** | Left panel used `0x40\|segment` (bits 7:6=01, dead zone) | Changed to `0xC0\|segment` (bits 7:6=11) |
-| **Ghost button toggles** | MAME input ports return momentary single-bit glitches | Per-segment confirmation (2 consecutive scans) |
+| Bug                              | Root Cause                                                                         | Fix                                                                                                                                                                                                          |
+|----------------------------------|------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Timer stops early**            | `timer_callback` only checked `m_tx_clock_count`, missing final rising edge for RX | Add `m_rx_clock_count != 8` condition                                                                                                                                                                        |
+| **Queue byte corrupts last bit** | Loading next TX byte pre-output bit 0, overwriting bit 7 of previous byte          | Use `tx_clock_count = 8`, defer bit 0 to next falling edge                                                                                                                                                   |
+| **Rising-edge race**             | CPU's `sioclk()` forwarded clock to cpanel before sampling `m_rxd`                 | Capture `m_rxd` before forwarding clock                                                                                                                                                                      |
+| **SCLK ignores PFFC**            | Clock edges forwarded to cpanel even when PFFC disabled the pin                    | First gated `sclk_out_cb` on PFFC, which desynchronised the clock; superseded: SCLK is always forwarded and the PFFC state reaches the panel as the `tx_start` argument, so the panel discards phantom bytes |
+| **TO2 checks wrong IOC bit**     | `BIT(m_serial_control, 1)` checked SCLKS instead of IOC (bit 0)                    | `BIT(m_serial_control, 0)`                                                                                                                                                                                   |
+| **SC1MOD gate kills firmware**   | Gating `timer_callback` on `SC1MOD!=1` disabled the 250 kHz clock                  | Gate on `(SC1MOD & 3)==0 && IOC==1` only                                                                                                                                                                     |
+| **TO2 prevents idle detect**     | Continuous TO2 at 12.5 kHz prevented cpanel idle detection (250 µs)                | Gate TO2_trigger on TX/RX activity                                                                                                                                                                           |
+| **Missing INTRX1 interrupt**     | RX byte received but INTRX1 flag never set in compiled binary                      | Code existed in source, needed rebuild                                                                                                                                                                       |
+| **Wrong header encoding**        | Left panel used `0x40\|segment` (bits 7:6=01, dead zone)                           | Changed to `0xC0\|segment` (bits 7:6=11)                                                                                                                                                                     |
+| **Ghost button toggles**         | MAME input ports return momentary single-bit glitches                              | Per-segment confirmation (2 consecutive scans)                                                                                                                                                               |
 
-See also: [Serial Firmware Compatibility]({{ site.baseurl }}/serial-firmware-compatibility/) for full debugging history.
+See also: [Serial Firmware Compatibility]({{ site.baseurl }}/serial-firmware-compatibility/) for what the emulation must provide, and [Control-Panel Serial Timing]({{ site.baseurl }}/serial-debugging/) for the line-level rules these fixes implement.
 
 ## 9. Protocol Gaps (What We Don't Know)
 
 ### LED Packet Format
 
-The LED handler uses bits 4-5 of the first byte to dispatch to one of 4 handlers via `CPanel_LED_PacketHandlers` (0xFC4B85). Further investigation needed to understand exact LED packet structure.
+The LED handler uses bits 4-5 of the first byte to dispatch to one of 4 handlers via `CPanel_LED_PacketHandlers` (0xFC4B85): types 0-2 copy a 2-byte {row, pattern} pair; type 3 copies the header byte plus `(byte & 0x0F) + 2` more, `(byte & 0x0F) + 3` bytes in all (see "LED Packet Handlers" below).
 
 ### Multi-byte Packet Purpose (Types 6, 7)
 
@@ -1352,40 +1358,37 @@ LED of their own hold `{0x0E, 0x0F}`, which is row 14, the four START/STOP beat 
 
 ### Encoder Physical Mapping (RESOLVED)
 
-Six encoder IDs have dedicated processing handlers (all send **absolute 8-bit ADC values**, not deltas):
+Six encoder IDs have dedicated handlers (the five analog IDs carry **absolute 8-bit ADC values**; ID 31 carries the data wheel's signed detent count):
 - **ID 2**: Modulation wheel → `MIDI_CC_MODWHEEL_VALUE` (inverted, /2, 128-entry LUT)
 - **ID 5**: Volume slider → `MIDI_CC_VOLUME_VALUE` (/2, LUT, clamp+scale)
 - **ID 25**: Breath controller → `MIDI_CC_BREATH_VALUE` (inverted, mode-dependent scaling)
 - **ID 26**: Foot controller → `MIDI_CC_FOOT_VALUE` (/2, LUT)
 - **ID 27**: Expression pedal → `MIDI_CC_EXPRESSION_VALUE` (inverted, /2, LUT)
-- **ID 31**: Direct passthrough (raw value)
+- **ID 31**: TEMPO/PROGRAM data wheel (header `0xD7`), signed detent count passed through unchanged
 
 Physical assignments confirmed from firmware analysis. Remaining IDs (0-1, 3-4, 6-24, 28-30) return 1 (unused).
 
-**Data wheel (jog dial)** uses ROTA/ROTB quadrature encoder on CPL MCU, generates direction events (event 0x1C0001F) through a separate callback mechanism (SetDialUp/SetDialDown), not Type 2 packets.
+**Data wheel (jog dial)**: ROTA/ROTB quadrature on the CPL MCU. The panel reports `[0xD7, signed detent count]`, a Type 2 frame with encoder ID 31 (`Encoder_PassthroughIdentity`, which passes the count through). The count becomes record 0x19 and then `EVT_DIAL` (0x1C0001F); see [Data Wheel]({{ site.baseurl }}/data-wheel-investigation/).
 
 ### Baud Rate Transitions
 
-The serial channel switches between rates during operation:
-- 31.25 kHz during initialization
-- 250 kHz during normal operation
-- Exact timing/trigger for rate switches not fully traced
+The serial channel switches rate inside every command, not between phases: `CPanel_SendCommand` arms at 31.25 kHz (BR1CR=0x28), the phantom/turnaround states run at 62.5 kHz (0x24), and the two real bytes at 250 kHz (0x14). See [Serial Firmware Compatibility]({{ site.baseurl }}/serial-firmware-compatibility/) for the state-by-state sequence.
 
 ### LED Packet Handlers (Fully Disassembled)
 
-| Address | Label | Size | Description |
-|---------|-------|------|-------------|
-| 0xFC4B95 | CPanel_LED_HandlePacket2 | 48 bytes | Types 0-2: transfers 2 bytes (row select + pattern) from event queue to LED TX buffer |
-| 0xFC4BC5 | CPanel_LED_HandlePacketN | 66 bytes | Type 3: transfers variable-length data; byte 1 lower nibble encodes count, total = (nibble + 2) bytes |
+| Address  | Label                    | Size     | Description                                                                                                          |
+|----------|--------------------------|----------|----------------------------------------------------------------------------------------------------------------------|
+| 0xFC4B95 | CPanel_LED_HandlePacket2 | 48 bytes | Types 0-2: transfers 2 bytes (row select + pattern) from event queue to LED TX buffer                                |
+| 0xFC4BC5 | CPanel_LED_HandlePacketN | 66 bytes | Type 3: transfers variable-length data; the header's lower nibble n gives n + 3 bytes in all (the header plus n + 2) |
 
-Both handlers are dispatched from CPanel_UpdateLEDs via a 4-entry jump table at 0xFC4B8D.
+Both handlers are dispatched from CPanel_UpdateLEDs via a 4-entry jump table at 0xFC4B85.
 After transferring data, both jump back to CPanel_UpdateLEDs to check for more pending events.
 
 ### ~~Remaining Undisassembled Routines~~ (RESOLVED)
 
 All control panel routines have been fully disassembled. The routine at 0xFC4C34 is `ToneGen_IncrementWrap128` in `audio/tonegen_fileio_handlers.s` — a circular queue pointer increment/wrap utility (wraps at 128) used by the LED packet handlers. Encoder handlers (0xFC6C80-0xFC6E41) have also been fully disassembled.
 
-## 9. Configuration Switches
+## 10. Configuration Switches
 
 ### Main CPU Checking Device (CN11)
 
@@ -1446,9 +1449,9 @@ Read from main CPU Port H:
 | (XP) | Philippines |
 | (XW) | Singapore |
 
-## 10. DEMO Button Code Path (Case Study)
+## 11. DEMO Button Code Path (Case Study)
 
-This section traces the complete code path from when a user presses the DEMO button to when the demo mode handler executes.
+This section traces what happens when the DEMO button is pressed: the panel event selects the demo mode, and the mode change then sends `EVT_ACTIVATE_STATE` to `DemoModeFunc`.
 
 ### Button Press Detection
 
@@ -1472,51 +1475,50 @@ CPanel_RX_ButtonPacket (0xFC4985)
 ### Application Event Dispatch
 
 ```
-ApDeliveryEvent (0xFA9E09) - Called from main loop
+ApDeliveryEvent (0xFA9E07) - Called from main loop
     ↓
 AppEvent_ChainDispatch1 (0xF44147) - Event Dispatcher
     - Extracts event code (0x01c00013)
     - Indexes APP_EVENT_HANDLER_TABLE with handler ID
     - Jumps to handler
     ↓
-DemoModeFunc (0xF222DD, line 179085)
+DemoModeFunc (0xF222CC)
 ```
 
-### Event Code Encoding: `0x01c00013`
+### Event Code `0x01c00013` Is `EVT_ACTIVATE_STATE`, Not a Button Event
 
-```
-01c00013h breakdown:
-  0x01   = Button event group identifier
-  0xc0   = LEFT panel segment encoding
-  0x00   = Padding/flags
-  0x13   = Handler index 19 (DEMO button handler)
-```
+`0x01C00013` is the firmware's `EV_ACTIVATE`, named `EVT_ACTIVATE_STATE` in the disassembly
+(`shared/event_codes.s`): an activation-state notice that the UI sends to a mode or title object. It
+encodes no panel segment and no handler index. Its parameter, in XDE, is a phase: 0 = mode activated,
+1 = mode deactivated, 2-7 are title phases and 8 = switch complete. The DEMO button itself is CPL
+segment 3 bit 0, whose action `{0xA9, 0x20}` goes to `PanelButton_ModeKey` (see
+[From a button change to an action](#from-a-button-change-to-an-action-2026-10-06)).
 
-### DemoModeFunc Handler (0xF222DD)
+### DemoModeFunc Handler (0xF222CC)
 
 ```asm
 DemoModeFunc:
-    CP XBC, 01c00013h        ; Verify this is DEMO button event
-    JR NZ, DemoModeFunc_Exit      ; Not DEMO? Exit
-    CP XDE, 00000001h        ; Check if button released (XDE=1)
-    JR Z, DemoModeFunc_Initialize       ; Released → call DemoMode_Initialize
-    OR XDE, XDE              ; Check if button pressed (XDE=0)
-    JR NZ, DemoModeFunc_Exit      ; Neither? Exit
-    ; Button pressed (XDE=0) → call DemoMode_Main_Operation
+    CP XBC, 01c00013h        ; EVT_ACTIVATE_STATE?
+    JR NZ, DemoModeFunc_Exit      ; Any other event? Exit
+    CP XDE, 00000001h        ; Phase 1 = mode deactivated?
+    JR Z, DemoModeFunc_Initialize       ; Deactivated → call DemoMode_Initialize
+    OR XDE, XDE              ; Phase 0 = mode activated?
+    JR NZ, DemoModeFunc_Exit      ; Any other phase? Exit
+    ; Mode activated (XDE=0) → call DemoMode_Main_Operation
     CALL DemoMode_Main_Operation        ; Demo mode entry routine
 ```
 
 ### Key Addresses
 
-| Component | Address | Purpose |
-|-----------|---------|---------|
-| `CPanel_RX_ButtonPacket` | 0xFC4985 | Packet parsing, XOR change detection |
-| `CPANEL_RX_EVENT_QUEUE` | 0x000200AD | Event queue buffer |
-| `ApDeliveryEvent` | 0xFA9E09 | Main event dispatcher |
-| `APP_EVENT_HANDLER_TABLE` | 0xF44169 | Handler lookup table |
-| `DemoModeFunc` | 0xF222DD | DEMO button handler |
-| `DemoMode_Main_Operation` | 0xF8696F | Demo mode entry (button press) |
-| `DemoMode_Initialize` | 0xF869E3 | Demo mode (button release) |
+| Component                 | Address    | Purpose                                                      |
+|---------------------------|------------|--------------------------------------------------------------|
+| `CPanel_RX_ButtonPacket`  | 0xFC4985   | Packet parsing, XOR change detection                         |
+| `CPANEL_RX_EVENT_QUEUE`   | 0x000200AD | Event queue buffer                                           |
+| `ApDeliveryEvent`         | 0xFA9E07   | Main event dispatcher                                        |
+| `APP_EVENT_HANDLER_TABLE` | 0xF44169   | Handler lookup table                                         |
+| `DemoModeFunc`            | 0xF222CC   | Demo mode's EVT_ACTIVATE_STATE handler                       |
+| `DemoMode_Main_Operation` | 0xF8696F   | Demo mode entry (EVT_ACTIVATE_STATE phase 0, mode activated) |
+| `DemoMode_Initialize`     | 0xF869E3   | Called on EVT_ACTIVATE_STATE phase 1 (mode deactivated)      |
 
 ### Complete Call Chain
 
@@ -1525,7 +1527,7 @@ Hardware interrupt (serial RX)
     ↓
 CPanel_RX_Process
     ↓
-CPanel_RX_ParseNext (line 401556)
+CPanel_RX_ParseNext (0xFC492B)
     ↓
 CPanel_RX_ButtonPacket (0xFC4985)
     ├─ Read packet byte 1 (segment)
@@ -1533,9 +1535,11 @@ CPanel_RX_ButtonPacket (0xFC4985)
     ├─ XOR with previous state → changed bits
     └─ Queue event to CPANEL_RX_EVENT_QUEUE
     ↓
-ApDeliveryEvent (0xFA9E09) - Called from main loop
-    ├─ Extract event code (0x01c00013) from queue entry
-    ├─ Decode handler type (0x13 = 19)
+PanelButton_ModeKey (DEMO's action {0xA9, 0x20})
+    └─ The demo mode is selected; the mode change sends EVT_ACTIVATE_STATE
+    ↓
+ApDeliveryEvent (0xFA9E07) - Called from main loop
+    ├─ Deliver EVT_ACTIVATE_STATE (0x01c00013), phase 0 = mode activated
     └─ Call AppEvent_ChainDispatch1
     ↓
 AppEvent_ChainDispatch1 (0xF44147)
@@ -1543,15 +1547,15 @@ AppEvent_ChainDispatch1 (0xF44147)
     ├─ Compute offset from handler offset lookup table
     └─ Jump to handler function
     ↓
-DemoModeFunc (0xF222DD)
-    ├─ CP XBC, 01c00013h  ← Verify this is DEMO event
-    └─ Execute action based on XDE (button state)
+DemoModeFunc (0xF222CC)
+    ├─ CP XBC, 01c00013h  ← EVT_ACTIVATE_STATE?
+    └─ Execute action based on XDE (the phase: 0 = mode activated, 1 = mode deactivated)
 ```
 
 ## References
 
-- **Firmware Disassembly**: [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/kn5000-roms-disasm) — `maincpu/cpanel_routines.asm`
-- **MAME Driver Source**: `src/mame/matsushita/kn5000_cpanel.cpp` (HLE), `kn5000.cpp` (wiring)
+- **Firmware Disassembly**: [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/kn5000-roms-disasm) — `v10/maincpu/ui/cpanel_routines.s` (also in v9/ and v7/)
+- **MAME Driver Source**: `src/mame/matsushita/kn5000_cpanel.cpp` (HLE), `kn5000.cpp` (wiring), in mainline MAME since [#15143](https://github.com/mamedev/mame/pull/15143) (control-panel HLE) and [#15919](https://github.com/mamedev/mame/pull/15919) (data wheel)
 - **CPU Serial Emulation**: `src/devices/cpu/tlcs900/tmp94c241_serial.cpp`
 - **Hardware Architecture**: [Hardware Architecture Page]({{ site.baseurl }}/hardware-architecture/)
 - **Serial Debugging**: [Serial Firmware Compatibility]({{ site.baseurl }}/serial-firmware-compatibility/)

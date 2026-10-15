@@ -257,8 +257,10 @@ same panel MCUs, same vocabulary, different code.
 
 `BootSerial_WaitDeviceIdent` derives an ident code from the decoded response byte at
 (0x102D): bit 7 → 0x0D, else bit 6 → 0x0E, else 0x0C, and loops until two consecutive
-polls agree (previous value kept at (0x1042)). This is the boot-time twin of the data
-wheel's up/down/neutral encoding that the runtime driver reads from segment 0x0B.
+polls agree (previous value kept at (0x1042)). This is the boot-time twin of the runtime
+driver's segment-0x0B settling check (`CPanel_ButtonPollLoop`, the same bit 7 → 0x0D / bit 6 →
+0x0E / else 0x0C rule). That register is not the data wheel; see
+[Data Wheel]({{ site.baseurl }}/data-wheel-investigation/).
 
 `Boot_ClassifyDeviceID` (0xFFEF89) then inspects four bytes of the decoded-packet buffer,
 in this order:

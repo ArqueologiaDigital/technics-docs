@@ -17,15 +17,15 @@ button packets, LED writes, the data wheel — is described in
 
 ## Line-Level Rules
 
-| Property | Value |
-|---|---|
-| Direction | CPU drives SCLK1; the panel is the slave |
-| Bit order | LSB first, 8 bits per byte |
-| Rising edge | Both sides **sample** the incoming bit |
-| Falling edge | Both sides **output** the next bit |
-| Idle level | HIGH on both data lines |
-| Clock source | Timer 2 output-compare trigger (TO2) |
-| Bit rate | 31250 Hz |
+| Property     | Value                                                                                                                                                                                                                |
+|--------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Direction    | CPU drives SCLK1 while it transmits; after asserting INTA the panel drives SCLK1 for its reply (the CPU sets IOC=1)                                                                                                  |
+| Bit order    | LSB first, 8 bits per byte                                                                                                                                                                                           |
+| Rising edge  | Both sides **sample** the incoming bit                                                                                                                                                                               |
+| Falling edge | Both sides **output** the next bit                                                                                                                                                                                   |
+| Idle level   | HIGH on both data lines                                                                                                                                                                                              |
+| Clock source | Timer 2 output-compare trigger (TO2)                                                                                                                                                                                 |
+| Bit rate     | Reprogrammed per state through BR1CR: 31.25 kHz (0x28) to arm each command, 62.5 kHz (0x24) for the phantom bytes, 250 kHz nominal (0x14) for the two real command bytes; the panel self-clocks its reply at 250 kHz |
 
 Pin assignment on the main CPU's Port F: bit 4 = TXD1, bit 5 = RXD1 (both are `CPDATA`), and
 bit 6 reads back the SCLK1 (`CPSCK`) pin state.
@@ -33,9 +33,11 @@ bit 6 reads back the SCLK1 (`CPSCK`) pin state.
 ### Port F bit 6 is a boot gate
 
 The firmware's panel routine polls Port F bit 6 to confirm the serial clock is idle (HIGH)
-before it sends a command. If that bit never reads high the firmware retries 200 times and
-then puts **"ERROR in CPU data transmission"** on screen. The driver satisfies the check with
-`m_maincpu->portf_read().set_constant(0x40)`.
+before it sends a command. If that bit never reads high, `CPanel_WaitTXReady` gives up after 200
+retries and returns as if ready. The transmit state machine (`CPanel_SM_StartTX`) then reads the
+pin low and abandons the command, so the boot ping probe (`CPanel_PanelDetection`) gets no answer,
+and the self-test shows **"ERROR in CPU data transmission"** (view `TEST1CP`). The driver
+satisfies the check with `m_maincpu->portf_read().set_constant(0x40)`.
 
 ## Clock Gating
 

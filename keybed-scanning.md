@@ -8,7 +8,7 @@ permalink: /keybed-scanning/
 
 The KN5000's 61-key velocity-sensitive keyboard connects directly to the tone generator IC303 (TC183C230002), which performs hardware key scanning internally. The Sub CPU reads completed note events from IC303's keyboard output interface — the CPU does **not** scan the keyboard matrix itself.
 
-> **Status:** Note encoding and voice slot management fully reverse-engineered from SubCPU firmware. HLE keybed device implemented in MAME driver.
+> **Status:** Note encoding and voice slot management fully reverse-engineered from SubCPU firmware. HLE keybed implemented in the kn7000_mame overlay's driver (`kn5000.cpp` feeding `kn5000_tonegen`); mainline MAME still maps 0x110000 as a stub, so it has no keybed.
 >
 > **Correction (2026).** The disassembly has since renamed the two routines this page
 > describes and corrected their behaviour: `ToneGen_Read_Voice_Data` is `Keybed_Read_Event`
@@ -175,15 +175,15 @@ Byte 2: 0x00 (zero velocity = note off)
 
 ## Key Firmware Routines
 
-| Routine | Address | Description |
-|---------|---------|-------------|
-| `ToneGen_Init` | 0x03D016 | Set tone generator mode to 6, begin polling |
-| `ToneGen_Process_Notes` | 0x03D01E | Main loop: read and process all pending events |
-| `Keybed_Read_Event` | 0x03D0C5 | Read one event from 0x110000, manage voice slots (formerly mis-named `ToneGen_Read_Voice_Data` — it does not touch tone-generator voice state) |
-| `Keybed_Decode_Event` | 0x03D11F | Convert raw key byte + touch reading to MIDI note and curve-mapped velocity (formerly mis-named `ToneGen_Calc_Pitch`) |
-| `ToneGen_Poll_Init` | 0x03D1FB | Initial polling: read 16 slots with delay loops (`ToneGen_Poll_Delay`, the inner busy-wait sub-block, is at 0x03D227) |
-| `ToneGen_Config_Init` | 0x02DFCF | Configure all 64 IC303 voices and global registers |
-| `InterCPU_DMA_Send` | (varies) | Send 3-byte note packet to Main CPU via latch |
+| Routine                 | Address  | Description                                                                                                                                    |
+|-------------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ToneGen_Init`          | 0x03D016 | Set tone generator mode to 6, begin polling                                                                                                    |
+| `ToneGen_Process_Notes` | 0x03D01E | Main loop: read and process all pending events                                                                                                 |
+| `Keybed_Read_Event`     | 0x03D0C5 | Read one event from 0x110000, manage voice slots (formerly mis-named `ToneGen_Read_Voice_Data` — it does not touch tone-generator voice state) |
+| `Keybed_Decode_Event`   | 0x03D11F | Convert raw key byte + touch reading to MIDI note and curve-mapped velocity (formerly mis-named `ToneGen_Calc_Pitch`)                          |
+| `ToneGen_Poll_Init`     | 0x03D1FB | Initial polling: read 16 slots with delay loops (`ToneGen_Poll_Delay`, the inner busy-wait sub-block, is at 0x03D227)                          |
+| `ToneGen_Config_Init`   | 0x02DFCF | Configure all 64 IC303 voices and global registers                                                                                             |
+| `InterCPU_DMA_Send`     | 0x020C6B | Send 3-byte note packet to Main CPU via latch                                                                                                  |
 
 ## MAME HLE Implementation
 
@@ -194,7 +194,7 @@ Since IC303 is a custom ASIC with no public documentation, the MAME driver uses 
 - Key press/release transitions generate events in the IC303 output format
 - Events are queued and served when the SubCPU reads 0x110000/0x110002
 
-The HLE produces no sound (IC303 voice parameter writes at 0x100000 are discarded), but the full note event pipeline works end-to-end.
+In the overlay, the same `kn5000_tonegen` device also takes the IC303 voice writes at 0x100000 and produces sound (the overlay's kn5000 is `MACHINE_IMPERFECT_SOUND`). A host MIDI controller on the overlay's separate `kbdmidi` input (`-kbdmidi <port>`; not the instrument's rear MIDI IN) can also play the key bed with velocity: the overlay converts each velocity back into the raw key-travel time the sub-CPU expects. Mainline MAME stubs both 0x100000 and 0x110000.
 
 ### PC Keyboard Mapping
 
