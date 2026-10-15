@@ -1551,7 +1551,7 @@ In Feature Presentation mode (state 0xE4 = 228), `Demo_SelectEntry_StartPlayback
 
 All 19 demo song presets were decompressed from SLIDE4K format and analyzed. Each preset is rebuilt byte-exactly from `table_data/includes/demo_presets/midi/demo_preset_NN.mid` plus `sidecar/demo_preset_NN.yaml` (format: `table_data/includes/demo_presets/README.md`).
 
-**Correction (2026-10):** the +0x1E track-enable mask is non-zero in every preset (preset 0: 0x3FFF; preset 18: 0xFFFF), according to the byte-exact rebuild inputs `table_data/includes/demo_presets/sidecar/*.yaml`. The table below gives those values. The March analysis read different sizes and a mask of 0x0000, and the conclusions drawn from it below are withdrawn.
+**Correction (2026-10):** the +0x1E track-enable mask is non-zero in every preset (preset 0: 0x3FFF; preset 18: 0xFFFF), according to the byte-exact rebuild inputs `table_data/includes/demo_presets/sidecar/*.yaml` (`tools/demo_preset_track_masks.py` in this repository prints all 19). The table below gives those values. The March analysis read different sizes and a mask of 0x0000, and the conclusions drawn from it below are withdrawn.
 
 | Preset     | Compressed Size | Decompressed Size | Parts Bitmask (offset +0x1E) | 0x82 Count |
 |------------|-----------------|-------------------|------------------------------|------------|

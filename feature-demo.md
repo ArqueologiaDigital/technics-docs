@@ -12,7 +12,7 @@ The KN5000 firmware contains a **full XML-based presentation scripting system** 
 
 ### Files in Table Data ROM
 
-Two SSF (presumably "Show/Script/Sequence File") file names appear in the Table Data ROM; only the first has a script:
+Two `.ssf` file names (the expansion of SSF is not established) appear in the Table Data ROM; only the first has a script:
 
 | File          | ROM Address                                                                               | Purpose                                                                                                                                                                                                                           |
 |---------------|-------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
