@@ -80,8 +80,8 @@ four have been MAME BIOS options since
 (v1.5, complete, stamp at `0x487365A8`) and the upper half of **929** (v1.4; its
 first program floppy is lost).
 
-RHYTHM and PICTURE versions are read from flash regions not covered by these
-updates (the rhythm ROM and the `0x57800000` picture flash).
+RHYTHM and PICTURE versions are read from devices not covered by these
+updates (the rhythm ROM and the picture ROM IC19 at `0x57800000`).
 
 All four numbers are what the instrument's hidden **SOFT VERSION** screen
 prints. At least one surviving KN7000 reports `PROGRAM : 893` / `TABLE : 80` —
@@ -102,7 +102,7 @@ for the capture route meant to replace hand photography.
 - Version screen: `SOFT VERSION` (`0x1D5AD8`), `--- SOFTWARE VERSION ---` (`0x1D5D9C`), `PROGRAM : %4d` / `TABLE   : %4d` / `RHYTHM  : %4d` / `PICTURE : %4d` (`0x1D67E0`+)
 - Kernel banner `MILK MN10300 Ver1.0R1` (`0x3B8AAC`); zlib deflate/inflate banners (`0x3B8604` / `0x3B863C`)
 - FAT boot template `Technics    NO NAME    FAT12   FAT16` (`0x1BA4BB`)
-- Flash-chip IDs `MBM29LV160B`, `MX29LV160B`, `AT49BV16X4` (`0x1CF9EA`+): the table at `0x485CF9E0` of parts the firmware accepts for the custom-data flash IC21, checked against the chip's autoselect ID before it programs it
+- Flash-chip IDs `MBM29LV160B`, `MX29LV160B`, `AT49BV16X4` (`0x1CF9E0`+): the table at `0x485CF9E0` of parts the firmware accepts for the custom-data flash IC21, checked against the chip's autoselect ID before it programs it
 - Model-compatibility list `@Expansion Board KN7000 SOUND RAM`, then `KN6000`/`KN5000`/`KN3000`/`KN2000`/`KN1600 SOUND RAM` (`0x1B8517`+)
 - UI languages: English / German / French / Spanish / Indonesian message blocks (Italian has a menu entry but no translated text), plus an EUC-JP developer easter-egg entry at `0x1A0C4D`
 - Developer symbol tables: `_TT_*` tag names, `*Proc` window-procedure names (`AcProgVerBoxProc`, `IvMpVerWinProc`, …), `MT_*` API names (`MT_GetLanguagePtr`, `MT_FLASHWRITE`), GUI object names (`PanelSimulator`, `ClipBoard`, `DefaultWindow`) — the same conventions as the KN5000 (see [Shared Codebase Map]({{ site.baseurl }}/technics-shared-codebase/))

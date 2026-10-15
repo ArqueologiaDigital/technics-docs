@@ -72,12 +72,12 @@ among the service-mode entries catalogued on this site.
 The screen is drawn under the header `--- SOFTWARE VERSION ---` and each row is
 produced by its own window procedure formatting a `%4d`:
 
-| Row             | Format string            | Where the number comes from                                                                                                                                                     | Do we hold that flash?                                                                                                                      |
+| Row             | Format string            | Where the number comes from                                                                                                                                                     | Do we hold that device?                                                                                                                     |
 |-----------------|--------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
 | `PROGRAM : %4d` | program flash `0x1D67E0` | a **constant compiled into the program flash**: the `u16` at CPU `0x4873660C` (file offset `0x33660C`)                                                                          | ✅ yes — four builds: **941** (v1.6), **942** (SP7001), **935** (v1.5) and the upper half of **929** (v1.4); the stamp moves between builds |
 | `TABLE   : %4d` | `0x1D67F0`               | an **ASCII decimal string read out of the table flash** at boot: the firmware follows the u32 at `0x4800001C` (segment 7 of the table directory) and parses the digits it finds | ✅ yes — two builds: `"84\n"` and `"83\n"` (SP7001)                                                                                         |
-| `RHYTHM  : %4d` | `0x1D6800`               | an ASCII decimal parsed out of the **rhythm flash**, near the top of its 4 MB span                                                                                              | ❌ **undumped**                                                                                                                             |
-| `PICTURE : %4d` | `0x1D6810`               | an ASCII decimal parsed out of the **picture flash** at `0x57800000`, via the u32 pointer stored at its base                                                                    | ❌ **undumped**                                                                                                                             |
+| `RHYTHM  : %4d` | `0x1D6800`               | an ASCII decimal parsed out of the **rhythm ROM** (IC18, or the IC20 flash on earlier units), `0x14` bytes below the top of a 4 MB region                                       | ❌ **undumped**                                                                                                                             |
+| `PICTURE : %4d` | `0x1D6810`               | an ASCII decimal parsed out of the **picture ROM** (IC19) at `0x57800000`, via the u32 pointer stored at its base                                                               | ❌ **undumped**                                                                                                                             |
 
 Two consequences follow directly from that table, and they are the reason the
 owner's reading matters so much:
@@ -97,7 +97,7 @@ self-consistency is a mild corroboration that the reading is a genuine earlier
 release pair rather than a misread.
 
 The **RHYTHM** and **PICTURE** rows cannot be reproduced in emulation at all:
-those two flash devices have never been dumped. (Upstream MAME's KN7000 driver
+those two devices have never been dumped. (Upstream MAME's KN7000 driver
 declares both devices `NO_DUMP` and maps nothing at `0x57800000`; the development
 driver in the kn7000_mame overlay also substitutes a clearly-labelled synthetic
 `BAD_DUMP` stand-in for the rhythm resource.) Anything those rows show in the emulator is
@@ -149,7 +149,7 @@ The same shape repeats for the other two rows: `AcRhythmVerBoxProc`
 (`0x4848895F`) parses ASCII digits from an address computed as
 *helper(`0x4843D6DC`) − `0x10000` + `0x3FFFEC`* — i.e. `0x14` bytes below the
 top of a 4 MB region — and `AcAromVerBoxProc` (`0x48488A0B`) dereferences the
-u32 at `0x57800000`, adds the picture-flash base back, and parses digits there.
+u32 at `0x57800000`, adds the picture-ROM base back, and parses digits there.
 The screen's own title-ID accessor is `GetTtSoftverID` (`0x48488AAC`), a
 three-instruction function that returns the constant `0x00100000`; the
 firmware's developer symbol tables carry the matching tags `TtSoftver`,

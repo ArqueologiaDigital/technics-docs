@@ -228,7 +228,7 @@ four-corner homography, not a better one-dimensional search.
 
 ### Where the loss actually happens
 
-Measured on the same screen through three paths, in units of *native LCD pixels*
+Measured on the same screen through two paths, in units of *native LCD pixels*
 so that captures at different resolutions compare directly:
 
 | Path | Sampling (px per native px) | MTF at 3 px | MTF at 2 px | Noise floor |
@@ -396,7 +396,7 @@ unknown quality and should be treated as raw material, not as a result.
   processing. This is an archival method for a handful of chips, not a bulk one.
 - **The wave ROMs are out of reach this way.** They are only readable through the
   tone generator's page/offset/data window, not by a plain load, so the viewer
-  cannot see them — likewise the sub-CPU, the panel MCU and the USB co-processor.
+  cannot see them — likewise the SD sub-CPU, the two panel MCUs and the USB co-processor.
   See [Expansion Bus & Wave-ROM Dump]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/).
 
 ## Provenance
@@ -407,7 +407,7 @@ unknown quality and should be treated as raw material, not as a result.
 | Voting curve, uncompressed vs H.264, 72.45 % / 99.17 % resize                      | measured in the video-pipeline and extractor work packages; the curve is over a 500-frame / 42-page corpus                                      |
 | 29.2 % and 34 % damaged-frame shares; salvage 99.41 %; 0.00 % tear false positives | two separate emulator sweeps; recorded in `notes/FINDINGS-kn7000-debug-screens.md` §10 and the side-quest findings                              |
 | Repaint period ~2,952 ms; sweep 5.17–5.21 pages/s                                  | `tools/dumpgrab/capture/measure_repaint_idle.lua` and the capture harness's own `SWEEP hold:` log lines                                         |
-| MTF / sampling / noise-floor table                                                 | `wip-real/r4-capture-side/score_capture.py`, same screen through three paths                                                                    |
+| MTF / sampling / noise-floor table                                                 | `wip-real/r4-capture-side/score_capture.py`, same screen through two paths                                                                      |
 | NTSC 539 px vs PAL 433 px                                                          | same page, same VLC snapshot path, same 720×576 frame                                                                                           |
 | Video-out circuit, unconnected RGB/sync pins                                       | SX-KN7000 service-manual schematic                                                                                                              |
 | PAL/NTSC is one bit                                                                | firmware: `0x500D35B2`, the two-byte copy to the LCD-controller register, and the 26-word defaults table                                        |
