@@ -714,7 +714,7 @@ flowchart TD
 
 ### DSP Status Polling Bug
 
-An earlier hypothesis (March 2026) blamed part of the SwbtWr blocking time on the Sub CPU's DSP ready signal (Port H bit 0), and the fork driver tied PH.0 high. It is retracted: PH.0 is an output (`PHCR = 0x07`, kn5000-roms-disasm `v142/subcpu/kn5000_subprogram_v142.s:80`), so `DSP_Read_Status` reads back the latch it has just set and the 8,000-poll timeout never runs. That holds in MAME too, whose TMP94C241 port read has returned the output latch since [mamedev/mame#15003](https://github.com/mamedev/mame/pull/15003). See [Tone Generator Initialization — DSP Status Polling Bug]({{ site.baseurl }}/swbwr-tone-init/#dsp-status-polling-bug-march-2026-discovery) (`dsp/analysis/second-dsp-and-ready.md` §0 A2-A4).
+An earlier hypothesis (March 2026) blamed part of the SwbtWr blocking time on the Sub CPU's DSP ready signal (Port H bit 0), and the fork driver tied PH.0 high. It is retracted: PH.0 is an output (`PHCR = 0x07`, kn5000-roms-disasm `v142/subcpu/kn5000_subprogram_v142.s:80`), so `DSP_Read_Status` reads back the latch it has just set and the 8,000-poll timeout never runs. That holds in MAME too, whose TMP94C241 port read has returned the output latch since [mamedev/mame#15003](https://github.com/mamedev/mame/pull/15003). See [SwbtWr Event Dispatch — DSP Status Polling Bug]({{ site.baseurl }}/swbwr-tone-init/#dsp-status-polling-bug-march-2026-discovery) (`dsp/analysis/second-dsp-and-ready.md` §0 A2-A4).
 
 ### Lua Diagnostic Trace Results
 
