@@ -252,7 +252,7 @@
           url: /sequencer/
         - title: Accompaniment Engine
           url: /accompaniment-engine/
-        - title: Tone Gen Init (SwbtWr)
+        - title: SwbtWr Event Dispatch
           url: /swbwr-tone-init/
     - title: Protocols
       children:
