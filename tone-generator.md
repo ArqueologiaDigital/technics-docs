@@ -67,7 +67,7 @@ Used by the SubCPU to read key events from the keybed scanner hosted on IC303 (`
 | 0x110002 | 16-bit | Read      | Status register (bit 0 = event queued, bit 1 = release qualifier)                                                       |
 | 0x110000 | 16-bit | Read      | Key event: low byte bits 0-6 = key index, bit 7 = key down; high byte = raw touch reading, not a velocity (0xFF = none) |
 
-P6.7 (A23 address line) also controls which port is accessed: status reads go to 0x110002, data reads go to 0x110000.
+The payload also sets P6.7 before the status read (0x110002) and clears it before the data read (0x110000); the sub-CPU boot ROM reads both ports without touching P6, so address bit 1 alone appears to select status or data (an inference in the source).
 
 ## Register Address Encoding
 
