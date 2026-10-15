@@ -6,7 +6,7 @@ permalink: /hdae5000-techmanager/
 
 # HD-TechManager5000 Emulation Plan
 
-*Last updated: March 30, 2026*
+*Last updated: October 15, 2026*
 
 The HD-TechManager5000 is a Windows application that communicates with the HD-AE5000 expansion board via a PC parallel port cable (DB25 to DB15). It enables file management, backup, and formatting of the HDAE5000 hard disk from a PC. This page documents plans for running the original, unmodified TechManager5000 software alongside the KN5000 MAME emulation.
 
@@ -15,13 +15,14 @@ The HD-TechManager5000 is a Windows application that communicates with the HD-AE
 > **See Also**: [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/) for the parallel port protocol details, [HDAE5000 MAME Setup]({{ site.baseurl }}/hdae5000-mame-setup/) for basic setup.
 
 > **Update (2026-09).** Plans A and B below are no longer just proposals — a third
-> architecture was actually built on the driver-overlay's `kn5000_research_techmanager`
-> branch (9 commits, in `~/compartilhado/mame`), and it isn't either plan as written. Instead
+> architecture was actually built on the `kn5000_research_techmanager`
+> branch of the [felipesanches/mame fork](https://github.com/felipesanches/mame/tree/kn5000_research_techmanager)
+> (9 commits, 2026-03-30/31, no pull request), and it isn't either plan as written. Instead
 > of a TCP bridge or a symmetric composite driver, `kn5000_state` was refactored from
 > `driver_device` to `device_t` (following MAME's Sega System 32 dual-PCB pattern) so the
 > whole KN5000+HDAE5000 machine can be instantiated as a **centronics peripheral device**
 > that plugs into any stock PC driver's LPT slot — e.g. `mame at486
-> -board4:lpt:centronics kn5000_hdae`. This needed a new `kn5000_cable` device wiring the
+> -board4:lpt:centronics kn5000_cable`. This needed a new `kn5000_cable` device wiring the
 > HDAE5000's PPI (Port A/B/C at `0x160000`-`0x160004`) to the centronics lines in both
 > directions, plus a PS/2 bidirectional-mode fix to MAME's `pc_lpt` device (`data_r()` was
 > masking peripheral response bits against the host's own output latch — exactly the mode
@@ -42,21 +43,21 @@ The `ppkn50.dll` library (disassembled and fully documented) communicates with t
 - **Custom handshake protocol**: Strobe/ACK/BUSY signaling, not standard Centronics
 - **Timeouts**: 10,000ms per byte transfer, 512 polling iterations before time check
 
-The DLL exports these functions:
+The DLL exports 23 `PP50*` functions, among them:
 
-| Function | Description |
-|----------|-------------|
-| `InitializeTheDllPP50` | Initialize DLL |
-| `OpenThePortNumberPP50` | Select LPT port (1-3) |
-| `CloseThePortPP50` | Close parallel port |
-| `TestTheKNPPPP50` | Test connection to KN5000 |
-| `ReadFsbFromKnHdToKnMemPP50` | Read filesystem block from HD |
-| `SendFsbFromKnMemToPCPP50` | Transfer FSB to PC |
-| `SendFsbFromPCToKnMemPP50` | Transfer FSB to KN |
-| `LoadFileFromKnHdToKnMemPP50` | Download file from HD |
-| `DeleteFileOnKnHdPP50` | Delete file on HD |
-| `FormatTheKn50HardDiskPP50` | Format hard disk |
-| `TurnOffTheKn50HdMotorPP50` | Spin down drive motor |
+| Function                      | Description                   |
+|-------------------------------|-------------------------------|
+| `PP50InitializeTheDll`        | Initialize DLL                |
+| `PP50OpenThePortNumber`       | Select LPT port (1-3)         |
+| `PP50CloseThePort`            | Close parallel port           |
+| `PP50TestTheKNPP`             | Test connection to KN5000     |
+| `PP50ReadFsbFromKnHdToKnMem`  | Read filesystem block from HD |
+| `PP50SendFsbFromKnMemToPC`    | Transfer FSB to PC            |
+| `PP50SendFsbFromPCToKnMem`    | Transfer FSB to KN            |
+| `PP50LoadFileFromKnHdToKnMem` | Download file from HD         |
+| `PP50DeleteFileOnKnHd`        | Delete file on HD             |
+| `PP50FormatTheKn50HardDisk`   | Format hard disk              |
+| `PP50TurnOffTheKn50HdMotor`   | Spin down drive motor         |
 
 ## Plan A: Two MAME Instances (TCP Bridge)
 
@@ -152,8 +153,12 @@ Run both the KN5000 and a PC driver within a single MAME instance, with the para
 
 Neither Plan A nor Plan B as written was the path actually taken — see the update note at
 the top of this page. Superseding status:
-1. The HDAE5000 PPI callbacks are wired (done --- March 30, 2026)
-2. A working ATA interface with disk image support (done --- March 30, 2026)
+1. The HDAE5000 PPI callbacks are wired on the fork branches `kn5000_research_techmanager`
+   (published) and `kn5000_pr6_hdae5000` (local only), both 2026-03-30; upstream MAME and
+   the kn7000_mame overlay still leave them unconnected
+2. A working ATA interface with disk image support is in the kn7000_mame overlay (patch
+   `kn5000-19-hdae5000-ata-intrq`) and on those branches; upstream MAME still stubs the ATA
+   registers
 3. A third architecture (KN5000+HDAE5000 as a centronics peripheral of a stock PC driver,
    `kn5000_research_techmanager` branch) has the bidirectional PPI↔centronics signal path
    wired end-to-end, but has not been validated against the real TechManager5000 software

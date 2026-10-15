@@ -8,6 +8,8 @@ permalink: /hdae5000-mame-setup/
 
 This guide explains how to set up and use the HD-AE5000 hard disk expansion board in MAME's KN5000 emulation.
 
+> **Build.** Everything on this page needs the kn7000_mame overlay build of MAME, which carries the unmerged patch `kn5000-19-hdae5000-ata-intrq`. In upstream MAME (the `hdae5000` device from mamedev/mame#14068) the ATA registers are stubs that read 0 and ignore writes, so the extension ROM boots but no drive ever becomes ready.
+
 > **See Also**: [HDAE5000 Overview]({{ site.baseurl }}/hdae5000/) for firmware analysis, [Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/) for the low-level ATA protocol, [Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) for the on-disk format.
 
 ## Quick Start
@@ -41,7 +43,7 @@ The HDAE5000 firmware uses CHS (Cylinder/Head/Sector) addressing and a custom fi
 Create a blank raw disk image:
 
 ```bash
-# ~10 MB disk (within firmware's 20,457-sector addressable range)
+# ~10 MB raw disk (20,480 sectors; the fixed FAT and table area ends at sector 4230)
 dd if=/dev/zero of=kn5000_disk.hd bs=512 count=20480
 ```
 
@@ -68,6 +70,8 @@ chdman extracthd -i disk.chd -o disk.hd
 ```
 
 ### Using an Existing FAT16 Image
+
+These images are for the [App Loader]({{ site.baseurl }}/app-loader/) ROM, which replaces the HD-AE5000 firmware; the HD-AE5000 firmware itself does not read FAT16 and reports such a disk as not formatted.
 
 If you have a disk image from the [App Loader]({{ site.baseurl }}/app-loader/) or other tools, copy it with the `.hd` extension:
 
@@ -101,7 +105,7 @@ This is the expected behavior. After dismissing the error, the KN5000 boots norm
 
 ### What Happens With a Blank Disk
 
-With a blank (all-zeros) disk image, the drive responds to ATA commands but the filesystem is not initialized. The firmware will detect the drive but report an FSB error.
+With a blank (all-zeros) disk image, the drive responds to ATA commands but the filesystem is not initialized. The firmware will detect the drive but report it as not formatted ("The hard disk is not formatted!"): sector 1 lacks the signature (`HDAE5000_HD_Init` step code 1).
 
 ### Formatting the Hard Disk
 
@@ -121,7 +125,7 @@ LEFT side:     RIGHT side:
 
 This runs `HDAE5000_HD_FormatDrive`, which calls `HDAE5000_HD_Format` between main-CPU callbacks. The layout a formatted disk carries is on [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/#disk-layout).
 
-Alternatively, the original HD-TechManager5000 PC software could format the disk via the parallel port interface (command 0x17).
+Alternatively, the original HD-TechManager5000 PC software could format the disk via the parallel port interface (command 17, sent as byte 0x11).
 
 ## ATA Interface Details
 
@@ -139,7 +143,7 @@ The HDAE5000 maps ATA registers directly to the main CPU address space:
 | 0x13001E | Status / Command | 8-bit |
 | 0x130020+ | Alt Status / Device Control (CS1) | 8-bit |
 
-The firmware uses **CHS addressing** exclusively and **PIO mode** for all data transfers (no DMA). The ATA INTRQ signal is routed through the extension slot connector to the main CPU's INT9.
+The firmware uses **CHS addressing** exclusively and **PIO mode** for all data transfers (no DMA). The ATA INTRQ line is wired through the extension connector (CN6 pin 58) to the main CPU's INT9, but the firmware never uses it: it sets nIEN in Device Control (0x0A), leaves `INTE89` at 0 and polls the status register.
 
 ## Troubleshooting
 
@@ -159,7 +163,7 @@ overlay build does.
 ### "Hard disk reset error" with a disk image attached
 
 Verify:
-1. The disk image is a **raw image** (not CHD)
+1. The disk image is a **raw image** (CHD through this path is untested)
 2. The file extension is `.hd` or `.img`
 3. The image is attached with `-harddisk` (or its `-hard` / `-hard1` aliases)
 4. The image file is not zero bytes
@@ -167,22 +171,23 @@ Verify:
 ### Drive detected but filesystem errors
 
 A blank disk image will pass the ATA polling but fail filesystem validation. The firmware expects the signature longs `0xAA55AA55`, `0xF4F1F2F3` in filesystem sector 1; without them `HDAE5000_HD_Init` reports the disk as unformatted (step code 1). Creating a properly formatted disk requires either:
-- The original HD-TechManager5000 PC software (via parallel port emulation --- not yet implemented)
+- The firmware's own HD FORMAT ([above](#formatting-the-hard-disk)); whether it completes under emulation has not been recorded
+- The original HD-TechManager5000 PC software (a PC-link prototype exists only on the fork branch `kn5000_research_techmanager`, not validated with the real software)
 - A disk image tool that creates the HDAE5000 filesystem format (not yet available)
 
-## Current Emulation Status
+## Current Emulation Status (overlay build)
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Extension board detection | Working | ROM mapped at 0x280000-0x2FFFFF |
-| Extension RAM | Working | 512KB at 0x200000-0x27FFFF |
-| ATA register access | Working | CS0 (0x130010-0x13001F) and CS1 (0x130020-0x13002F) |
-| ATA INTRQ routing | Working | Routed to main CPU INT9 via extension slot |
-| Drive identification | Working | IDENTIFY DEVICE returns geometry from image size |
-| Sector read/write | Working | PIO mode, 512-byte sectors |
-| PPI parallel port | Stub | 8255 device instantiated but callbacks not wired |
-| PC communication | Not implemented | Requires PPI callback wiring + PC-side emulation |
-| Audio output | Not implemented | Extension board audio DAC not emulated |
+| Feature                   | Status          | Notes                                                                                                    |
+|---------------------------|-----------------|----------------------------------------------------------------------------------------------------------|
+| Extension board detection | Working         | ROM mapped at 0x280000-0x2FFFFF                                                                          |
+| Extension RAM             | Working         | 512KB at 0x200000-0x27FFFF                                                                               |
+| ATA register access       | Working         | CS0 (0x130010-0x13001F) and CS1 (0x130020-0x13002F)                                                      |
+| ATA INTRQ routing         | Wired, unused   | Routed to main CPU INT9 via the extension slot; the firmware keeps nIEN set and INT9 disabled, and polls |
+| Drive identification      | Working         | IDENTIFY DEVICE returns geometry from image size                                                         |
+| Sector read/write         | Working         | PIO mode, 512-byte sectors                                                                               |
+| PPI parallel port         | Stub            | 8255 device instantiated but callbacks not wired                                                         |
+| PC communication          | Not implemented | Requires PPI callback wiring + PC-side emulation                                                         |
+| Audio output              | Not implemented | Extension board audio DAC not emulated                                                                   |
 
 ## Related Pages
 

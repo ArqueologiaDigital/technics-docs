@@ -14,22 +14,22 @@ This page collects them. It is a companion to the [HDAE5000 Hard Disk Expansion]
 
 ## Where the tables live
 
-| ROM | Bytes | Structure |
-|-----|------:|-----------|
-| 0x29BAFC | 1,252 | Name strings for the 69 registered objects |
-| 0x29BFE0 | 202 | Parameter-name strings for the 13 UI classes |
-| 0x29C0AA | 6,356 | `RECORD_TABLE` — 13 class records of 24 bytes, then the 13 class-name strings |
-| 0x29D97E | 660 | Record-count word `0x000D`, then 44 `EV_*` / `MT_*` / `*Proc` name strings |
-| 0x29DC12 | 33,050 | The 769 UI object descriptors — **still decoded as instructions** |
-| 0x2A5D2C | 3,160 | `UiObject_PtrTable` — 790 `.long` |
-| 0x2A6984 | 3,160 | `UiObjectName_PtrTable` — 790 `.long` |
-| 0x2A75DC | 3,774 | `UiObjectName_Pool` — the object name strings |
-| 0x2A849A | 244 | 15 screen and switch-catch name strings |
-| 0x2F94B2 | 3,202 | The initialised `.data` image, copied to RAM 0x23952A at boot |
+| ROM      | Bytes  | Structure                                                                                                        |
+|----------|-------:|------------------------------------------------------------------------------------------------------------------|
+| 0x29BAFC | 1,252  | Name strings for the 69 registered objects                                                                       |
+| 0x29BFE0 | 202    | Parameter-name strings for the 13 UI classes                                                                     |
+| 0x29C0AA | 6,356  | `RECORD_TABLE` — 13 class records of 24 bytes, then the 13 class-name strings                                    |
+| 0x29D97E | 660    | Record-count word `0x000D`, then 44 `EV_*` / `MT_*` / `*Proc` name strings                                       |
+| 0x29DC12 | 33,050 | The 769 UI object descriptors — typed records `HdaeUiObj_000` …; 13,334 B of class-specific body still undecoded |
+| 0x2A5D2C | 3,160  | `UiObject_PtrTable` — 790 `.long`                                                                                |
+| 0x2A6984 | 3,160  | `UiObjectName_PtrTable` — 790 `.long`                                                                            |
+| 0x2A75DC | 3,774  | `UiObjectName_Pool` — the object name strings                                                                    |
+| 0x2A849A | 244    | 15 screen and switch-catch name strings                                                                          |
+| 0x2F94B2 | 3,202  | The initialised `.data` image, copied to RAM 0x23952A at boot                                                    |
 
 ## The 69-object registry
 
-`HDAE5000_Clear_Work_Buffer` copies the `.data` image to RAM `0x23952A`; `HDAE5000_Handler_Registration` then publishes two index-parallel 70-entry arrays from it — handler entry points (registration ID 0x012A) and their names (ID 0x042A), both on PPI port 0x01600002, both with the immediate count `0x45` = 69. Entry 69 of each is a terminator (a NULL pointer and an empty string).
+`HDAE5000_Clear_Work_Buffer` copies the `.data` image to RAM `0x23952A`; `HDAE5000_Handler_Registration` then publishes two index-parallel 70-entry arrays from it — handler entry points (registration ID 0x012A) and their names (ID 0x042A), both under class id 0x01600002 (`ApFunction`), both with the immediate count `0x45` = 69. Entry 69 of each is a terminator (a NULL pointer and an empty string).
 
 Every one of the 69 code pointers lands inside this ROM, between 0x280395 and 0x28F2F7. That is what settles the old "Windows DLL callbacks" reading of these names: they are firmware objects, not PC-side callbacks.
 
@@ -113,7 +113,7 @@ Three names in the registry used to disagree with the disassembly's labels for t
 
 ## Screens and their procedures
 
-Registration IDs 0x014A (procedures) and 0x044A (names), PPI port 0x01600003, count `0x0E` = 14. Unlike the UI classes there is no ROM-side descriptor array for these — the name is the only handle.
+Registration IDs 0x014A (procedures) and 0x044A (names), class id 0x01600003 (`MainFunction`), count `0x0E` = 14. Unlike the UI classes there is no ROM-side descriptor array for these — the name is the only handle.
 
 | Screen name | Procedure |
 |-------------|-----------|
@@ -173,7 +173,7 @@ Each list is terminated by a pointer to an empty string, so the six parameterles
 
 ## UI object table (0x2A5D2C)
 
-Two more index-parallel arrays, each 790 `.long` entries, registered as object-set 0x007F (descriptors, PPI port 0x01600010) and 0x037F (names, port 0x0160000F). Both registrations pass the word `0x315`; that word is an **entry count** — 789 objects plus a terminator — not a byte size, and the earlier "size = 789 bytes" annotation has been retracted in six places.
+Two more index-parallel arrays, each 790 `.long` entries, registered as object-set 0x007F (descriptors, class id 0x01600010 `Viewable`) and 0x037F (names, class id 0x0160000F `ResName`). Both registrations pass the word `0x315`; that word is an **entry count** — 789 objects plus a terminator — not a byte size, and the earlier "size = 789 bytes" annotation has been retracted in six places.
 
 Structure of the descriptor array at `0x2A5D2C`:
 

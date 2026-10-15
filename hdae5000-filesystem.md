@@ -133,9 +133,10 @@ TLX. `HDAE5000_CheckFileSignature` checks each part's signature when songs are
 imported from floppy, using the 8-byte records `{string, offset, length}` at ROM
 `0x2F8E20`, one per part in the order above: `"HK"` at +4 (LSW), `"HK"` at +0
 (PMT, MD), `01 08` at +5 (SQT), `"H\0K"` (CMP, MSP, RCM), `"KN5000 SOUND RAM"`
-(TM), `"TLhd"` (TLX); offsets not given are +0. (The routine's header comment in
-`hdae5000/hdae5000_ui_display.s` still gives CMP as `"HK\0"`; CMP's record at
-`0x2F8E38` points at `0x2F8E8C`, length 3, and the ROM bytes there are `48 00 4B`.)
+(TM), `"TLhd"` (TLX); offsets not given are +0. (The table is
+`HDAE5000_PartSignatureTable`: since commit `d8574de89` it is spelled as nine
+`{.long HDAE5000_PartSig_<part>; .short offset, length}` records; CMP's string
+is at `0x2F8E8C`, the bytes `48 00 4B`.)
 
 **FLS record (144 bytes)**: a 16-byte name, then four 32-byte arrays indexed
 by item: the directory + 1 (+16), the song + 1 (+48), and two more bytes per

@@ -59,12 +59,12 @@ The HD-AE5000 firmware uses **CHS (Cylinder/Head/Sector)** addressing, as eviden
 
 The following commands were identified by analyzing firmware writes to the Command Register (0x13001E):
 
-| Command | Hex | Address | Description |
-|---------|-----|---------|-------------|
-| Read Sectors | 0x20 | 0x29781D | Read one or more sectors (PIO mode) |
-| Write Sectors | 0x30 | 0x29772B | Write one or more sectors (PIO mode) |
-| Standby | 0x94 | 0x297501 | Spin down drive with timeout parameter |
-| Identify Device | 0xEC | 0x2978C3 | Return 512-byte device identification block |
+| Command           | Hex  | Address  | Description                                 |
+|-------------------|------|----------|---------------------------------------------|
+| Read Sectors      | 0x20 | 0x29781D | Read one or more sectors (PIO mode)         |
+| Write Sectors     | 0x30 | 0x29772B | Write one or more sectors (PIO mode)        |
+| Standby Immediate | 0x94 | 0x297501 | Spin the drive down now (no timer)          |
+| Identify Device   | 0xEC | 0x2978C3 | Return 512-byte device identification block |
 
 ## PPI Parallel Port Interface
 
@@ -76,12 +76,12 @@ This allows file transfer between a PC and the HDAE5000's hard disk via the PC's
 
 ### PPI Port Assignments
 
-| Address | Port | Direction | Function |
-|---------|------|-----------|----------|
-| 0x160000 | Port A | Bidirectional | Data byte to/from PC |
-| 0x160002 | Port B | Input | Status byte from PC |
-| 0x160004 | Port C | Output | Control signals to PC |
-| 0x160006 | Control | Write | PPI mode configuration |
+| Address  | Port    | Direction     | Function                                                                    |
+|----------|---------|---------------|-----------------------------------------------------------------------------|
+| 0x160000 | Port A  | Bidirectional | Data byte to/from PC (input while the control word is 0x99, output at 0x89) |
+| 0x160002 | Port B  | Output        | Handshake lines to PC (bit 3 toggled per received byte)                     |
+| 0x160004 | Port C  | Input         | Handshake lines from PC (bits 0-2 polled)                                   |
+| 0x160006 | Control | Write         | 0x82 at boot (main CPU), 0x89 / 0x99 in PC-link mode                        |
 
 ## Disk Access Protocol
 
@@ -171,15 +171,16 @@ HDAE5000_ATA_SoftReset:
 
 The firmware includes multilingual error messages for various disk failures:
 
-| Error | English Message | Likely Cause |
-|-------|-----------------|--------------|
-| SRAM Error | "Hard disk SRAM error" | Cache RAM failure on HDAE5000 |
-| Reset Error | "Hard disk reset error" | Controller not responding |
-| Read Error | "Hard disk read error" | Bad sector or media failure |
-| ID Read Error | "Hard disk ID read error" | Identify Device command failed |
-| Track 0 Error | "Hard disk track 0 error" | Cannot seek to track 0 |
-| FSB Error | "Hard disk FSB read error" | Filesystem block corrupted |
-| FAT Error | "Hard disk FAT read error" | File allocation table corrupted |
+| Error         | English Message                   | Likely Cause                                                  |
+|---------------|-----------------------------------|---------------------------------------------------------------|
+| SRAM Error    | "Hard disk SRAM error"            | Cache RAM failure on HDAE5000                                 |
+| Reset Error   | "Hard disk reset error"           | Controller not responding                                     |
+| Read Error    | "Hard disk read error"            | Bad sector or media failure                                   |
+| ID Read Error | "Hard disk ID read error"         | Identify Device command failed                                |
+| Track 0 Error | "Hard disk track 0 error"         | Cannot seek to track 0                                        |
+| FSB Error     | "Hard disk FSB read error"        | Filesystem block corrupted                                    |
+| FAT Error     | "Hard disk FAT read error"        | File allocation table corrupted                               |
+| Not formatted | "The hard disk is not formatted!" | Sector 1 lacks the signature (`HDAE5000_HD_Init` step code 1) |
 
 These errors are also available in German and French translations.
 
@@ -204,20 +205,20 @@ with the evidence, is on [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-files
 
 The PC parallel port (PPORT) protocol includes these disk-related commands:
 
-| Code | Command | Description |
-|------|---------|-------------|
-| 01 | Send Infos About HD | Report CHS parameters and model |
-| 03 | Read FSB from HD | Read filesystem block |
-| 04 | Send FSB to PC | Transfer FSB to PC |
-| 05 | Rcv FSB from PC | Receive FSB from PC |
-| 06 | Write FSB to HD | Write filesystem block |
-| 07 | Load HD to Memory | Load file into KN5000 RAM |
-| 08 | Send data to PC | Send data block to PC |
-| 10 | Rcv data from PC | Receive data from PC |
-| 11 | Save memory to HD | Save RAM contents to file |
-| 16 | Delete files | Remove files from disk |
-| 17 | Format HD | Low-level disk format |
-| 18 | Switch HD-motor off | Spin down drive motor |
+| Code | Command             | Description                                                                                             |
+|------|---------------------|---------------------------------------------------------------------------------------------------------|
+| 01   | Send Infos About HD | Report CHS parameters and model                                                                         |
+| 03   | Read FSB from HD    | Read filesystem block                                                                                   |
+| 04   | Send FSB to PC      | Transfer FSB to PC                                                                                      |
+| 05   | Rcv FSB from PC     | Receive FSB from PC                                                                                     |
+| 06   | Write FSB to HD     | Write filesystem block                                                                                  |
+| 07   | Load HD to Memory   | Load file into KN5000 RAM                                                                               |
+| 08   | Send data to PC     | Send data block to PC                                                                                   |
+| 10   | Rcv data from PC    | Receive data from PC                                                                                    |
+| 11   | Save memory to HD   | Save RAM contents to file                                                                               |
+| 16   | Delete files        | Remove files from disk                                                                                  |
+| 17   | Format HD           | Write a blank filesystem: tables, zeroed FAT (read back), settings sector (`HDAE5000_HD_Format_Worker`) |
+| 18   | Switch HD-motor off | Spin down drive motor                                                                                   |
 
 ## PC Parallel Port Protocol
 
@@ -284,11 +285,11 @@ The `AND $0x5E` clears bit 5 (switch to output), the `OR $0xA1` sets bit 5 (swit
 
 **HDAE5000 PPI (Intel 8255 at 0x160000):**
 
-| Address | Port | Direction | Function |
-|---------|------|-----------|----------|
+| Address  | Port   | Direction     | Function             |
+|----------|--------|---------------|----------------------|
 | 0x160000 | Port A | Bidirectional | Data byte to/from PC |
-| 0x160002 | Port B | Input | Status from PC |
-| 0x160004 | Port C | Output | Control signals to PC |
+| 0x160002 | Port B | Output        | Handshake to PC      |
+| 0x160004 | Port C | Input         | Handshake from PC    |
 
 ### Status Port Bits (base+1)
 
@@ -363,21 +364,21 @@ PC                          HDAE5000
 
 ### DLL Exported Functions
 
-The ppkn50.dll exports these functions for PC applications:
+The ppkn50.dll exports these functions (11 of its 23 `PP50*` exports) for PC applications:
 
-| Function | Command | Description |
-|----------|---------|-------------|
-| `InitializeTheDllPP50` | - | Initialize DLL |
-| `OpenThePortNumberPP50` | - | Select LPT port (1-3) |
-| `CloseThePortPP50` | - | Close parallel port |
-| `TestTheKNPPPP50` | 0x01 | Test connection |
-| `ReadFsbFromKnHdToKnMemPP50` | 0x03 | Read FSB from HD |
-| `SendFsbFromKnMemToPCPP50` | 0x04 | Transfer FSB to PC |
-| `SendFsbFromPCToKnMemPP50` | 0x05 | Transfer FSB to KN |
-| `LoadFileFromKnHdToKnMemPP50` | 0x07 | Load file HD→KN |
-| `DeleteFileOnKnHdPP50` | 0x16 | Delete file |
-| `FormatTheKn50HardDiskPP50` | 0x17 | Format HD |
-| `TurnOffTheKn50HdMotorPP50` | 0x18 | Spin down motor |
+| Function                      | Command   | Description           |
+|-------------------------------|-----------|-----------------------|
+| `PP50InitializeTheDll`        | -         | Initialize DLL        |
+| `PP50OpenThePortNumber`       | -         | Select LPT port (1-3) |
+| `PP50CloseThePort`            | -         | Close parallel port   |
+| `PP50TestTheKNPP`             | 0x01 (1)  | Test connection       |
+| `PP50ReadFsbFromKnHdToKnMem`  | 0x03 (3)  | Read FSB from HD      |
+| `PP50SendFsbFromKnMemToPC`    | 0x04 (4)  | Transfer FSB to PC    |
+| `PP50SendFsbFromPCToKnMem`    | 0x05 (5)  | Transfer FSB to KN    |
+| `PP50LoadFileFromKnHdToKnMem` | 0x07 (7)  | Load file HD→KN       |
+| `PP50DeleteFileOnKnHd`        | 0x10 (16) | Delete file           |
+| `PP50FormatTheKn50HardDisk`   | 0x11 (17) | Format HD             |
+| `PP50TurnOffTheKn50HdMotor`   | 0x12 (18) | Spin down motor       |
 
 ## RAM Variables
 
