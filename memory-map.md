@@ -643,7 +643,7 @@ The boot ROM's `INIT_TONE_GEN` (0xFF84A8) writes initial patterns to this block;
 
 | Address         | Size        | Description                                                                                                                                      |
 |-----------------|-------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| `0x4A42`        | 3B          | DMA command buffer (cmd, note, velocity)                                                                                                         |
+| `0x4A42`        | 3B          | MIDI staging bytes sent to the main CPU by `InterCPU_DMA_Send` (0x90, note, velocity; velocity 0 for a key release)                              |
 | `0x4A48`        | 1B          | Touch-curve number (0-9, initialised to 6), read by `Keybed_Decode_Event`                                                                        |
 | `0x4A4A`        | 1B          | Keybed-to-main forwarding enable (`InterCPU_DMA_Send` is called only when it is 1)                                                               |
 | `0x4A4C` + note | 1B per note | Held-key map: 0xFF while the key is down (bytes in use start at 0x4A70; see [Keybed Scanning]({{ site.baseurl }}/keybed-scanning/#held-key-map)) |
