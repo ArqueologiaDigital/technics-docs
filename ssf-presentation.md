@@ -6,7 +6,7 @@ permalink: /ssf-presentation/
 
 # SSF Presentation System
 
-The KN5000 contains an XML-based **SSF (Sound Slide Film)** presentation system that drives the built-in Feature Demo mode. It displays a synchronized slideshow of FTBMP bitmap images (Technics globe, speaker system, floppy disks, surround sound diagram, KN5000 branding) alongside demo song playback. The system is orchestrated by an XML-like SSF script (`hkst_55.ssf`) stored in the Table Data ROM, which references named NAKA widget objects for each slide.
+The KN5000 contains an XML-based **SSF** presentation system (SSF is the extension of `hkst_55.ssf`; what the letters stand for is not established) that drives the built-in Feature Demo mode. It displays a synchronized slideshow of FTBMP bitmap images (Technics globe, speaker system, floppy disks, surround sound diagram, KN5000 branding) alongside demo song playback. The system is orchestrated by an XML-like SSF script (`hkst_55.ssf`) stored in the Table Data ROM, which references named NAKA widget objects for each slide.
 
 This page consolidates all research findings about the SSF system into a single reference. For the broader Feature Demo investigation (timer bugs, MAME emulation status, Lua trace logs), see the [Feature Demo]({{ site.baseurl }}/feature-demo/) page.
 
@@ -39,14 +39,14 @@ The Feature Demo operates within the KN5000's global UI state machine. The curre
 
 ### States
 
-| State (DRAM `0x8D38`) | Name | Description |
-|------------------------|------|-------------|
-| `0x01` | Normal | Home screen, normal keyboard operation |
-| `0xE0` | Demo Menu | Top-level DEMONSTRATION menu |
-| `0xE1` | Demonstration | Demonstration/performances playing (song cycling active) |
-| `0xE2` | Style Select | Style selection sub-menu within demo |
-| `0xE3` | Rhythm Select | Rhythm selection sub-menu within demo |
-| `0xE4` | Feature Presentation | Feature Presentation sub-menu (SSF trigger point) |
+| State (DRAM `0x8D38`) | Name           | Description                                                         |
+|-----------------------|----------------|---------------------------------------------------------------------|
+| `0x01`                | Normal         | Home screen, normal keyboard operation                              |
+| `0xE0`                | Demo Menu      | Top-level DEMONSTRATION menu                                        |
+| `0xE1`                | TT_DEMOSTYLE   | Style demo                                                          |
+| `0xE2`                | TT_DEMOSOUND   | Sound demo                                                          |
+| `0xE3`                | TT_DEMORHY     | Rhythm demo                                                         |
+| `0xE4`                | TT_DEMOFEATURE | Feature Presentation; 0x8D38 stays here while the presentation runs |
 
 ### Activation Button Sequence
 
@@ -54,7 +54,7 @@ From the home screen, the correct sequence to reach the Feature Presentation:
 
 1. Press **DEMO** button -- `0x8D38` transitions `0x01` to `0xE0` (DEMONSTRATION menu appears)
 2. Press **LEFT 4** (4th soft button from top, mapped to `CPL_SEG9`) -- `0x8D38` transitions `0xE0` to `0xE4` (FEATURE PRESENTATION sub-menu appears)
-3. Press **LEFT 2** (2nd soft button from top, mapped to `CPL_SEG10`) -- `0x8D38` transitions `0xE4` to `0xE1` (demo begins playing)
+3. Press **LEFT 2** (2nd soft button from top, `CPL_SEG10`, "Start the internal DEMO") -- the presentation starts; `0x8D38` stays `0xE4`
 
 `UI_PostModeChangeEvent` does not carry these transitions, despite what this page used to say. It posts the *title* request `0x01C00015` with title id `0x01A00000 + A` to the current target, not to `MainTitleCtrl_ChangeTitle` (see [Event Codes — Mode and Title Requests]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)).
 
@@ -77,7 +77,7 @@ The SSF presentation activation involves a 7-stage event dispatch chain, from ph
 
 ### Stage 1: Button Press to DRAM
 
-A physical button press on the control panel is detected by the **Control Panel MCU** (a separate microcontroller). The MCU writes key scan data into shared DRAM, where the main CPU can read it. See [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/) for the serial protocol details.
+A physical button press on the control panel is detected by the **Control Panel MCU** (a separate microcontroller). The main CPU receives the press over the serial link (see [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/)). The bytes at 0xC07D–0xC080 are not written by the panel: `SwbtWr_DispatchLoop` copies each queued SwbtWr event there (type → 0xC080, payload → 0xC07D–0xC07F) before it calls the listeners.
 
 ### Stage 2: UIState_KeyScan_Dispatch (0xF98697)
 
@@ -145,7 +145,7 @@ The following flowchart shows the complete SSF activation path from button press
 
 ```mermaid
 flowchart TD
-    A[/"🎹 Physical Button Press<br/>(Control Panel MCU)"/] --> B["DRAM Key Scan Data<br/>0xC07D-0xC080"]
+    A[/"🎹 Physical Button Press<br/>(Control Panel MCU)"/] --> B["SwbtWr event bytes<br/>0xC07D-0xC080"]
     B --> C{"Boot flag<br/>DRAM[0x0406] bit 7?"}
     C -- "0 (not booted)" --> C_FAIL["❌ Key scan ignored"]
     C -- "1 (booted)" --> D["Read UI state<br/>DRAM[0x8D38]"]
@@ -189,20 +189,22 @@ flowchart TD
 ```mermaid
 stateDiagram-v2
     [*] --> Normal: Boot complete
-    Normal --> DemoMenu: DEMO button<br/>evt 0x1C00013
-    DemoMenu --> Demonstration: LEFT 2<br/>(CPL_SEG10)
-    DemoMenu --> StyleSelect: LEFT 4<br/>(CPL_SEG9)
-    DemoMenu --> FeaturePresentation: evt 0x1C00002<br/>to AcPresCtrl
-    Demonstration --> RhythmSelect: encoder
-    StyleSelect --> RhythmSelect: encoder
-    RhythmSelect --> StyleSelect: encoder
+    Normal --> DemoMenu: DEMO button<br/>(mode change, DemoModeFunc gets evt 0x1C00013)
+    DemoMenu --> FeaturePresentation: LEFT 4<br/>(CPL_SEG9)
+    FeaturePresentation --> FeaturePresentation: LEFT 2 starts the presentation
+    DemoStyle --> DemoSound: encoder
+    DemoStyle --> DemoRhy: direction
+    DemoSound --> DemoStyle: encoder
+    DemoSound --> DemoRhy: direction
+    DemoRhy --> DemoStyle: encoder
+    DemoRhy --> DemoSound: direction
     FeaturePresentation --> Normal: EXIT button
 
     state "Normal (0x01)" as Normal
     state "Demo Menu (0xE0)" as DemoMenu
-    state "Demonstration (0xE1)" as Demonstration
-    state "Style Select (0xE2)" as StyleSelect
-    state "Rhythm Select (0xE3)" as RhythmSelect
+    state "Style demo (0xE1)" as DemoStyle
+    state "Sound demo (0xE2)" as DemoSound
+    state "Rhythm demo (0xE3)" as DemoRhy
     state "Feature Presentation (0xE4)" as FeaturePresentation
 
     note right of FeaturePresentation
@@ -293,7 +295,7 @@ The script uses an XML-like markup language with a defined tag vocabulary:
   <ACT NO=2><SHOW OBJ="ftdemo04"></ACT>
   <ACT NO=3><SHOW OBJ="ftdemo05"></ACT>
   ...
-  <ACT NO=27><SHOW OBJ="ftdemo48"></ACT>
+  <ACT NO=27><SHOW OBJ="ftdemo25"></ACT>
 </ACTION>
 ```
 
@@ -332,18 +334,18 @@ The firmware contains a complete XML tag name table in the Program ROM:
 
 The `EXEC` tag is particularly notable -- it suggests the presentation format was designed for general-purpose use beyond simple slideshow display, supporting code execution as part of scripted presentations.
 
-### Timer Events for Slide Transitions
+### Song Start and End Events
 
-Slide transitions within the SSF presentation are controlled by timer events:
+`Demo_SelectEntry_PlaySong` posts the start event; `AcPresentationControlProc` forwards both events to `ApPreControl` and re-shows the `Demofeature` view at the end:
 
-| Event Code | Purpose |
-|------------|---------|
-| `0x1C10005` | Slide transition timer tick |
-| `0x1C10006` | Slide transition complete |
+| Event Code  | Purpose                                                                                        |
+|-------------|------------------------------------------------------------------------------------------------|
+| `0x1C10005` | `EVT_START_SONG` (EV_STARTSONG): a presentation/demo song has started; parameter = DRAM 0x28A4 |
+| `0x1C10006` | `EVT_END_SONG` (EV_ENDSONG): the song has ended                                                |
 
 ### Widget Data
 
-The NAKA widget system manages SSF UI elements. Widget data for the Feature Demo lives in `naka_perf_style.c`, which contains FTBMP filename strings and widget descriptor structures. The `ftdemo01`-`ftdemo48` names are bitmap resource references -- simple filename strings (e.g., `aligned_string "ftdemo43"`) that identify image resources loaded during the demo.
+The NAKA widget system manages SSF UI elements. Widget data for the Feature Demo lives in `naka_perf_style.c`, which contains FTBMP filename strings and widget descriptor structures. The `ftdemoNN` objects are `TtlScreen` screens of Viewable slot 0xFD, most with `Box`/`Label` children; six of them show a bitmap through `VwUserBitmapByName` children keyed `"FTBMP01"`–`"FTBMP06"`.
 
 Interactive objects (`Accordion`, `Drawbar`, `Sdmixer`) are container objects with child sub-objects, handler procedures, and rendering routines. See [UI Widget Types]({{ site.baseurl }}/ui-widget-types/) for the widget descriptor format.
 
@@ -352,7 +354,7 @@ Interactive objects (`Accordion`, `Drawbar`, `Sdmixer`) are container objects wi
 When `AcPresentationControlProc` processes a `<SHOW OBJ="...">` action:
 
 1. The XML parser extracts the OBJ name string
-2. The name is matched against the `NAKA_UIObjectTable` (~141 entries)
+2. The name is matched against the names of `NAKA_UIObjectTable` (478 entries; names in ResName table 0x3FD)
 3. For bitmap resources (`ftdemo01`-`ftdemo48`): extracts the filename pointer from the structure, looks up the file entry index, loads BMP data from ROM, renders to VRAM
 4. For container objects (`Accordion`, `Drawbar`, `Sdmixer`): activates the interactive UI handler
 
@@ -420,7 +422,7 @@ SSF <SHOW OBJ="ftdemo01">
 
 ### DrawBitmapFile
 
-The core rendering function is `DrawBitmapFile` (in `drawing_primitives.s`, around line 3346). It performs:
+The core rendering function is `DrawBitmapFile` (in `drawing_primitives.s`, line 3431). It performs:
 
 1. **BMP header validation** -- verifies the Windows BMP header magic and fields
 2. **Palette loading** -- reads the 256-color BGRX palette and loads it to `OFFSCREEN_BUFFER_4` (0x69400)
@@ -487,7 +489,7 @@ When the timer reaches 10, song playback begins:
 
 `Demo_SelectEntry_ProcessSongList` (0xF86B7C) manages song cycling:
 
-1. Checks if the song list at DRAM address `0x28B4` (10420) is empty
+1. If no sequencer part is playing (`SEQ_ACTIVE_PARTS`, DRAM `0x28B4`, is 0), restarts the countdown
 2. Checks bit 3 of DRAM `0x28AD` (10413) for auto-play vs. manual mode
 3. In auto-play mode: compares current song index (`0x28A4`) with target (`0x1157`)
 4. Calls `Demo_WaitForDisplayBit` -- busy-wait checking bit 2 of DRAM `0x0420` with `0xFFFFFF` timeout
@@ -498,29 +500,28 @@ When the timer reaches 10, song playback begins:
 
 ## Key DRAM State Variables
 
-| Address (hex) | Address (dec) | Description |
-|--------------|---------------|-------------|
-| `0x0406` | 1030 | Boot-complete flag (bit 7 set by `Boot_DisplayScreen`, cleared during flash updates) |
-| `0x0420` | 1056 | Display status flags (bit 2 = display busy) |
-| `0x0D2F` | 3375 | Demo timer countdown value (15 -> 10 -> 0) |
-| `0x0D33` | 3379 | Debounce counter |
-| `0x1157` | 4439 | Target song index |
-| `0x1158` | 4440 | Current song index |
-| `0x28A4` | 10404 | Active demo entry index |
-| `0x28AD` | 10413 | Demo control flags (bit 3 = auto-play) |
-| `0x28B4` | 10420 | Song list pointer / sequencer part active flags |
-| `0x8D34` | 36148 | UI state byte |
-| `0x8D38` | 36152 | UI sub-state byte (0x01=normal, 0xE0=demo menu, 0xE4=feature presentation) |
-| `0x8D3A` | 36154 | Part select index (used by `DemoMenu_BuildItemWorkspace`); `PART_SELECT` in the source (v7 0x8C9E), read by `GetPartSelect` |
-| `0x8F4E` | 36686 | Playback state flag (0x04=playing, 0x06=done) |
-| `0xBD3C` | 48444 | Event dispatch circular buffer (4-byte entries) |
-| `0xC07D` | 49277 | Panel key param byte |
-| `0xC080` | 49280 | Panel chain index byte |
-| `0x0249CC` | 149964 | SSF parser state (internal) |
-| `0x0249D4` | 149972 | SSF parser position (internal) |
-| `0x0251D8` | 152024 | Demo display state machine (`0x0000` = idle, never advances in MAME) |
-| `0x02BC34` | 179252 | Event registration table (ring buffer, head/tail at 0x02EC34/0x02EC36) |
-| `0x10420` | 66592 | Sequencer part active flags (`0xFFFF` = all 16 parts active) |
+| Address (hex) | Address (dec) | Description                                                                                                                                                                                                                                 |
+|---------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x0406`      | 1030          | Boot-complete flag (bit 7 set by `Boot_DisplayScreen`, cleared during flash updates)                                                                                                                                                        |
+| `0x0420`      | 1056          | Display status flags (bit 2 = display busy)                                                                                                                                                                                                 |
+| `0x0D2F`      | 3375          | Demo timer countdown value (15 -> 10 -> 0)                                                                                                                                                                                                  |
+| `0x0D33`      | 3379          | Debounce counter                                                                                                                                                                                                                            |
+| `0x1157`      | 4439          | Target song index                                                                                                                                                                                                                           |
+| `0x1158`      | 4440          | Current song index                                                                                                                                                                                                                          |
+| `0x28A4`      | 10404         | Active demo entry index                                                                                                                                                                                                                     |
+| `0x28AD`      | 10413         | Demo control flags (bit 3 = auto-play)                                                                                                                                                                                                      |
+| `0x28B4`      | 10420         | `SEQ_ACTIVE_PARTS`: one bit per sequencer part that is playing                                                                                                                                                                              |
+| `0x8D34`      | 36148         | UI state byte                                                                                                                                                                                                                               |
+| `0x8D38`      | 36152         | UI sub-state byte (0x01=normal, 0xE0=demo menu, 0xE4=feature presentation)                                                                                                                                                                  |
+| `0x8D3A`      | 36154         | Part select index (used by `DemoMenu_BuildItemWorkspace`); `PART_SELECT` in the source (v7 0x8C9E), read by `GetPartSelect`                                                                                                                 |
+| `0x8F4E`      | 36686         | Playback state flag (0x04 = stopped/idle, 0x06 = song started by `Demo_SelectEntry_PlaySong`)                                                                                                                                               |
+| `0xBD3C`      | 48444         | Event dispatch circular buffer (4-byte entries)                                                                                                                                                                                             |
+| `0xC07D`      | 49277         | Panel key param byte                                                                                                                                                                                                                        |
+| `0xC080`      | 49280         | Panel chain index byte                                                                                                                                                                                                                      |
+| `0x0249CC`    | 149964        | SSF parser state (internal)                                                                                                                                                                                                                 |
+| `0x0249D4`    | 149972        | SSF parser position (internal)                                                                                                                                                                                                              |
+| `0x0251D8`    | 152024        | Presentation-loaded flag: `Seq_InitializeAndStart` sets it to 1 when a presentation is started from disk, MT_InitPresentation and MT_ExitPresentation clear it, MT_ExistPresentation returns it; it stays `0x0000` for the ROM presentation |
+| `0x02BC34`    | 179252        | Event registration table (ring buffer, head/tail at 0x02EC34/0x02EC36)                                                                                                                                                                      |
 
 In the source (since 2026-10-03, `shared/ram_variables.s`): `DEMO_TIMER_COUNTDOWN` (0xD2F), `DEMO_TARGET_SONG`
 (0x1157), `DEMO_CURRENT_SONG` (0x1158), `DEMO_ACTIVE_ENTRY` (0x28A4), `DEMO_CONTROL_FLAGS` (0x28AD); the
@@ -531,41 +532,43 @@ In the source (since 2026-10-03, `shared/ram_variables.s`): `DEMO_TIMER_COUNTDOW
 
 ## Key Routines
 
-| Function | ROM Address | Source File | Purpose |
-|----------|-------------|-------------|---------|
-| `UIState_KeyScan_Dispatch` | 0xF98697 | `ui_control_panel.s` | SSF gate check: reads UI state, checks gate table, sends event 0x1C00038 |
-| `EventDispatch_Direct` | 0xFA9945 | (event system) | Broadcast event router with registration table |
-| `GroupBoxProc_StartSSFPresentation` | 0xF9A273 | `presentation_sound_nav.s:33` | Builds workspace with tag 0x0000B80A, sends event 0x1C0001C |
-| `AcPresentationControlProc` | 0xF8450B | `drawbar_panel_ui.s:17983` | Main presentation controller; dispatches via jump table at 0xE9F9B2 |
-| `AcPresentCtrl_CheckSSFStart` | 0xF84625 | `drawbar_panel_ui.s` | Checks workspace tag == 0xB80A, gates SSF start |
-| `AcPresentationBoxProc` | 0xF842B4 | `drawbar_panel_ui.s` | Presentation visual frame rendering |
-| `AcFdemoScreenProc` | 0xF84149 | `drawbar_panel_ui.s` | Feature Demo screen handler |
-| `DemoModeFunc` | 0xF222CC | `demo_routines.s` | Main demo mode dispatcher (event 0x1C00013) |
-| `DemoMode_Initialize` | 0xF869E3 | `demo_routines.s` | First-time demo setup (voice save, audio init) |
-| `DemoMode_Main_Operation` | 0xF8696F | `demo_routines.s` | Main demo playback loop |
-| `DemoMenu_BuildItemWorkspace` | 0xF83CEA | `drawbar_panel_ui.s:17186` | Builds 0x82xx workspace (automated path -- wrong tag for SSF) |
-| `Demo_SelectEntry_TimerTick` | 0xF86BE4 | `demo_routines.s` | Timer-driven state machine entry point |
-| `Demo_SelectEntry_PlaySong` | -- | `demo_routines.s` | Song loading and SwbtWr initialization |
-| `Demo_SelectEntry_ProcessSongList` | 0xF86B7C | `demo_routines.s` | Song cycling and index management |
-| `Demo_WaitForDisplayBit` | 0xF86F2E | `demo_routines.s` | Timeout-protected busy-wait for display ready |
-| `FDemo_ProcessDisplayStateQuery` | -- | (presentation chain) | Processes display state after SSF event 0x1C00006 |
-| `FDemoText_ProcessTextMarkup` | -- | (presentation chain) | Processes XML text markup for rendering |
-| `DrawBitmapFile` | -- | `drawing_primitives.s:3346` | BMP header validation, palette load, pixel decode, VRAM blit |
-| `Gfx_ProcessSplashData` | -- | `drawing_primitives.s` | Multi-depth pixel decoder (1/4/8 bpp) |
-| `Gfx_DecodeImageToBuffer` | -- | `drawing_primitives.s` | Color remap via RAMDAC lookup |
-| `IvDemofeature1Proc` | -- | (demo handlers) | Feature Demo event handler 1 |
-| `IvDemofeature2Proc` | -- | (demo handlers) | Feature Demo event handler 2 |
-| `PostEvent` (`FA9752`) | 0xFA9752 | (event system) | Inserts events into circular queue at DRAM 0x02BC34 |
-| `SendEvent` | 0xFA9660 | (event system) | Direct (synchronous) event dispatch |
-| `ApPostEvent` | 0xFA9D58 | (event system) | Queued event, same ring as `PostEvent`; the firmware's own function-name table names it |
-| `Boot_DisplayScreen` | -- | (boot sequence) | Sets DRAM[0x0406] bit 7 (boot-complete flag) |
-| `MainTitleCtrl_ChangeTitle` | -- | `ui/ui_control_panel.s` | Writes `0x8D36`-`0x8D39`, which include the `0x8D38` state byte tracked above. It is not the handler of `0x1C00015`: `TitleProc` handles that title request |
+| Function                            | ROM Address | Source File                   | Purpose                                                                                                                                                     |
+|-------------------------------------|-------------|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `UIState_KeyScan_Dispatch`          | 0xF98697    | `ui_control_panel.s`          | SSF gate check: reads UI state, checks gate table, sends event 0x1C00038                                                                                    |
+| `EventDispatch_Direct`              | 0xFA9945    | `ui_widget_defs.s`            | Broadcast event router with registration table                                                                                                              |
+| `GroupBoxProc_StartSSFPresentation` | 0xF9A273    | `presentation_sound_nav.s:33` | Builds workspace with tag 0x0000B80A, sends event 0x1C0001C                                                                                                 |
+| `AcPresentationControlProc`         | 0xF8450B    | `drawbar_panel_ui.s:18544`    | Main presentation controller; dispatches via jump table at 0xE9F9B2                                                                                         |
+| `AcPresentCtrl_CheckSSFStart`       | 0xF84625    | `drawbar_panel_ui.s`          | Checks workspace tag == 0xB80A, gates SSF start                                                                                                             |
+| `AcPresentationBoxProc`             | 0xF842B4    | `drawbar_panel_ui.s`          | Presentation visual frame rendering                                                                                                                         |
+| `AcFdemoScreenProc`                 | 0xF84149    | `drawbar_panel_ui.s`          | Feature Demo screen handler                                                                                                                                 |
+| `DemoModeFunc`                      | 0xF222CC    | `demo_routines.s`             | Main demo mode dispatcher (event 0x1C00013)                                                                                                                 |
+| `DemoMode_Initialize`               | 0xF869E3    | `file_demo_proc.s`            | First-time demo setup (voice save, audio init)                                                                                                              |
+| `DemoMode_Main_Operation`           | 0xF8696F    | `file_demo_proc.s`            | Main demo playback loop                                                                                                                                     |
+| `DemoMenu_BuildItemWorkspace`       | 0xF83CEA    | `drawbar_panel_ui.s:17734`    | Builds 0x82xx workspace (automated path -- wrong tag for SSF)                                                                                               |
+| `Demo_SelectEntry_TimerTick`        | 0xF86BE4    | `file_demo_proc.s`            | Timer-driven state machine entry point                                                                                                                      |
+| `Demo_SelectEntry_PlaySong`         | 0xF86CF7    | `file_demo_proc.s`            | Song loading and SwbtWr initialization                                                                                                                      |
+| `Demo_SelectEntry_ProcessSongList`  | 0xF86B7C    | `file_demo_proc.s`            | Song cycling and index management                                                                                                                           |
+| `Demo_WaitForDisplayBit`            | 0xF86F2E    | `file_demo_proc.s`            | Timeout-protected busy-wait for display ready                                                                                                               |
+| `FDemo_ProcessDisplayStateQuery`    | 0xF867B2    | `file_demo_proc.s`            | Processes display state after SSF event 0x1C00006                                                                                                           |
+| `FDemoText_ProcessTextMarkup`       | 0xF8541D    | `fdemotext_routines.s`        | Processes XML text markup for rendering                                                                                                                     |
+| `DrawBitmapFile`                    | 0xFAC697    | `drawing_primitives.s:3431`   | BMP header validation, palette load, pixel decode, VRAM blit                                                                                                |
+| `Gfx_ProcessSplashData`             | 0xFAEBA7    | `ui_window_procs.s`           | Multi-depth pixel decoder (1/4/8 bpp)                                                                                                                       |
+| `Gfx_DecodeImageToBuffer`           | 0xFAED27    | `ui_window_procs.s`           | Color remap via RAMDAC lookup                                                                                                                               |
+| `IvDemofeature1Proc`                | 0xF841EE    | `drawbar_panel_ui.s`          | Feature Demo event handler 1                                                                                                                                |
+| `IvDemofeature2Proc`                | 0xF8422F    | `drawbar_panel_ui.s`          | Feature Demo event handler 2                                                                                                                                |
+| `PostEvent` (`FA9752`)              | 0xFA9752    | (event system)                | Inserts events into circular queue at DRAM 0x02BC34                                                                                                         |
+| `SendEvent`                         | 0xFA9660    | (event system)                | Direct (synchronous) event dispatch                                                                                                                         |
+| `ApPostEvent`                       | 0xFA9D58    | (event system)                | Queued event, same ring as `PostEvent`; the firmware's own function-name table names it                                                                     |
+| `Boot_DisplayScreen`                | 0xEF0620    | `kn5000_v10_program.s`        | Sets DRAM[0x0406] bit 7 (boot-complete flag)                                                                                                                |
+| `MainTitleCtrl_ChangeTitle`         | 0xF9936D    | `ui/ui_control_panel.s`       | Writes `0x8D36`-`0x8D39`, which include the `0x8D38` state byte tracked above. It is not the handler of `0x1C00015`: `TitleProc` handles that title request |
 
 ---
 
 ## Known Bug: MAME SSF Never Activates
 
-**Status (paused March 18, 2026):** The SSF visual presentation (FTBMP bitmap rendering) does not trigger in MAME. The demo timer and song cycling work, but no slides are ever displayed. An early tone-generator hold-timer fix, paired with a workaround timer that force-cleared stuck sequencer parts by writing DRAM directly, briefly appeared to resolve most of the failure -- but the workaround was later removed as a policy violation (HLE code must not bypass the firmware's own state machine), and deeper tracing found a different picture: `DRAM[0x10420]` briefly flashes to `0xFFFF` then collapses back to `0x0000` within about a second, because voices without waveform ROM data were not sustaining long enough for the firmware's own part-tracking to work. The investigation traced the full event-dispatch chain, the tempo/timer hardware, and the demo song-loading path before being paused to address other driver stability concerns -- see [Investigation Progress (March 2026)](#investigation-progress-march-2026) for the full trace-by-trace record and its closing summary of confirmed/uncertain findings.
+> **Superseded (August 2026).** The slides do advance in MAME now. [#15878](https://github.com/mamedev/mame/pull/15878) (merged 2026-08-17) made the Feature Presentation run upstream, without sound, by fixing four defects: the IC14 rhythm-ROM dump (address lines A19 and A21 were transposed), the TMP94C241 16-bit timer interrupts, the IC21 backup SRAM (now NVRAM), and INT0 re-assertion under micro-DMA. The event chain traced below was not the cause. In the kn7000_mame overlay build (2026-08-15), one song plays to a correct STOP at about 139 s and nothing follows. The demo countdown at 0x0D2F is armed once and not re-armed, and whether anything should follow is open, because the owner describes the presentation as one continuous piece. This section and *Investigation Progress* below are the March 2026 record.
+
+**Status (paused March 18, 2026):** The SSF visual presentation (FTBMP bitmap rendering) does not trigger in MAME. The demo timer and song cycling work, but no slides are ever displayed. An early tone-generator hold-timer fix, paired with a workaround timer that force-cleared stuck sequencer parts by writing DRAM directly, briefly appeared to resolve most of the failure -- but the workaround was later removed as a policy violation (HLE code must not bypass the firmware's own state machine), and deeper tracing found a different picture: `DRAM[0x10420]` briefly flashes to `0xFFFF` then collapses back to `0x0000` within about a second, because voices without waveform ROM data were not sustaining long enough for the firmware's own part-tracking to work. The investigation traced the full event-dispatch chain, the tempo/timer hardware, and the demo song-loading path before being paused to address other driver stability concerns -- see [Investigation Progress (March 2026)](#investigation-progress-march-2026) for the full trace-by-trace record and its closing summary of confirmed/uncertain findings. (The March 2026 traces and workaround used hex `0x10420`, a misreading of decimal 10420. The part word is `SEQ_ACTIVE_PARTS` at `0x28B4`, and a 2026-08-15 write tap shows only stream data at `0x10420`, so the readings at `0x10420` below do not measure the part word.)
 
 ### Symptom Chain
 
@@ -575,7 +578,7 @@ Each of these conditions has been confirmed via MAME Lua trace scripts:
 2. **`GroupBoxProc_StartSSFPresentation` never fires** -- the function that builds the correct `0xB80A` workspace is never called
 3. **The `0xB80A` workspace tag is never constructed** -- no SSF workspace exists in DRAM
 4. **`AcPresentationControlProc` always fails the tag check** -- the automated path produces `0x82xx` tags, not `0xB80A`
-5. **`demo_state` at DRAM `0x0251D8` stays `0x0000`** -- the visual state machine never advances
+5. The presentation-loaded flag at DRAM `0x0251D8` stays `0x0000`. This is expected for the ROM presentation (only a presentation loaded from disk sets it), so it is not a symptom.
 
 ### Two Distinct Activation Paths
 
@@ -626,7 +629,7 @@ Two independent issues contribute to the failure:
 
 1. **Widget hierarchy not registered for state 0xE4:** `GroupBoxProc` may not be in the active widget chain when the UI is in state `0xE4`. Without user input in MAME's automated test run, the event buffer at `0xBD3C` drains after boot and `UIState_KeyScan_Dispatch` is never invoked again post-boot. The logic would work correctly with actual button input -- table entry[1] for `0x8D38=0x01` contains a valid match at index [79] for chain `0x70`, param `0x02`.
 
-2. **Sequencer parts never complete (PARTIALLY FIXED):** `DRAM[0x10420] = 0xFFFF` (all 16 sequencer parts marked active) blocks `FDemo_MultiGuardCheck`. The tone generator hold timer bug has been fixed -- voices no longer get stuck active when waveform ROMs are missing, allowing 12 of 16 parts to clear naturally. However, 4 accompaniment parts (bits 1, 3, 6, 10 = `0x044A`) remain stuck because they never enter playing state without waveform data. A 1-second workaround timer detects this deadlock condition and force-clears the remaining parts.
+2. **Sequencer parts never complete (PARTIALLY FIXED):** `DRAM[0x10420] = 0xFFFF` (all 16 sequencer parts marked active) blocks `FDemo_MultiGuardCheck`. The tone generator hold timer bug has been fixed -- voices no longer get stuck active when waveform ROMs are missing, allowing 12 of 16 parts to clear naturally. However, 4 accompaniment parts (bits 1, 3, 6, 10 = `0x044A`) remain stuck because they never enter playing state without waveform data. A 1-second workaround timer that force-cleared the remaining parts was tried and then removed as a policy violation; see *HLE Workaround Removed* below.
 
 ### Previously Investigated and Ruled Out
 
@@ -709,7 +712,7 @@ flowchart TD
 
 ### DSP Status Polling Bug
 
-The SubCPU's DSP ready signal (Port H bit 0) was not connected in MAME, causing every DSP operation to spin through 8,000 timeout iterations. This dramatically inflated the SwbtWr blocking time. See [Tone Generator Initialization — DSP Status Polling Bug]({{ site.baseurl }}/swbwr-tone-init/#dsp-status-polling-bug-march-2026-discovery) for the full analysis.
+An earlier hypothesis (March 2026) blamed part of the SwbtWr blocking time on the Sub CPU's DSP ready signal (Port H bit 0), and the fork driver tied PH.0 high. It is retracted: PH.0 is an output (`PHCR = 0x07`, kn5000-roms-disasm `v142/subcpu/kn5000_subprogram_v142.s:80`), so `DSP_Read_Status` reads back the latch it has just set and the 8,000-poll timeout never runs. That holds in MAME too, whose TMP94C241 port read has returned the output latch since [mamedev/mame#15003](https://github.com/mamedev/mame/pull/15003). See [Tone Generator Initialization — DSP Status Polling Bug]({{ site.baseurl }}/swbwr-tone-init/#dsp-status-polling-bug-march-2026-discovery) (`dsp/analysis/second-dsp-and-ready.md` §0 A2-A4).
 
 ### Lua Diagnostic Trace Results
 
@@ -724,9 +727,9 @@ Two diagnostic sessions confirmed:
   - `0x00E40000` — appears briefly at timer=10 and timer=0
   - `0x00E4000A` — appears during song playback (stabilizes here)
 - Demo timer cycles correctly: 15→10→...→0, songs advance
-- `seq_parts` briefly flashes 0xFFFF then clears (workaround timer working)
-- **`ssf_flag` at 0x0251D8 stays 0x0000 throughout** — SSF parser never starts
-- The Technics globe (FTBMP01) renders as the static screen background for state 0xE4, but never transitions to other slides
+- `seq_parts` briefly flashes 0xFFFF then clears (cleared by the workaround timer, since removed)
+- `0x0251D8` (the presentation-loaded flag) stays 0x0000 throughout, which is expected for the ROM presentation and says nothing about the parser.
+- The Technics globe (FTBMP01) is shown. On the instrument it is the presentation's first slide, not a background, so the presentation did start. In this March build it never advanced to the next slide.
 
 **Session 2 (ssf_trace2.lua) — Key Scan Data:**
 - **DRAM key scan bytes are NOT zero during state 0xE4:**
@@ -865,15 +868,15 @@ flowchart TD
 
 ### Major Discovery: SSF Triggered by Tone Gen Events (Trace Session 5)
 
-The write tap investigation revealed that **DRAM[0xC080] (the "chain byte") is written by `SwbtWr_DispatchLoop`** at `dsp_config_sysex.s:902`:
+The write tap investigation revealed that **DRAM[0xC080] (the "chain byte") is written by `SwbtWr_DispatchLoop`** at `dsp_config_sysex.s:938`:
 
 ```asm
 SwbtWr_DispatchLoop:
     ld l, (xiy)           ; Load event code from buffer
-    stda8 49280, l        ; Write to C080 (chain byte)
+    ld (SWBTWR_EVENT_TYPE:16), l        ; Write to C080 (chain byte)
     ...
-    stda16 49277, xwa     ; Write event params to C07D-C07E
-    stda8 49279, c        ; Write to C07F
+    ld (SWBTWR_PAYLOAD_1:16), wa     ; Write event params to C07D-C07E
+    ld (SWBTWR_PAYLOAD_3:16), c        ; Write to C07F
 ```
 
 This means **the SSF event registration entries (0x10, 0x11, 0x12) are SwbtWr tone generator parameter event codes**, NOT button scan values or control panel data!
@@ -944,14 +947,9 @@ flowchart TD
     style QUESTION fill:#ffc,stroke:#cc0,color:#880
 ```
 
-    style NOREG fill:#fcc,stroke:#c00,color:#800
-    style STUCK fill:#fcc,stroke:#c00,color:#800
-    style SSF fill:#cfc,stroke:#0c0,color:#080
-```
-
 ### DSP Ready Fix Impact
 
-The DSP1 ready signal fix (SubCPU Port H bit 0 = 1) eliminates the 8,000-iteration timeout per DSP operation. This was confirmed to reduce SubCPU processing overhead. However, the SSF slide transitions still don't work — the root cause is event routing, not timing. The DSP fix is still valuable as a correct hardware emulation improvement.
+The DSP1 ready-signal change (PH.0 tied high) had no effect, because the poll already read 1 (see *DSP Status Polling Bug* above). The SSF slide transitions still did not work.
 
 ### CurrentTarget Resolution During State 0xE4
 
@@ -1077,8 +1075,8 @@ through `UIState_KeyScan_Dispatch`.
 **Filter match analysis:**
 
 Event 0x10 at buffer slot 13 had params `[00, 06, FF]`:
-- `stda16 49277, xwa`: A=0x00 -> C07D=0x00, W=0x06 -> C07E=0x06
-- `stda8 49280, l`: C080=0x10
+- `ld (SWBTWR_PAYLOAD_1:16), wa`: A=0x00 -> C07D=0x00, W=0x06 -> C07E=0x06
+- `ld (SWBTWR_EVENT_TYPE:16), l`: C080=0x10
 - Match value: `(C080 << 24) | (C07D << 16)` = `0x10000000`
 - Registration entry [10] filter: upper 16 bits of `0x10001AFF` = `0x1000` -> comparison value `0x10000000`
 - **These MATCH.** The filter should pass.
@@ -1089,7 +1087,7 @@ Event 0x10 at buffer slot 13 had params `[00, 06, FF]`:
 1. **SwbtWr_DispatchLoop only processes Bank 1, not Bank 2** -- if `SwbtWr_ReinitBothBanks` is interrupted or only Bank 1 runs, the handler table callbacks never fire
 2. **The handler table iteration stops before reaching UIState_KeyScan_Dispatch** -- if an earlier function in the chain (e.g., `UIState_ProcessKeyEvent`) returns early or throws an error
 3. **UIState_KeyScan_Dispatch's boot flag check fails** -- bit 7 of DRAM[0x0406] must be 1 (confirmed as 0x80 in all traces)
-4. **EventDispatch_Direct's filter comparison has a subtle difference** -- the `lds wa, 0` instruction might clear bits differently than assumed
+4. **EventDispatch_Direct's filter comparison has a subtle difference** -- the `ld wa, 0:i3` instruction (`ui_widget_defs.s:18188`) might clear bits differently than assumed
 5. **The dispatch happens but the event goes to a widget that can't process it** -- the broadcast target resolution via CurrentTarget leads to a non-GroupBoxProc widget
 
 ```mermaid
@@ -1118,22 +1116,22 @@ The previous investigation traced the firmware's event dispatch chain in detail,
 
 **HLE Workaround Removed:**
 
-The "stuck sequencer parts" workaround (commit `124e37d`) has been removed (commit `c38a312`). This workaround directly wrote to DRAM[0x10420] to clear stuck sequencer parts, bypassing the firmware's own sequencer state machine. This is a strict policy violation — all emulator code must describe actual hardware behavior, not simulate firmware behavior.
+The "stuck sequencer parts" workaround (commit `124e37d`) has been removed (commit `c38a312`), both on the owner's local fork branch ARCHIVED_kn5000_research_ssf, which is not pushed to github.com/felipesanches/mame. This workaround directly wrote to DRAM[0x10420] (the wrong address; see above) to clear stuck sequencer parts, bypassing the firmware's own sequencer state machine. This is a strict policy violation — all emulator code must describe actual hardware behavior, not simulate firmware behavior.
 
 **Remaining Hardware Emulation Issues:**
 
 The correct approach is to identify what hardware behavior MAME gets wrong that causes the firmware to malfunction. Known hardware emulation gaps:
 
-| Hardware | Status | Impact |
-|----------|--------|--------|
-| **Waveform ROMs IC304-IC306** | NO GOOD DUMP KNOWN (12MB missing) | Tone gen produces silence; sequencer voice completion may differ |
-| **Waveform ROM IC307** | Dumped (4MB) | Partial waveform data available |
-| **SubCPU boot ROM** | PARTIAL DUMP (10.9% read; 89.1% assumed 0xFF) | See note below — the undumped ranges are *unread*, not corrupt, and no reference reaches them |
-| **Tone gen device** | Simplified emulation | Voice status readback (`data_r()`) returns 0x8100/0x7E00 based on key_on and hold timer; may not accurately model real hardware state transitions |
-| **DSP1 (IC311)** | Stub (accepts writes, no processing) | Ready signal fixed (Port H bit 0); no audio effects |
-| **DSP2 (IC310)** | Not emulated | GPIO serial interface not connected |
+| Hardware                      | Status                                        | Impact                                                                                                                                            |
+|-------------------------------|-----------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Waveform ROMs IC304-IC306** | NO GOOD DUMP KNOWN (12MB missing)             | Tone gen produces silence; sequencer voice completion may differ                                                                                  |
+| **Waveform ROM IC307**        | Dumped (4MB)                                  | Partial waveform data available                                                                                                                   |
+| **SubCPU boot ROM**           | PARTIAL DUMP (10.9% read; 89.1% assumed 0xFF) | See note below — the undumped ranges are *unread*, not corrupt, and no reference reaches them                                                     |
+| **Tone gen device**           | Simplified emulation                          | Voice status readback (`data_r()`) returns 0x8100/0x7E00 based on key_on and hold timer; may not accurately model real hardware state transitions |
+| **DSP1 (IC311)**              | Stub (accepts writes, no processing)          | No audio effects; its ready line PH.0 needs no emulation, because the Sub CPU reads back its own output latch                                     |
+| **DSP2 (IC310)**              | Not emulated                                  | GPIO serial interface not connected                                                                                                               |
 
-**Key question:** Why does `DRAM[0x10420]` (sequencer active parts bitmask) go to 0xFFFF and stay there? On real hardware with waveform ROMs, the sequencer runs accompaniment patterns to completion and parts clear naturally through the tone generator's voice lifecycle. In MAME:
+**Key question:** Why does `DRAM[0x10420]` (sequencer active parts bitmask; the wrong address, see above) go to 0xFFFF and stay there? On real hardware with waveform ROMs, the sequencer runs accompaniment patterns to completion and parts clear naturally through the tone generator's voice lifecycle. In MAME:
 
 1. The firmware sends KEY ON commands to the tone gen for accompaniment voices
 2. The tone gen's `data_r()` returns 0x8100 (active) while key_on is true or hold timer is running
@@ -1220,22 +1218,22 @@ Alternatively, the accompaniment chord data may be sent from MainCPU to SubCPU v
 
 Deep analysis of the accompaniment engine revealed two critical gating mechanisms that could prevent note event generation:
 
-**Gating Check in `Seq_DispatcherTick`** (smf_event_processor.s:11207-11212):
+**Gating Check in `Seq_DispatcherTick`** (smf_event_processor.s:10791-10796):
 
 ```asm
 Seq_DispatcherTick:
-    cpdi8 36150, 16      ; compare acc_mode with 16
+    cp (CURRENT_TITLE:16), 16      ; compare CURRENT_TITLE with 16
     jr c, Process         ; if < 16, process ticks normally
-    cpdi8 36150, 22      ; compare acc_mode with 22
+    cp (CURRENT_TITLE:16), 22      ; compare CURRENT_TITLE with 22
     jr ugt, Process       ; if > 22, process ticks normally
     jr Return             ; values 16-22: SKIP ALL accompaniment processing
 ```
 
-DRAM[36150] (address `0x8D36`) is the accompaniment mode register. If its value is in the range 16-22, the **entire sequencer tick is skipped**: no rhythm processing (`AccTick_Main`), no chord detection (`Rhythm_CompareAndTrigger`), no accompaniment note generation (`AccProcess_Entry`). The sequencer appears "playing" (`play_state=6`) but produces no output.
+DRAM[36150] (address `0x8D36`) is `CURRENT_TITLE`, the current title id. While a style-conversion title (0x10–0x16, TT_STYLCNV*) is current, the **entire sequencer tick is skipped**: no rhythm processing (`AccTick_Main`), no chord detection (`Rhythm_CompareAndTrigger`), no accompaniment note generation (`AccProcess_Entry`). The sequencer appears "playing" (`play_state=6`) but produces no output.
 
 **Chord Override System:**
 
-The accompaniment chord handler (`AccChord_ReadAndStoreKeys`, smf_event_processor.s:11464) reads chord data from one of two sources:
+The accompaniment chord handler (`AccChord_ReadAndStoreKeys`, smf_event_processor.s:11045) reads chord data from one of two sources:
 - **Normal mode** (DRAM[8968] == 0): reads from keyboard chord state at DRAM[52958-52961] — which is **zero in MAME** (no physical keyboard input)
 - **Demo override** (DRAM[8968] != 0): reads from pre-programmed chord data at DRAM[8960-8966]
 
@@ -1267,33 +1265,33 @@ f=2505 acc_mode=228 chord_ovr=0 part_en=0xFFFF pending=0xFFFF parts=0x0000 timer
 
 **Key findings:**
 
-| Variable | Value | Meaning |
-|----------|-------|---------|
-| `acc_mode` | 228 (0xE4) | > 22, so gating check PASSES -- **not the issue** |
-| `chord_ovr` | 0 | Demo chord override NOT active |
-| `part_en` | 0x0000 -> 0xFFFF | All 16 parts DO get enabled |
-| `pending` | 0x5151 -> 0xFFFF | Pending parts ARE populated |
-| `parts` | 0x0000 (always) | **Copy from pending->parts NEVER happens** |
-| `play` | 4 -> 6 | Sequencer IS started |
+| Variable                                | Value            | Meaning                                           |
+|-----------------------------------------|------------------|---------------------------------------------------|
+| `CURRENT_TITLE` (acc_mode in the trace) | 228 (0xE4)       | > 22, so gating check PASSES -- **not the issue** |
+| `chord_ovr`                             | 0                | Demo chord override NOT active                    |
+| `part_en`                               | 0x0000 -> 0xFFFF | All 16 parts DO get enabled                       |
+| `pending`                               | 0x5151 -> 0xFFFF | Pending parts ARE populated                       |
+| `parts`                                 | 0x0000 (always)  | **Copy from pending->parts NEVER happens**        |
+| `play`                                  | 4 -> 6           | Sequencer IS started                              |
 
 **The broken link:** `pending=0xFFFF` but `parts=0x0000`. The copy is performed by `SeqPlay_PreparePlaybackState` (called from `SeqStep_PlaybackCheckBeat`), which is called from within the sequencer tick processing chain. Despite the gating check passing, the tick processing never reaches the beat check.
 
-**Root cause discovered: `RhythmROM_CheckValid` gate** (seq_audio_mode.s:1348-1367):
+**Root cause discovered: `RhythmROM_CheckValid` gate** (seq_audio_mode.s:1493-1512):
 
 ```asm
 RhythmROM_CheckValid:
-    ldb c, 0x0                    ; assume valid
+    ld c, 0x0:opc                 ; assume valid
     ld xwa, 0xFFFFFFFF
-    cpda32 xwa, 12919             ; compare DRAM[12919] with 0xFFFFFFFF
+    cp xwa, (RHYTHM_ROM_BASE:16)  ; compare DRAM[12919] with 0xFFFFFFFF
     jr z, RhythmROM_InvalidIncrement  ; if equal → INVALID
     jr RhythmROM_CheckDone            ; if not equal → valid, proceed
 ```
 
-This check runs at the TOP of `Seq_DispatcherTick_Process` (smf_event_processor.s:11215-11217):
+This check runs at the TOP of `Seq_DispatcherTick_Process` (smf_event_processor.s:10799-10801):
 
 ```asm
 call RhythmROM_CheckValid
-cps c, 0
+cp c, 0:i3
 jr nz, Seq_DispatcherTickReturn    ; c=1 → SKIP ENTIRE TICK
 ```
 
@@ -1315,7 +1313,7 @@ flowchart TD
     RCHECK --> CMP{"DRAM[12919]<br/>== 0xFFFFFFFF?"}
     CMP -- "YES (invalid)" --> C1["c = 1"]
     CMP -- "NO (valid)" --> C0["c = 0"]
-    C1 --> SKIP["cps c, 0 → jr nz<br/>SKIP ENTIRE TICK"]
+    C1 --> SKIP["cp c, 0:i3 → jr nz<br/>SKIP ENTIRE TICK"]
     C0 --> PROCESS["Process tick:<br/>ReadControlState<br/>ReadTempoLookup<br/>Rhythm_CompareAndTrigger<br/>AccTick_Main<br/>AccProcess_Entry"]
     PROCESS --> BEAT["SeqStep_PlaybackCheckBeat"]
     BEAT --> COPY["SeqPlay_PreparePlaybackState<br/>pending → parts"]
@@ -1331,7 +1329,7 @@ flowchart TD
 
 Further code analysis revealed the exact mechanism blocking `pending → parts`:
 
-**The copy chain:** `SeqPlay_PreparePlaybackState` (which copies `pending` to `parts`) is only called from `SeqStep_PlaybackCheckBeat` (seq_step_routines.s:2588-2592):
+**The copy chain:** `SeqPlay_PreparePlaybackState` (which copies `pending` to `parts`) is only called from `SeqStep_PlaybackCheckBeat` (seq_step_routines.s:2601-2605):
 
 ```asm
 SeqStep_PlaybackCheckBeat:
@@ -1344,16 +1342,16 @@ SeqStep_PlaybackCheckBeat:
 
 **Call chain to reach this code:**
 ```
-Main Loop → MainLoop_SequencerPhase (system_handlers.s:1245)
+Main Loop → MainLoop_SequencerPhase (system_handlers.s:1239)
   → Seq_EventProcessingTick
   → Seq_TickWrapper
-  → SeqStep_MainTimerTick (system_handlers.s:1249)
+  → SeqStep_MainTimerTick (seq_step_routines.s:2532)
     → SeqStep_TimerDispatchA
     → SeqPlay_SyncPlaybackPosition
     → SeqStep_TimerDispatchB
     → Seq_HandleModeTransition
     → SeqNotify_CheckAndClearStart
-    → SeqStep_PlaybackStateMachine (seq_step_routines.s:2555)
+    → SeqStep_PlaybackStateMachine (seq_step_routines.s:2568)
       → SeqStep_PlaybackDecrCount
         → SeqStep_PlaybackCheckBeat ← HERE (bit 1 of 0xFB must be set)
           → SeqPlay_PreparePlaybackState (copies pending → parts)
@@ -1401,13 +1399,13 @@ tempo = 0
 
 ### SeqTimer_UpdateTempoReg Analysis
 
-The tempo is set by `SeqTimer_UpdateTempoReg` (audio_control_engine.s:7386), which:
+The tempo is set by `SeqTimer_UpdateTempoReg` (audio_control_engine.s:8283), which:
 
-1. **Gate check** (line 7387): `bitda 2, 64848` — if bit 2 of DRAM[64848] (address `0xFD50`) is SET, returns immediately WITHOUT updating tempo
-2. **Read SubCPU tempo** (line 7394-7395): loads 16-bit value from `0xFC62` (= `0xFC5A + 8`), which is shared DRAM written by the SubCPU
-3. **Mask and clamp** (lines 7396-7405): `AND 0x1FF` (9-bit range 0-511), then clamp to 40-300 BPM. Values below 40 are clamped to default **120 BPM (0x78)**
-4. **Compute timer value** (lines 7408-7418): `80,000,000 / (tempo × 64)` for normal mode, stored to hardware timer register TREG5 (address 0x0092)
-5. **Write TREG5** (line 7427): `stda16 146, xde` — writes the computed timer period to the TMP94C241's Timer Register 5
+1. **Gate check** (line 8284): `bit 2, (0xfd50:16)` — if bit 2 of DRAM[64848] (address `0xFD50`) is SET, returns immediately WITHOUT updating tempo
+2. **Read SubCPU tempo** (line 8291-8292): loads 16-bit value from `0xFC62` (= `0xFC5A + 8`), which is shared DRAM written by the SubCPU
+3. **Mask and clamp** (lines 8293-8302): `AND 0x1FF` (9-bit range 0-511), then clamp to 40-300 BPM. Values below 40 are clamped to default **120 BPM (0x78)**
+4. **Compute timer value** (lines 8305-8315): `80,000,000 / (tempo × 64)` for normal mode, stored to hardware timer register TREG5 (address 0x0092)
+5. **Write TREG5** (line 8324): `ld (146:16), de` — writes the computed timer period to the TMP94C241's Timer Register 5
 
 **Two possible failure points:**
 
@@ -1434,7 +1432,7 @@ After song starts: bpm=0x005A(90) treg5=0x0000 subcpu_tempo=0x005A gate=0x10(bit
 - **Gate check passes:** bit 2 of DRAM[64848] is clear throughout
 - **TREG5 reads as 0x0000** — BUT this is a **write-only hardware register**. The TMP94C241 memory map has `map(0x000092, 0x000093).w(treg_16_w<TREG5>)` — no read handler. The Lua script reads 0 because the register is not readable via the memory bus, NOT because it wasn't written.
 
-**The firmware writes TREG5 correctly.** The `stda16 146, xde` instruction at audio_control_engine.s:7427 writes the computed timer period. The CPU core's `treg_16_w<TREG5>` handler stores it to `m_treg_16[TREG5]`.
+**The firmware writes TREG5 correctly.** The `ld (146:16), de` instruction at audio_control_engine.s:8324 writes the computed timer period. The CPU core's `treg_16_w<TREG5>` handler stores it to `m_treg_16[TREG5]`.
 
 ### CPU Core Timer Investigation
 
@@ -1444,14 +1442,14 @@ The TMP94C241 CPU core's 16-bit timer implementation (tmp94c241.cpp) has a criti
 
 **Timer 4/5 clock source:** determined by `m_t4mod & 3` (T4MOD register at address 0x98, bits 1:0):
 
-| T4MOD bits 1:0 | Clock Source | Implementation Status |
-|-----------------|-------------|----------------------|
-| 0 | **TIA** (external timer input pin) | **NOT IMPLEMENTED** (case 0 in `update_timer_count` is empty) |
-| 1 | T1 prescaler (fc/2) | Implemented |
-| 2 | T4 prescaler (fc/8) | Implemented |
-| 3 | T16 prescaler (fc/32) | Implemented |
+| T4MOD bits 1:0 | Clock Source                       | Implementation Status                                         |
+|----------------|------------------------------------|---------------------------------------------------------------|
+| 0              | **TIA** (external timer input pin) | **NOT IMPLEMENTED** (case 0 in `update_timer_count` is empty) |
+| 1              | T1 prescaler (fc/8)                | Implemented                                                   |
+| 2              | T4 prescaler (fc/32)               | Implemented                                                   |
+| 3              | T16 prescaler (fc/128)             | Implemented                                                   |
 
-The `update_timer_count` lambda (tmp94c241.cpp line 1354-1374) has:
+The `update_timer_count` lambda (tmp94c241.cpp lines 1411-1431 at upstream 41ca7fa44e5) has:
 ```cpp
 case 0:
 /* Not yet implemented.
@@ -1477,7 +1475,7 @@ T4MOD=0x05 (clock_source=1 T1) T16RUN=0x81(timer4_running=1) TREG4=0x0000 TREG5=
 - **T16RUN = 0x81** — Timer 4 is running (bit 0=1) and prescaler is active (bit 7=1)
 - **TREG4/TREG5 read as 0** — these are write-only registers (no read handler in the memory map), so Lua sees 0 even if the values were correctly written by the firmware
 
-**The TIA hypothesis was wrong.** The timer uses T1 prescaler (fc/8, meaning at 16 MHz the timer ticks at 2 MHz). With the firmware's computed TREG5 value of ~10416 (for 90 BPM), the INTTR5 interrupt should fire at ~192 Hz.
+**The TIA hypothesis was wrong.** The timer uses T1 prescaler (fc/8, meaning at 16 MHz the timer ticks at 2 MHz). With the firmware's computed TREG5 value of ~13,889 (for 90 BPM; ~10,417 at 120 BPM), the timer interrupt should fire at ~144 Hz (~192 Hz at 120 BPM).
 
 **But beats are still not generated.** The timer hardware appears correctly configured, yet the sequencer beat processing never activates `pending → parts`. The investigation continues by checking:
 
@@ -1539,7 +1537,7 @@ Comprehensive analysis of the demo song loading path revealed the data IS loaded
 
 ```asm
 Demo_SelectEntry_StartPlayback:
-    cpdi8 36152, 228    ; check if Feature Presentation mode (0xE4)
+    cp (ACTIVE_TITLE:16), 228    ; check if Feature Presentation mode (0xE4)
     ret z               ; ← RETURNS early WITHOUT calling SeqInit_PostDispatchEvent!
 ```
 
@@ -1551,15 +1549,15 @@ In Feature Presentation mode (state 0xE4 = 228), `Demo_SelectEntry_StartPlayback
 
 ### Demo Preset Data Analysis
 
-All 19 demo song presets were decompressed from SLIDE4K format and analyzed. The decompressed files are in the roms-disasm source tree at `table_data/includes/demo_presets/demo_preset_00.bin` through `demo_preset_18.bin`.
+All 19 demo song presets were decompressed from SLIDE4K format and analyzed. Each preset is rebuilt byte-exactly from `table_data/includes/demo_presets/midi/demo_preset_NN.mid` plus `sidecar/demo_preset_NN.yaml` (format: `table_data/includes/demo_presets/README.md`).
 
-**Key finding: Active parts bitmask is 0x0000 in ALL presets.**
+**Correction (2026-10):** the +0x1E track-enable mask is non-zero in every preset (preset 0: 0x3FFF; preset 18: 0xFFFF), according to the byte-exact rebuild inputs `table_data/includes/demo_presets/sidecar/*.yaml`. The table below gives those values. The March analysis read different sizes and a mask of 0x0000, and the conclusions drawn from it below are withdrawn.
 
-| Preset | Compressed Size | Decompressed Size | Parts Bitmask (offset +0x1E) | 0x82 Count |
-|--------|----------------|-------------------|------------------------------|------------|
-| 0 | ~12KB | 23,575 bytes | **0x0000** | 11 |
-| 18 | ~17KB | 32,910 bytes | **0x0000** | 26 |
-| All others | varies | varies | **0x0000** | varies |
+| Preset     | Compressed Size | Decompressed Size | Parts Bitmask (offset +0x1E) | 0x82 Count |
+|------------|-----------------|-------------------|------------------------------|------------|
+| 0          | 20,412 B        | 26,880 bytes      | **0x3FFF**                   | —          |
+| 18         | 27,956 B        | 38,144 bytes      | **0xFFFF**                   | —          |
+| All others | varies          | varies            | non-zero                     | varies     |
 
 The `Voice_GetPresetFieldWord` function reads the active parts bitmask from offset +0x1E in the decompressed preset data. Since this is 0x0000 for ALL presets, the firmware doesn't rely on this field for demo part activation.
 
@@ -1573,17 +1571,17 @@ The `Voice_GetPresetFieldWord` function reads the active parts bitmask from offs
 
 **Remaining question:** If both presets 0 and 18 have the same parts bitmask (0x0000), and the sequencer init provides 0xFFFF for both, why does preset 0 work on real hardware (playing a full song) while preset 18 also presumably works? The answer is likely that ALL presets produce the same behavior in MAME — parts briefly go to 0xFFFF then immediately clear. The investigation previously only tracked preset 18 because the demo always starts with song index 18. On real hardware with waveform ROMs, the song data would drive actual note events that sustain the parts.
 
-### Root Cause: Voice_GetPresetFieldWord Returns Zero (Confirmed)
+### (Retracted) Root Cause: Voice_GetPresetFieldWord Returns Zero (Confirmed)
 
 The investigation has identified the exact mechanism causing all sequencer parts to clear:
 
 **Three kill mechanisms converge:**
 
-1. **`SeqTimer_BarReturn`** (sequencer_engine.s:20032) — at every bar boundary, calls `Voice_GetPresetFieldWord` which reads offset +0x1E of the decompressed preset. Since this is always 0x0000, it sets `DRAM[61854] = 0`, disabling all parts.
+1. **`SeqTimer_BarReturn`** (sequencer_engine.s:19937) — at every bar boundary, calls `Voice_GetPresetFieldWord` which reads offset +0x1E of the decompressed preset. Since this is always 0x0000, it sets `DRAM[61854] = 0`, disabling all parts.
 
-2. **`SeqModeTransit_DemoPath`** (sequencer_engine.s:11047) — during mode transitions, reads the same 0x0000 value and stores it to `DRAM[8980]`. When `SeqPlay_PreparePlaybackState` runs, it copies 0 to `DRAM[10420]`.
+2. **`SeqModeTransit_DemoPath`** (sequencer_engine.s:11070) — during mode transitions, reads the same 0x0000 value and stores it to `DRAM[8980]`. When `SeqPlay_PreparePlaybackState` runs, it copies 0 to `DRAM[10420]`.
 
-3. **Out-of-bounds block reads** — for preset 18, parts 3/4/5/9 have block indices that point beyond the decompressed buffer (32,910 bytes), causing reads from uninitialized DRAM that may contain 0x82 (end-of-track).
+3. (Retracted: the buffer is 38,144 B, not 32,910 B.) **Out-of-bounds block reads** — for preset 18, parts 3/4/5/9 have block indices that point beyond the decompressed buffer (32,910 bytes), causing reads from uninitialized DRAM that may contain 0x82 (end-of-track).
 
 **On real hardware, the demo works because:**
 - `DRAM[61854]` retains residual state from normal keyboard operation
@@ -1593,11 +1591,11 @@ The investigation has identified the exact mechanism causing all sequencer parts
 
 **The uninvestigated function `Demo_ProcessRecordEntry`** is the most likely mechanism that makes the demo work on real hardware. It processes a chain of records embedded in the decompressed preset data and may write the correct parts bitmask as a side effect.
 
-### DemoMode_Initialize Hardcodes Parts (Critical Discovery)
+### (Retracted) DemoMode_Initialize Hardcodes Parts (Critical Discovery)
 
-Analysis of the demo initialization path revealed: `DemoMode_Initialize` (file_demo_proc.s:588) **hardcodes `DRAM[61854] = 0xFFEC`** (13 of 16 parts active), independent of the preset's 0x0000 at offset +0x1E.
+Analysis of the demo initialization path revealed: `DemoMode_Initialize` (file_demo_proc.s:581) **writes `DRAM[61854] = 0xFFEC`** (13 of 16 parts active), but only when bit 0 of DRAM 0x28A5 is set (file_demo_proc.s:601-603).
 
-But `SeqTimer_BarReturn` runs at every bar boundary, calling `Voice_GetPresetFieldWord` which reads 0x0000 from the preset and OVERWRITES `DRAM[61854] = 0`. On real hardware, voices play waveforms long enough for note events to keep parts alive past this overwrite. In MAME without waveform ROMs, voices complete instantly, and the bar boundary kills parts before any notes sustain.
+But `SeqTimer_BarReturn` runs at every bar boundary, calling `Voice_GetPresetFieldWord` which reads the preset's +0x1E mask and OVERWRITES `DRAM[61854]` with it. On real hardware, voices play waveforms long enough for note events to keep parts alive past this overwrite. In MAME without waveform ROMs, voices complete instantly, and the bar boundary kills parts before any notes sustain.
 
 ### DRAM[61854] Trace Result
 
@@ -1619,7 +1617,7 @@ The investigation revealed a **tone generator emulation issue**: when waveform d
 
 **The real hardware behavior:** The tone gen chip (TC183C230002) tracks voice timing from its internal waveform parameter index, independent of whether the actual PCM samples are available. A voice stays "active" for its natural waveform duration based on these parameters, even when the ROM chip containing the audio data is not present.
 
-**The fix (commit `07e6a8e`):** The tone gen device now:
+**The first fix (an intermediate commit, later squashed; the hash `07e6a8e` no longer resolves):** The tone gen device now:
 1. Reads waveform length from IC307's index table for ALL voices, including those in missing ROM ranges
 2. Advances voice position based on pitch, tracking timing correctly
 3. For voices without actual PCM data: plays through the waveform length once, then auto-transitions to KEY OFF with release (50ms) + hold (2 seconds), then deactivates
@@ -1629,19 +1627,19 @@ The investigation revealed a **tone generator emulation issue**: when waveform d
 
 ### SeqReassign_OrPartBits Discovery
 
-Code analysis revealed the mechanism that keeps parts alive on real hardware despite `Voice_GetPresetFieldWord` zeroing DRAM[61854]:
+Code analysis revealed the mechanism that keeps parts alive on real hardware despite `Voice_GetPresetFieldWord` zeroing DRAM[61854] (a premise since withdrawn; see *Demo Preset Data Analysis* above):
 
 ```asm
-SeqReassign_OrPartBits:          ; sequencer_engine.s:6385
-    orddm16 8982, xde           ; OR part bit into channel running mask
-    orddm16 10420, xde          ; OR part bit into active parts
-    orddm16 8980, xde           ; OR part bit into pending parts
+SeqReassign_OrPartBits:          ; sequencer_engine.s:6408
+    or (8982:16), de             ; OR part bit into channel running mask
+    or (SEQ_ACTIVE_PARTS:16), de ; OR part bit into active parts
+    or (8980:16), de             ; OR part bit into pending parts
 ```
 
-During voice reassignment, the sequencer ORs the active part's bit BACK into all three bitmasks. This overrides the zeroing from `Voice_GetPresetFieldWord`. The cycle on real hardware:
+During voice reassignment, the sequencer ORs the active part's bit BACK into all three bitmasks. The cycle on real hardware:
 
-1. `SeqTimer_BarReturn` zeros DRAM[61854] (reads 0x0000 from preset)
-2. `SeqModeTransit_DemoPath` zeros DRAM[8980]
+1. `SeqTimer_BarReturn` reloads DRAM[61854] (reads the preset's +0x1E mask)
+2. `SeqModeTransit_DemoPath` reloads DRAM[8980] from the same mask
 3. But the sequencer's note processing reassigns voices → `SeqReassign_OrPartBits` ORs bits back
 4. Parts stay alive as long as voices are being reassigned (i.e., notes are playing)
 
@@ -1651,7 +1649,7 @@ During voice reassignment, the sequencer ORs the active part's bit BACK into all
 
 The earlier hypothesis that "sequencing is broken" was wrong. The sequencer WAS processing notes — the evidence (`seqpos=0, parts clearing quickly`) was misinterpreted. `seqpos=0` is normal for demo mode. Parts cleared because voices deactivated instantly (`wave_length=0`), not because notes weren't generated. The sequencer sends KEY ON and KEY OFF at the correct times from the song data. The tone gen just needs to sustain correctly between those commands.
 
-### Voice Timing Fix — Iteration 3 (commit `d8d6eec`)
+### Voice Timing Fix — Iteration 3 (squashed into `2b201c8a349`, 2026-03-18, on the same unpublished branch)
 
 After two overcorrections (too short → too long → back to too long), the current approach:
 - Voices WITH PCM data (IC307): loop while key held, normal behavior
@@ -1664,14 +1662,14 @@ After two overcorrections (too short → too long → back to too long), the cur
 The SSF investigation is paused to address driver stability concerns. Here is a complete summary of confirmed findings, remaining uncertainties, and next steps.
 
 **Confirmed (high confidence):**
-1. The SSF event chain is fully mapped: SwbtWr Bank 2 callbacks → UIState_HandlerTable → UIState_KeyScan_Dispatch → event 0x1C00038 → EventDispatch_Direct → ApPostEvent (async)
+1. The SSF event chain is fully mapped: SwbtWr Bank 2 callbacks → `SwbtB2_Code10_Listeners`–`SwbtB2_Code12_Listeners` → UIState_KeyScan_Dispatch → event 0x1C00038 → EventDispatch_Direct → ApPostEvent (async)
 2. The event registration table HAS entries for 0x1C00038 (slots 10-12) with filter params 0x10/0x11/0x12
 3. The SwbtWr event buffer DOES contain events 0x10/0x11/0x12 during demo init
 4. The firmware's sequencer IS started (play=6) and timer IS working (INTT1 accumulator advances, beat_flags set)
 5. `SeqPlay_PreparePlaybackState` DOES copy pending→parts (0xFFFF appears briefly)
-6. `Voice_GetPresetFieldWord` reads 0x0000 from ALL demo presets at offset +0x1E, zeroing DRAM[61854] at each bar boundary
-7. `SeqReassign_OrPartBits` (sequencer_engine.s:6385) ORs active voice bits back into DRAM[10420]/8980/8982 — this is the mechanism that sustains parts on real hardware
-8. The DSP1 ready signal was missing (Port H bit 0) — fixed, eliminating 8,000-iteration timeout per DSP operation
+6. (Retracted) the +0x1E mask is non-zero in every preset; `Voice_GetPresetFieldWord` does not zero DRAM[61854].
+7. `SeqReassign_OrPartBits` (sequencer_engine.s:6408) ORs active voice bits back into DRAM[10420]/8980/8982 — this is the mechanism that sustains parts on real hardware
+8. (Retracted) The DSP1 ready signal (Port H bit 0) was not a fault: PH.0 is an output and the 8,000-poll timeout never ran.
 9. `DemoMode_Initialize` does NOT set DRAM[61854] to 0xFFEC as expected — instead 0xFFFF comes from the sequencer init path
 
 **Partially confirmed (medium confidence):**
@@ -1694,7 +1692,7 @@ The SSF investigation is paused to address driver stability concerns. Here is a 
 **To resume investigation:**
 1. Start from a clean, stable driver branch
 2. Verify basic functionality first (boot splash, control panel, no spurious screens)
-3. Then apply ONLY the DSP ready fix and test Feature Demo behavior
+3. Then test Feature Demo behavior
 4. Incrementally add voice timing improvements with testing at each step
 
 ---
@@ -1709,7 +1707,7 @@ The most likely explanation: **Technics designed a general-purpose presentation 
 - **Educational materials** -- step-by-step tutorials loaded from floppy
 - **Trade show content** -- automated demonstrations for NAMM or music trade events
 
-The infrastructure was built (XML parser, event system, tag vocabulary, `EXEC` command), but the floppy loading path was either never completed or was removed before release. What shipped was a single ROM-resident Feature Demo using a fraction of the system's capabilities. No floppy disc type exists in the [disc type signature table]({{ site.baseurl }}/system-update-discs/#disc-type-detection) for SSF or presentation files.
+The infrastructure was built, and the shipped firmware can also run presentations from disk: in the Feature Presentation it looks for `FEATURE.PRE` and loads `<name>.PRE`, `.ACT` and `.SQT` files (see [Feature Demo]({{ site.baseurl }}/feature-demo/#presentations-loaded-from-disk)). What shipped was a single ROM-resident Feature Demo using a fraction of the system's capabilities. The presentation files are ordinary files on a data disc, so the [disc type signature table]({{ site.baseurl }}/system-update-discs/#disc-type-detection) has no entry for them.
 
 ---
 
@@ -1725,7 +1723,3 @@ The infrastructure was built (XML parser, event system, tag vocabulary, `EXEC` c
 - [Event Codes]({{ site.baseurl }}/event-codes/) -- Event code reference
 - [Tone Generator]({{ site.baseurl }}/tone-generator/) -- Tone gen device (relevant to waveform ROM dependency)
 - [Image Gallery]({{ site.baseurl }}/image-gallery/) -- Extracted FTBMP images
-
----
-
-*Last updated: March 18, 2026*
