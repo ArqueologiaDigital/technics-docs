@@ -15,7 +15,7 @@ Offsets below are file offsets in hex; integers are little-endian **except** the
 
 ## Program image (`kn7000_program.rom`, 0x3F6F01 bytes)
 
-Panasonic **MN10300/AM33** code, mapped at CPU address `0x48400000`
+Panasonic **MN10300** code (the MN103002A, an MN1030-series CPU), mapped at CPU address `0x48400000`
 (file offset + base). See the [KN7000 overview]({{ site.baseurl }}/kn7000/) for the full memory map.
 
 ### Boot header (0x0 – 0x80)
