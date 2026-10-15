@@ -5,16 +5,21 @@ QUESTION ANSWERED
   llvm-semantic-instructions.md claims a migration status per phase.  For a
   long time it said "all five phases are complete ... zero remaining
   occurrences of every wrapper mnemonic named below" while its own Phase 4
-  table still listed `lda_dpi` and `bit_dri`, both of which are still in the
-  sources and still defined in the backend.  This counts them, so the page
-  states a measured number instead of a remembered one.
+  table still listed `lda_dpi` and `bit_dri`, which were then still in the
+  sources and still defined in the backend.  This counts every family, so the
+  page states a measured number instead of a remembered one.
 
   A wrapper mnemonic is one whose NAME encodes the operand form
-  (`st_dri3b L, 0xfd, 0xb8, 0x01`) rather than the operation.  The two that
-  survive are the hardest kind: their operands are literal mode and
-  displacement bytes, not modelled operands, so no rename reaches them until
-  the backend models the operand.  See ASSESSMENT-syntax-convergence in the
-  disassembly repo, bucket 3, "byte emitters wearing a mnemonic's name".
+  (`st_dri3b L, 0xfd, 0xb8, 0x01`) rather than the operation.  `bit_dri` is
+  the hardest kind: its operands are literal mode and displacement bytes, not
+  modelled operands, so no rename reaches it until the backend models the
+  operand.  See ASSESSMENT-syntax-convergence in the disassembly repo,
+  bucket 3, "byte emitters wearing a mnemonic's name".  The four C7/D7
+  register-by-code moves (`ldto_berp`, `ldfr_berp`, `ldto_werp`,
+  `ldfr_werp`) are nonzero for a different reason: they are the LIVE
+  spelling of those instructions since 2026-09-25, when `stb_erp` / `ldb_erp`
+  and their word twins were renamed because their names read the direction
+  backwards (llvm-semantic-instructions.md, Phase 3).
 
 WHAT COUNTS AS A SITE
   One source line whose first token is the mnemonic.  That is deliberately
@@ -32,7 +37,9 @@ RUN
     python3 tools/wrapper_mnemonic_census.py --repo /path/to/kn5000-roms-disasm
 
 EXPECTED
-  41 of the 43 Phase 2-5 families at zero; `lda_dpi` and `bit_dri` nonzero.
+  38 of the 43 Phase 2-5 families at zero (kn5000-roms-disasm 3417969c0,
+  2026-10-15); nonzero: `ldto_berp` 5,211, `ldfr_berp` 2,655, `ldto_werp`
+  1,386, `ldfr_werp` 706 (the live spelling, see above) and `bit_dri` 12.
   A family that has just reached zero is good news -- update the page.
   A family that has RISEN from zero means a conversion regressed: find out
   why before touching the page.
@@ -46,7 +53,7 @@ import sys
 
 # The Phase 2-5 wrapper families, exactly as llvm-semantic-instructions.md
 # lists them. Kept as one flat list because the page's claim is about the
-# whole set ("41 of 43"), not about any one phase.
+# whole set ("38 of 43"), not about any one phase.
 FAMILIES = [
     # Phase 2 -- 24-bit addressing semantics
     "ld16_24", "ld32_24", "st16_24", "st32_24", "sti16_24", "cpi8_24", "cpdi16_24",
