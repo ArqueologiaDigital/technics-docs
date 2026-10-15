@@ -43,8 +43,8 @@ Verified this tick:
   `ObjectProc`, `InheritedProc`, `ResourceProc`, `ResBitmapProc`, … are all present
   — the same reflection-table framework whose `*Proc`/`*Func` tables gave us all
   2,302 KN7000 function names.
-- **~85 % source-level reuse with KN7000**: 4,479 of the KN6000's 5,234 distinct
-  ≥8-char strings also appear verbatim in the KN7000 ROM (internal symbol names,
+- **About two-thirds source-level reuse with KN7000**: 11,137 of the KN6000's 16,503 distinct
+  ≥8-char strings also appear verbatim in the KN7000 program (67.5 %, measured by `tools/cross_model_probes/string_share.py` in this repository; among them internal symbol names,
   resource names, `MT_*`, `_TT_SDMIXER`, `ConvertStringsEx`, …). But **almost no
   compiled code is byte-identical at the same offsets**. Under a relocation-tolerant
   match the MN10300 siblings do share byte-identical code, moved to different addresses
