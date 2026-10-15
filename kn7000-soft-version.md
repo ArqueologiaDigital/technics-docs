@@ -263,8 +263,9 @@ The negative result was not a dead end but a clue: the mechanism carried over,
 the *constant* did not. Columns 1 + 5 + 8 give `0x91`, the KN5000's Panel
 Simulator value, and the KN7000 dispatcher has no case for `0x91` — it falls
 through and returns. The two instruments are not opcode-compatible in any case
-(the KN7000's main CPU is a Panasonic **MN10300/AM33**, not the KN5000's Toshiba
-TLCS-900), so only the *UI framework lineage* transfers, never the encoding.
+(the KN7000's main CPU is a Panasonic MN1030-series **MN103002A**, not the
+KN5000's Toshiba TLCS-900), so only the *UI framework lineage* transfers, never
+the encoding.
 
 Finding that chord paid exactly the dividend it was expected to. The viewer reads
 any address in the CPU's space, so an owner can spot-check program flash
