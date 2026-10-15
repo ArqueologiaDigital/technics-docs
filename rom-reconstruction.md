@@ -261,7 +261,7 @@ descriptions were not:
 ## Where the source still holds raw ROM slices
 
 Measured at disassembly `3417969c0` (2026-10-06) — total bytes emitted by live `.incbin`
-directives per ROM tree:
+directives per ROM tree (`python3 tools/incbin_bytes.py` in this repository):
 
 | ROM tree      | `.incbin` bytes | Character of what remains                                                                                                                                                       |
 |---------------|----------------:|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
