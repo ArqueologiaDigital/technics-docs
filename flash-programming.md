@@ -10,19 +10,20 @@ permalink: /flash-programming/
 
 The KN5000 firmware contains two sets of flash programming routines for different target memories:
 
-1. **Table Data Boot ROM** (`table_data/kn5000_table_data.asm`) - First-stage bootloader
-2. **Program ROM** (`maincpu/kn5000_v10_program.asm`) - Main firmware
+1. **Table Data Boot ROM** (`table_data/kn5000_table_data.s`) - First-stage bootloader
+2. **Program ROM** (`v10/maincpu/boot/system_handlers.s`) - Main firmware
 
-Both use the standard AMD/Atmel flash command sequences but with different bus widths and address offsets.
+Both use the standard AMD/Atmel flash command sequences, each in a 16-bit form (single chips) and a 32-bit form (the interleaved pair).
 
 ## Memory Targets
 
-| Target | Base Address | Bus Width | ROM |
-|--------|--------------|-----------|-----|
-| HDAE5000 Expansion | 0x280000 | 16-bit | Table Data Boot |
-| Custom Data Flash | 0x300000 | 16-bit | Table Data Boot |
-| Table Data ROM | 0x800000 | 32-bit | Both |
-| Program Flash | 0xE00000 | 32-bit | Program ROM |
+| Target                              | Base Address | Bus Width | ROM  |
+|-------------------------------------|--------------|-----------|------|
+| HDAE5000 Expansion                  | 0x280000     | 16-bit    | Both |
+| Custom Data Flash                   | 0x300000     | 16-bit    | Both |
+| The `0x800000` window (32-bit pair) | 0x800000     | 32-bit    | Both |
+
+No routine sends flash commands at `0xE00000`; which physical pair answers at `0x800000` depends on which updater is running (see [TMP94C241 Memory Controller]({{ site.baseurl }}/tmp94c241-memory-controller/)).
 
 ## AMD/Atmel Flash Protocol
 
@@ -78,10 +79,10 @@ These routines operate on HDAE5000 and Custom Data Flash using 16-bit bus access
 - HL = device ID (or 0xFFFF if not recognized)
 
 **Validated Device IDs:**
-- 0x2223 - AM29F040
-- 0x22AB - AM29F400B
-- 0x22D6 - AM29F800B
-- 0x2258 - AM29LV800B
+- 0x2223 - AM29F400BT (4 Mbit, top boot block)
+- 0x22AB - AM29F400BB (4 Mbit, bottom boot block)
+- 0x22D6 - AM29F800BT (8 Mbit, top boot block)
+- 0x2258 - AM29F800BB (8 Mbit, bottom boot block)
 
 **Manufacturer IDs:**
 - 0x01 - AMD/Spansion
@@ -118,22 +119,10 @@ These routines operate on the interleaved Table Data ROM using 32-bit bus access
 ### Address Translation (16-bit → 32-bit)
 
 The Table Data ROM uses two interleaved 16-bit chips:
-- Odd bytes in IC1
-- Even bytes in IC3
+- Odd 16-bit words in IC1
+- Even 16-bit words in IC3
 
-This creates different address offsets:
-
-| 16-bit Offset | 32-bit Offset | Notes |
-|---------------|---------------|-------|
-| 0x5555 | 0xAAAA | Unlock address 1 |
-| 0x2AAA | 0x5554 | Unlock address 2 |
-
-But for **command** addresses, the 32-bit values are:
-
-| 16-bit Offset | 32-bit Offset | Notes |
-|---------------|---------------|-------|
-| 0x5555 | 0x15554 | Bit 16 set due to A16 routing |
-| 0x2AAA | 0x0AAA8 | Different routing |
+The unlock addresses are the JEDEC word addresses `0x5555` and `0x2AAA` scaled by the bus width: ×2 (`0xAAAA`/`0x5554`) for a single ×16 device, and ×4 (`0x15554`/`0xAAA8`) for this 32-bit pair.
 
 ### Flash_Reset_32bit (0x9FBC2D)
 
@@ -175,7 +164,7 @@ But for **command** addresses, the 32-bit values are:
 
 ## Program ROM Routines (32-bit)
 
-Located in `maincpu/kn5000_v10_program.asm`.
+Located in `v10/maincpu/boot/system_handlers.s`.
 
 ### TableDataFlash_ChipErase (0xEF3DBB)
 
@@ -198,7 +187,7 @@ Located in `maincpu/kn5000_v10_program.asm`.
 
 **Purpose:** High-level flash write with sector management
 
-**Notes:** Handles sector boundaries and verification
+**Notes:** A 16-bit routine (IC19 or HD-AE5000): copies the sector into the RAM buffer at `0x69800`, erases it (`Flash_EraseSectorWithBankSelect`), merges the new data and programs the sector back (`Flash_WriteBufferToChip`). Nothing is read back to verify.
 
 ## Code Sharing Analysis
 
@@ -211,12 +200,12 @@ Both ROM sets implement:
 
 ### Differences
 
-| Aspect | Table Data Boot | Program ROM |
-|--------|-----------------|-------------|
-| Bus width | 16-bit AND 32-bit | 32-bit only |
-| Unlock addresses | 0xAAAA/0x5554 (16-bit) | 0x15554/0xAAA8 (32-bit) |
-| Data values | 0xAA/0x55 | 0x00AA00AA/0x00550055 |
-| Target memories | HDAE, Custom, Table | Table, Program |
+| Aspect           | Table Data Boot                                         | Program ROM       |
+|------------------|---------------------------------------------------------|-------------------|
+| Bus width        | 16-bit and 32-bit                                       | 16-bit and 32-bit |
+| Unlock addresses | 0xAAAA/0x5554 (16-bit), 0x15554/0xAAA8 (32-bit)         | the same          |
+| Data values      | 0xAA/0x55 (16-bit), 0x00AA00AA/0x00550055 (32-bit)      | the same          |
+| Target memories  | HDAE5000 0x280000, Custom 0x300000, the 0x800000 window | the same          |
 
 ### Feasibility of Shared Source
 
@@ -254,19 +243,19 @@ Creating shared source code is **possible** but complex:
 
 The Table Data Boot ROM contains simplified FDC routines for firmware updates:
 
-| Address | Function | Purpose |
-|---------|----------|---------|
-| 0x9FBF07 | `FDC_Reset` | Initialize FDC controller for update mode |
-| 0x9FBF37 | `FDC_ReadSector` | Read a single sector from floppy |
-| 0x9FBF92 | `FDC_ReadSectorWrapper` | Read multiple sectors with retry loop |
-| 0x9FBFC4 | `Detect_Disk_Type` | Check disk header signatures |
+| Address  | Function                | Purpose                                   |
+|----------|-------------------------|-------------------------------------------|
+| 0x9FBF07 | `FDC_Reset`             | Initialize FDC controller for update mode |
+| 0x9FBF37 | `FDC_ReadSector`        | Read a single sector from floppy          |
+| 0x9FBF92 | `FDC_ReadSectorWrapper` | Read multiple sectors with retry loop     |
+| 0x9FBFC4 | `Boot_DetectDiskType`   | Check disk header signatures              |
 
 ### FDC_Reset (0x9FBF07)
 
 Initializes the FDC controller:
 - Allocates 16-byte stack frame
-- Sets up FDC parameters at 0x0C10
-- Calls FFE944 (FDC initialization)
+- Builds a 16-byte FDC parameter block on the stack (drive 0, data-rate code `0xD3`)
+- Calls `FDC_Request` (`0x9FE944`, boot-time alias `0xFFE944`)
 
 ### FDC_ReadSector (0x9FBF37)
 
@@ -284,44 +273,43 @@ Multi-sector read with retry:
 
 ## Disk Type Detection
 
-### Boot ROM Detect_Disk_Type (0x9FBFC4)
+### Boot ROM Boot_DetectDiskType (0x9FBFC4)
 
 Checks floppy disk header against 8 signature strings at Table Data ROM 0x9FA000:
 
-| Type | ROM Offset | Signature | Purpose |
-|------|------------|-----------|---------|
-| 1 | 0x9FA000 | "Technics KN5000 Program  DATA FILE 1/2" | Program ROM disk 1 |
-| 2 | 0x9FA028 | "Technics KN5000 Program  DATA FILE 2/2" | Program ROM disk 2 |
-| 3 | 0x9FA078 | "Technics KN5000 Table    DATA FILE 1/2" | Table Data disk 1 |
-| 4 | 0x9FA0A0 | "Technics KN5000 Table    DATA FILE 2/2" | Table Data disk 2 |
-| 5 | 0x9FA0F0 | "Technics KN5000 CMPCUSTOMDATA FILE" | Compressed custom data |
-| 6 | 0x9FA118 | "Technics KN5000 HD-AEPRG DATA FILE" | HDAE5000 firmware |
-| 7 | 0x9FA050 | "Technics KN5000 Program  DATA FILE PCK" | Compressed Program ROM |
-| 8 | 0x9FA0C8 | "Technics KN5000 Table    DATA FILE PCK" | Compressed Table Data |
+| Type | ROM Offset | Signature                                | Purpose                                         |
+|------|------------|------------------------------------------|-------------------------------------------------|
+| 1    | 0x9FA000   | "Technics KN5000 Program  DATA FILE 1/2" | Program ROM disk 1                              |
+| 2    | 0x9FA028   | "Technics KN5000 Program  DATA FILE 2/2" | Program ROM disk 2                              |
+| 3    | 0x9FA078   | "Technics KN5000 Table    DATA FILE 1/2" | Table Data disk 1                               |
+| 4    | 0x9FA0A0   | "Technics KN5000 Table    DATA FILE 2/2" | Table Data disk 2                               |
+| 5    | 0x9FA0F0   | "Technics KN5000 CMPCUSTOMDATA FILE"     | Custom data (`CMPCUSTOMDATA`, written verbatim) |
+| 6    | 0x9FA118   | "Technics KN5000 HD-AEPRG DATA FILE"     | HDAE5000 firmware                               |
+| 7    | 0x9FA050   | "Technics KN5000 Program  DATA FILE PCK" | Compressed Program ROM                          |
+| 8    | 0x9FA0C8   | "Technics KN5000 Table    DATA FILE PCK" | Compressed Table Data                           |
 
 **Detection algorithm:**
 1. Allocate 512-byte sector buffer
-2. Read first sector from floppy
+2. Read sector 33 (0x21), the first sector of the FAT data area
 3. Compare sector data against each signature at ROM offsets (38 bytes each)
 4. Return type code (1-8) on match, or 0xFF if unknown
 
 ### Program ROM Detect_Disk_Type (0xEF42FE)
 
-Uses the same signature table and similar logic.
+Same logic, but against the program ROM's own copy of the strings at `0xE00038`–`0xE00150` (`FILETYPE_SIG_*`).
 
 ## Update Flow
 
-1. **Boot-time check:** If firmware version = 0xFF and floppy disk present, enter update mode
+1. **Boot-time check:** If PANEL MEMORY 1-4 are held at power-on, a floppy disk is present and the version byte at 0xFFFFE8 reads 0xFF, enter update mode
 2. **Disk detection:** Read header and identify update type
 3. **Validation:** Verify disk signature and flash hardware
 4. **Erase:** Display "Now Erasing!!" and erase target flash
 5. **Program:** Read sectors from floppy and program flash
-6. **Verify:** Check programmed data matches source
-7. **Complete:** Display "Completed!" and "Turn On AGAIN!!"
+6. **Complete:** Display "Completed!" and "Turn On AGAIN!!"
 
 ## References
 
 - AMD Flash Memory Programming Guide
 - Atmel AT29 Series Datasheet
-- `table_data/kn5000_table_data.asm` - Boot code at 0x9FB7F2-0x9FC8C1
-- `maincpu/kn5000_v10_program.asm` - FlashWrite at 0xEF3B6C, HDAE5000_Detect at 0xEF3CD1
+- `table_data/kn5000_table_data.s` - Boot code at 0x9FB7F2-0x9FC8C1
+- `v10/maincpu/boot/system_handlers.s` - FlashWrite at 0xEF3C3C, HDAE5000_Detect at 0xEF3D0E

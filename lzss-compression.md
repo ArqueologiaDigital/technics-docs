@@ -40,10 +40,10 @@ routines, and the build-time round-trip that keeps rebuilt ROMs byte-identical.
 | **Blocks known** | 19 in table_data (+ 3 archived update images) | 6 in table_data |
 
 Addresses are Main CPU program ROM (v10). Both routines and the dispatcher live
-in `v10/maincpu/boot/system_handlers.s` (lines 6980, 7103 and 7226).
+in `v10/maincpu/boot/system_handlers.s` (lines 7018, 7141 and 7264).
 
 **The dispatcher** (`SLIDE_Parse_Header`, 0xEF41E3,
-`v10/maincpu/boot/system_handlers.s:7226`) compares the first **five** bytes of
+`v10/maincpu/boot/system_handlers.s:7264`) compares the first **five** bytes of
 the block against `SLIDE_STRING` and then reads the sixth character:
 
 ```asm
@@ -59,7 +59,7 @@ SLIDE_Parse_Check8K:
 	calr	SLIDE_Decompress_8K_Init
 ```
 
-(`system_handlers.s:7245-7263`.) An unrecognised sixth character is silently
+(`system_handlers.s:7283-7301`.) An unrecognised sixth character is silently
 ignored — the routine returns success without decompressing anything. Only a
 missing `SLIDE` prefix returns the 0xFFFF failure code.
 
@@ -102,7 +102,7 @@ Sub-CPU program. Read little-endian it would be 3. (The preset block's
 `00 95 00` is endian-symmetric and cannot discriminate.) The firmware agrees:
 both `SLIDE_Decompress_*_Init` routines build the count as
 `(hdr[8] << 16) + ((hdr[9] << 8) | hdr[10])`
-(`v10/maincpu/boot/system_handlers.s:7121-7133`).
+(`v10/maincpu/boot/system_handlers.s:7159-7171`).
 
 The decoder stops as soon as the declared output size (38,144 bytes) is
 reached, which happens at ROM address `0x8E6CF4` after consuming 27,881 stream
@@ -219,7 +219,7 @@ pinned.
 
 <a id="disputed-interpretations"></a>
 
-### ✅ RESOLVED: Address 0x3E0000 is Custom Data Flash (Firmware Update Staging)
+### ✅ RESOLVED: Address 0x3E0000 is Custom Data Flash (the compressed sub-CPU payload)
 
 > **Resolution:** The `0x3E0000` address mystery has been solved by analyzing the firmware update routines.
 
@@ -237,13 +237,13 @@ The address `0x3E0000` is **Custom Data Flash** (not an alternate ROM mapping). 
 HANDLE_UPDATE_FILE_TYPE_ID_007h:
     LD WA, 1                    ; Select Custom Data Flash
     LD XBC, 003e0000h           ; Write to 0x3E0000
-    CALL Flash_EraseSectorWithBankSelect           ; Flash write routine
+    CALL Flash_EraseSectorWithBankSelect           ; Flash sector erase
     LD WA, 1
     LD XBC, 003f0000h           ; Write to 0x3F0000
-    CALL Flash_EraseSectorWithBankSelect           ; Flash write routine
+    CALL Flash_EraseSectorWithBankSelect           ; Flash sector erase
 ```
 
-The flash write routine (`Flash_EraseSectorWithBankSelect`) uses `CUSTOM_DATA_FLASH__BASE_ADDR` (0x300000) as the base when `WA=1`.
+The sector-erase routine `Flash_EraseSectorWithBankSelect` (`0xEF3929`) erases at base `0x300000` when `WA=1` (any other value selects the HD-AE5000 at `0x280000`).
 
 ### Update File Types
 
@@ -267,22 +267,22 @@ has a full source tree behind it; see [Round-Trip Coverage](#round-trip-coverage
 2. `SubCPU_Send_Payload` decompresses from 0x3E0000 → success
 3. Updated Sub CPU firmware is loaded
 
-**Factory state (no update):**
+**If `0x3E0000` holds no SLIDE image:**
 1. Custom Data Flash at 0x3E0000 contains user data or is empty
 2. `SubCPU_Send_Payload` tries to decompress → fails (returns 0xFFFF)
-3. Falls back to `TABLE_DATA_ROM__BASE_ADDR` (0x800000)
+3. Falls back to `TABLE_DATA_ROM__BASE_ADDR` (0x800000), which holds the section directory and a bitmap bank, not a payload (see [the dispute section](#preset-data-destination-dispute))
 
 ### Memory Map Clarification
 
-| Address | Memory Region | Purpose |
-|---------|---------------|---------|
-| 0x3E0000 | Custom Data Flash (offset 0xE0000) | Firmware update staging area |
-| 0x8E0000 | Table Data ROM (offset 0xE0000) | Factory LZSS preset data |
-| 0x830000-0x87FFFF | Table Data ROM (offset 0x30000-0x7FFFF) | Tone database -- data shipped to Sub CPU RAM 0x050000 |
+| Address           | Memory Region                           | Purpose                                                                                               |
+|-------------------|-----------------------------------------|-------------------------------------------------------------------------------------------------------|
+| 0x3E0000          | Custom Data Flash (offset 0xE0000)      | Compressed sub-CPU payload, written by type-7 updates and read by `SubCPU_Send_Payload` on every boot |
+| 0x8E0000          | Table Data ROM (offset 0xE0000)         | Factory LZSS preset data                                                                              |
+| 0x830000-0x87FFFF | Table Data ROM (offset 0x30000-0x7FFFF) | Tone database -- data shipped to Sub CPU RAM 0x050000                                                 |
 
 The addresses `0x3E0000` and `0x8E0000` are **NOT the same physical data** - they are different chips:
 - `0x3E0000` = Custom Data Flash IC19 (user-writable)
-- `0x8E0000` = Table Data ROM IC7/IC8 (factory programmed)
+- `0x8E0000` = Table Data ROM IC1/IC3 (factory programmed)
 
 ---
 
@@ -371,20 +371,20 @@ If the interpretation is correct, the preset data would overwrite these defaults
 
 The following questions remain open regarding where the LZSS preset data actually ends up:
 
-1. **What does 0x3E0000 actually map to?** The memory bank configuration during boot needs investigation.
+1. **What does 0x3E0000 actually map to?** Answered: custom-data flash IC19 (see [above](#disputed-interpretations)).
 2. **Are there other ~33KB transfers?** Search for data transfers matching the preset data size.
 3. **What happens to the "extra" bytes?** The 64KB transfer vs ~37KB data discrepancy is suspicious.
 4. **Why does fallback produce 0xF7 bytes?** This suggests the fallback path may never be intended to work. *Lead (September 2026, not confirmed in MAME): `0x800000` is a bitmap bank whose transparent colour is `0xF7`; see [the dispute section](#preset-data-destination-dispute).*
 
 **Open Questions - Sub CPU Payload Transfer:**
 
-The Sub CPU executable payload (~192KB) is transferred to the Sub CPU via the inter-CPU communication latches during boot. **Where the Main CPU reads it from is unresolved.**
+The Sub CPU executable payload (~192KB) is transferred to the Sub CPU via the inter-CPU communication latches during boot. The main CPU reads it from the SLIDE4K image at custom-data `0x3E0000`; what is unresolved is why the IC19 dump this project holds is blank there.
 
 1. **`0x830000-0x87FFFF` is not it.** That region is the **tone database** -- sound-parameter *data*, copied into the Sub CPU's data window at RAM 0x050000, not into its code area at 0x400+. See [Tone Database]({{ site.baseurl }}/tone-database/) and the retraction on [SubCPU Payload Loading]({{ site.baseurl }}/subcpu-payload-loading/).
 
 2. **`SubCPU_Send_Payload`'s two source bases** are the LZSS image at Custom Data Flash `0x3E0000` if it decompresses, and table-data `0x800000` otherwise. In the images this project holds, neither contains the payload: custom-data `0x3E0000` is 131,072 bytes of 0xFF with no `SLIDE` magic anywhere in the 1 MB dump, and no byte of `kn5000_subprogram_v142.rom` appears anywhere in the table-data or custom-data dumps. **Whether that means no File Type 007 update was ever applied to the dumped unit is *not* established** — an interrupted install and a truncated, 0xFF-padded dump are byte-indistinguishable from a never-programmed chip. See [Sub-CPU Payload Provenance]({{ site.baseurl }}/subcpu-payload-provenance/), where the mechanism is now closed end-to-end and only the dump provenance remains open.
 
-3. **The executable is known only** from its own ROM dump (`kn5000_subprogram_v142.rom`) and from the compressed update-disc images. The runtime code-payload source path is flagged as open, not explained.
+3. **The executable is known only** from its own ROM dump (`kn5000_subprogram_v142.rom`) and from the compressed update-disc images. The dump-provenance question is open; the read path is not.
 
 See [Boot Sequence]({{ site.baseurl }}/boot-sequence/) and [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/) for related documentation.
 
@@ -477,7 +477,7 @@ count into the match offset. The authority for everything below is
 `scripts/build/decompress_slide8k.py` / `compress_slide8k.py` in the
 disassembly repository — they round-trip all six factory blocks byte-identically
 — cross-checked line by line against `SLIDE_Decompress_8K_Init`
-(`v10/maincpu/boot/system_handlers.s:7103-7224`).
+(`v10/maincpu/boot/system_handlers.s:7141-7262`).
 
 ### Container
 
@@ -510,7 +510,7 @@ ef40e8: ld   BC,0x1ff6           ; initial write position
 
 So ring positions **0x0000-0x1FF5 are zero** and the write position starts at
 **0x1FF6**, wrapping modulo 0x2000. (SLIDE4K: 0x1000-byte ring, zero-filled to
-0x0FED, write position 0x0FEE — `system_handlers.s:6984-6995`.) A valid encoder
+0x0FED, write position 0x0FEE — `system_handlers.s:7022-7033`.) A valid encoder
 must never emit a match reading ring[0x1FF6-0x1FFF] before the corresponding
 output bytes have been written; `compress_slide8k.py` enforces exactly that
 (`find_longest_match`, lines 195-243).
@@ -519,9 +519,9 @@ output bytes have been written; `compress_slide8k.py` enforces exactly that
 
 The firmware keeps the flag in a 16-bit word as `0xFF00 | flags` and shifts it
 right once per element; the reload happens when the 0xFF sentinel has been
-shifted out of bit 8 (`system_handlers.s:7139-7148`). That is what guarantees
+shifted out of bit 8 (`system_handlers.s:7177-7186`). That is what guarantees
 exactly 8 elements per flag byte. Bit 0 after each shift selects the element
-type — **LSB first**, 1 = literal, 0 = back-reference (`:7152`).
+type — **LSB first**, 1 = literal, 0 = back-reference (`:7190`).
 
 ### Match Encoding
 
@@ -537,12 +537,12 @@ while the copy runs — so a match may legally read bytes it has just produced
 (this is how runs longer than the distance to the write position are encoded).
 
 The firmware forms the offset with `and wa, 0xf8` / `sll wa, 5`
-(`system_handlers.s:7182-7183`). The **+3 base** is confirmed twice over: the
+(`system_handlers.s:7220-7221`). The **+3 base** is confirmed twice over: the
 count field is masked with `and iz, 0x7` and then incremented by 2
-(`:7187-7188`), and the copy loop is **inclusive** — `cp iy, iz` / `jr ule`
-(`:7211-7212`) — so it runs `iy = 0 … iz`, i.e. `(high & 0x07) + 3` iterations.
+(`:7225-7226`), and the copy loop is **inclusive** — `cp iy, iz` / `jr ule`
+(`:7249-7250`) — so it runs `iy = 0 … iz`, i.e. `(high & 0x07) + 3` iterations.
 The SLIDE4K routine is structurally identical with `0xF0`/`<<4`, `and iz, 0xf`
-(`:7059-7065`, `:7088-7089`), giving `(high & 0x0F) + 3`.
+(`:7097-7103`, `:7126-7127`), giving `(high & 0x0F) + 3`.
 
 ### Termination
 
@@ -656,8 +656,8 @@ bytes.
 | v1.42 update image | SLIDE4K | the source-built v142 payload | `cmp` inside `make all` |
 | v1.40 / v1.41 update images | SLIDE4K | archived images only | not source-built |
 
-**Still open:** `kn5000_subprogram_v141.rom` has no source tree (tracked as issue
-`kn5000-v41`), and the v1.40 payload exists only because it was decompressed out
+**Still open:** `kn5000_subprogram_v141.rom` has no source tree, and the v1.40
+payload exists only because it was decompressed out
 of its update image and committed for preservation. The help-database *payloads*
 are likewise still opaque binaries — decoding their pointer-table/string-pool
 record format is future work.
@@ -814,7 +814,7 @@ During the boot sequence, the Main CPU's `SubCPU_Send_Payload` routine:
 1. Transfers the **tone database** from 0x830000-0x87FFFF to Sub CPU data RAM 0x050000 (five 64 KB bulk transfers) -- this is data, not the executable
 2. Attempts to decompress the SLIDE4K image at 0x3E0000 in Custom Data Flash
 3. If decompression fails (returns 0xFFFF), falls back to base 0x800000 (the section directory and bitmap bank; see [the dispute section](#preset-data-destination-dispute))
-4. Transfers the code blocks (Sub CPU 0x400 and 0xF000-0x3EEFF) from whichever base survived step 2/3 -- and in the dumped images neither base holds the payload, so the actual factory source is **unresolved**
+4. Transfers the code blocks (Sub CPU 0x400 and 0xF000-0x3EEFF) from whichever base survived step 2/3 -- and in the dumped images neither base holds the payload, so how the dumped unit booted is **unresolved** (see [Sub-CPU Payload Provenance]({{ site.baseurl }}/subcpu-payload-provenance/))
 
 See [Boot Sequence]({{ site.baseurl }}/boot-sequence/) for details.
 
@@ -956,7 +956,4 @@ payloads — and the stale German block as a raw slice.
 ## Future Work
 
 - [ ] Decode the help-database payload format (pointer table + string pool at RAM 0x69800) into per-topic sources
-- [ ] Reverse engineer the preset parameter record format in detail
-- [ ] Determine the exact purpose of each parameter type (`18 XX` codes)
-- [ ] Build a source tree for the v1.41 Sub-CPU payload (issue `kn5000-v41`)
-- [ ] Re-derive the 0x8E0000 section boundaries from the full 38,144-byte decompression
+- [ ] Build a source tree for the v1.41 Sub-CPU payload

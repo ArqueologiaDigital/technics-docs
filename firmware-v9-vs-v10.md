@@ -14,39 +14,36 @@ Both ROMs are exactly 2 MB (2,097,152 bytes). Of those, **13,517 bytes differ** 
 
 ## Summary of Key Changes
 
-### 1. Rewritten SubCPU Data Block Transfer (SendPartDataBlock)
+### 1. SubCPU Data Block Transfer: Two Small Fixes
 
-The largest change is a complete rewrite of the `SendPartDataBlock` family of functions in `audio/note_voice_mapping.s`. This code handles transferring voice parameter data blocks between the main CPU and the tone generator SubCPU.
-
-- **v9:** 2,906 bytes — uses a compact loop-based approach with shared parameter load routines
-- **v10:** 2,920 bytes — restructured with explicit per-field copy sequences and additional validation
+The only code changes are two small edits in `audio/note_voice_mapping.s`, both described under The Engineering Story below. `SendPartDataBlock_DoGetError` gains an error check (+11 bytes), and the routine at `HdaeRom_DataDispatch_Block` turns its tail jump to `SendPartDataBlock_SetWord7` into a call followed by `ld hl, 0` and `ret` (+3 bytes). Every other differing byte is an address or branch displacement moved by those 14 bytes, apart from the version byte and the main-program version number.
 
 The v10 version adds **14 bytes** of net code growth. Because both source trees use symbolic label references for function calls and data pointers, this address shift is invisible in the source diff — the linker resolves all labels automatically.
 
-### 2. Updated HDAE5000 Extension Data Handler
+### 2. HDAE5000 Extension Data Handler
 
-The `HdaeRom_DataHandler` and `HdaeRom_DataDispatch` routines — which manage communication with the optional HD-AE5000 hard disk expansion board — were revised. The dispatch table was restructured and the block transfer protocol adjusted. These changes are directly adjacent to the SendPartDataBlock rewrite.
+`HdaeRom_DataHandler` and `HdaeRom_DataDispatch` sit just after the first edit and move by 11 bytes. Aligned for that shift, their code is unchanged apart from three bytes of moved addresses; the dispatch table and the transfer protocol did not change. The second edit described under The Engineering Story is at the end of `HdaeRom_DataDispatch_Block`: the tail jump `jrl SendPartDataBlock_SetWord7` (v9 `0xFF03EA`) became `calr SendPartDataBlock_SetWord7`, `ld hl, 0`, `ret` (+3 bytes).
 
 ### 3. Flash Memory Save/Restore Adjustments
 
 The `TmFlash_WriteRoutine` (now `Flash_GetSlotAddressAndSize`) and `PostTmSave`/`PostTmLoad` functions received minor adjustments to their internal branch targets and parameter passing, likely to accommodate the SendPartDataBlock restructuring.
 
-### 4. Debug Utility Code Changes
+### 4. Debug Utility Code: Unchanged
 
-The `Debug_UartHelpers` and `ROM_PaddingFF` routines at the very end of the ROM (just before the interrupt vector table) contain different code between versions. The debug UART serial output helpers were adjusted — possibly reflecting changes to the debug console protocol or baud rate configuration.
+`Debug_UartHelpers` (`0xFFFEB4`) and `ROM_PaddingFF` (`0xFFFEEB`) are byte-identical in v9 and v10. From `0xFFFE00` to the end of the ROM, the only byte that differs is the version byte at `0xFFFFE8`.
 
 ### 5. Version Byte
 
 The firmware version identifier at address `0xFFFFE8` changed from `0x09` (v9) to `0x0A` (v10). This byte is read by `Get_Firmware_Version` and displayed on the splash screen.
 
-### 6. Widget Data Correction
+### 6. Main-Program Version Number
 
-One NAKA widget descriptor field changed: `naka_style_bitmaps.c` field `field_0772` went from `0x0549` to `0x054A` — a single-bit correction in a style bitmap display parameter.
+One data word changed: `Softver_MainProgramVersion` in `naka_style_bitmaps.c` went from 1353 (`0x0549`) to 1354 (`0x054A`). It is the main-program version number that the SOFT VERSION screen shows, not a display parameter.
 
 ## What Did NOT Change
 
 - **Boot sequence**: Identical initialization, self-test, and hardware setup.
-- **UI framework**: All NAKA widget descriptors, screen layouts, and event handlers are identical (except the one bitmap field above).
+- **UI framework**: All NAKA widget descriptors, screen layouts, and event handlers are identical (apart from the main-program version number above).
 - **MIDI subsystem**: Core MIDI dispatch, SysEx handling, and serial I/O are unchanged.
 - **Sequencer engine**: Song playback, SMF processing, and accompaniment are the same.
 - **Display/VGA subsystem**: Graphics primitives, text rendering, and scoop display code are unchanged.
@@ -118,31 +115,31 @@ The KN5000's 2MB ROM has no relocatable linking at runtime -- all addresses are 
 | Fill padding absorbed the growth | 1 | 2 | `Sprintf_FillToVectors` shrank from 12,710 to 12,696 bytes of 0xFF padding |
 | Version byte | 1 | 2 | `0x09` -> `0x0A` at address `0xFFFFE8` |
 
-### Unrelated Single-Byte Fixes
+### Single-Byte Differences
 
-Five single-byte differences appear to be opportunistic fixes made during the same release cycle, unrelated to the SubCPU error-handling bug:
+None of the five single-byte differences listed here is an independent fix. Item 1 is the main-program version number; items 2–5 are bytes of addresses or branch displacements moved by the 14-byte growth:
 
-1. **Widget bitmap parameter** (`naka_style_bitmaps.c`): `field_0772` changed from `0x0549` to `0x054A` (+1). Likely a cosmetic UI fix -- an off-by-one in a display size or position for a style bitmap widget.
+1. **Main-program version number** (`naka_style_bitmaps.c`): `Softver_MainProgramVersion` changed from 1353 (`0x0549`) to 1354 (`0x054A`), the number the SOFT VERSION screen shows as MAIN PROGRAM. It is a version bump, not a fix.
 
-2. **Data table prefix** (`demo/file_demo_proc.s`): byte `0xe5` changed to `0xf3`. In a bytecode/data table region surrounded by `swi` instructions, this changed a table entry from one addressing mode prefix to another.
+2. **Shifted address byte** (`demo/file_demo_proc.s`): `0xe5` → `0xf3` is +14, an address into the moved code.
 
-3. **32-bit constant** (`note_voice_mapping.s`): `0xe91e376f` changed to `0xe61e376f`. The high byte changed from `0xe9` to `0xe6` in a constant loaded during `PostTmLoadEntry` -- a flash memory write configuration value.
+3. **Shifted branch displacement** (`note_voice_mapping.s`, v9 `0xFF0558`): `0xe9` → `0xe6` is −3. It is the low byte of a `calr` displacement that spans the 3-byte second edit, not a 32-bit constant.
 
-4. **Invalid opcode fix** (`note_voice_mapping.s`): `.byte 0xed` (not a valid TLCS-900 opcode) changed to `swi 3` (`0xfb`). Located in a jump table, this was likely a corrupted table entry in v9 that was corrected in v10.
+4. **Shifted address byte** (`note_voice_mapping.s`): `0xed` → `0xfb` is +14.
 
-5. **Register correction** (`note_voice_mapping.s`): `cp (xhl+8), sp` changed to `cp (xbc+8), xsp`. The base register changed from XHL to XBC -- a bug fix where v9 was comparing against the wrong register pair.
+5. **Shifted address byte** (`note_voice_mapping.s`, v9 `0xFF0892`): `0x9b` → `0xa9` is +14, the low byte of the address `0xFF089B` → `0xFF08A9`; the `cp (xhl+8), sp` reading was a misdecode.
 
 ### Conclusion
 
 **The v9-to-v10 update was a targeted reliability fix.** The SubCPU data transfer system in v9 had a silent failure mode: when the SubCPU reported a payload error, the main CPU ignored it and sent a "success" response anyway. This could cause the tone generator to operate with corrupted voice parameters -- resulting in wrong sounds, missing notes, or audio glitches that would be difficult to reproduce and diagnose.
 
-The fix was surgical: add 14 bytes of error checking code, fix a return value corruption path, and let the existing 0xFF padding absorb the growth. The additional single-byte changes suggest the engineers also addressed a few minor bugs discovered during the same testing cycle.
+The fix was surgical: add 14 bytes of error checking code, fix a return value corruption path, and let the existing 0xFF padding absorb the growth.
 
 The 7-month gap between releases (January to August 1999) is consistent with a field-reported issue that required careful investigation and regression testing before deployment.
 
 ## Source Diff Statistics
 
-**95 lines** across 9 files (+ 2 entry point renames). Systematically minimized from 5,388 lines through symbolic references, parenthesized operands, and normalized formatting.
+In March 2026 the source diff between the two trees had been minimized to **95 lines** across 9 files (+ 2 entry point renames), from 5,388. The trees have since been relabelled and restructured separately, so the table below describes that March 2026 diff, not today's sources.
 
 | Category | Files | Lines | Description |
 |----------|-------|-------|-------------|
@@ -160,5 +157,5 @@ Diff reduction history:
   After symbolic call/jp/lda_24:         ~300 lines
   After pointer offset elimination:        231 lines
   After parenthesized direct addr:        106 lines
-  After symbolic calr + formatting:         95 lines (current)
+  After symbolic calr + formatting:         95 lines (March 2026)
 ```

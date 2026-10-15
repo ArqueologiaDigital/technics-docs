@@ -23,7 +23,7 @@ This page describes how to update the firmware on a Technics KN5000 keyboard usi
 | Custom Data | `Technics KN5000 CMPCUSTOMDATA FILE` | Custom instrument patches |
 | HDAE5000 Extension | `Technics KN5000 HD-AEPRG DATA FILE` | Hard disk expansion firmware |
 
-Compressed ("PCK") discs are the standard format for v5 and later. Older uncompressed 2-disc sets (types 1-4) are also supported but were used only for v1-v4 updates.
+Compressed ("PCK") discs are the standard format for v5 and later. Older uncompressed 2-disc sets (types 1-4) are also supported; no archived update uses them.
 
 ## Step-by-Step Procedure
 
@@ -31,7 +31,7 @@ Compressed ("PCK") discs are the standard format for v5 and later. Older uncompr
 
 1. **Power off** the KN5000.
 2. **Insert** the update floppy disc into the disc drive.
-3. **Hold the appropriate button** and **power on** the keyboard simultaneously.
+3. **Hold all four PANEL MEMORY buttons (1, 2, 3 and 4)** and **power on** the keyboard.
 4. The screen will display **"Please Wait !!"** while the system initializes.
 5. After initialization:
    - **"Flash Memory Update"** appears at the top of the screen.
@@ -46,9 +46,9 @@ Compressed ("PCK") discs are the standard format for v5 and later. Older uncompr
 
 ### HDAE5000 Extension Update
 
-The procedure is the same as above. After the main firmware update completes (or if the disc is an HDAE5000-only disc), the firmware automatically detects the HD-AE5000 expansion board and updates its ROM if present.
+The procedure is the same as above, with an HD-AE5000 update disc (type 6, `HD-AEPRG DATA FILE`). Only that disc type writes the HD-AE5000 ROM; program, table and custom-data discs never do.
 
-If the HD-AE5000 board is not installed, the HDAE5000 update is silently skipped.
+If the HD-AE5000 board is not installed, a type-6 disc writes nothing and shows no message; the keyboard then stops and must be switched off.
 
 ### 2-Disc Updates (Legacy)
 
@@ -111,14 +111,14 @@ For technical documentation of the update process internals, see:
 
 ## Creating Custom Update Discs
 
-Custom firmware update discs can be created using the tools in the `custom-kn5000-roms` project:
+Custom firmware update discs can be created with `tools/make_update_disc.py` from the [kn5000-anotherworld](https://github.com/felipesanches/kn5000-anotherworld) repository:
 
 ```bash
-python custom-kn5000-roms/anotherworld/tools/make_update_disc.py <rom_file> <output_disc.img> --type 7
+python tools/make_update_disc.py <rom_file> <output_disc.img> --type 7
 ```
 
 See [System Update Discs]({{ site.baseurl }}/system-update-discs/#creating-update-discs) for details.
 
 ---
 
-*Last updated: March 2026*
+*Last updated: October 2026*

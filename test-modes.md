@@ -21,6 +21,11 @@ What the driver (`src/mame/matsushita/kn5000.cpp` and its devices) models for ea
 what is actually established under emulation. **Not established** means the source shows no
 reason the mode cannot work and no record shows it working: it has not been measured.
 
+The checking devices and the control-panel HLE are the same in upstream MAME and in the
+kn7000_mame overlay. The keybed row describes the overlay only: upstream maps the sub-CPU's
+keybed port `0x110000` as a no-op stub and has no `kn5000_tonegen_device`, so there the sub-CPU
+never sees a held key.
+
 | Mode | Status under MAME | What is modelled, and where |
 |------|-------------------|-----------------------------|
 | Power-on self-test, main CPU (CN11) | **Checking device modelled**: switch and LED. Whether every blink reports OK under emulation is not established | `PORT_DIPNAME` "Main CPU Checking Device" on port `CN11`, read through main-CPU Port C (`portc_read().set_ioport("CN11")`); the LED is output `checking_device_led_cn11`, driven from PC.1, drawn by `kn5000.lay` |
@@ -140,7 +145,7 @@ Displays the software version screen showing internal build numbers for all firm
 
 **Buttons:** All four PANEL MEMORY buttons (PM 1–4) on the right panel.
 
-Initiates firmware update from floppy disk. **Requires** both a floppy disk in the drive **and** a first-boot condition (`Get_Firmware_Version` returns `0xFF`). This is the procedure described in the service manual under "How to write program/data into FLASH ROMs" (p I-24). After the update starts, the instrument enters an infinite loop and must be power-cycled.
+Initiates firmware update from floppy disk. **Requires** both a floppy disk in the drive **and** the version byte at `0xFFFFE8` reading `0xFF` (`Get_Firmware_Version`; v10 holds `0x0A` there, and how the check is met on a stock unit is open: see [MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/)). This is the procedure described in the service manual under "How to write program/data into FLASH ROMs" (p I-24). After the update starts, the instrument enters an infinite loop and must be power-cycled.
 
 ### Control Panel Memory Layout
 
@@ -183,14 +188,14 @@ After the SubCPU payload is transferred and verified, the firmware calls `SelfTe
 
 **Mode code dispatch:**
 
-| Key Bits | Mode Code | Event Data | Test Mode |
-|----------|-----------|------------|-----------|
-| byte[3] bit 2 + byte[4] bit 6 | `0xF5` | `0x1A000F5` | Test 3: LCD Panel |
-| byte[3] bit 4 + byte[5] bit 0 | `0xF6` | `0x1A000F6` | Test 4: CPR/CPL MCU |
-| byte[3] bit 5 + byte[5] bit 1 | `0xF7` | `0x1A000F7` | Test 5: Panel Switch & LED |
-| byte[3] bit 7 + byte[5] bit 3 | `0xF8` | `0x1A000F8` | Test 6: Wave ROM |
-| byte[4] bit 1 + byte[5] bit 5 | `0xF9` | `0x1A000F9` | Test 7: FDC IC |
-| byte[4] bit 3 + byte[5] bit 7 | `0xFC` | `0x1A000FC` | Test 8: FDD SAVE/LOAD (HAMA) |
+| Key Bits                      | Keys    | Mode Code | Event Data  | Title (function)              | Test Mode                    |
+|-------------------------------|---------|-----------|-------------|-------------------------------|------------------------------|
+| byte[3] bit 2 + byte[4] bit 6 | D3 + D4 | `0xF5`    | `0x1A000F5` | `TT_TEST2` (`TEST2FUNC`)      | Test 4: CPR/CPL MCU          |
+| byte[3] bit 4 + byte[5] bit 0 | E3 + E4 | `0xF6`    | `0x1A000F6` | `TT_TEST3` (`TEST3FUNC`)      | Test 6: Wave ROM             |
+| byte[3] bit 5 + byte[5] bit 1 | F3 + F4 | `0xF7`    | `0x1A000F7` | `TT_TEST4` (`TEST4FUNC`)      | Test 5: Panel Switch & LED   |
+| byte[3] bit 7 + byte[5] bit 3 | G3 + G4 | `0xF8`    | `0x1A000F8` | `TT_TEST5` (default function) | Test 3: LCD Panel            |
+| byte[4] bit 1 + byte[5] bit 5 | A3 + A4 | `0xF9`    | `0x1A000F9` | `TT_TEST6` (`TEST6FUNC`)      | Test 7: FDC IC               |
+| byte[4] bit 3 + byte[5] bit 7 | B3 + B4 | `0xFC`    | `0x1A000FC` | `TT_EXTAPR` (`TestTitleFunc`) | Test 8: FDD SAVE/LOAD (HAMA) |
 
 `UI_PostModeChangeEvent` posts the title request `0x1C00015` with title id `0x01A00000 + code`. The code is a title number, not a mode (the mode request is `0x1C00014`). `TitleProc` handles the request. See [Event Codes — Mode and Title Requests]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016).
 
@@ -224,7 +229,7 @@ Results are reported via LED blinks AND displayed on the LCD:
 
 Short blink = OK, long blink = defective.
 
-**Implementation:** `TEST4FUNC` at `0xFB7DAC`, dispatched via control panel event `0x1C00013`.
+**Implementation:** `TEST2FUNC` at `0xFB7D44` (title `0xF5`, `TT_TEST2`), dispatched on `EVT_ACTIVATE_STATE` (`0x1C00013`). It probes the panel MCUs (`CPanel_ProbePanelMcus`), blinks the result with `Report_test_result_by_blinking_LED`, and shows one of the `TEST2OKOK`, `TEST2OKNG`, `TEST2NGOK` or `TEST2NGNG` views.
 
 ### Test 5: Control Panel Switch & LED Check (F3 + F4)
 
@@ -233,7 +238,7 @@ All LEDs on the control panel light up simultaneously. Press each button to veri
 - Button release → LED turns off
 - For buttons without dedicated LEDs, the 4 BEAT display LEDs light up together when the START/STOP button is pressed
 
-**Implementation:** `TEST2FUNC` at `0xFB7D44`, dispatched via control panel event `0x1C00013`.
+**Implementation:** `TEST4FUNC` at `0xFB7DAC` (title `0xF7`, `TT_TEST4`), dispatched on `EVT_ACTIVATE_STATE` (`0x1C00013`).
 
 ### Test 6: Wave ROM Check (E3 + E4)
 
@@ -254,7 +259,7 @@ Wave ROM mapping to keys:
 
 If no sound is produced or the sound is distorted for a particular key, the corresponding Wave ROM chip may be defective.
 
-**Implementation:** `TEST6FUNC` at `0xFB7DE0` and `TEST3FUNC` at `0xFB7D78`, dispatched via control panel event `0x1C00013`. String data at `0xED19D0`–`0xED1A70`.
+**Implementation:** `TEST3FUNC` at `0xFB7D78` (title `0xF6`, `TT_TEST3`), dispatched on `EVT_ACTIVATE_STATE` (`0x1C00013`). On entry `TEST3FUNC_InitVoicesOnEnter` reinitialises every voice, and `Voice_EmitNoteWithVelocity` acts only while title `0xF6` is current. The six check-mode captions are at `0xED1790`–`0xED18A1` (`ToneGen_ParamWriteDispatch_Str_N1_…` to `_N6_…`).
 
 ### Test 7: FDC IC Test (A3 + A4)
 
@@ -262,7 +267,7 @@ Tests communication between the Floppy Disk Controller IC (IC208) and the Main C
 
 **Note:** This test only checks the FDC IC ↔ CPU communication path. It does **not** test the actual floppy disk drive mechanism. For a full drive test, use Test 8 instead.
 
-**Implementation:** `TestTitleFunc` at `0xF1E39A` (shared test title display routine), with FDC-specific test code dispatched via the screen group event system.
+**Implementation:** `TEST6FUNC` at `0xFB7DE0` (title `0xF9`, `TT_TEST6`). Its `EVT_ACTIVATE_STATE` handler calls `FDC_CommandAndPostEvent` (`0xFB7C8F`).
 
 ### Test 8: Floppy Disk SAVE/LOAD Test (B3 + B4)
 
@@ -277,7 +282,7 @@ Performs repeated save/load cycles on the floppy disk:
 
 Even with a properly functioning drive, occasional "NG" results may occur. If frequent, clean the drive heads with a cleaning disk and re-test. Persistent failures indicate a defective drive.
 
-**Implementation:** `FDLoadSaveTest` at `0xF1E5DA`. Display strings include "FD SAVE/LOAD TEST", "START FDD TEST LOOP", "STOP FDD TEST". Test results shown as "TEST2OKNG", "TEST2OKOK", etc.
+**Implementation:** `FDLoadSaveTest` at `0xF1E5DA`. Display strings include "FD SAVE/LOAD TEST", "START FDD TEST LOOP", "STOP FDD TEST". Results appear in the TOTAL, OK and NG counters (`RunTestCounters_Entry`).
 
 ---
 
@@ -289,7 +294,7 @@ The HAMA subsystem is an internal Matsushita factory diagnostic system for testi
 
 `InitializeHama` (at `0xF1E146`) is called unconditionally during boot from the UI initialization sequence (`ui/ui_widget_defs.s`). It registers:
 
-- **12 NAKA widget object tables** for the test UI system (file browsers, dialog buttons, diagnostic counters)
+- **13 NAKA widget object tables** for the test UI system (file browsers, dialog buttons, diagnostic counters)
 - **2 diagnostic titles** in the firmware's title system:
 
 | Title | String Address | Widget Table | Description |
@@ -301,27 +306,21 @@ Both titles use `TestTitleFunc` (`0xF1E39A`) as their lifecycle callback.
 
 ### TestTitleFunc Event Handler
 
-When a HAMA title becomes active, `TestTitleFunc` processes two event types:
+When a HAMA title is current, `TestTitleFunc` handles two events.
 
-**Event `0x1C00007` — Title lifecycle** (xde parameter):
+**Event `0x1C00007` (`EVT_SW_IN`) — panel switches** (xde = switch number):
 
-| xde | Action |
-|-----|--------|
-| 0 | Title created — initialize test UI |
-| 1 | Title destroyed — send cleanup event + kill timer |
-| 2 | Title activated — display test counters + set 0.5s auto-refresh timer |
-| 3 | Title inactivated — run directory listing |
-| 4–5 | Interrupt / interrupt return — re-register HAMA title entries |
-| 6 | TBIOS test — list directory (alternate entry) |
+| xde | Action                                                                                                         |
+|-----|----------------------------------------------------------------------------------------------------------------|
+| 0   | TBIOS test: `FDTest_ProbeDiskFormat`                                                                           |
+| 1   | STOP FDD TEST: kill the test-loop timer                                                                        |
+| 2   | START FDD TEST LOOP: one pass of `RunTestCounters_Entry` (which calls `FDLoadSaveTest`), then re-arm the timer |
+| 3   | DIR: `FDListDirectory`                                                                                         |
+| 4   | Format a 2DD disk and label it `TEST_HAMA` (`RegHamaTitle1_Entry`)                                             |
+| 5   | Format a 2HD disk and label it `TESTHAMA2HD` (`RegHamaTitle2_Entry`)                                           |
+| 6   | List `A:\HAMA\*.LSW` (`ListDir2_Entry`)                                                                        |
 
-**Event `0x1C00013` — User button actions** (xde parameter):
-
-| xde | Action |
-|-----|--------|
-| 2 | STOP FDD TEST |
-| 3 | START FDD TEST LOOP — calls `FDLoadSaveTest` |
-| 4 | DIR — display floppy directory listing |
-| 5–6 | Debug test functions |
+**Event `0x1C00013` (`EVT_ACTIVATE_STATE`) — title phases 2–7:** each phase only prints a debug line ("Title new", "Title old", "Title Inactivate", "Title Activate", "INTERUPT", "INTERUPT RETURN").
 
 ### FDD SAVE/LOAD Test (FDLoadSaveTest)
 
@@ -342,7 +341,7 @@ The test dialog displays three DIAGLIST widgets showing TOTAL, OK, and NG counte
 
 The HAMA diagnostic system includes a built-in **interactive memory hex viewer** — a complete debugging tool for inspecting arbitrary memory addresses across the KN5000's entire 24-bit address space.
 
-**Implementation:** `DbMemoryDumpProc` in `ui/ui_widget_defs.s:6878` (`0xFA2EE6`–`0xFA317D`, 663 bytes, per `symbols/maincpu_v10_symbols_reference.txt`). Widget descriptor at `FDTest_Label_MemoryDump` in `factory_test/fd_test_data.s:175`.
+**Implementation:** `DbMemoryDumpProc` in `ui/ui_widget_defs.s:6964` (`0xFA2EE6`–`0xFA3181`, 668 bytes, per `symbols/maincpu_v10_symbols_reference.txt`). Widget descriptor `NakaWidget_PanelSimulator_50_DbMemoryDump` (`0xEB31E8`) in `ui_widgets/debug_naming_panel_sim.s:135`.
 
 #### Display Format
 
@@ -373,7 +372,7 @@ The viewer supports **per-nibble address navigation** using 6 step sizes corresp
 | xde=7 | `0x000001` (1 B) | Least significant nibble — single-byte precision |
 | xde=16 | `0x000080` (128 B) | **Page step** — advances exactly one screenful |
 
-Direction is determined by bit 7 of the WA register: if set, the step is **subtracted** (scroll up); if clear, it is **added** (scroll down). After each navigation, the address is **clamped to 24 bits** (`AND 0xFFFFFF`) to prevent wrap-around, then the display is refreshed.
+Direction is determined by bit 7 of the WA register: if set, the step is **subtracted** (scroll up); if clear, it is **added** (scroll down). After each navigation, the address is **masked to 24 bits** (`AND 0xFFFFFF`), so it wraps at `0xFFFFFF`, then the display is refreshed.
 
 This per-nibble scheme means a Matsushita technician could quickly jump to any memory region: step xde=2 to select the major region (e.g., `0xE00000` for Program ROM, `0x200000` for DRAM), then refine with smaller steps.
 
@@ -396,39 +395,41 @@ The entire rendering is immediate-mode: each Confirm event redraws all 16 rows f
 
 #### Event Handler
 
-| Event | Handler | Action |
-|-------|---------|--------|
-| `0x1C00007` | `DbMemDump_OK` | **Navigation dispatch** — receives button presses, looks up the step size from a 6-entry `u32` table at `0xEAA6FA` (`Str_No + 0x3E4`, labelled `DbMemDump_StepTable` in the source; entries 0x100000, 0x10000, 0x1000, 0x100, 0x10, 0x1 -- the hex-digit weights, index 0..5 selected at `v10/maincpu/ui/ui_widget_defs.s:7088-7091`), adjusts the current address, clamps to 24 bits, triggers redraw via Confirm event |
-| `0x1C0000F` | `DbMemDump_Confirm` | **Render** — reads 128 bytes from the current address and renders the full hex dump display |
-| `0x1C0000E` | `DbMemDump_Select` | **Auto-repeat** — forwards to Confirm, then sets a periodic timer (`SetApTimer` at 120 ticks) for continuous scrolling while a button is held |
-| `0x1C0000D` | `DbMemDump_Paint` | **Background paint** — draws the double-bordered box frame, then triggers a Select event to fill the hex content |
-| `0x1C00002` | `DbMemDump_Close` | **Cleanup** — delegates to `ViewableProc` for standard widget teardown |
+| Event       | Handler             | Action                                                                                                                                                                                                                                                                                                                                                                                                                     |
+|-------------|---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x1C00007` | `DbMemDump_OK`      | **Navigation dispatch** — receives button presses, looks up the step size from a 6-entry `u32` table at `0xEAA6FA` (`Str_No + 0x3E4`, labelled `DbMemDump_StepTable` in the source; entries 0x100000, 0x10000, 0x1000, 0x100, 0x10, 0x1 -- the hex-digit weights, index 0..5 selected at `v10/maincpu/ui/ui_widget_defs.s:7180-7183`), adjusts the current address, masks it to 24 bits, triggers redraw via Confirm event |
+| `0x1C0000F` | `DbMemDump_Confirm` | **Render** — reads 128 bytes from the current address and renders the full hex dump display                                                                                                                                                                                                                                                                                                                                |
+| `0x1C0000E` | `DbMemDump_Select`  | **Auto-repeat** — forwards to Confirm, then sets a periodic timer (`SetApTimer` at 120 ticks) for continuous scrolling while a button is held                                                                                                                                                                                                                                                                              |
+| `0x1C0000D` | `DbMemDump_Paint`   | **Background paint** — draws the double-bordered box frame, then triggers a Select event to fill the hex content                                                                                                                                                                                                                                                                                                           |
+| `0x1C00002` | `DbMemDump_Close`   | **Cleanup** — delegates to `ViewableProc` for standard widget teardown                                                                                                                                                                                                                                                                                                                                                     |
 
 #### Accessible Memory Regions
 
 Because the tool reads directly from the CPU's address bus, it can inspect **any** memory-mapped region:
 
-| Address Range | Contents |
-|--------------|----------|
-| `0x000000`–`0x000FFF` | Internal CPU RAM (stack, variables, interrupt vectors) |
-| `0x001000`–`0x0FFFFF` | SFR registers, I/O ports, timer/serial config |
-| `0x100000`–`0x15FFFF` | Tone generator / DSP hardware registers |
-| `0x1A0000`–`0x1DFFFF` | Video RAM (LCD framebuffer, 320×240 8bpp) |
-| `0x1E0000`–`0x1FFFFF` | SRAM (battery-backed user settings) |
-| `0x200000`–`0x27FFFF` | Extension DRAM (work memory, sequencer data) |
-| `0x280000`–`0x2FFFFF` | HDAE5000 extension ROM (if installed) |
-| `0x800000`–`0x9FFFFF` | Table Data ROM (fonts, presets, demo songs) |
-| `0xE00000`–`0xFFFFFF` | Program ROM (main CPU firmware) |
+| Address Range         | Contents                                                                                                                                                                                                 |
+|-----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x000000`–`0x0003FF` | SFR registers (on-chip I/O ports, timer/serial config)                                                                                                                                                   |
+| `0x000400`–`0x000BFF` | On-chip RAM (decoded inside the CPU, so it wins over the DRAM below)                                                                                                                                     |
+| `0x000000`–`0x0FFFFF` | Work DRAM, IC9/IC10 (stack, variables)                                                                                                                                                                   |
+| `0x110000`–`0x14FFFF` | FDC, FDC DMA acknowledge, HD-AE5000 ATA registers at `0x130000` (if installed), inter-CPU latch (reads here have side effects; see [MEMORY DUMP Screen]({{ site.baseurl }}/memory-dump-screen/#caveats)) |
+| `0x150000`–`0x150003` | Audio/mixer register file                                                                                                                                                                                |
+| `0x160000`–`0x160006` | HD-AE5000 PPI (8255)                                                                                                                                                                                     |
+| `0x1703B0`–`0x1703DF` | VGA registers (LCD controller IC206)                                                                                                                                                                     |
+| `0x1A0000`–`0x1DFFFF` | Video RAM, IC207 (LCD framebuffer, 320×240 8bpp)                                                                                                                                                         |
+| `0x1E0000`–`0x1FFFFF` | SRAM, IC21 (battery-backed user settings)                                                                                                                                                                |
+| `0x200000`–`0x27FFFF` | HD-AE5000 SRAM, IC5/IC6 (if installed)                                                                                                                                                                   |
+| `0x280000`–`0x2FFFFF` | HDAE5000 extension ROM (if installed)                                                                                                                                                                    |
+| `0x300000`–`0x3FFFFF` | Custom Data Flash, IC19                                                                                                                                                                                  |
+| `0x400000`–`0x7FFFFF` | Rhythm Data ROM, IC14                                                                                                                                                                                    |
+| `0x800000`–`0x9FFFFF` | Table Data ROM, IC1/IC3 (fonts, presets, demo songs)                                                                                                                                                     |
+| `0xE00000`–`0xFFFFFF` | Program ROM, IC4/IC6 (main CPU firmware)                                                                                                                                                                 |
 
 This makes the tool invaluable for inspecting live hardware state, verifying ROM contents, watching variable changes, and debugging I/O register configurations.
 
 #### Activation
 
-The memory dump widget is part of the "DEBUG SCREEN for HD-AE" layout within the HAMA test system. Access path:
-
-1. Hold **B3 + B4** during power-on → enters HAMA test mode (TT_EXTAPR)
-2. Select one of the Debug Test buttons (xde=5 or xde=6 in the `TestTitleFunc` action dispatch)
-3. The debug screen layout includes the MEMORY DUMP widget alongside CONSOLE output and navigation controls
+The memory dump is reached at runtime, with no power-on combination, through the factory Panel Simulator screen. On a normally booted instrument, hold the UP and DOWN buttons of part columns 1, 5 and 8, open the DEBUG WINDOW, and step its menu to -MEMORY DUMP-. See [MEMORY DUMP Screen]({{ site.baseurl }}/memory-dump-screen/) for the procedure, which has been verified in the emulator but not on hardware. The "DEBUG SCREEN for HD-AE" page in `factory_test/fd_test_data.s` also carries a "MEMORY DUMP" caption; how a user reaches that page has not been established. Switches 4 and 5 of the FDD test title format the floppy.
 
 #### Why Did Matsushita Include This?
 
@@ -440,7 +441,7 @@ The KN5000 was a professional-grade instrument sold to working musicians, music 
 
 - **Verify ROM integrity** by reading back Program ROM, Table Data ROM, and Custom Data ROM contents and comparing against known-good checksums
 - **Check SRAM battery backup** by inspecting the battery-backed SRAM region (`0x1E0000`+) to determine if user settings have been corrupted by a dying backup battery — a common failure mode in 1990s keyboard instruments
-- **Inspect live I/O state** by reading tone generator registers (`0x100000`+), VGA controller registers, FDC status, and UART configurations to identify communication failures between subsystems
+- **Inspect live I/O state** by reading the main-bus I/O blocks (FDC at `0x110000`, inter-CPU latch at `0x140000`, VGA registers at `0x1703B0`) to identify communication failures between subsystems; the tone generator is on the sub-CPU bus and is not visible here
 - **Diagnose DRAM failures** by reading the extension DRAM region and checking for stuck bits or addressing failures that the power-on self-test (which only tests basic patterns) might miss
 
 **2. Factory Production Line Testing**
@@ -449,7 +450,6 @@ During manufacturing at the Hamamatsu factory, each unit would pass through a qu
 
 - Compare DRAM initialization patterns against a reference unit
 - Verify that Flash ROM programming completed correctly by reading back the firmware
-- Check that the tone generator's waveform ROM mapping is correct by reading IC303/IC304-307 register states
 - Inspect the SubCPU's shared memory region to verify inter-CPU communication
 
 **3. Firmware Development and Debugging**
@@ -463,7 +463,7 @@ The tool's per-nibble navigation scheme (with step sizes from 1 byte to 1 MB) is
 
 **4. Cost-Effective Debug Infrastructure**
 
-Including the tool in the shipping ROM (rather than maintaining a separate debug build) saved Matsushita from needing to manage two firmware images. The tool costs 663 bytes of ROM (`0xFA2EE6`–`0xFA317D`) and is completely hidden from normal users — it requires a specific keybed combination (B3+B4) during power-on that no user would accidentally trigger. This is the same engineering philosophy seen in many Japanese consumer electronics of the era: ship the debug tools, hide them behind obscure key combinations, and let service technicians discover them through the service manual.
+Including the tool in the shipping ROM (rather than maintaining a separate debug build) saved Matsushita from needing to manage two firmware images. The tool costs 668 bytes of ROM (`0xFA2EE6`–`0xFA3181`) and is completely hidden from normal users — it is reached only through an undocumented panel chord that opens the factory Panel Simulator screen, and then that screen's DEBUG WINDOW. This is the same engineering philosophy seen in many Japanese consumer electronics of the era: ship the debug tools, hide them behind obscure key combinations, and leave them out of the service manual, which does not document this one.
 
 **5. The "HAMA" Codename Connection**
 
@@ -493,10 +493,10 @@ These strings are displayed on the diagnostic LCD during hardware validation, pr
 The HAMA titles are activated through the **keybed service mode system**:
 
 **Test 8 (B3 + B4) → TT_EXTAPR (mode 0xFC):**
-Holding keys B3 and B4 during power-on causes `SelfTest_FirmwareVersionCheck` to post mode code `0xFC` via `UI_PostModeChangeEvent`. This matches the widget table ID `0xFC` used when registering `TT_EXTAPR`, activating the full HAMA diagnostic screen with FDD SAVE/LOAD test, directory listing, and debug functions.
+Holding keys B3 and B4 during power-on causes `SelfTest_FirmwareVersionCheck` to post mode code `0xFC` via `UI_PostModeChangeEvent`. This matches the widget table ID `0xFC` used when registering `TT_EXTAPR`, activating the full HAMA diagnostic screen with FDD SAVE/LOAD test, directory listing, and test-floppy formatting.
 
 **TT_HDDEXT (widget table 0x7F):**
-The `TT_HDDEXT` title (Hard Disk Extension test) is registered with widget table `0x7F`, which does not correspond to any direct keybed mode code. It is likely accessible from **within** the TT_EXTAPR test screen — the `TestTitleFunc` lifecycle handler processes interrupt/resume events (xde=4-5) that call `RegHamaTitle1/2_Entry`, which may switch between the two HAMA titles. This allows a technician to enter the diagnostic system via Test 8 (B3+B4) and then navigate to the HDD extension test using on-screen buttons.
+The `TT_HDDEXT` title (Hard Disk Extension test, title id `0x7F`) does not correspond to any keybed mode code, and how it is reached has not been established. (`RegHamaTitle1_Entry` and `RegHamaTitle2_Entry` do not switch titles: they format a 2DD or 2HD test floppy.)
 
 **Complete activation chain:**
 ```
@@ -507,9 +507,9 @@ Power on while holding B3 + B4
   → Posts UI_PostModeChangeEvent(0xFC)
   → Event 0x1C00015 with data 0x1A000FC
   → Title system activates TT_EXTAPR (widget table 0xFC)
-  → TestTitleFunc receives lifecycle event 0x1C00007 (activate)
+  → TestTitleFunc receives EVT_ACTIVATE_STATE 0x1C00013 ("Title Activate")
   → HAMA diagnostic screen displayed
-  → User can START/STOP FDD test, browse files, run debug tests
+  → User can START/STOP FDD test, browse files, format a test floppy
 ```
 
 ### Source Files
@@ -529,30 +529,30 @@ Paths are under `v10/maincpu/` unless stated; addresses are from
 `symbols/maincpu_v10_symbols_reference.txt` and `symbols/subcpu_boot_symbols_reference.txt`,
 generated from the built ELFs, which are byte-identical to the dumps.
 
-| Routine | Address | File | Purpose |
-|---------|---------|------|---------|
-| `MainCPU_self_test_routines` | `0xFB729E` | `ui/ui_mode_handlers.s` | Power-on self-test dispatcher |
-| `Report_test_result_by_blinking_LED` | `0xFB72EA` | `ui/ui_mode_handlers.s` | LED blink result reporter |
-| `Test_DRAM_IC10_and_IC9` | `0xFB7348` | `ui/ui_mode_handlers.s` | DRAM test (write patterns) |
-| `Test_SRAM_IC21` | `0xFB7400` | `ui/ui_mode_handlers.s` | SRAM test |
-| `SelfTest_FirmwareVersionCheck` | `0xFB76D8` | `ui/ui_mode_handlers.s` | Keybed service-mode detection |
-| `INIT_MEMORY_TEST` | `0xFF8956` | `subcpu/boot/kn5000_subcpu_boot.s` | Sub-CPU (CN12) self-test |
-| `CPanel_ScanButtons` | `0xFC3EE5` | `ui/cpanel_routines.s` | Boot-time button scan |
-| `CPanel_CheckSpecialCombos` | `0xFC4165` | `ui/cpanel_routines.s` | Button combo detection |
-| `InitializeHama` | `0xF1E146` | `factory_test/test_init.s` | HAMA subsystem registration |
-| `TestTitleFunc` | `0xF1E39A` | `factory_test/test_init.s` | Test title lifecycle handler |
-| `FDLoadSaveTest` | `0xF1E5DA` | `factory_test/fd_test_code.s` | Floppy disk SAVE/LOAD test |
-| `HamaListProc` | `0xF1E870` | `factory_test/fd_test_code.s` | File browser event handler |
-| `TEST2FUNC` | `0xFB7D44` | `ui/ui_mode_handlers.s` | Panel switch & LED test handler |
-| `TEST3FUNC` | `0xFB7D78` | `ui/ui_mode_handlers.s` | Wave ROM test handler (part) |
-| `TEST4FUNC` | `0xFB7DAC` | `ui/ui_mode_handlers.s` | CPR/CPL MCU test handler |
-| `TEST6FUNC` | `0xFB7DE0` | `ui/ui_mode_handlers.s` | Wave ROM test handler (part) |
-| `DbMemoryDumpProc` | `0xFA2EE6` | `ui/ui_widget_defs.s` | Hidden hex viewer |
-| `Boot_HandleComboDisplay` | `0xEF07A2` | `kn5000_v10_program.s` | Boot combo handler (LED version) |
-| `Boot_HandleFactoryReset` | `0xEF07F3` | `kn5000_v10_program.s` | Boot combo handler (factory reset) |
-| `WidgetParam_TestMode_Entry` | `0xEDBA44` | `ui_widgets/widget_dispatch.s` | Test mode widget entry |
-| `Get_Firmware_Version` | `0xFFFEE5` | `kn5000_v10_program.s` | Returns firmware version byte |
-| `FIRMWARE_VERSION` | `0xFFFFE8` | `boot/rom_end_structure.s` | Version byte (0x0A = v10) |
+| Routine                              | Address    | File                               | Purpose                                                |
+|--------------------------------------|------------|------------------------------------|--------------------------------------------------------|
+| `MainCPU_self_test_routines`         | `0xFB729E` | `ui/ui_mode_handlers.s`            | Power-on self-test dispatcher                          |
+| `Report_test_result_by_blinking_LED` | `0xFB72EA` | `ui/ui_mode_handlers.s`            | LED blink result reporter                              |
+| `Test_DRAM_IC10_and_IC9`             | `0xFB7348` | `ui/ui_mode_handlers.s`            | DRAM test (write patterns)                             |
+| `Test_SRAM_IC21`                     | `0xFB7400` | `ui/ui_mode_handlers.s`            | SRAM test                                              |
+| `SelfTest_FirmwareVersionCheck`      | `0xFB76D8` | `ui/ui_mode_handlers.s`            | Keybed service-mode detection                          |
+| `INIT_MEMORY_TEST`                   | `0xFF8956` | `subcpu/boot/kn5000_subcpu_boot.s` | Sub-CPU (CN12) self-test                               |
+| `CPanel_ScanButtons`                 | `0xFC3EE5` | `ui/cpanel_routines.s`             | Boot-time button scan                                  |
+| `CPanel_CheckSpecialCombos`          | `0xFC4165` | `ui/cpanel_routines.s`             | Button combo detection                                 |
+| `InitializeHama`                     | `0xF1E146` | `factory_test/test_init.s`         | HAMA subsystem registration                            |
+| `TestTitleFunc`                      | `0xF1E39A` | `factory_test/test_init.s`         | Test title lifecycle handler                           |
+| `FDLoadSaveTest`                     | `0xF1E5DA` | `factory_test/fd_test_code.s`      | Floppy disk SAVE/LOAD test                             |
+| `HamaListProc`                       | `0xF1E870` | `factory_test/fd_test_code.s`      | File browser event handler                             |
+| `TEST2FUNC`                          | `0xFB7D44` | `ui/ui_mode_handlers.s`            | CPR/CPL MCU test handler (Test 4, title `0xF5`)        |
+| `TEST3FUNC`                          | `0xFB7D78` | `ui/ui_mode_handlers.s`            | Wave ROM test handler (Test 6, title `0xF6`)           |
+| `TEST4FUNC`                          | `0xFB7DAC` | `ui/ui_mode_handlers.s`            | Panel switch & LED test handler (Test 5, title `0xF7`) |
+| `TEST6FUNC`                          | `0xFB7DE0` | `ui/ui_mode_handlers.s`            | FDC IC test handler (Test 7, title `0xF9`)             |
+| `DbMemoryDumpProc`                   | `0xFA2EE6` | `ui/ui_widget_defs.s`              | Hidden hex viewer                                      |
+| `Boot_HandleComboDisplay`            | `0xEF07A2` | `kn5000_v10_program.s`             | Boot combo handler (LED version)                       |
+| `Boot_HandleFactoryReset`            | `0xEF07F3` | `kn5000_v10_program.s`             | Boot combo handler (factory reset)                     |
+| `WidgetParam_TestMode_Entry`         | `0xEDBA44` | `ui_widgets/widget_dispatch.s`     | Test mode widget entry                                 |
+| `Get_Firmware_Version`               | `0xFFFEE5` | `kn5000_v10_program.s`             | Returns firmware version byte                          |
+| `FIRMWARE_VERSION`                   | `0xFFFFE8` | `boot/rom_end_structure.s`         | Version byte (0x0A = v10)                              |
 
 ---
 

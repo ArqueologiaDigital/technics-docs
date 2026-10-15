@@ -129,11 +129,11 @@ Technics KN5000 HD-AEPRG DATA FILE      by Nishino Teruhiko !!!\r\n\n
 
 ## Disc Type Detection
 
-The firmware identifies update discs by comparing a **38-byte signature** against a table stored in the Table Data ROM at address `0x9FA000`.
+The firmware identifies update discs by comparing a **38-byte signature** against a table of signature strings, which the Table Data ROM holds at `0x9FA000` and the Program ROM holds again at `0xE00038`.
 
 ### Detection Algorithm
 
-The `Detect_Disk_Type` routine (in both the Table Data Boot ROM at `0x9FBFC4` and Program ROM at `0xEF42FE`):
+Two routines do this: the bootloader's `Boot_DetectDiskType` (`0x9FBFC4`), against `FileIdentifierStringsTable` at `0x9FA000`, and the program ROM's `Detect_Disk_Type` (`0xEF42FE`), against its own copy of the strings at `0xE00038`–`0xE00150` (`FILETYPE_SIG_*` in `boot/boot_data_tables.s`). Both:
 
 1. Reads sectors from the floppy into a 512-byte buffer
 2. Compares buffer content against each of 8 known signatures (38 bytes each)
@@ -145,16 +145,16 @@ The signature is found at the start of TECHNICS.PRP (sector 33, offset 0x4200), 
 
 All 8 signature strings are stored consecutively in the Table Data ROM:
 
-| Type | ROM Address | Signature (38 bytes) | Purpose |
-|------|-------------|----------------------|---------|
-| 1 | 0x9FA000 | `Technics KN5000 Program  DATA FILE 1/2` | Program ROM disk 1 of 2 (uncompressed) |
-| 2 | 0x9FA028 | `Technics KN5000 Program  DATA FILE 2/2` | Program ROM disk 2 of 2 (uncompressed) |
-| 7 | 0x9FA050 | `Technics KN5000 Program  DATA FILE PCK` | Program ROM (SLIDE4K compressed) |
-| 3 | 0x9FA078 | `Technics KN5000 Table    DATA FILE 1/2` | Table Data ROM disk 1 of 2 |
-| 4 | 0x9FA0A0 | `Technics KN5000 Table    DATA FILE 2/2` | Table Data ROM disk 2 of 2 |
-| 8 | 0x9FA0C8 | `Technics KN5000 Table    DATA FILE PCK` | Table Data ROM (SLIDE4K compressed) |
-| 5 | 0x9FA0F0 | `Technics KN5000 CMPCUSTOMDATA FILE    ` | Compressed custom data |
-| 6 | 0x9FA118 | `Technics KN5000 HD-AEPRG DATA FILE    ` | HDAE5000 extension firmware |
+| Type | ROM Address | Signature (38 bytes)                     | Purpose                                         |
+|------|-------------|------------------------------------------|-------------------------------------------------|
+| 1    | 0x9FA000    | `Technics KN5000 Program  DATA FILE 1/2` | Program ROM disk 1 of 2 (uncompressed)          |
+| 2    | 0x9FA028    | `Technics KN5000 Program  DATA FILE 2/2` | Program ROM disk 2 of 2 (uncompressed)          |
+| 7    | 0x9FA050    | `Technics KN5000 Program  DATA FILE PCK` | Program ROM (SLIDE4K compressed)                |
+| 3    | 0x9FA078    | `Technics KN5000 Table    DATA FILE 1/2` | Table Data ROM disk 1 of 2                      |
+| 4    | 0x9FA0A0    | `Technics KN5000 Table    DATA FILE 2/2` | Table Data ROM disk 2 of 2                      |
+| 8    | 0x9FA0C8    | `Technics KN5000 Table    DATA FILE PCK` | Table Data ROM (SLIDE4K compressed)             |
+| 5    | 0x9FA0F0    | `Technics KN5000 CMPCUSTOMDATA FILE    ` | Custom data (`CMPCUSTOMDATA`, written verbatim) |
+| 6    | 0x9FA118    | `Technics KN5000 HD-AEPRG DATA FILE    ` | HDAE5000 extension firmware                     |
 
 Types 7 and 8 ("PCK" = packed/compressed) replaced the older 2-disc uncompressed format (types 1–4). All archived update discs from v5 onward use type 7.
 
@@ -162,7 +162,7 @@ Types 7 and 8 ("PCK" = packed/compressed) replaced the older 2-disc uncompressed
 
 ## Update Flow
 
-The firmware update is triggered at boot when the firmware version byte at `0xFFFFE8` equals `0xFF` (a magic value written before reset to signal update mode).
+The firmware update runs at boot when all four PANEL MEMORY buttons are held at power-on with an update disc in the drive, and the version byte at `0xFFFFE8` reads `0xFF`. No routine writes that byte (v10 holds `0x0A` there); how the check is met on a stock unit is open (see [MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/)).
 
 ### Sequence
 
@@ -171,19 +171,19 @@ The firmware update is triggered at boot when the firmware version byte at `0xFF
 3. **Display status** — Show "Flash Memory Update" on the LCD
 4. **Erase flash** — Display "Now Erasing!!" and erase the target flash chip
 5. **Program flash** — Read data sectors from floppy and program flash memory
-6. **Verify** — Compare programmed data against source
-7. **Complete** — Display "Completed!" and "Turn On AGAIN!!"
+6. **Complete** — Display "Completed!" and "Turn On AGAIN!!"
 
 ### Update Handlers by Type
 
-| Type | Handler Address | Destination | Method |
-|------|-----------------|-------------|--------|
-| 1/2 (Program) | `0xEF4784` | the `0x800000` flash pair, 1 MB + 1 MB | chip-erase, then direct copy (2-disc set) |
-| 3/4 (Table) | — | the `0x800000` flash pair, 1 MB + 1 MB | chip-erase, then direct copy (2-disc set) |
-| 5 (CMPCUSTOMDATA) | — | Custom Data Flash `0x300000`, all 1 MB | chip-erase, then verbatim write of the whole image |
-| 6 (HDAE5000) | — | Extension ROM `0x280000`, 512 KB | chip-erase bank 2, then direct copy |
-| 7 (Program PCK) | `0xEF47FA` | **both**: the `0x800000` pair *and* Custom Data Flash `0x3E0000` | see below |
-| 8 (Table PCK) | — | the `0x800000` pair | SLIDE4K decompress from floppy |
+| Type                        | Handler Address | Destination                                                      | Method                                             |
+|-----------------------------|-----------------|------------------------------------------------------------------|----------------------------------------------------|
+| 1 (Program 1/2)             | `0xEF4784`      | the `0x800000` flash pair, 1 MB + 1 MB                           | chip-erase, then direct copy (2-disc set)          |
+| 3 (Table 1/2)               | `0xEF47A4`      | the `0x800000` flash pair, 1 MB + 1 MB                           | chip-erase, then direct copy (2-disc set)          |
+| 2, 4 (second disc of a set) | `0xEF482A`      | —                                                                | refused: "Illegal Disk!" and halt                  |
+| 5 (CMPCUSTOMDATA)           | `0xEF47C7`      | Custom Data Flash `0x300000`, all 1 MB                           | chip-erase, then verbatim write of the whole image |
+| 6 (HDAE5000)                | `0xEF47DF`      | Extension ROM `0x280000`, 512 KB                                 | chip-erase bank 2, then direct copy                |
+| 7 (Program PCK)             | `0xEF47FA`      | **both**: the `0x800000` pair *and* Custom Data Flash `0x3E0000` | see below                                          |
+| 8 (Table PCK)               | `0xEF481E`      | the `0x800000` pair                                              | SLIDE4K decompress from floppy                     |
 
 **Type 7 in detail** — a `.SLD` file holding *two* concatenated SLIDE4K streams:
 
@@ -236,7 +236,7 @@ This difference is cosmetic and does not affect functionality.
 
 ## Creating Update Discs
 
-The `anotherworld` custom ROM project includes a tool for creating update discs:
+The [kn5000-anotherworld](https://github.com/felipesanches/kn5000-anotherworld) homebrew repository includes a tool for creating update discs, `tools/make_update_disc.py`:
 
 ```bash
 # Create compressed program ROM update disc
@@ -252,7 +252,7 @@ The tool creates byte-identical disc images (boot sector, FAT structure, file la
 
 ## No Code Execution from Floppy
 
-An important architectural finding: **the KN5000 never executes code loaded from floppy disc.** All 8 disc types write data to flash memory; none load code into RAM for execution.
+An important architectural finding: **none of the 8 system-update disc types makes the KN5000 execute code from floppy disc.** All of them write data to flash memory; none load code into RAM for execution. The one exception in the firmware is a hidden factory loader, not an update disc: on the "DEBUG SCREEN for HD-AE" page, the LOAD switch reads `A:HKEXT.XAP` (32 KB) from floppy into RAM at `0x200000`, and the GO switch checks for the `XAPR` id there and jumps to `0x200008` (`HamaDeb_HdaeDebugScreenFunc`, `CheckFDStatusLoad_Entry` and `LoadExtROM_Entry` in `factory_test/test_init.s`). How a user reaches that page has not been established.
 
 ### Evidence
 
@@ -262,11 +262,11 @@ An important architectural finding: **the KN5000 never executes code loaded from
 
 3. **No disc type for executable content.** The 8-entry signature table at `0x9FA000` covers firmware images (types 1–4, 7–8), custom data (type 5), and HDAE5000 extension firmware (type 6). There is no signature for an executable or loadable code disc.
 
-4. **Standard file I/O is data-only.** Beyond system updates, floppy I/O handles MIDI songs, registrations, styles, and sequencer data — all interpreted by existing firmware routines, never executed as native code.
+4. **Standard file I/O is data-only.** Beyond system updates, floppy I/O handles MIDI songs, registrations, styles and sequencer data, all interpreted by existing firmware routines. The one exception is the factory HD-AE debug loader described above (`A:HKEXT.XAP`).
 
 ### Implications
 
-The floppy subsystem is strictly a data transport. Custom code can only be installed via flash update (replacing the entire Program ROM or Extension ROM), not loaded and run directly from disc. This is consistent with the KN5000's embedded architecture — there is no operating system with a program loader.
+Apart from that factory loader, the floppy subsystem is strictly a data transport, and custom code can only be installed via flash update (replacing the entire Program ROM or Extension ROM); no update disc loads and runs it directly. This is consistent with the KN5000's embedded architecture — there is no operating system with a program loader.
 
 ---
 
@@ -281,4 +281,4 @@ The floppy subsystem is strictly a data transport. Custom code can only be insta
 
 ---
 
-*Last updated: February 2026*
+*Last updated: October 2026*

@@ -47,15 +47,15 @@ The Y*320 multiplication uses the shift-add trick: `(Y << 2 + Y) << 6 = Y * 320`
 
 ## Progress Bar
 
-During flash erase operations, `Flash_BurnWithProgress` (`0xEF4709`) displays an animated progress bar:
+During flash erase operations, `Flash_BurnWithProgress` (`0xEF4702`) displays an animated progress bar:
 
 - **Initial X position:** 50 pixels (0x32)
 - **Y position:** 180 pixels (0xB4)
 - **Bar height:** 5 pixels
 - **Step size:** 8 pixels per increment
-- **Increment trigger:** Every 500 (0x1F4) flash word-program operations
+- **Increment trigger:** each time more than 500 (0x1F4) timer ticks have elapsed
 
-The progress bar grows left-to-right across the screen. The counter at DRAM address 1033 tracks word-program operations; when it exceeds 500, the bar extends by 8 pixels and the counter resets.
+The progress bar grows left-to-right while `Flash_BurnWithProgress` waits for the table-data chip erase (`TableDataFlash_ChipErase`) to finish, polling P7 bit 5 through `HDAE5000_Status_Check`. The counter is `SYSTEM_TIMESTAMP` (RAM `0x409` = 1033), which `INTT1_HANDLER` increments on every timer tick; when it exceeds 500, the bar extends by 8 pixels and the counter is cleared.
 
 The bar is drawn using `VRAM_FillRect` with parameters (X=IZ, Y=0xB4, width implied, height=5).
 
@@ -84,7 +84,7 @@ Get_Firmware_Version == 0xFF?
 (at Y=80, BG=3)        sequence
     |
     v
-[System init, task scheduler, Sub-CPU check]
+[Task scheduler, region code, flash init, HD-AE5000 PPI, sequencer and panel init, button scan]
     |
     v
 Floppy present AND button==4?
@@ -111,7 +111,7 @@ FDC_InitRecalibrate
 Detect_Disk_Type ──> type stored in register pointer 0xFB
     |
     v
-Validate flash hardware (0xEF3D0E)
+Region 4, or HDAE5000_Detect (0xEF3D0E) fails ──> Skip to HDAE5000 path
     |
     v
 Is type == 6 (HDAE5000)? ──yes──> Skip to HDAE5000 path
@@ -263,7 +263,7 @@ Loop back to          "FD -> Flash Memory"
 
 These are **invalid starting discs**. If the user inserts disc 2 first, the handler immediately jumps to `SHOW_ILLEGAL_DISK_MESSAGE` and halts.
 
-#### Type 5: Custom Data (Compressed)
+#### Type 5: Custom Data (CMPCUSTOMDATA, written verbatim)
 
 ```
 "Now Erasing!!"
@@ -344,17 +344,17 @@ Messages at Y=160 are displayed sequentially (each new message overwrites the pr
 
 ## Code References
 
-| Symbol | Address | Purpose |
-|--------|---------|---------|
-| `FLASH_MEM_UPDATE` | `0xEF4F6F` | Main entry point |
-| `Draw_FlashMemUpdate_message_bitmap` | `0xEF5040` | 1bpp bitmap renderer |
-| `SHOW_FD_TO_FLASH_MEMORY_MESSAGE` | `0xEF468E` | Display "FD -> Flash Memory" |
-| `SHOW_ILLEGAL_DISK_MESSAGE` | `0xEF482A` | Display "Illegal Disk!" + halt |
-| `SHOW_CHANGE_FLOPPY_2_OF_2_MESSAGE` | `0xEF46A8` | Display "Change FD (2/2)" + wait |
-| `Flash_BurnWithProgress` | `0xEF4709` | Erase with progress bar |
-| `Erase_and_Burn____when_disk_is_valid` | `0xEF4745` | Type dispatcher |
-| `Detect_Disk_Type` | `0xEF42FE` | Identify floppy disc type |
-| `We_seem_to_be_running_boot_ROM_code` | `0xEF0536` | Initial "Please Wait" display |
+| Symbol                                 | Address    | Purpose                          |
+|----------------------------------------|------------|----------------------------------|
+| `FLASH_MEM_UPDATE`                     | `0xEF4F6F` | Main entry point                 |
+| `Draw_FlashMemUpdate_message_bitmap`   | `0xEF5040` | 1bpp bitmap renderer             |
+| `SHOW_FD_TO_FLASH_MEMORY_MESSAGE`      | `0xEF468E` | Display "FD -> Flash Memory"     |
+| `SHOW_ILLEGAL_DISK_MESSAGE`            | `0xEF482A` | Display "Illegal Disk!" + halt   |
+| `SHOW_CHANGE_FLOPPY_2_OF_2_MESSAGE`    | `0xEF46A8` | Display "Change FD (2/2)" + wait |
+| `Flash_BurnWithProgress`               | `0xEF4702` | Erase with progress bar          |
+| `Erase_and_Burn____when_disk_is_valid` | `0xEF4745` | Type dispatcher                  |
+| `Detect_Disk_Type`                     | `0xEF42FE` | Identify floppy disc type        |
+| `We_seem_to_be_running_boot_ROM_code`  | `0xEF0536` | Initial "Please Wait" display    |
 
 ## References
 
@@ -364,4 +364,4 @@ Messages at Y=160 are displayed sequentially (each new message overwrites the pr
 
 ---
 
-*Last updated: March 2026*
+*Last updated: October 2026*

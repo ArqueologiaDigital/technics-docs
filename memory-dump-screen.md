@@ -91,7 +91,9 @@ the [sub-CPU payload provenance question]({{ site.baseurl }}/subcpu-payload-prov
 ## Where it lives in the ROM
 
 The screen is the `MEMORY DUMP` entry of the factory *Panel Simulator* screen
-set (`FDTest_*` widgets in `v10/maincpu/factory_test/fd_test_data.s`), handled
+set (`v10/maincpu/ui_widgets/debug_naming_panel_sim.s`: the debug window's
+"-MEMORY DUMP-" page opens `NakaWidget_MemDumpWindow`, whose dump widget is
+`NakaWidget_PanelSimulator_50_DbMemoryDump` at 0xEB31E8), handled
 by `DbMemoryDumpProc` at 0xFA2EE6 (`v10/maincpu/ui/ui_widget_defs.s`). The
 entry chord is dispatched by `main_title_ctrl_panel.s` as
 `ApPostEvent(0xFFFFFFFF, 0x1C00015, 0x01A00000)`, a request for title 0, when the
