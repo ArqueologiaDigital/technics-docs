@@ -380,29 +380,29 @@ See [Sequencer]({{ site.baseurl }}/sequencer/) for complete medley system docume
 
 The sub CPU (tone generator controller) has its own memory map, documented from boot ROM disassembly.
 
-| Address Range         | Size  | Description                                                                                 |
-|-----------------------|-------|---------------------------------------------------------------------------------------------|
-| `0x000000 - 0x0FFFFF` | 1MB   | Work DRAM (IC28/IC29)                                                                       |
-| `0x0000 - 0x00FF`     | 256B  | Special Function Registers (SFR)                                                            |
-| `0x0100 - 0x01FF`     | 256B  | Extended SFR / Memory Controller                                                            |
-| `0x0400 - 0x04E0`     | 225B  | Interrupt vector trampolines (copied from boot ROM)                                         |
-| `0x04FE`              | 1B    | `PAYLOAD_LOADED_FLAG` - Payload ready indication (bit 7 set when payload loaded)            |
-| `0x0500 - 0x05A2`     | ~160B | RAM / Stack area (stack init = 0x05A2)                                                      |
-| `0x0502`              | 12B   | `DMA_SETUP_PARAMS` - DMA parameter storage (XWA, XDE, BC values)                            |
-| `0x0512`              | 4B    | `DMA_TARGET_ADDR` - Current DMA destination address                                         |
-| `0x0516`              | 2B    | `DMA_XFER_STATE` - DMA transfer state (0=idle, 1=single xfer, 2=two-phase E1 mode)          |
-| `0x0518`              | 2B    | `CMD_PROCESSING_STATE` - Command processing state (0-4)                                     |
-| `0x051A`              | 1B    | `LAST_CMD_BYTE` - Last received command byte from main CPU                                  |
-| `0x051E`              | 32B   | `CMD_DATA_BUFFER` - Variable-length command data buffer                                     |
-| `0x0544`              | 6B    | `CMD_E1_BUFFER` - E1 command data buffer                                                    |
-| `0x054A`              | 10B   | `CMD_E2_BUFFER` - E2 command data buffer                                                    |
-| `0x0556`              | 1B    | `MEMTEST_RESULT` - Memory test result flags                                                 |
-| `0x0558`              | 8B    | `SERIAL_STATUS` - Serial communication status bytes                                         |
-| `0x100000`            | -     | Tone generator IC303 registers (address +0, data +2)                                        |
-| `0x110000`            | -     | Tone generator keybed data (+0) / status (+2)                                               |
-| `0x120000`            | -     | Inter-CPU Communication Latch (the same pair of latches the main CPU reaches at `0x140000`) |
-| `0x130000`            | -     | DSP1-associated register block (4 channels; address +0, data +2)                            |
-| `0xFE0000 - 0xFFFFFF` | 128KB | Boot ROM                                                                                    |
+| Address Range         | Size  | Description                                                                                      |
+|-----------------------|-------|--------------------------------------------------------------------------------------------------|
+| `0x000000 - 0x0FFFFF` | 1MB   | Work DRAM (IC28/IC29)                                                                            |
+| `0x0000 - 0x00FF`     | 256B  | Special Function Registers (SFR)                                                                 |
+| `0x0100 - 0x01FF`     | 256B  | Extended SFR / Memory Controller                                                                 |
+| `0x0400 - 0x04E0`     | 225B  | Interrupt vector trampolines (copied from boot ROM)                                              |
+| `0x04FE`              | 1B    | `PAYLOAD_LOADED_FLAG` - Payload ready indication (bit 7 set when payload loaded)                 |
+| `0x0500 - 0x05A2`     | ~160B | RAM / Stack area (stack init = 0x05A2)                                                           |
+| `0x0502`              | 12B   | `DMA_SETUP_PARAMS` - DMA parameter storage (XWA, XDE, BC values)                                 |
+| `0x0512`              | 4B    | `DMA_TARGET_ADDR` - Current DMA destination address                                              |
+| `0x0516`              | 2B    | `DMA_XFER_STATE` - DMA transfer state (0=idle, 1=single xfer, 2=two-phase E1 mode)               |
+| `0x0518`              | 2B    | `CMD_PROCESSING_STATE` - Command processing state (0-4)                                          |
+| `0x051A`              | 1B    | `LAST_CMD_BYTE` - Last received command byte from main CPU                                       |
+| `0x051E`              | 32B   | `CMD_DATA_BUFFER` - Variable-length command data buffer                                          |
+| `0x0544`              | 6B    | `CMD_E1_BUFFER` - E1 command data buffer                                                         |
+| `0x054A`              | 10B   | `CMD_E2_BUFFER` - E2 command data buffer                                                         |
+| `0x0556`              | 1B    | `MEMTEST_RESULT` - Memory test result flags                                                      |
+| `0x0558`              | 8B    | `SERIAL_STATUS` - Key-down bitmap, 64 bits (the equate keeps an older name; not a serial buffer) |
+| `0x100000`            | -     | Tone generator IC303 registers (address +0, data +2)                                             |
+| `0x110000`            | -     | Tone generator keybed data (+0) / status (+2)                                                    |
+| `0x120000`            | -     | Inter-CPU Communication Latch (the same pair of latches the main CPU reaches at `0x140000`)      |
+| `0x130000`            | -     | DSP1-associated register block (4 channels; address +0, data +2)                                 |
+| `0xFE0000 - 0xFFFFFF` | 128KB | Boot ROM                                                                                         |
 
 ### Sub CPU SFR Addresses (Confirmed from Boot ROM)
 
@@ -564,18 +564,18 @@ as `CMD_DISPATCH_TABLE` at `0x00F46C`
 
 ### Sub CPU State Variables
 
-| Address | Symbol | Description |
-|---------|--------|-------------|
-| `0x04FE` | `SUBCPU_STATUS_FLAGS` | Bit 6: payload ready, Bit 7: transfer complete |
-| `0x0512` | `DMA_TARGET_ADDR` | Current DMA destination address (4 bytes) |
-| `0x0516` | `DMA_XFER_STATE` | 0=idle, 1=single xfer, 2=two-phase (E1) |
-| `0x0518` | `CMD_PROCESSING_STATE` | 0-4, tracks command processing phase |
-| `0x051A` | `LAST_CMD_BYTE` | Most recent command byte received |
-| `0x051E` | `CMD_DATA_BUFFER` | Variable-length command data (32 bytes) |
-| `0x0544` | `CMD_E1_BUFFER` | E1 command data buffer (6 bytes) |
-| `0x054A` | `CMD_E2_BUFFER` | E2 command data buffer (10 bytes) |
-| `0x0556` | `MEMTEST_RESULT` | Memory test result flags |
-| `0x0558` | `SERIAL_STATUS` | Serial status bytes (8 bytes) |
+| Address  | Symbol                 | Description                                                                                                                      |
+|----------|------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| `0x04FE` | `SUBCPU_STATUS_FLAGS`  | Bit 6: payload ready, Bit 7: transfer complete                                                                                   |
+| `0x0512` | `DMA_TARGET_ADDR`      | Current DMA destination address (4 bytes)                                                                                        |
+| `0x0516` | `DMA_XFER_STATE`       | 0=idle, 1=single xfer, 2=two-phase (E1)                                                                                          |
+| `0x0518` | `CMD_PROCESSING_STATE` | 0-4, tracks command processing phase                                                                                             |
+| `0x051A` | `LAST_CMD_BYTE`        | Most recent command byte received                                                                                                |
+| `0x051E` | `CMD_DATA_BUFFER`      | Variable-length command data (32 bytes)                                                                                          |
+| `0x0544` | `CMD_E1_BUFFER`        | E1 command data buffer (6 bytes)                                                                                                 |
+| `0x054A` | `CMD_E2_BUFFER`        | E2 command data buffer (10 bytes)                                                                                                |
+| `0x0556` | `MEMTEST_RESULT`       | Memory test result flags                                                                                                         |
+| `0x0558` | `SERIAL_STATUS`        | Key-down bitmap (8 bytes, 64 keys), filled from the keybed FIFO by `CONTROL_PANEL_BIT_SET_CLEAR`; the equate keeps an older name |
 
 ### DMA Configuration
 
