@@ -105,6 +105,40 @@ If code shifted by N bytes, the correct representation is:
 
 NOT: `.incbin "v7_postshift_blob.bin"` replacing 43 `.include` directives.
 
+## Across a relocation: map first, then diff
+
+The rules above make a *source* diff small. Before there is source for both versions,
+the question is usually "how different are these two images?", and a byte comparison
+cannot answer it once anything has moved. The KN7000's SP7001 firmware is the worked
+example ([SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/)): comparing program
+build 942 with build 941 byte for byte reports 83% of the image different, which looks
+like a rebuild. It is build 941 plus 7,692 bytes inserted and 306 deleted. Every byte after
+an insertion shifts, and every call displacement and pointer across the shift changes, so
+nearly everything compares unequal.
+
+What worked, in order:
+
+1. **Align first.** Take unique 24-byte anchors every 0x100 bytes in the old image and find
+   each one's single occurrence near the same place in the new one. The offsets they move
+   by form a few constant runs, and the boundaries between runs are where the edits are.
+   Inside each boundary, align bytes exactly (a sequence matcher); a same-length rewrite
+   there is almost always a relocated pointer or displacement, not an edit. The result is
+   an exact map from every old offset to its new one, plus the true list of inserted and
+   deleted bytes.
+2. **Carry the knowledge across, then check it.** Translate every recovered name through
+   the map, in its own address space (code, data, a relocated library window, work RAM by
+   majority vote over references the shared code makes). Then compare against anything the
+   new image says about itself: for the KN7000 that is the MILK reflection tables, and
+   2,291 of 2,302 names landed exactly where build 942's own tables put them. Accept a
+   disagreement only when it is explained, for example a run of byte-identical stubs, where
+   any alignment is ambiguous, or a name that now points into inserted code.
+3. **Generate the new source from the old one's structure.** With names, function
+   boundaries and converted ranges mapped, the second build's source comes out of the same
+   generator. Spend reading time only on the inserted code.
+4. **Check pairings against semantics, not shape.** A name table found in the new image can
+   be offset by one entry from its code table. The SP7001 export table is: only one pairing
+   makes `ena_int` set the interrupt-enable bit and `dis_int` clear it.
+
 ## Scoring a Cross-Version Diff
 
 | Criterion | Score | Description |

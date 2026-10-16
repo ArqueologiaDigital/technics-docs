@@ -139,6 +139,13 @@ baseline JPEGs** (built-in demo slideshows, all verified decodable, 160×80 up t
 > stock unit holds in that range has never been read. See
 > [Where does the flash updater live?]({{ site.baseurl }}/kn7000-firmware-security/#45-where-does-the-flash-updater-live-unresolved).
 
+The SP7001's table, build 83, keeps this layout: 78 of its 84 segments are
+byte-identical to build 84's. It differs in the version string (`"83\n"`), in three
+more 4-byte markers (segments 68–70, `"80\n"` where build 84 has `"84\n"`), in one
+shorter data segment, and in a 4-byte stub where build 84 has a `Tech` asset. Its
+plug-in starts at `0x483E8000`; see
+[SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#table-83-against-table-84).
+
 ## Byte-exact disassembly project
 
 The `kn7000_disassembly` repository holds a reconstruction project for the
@@ -166,7 +173,10 @@ widget/handler group), and parsing them all recovers **2,302 named functions** �
 `SleepMainTask`, `DispatchEvent`, and the whole `Ac*`/`Vw*`/`Ps*`/`Iv*`/`Tt*`
 widget window-procedure set (518 `*Proc` + 353 `*Func` handlers), i.e. the **same
 names documented for the KN5000**. These become the named anchors for the
-instruction-level disassembly.
+instruction-level disassembly. Build 942 adds a table of its own, the services it
+exports to SP7001 plug-ins by name; 186 of those names belong to routines build 941
+has too, and they now name them in build 941's disassembly as well
+([details]({{ site.baseurl }}/kn7000-sp7001-firmware/#the-export-table)).
 
 ### Readable, re-assemblable source
 
@@ -197,8 +207,19 @@ SetVisible:                        # CPU 0x4842D3DF
     ret     [d2], 0x10
 ```
 
-111 functions are converted this way so far: the task/event and display/object
-framework clusters, the complete Techni-Chord harmony engine, and the complete
-control-panel serial protocol (the `PanelTransaction`/ISR/state-machine chain
-that drove the MAME panel HLE); growing the set converts more, always holding
-the 100% byte-match invariant.
+504 functions of code region 1 and 437 functions of the library are converted
+this way so far. Among them are the task/event and display/object framework
+clusters, the complete Techni-Chord harmony engine, and the complete control-panel
+serial protocol (the `PanelTransaction`/ISR/state-machine chain that drove the MAME
+panel HLE). Growing the set converts more, always holding the 100% byte-match
+invariant.
+
+### A second target: the SP7001 firmware
+
+The same repository rebuilds the SP7001 firmware (program 942, table 83) and its
+plug-in program `BASEEXT.XAP` byte-exactly too. It does so by carrying everything
+recovered for build 941 across, not by starting again. An exact alignment of the two
+builds shows program 942 is build 941 plus a few small edits. It names every byte that
+moved, so build 941's function split, names, converted functions and notes all
+transfer. Only the code that is new in 942 had to be read afresh. See
+[SP7001 Firmware: What Changed, and the Plug-in]({{ site.baseurl }}/kn7000-sp7001-firmware/).

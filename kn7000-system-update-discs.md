@@ -19,16 +19,21 @@ against the checksums shipped on the disks.
 Program and table updates each span two floppies; the v1.4 update (kn7-14)
 carried both, on four. The sets this project holds:
 
-| Set                   | Purpose                  | Disk 1                                                   | Disk 2                                    |
-|-----------------------|--------------------------|----------------------------------------------------------|-------------------------------------------|
-| **kn7-16**            | Program v1.6 (build 941) | `JK1.SLD`, `SMCKPR1.INF`, `TECHNICS.PR1`                 | `JK2.SLD`, `SMCKPR2.INF`, `TECHNICS.PR2`  |
-| **kn7-15**            | Program v1.5 (build 935) | `JK1.SLD`, `SMCKPR1.INF`, `TECHNICS.PR1`                 | `JK2.SLD`, `SMCKPR2.INF`, `TECHNICS.PR2`  |
-| **kn7-14**, disks 1–2 | Program v1.4 (build 929) | lost (the archived copy is only a 'page not found' stub) | `JK2.SLD`, `SMCKPR2.INF`, `TECHNICS.PR2`  |
-| **kn7-14**, disks 3–4 | Table (build 84)         | `JKT1.SLD`, `SMCKTB1.INF`, `TECHNICS.TB1`                | `JKT2.SLD`, `SMCKTB2.INF`, `TECHNICS.TB2` |
+| Set                   | Purpose                          | Disk 1                                                   | Disk 2                                                     |
+|-----------------------|----------------------------------|----------------------------------------------------------|------------------------------------------------------------|
+| **kn7-16**            | Program v1.6 (build 941)         | `JK1.SLD`, `SMCKPR1.INF`, `TECHNICS.PR1`                 | `JK2.SLD`, `SMCKPR2.INF`, `TECHNICS.PR2`                   |
+| **kn7-15**            | Program v1.5 (build 935)         | `JK1.SLD`, `SMCKPR1.INF`, `TECHNICS.PR1`                 | `JK2.SLD`, `SMCKPR2.INF`, `TECHNICS.PR2`                   |
+| **kn7-14**, disks 1–2 | Program v1.4 (build 929)         | lost (the archived copy is only a 'page not found' stub) | `JK2.SLD`, `SMCKPR2.INF`, `TECHNICS.PR2`                   |
+| **kn7-14**, disks 3–4 | Table (build 84)                 | `JKT1.SLD`, `SMCKTB1.INF`, `TECHNICS.TB1`                | `JKT2.SLD`, `SMCKTB2.INF`, `TECHNICS.TB2`                  |
+| **SP7001**, program   | Program v1.6 PLUG-iN (build 942) | `HAMA1.SLD`, `SMCKPR1.INF`, `TECHNICS.PR1`               | `HAMA2.SLD`, `SMCKPR2.INF`, `TECHNICS.PR2`                 |
+| **SP7001**, table     | Table (build 83)                 | `JKT1.SLD`, `SMCKTB1.INF`, `TECHNICS.TB1`                | `JKTBL2.SLD`, `SMCKTB2.INF`, `TECHNICS.TB2`, `BASEEXT.XAP` |
 
-Key Soft Service's SP7001 PLUG-iN update (program build 942, table build 83)
-follows the same two-disk scheme and adds `BASEEXT.XAP` to its second table
-disk; see [SD PLUG-iN]({{ site.baseurl }}/kn7000-sd-plugin/).
+Key Soft Service's SP7001 PLUG-iN update follows the same two-disk scheme. Its four
+disks are self-extracting ZIP archives (`PROGR1_2v1.6PLUG-iN.exe`,
+`PROGR2_2v1.6PLUG-iN.exe`, `table1_2.exe`, `table2_2PLUG-iN.exe`), whose members can
+be read without running them. The second table disk adds `BASEEXT.XAP`, the plug-in
+program; see [SD PLUG-iN]({{ site.baseurl }}/kn7000-sd-plugin/) and
+[SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/).
 
 - `*.SLD` — one LZSS-compressed flash payload each.
 - `SMCK*.INF` — checksum manifest for the combined image (identical on both disks of a set).
@@ -48,11 +53,11 @@ An `.SLD` file is a header followed by a single LZSS stream:
 Magic strings — the trailing "4K" denotes the 4-kilobyte LZSS window, exactly as
 in the KN5000's `SLIDE4K`:
 
-| Magic | Used by |
-|-------|---------|
-| `JKPRG4K\0` | `JK1.SLD`, `JK2.SLD` (program) |
-| `JKTB14K\0` | `JKT1.SLD` (table, disk 1) |
-| `JKTB24K\0` | `JKT2.SLD` (table, disk 2) |
+| Magic       | Used by                                                           |
+|-------------|-------------------------------------------------------------------|
+| `JKPRG4K\0` | `JK1.SLD`, `JK2.SLD` (program); SP7001's `HAMA1.SLD`, `HAMA2.SLD` |
+| `JKTB14K\0` | `JKT1.SLD` (table, disk 1)                                        |
+| `JKTB24K\0` | `JKT2.SLD` (table, disk 2); SP7001's `JKTBL2.SLD`                 |
 
 The 24-bit size field retroactively decodes the KN5000 headers too:
 `SLIDE4K\0\x20\x00\x00` = `0x200000` (2 MB program) and
@@ -64,10 +69,12 @@ The decompressed payloads of the two disks are simply concatenated to form one
 linear flash image (a JPEG straddles the `JK1`/`JK2` seam at `0x200000`, proving
 linearity):
 
-| Update | Disk 1 raw + Disk 2 raw | Combined image |
-|--------|-------------------------|----------------|
-| Program | `0x200000` + `0x1F6F01` | **`kn7000_program.rom`, 0x3F6F01 bytes** |
-| Table | `0x200000` + `0x1E94D4` | **`kn7000_table.rom`, 0x3E94D4 bytes** |
+| Update               | Disk 1 raw + Disk 2 raw | Combined image                                            |
+|----------------------|-------------------------|-----------------------------------------------------------|
+| Program              | `0x200000` + `0x1F6F01` | **`kn7000_program.rom`, 0x3F6F01 bytes**                  |
+| Table                | `0x200000` + `0x1E94D4` | **`kn7000_table.rom`, 0x3E94D4 bytes**                    |
+| SP7001 program (942) | `0x200000` + `0x1F8BDB` | 0x3F8BDB bytes                                            |
+| SP7001 table (83)    | `0x200000` + `0x200000` | 0x400000 bytes, the whole half; the plug-in fills its top |
 
 ## The `.INF` checksum oracle
 
@@ -92,8 +99,14 @@ varies by build). Both extracted images verify perfectly against these manifests
 
 Of the builds found since: the v1.5 program also verifies 16/16; the surviving
 v1.4 disk 2 verifies its eight blocks (8–15); the SP7001 program's shipped
-`.INF` matches none of the 16 blocks, because it predates the final payload;
-and the SP7001 table matches all but blocks 14–15, the plug-in area.
+`.INF` matches none of the 16 blocks, because it predates the final payload.
+The SP7001 table's `.INF` predates its payload too, and in its case the difference
+is known exactly. It matches, total and all 16 blocks, the 0x3E0660-byte table
+*without* the plug-in and with the version markers in segments 68–70 reading `83`.
+The table the two disks actually write has those markers reading `80` and the
+plug-in appended, so against it only blocks 0–13 agree. The two disks' payloads are
+byte-identical to the table dumped from the SP7001 set (see
+[SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#the-update-disks)).
 
 ## Extraction
 

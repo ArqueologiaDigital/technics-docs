@@ -40,18 +40,21 @@ Panasonic's own update disks (`.SLD` payloads, SLIDE4K LZSS), not from chips. (T
 `IK2`/`IKV2` parts are the program's upper half; their table/font devices are listed in §3.) The
 images validate against **Panasonic's own checksum oracles** — the `SMCK*.INF` files shipped
 alongside them, giving a 32-bit total plus 16-bit sums of every `0x40000` block — with two KN7000
-exceptions. In the SP7001 PLUG-iN set, the shipped program checksum predates the final payload,
-and the table matches except blocks 14–15. Of v1.4 only update disk 2 survives, and its eight
-blocks match.
+exceptions. In the SP7001 PLUG-iN set, both shipped checksums predate the final payload. The
+table's describes the table without the plug-in and with three version markers reading `83` instead
+of `80`, which it matches exactly; the two table disks themselves are byte-identical to the dumped
+table ([SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#the-update-disks)). Of v1.4 only
+update disk 2 survives, and its eight blocks match.
 
-| model                           | oracle        | total        | blocks |
-|---------------------------------|---------------|--------------|--------|
-| KN7000 program v1.6 (build 941) | `SMCKPR1.INF` | `0x18CE8702` | 16/16  |
-| KN7000 program v1.5 (build 935) | `SMCK*.INF`   | `0x18C70719` | 16/16  |
-| KN7000 table                    | `SMCKTB1.INF` | `0x13DCD1A3` | 16/16  |
-| KN6000                          | `SMCKPR1.INF` | `0x166ADB67` | 16/16  |
-| KN6500                          | `SMCKPV1.INF` | `0x157ED142` | 15/15  |
-| KN2400                          | `SMCKPR1.INF` | `0x16DA58C4` | 15/15  |
+| model                           | oracle        | total        | blocks                                                                  |
+|---------------------------------|---------------|--------------|-------------------------------------------------------------------------|
+| KN7000 program v1.6 (build 941) | `SMCKPR1.INF` | `0x18CE8702` | 16/16                                                                   |
+| KN7000 program v1.5 (build 935) | `SMCK*.INF`   | `0x18C70719` | 16/16                                                                   |
+| KN7000 table                    | `SMCKTB1.INF` | `0x13DCD1A3` | 16/16                                                                   |
+| KN7000 SP7001 table (build 83)  | `SMCKTB1.INF` | `0x13B84EFF` | 16/16 for the earlier table it describes; 14/16 against the shipped one |
+| KN6000                          | `SMCKPR1.INF` | `0x166ADB67` | 16/16                                                                   |
+| KN6500                          | `SMCKPV1.INF` | `0x157ED142` | 15/15                                                                   |
+| KN2400                          | `SMCKPR1.INF` | `0x16DA58C4` | 15/15                                                                   |
 
 > ⚠ The KN6000/KN6500/KN2400 oracles sit **inside the self-extracting `.exe`**, not at the top
 > level of the `.zip`. A tool that reads only the archive's top level finds none and will report
@@ -193,7 +196,9 @@ the words out over MIDI or SD. The stock firmware (build 941) never executes cod
 or an expansion board (see [Firmware Robustness & ROM Archival]({{ site.baseurl }}/kn7000-firmware-security/)),
 and no route from MIDI to running code is known, so the routine needs a carrier: a modified
 firmware-update disk, or a plug-in under the SP7001 PLUG-iN release (build 942), which does load
-code from the SD card (see [SD PLUG-iN (SP7001)]({{ site.baseurl }}/kn7000-sd-plugin/)). Either
+code from the SD card: its resident plug-in reads an `.XAP` file of up to `0x1D000` bytes to work RAM
+`0x5029B000` and calls its first byte (see [SD PLUG-iN (SP7001)]({{ site.baseurl }}/kn7000-sd-plugin/)
+and [SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#the-plug-in-in-table-flash)). Either
 replaces the instrument's firmware, so it is acceptable only on a unit whose build is already
 preserved, never on the owner's build-893 unit. Verify against the firmware's own
 [golden checksums](#5-verifying-a-dump). This reaches all four KN7000 wave ROMs (64 MB) without

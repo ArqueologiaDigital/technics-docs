@@ -36,14 +36,21 @@ entry shows *"Falsches Passwort"* (the string lives in the table ROM at
 At the firmware level the check is a small MN10300 call graph in the SP7001 table
 ROM:
 
-| Routine            | Address      | Role                                                                                           |
-|--------------------|--------------|------------------------------------------------------------------------------------------------|
-| OK-button handler  | `0x483e9e1c` | runs the check, then an "apply" that re-validates                                              |
-| check dispatcher   | `0x483ee8e9` | builds the card-derived target (calls `build_param1`, `0x483eef21`), then calls the comparator |
-| comparator         | `0x483ef0af` | transforms the typed key and compares it to the target                                         |
-| per-char transform | `0x483ef234` | one reversible base-35 substitution step                                                       |
-| transform driver   | `0x483ef1ad` | applies the transform across the 16 characters                                                 |
-| keystream table    | `0x483f8b74` | 27 static 20-char records, one per first letter plus one more for pass 2                       |
+| Routine            | Address      | Name in the disassembly            | Role                                                                                           |
+|--------------------|--------------|------------------------------------|------------------------------------------------------------------------------------------------|
+| OK-button handler  | `0x483e9e1c` | `KssActivationOkHandler` (a label) | runs the check, then an "apply" that re-validates                                              |
+| check dispatcher   | `0x483ee8e9` | `KssPasswordCheck`                 | builds the card-derived target (calls `build_param1`, `0x483eef21`), then calls the comparator |
+| activation apply   | `0x483ee921` | `KssActivationApply`               | re-validates through the comparator and records the activation                                 |
+| comparator         | `0x483ef0af` | `KssKeyCompare`                    | transforms the typed key and compares it to the target                                         |
+| per-char transform | `0x483ef234` | `KssKeyCharTransform`              | one reversible base-35 substitution step                                                       |
+| transform driver   | `0x483ef1ad` | `KssKeyTransform`                  | applies the transform across the 16 characters                                                 |
+| keystream table    | `0x483f8b74` | `KssKeystreamRecords`              | 27 static 20-char records, one per first letter plus one more for pass 2                       |
+
+These routines are part of the SP7001's resident plug-in, the `XAPR` block at
+`0x483E8000`–`0x483FB59F` in table flash, which is now disassembled byte-exactly; the
+OK-button address is a point inside a larger dispatcher, so the disassembly keeps it as a
+label. The helpers named below are `KssBuildParam1` (`build_param1`), `KssPad16` and
+`KssHash275`. See [SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#the-plug-in-in-table-flash).
 
 Both the password *check* and the activation *apply* run the comparator, and both
 must pass — forcing only one of them is not enough.

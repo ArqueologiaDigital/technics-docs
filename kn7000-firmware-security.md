@@ -60,8 +60,10 @@ service-mode test: it is called, at entry+2 (which an early caller search missed
 inside `MainRomTestFunc` and from `0x484A501C`. The conclusion below does not rest on it. The stock
 KN7000 program (build 941) contains `XAPR` and `HD-SX3` zero times; the lone `EXTAPR` and `HDDEXT`
 strings that look like support are shared-codebase residue — the KN2400, which has *no expansion
-connector at all*, shows the same singletons. (The SP7001 PLUG-iN release, build 942, does carry
-`XAPR`, for its own plug-in interface — see [SD PLUG-iN (SP7001)]({{ site.baseurl }}/kn7000-sd-plugin/).)
+connector at all*, shows the same singletons. (The SP7001 PLUG-iN release, build 942, brings the
+signature-and-vectors check back, pointed at table flash instead of the expansion window: its
+`PlugInProbe` validates an `XAPR` block at `0x483E8000` and calls entries in that block's header.
+See [SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#the-plug-in-host).)
 
 Three independent reverse‑engineering passes (~0.97 confidence) confirmed there is **no native
 code‑execution vector** and **no memory‑corruption path to the program counter** from the expansion
@@ -89,9 +91,12 @@ into an unbounded buffer (memory‑safety)?
 | **`.HMP` embedded BMP** | fixed‑table | **⚠ unbounded write** | §3.2 |
 
 In build 941 there is no execute-from-SD path of any kind — no overlay loader, no plug-in, no firmware
-update from the card. (The SP7001 PLUG-iN release, program 942 / table 83, adds one: its setup copies
-`BASEEXT.XAP`, MN10300 code, to the card and loads it from there — see
-[SD PLUG-iN (SP7001)]({{ site.baseurl }}/kn7000-sd-plugin/).) Five of the seven parsers are also
+update from the card. (The SP7001 PLUG-iN release, program 942 / table 83, adds one. Its resident
+plug-in in table flash has a loader, `KssPluginLoad`, which reads an `.XAP` file of up to `0x1D000`
+bytes from the floppy or the SD card to work RAM `0x5029B000` and calls its first byte, checking the
+plug-in id and compile id the code returns only after that call; the setup copies `BASEEXT.XAP`, MN10300
+code, to the card for it. See [SD PLUG-iN (SP7001)]({{ site.baseurl }}/kn7000-sd-plugin/) and
+[SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#the-plug-in-in-table-flash).) Five of the seven parsers are also
 cleanly bounded. The two exceptions are the image decoders, and they fail the same way.
 
 ### 3.1 JPEG

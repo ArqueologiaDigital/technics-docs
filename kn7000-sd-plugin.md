@@ -6,6 +6,21 @@ permalink: /kn7000-sd-plugin/
 
 # The SD PLUG-iN (SP7001), and the reserved plug-in region
 
+> ### Update, 2026-10-16 — the plug-in mechanism is traced
+>
+> Program 942, table 83 and `BASEEXT.XAP` are now disassembled byte-exactly, and the
+> mechanism this page asks about is traced end to end; the details are on
+> [SP7001 Firmware: What Changed, and the Plug-in]({{ site.baseurl }}/kn7000-sp7001-firmware/).
+> In short: program 942 is build 941 plus a small **plug-in host** that checks for an `XAPR`
+> block at table address `0x483E8000` and calls entries in its header (the same convention as
+> the KN5000's HD-AE5000 expansion ROM), plus a table of **231 services exported to plug-ins by
+> name** (the µITRON kernel calls, file and compression routines, buffer accessors). The `XAPR`
+> block, written by the second table disk, is Key Soft Service's resident application. It holds
+> the activation gate and a loader, `KssPluginLoad`, which reads an `.XAP` file of up to
+> `0x1D000` bytes from the floppy or SD card to **work RAM `0x5029B000`** and calls its first
+> byte. `BASEEXT.XAP` is such a file, linked for that address. The two table disks are also
+> byte-identical to the dumped table, and the "stale" table checksum is now explained exactly.
+
 > ### Update, 2026-10-08 — the PLUG-iN firmware has now been found
 >
 > The SP7001 program ("v1.6 PLUG-iN") and table updates were located and
@@ -118,11 +133,11 @@ established.)
 
 ## The version picture — and why it matters for dumping
 
-| Firmware                                           | How we know it                                                                                                                                                                                                      | Has the SD PLUG-iN hook?                                                                                                                      |
-|----------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
-| **PROGRAM 893**                                    | the project owner's own instrument (read off its [SOFT VERSION screen]({{ site.baseurl }}/kn7000-soft-version/); partly [recovered by hand]({{ site.baseurl }}/kn7000-build-893-recovery/))                         | almost certainly **no** — it is *earlier* than 941                                                                                            |
-| **PROGRAM 941**                                    | reconstructed from the public [system-update discs]({{ site.baseurl }}/kn7000-system-update-discs/); one of four program builds now preserved (929, upper half only; 935; 941; 942) and MAME's default BIOS (`v16`) | **no** — verified (above)                                                                                                                     |
-| **PROGRAM 942 / TABLE 83** (SP7001 "v1.6 PLUG-iN") | reconstructed in October 2026 from the PLUG-iN update's `.SLD` payloads; MAME BIOS `sp7001` ([mamedev/mame#16394](https://github.com/mamedev/mame/pull/16394))                                                      | **yes** — the update ships `BASEEXT.XAP`, the table carries a PLUG-iN block headed `XAPR` at `0x483E8000`, and program 942 loads that address |
+| Firmware                                           | How we know it                                                                                                                                                                                                      | Has the SD PLUG-iN hook?                                                                                                                                                                                               |
+|----------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **PROGRAM 893**                                    | the project owner's own instrument (read off its [SOFT VERSION screen]({{ site.baseurl }}/kn7000-soft-version/); partly [recovered by hand]({{ site.baseurl }}/kn7000-build-893-recovery/))                         | almost certainly **no** — it is *earlier* than 941                                                                                                                                                                     |
+| **PROGRAM 941**                                    | reconstructed from the public [system-update discs]({{ site.baseurl }}/kn7000-system-update-discs/); one of four program builds now preserved (929, upper half only; 935; 941; 942) and MAME's default BIOS (`v16`) | **no** — verified (above)                                                                                                                                                                                              |
+| **PROGRAM 942 / TABLE 83** (SP7001 "v1.6 PLUG-iN") | reconstructed in October 2026 from the PLUG-iN update's `.SLD` payloads; MAME BIOS `sp7001` ([mamedev/mame#16394](https://github.com/mamedev/mame/pull/16394))                                                      | **yes** — program 942's `PlugInProbe` validates the `XAPR` block at `0x483E8000` and calls its header entries; that block's `KssPluginLoad` loads `.XAP` files such as `BASEEXT.XAP` to RAM `0x5029B000` and runs them |
 
 The owner's instrument runs **893**, which is *older* than 941 and than the SP7001
 build 942. That is the whole reason its firmware is worth archiving — and it is
@@ -138,42 +153,51 @@ also why **SP7001's SD code-load path is not, by itself, a way to dump 893**:
 
 Where the SP7001 interface *does* help the wider project:
 
-- The SP7001 image (program 942 / table 83) is now in hand, so the reserved
-  region and the SD-load protocol can be **characterised exactly** from it and
-  from `BASEEXT.XAP`: the reserved address range, the on-card format of the
-  loaded code, the signature the firmware checks, and the routine that copies
-  card bytes into the region and transfers control. So far the card location is
-  known (the setup copies `BASEEXT.XAP` to `TECHNICS\DATA` on the card), and so
-  is the PLUG-iN block in the table flash (see the open questions below); the
-  loader itself has not been traced.
-- That documented path could then run a **dumper plug-in on an SP7001 unit** — a
-  clean way to read the still-undumped wave, rhythm and picture ROMs over the SD
-  interface, without opening the case. (The `0x4C000000` library is not a
-  separate ROM: it self-loads from program flash, as noted above.)
+- The reserved region and the SD-load protocol are now **characterised exactly**
+  ([SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/)). The resident
+  plug-in in table flash (`0x483E8000`–`0x483FB59F`) is validated by its `XAPR`
+  header and footer. Its loader `KssPluginLoad` (`0x483EEAA9`) reads an `.XAP` of at
+  most `0x1D000` bytes, the first `0x1D000` bytes of the file, to work RAM
+  `0x5029B000` and calls offset 0. It checks the plug-in id and compile id the code
+  returns only *after* that call. The setup copies `BASEEXT.XAP` to `TECHNICS\DATA`
+  on the card.
+- That path could therefore run a **dumper plug-in on an SP7001 unit**: an `.XAP`
+  linked for `0x5029B000`, in place of `BASEEXT.XAP`, is executed when the resident
+  plug-in loads it. That would be a clean way to read the still-undumped wave, rhythm
+  and picture ROMs over the SD interface, without opening the case. It has not been
+  tried, and whether the loader runs before the plug-in is activated has not been
+  traced. (The `0x4C000000` library is not a separate ROM: it self-loads from
+  program flash, as noted above.)
 
 ## Open questions
+
+Answered since the first version of this page
+([details]({{ site.baseurl }}/kn7000-sp7001-firmware/)):
+
+- **Did Technics reserve the region broadly, or only add the loader for the SP7001?**
+  Aligning program 942 against 941 shows the host is **new code** in 942: `PlugInProbe` and
+  three routines that call the plug-in's header entries, 35 forwarders and accessors, and
+  the export table. Build 941 has no dormant hook. The stock table's help text about
+  third-party plug-ins does not have code behind it in 941.
+- **Where is the reserved region?** In two places. The resident plug-in is in table flash at
+  `0x483E8000`–`0x483FB59F`, headed and footed by `XAPR`. Code loaded from the card goes to
+  work RAM `0x5029B000`–`0x502B7FFF` (`0x1D000` bytes).
+- **On-card format and signature of the plug-in code.** An `.XAP` file is a flat image linked
+  for `0x5029B000`, read as exactly `0x1D000` bytes and entered at offset 0. It carries no
+  magic of its own. It identifies itself by the plug-in id and the compile id its entry
+  returns (`BASEEXT.XAP`: id 3).
+
+Still open:
 
 1. **Is the SP7001 release the "Update V2.0" of the product page?** The update
    found is program build 942 / table 83 ("v1.6 PLUG-iN", PLUG-iN V1.0 of
    2003-08-23). Whether the bundled "Update V2.0" is the same release is not
    established.
-2. **Did Technics reserve the region broadly (dormant in 941/893), or only add the
-   loader for the SP7001?** The 941 image shows no dormant
-   signature-probe-and-jump, yet the stock table (build 84, used with programs
-   929, 935 and 941) already carries SD help text, in English, German, French and
-   Spanish, saying that *"Feature extension Plug-Ins by third-party companies can
-   also be installed on SD card"*. A diff of program 942 against 941 would settle
-   it.
-3. **Where is the reserved region?** In the SP7001 image the top of the table half
-   holds the PLUG-iN: a block that begins with an `XAPR` header at `0x483E8000`
-   and runs to `0x483FB59F`, with erased flash on both sides. Program 942, which
-   carries `PLUGIN API` and `XAPR` strings that 941 lacks, loads that address.
-   Where `BASEEXT.XAP` is placed in RAM at run time has not been traced. The
-   vendor says the area is small (the leftover of "one-sixth of the original
-   memory").
-4. **On-card format of the plug-in code and its signature** — now recoverable from
-   `BASEEXT.XAP` and from the SP7001 setup code, which copies `BASEEXT.XAP` from
-   the update floppy to the card's `TECHNICS\DATA` directory. Not yet analysed.
+2. **What does `BASEEXT.XAP` call?** It reaches the firmware only through pointer
+   tables filled at run time (the context at `0x502992E4` and the framework object's
+   method slots), which are not yet named.
+3. **Does the loader run before activation?** The activation gate and `KssPluginLoad`
+   are in the same resident block; the order in which they run has not been traced.
 
 ## Sources
 
@@ -185,4 +209,6 @@ Where the SP7001 interface *does* help the wider project:
 - Disassembly: `GetTtSoftverID` `0x48488AAC`, disk-file dispatcher `0x4852B6B0`,
   `LibRomImageBase` `0x487B8FD1`, task switch `TaskYieldSwitch` `0x487F46D8`
   (see `notes/sd-plugin-interface.md` in the `kn7000_disassembly` repository,
-  which is not published).
+  which is not published). For build 942, table 83 and `BASEEXT.XAP`: `PlugInProbe`
+  `0x48585B95`, `KssPluginLoad` `0x483EEAA9`, `XapEntry` `0x5029B000`
+  (`notes/sp7001-build-diff.md` in the same repository).
