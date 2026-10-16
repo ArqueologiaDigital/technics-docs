@@ -115,6 +115,34 @@ To run under MAME: `kn7000 -bios sp7001 -harddisk <card>`, then press the orange
 button (input "SD CARD LOAD (SW7)"). A clean MAME build needs `-str N` rather than
 `-skip_gameinfo` for an `-autoboot_script` to start.
 
+## Reading files from the SD card
+
+The firmware exports a C-like file API to plug-ins. It is available both by name in program 942 and
+as methods on the framework object (`framework+0x2E1C` slots `+0x2D0`/`+0x2D8`/`+0x2DC` are the same
+three functions):
+
+| call                                                       | address      | returns                    |
+|------------------------------------------------------------|--------------|----------------------------|
+| `fopen_api(a0 = path, a1 = mode)`                          | `0x48585E2A` | `a0` = FILE*, 0 on failure |
+| `fread_api(a0 = buffer, a1 = FILE, d0 = size, d1 = count)` | `0x48585E50` | `d0` = bytes read          |
+| `fclose_api(a0 = FILE)`                                    | `0x48585E65` | —                          |
+
+This is exactly how the firmware loads `BASEEXT.XAP` itself. Three things matter, each learned by
+getting it to work in MAME (and each a pitfall that silently fails or faults otherwise):
+
+- **Call it from the hook, not from a task you created.** On the firmware's own loading task (where
+  the hook runs) it works; called from a task made with `cre_tsk_X` it faults, because that task has
+  no per-task C-runtime. So do the loading in the hook, before handing control to your task.
+- **Write the path with single backslashes**, e.g. `fopen_api("C:\TECHNICS\DATA\MYFILE.BIN", "rb")`.
+  (`xapasm`'s `.asciz` does not interpret escapes, so one `\` in the source is one byte.) The SD card
+  is drive `C:`.
+- **Read into work RAM (`0x50000000`–`0x503FFFFF`), not the `0x44000000` window.** The SD transfer
+  cannot target the external-memory window; a `fread_api` into it returns nothing. Read with
+  `size = 1`, `count = N` to get up to `N` bytes; copy on to `0x44…` with the CPU if you need the
+  larger window. This is what lets an app load data far bigger than the `0x1D000`-byte plug-in file —
+  the route the [Another World port](#a-larger-example-another-world) takes for its game data.
+
+## Demo: an uptime clock
 ## Demo: an uptime clock
 
 `kn5000_homebrew/demos/kn7000_clock` (about 1.2 KB of MN10300 assembly) draws how long the
@@ -139,6 +167,14 @@ counter at that moment.
     make -C kn7000_disassembly baserom/sp7001_baseext.xap
     make -C kn5000_homebrew/demos/kn7000_clock          # build/BASEEXT.XAP
     make -C kn5000_homebrew/demos/kn7000_clock card     # an SD-card image with it in place
+
+## A larger example: Another World
+
+The [Another World](https://en.wikipedia.org/wiki/Another_World_(video_game)) bytecode VM is being
+ported to the KN7000 as a ride-along plug-in that loads its game data from the SD card with the API
+above and blits a 320×200 frame into the LCD. The platform bring-up — code running, the SD read, and
+a full-frame blit that persists on the static SP7001 screen — is done; the interpreter port is in
+progress. Source: the `kn7000/` directory of the Another World repository.
 
 ## Limits and open work
 
