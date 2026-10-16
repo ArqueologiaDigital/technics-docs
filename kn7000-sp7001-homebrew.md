@@ -13,10 +13,13 @@ loading works, what a custom app can call, a toolchain for building one, and the
 with it: an **uptime clock**. It is the KN7000 counterpart of the KN5000's
 [HD-AE5000 extension-ROM homebrew]({{ site.baseurl }}/hdae5000-homebrew/).
 
-> **Status (2026-10-16).** Loading a modified `BASEEXT.XAP` from the SD card works (confirmed by
-> the project owner in MAME). The toolchain below builds an app and a card image; the clock demo
-> (`kn5000_homebrew/demos/kn7000_clock`) is built and statically checked, and is being brought up in
-> MAME. There is no C compiler for the MN10300 yet: apps are hand-written assembly.
+> **Status (2026-10-16).** Custom apps run: the uptime-clock demo
+> (`kn5000_homebrew/demos/kn7000_clock`) works in MAME, alongside the SP7001's own SD features, and
+> loading a modified `BASEEXT.XAP` was also confirmed by the project owner. It has not been tried on
+> an instrument yet. There is no C compiler for the MN10300 yet: apps are hand-written assembly.
+
+![The uptime clock in the bottom-right corner of the SP7001 main screen, in MAME]({{ site.baseurl }}/assets/images/kn7000-uptime-clock.png)
+*The uptime clock (bottom right) over the SP7001 main screen in MAME, 35 seconds after power-on.*
 
 ## How the firmware loads an app
 
@@ -127,6 +130,11 @@ screen, five times a second:
 
 The KN7000 has no real-time clock, so time since power-on is what it can show. The clock appears
 the first time the SD card screen is opened (when the plug-in loads); hours wrap at 100.
+
+`make test` checks it in MAME: it presses the SD CARD button, then reads the eight digit cells
+back out of the frame. On 2026-10-16 the task took slot 10 and the digits read `00:00:19`,
+`00:00:27` and `00:00:35` at 20, 28 and 36 s of emulated time — each the value of the kernel
+counter at that moment.
 
     make -C kn7000_disassembly baserom/sp7001_baseext.xap
     make -C kn5000_homebrew/demos/kn7000_clock          # build/BASEEXT.XAP
