@@ -192,8 +192,8 @@ See [Parameter Records]({{ site.baseurl }}/wsa1-parameters/).
 
 ## KN7000 SP7001 PLUG-iN
 
-- [ ] **What firmware services does `BASEEXT.XAP` call?** It never calls the firmware directly; its services arrive through the context at `0x502992E4` and the framework object's method slots, filled at run time. Naming those slots would name its calls. ([SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#open-questions))
-- [ ] **Does `KssPluginLoad` run before the plug-in is activated?** The activation gate and the `.XAP` loader are in the same resident block in table flash; the order they run in has not been traced. It decides whether an `.XAP` on the SD card runs on a unit that was never activated. ([SD PLUG-iN]({{ site.baseurl }}/kn7000-sd-plugin/#open-questions))
+- [ ] **What firmware services does `BASEEXT.XAP` call?** *Narrowed 2026-10-16:* it calls the firmware only through the MILK framework object's method tables (`obj+0x1C`, `obj+0x2E1C`), 567 of its 1,340 indirect calls resolving there directly. What remains is naming the individual method slots (the MILK method-selector table). ([SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#answered-and-still-open))
+- [x] **Does `KssPluginLoad` run before the plug-in is activated?** *Answered 2026-10-16:* yes. `Ap_Ce_StartUp` loads `BASEEXT.XAP` (reads the latch `0x50299070`, calls `KssPluginLoad(3)`, sets the latch) before reading the activation status `0x502992C4`; the password gate is on user-action paths. So an `.XAP` runs on a never-activated unit. ([SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#answered-and-still-open))
 - [ ] **Is the SP7001 release the "Update V2.0" of Key Soft Service's product page?** The preserved update is program 942 / table 83 ("v1.6 PLUG-iN", PLUG-iN V1.0 of 2003-08-23). ([SD PLUG-iN]({{ site.baseurl }}/kn7000-sd-plugin/#open-questions))
 
 ## Needs Technical Documentation

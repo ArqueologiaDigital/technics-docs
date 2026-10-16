@@ -55,6 +55,11 @@ label. The helpers named below are `KssBuildParam1` (`build_param1`), `KssPad16`
 Both the password *check* and the activation *apply* run the comparator, and both
 must pass — forcing only one of them is not enough.
 
+The licence check is reached from user actions; it does **not** gate loading the base extension.
+At startup the firmware loads `BASEEXT.XAP` (via `KssPluginLoad`) and runs it before it reads the
+activation status, so the plug-in's code runs whether or not the unit was ever activated — the
+password releases the paid features, not the load ([SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#answered-and-still-open)).
+
 ### How the activation algorithm works
 
 The activation password is 16 characters over a **base-35 alphabet** — the digits

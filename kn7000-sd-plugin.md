@@ -187,17 +187,24 @@ Answered since the first version of this page
   magic of its own. It identifies itself by the plug-in id and the compile id its entry
   returns (`BASEEXT.XAP`: id 3).
 
+- **Does the loader run before activation?** Yes. At startup `Ap_Ce_StartUp` reads a
+  "base extension loaded" latch (`0x50299070`); when it is clear it calls `KssPluginLoad(id=3)`
+  to read `BASEEXT.XAP` to `0x5029B000` and run it, then sets the latch, and only *afterwards*
+  reads the activation status (`0x502992C4`). The password gate is on user-action paths. So the
+  base extension loads and runs on a never-activated unit — activation releases features, it does
+  not gate the load.
+- **What does `BASEEXT.XAP` call?** It reaches the firmware only through the framework object's
+  method tables (`obj+0x1C`, `obj+0x2E1C`), not through any fixed address; 567 of its 1,340
+  indirect calls resolve there directly. What remains is naming the individual method slots.
+
 Still open:
 
 1. **Is the SP7001 release the "Update V2.0" of the product page?** The update
    found is program build 942 / table 83 ("v1.6 PLUG-iN", PLUG-iN V1.0 of
    2003-08-23). Whether the bundled "Update V2.0" is the same release is not
    established.
-2. **What does `BASEEXT.XAP` call?** It reaches the firmware only through pointer
-   tables filled at run time (the context at `0x502992E4` and the framework object's
-   method slots), which are not yet named.
-3. **Does the loader run before activation?** The activation gate and `KssPluginLoad`
-   are in the same resident block; the order in which they run has not been traced.
+2. **Naming the MILK method slots** (`obj+0x1C` `+0x108`/`+0x10C`/`+0x2A4`/…, `obj+0x2E1C`
+   `+0x78`/`+0x334`/…) would turn `BASEEXT.XAP`'s indirect calls into named firmware calls.
 
 ## Sources
 

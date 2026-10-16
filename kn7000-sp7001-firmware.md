@@ -42,8 +42,10 @@ The payloads use the standard [`.SLD` container]({{ site.baseurl }}/kn7000-syste
   and the plug-in is appended. That is the precise content of "the SP7001 checksum predates the
   final payload".
 
-The program's `SMCKPR*.INF` mismatches all 16 blocks, so it was likewise written before the final
-build; the program image has not yet been compared against its two disks in the same detail.
+The program's two disks are likewise byte-identical to the dumped program 942: `HAMA1.SLD` and
+`HAMA2.SLD` decompress to exactly `0x000000`–`0x1FFFFF` and `0x200000`–`0x3F8BDA`. Their
+`SMCKPR*.INF` predates the build and matches none of the images held (unlike the table's, there is
+no earlier program image on hand for it to match).
 
 ## Program 942 is build 941 plus a few edits
 
@@ -182,10 +184,17 @@ missing). It is 118,784 = `0x1D000` bytes, an absolute image linked for the addr
 
 `XapEntry` saves the two pointers it is given, initialises, and returns its plug-in object
 (`0x502B1E50`), its compile id, and **plug-in id 3**. It does not call the firmware directly: at no
-load address does any of its `call` instructions land on a known firmware routine, so its firmware
-services must arrive through pointer tables at run time. It links its own copy of the compiler runtime; seven routines
-are byte-identical to named firmware routines: `LibStrncmp`, `LibDiv32`, `abs` and four soft-float
-helpers (`LibF64Unpack`, `LibF64UnpackedToI32`, `LibI32ToF64`, `LibF64Abs`).
+load address does any of its `call` instructions land on a known firmware routine. Instead it is
+handed the firmware's **MILK framework object** — `*(0x50299298)`, which it saves at
+`0x502B4044` — and reaches every firmware service through that object's method tables, `obj+0x1C`
+and `obj+0x2E1C`. Of its 1,340 indirect calls, 567 resolve directly to those two tables (472
+through `+0x1C`, 95 through `+0x2E1C`; the rest go through deeper object chains). This is the same
+dispatch the whole KN7000 UI uses, and the same way the resident plug-in's own init (`func_483E8071`)
+**registers the plug-in's classes** — it calls `obj+0x1C`'s slots `+0xEC` and `+0x130` with class
+ids and name pointers, exactly as the KN5000's HD-AE5000 `Boot_Init` registers its titles. It also
+links its own copy of the compiler runtime; seven routines are byte-identical to named firmware
+routines: `LibStrncmp`, `LibDiv32`, `abs` and four soft-float helpers (`LibF64Unpack`,
+`LibF64UnpackedToI32`, `LibI32ToF64`, `LibF64Abs`).
 
 The load address is the one the loader uses, and the file agrees: 122 of its pointers land on
 function prologues if it is placed at `0x5029B000`, and one if it is placed 16 bytes either side.
@@ -197,26 +206,35 @@ variable, the saved framework object at `0x502B4044`, read 970 times.)
 Everything above is reproduced by the `kn7000_disassembly` repository (unpublished, like its
 source images), whose `notes/sp7001-build-diff.md` gives the full numbers:
 
-| target                      | checks                                                                    |
-|-----------------------------|---------------------------------------------------------------------------|
-| `make verify-sp7001`        | program 942, table 83 and `BASEEXT.XAP` rebuild byte-for-byte from source |
-| `make verify-sp7001-floppy` | the two table disks against the dumped table, and the checksum files      |
-| `make verify`               | build 941 / table 84, with the names carried back from build 942          |
-| `make symbols-sp7001`       | carry the build-941 names to 942/83 and check them against 942's tables   |
+| target                         | checks                                                                    |
+|--------------------------------|---------------------------------------------------------------------------|
+| `make verify-sp7001`           | program 942, table 83 and `BASEEXT.XAP` rebuild byte-for-byte from source |
+| `make verify-sp7001-floppy`    | the two table disks against the dumped table, and the checksum files      |
+| `make verify-sp7001-progdisks` | the two program disks against the dumped program 942                      |
+| `make verify`                  | build 941 / table 84, with the names carried back from build 942          |
+| `make symbols-sp7001`          | carry the build-941 names to 942/83 and check them against 942's tables   |
 
 The sources are generated: program 942 from build 941's function split, conversions and notes,
 carried through the alignment (544 code-region-1 and 437 library functions as MN10300 assembly,
 the 40 new routines among them), table 83 with the plug-in's code as assembly, and `BASEEXT.XAP` as
 loaded at `0x5029B000`.
 
-## Open questions
+## Answered, and still open
 
-1. **What does `BASEEXT.XAP` call?** Its firmware services come through the context at
-   `0x502992E4` and the framework object's method slots, which are filled at run time. Naming those
-   slots would name its calls.
-2. **Does `KssPluginLoad` run before the plug-in is activated?** The activation gate and the loader
-   are in the same block; the order they run in has not been traced.
-3. **Is this release the "Update V2.0" of the product page?** See
-   [SD PLUG-iN]({{ site.baseurl }}/kn7000-sd-plugin/#open-questions).
-4. **Program 942 against its two disks.** The table has been checked against its disks byte for
-   byte; the program (`HAMA1.SLD`, `HAMA2.SLD`) has not yet.
+- **What does `BASEEXT.XAP` call?** (above) It calls the firmware only through the MILK framework
+  object's method tables, `obj+0x1C` and `obj+0x2E1C`. *Naming the individual method slots* —
+  `obj+0x1C`'s `+0x108` (215 calls), `+0x10C`, `+0x2A4`, …, and `obj+0x2E1C`'s `+0x78`, `+0x334`, …
+  — would turn those 1,340 indirect calls into named firmware calls. That is the MILK
+  method-selector table, still to be mapped.
+- **Does `KssPluginLoad` run before the plug-in is activated?** Yes. In `Ap_Ce_StartUp` the load
+  case reads the latch `0x50299070`, calls `KssPluginLoad(id=3)` to read `BASEEXT.XAP` to
+  `0x5029B000` and run it, then sets the latch; the activation status `0x502992C4` is read only
+  after the load returns, and the password gate is on user-action paths. So the base extension
+  loads and runs on a never-activated unit; activation releases features, it does not gate the
+  load. (This is what makes a [dumper plug-in]({{ site.baseurl }}/rom-dumping-roadmap/#method-b--read-it-with-the-instruments-own-cpu-no-desoldering)
+  a clean route: an `.XAP` in place of `BASEEXT.XAP` runs at startup.)
+- **Program 942 against its two disks.** `make verify-sp7001-progdisks`: `HAMA1.SLD` + `HAMA2.SLD`
+  decompress to exactly program 942. Their `SMCKPR*.INF` predates the build (as the table's did),
+  and matches none of the images held.
+- **Is this release the "Update V2.0" of the product page?** Still open — see
+  [SD PLUG-iN]({{ site.baseurl }}/kn7000-sd-plugin/#open-questions).

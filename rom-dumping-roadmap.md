@@ -197,8 +197,10 @@ or an expansion board (see [Firmware Robustness & ROM Archival]({{ site.baseurl 
 and no route from MIDI to running code is known, so the routine needs a carrier: a modified
 firmware-update disk, or a plug-in under the SP7001 PLUG-iN release (build 942), which does load
 code from the SD card: its resident plug-in reads an `.XAP` file of up to `0x1D000` bytes to work RAM
-`0x5029B000` and calls its first byte (see [SD PLUG-iN (SP7001)]({{ site.baseurl }}/kn7000-sd-plugin/)
-and [SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#the-plug-in-in-table-flash)). Either
+`0x5029B000` and calls its first byte, at startup and **without any activation check** (see
+[SD PLUG-iN (SP7001)]({{ site.baseurl }}/kn7000-sd-plugin/) and
+[SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#the-plug-in-in-table-flash)); a dumper
+`.XAP` in place of `BASEEXT.XAP` therefore runs on any SP7001 unit. Either
 replaces the instrument's firmware, so it is acceptable only on a unit whose build is already
 preserved, never on the owner's build-893 unit. Verify against the firmware's own
 [golden checksums](#5-verifying-a-dump). This reaches all four KN7000 wave ROMs (64 MB) without
