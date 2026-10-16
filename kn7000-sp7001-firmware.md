@@ -186,12 +186,17 @@ missing). It is 118,784 = `0x1D000` bytes, an absolute image linked for the addr
 (`0x502B1E50`), its compile id, and **plug-in id 3**. It does not call the firmware directly: at no
 load address does any of its `call` instructions land on a known firmware routine. Instead it is
 handed the firmware's **MILK framework object** — `*(0x50299298)`, which it saves at
-`0x502B4044` — and reaches every firmware service through that object's method tables, `obj+0x1C`
-and `obj+0x2E1C`. Of its 1,340 indirect calls, 567 resolve directly to those two tables (472
-through `+0x1C`, 95 through `+0x2E1C`; the rest go through deeper object chains). This is the same
-dispatch the whole KN7000 UI uses, and the same way the resident plug-in's own init (`func_483E8071`)
-**registers the plug-in's classes** — it calls `obj+0x1C`'s slots `+0xEC` and `+0x130` with class
-ids and name pointers, exactly as the KN5000's HD-AE5000 `Boot_Init` registers its titles. It also
+`0x502B4044` — and reaches every firmware service through that object's method table. Its `+0x1C`
+field points at a **static method vtable in program flash at `0x487280D0`** (a MILK reflection
+table), so each call can be named by reading the slot: `+0xEC` is `RegisterObjectTable`, `+0x108`
+`SendEvent`, `+0x10C` `PostEvent`, `+0x27C` `RegisterTitle`. **639 of the plug-in's 1,340 indirect
+calls resolve through that one table to named firmware methods** — `SendEvent` (285 calls),
+`PostEvent` (89), `InheritedProc` (76), `SetVisible` (65), `GetViewInstance` (35), `SetApTimer`,
+`ApFuncCall`, `GetClientBox`, the drawing/dial/box helpers, `SleepMainTask`/`WakeUpMainTask`. The
+resident plug-in's own init (`func_483E8071`) drives the same table the other way: it calls
+`RegisterObjectTable` (`+0xEC`) with the plug-in's 11 class ids and name tables, exactly as the
+KN5000's HD-AE5000 `Boot_Init` registers its titles. The remaining 701 calls dispatch through other
+MILK objects the plug-in is given or creates (view instances, its own objects). It also
 links its own copy of the compiler runtime; seven routines are byte-identical to named firmware
 routines: `LibStrncmp`, `LibDiv32`, `abs` and four soft-float helpers (`LibF64Unpack`,
 `LibF64UnpackedToI32`, `LibI32ToF64`, `LibF64Abs`).
@@ -221,11 +226,11 @@ loaded at `0x5029B000`.
 
 ## Answered, and still open
 
-- **What does `BASEEXT.XAP` call?** (above) It calls the firmware only through the MILK framework
-  object's method tables, `obj+0x1C` and `obj+0x2E1C`. *Naming the individual method slots* —
-  `obj+0x1C`'s `+0x108` (215 calls), `+0x10C`, `+0x2A4`, …, and `obj+0x2E1C`'s `+0x78`, `+0x334`, …
-  — would turn those 1,340 indirect calls into named firmware calls. That is the MILK
-  method-selector table, still to be mapped.
+- **What does `BASEEXT.XAP` call?** (above) The firmware only, through the MILK framework object.
+  Its `+0x1C` method table is a static vtable at `0x487280D0`, so 639 of the plug-in's 1,340
+  indirect calls are named firmware methods (`SendEvent`, `PostEvent`, `SetVisible`,
+  `GetViewInstance`, …). The remaining 701 dispatch through other MILK objects it is handed or
+  creates; naming those needs their object vtables pinned.
 - **Does `KssPluginLoad` run before the plug-in is activated?** Yes. In `Ap_Ce_StartUp` the load
   case reads the latch `0x50299070`, calls `KssPluginLoad(id=3)` to read `BASEEXT.XAP` to
   `0x5029B000` and run it, then sets the latch; the activation status `0x502992C4` is read only

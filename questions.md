@@ -192,7 +192,7 @@ See [Parameter Records]({{ site.baseurl }}/wsa1-parameters/).
 
 ## KN7000 SP7001 PLUG-iN
 
-- [ ] **What firmware services does `BASEEXT.XAP` call?** *Narrowed 2026-10-16:* it calls the firmware only through the MILK framework object's method tables (`obj+0x1C`, `obj+0x2E1C`), 567 of its 1,340 indirect calls resolving there directly. What remains is naming the individual method slots (the MILK method-selector table). ([SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#answered-and-still-open))
+- [x] **What firmware services does `BASEEXT.XAP` call?** *Answered 2026-10-16:* the firmware only, through the MILK framework object. Its `+0x1C` method table is a static vtable at `0x487280D0`, so 639 of the plug-in's 1,340 indirect calls are named firmware methods — `SendEvent` (285), `PostEvent` (89), `SetVisible` (65), `GetViewInstance` (35), … The other 701 go through MILK objects it creates (their vtables not yet pinned). ([SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#answered-and-still-open))
 - [x] **Does `KssPluginLoad` run before the plug-in is activated?** *Answered 2026-10-16:* yes. `Ap_Ce_StartUp` loads `BASEEXT.XAP` (reads the latch `0x50299070`, calls `KssPluginLoad(3)`, sets the latch) before reading the activation status `0x502992C4`; the password gate is on user-action paths. So an `.XAP` runs on a never-activated unit. ([SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#answered-and-still-open))
 - [ ] **Is the SP7001 release the "Update V2.0" of Key Soft Service's product page?** The preserved update is program 942 / table 83 ("v1.6 PLUG-iN", PLUG-iN V1.0 of 2003-08-23). ([SD PLUG-iN]({{ site.baseurl }}/kn7000-sd-plugin/#open-questions))
 
