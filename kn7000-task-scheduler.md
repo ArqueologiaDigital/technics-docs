@@ -18,13 +18,19 @@ disk worker (MILK task 8, created by `DiskInit`; see
 
 ## The two tasks
 
-The currently-running task and the main task are identified by handles kept in
+The main task and the currently-running task are identified by handles kept in
 work RAM:
 
-| Global | Meaning |
-|--------|---------|
-| `0x50380004` | handle of the **currently running** task |
-| `0x5038002C` | handle of the **main** task |
+| Global       | Meaning                                                              |
+|--------------|----------------------------------------------------------------------|
+| `0x50380004` | handle (TCB) of task 1, the **main** task                            |
+| `0x5038002C` | handle (TCB) of the **currently running** task                       |
+
+(An earlier version of this page had the two labels the other way round. `cre_tsk`
+indexes `0x50380000` by task id to reach a task's TCB, so `0x50380004` is task 1's, and
+the dispatcher writes the next task's TCB to `0x5038002C` when it switches; read at boot,
+both hold `0x50381470` because the main task is the one running. See
+[Kernel tasks and the tick](#kernel-tasks-and-the-tick-build-942).)
 
 Code decides "am I the main or the AP task?" by comparing them — exactly what the
 event layer's `GetCurrentObjectId` helper (`func_48414A4F` in the disassembly) does
@@ -33,16 +39,37 @@ before it picks the active task's focused-object id (`0x500D3C60` for main,
 [event page]({{ site.baseurl }}/kn7000-event-system/)). So each task carries its own focused UI
 object, and the event dispatcher always acts on the running task's object.
 
+## Kernel tasks and the tick (build 942)
+
+Read from the SP7001 firmware (program 942) and measured in MAME
+(`notes/sp7001-probes/rate_probe.lua` in `kn7000_disassembly`):
+
+| what             | value                                                                                                                                                                                                                                                                    |
+|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| task slots       | `cre_tsk` (`0x4C03D46B`; 941 `0x4C03D0C8`) takes a task's TCB from `0x50380000`, one pointer per task id, **ids 0–10**; `0xFFFFFFFF` marks a free slot (the next word, `0x5038002C`, is the running task)                                                                |
+| tasks at boot    | ids 0, 1, 2, 3, 4, 7 and 8; ids 5 and 6 are created on demand; 9 and 10 are free (no task-creation call passes them as a constant)                                                                                                                                       |
+| task 1 (main)    | entry `0x4C02BC27` (the library main loop), stack `0x6000`                                                                                                                                                                                                               |
+| task 8           | `DiskWorkerTask` `0x4854AD7F`, stack `0xC00`                                                                                                                                                                                                                             |
+| priority         | every firmware task runs at **3** (attribute 1, `TA_HLNG`); they share one ready queue                                                                                                                                                                                   |
+| task descriptors | standard micro-ITRON 3.0 `T_CTSK`: exinf `+0`, attribute `+4`, entry `+8`, priority `+0x0C` (16-bit), stack size `+0x10`; the kernel allocates the stack                                                                                                                 |
+| kernel tick      | `KernelTickHandler` (`0x4C02BB5F`; build 941 `0x4C02BB05`) increments `0x500D3C68` (941: `0x500D3C58`) at **1 kHz** (measured 999.5/s); it starts about 0.27 s after power-on, so it is milliseconds since the instrument was switched on                                |
+| second time base | every other tick it calls `TimeBase2msTick` (`0x484D7920`; 941 `0x484D7931`), which increments `0x50151C0C` (941: `0x50151BFC`): **2 ms** units, 499.8/s in both builds. Earlier notes called `0x50151BFC` a 1 kHz tick; it is not. `GetTimBase` returns its low 16 bits |
+| `dly_tsk(ms)`    | `0x4C03E295`: adds `ms` to `0x500D3C68` and loops on a kernel ready-queue rotation until that time, so it yields only to tasks of the same priority                                                                                                                      |
+
+These services are exported to SP7001 plug-ins by name; the
+[KN7000 Custom SD Apps]({{ site.baseurl }}/kn7000-sp7001-homebrew/) page uses them to run a task
+of its own.
+
 ## Sleep / wake API
 
 Four thin entry points let code hand control back and forth:
 
-| Function | CPU addr | Effect |
-|----------|----------|--------|
-| `SleepMainTask` | `0x48414B8D` | suspend the main task |
-| `WakeUpMainTask` | `0x48414BA7` | resume the main task |
-| `SleepApTask` | `0x48414BC1` | suspend the AP task |
-| `WakeUpApTask` | `0x48414BDB` | resume the AP task |
+| Function         | CPU addr     | Effect                |
+|------------------|--------------|-----------------------|
+| `SleepMainTask`  | `0x48414B8D` | suspend the main task |
+| `WakeUpMainTask` | `0x48414BA7` | resume the main task  |
+| `SleepApTask`    | `0x48414BC1` | suspend the AP task   |
+| `WakeUpApTask`   | `0x48414BDB` | resume the AP task    |
 
 Each is a one-line wrapper that builds a **task-control message** and dispatches
 it — decoded straight from the source (`SleepMainTask`):

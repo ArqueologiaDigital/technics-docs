@@ -122,7 +122,7 @@ interrupt enable. Only this pairing makes `loc_cpu` and `dis_int` clear it (`and
 The 231 exports are 64 library routines (the µITRON kernel services, `rand`, `srand`, …), 132
 firmware functions (`ResetSdSavePM3Bank`, `PutM3Non`, …) and the 35 new forwarders and accessors,
 which the firmware itself calls `cre_tsk_X`, `snd_msg_X`, `malloc_X`, `fopen_api`, `decomp`,
-`putstr`, `GetVRAMAddr` (it returns the frame buffer), `GetWRAMAddr` and so on. **228 of these
+`putstr`, `GetVRAMAddr` and `GetWRAMAddr` (they return the two draw planes the compositor turns into the LCD frame), `GetTimBase` (a 2 ms counter) and so on. **228 of these
 names are new**: build 941's tables never named those routines. Because the routines exist in
 build 941 too, 186 of the names also apply to it, and they are now used in build 941's disassembly;
 the other 42 are exactly the code that only build 942 has.

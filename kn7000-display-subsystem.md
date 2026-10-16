@@ -126,6 +126,18 @@ The display hardware is one controller and one buffer:
   Pictures reach it as 12-bit direct colour from two work-RAM planes
   (`0x500D4080`, `0x500F9880`), not as palette indices.
 
+### The compositor
+
+The routine that turns the planes into the frame is at `0x48414D40` in build 942. It
+redraws **one rectangle at a time**: for each pixel it reads a byte from the first plane
+(`0x500D4090` in build 942, returned by `GetVRAMAddr`); if its top nibble is `0xD`, the pixel
+is direct colour (red in that byte's low nibble, green and blue in the second plane,
+`0x500F9890`, returned by `GetWRAMAddr`), otherwise the byte is a palette index looked up in
+the RGB565 table at `0x50122ABC`. The result goes to `0x9CE00000`. Only rectangles the
+firmware redraws are recomposited, so a pixel written straight into the frame stays until the
+firmware repaints that spot — which is how the
+[uptime clock demo]({{ site.baseurl }}/kn7000-sp7001-homebrew/#demo-an-uptime-clock) draws.
+
 `0x34000000` is not a display bank. It holds the MN103002A's own on-chip
 registers: the interrupt controller's `GxICR` at `0x34000108`–`0x3400017F`,
 `EXTMD` at `0x34000280`, the serial channels at `0x34000800` and the timers at

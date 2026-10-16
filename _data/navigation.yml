@@ -132,6 +132,8 @@
           url: /kn7000-sp7001-firmware/
         - title: "SP7001 Activation & Key Generator"
           url: /kn7000-sp7001-activation/
+        - title: "Custom SD Apps (.XAP) & the Uptime Clock"
+          url: /kn7000-sp7001-homebrew/
 
 - title: Technics KN6000 / KN6500
   released: 1999
