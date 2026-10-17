@@ -41,21 +41,35 @@ codebase.
 UI artwork is stored as **headerless palette-indexed bitmaps** (the same design
 as the KN5000 — see
 [Raw UI bitmaps]({{ site.baseurl }}/kn7000-image-gallery/#raw-ui-bitmaps-table-rom)). Pixels are
-raw palette indices, row-major; the bit depth is 2, 4 or 8 bpp. The blit API has
-a **dedicated fast path per depth**, which is how the depths are known:
+raw palette indices, row-major, at 1, 2, 4 or 8 bpp. The blit API has one
+routine per source format, which is how the depths are known:
 
-| Function | CPU addr | Depth |
-|----------|----------|-------|
-| `DrawBitmapSPFast4` | `0x484243CD` | 2 bpp (4 colours) |
-| `DrawBitmapSPFast16` | `0x484245BC` | 4 bpp (16 colours) |
-| `DrawBitmapSPFast256` | `0x48424784` | 8 bpp (256 colours) |
-| `DrawBitmap` / `DrawBitmapFast` | `0x48423B56` / `…3C88` | generic |
-| `DrawBitmapSP` / `…SP2` | `0x484240A4` / `…48DE` | sprite (transparent) |
-| `DrawBitmapFile` / `…FileEx` | `0x48424A9F` / `…4CC8` | from a bitmap-file struct |
-| `DrawIcons` / `DrawJpegFile[R]` | `0x48423DCD` / `…4EBD` | icon sheet / JPEG |
+| Function              | CPU addr     | Source                                                                       | Skips 0xF7 |
+|-----------------------|--------------|------------------------------------------------------------------------------|------------|
+| `DrawBitmap`          | `0x48423B56` | bitmap-table entry, 8 bpp                                                    | yes        |
+| `DrawBitmapFast`      | `0x48423C88` | bitmap-table entry, 8 bpp, rows copied whole                                 | no         |
+| `DrawIcons`           | `0x48423DCD` | icon-table entry, always 24 x 24 at 4 bpp (nibble n -> index n or 0xF0+n)    | no         |
+| `DrawFrameSP`         | `0x48423EFB` | frame-table entry, 8 bpp; 0xF6 = the caller's colour                         | yes        |
+| `DrawBitmapSP`        | `0x484240A4` | caller's pointer, 8 bpp                                                      | yes        |
+| `DrawBitmapSPFast`    | `0x4842429E` | caller's pointer, 8 bpp, rows copied whole                                   | no         |
+| `DrawBitmapSPFast4`   | `0x484243CD` | caller's pointer, 2 bpp; loads 4 colours at a caller-chosen palette index    | no         |
+| `DrawBitmapSPFast16`  | `0x484245BC` | caller's pointer, 4 bpp, drawn as indices 0x20..0x2F; loads those 16 colours | no         |
+| `DrawBitmapSPFast256` | `0x48424784` | caller's pointer, 8 bpp; loads palette entries 0x20..0xCF first              | no         |
+| `DrawBitmapSP2`       | `0x484248DE` | caller's pointer, 1 bpp, foreground and background colour                    | no         |
+| `DrawBitmapFile`      | `0x48424A9F` | Windows BMP in memory, 1/4/8 bpp, pixels + 0x20; loads palette 0x20..0xCF    | no         |
+| `DrawBitmapFileEx`    | `0x48424CC8` | the same BMP, but it only loads the palette and marks the rectangle dirty    | -          |
+| `DrawJpegFile`        | `0x48424EBD` | JPEG, decoded straight to direct-colour picture pixels                       | no         |
+| `DrawJpegFileR`       | `0x48424F7D` | the same, with rounded corners (8 pixels per corner keep the background)     | no         |
 
-The **`SP` ("sprite") variants honour a transparent index** — index **`0xF7`**,
-the KN5000's transparent colour, which the extracted 8-bpp icons use heavily.
+Only `DrawBitmap`, `DrawBitmapSP` and `DrawFrameSP` skip pixels of index
+**`0xF7`** (`CL_Transparent`, the KN5000's transparent colour, which the
+extracted 8-bpp icons use heavily); the `SP` in the other names does not mean
+transparency. None of the blitters clips horizontally: an image wider than
+`640 - x` runs on into the next framebuffer row. The table and pointer
+blitters stop at the first row at `y >= 240`; the JPEG path has no such stop.
+Every routine has a fully labelled and commented listing in the disassembly
+(`annotations/gfx_draw.ann`, rendered into `src/program.s`).
+
 Primitive drawing is provided too: `DrawLine`/`DrawLineEx`, `DrawBox`,
 `DrawFrame`/`DrawFrameEx`/`DrawFrameSP`, `DrawCircle`.
 
