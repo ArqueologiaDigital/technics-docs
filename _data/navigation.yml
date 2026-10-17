@@ -272,6 +272,8 @@
           url: /subcpu-command-format/
         - title: Sound Parameter Protocol
           url: /sound-parameter-protocol/
+        - title: Panel Parameter Keys
+          url: /panel-parameter-keys/
         - title: Driving the Panel Link from Firmware
           url: /serial-firmware-compatibility/
         - title: Control-Panel Serial Timing
