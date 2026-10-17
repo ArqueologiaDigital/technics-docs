@@ -319,7 +319,7 @@ C files — one per block above where the block is descriptor data: `control_men
 `naka_style_bitmaps.c`, `naka_widget_names_charmap.c`, `naka_widget_tables_1.c`,
 `naka_widget_tables_2.c`, `naka_widget_descriptors.c`, `naka_accomp7_widgets.c`,
 `naka_block_007.c`, `naka_block_012.c` — plus two lookup tables, `sound_config_lookup.c`
-(`NakaInst_SoundConfig_LookupTable`) and `tonekit_param_blocks.c` (labelled "ToneKit", but
+(`SndParam_InitFuncTable`, the sound-parameter subsystem's four init-phase handlers) and `tonekit_param_blocks.c` (labelled "ToneKit", but
 the blocks are the DSP effect-parameter defaults records that the `DSPCfg_*` routines read; see
 [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/#the-main-cpu-holds-the-same-metadata-and-reads-it)).
 
