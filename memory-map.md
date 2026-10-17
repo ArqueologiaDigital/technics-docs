@@ -61,6 +61,16 @@ is where v7 differs: its destination is 0x9C lower and it is 42 bytes shorter.
 That fits the uiproc lane's measurement that v7's UI and panel RAM variables sit
 exactly 0x9C below v9/v10's.
 
+The 42 bytes hold something v9 and v10 have and v7 lacks, the **part-control event queue**:
+`PartCtrl_EventQueue[10]` (`{u16 code; u8 c; u8 e}`) and its count
+`PartCtrl_EventQueueCount`, at image-2 offset `+0x32`. v9/v10 fill it with
+`PartCtrl_AppendToEventQueue`, a routine v7 does not have. Every other byte of
+image 2 is the same in all three versions. v7's copy simply closes the gap: the
+"KN3000 SOUND RAM" signature, the VGA init palette and the note-map link lists
+all sit 42 bytes lower. `scripts/converters/port_workram_image2_types_to_v7.py`
+asserts the relationship byte for byte, and v7's C source now types image 2 the
+same way v10's does.
+
 **Why this matters for reverse engineering:** byte `0xEED8C8 + k` is the
 power-on value of RAM `0x3D524 + k`, and byte `0xEEFA66 + k` that of
 `0xE35E + k`. The code reads the RAM copy, not the ROM bytes. A search for
