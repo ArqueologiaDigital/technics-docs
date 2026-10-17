@@ -54,7 +54,7 @@ If the pointer target doesn't have a label, ADD one. Every function, data table,
 Never leave numeric displacements in branch instructions when the target has a label.
 
 **Bad:** `calr 64899`
-**Good:** `calr HdaeRom_DataDispatch_Block`
+**Good:** `calr SoundRam_WriteIdAndChecksum`
 
 ### Rule 3: Use `addr24` with labels, not `_addr24_*` constants
 

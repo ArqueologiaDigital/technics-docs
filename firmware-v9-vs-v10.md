@@ -16,13 +16,13 @@ Both ROMs are exactly 2 MB (2,097,152 bytes). Of those, **13,517 bytes differ** 
 
 ### 1. SubCPU Data Block Transfer: Two Small Fixes
 
-The only code changes are two small edits in `audio/note_voice_mapping.s`, both described under The Engineering Story below. `SendPartDataBlock_DoGetError` gains an error check (+11 bytes), and the routine at `HdaeRom_DataDispatch_Block` turns its tail jump to `SendPartDataBlock_SetWord7` into a call followed by `ld hl, 0` and `ret` (+3 bytes). Every other differing byte is an address or branch displacement moved by those 14 bytes, apart from the version byte and the main-program version number.
+The only code changes are two small edits in `audio/note_voice_mapping.s`, both described under The Engineering Story below. `SendPartDataBlock_DoGetError` gains an error check (+11 bytes), and the routine at `SoundRam_WriteIdAndChecksum` turns its tail jump to `SendPartDataBlock_SetWord7` into a call followed by `ld hl, 0` and `ret` (+3 bytes). Every other differing byte is an address or branch displacement moved by those 14 bytes, apart from the version byte and the main-program version number.
 
 The v10 version adds **14 bytes** of net code growth. Because both source trees use symbolic label references for function calls and data pointers, this address shift is invisible in the source diff — the linker resolves all labels automatically.
 
 ### 2. HDAE5000 Extension Data Handler
 
-`HdaeRom_DataHandler` and `HdaeRom_DataDispatch` sit just after the first edit and move by 11 bytes. Aligned for that shift, their code is unchanged apart from three bytes of moved addresses; the dispatch table and the transfer protocol did not change. The second edit described under The Engineering Story is at the end of `HdaeRom_DataDispatch_Block`: the tail jump `jrl SendPartDataBlock_SetWord7` (v9 `0xFF03EA`) became `calr SendPartDataBlock_SetWord7`, `ld hl, 0`, `ret` (+3 bytes).
+`HdaeRom_DataHandler` and `HdaeRom_DataDispatch` sit just after the first edit and move by 11 bytes. Aligned for that shift, their code is unchanged apart from three bytes of moved addresses; the dispatch table and the transfer protocol did not change. The second edit described under The Engineering Story is at the end of `SoundRam_WriteIdAndChecksum`: the tail jump `jrl SendPartDataBlock_SetWord7` (v9 `0xFF03EA`) became `calr SendPartDataBlock_SetWord7`, `ld hl, 0`, `ret` (+3 bytes).
 
 ### 3. Flash Memory Save/Restore Adjustments
 
@@ -131,7 +131,7 @@ None of the five single-byte differences listed here is an independent fix. Item
 
 ### Conclusion
 
-**The v9-to-v10 update was a small, targeted code change.** v10 makes `SendPartDataBlock_DoGetError` send its `0xFF`/`0xFF` message only while the flag byte at `0x1E53E` reads `0xFF`, and makes `HdaeRom_DataDispatch_Block` return `HL = 0`. What that message does on the sub-CPU side, and so which user-visible fault the change addresses, has not been established.
+**The v9-to-v10 update was a small, targeted code change.** v10 makes `SendPartDataBlock_DoGetError` send its `0xFF`/`0xFF` message only while the flag byte at `0x1E53E` reads `0xFF`, and makes `SoundRam_WriteIdAndChecksum` return `HL = 0`. What that message does on the sub-CPU side, and so which user-visible fault the change addresses, has not been established.
 
 The fix was surgical: add 14 bytes of error checking code, fix a return value corruption path, and let the existing 0xFF padding absorb the growth.
 
