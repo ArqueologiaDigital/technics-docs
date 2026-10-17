@@ -288,7 +288,8 @@ code that is *not* the kernel:
 | kernel routines (≥ 20 instr) | 20 | 1.000 | **0.909** | **20** |
 | non-kernel foils, same lengths | 26 | **0.333** | 0.212 | **0** |
 
-No overlap, a gap of 0.41. `prom_b` — same product, same compiler, no kernel —
+No overlap, a gap of 0.41. `prom_b` — same product, no kernel, and code from a different
+compiler (see [Original Toolchain]({{ site.baseurl }}/original-toolchain/)) —
 tops out at 0.28, so it is not measuring the compiler; shuffling the query's
 token order collapses the score, so it is measuring *order*, not vocabulary. Two
 threshold-free instruments agree: the 26 sites appear in ROM order as a **21-long

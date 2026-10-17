@@ -169,7 +169,7 @@ top-level map as recorded in `table_data/kn5000_table_data.s`; see
 | `0x9FEC6E - 0x9FF228` | Boot-time CP-serial driver, polling/setup half |
 | `0x9FF229 - 0x9FF2F1` | Boot-time CP-serial ISRs (three handlers + two `.long` dispatch tables) |
 | `0x9FF2F2 - 0x9FFB2E` | Boot-time CP-serial state handlers and packet codecs |
-| `0x9FFB2F - 0x9FFE7F` | Boot C runtime: first-fit heap (list head at RAM `0x0099A0`), `memcmp`, 32-bit divide/modulo |
+| `0x9FFB2F - 0x9FFE7F` | Boot C runtime (Toshiba `c900ml.lib`): first-fit heap (list head at RAM `0x0099A0`), `strncmp`, 32-bit divide/modulo |
 | `0x9FFE80 - 0x9FFEDF` | Debug character-output group — present but NOP-patched out in shipped firmware |
 | `0x9FFEE0 - 0x9FFEFF` | `RESET_HANDLER` |
 | `0x9FFF00 - 0x9FFFFF` | TMP94C241F interrupt vector table (entries hold boot-time `0xFFxxxx` addresses) |

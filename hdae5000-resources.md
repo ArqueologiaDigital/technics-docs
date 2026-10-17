@@ -185,7 +185,7 @@ Structure of the descriptor array at `0x2A5D2C`:
 
 All 20 RAM-descriptor entries are soft-key or tab objects (`HddNamingABC` / `abc` / `Symbol`, `*_SW_EDIT`, `CP_FD_HDSW*`, `*_EXIT`, `*inLyric`).
 
-The name array at `0x2A6984` points into the string pool at `0x2A75DC`. **178 of the 789 objects carry a name**; the other 611 point at an empty string. The pool is stored in *reverse* index order — the original toolchain emitted the literals in reverse order of declaration — so `HdaeUiName_789` is first in memory and `HdaeUiName_000` (`HDDMENU`) is last, ending exactly at `0x2A849A` where the screen-name block begins.
+The name array at `0x2A6984` points into the string pool at `0x2A75DC`. **178 of the 789 objects carry a name**; the other 611 point at an empty string. The pool is stored in *reverse* index order — a layout observation; that the compiler emits literals in reverse order of declaration has not been tested — so `HdaeUiName_789` is first in memory and `HdaeUiName_000` (`HDDMENU`) is last, ending exactly at `0x2A849A` where the screen-name block begins.
 
 ### Why the names can be trusted
 

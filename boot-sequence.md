@@ -311,7 +311,8 @@ page.
 
 #### Boot C Runtime (0xFFFB2F-0xFFFE7F)
 
-The bootloader links a small compiler-runtime/libc subset. Every block, free or
+The bootloader links a small subset of Toshiba's C runtime library, `c900ml.lib` (see
+[Original Toolchain]({{ site.baseurl }}/original-toolchain/)). Every block, free or
 allocated, carries a 6-byte header: `u32 next`, `u16 size`, then the data the caller sees.
 
 | routine | boot address | notes |
@@ -329,8 +330,10 @@ Only two callers use the heap: `Boot_DetectDiskType` (sector-signature buffer) a
 The divide runtime is the compiler's, not the bootloader's: the same routine is linked
 into the main CPU firmware (`DivMod32` / `Math_DivideU32`) and into the HD-AE5000
 extension ROM (`HDAE5000_UMod32` / `HDAE5000_UDivMod32` at 0x29B8BF /
-0x29B8C5). The three copies share the algorithm and the entry structure but are not
-byte-identical — a few instruction encodings differ. The HD-AE5000 labels used to be
+0x29B8C5). It is Toshiba's LDIVL.ASM (`C9H_remlu` = `DivMod32`, `C9H_divlu` / `udiv32` =
+`Math_DivideU32`). The bootloader's copy and the main CPU's are the same 96 instructions. The
+HD-AE5000's copy differs by one instruction: it has `stcf 0,BC` + `rrc 1,XBC` where the others
+have `rr 1,XBC`. That marks an older release of Toshiba's library, not a re-encoding. The HD-AE5000 labels used to be
 `HDAE5000_Divide_Unsigned` / `HDAE5000_Divide_Signed`, swapped with respect to the code.
 The hdae lane renamed them in September 2026 (`scripts/renaming/rename_hdae5000_libc.sed`):
 0x29B8C5 is the unsigned core, and 0x29B8BF its modulo entry.

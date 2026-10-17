@@ -64,7 +64,9 @@ rather than `.incbin` passthrough or code spelled as `.byte`. What is genuinely 
   the sub-CPU payload; HD-AE5000 v1.10i, v1.15i and v2.01i. v8 differs from v9 by the version byte alone, so it is the cheapest of
   them by a wide margin.
 - **A C port beyond data.** The C files in the tree are all `__attribute__((packed))` struct
-  initializers; **no firmware routine is written in C yet.** Converting leaf functions while
+  initializers; **no routine of the reconstruction is expressed as C yet**, although the original
+  firmware is mostly C compiled by Toshiba's TLCS-900 compiler ([Original Toolchain]({{ site.baseurl }}/original-toolchain/)).
+  Converting leaf functions while
   holding byte-identity is open work with a working compiler behind it.
 
 ### HDAE5000 ROM Disassembly

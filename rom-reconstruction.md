@@ -221,7 +221,7 @@ Symbol counts follow, from each file's generated header at disassembly `3417969c
 | Boot FDC command-layer driver                | 0x9FD8A5–0x9FEA9C | `table_data/boot_fdc_driver.s` (2,316 lines)                                                                                                                                                                                                                                                |
 | Boot disk-format probe                       | 0x9FEB2B–0x9FEC6D | `table_data/boot_disk_probe.s`                                                                                                                                                                                                                                                              |
 | Boot CP-serial driver                        | 0x9FEC6E–0x9FFB2E | `table_data/boot_cpserial.s` + `table_data/boot_cpserial_isr.s` + `table_data/boot_cpserial_states.s`                                                                                                                                                                                       |
-| Boot C runtime (heap, memcmp, divide)        | 0x9FFB2F–0x9FFE7F | `table_data/boot_clib.s`                                                                                                                                                                                                                                                                    |
+| Boot C runtime (heap, strncmp, divide)       | 0x9FFB2F–0x9FFE7F | `table_data/boot_clib.s`                                                                                                                                                                                                                                                                    |
 | Boot debug group (NOP-patched out)           | 0x9FFE80–0x9FFEDF | `table_data/boot_debug.s`                                                                                                                                                                                                                                                                   |
 | Sub-CPU DSP data zones A0 / A / B            | 0x00F7E6–0x01E17E | carved into labelled tables in `v142/subcpu/subcpu_data_tables.s`                                                                                                                                                                                                                           |
 | Sub-CPU boot data region                     | 0xFF8000–0xFF828F | eight objects in `subcpu/boot/kn5000_subcpu_boot.s`: an 8-entry command-handler jump table, a RAM-test descriptor and the tone-generator velocity/touch front end                                                                                                                           |
@@ -1193,7 +1193,9 @@ Structured data is source as typed C rather than byte arrays wherever the shape 
 sound-data tables in `audio/sound_data_*.c` and 27 NAKA widget descriptor blocks (plus two
 lookup tables) in `ui_widgets/` are `__attribute__((packed))` struct initializers with named
 fields and `_Static_assert` size checks, compiled and `.incbin`'d so the ROM stays
-byte-identical. These are data only — **no firmware routine is written in C**; see
+byte-identical. These are data only — **no routine of the reconstruction is expressed as C
+source yet**, although the original firmware is mostly compiled C (Toshiba's TLCS-900 compiler;
+see [Original Toolchain]({{ site.baseurl }}/original-toolchain/)); see
 [ScreenData C conversion]({{ site.baseurl }}/screendata-c-conversion/) and [UI Widget
 Types]({{ site.baseurl }}/ui-widget-types/).
 

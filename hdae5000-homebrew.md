@@ -1351,6 +1351,8 @@ ld   xiz, (xiz)                        ; then dereference
 
 **Resolution (Feb 28, 2026):** The original analysis assumed XBC held the first parameter and XDE the second. Investigation of `TLCS900CallingConv.td` confirmed the calling convention has always been XDE-first (`CCAssignToReg<[XDE, XBC, XIX, XIY]>`). With the correct parameter mapping, the generated code was correct all along. The `__attribute__((noinline))` workaround has been removed.
 
+> **Calling into the firmware:** this XDE-first convention is the project backend's own. The firmware's C functions were compiled by Toshiba's cc900 with `__adecl`: the first three arguments in XWA, XBC and XDE, the rest on the stack, removed by the callee with `retd`, and the result in XHL. Its library routines use `__cdecl`: all arguments on the stack, removed by the caller. Homebrew code that calls a firmware routine must follow those orders. See [Original Toolchain]({{ site.baseurl }}/original-toolchain/).
+
 ### Bug 11: For-Loop with uint16_t Counter Exits After 1 Iteration — FIXED
 
 **Fix (Feb 28, 2026):** originally commit `eba2fe6622ee`, kept on branch `tlcs900_backend_backup_20260418`. On `tlcs900_backend` it is part of the squashed commit `e90ba8f16b19` (2026-04-18). Root cause: `EXTS32` and `EXTZ32` were declared with `Defs=[SR]` in `TLCS900InstrInfo.td`, telling the compiler they set flags. On TLCS-900/H hardware, EXTS/EXTZ do NOT set any flags (confirmed via MAME's `op_EXTZLR` and `op_EXTSLR` implementations).

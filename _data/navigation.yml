@@ -36,6 +36,8 @@
       url: /questions/
     - title: TLCS-900 Toolchain
       children:
+        - title: Original Toolchain (Toshiba cc900)
+          url: /original-toolchain/
         - title: LLVM Semantic Instructions
           url: /llvm-semantic-instructions/
         - title: TLCS-900 Instruction Encoding
