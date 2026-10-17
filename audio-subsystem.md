@@ -215,19 +215,19 @@ The `MIDI_Dispatch` routine parses MIDI-like status bytes and routes to handlers
 
 The `Voice_CtrlChange` handler supports these controllers:
 
-| CC#       | Handler                                    | Parameter                                                                                         |
-|-----------|--------------------------------------------|---------------------------------------------------------------------------------------------------|
-| 0x01      | `Voice_CC_ModWheel`                        | Modulation Wheel                                                                                  |
-| 0x07      | `Voice_CC_Volume`                          | Main Volume                                                                                       |
-| 0x0A      | `Voice_CC_Pan`                             | Pan/Balance                                                                                       |
-| 0x0B      | `Voice_CC_Expression`                      | Expression                                                                                        |
-| 0x40      | `Voice_CC_Sustain`                         | Sustain Pedal                                                                                     |
-| 0x5B      | `Voice_CC_Sostenuto`                       | Sostenuto Pedal                                                                                   |
-| 0x5D      | `Voice_CC_Soft`                            | Soft Pedal                                                                                        |
-| 0x5E      | `Voice_CC_Portamento`                      | Portamento                                                                                        |
-| 0x91      | `Voice_CC_91` → `Voice_CC_SetReverbDepth`  | Reverb depth (label; see Proprietary Control Changes)                                             |
-| 0x95      | `Voice_CC_95` → `Voice_CC_SetChorusEnable` | Chorus on/off (label)                                                                             |
-| 0x97-0x9D | `Voice_CC_97`-`Voice_CC_9D`                | Chorus depth, delay depth, delay on/off, delay feedback (labels; see Proprietary Control Changes) |
+| CC#       | Handler                                                                       | Parameter                                                                                                  |
+|-----------|-------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| 0x01      | `Voice_CC_ModWheel`                                                           | Modulation Wheel                                                                                           |
+| 0x07      | `Voice_CC_Volume`                                                             | Main Volume                                                                                                |
+| 0x0A      | `Voice_CC_Pan`                                                                | Pan/Balance                                                                                                |
+| 0x0B      | `Voice_CC_Expression`                                                         | Expression                                                                                                 |
+| 0x40      | `Voice_CC_Sustain`                                                            | Sustain Pedal                                                                                              |
+| 0x5B      | `Voice_CC_ReverbSend`                                                         | Reverb send (part parameter 0x05B)                                                                         |
+| 0x5D      | `Voice_CC_DspEffectSend`                                                      | DSP-effect send (part parameter 0x05D)                                                                     |
+| 0x5E      | `Voice_CC_Portamento`                                                         | Portamento                                                                                                 |
+| 0x91      | `Voice_CC_91` → `Voice_CC_SetReverbDepth`                                     | Reverb depth (label; see Proprietary Control Changes)                                                      |
+| 0x95      | `Voice_CC_GlidePedal` → `Voice_CC_SetGlidePedal`                              | Glide pedal on/off (part parameter 0x603)                                                                  |
+| 0x97-0x9D | `Voice_CC_SustainLength`, `Voice_CC_9B`, `Voice_CC_KeyScaling`, `Voice_CC_9D` | Sustain length (0x97), key scaling (0x9C); 0x9B and 0x9D not established (see Proprietary Control Changes) |
 
 ## DSP Configuration
 
@@ -1080,8 +1080,7 @@ The KN5000 uses **hardware envelopes** in the tone generator IC303 — the Sub C
 - **Key-on** (Note On): `ToneGen_WriteVoiceParams` writes the literal `0x8100` to the voice's control register (`+0x000`) in the middle of its 23-write burst. The disassembly reads this as the note-on gate from its position in the burst. Bit 15 of `+0x080` only frames the burst: it is raised on the second write and dropped on the last.
 - **Key-off** (Note Off): Clears the enable flag, triggering hardware release
 - **Sustain pedal** (CC 0x40): `Voice_CC_Sustain` (0x02A383) stores the pedal state (`Voice_CC_SetSustain`, 0x028962), then runs `Voice_AllocateForSustain` and the sustain retrigger scan over the part's held notes
-- **Sostenuto** (CC 0x5B): Similar hold behavior for notes already sounding
-- **Soft pedal** (CC 0x5D): Reduces velocity/volume scaling
+- CC 0x5B and 0x5D are not pedals: they carry the part's reverb send and DSP-effect send levels (`Voice_CC_SetReverbSend`, `Voice_CC_SetDspEffectSend`, stored at part +0x0F and +0x12; earlier versions of this page called them sostenuto and soft pedal)
 
 Attack, decay, sustain level, and release times are determined by the tone generator hardware and the per-voice register template, not by CPU-side envelope generators.
 
@@ -1118,10 +1117,10 @@ Filter behavior is fixed per voice preset — no real-time filter sweeps are imp
 | CC   | Handler                     | Channel Offset                             | Function                                                                                                             |
 |------|-----------------------------|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | 0x91 | `Voice_CC_SetReverbDepth`   | +0x11                                      | raw byte; tested bitwise by `Voice_Env_ApplyVelocity_Type0`                                                          |
-| 0x95 | `Voice_CC_SetChorusEnable`  | +0x04 bit 2                                | flag                                                                                                                 |
-| 0x97 | `Voice_CC_SetChorusDepth`   | +0x12                                      | raw byte                                                                                                             |
+| 0x95 | `Voice_CC_SetGlidePedal`    | +0x04 bit 2                                | flag                                                                                                                 |
+| 0x97 | `Voice_CC_SetSustainLength` | +0x12                                      | raw byte                                                                                                             |
 | 0x9B | `Voice_CC_SetDelayDepth`    | +0x1F                                      | raw byte; its nibbles select gate routing                                                                            |
-| 0x9C | `Voice_CC_SetDelayEnable`   | -0x04 (`Part_PresentWord`, 0x04136A) bit 8 | flag                                                                                                                 |
+| 0x9C | `Voice_CC_SetKeyScaling`    | -0x04 (`Part_PresentWord`, 0x04136A) bit 8 | flag                                                                                                                 |
 | 0x9D | `Voice_CC_SetDelayFeedback` | +0x20                                      | raw byte; 1 / 2 force TG reg 0x180 to 0x00 / 0x7F, otherwise the tone default (the overlay HLE renders 0x180 as pan) |
 
 Offsets are relative to 0x04136E + channel × 0x11F. These handlers store the controller value as is; only CC 7 and CC 11 go through the lookup table at 0x011D16. The labels (reverb/chorus/delay) are inherited and the meanings are not established.
@@ -1860,21 +1859,21 @@ The DSP1 coefficient address space is organized by algorithm type. Each coeffici
 
 The SubCPU keeps one 287-byte (0x11F) record per part (MIDI channel 0-25) at DRAM 0x041368, the structure described under [Voice Parameter Structure](#voice-parameter-structure-287-bytes-per-midi-channel) (whose offsets count from +0x06). The fields below are named after the routines that read or write them in the disassembly; +0x21 is known from MAME traces only:
 
-| Offset      | Size     | Field                  | Description                                                                                                                         |
-|-------------|----------|------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| +0x00       | 2        | flags                  | Part status/flags word (bit 0 = RAM user tone; `(value & 3) == 0`: part not loaded)                                                 |
-| +0x06       | 4        | `Part_PatchRecord_Ptr` | Pointer to the part's tone (patch) record, written by `VoiceParam_Update`                                                           |
-| +0x0E       | 1        | pan                    | CC 0x0A value (`Voice_CC_SetPan`)                                                                                                   |
-| +0x13       | 1        | portamento rate        | `Voice_CC_SetPortamentoRate`                                                                                                        |
-| +0x18       | 1        | CC 0x97 byte           | `Voice_CC_SetChorusDepth`                                                                                                           |
-| +0x19-0x1A  | 2        | tone selector          | Low and high byte of the part's tone number, passed to `WaveSel_Rebuild_PartCaches` and resolved by `ToneDB_Find_ToneRecord`        |
-| +0x1B-0x1C  | 2        | modulation bytes       | `AudioMod_Scale_To_Part_1B` / `AudioMod_Scale_To_Part_1C`                                                                           |
-| +0x1D-0x1E  | 2        | portamento curve word  | `AudioMod_Apply_Porta_Curve`                                                                                                        |
-| +0x1F       | 1        | modulation byte        | `AudioMod_Scale_To_Part_1F`                                                                                                         |
-| +0x20       | 1        | level-pair shift       | `AudioMod_Scale_To_LevelPairShift`                                                                                                  |
-| +0x21       | 1        | enable                 | Enable flag (1 = active); seen in MAME traces only                                                                                  |
-| +0x57-0x5E  | 8        | coefficient words      | Channel c (0-1): word #1 at +0x57 + 4×c (`DSP_AlgoType_Dispatch1`), word #2 at +0x59 + 4×c (`DSP_AlgoType_Dispatch2`)               |
-| +0x6E-0x101 | 4 × 0x25 | partial records        | Four 0x25-byte records at +0x6E, +0x93, +0xB8 and +0xDD, each opening with the partial-block pointer that `VoiceParam_Update` binds |
+| Offset      | Size     | Field                    | Description                                                                                                                         |
+|-------------|----------|--------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| +0x00       | 2        | flags                    | Part status/flags word (bit 0 = RAM user tone; `(value & 3) == 0`: part not loaded)                                                 |
+| +0x06       | 4        | `Part_PatchRecord_Ptr`   | Pointer to the part's tone (patch) record, written by `VoiceParam_Update`                                                           |
+| +0x0E       | 1        | pan                      | CC 0x0A value (`Voice_CC_SetPan`)                                                                                                   |
+| +0x13       | 1        | bend range               | `Voice_CC_SetBendRange`                                                                                                             |
+| +0x18       | 1        | sustain length (CC 0x97) | `Voice_CC_SetSustainLength`                                                                                                         |
+| +0x19-0x1A  | 2        | tone selector            | Low and high byte of the part's tone number, passed to `WaveSel_Rebuild_PartCaches` and resolved by `ToneDB_Find_ToneRecord`        |
+| +0x1B-0x1C  | 2        | modulation bytes         | `AudioMod_Scale_To_Part_1B` / `AudioMod_Scale_To_Part_1C`                                                                           |
+| +0x1D-0x1E  | 2        | portamento curve word    | `AudioMod_Apply_Porta_Curve`                                                                                                        |
+| +0x1F       | 1        | modulation byte          | `AudioMod_Scale_To_Part_1F`                                                                                                         |
+| +0x20       | 1        | level-pair shift         | `AudioMod_Scale_To_LevelPairShift`                                                                                                  |
+| +0x21       | 1        | enable                   | Enable flag (1 = active); seen in MAME traces only                                                                                  |
+| +0x57-0x5E  | 8        | coefficient words        | Channel c (0-1): word #1 at +0x57 + 4×c (`DSP_AlgoType_Dispatch1`), word #2 at +0x59 + 4×c (`DSP_AlgoType_Dispatch2`)               |
+| +0x6E-0x101 | 4 × 0x25 | partial records          | Four 0x25-byte records at +0x6E, +0x93, +0xB8 and +0xDD, each opening with the partial-block pointer that `VoiceParam_Update` binds |
 
 **Boot-time part records (MAME 60 s trace).** ⚠ These are raw bytes from the trace. By the layout above, the +0x5D byte is the low byte of channel 1's coefficient word #2 and +0x19 is the low byte of the part's tone selector, so the values do not identify effects.
 

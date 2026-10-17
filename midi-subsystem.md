@@ -108,29 +108,29 @@ The `Voice_CtrlChange` routine dispatches to specific handlers based on CC numbe
 
 ### Standard MIDI Controllers
 
-| CC# | Handler | Parameter | Notes |
-|-----|---------|-----------|-------|
-| 0x01 | `Voice_CC_ModWheel` | Modulation Wheel | Vibrato depth |
-| 0x07 | `Voice_CC_Volume` | Main Volume | Channel volume |
-| 0x0A | `Voice_CC_Pan` | Pan | Stereo position |
-| 0x0B | `Voice_CC_Expression` | Expression | Dynamics control |
-| 0x40 | `Voice_CC_Sustain` | Sustain Pedal | Hold notes |
-| 0x5B | `Voice_CC_Sostenuto` | Sostenuto | Selective sustain |
-| 0x5D | `Voice_CC_Soft` | Soft Pedal | Reduce volume/brightness |
-| 0x5E | `Voice_CC_Portamento` | Portamento | Glide control |
+| CC#  | Handler                  | Parameter        | Notes                                                   |
+|------|--------------------------|------------------|---------------------------------------------------------|
+| 0x01 | `Voice_CC_ModWheel`      | Modulation Wheel | Vibrato depth                                           |
+| 0x07 | `Voice_CC_Volume`        | Main Volume      | Channel volume                                          |
+| 0x0A | `Voice_CC_Pan`           | Pan              | Stereo position                                         |
+| 0x0B | `Voice_CC_Expression`    | Expression       | Dynamics control                                        |
+| 0x40 | `Voice_CC_Sustain`       | Sustain Pedal    | Hold notes                                              |
+| 0x5B | `Voice_CC_ReverbSend`    | Reverb send      | The part's reverb send level (part parameter 0x05B)     |
+| 0x5D | `Voice_CC_DspEffectSend` | DSP-effect send  | The part's DSP-effect send level (part parameter 0x05D) |
+| 0x5E | `Voice_CC_Portamento`    | Portamento       | Glide control                                           |
 
 ### Proprietary Controllers
 
 Offsets are from the part record at `0x041368 + part × 0x11F`.
 
-| CC#  | Handler       | Parameter      | Voice Offset | Notes                                 |
-|------|---------------|----------------|--------------|---------------------------------------|
-| 0x91 | `Voice_CC_91` | Reverb depth   | +0x17        | `Voice_CC_SetReverbDepth`, raw byte   |
-| 0x95 | `Voice_CC_95` | Chorus on/off  | +0x0A bit 2  | `Voice_CC_SetChorusEnable`            |
-| 0x97 | `Voice_CC_97` | Chorus depth   | +0x18        | `Voice_CC_SetChorusDepth`, raw byte   |
-| 0x9B | `Voice_CC_9B` | Delay depth    | +0x25        | `Voice_CC_SetDelayDepth`, raw byte    |
-| 0x9C | `Voice_CC_9C` | Delay on/off   | +0x02 bit 8  | `Voice_CC_SetDelayEnable`             |
-| 0x9D | `Voice_CC_9D` | Delay feedback | +0x26        | `Voice_CC_SetDelayFeedback`, raw byte |
+| CC#  | Handler                  | Parameter          | Voice Offset | Notes                                                        |
+|------|--------------------------|--------------------|--------------|--------------------------------------------------------------|
+| 0x91 | `Voice_CC_91`            | Reverb depth       | +0x17        | `Voice_CC_SetReverbDepth`, raw byte                          |
+| 0x95 | `Voice_CC_GlidePedal`    | Glide pedal on/off | +0x0A bit 2  | `Voice_CC_SetGlidePedal` (part parameter 0x603)              |
+| 0x97 | `Voice_CC_SustainLength` | Sustain length     | +0x18        | `Voice_CC_SetSustainLength`, raw byte (part parameter 0x600) |
+| 0x9B | `Voice_CC_9B`            | Delay depth        | +0x25        | `Voice_CC_SetDelayDepth`, raw byte                           |
+| 0x9C | `Voice_CC_KeyScaling`    | Key scaling on/off | +0x02 bit 8  | `Voice_CC_SetKeyScaling` (part parameter 0x602)              |
+| 0x9D | `Voice_CC_9D`            | Delay feedback     | +0x26        | `Voice_CC_SetDelayFeedback`, raw byte                        |
 
 ### CC Handler Structure
 
@@ -149,7 +149,7 @@ Voice_CtrlChange:
     CP A, 09Dh
     JRL Z, Voice_CC_9D
     CP A, 09Ch
-    JRL Z, Voice_CC_9C
+    JRL Z, Voice_CC_KeyScaling
     ; ... check other CC numbers
     CP A, 001h
     JR Z, Voice_CC_ModWheel

@@ -51,11 +51,11 @@ This page documents the protocol used by the KN5000 Main CPU to send sound param
 
 **For comparison, other CC handlers at nearby offsets:**
 
-| CC   | Handler            | Sub CPU function         | Voice offset | Meaning               |
-|------|--------------------|--------------------------|--------------|-----------------------|
-| 0x91 | Voice_CC_91        | Voice_CC_SetReverbDepth  | +0x7F        | Reverb depth          |
-| 0x95 | Voice_CC_95        | Voice_CC_SetChorusEnable | +0x72        | Chorus enable (bit 2) |
-| 0x5B | Voice_CC_Sostenuto | Voice_CC_SetSostenuto    | +0x77        | Sostenuto             |
+| CC   | Handler             | Sub CPU function        | Voice offset | Meaning             |
+|------|---------------------|-------------------------|--------------|---------------------|
+| 0x91 | Voice_CC_91         | Voice_CC_SetReverbDepth | +0x7F        | Reverb depth        |
+| 0x95 | Voice_CC_GlidePedal | Voice_CC_SetGlidePedal  | +0x72        | Glide pedal (bit 2) |
+| 0x5B | Voice_CC_ReverbSend | Voice_CC_SetReverbSend  | +0x77        | Reverb send         |
 
 ## Reverb preset loading path
 
@@ -152,28 +152,36 @@ Each part has a **287-byte (0x11F)** record; the 26 records start at `Part_Recor
 | 0x0A      | Pan              | Voice_CC_SetPan             | +0x76        | 1     | Store direct             | -        |
 | 0x0B      | Expression       | Voice_CC_SetExpression      | +0x78        | 2     | Lookup table at 0x011D16 | 0xFE00   |
 | 0x40      | Sustain          | Voice_CC_SetSustain         | +0x72        | bit 0 | Set/clear bit 0          | 0        |
-| 0x5B      | Sostenuto        | Voice_CC_SetSostenuto       | +0x77        | 1     | Store direct             | -        |
-| 0x5D      | Soft Pedal       | Voice_CC_SetSoftPedal       | +0x7A        | 1     | Store direct             | -        |
+| 0x5B      | Reverb Send      | Voice_CC_SetReverbSend      | +0x77        | 1     | Store direct             | -        |
+| 0x5D      | DSP Effect Send  | Voice_CC_SetDspEffectSend   | +0x7A        | 1     | Store direct             | -        |
 | 0x5E      | Portamento       | Voice_Portamento_OnHandler  | (complex)    | -     | Multi-function chain     | -        |
 | 0x78-0x82 | (Extended)       | Jump table at 0x00F739      | various      | -     | See extended table       | -        |
 | 0x91      | **Reverb Depth** | **Voice_CC_SetReverbDepth** | **+0x7F**    | **1** | **Store direct**         | **0x00** |
-| 0x95      | Chorus Enable    | Voice_CC_SetChorusEnable    | +0x72        | bit 2 | Set/clear bit 2          | 0        |
-| 0x97      | Chorus Depth     | Voice_CC_SetChorusDepth     | +0x80        | 1     | Store direct             | 0x06     |
+| 0x95      | Glide Pedal      | Voice_CC_SetGlidePedal      | +0x72        | bit 2 | Set/clear bit 2          | 0        |
+| 0x97      | Sustain Length   | Voice_CC_SetSustainLength   | +0x80        | 1     | Store direct             | 0x06     |
 | 0x9B      | Delay Depth      | Voice_CC_SetDelayDepth      | +0x8D        | 1     | Store direct             | 0x01     |
-| 0x9C      | Delay Enable     | Voice_CC_SetDelayEnable     | +0x6A        | bit 8 | Set/clear bit 8          | 0x00     |
+| 0x9C      | Key Scaling      | Voice_CC_SetKeyScaling      | +0x6A        | bit 8 | Set/clear bit 8          | 0x00     |
 | 0x9D      | Delay Feedback   | Voice_CC_SetDelayFeedback   | +0x8E        | 1     | Store direct             | 0x00     |
 
 ### Extended CC Table (0x78-0x82)
 
 CCs 0x78-0x82 are dispatched via a jump table at Sub CPU ROM 0x00F739 (11 word entries) with base 0x02A306. These include:
 
-| CC   | Target                                            | Voice Offset | Purpose                                                                  |
-|------|---------------------------------------------------|--------------|--------------------------------------------------------------------------|
-| 0x80 | Voice_CC_SetPortamentoRate (via Voice_CC_Num128)  | +0x7B        | Stores the raw value                                                     |
-| 0x81 | Voice_CC_SetPortamentoDepth (via Voice_CC_Num129) | +0x7C        | Stores `(value - 0x80) × 2`, then refreshes the pitch of sounding voices |
-| 0x82 | Voice_CC_SetPortamentoTime (via Voice_CC_Num130)  | +0x7E        | Stores `value - 0x40`                                                    |
+| CC   | Target                                         | Voice Offset | Purpose                                                                                     |
+|------|------------------------------------------------|--------------|---------------------------------------------------------------------------------------------|
+| 0x80 | Voice_CC_SetBendRange (via Voice_CC_BendRange) | +0x7B        | Stores the raw value: the part's bend range, 0..12                                          |
+| 0x81 | Voice_CC_SetTuning (via Voice_CC_Tuning)       | +0x7C        | Stores `(value - 0x80) × 2`, then refreshes the pitch of sounding voices: the part's tuning |
+| 0x82 | Voice_CC_SetKeyShift (via Voice_CC_KeyShift)   | +0x7E        | Stores `value - 0x40`: the part's key shift, 64 ± 12                                        |
 
 0x78, 0x79 and 0x7B have their own arms (Voice_CC_Num120/121/123: Voice_PortamentoSlots_WriteHW, Voice_NoteState_Clear, and Voice_SetLFO_ActiveFlag/Voice_AllocateForRelease/Voice_ParamInit); 0x7A and 0x7C-0x7F are ignored.
+
+**Names corrected 2026-10-17.** The main CPU's `SndPart_SetParam` sends each KN5000 part parameter as the
+controller of its Lsw number ([Panel Parameter Keys]({{ site.baseurl }}/panel-parameter-keys/)): 0x5B reverb send,
+0x5D DSP-effect send, 0x80 bend range, 0x81 tuning, 0x82 key shift, 0x95 glide pedal, 0x97 sustain length and
+0x9C key scaling. The sub CPU's arms for these controllers used to carry General MIDI guesses (sostenuto, soft
+pedal, portamento rate/depth/time, chorus enable/depth, delay enable) and are now named for those parameters;
+the bodies agree (0x81 stores `(value - 0x80) × 2` and refreshes the sounding pitches, 0x82 stores
+`value - 0x40`). `SndPart_SetParam` does not send 0x5E, 0x91, 0x9B or 0x9D, whose meanings are not established.
 
 ### Flags Word at Offset +0x72
 
