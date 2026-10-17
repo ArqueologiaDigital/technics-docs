@@ -401,7 +401,7 @@ counts as leads.)
 | `Get_Firmware_Version`                  | `0xFFFEE5`                               | Read version byte from 0xFFFFE8                                 |
 | `MainLoop`                              | `0xEF1245`                               | Main event loop entry                                           |
 | `INTT1_HANDLER`                         | `0xEF0BF9`                               | Timer 1 interrupt (SYSTEM_TIMESTAMP)                            |
-| `SC0Init_Entry`                         | `0xFCF897`                               | MIDI serial port initialization                                 |
+| `SC0_InitSerialPort`                    | `0xFCF897`                               | MIDI serial port initialization                                 |
 | `Boot_DisplayScreen`                    | `0xEF0620`                               | Boot screen display                                             |
 
 ### Sub CPU

@@ -31,11 +31,11 @@ This product ID string confirms the keyboard model and its "Vocalist Workstation
 
 ### Key String Tables
 
-| Address  | Description                                                                                          | Count |
-|----------|------------------------------------------------------------------------------------------------------|-------|
-| 0xE023F0 | Sound categories (`SOUND_CATEGORY_NAMES`, 16 characters each)                                        | 18    |
-| 0xEFF5B9 | Chord-type names (`Tbl_ChordTypeNames`, 5 characters each)                                           | 64    |
-| 0xECFDFE | Part names (`VariScreen_HandlePaint_Data`), 7 characters each (RIGHT1, RIGHT2, LEFT, PART4 … PART32) | 32    |
+| Address  | Description                                                                                   | Count |
+|----------|-----------------------------------------------------------------------------------------------|-------|
+| 0xE023F0 | Sound categories (`SOUND_CATEGORY_NAMES`, 16 characters each)                                 | 18    |
+| 0xEFF5B9 | Chord-type names (`Tbl_ChordTypeNames`, 5 characters each)                                    | 64    |
+| 0xECFDFE | Part names (`VariScreen_PartNames`), 7 characters each (RIGHT1, RIGHT2, LEFT, PART4 … PART32) | 32    |
 
 ### String Categories
 

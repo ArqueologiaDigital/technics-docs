@@ -1231,7 +1231,7 @@ Seq_DispatcherTick:
     jr Return             ; values 16-22: SKIP ALL accompaniment processing
 ```
 
-DRAM[36150] (address `0x8D36`) is `CURRENT_TITLE`, the current title id. While a style-conversion title (0x10–0x16, TT_STYLCNV*) is current, the **entire sequencer tick is skipped**: no rhythm processing (`AccTick_Main`), no chord detection (`Rhythm_CompareAndTrigger`), no accompaniment note generation (`AccProcess_Entry`). The sequencer appears "playing" (`play_state=6`) but produces no output.
+DRAM[36150] (address `0x8D36`) is `CURRENT_TITLE`, the current title id. While a style-conversion title (0x10–0x16, TT_STYLCNV*) is current, the **entire sequencer tick is skipped**: no rhythm processing (`AccTick_Main`), no chord detection (`Rhythm_CompareAndTrigger`), no accompaniment note generation (`AccProcess_TapTempoTick`). The sequencer appears "playing" (`play_state=6`) but produces no output.
 
 **Chord Override System:**
 
@@ -1302,7 +1302,7 @@ If `DRAM[12919]` (address `0x3277`) equals `0xFFFFFFFF`, the rhythm ROM is consi
 - No `Seq_ReadTempoLookup`
 - No `Rhythm_CompareAndTrigger`
 - No `AccTick_Main`
-- No `AccProcess_Entry`
+- No `AccProcess_TapTempoTick`
 - No `SeqStep_PlaybackCheckBeat` -> no copy of pending->parts
 
 **This is the most likely direct cause of `parts` staying at 0x0000.** A Lua trace (trace10) is checking whether `DRAM[0x3277]` equals `0xFFFFFFFF` after boot.
@@ -1316,7 +1316,7 @@ flowchart TD
     CMP -- "YES (invalid)" --> C1["c = 1"]
     CMP -- "NO (valid)" --> C0["c = 0"]
     C1 --> SKIP["cp c, 0:i3 → jr nz<br/>SKIP ENTIRE TICK"]
-    C0 --> PROCESS["Process tick:<br/>ReadControlState<br/>ReadTempoLookup<br/>Rhythm_CompareAndTrigger<br/>AccTick_Main<br/>AccProcess_Entry"]
+    C0 --> PROCESS["Process tick:<br/>ReadControlState<br/>ReadTempoLookup<br/>Rhythm_CompareAndTrigger<br/>AccTick_Main<br/>AccProcess_TapTempoTick"]
     PROCESS --> BEAT["SeqStep_PlaybackCheckBeat"]
     BEAT --> COPY["SeqPlay_PreparePlaybackState<br/>pending → parts"]
 
@@ -1359,7 +1359,7 @@ Main Loop → MainLoop_SequencerPhase (system_handlers.s:1239)
           → SeqPlay_PreparePlaybackState (copies pending → parts)
 ```
 
-**The RhythmROM check is NOT the blocker** — DRAM[12919] = 0x00000000 (valid), so `Seq_DispatcherTick_Process` is NOT gated. The tick chain from `Seq_DispatcherTick` through `AccTick_Main` and `AccProcess_Entry` should execute.
+**The RhythmROM check is NOT the blocker** — DRAM[12919] = 0x00000000 (valid), so `Seq_DispatcherTick_Process` is NOT gated. The tick chain from `Seq_DispatcherTick` through `AccTick_Main` and `AccProcess_TapTempoTick` should execute.
 
 **Investigation in progress (Trace 11):** Monitoring the beat flag state (DRAM[1057]), INTT1 tick counter (DRAM[1475]), tempo register, playback wait counter, and sequencer data position during the Feature Demo. This will show whether:
 - The INTT1 timer interrupt is firing (tick counter advancing)

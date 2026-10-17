@@ -154,7 +154,7 @@ Each variation group (A, B, C) has these sections. The `StyleVarGrp_*` labels ar
 
 ### Style Groups (Built-in Styles)
 
-The Program ROM holds the style browser's ten group tables, one per category; each entry is a style-name pointer and a variation-table pointer (`ui_widgets/style_bitmaps.s`). The browser reaches them through its root at `0xECFCA4` (`MstStyle1Grid_CellSelect_Data`), ten {group name, group table} pairs. The categories are the ten of the [Music Stylist database]({{ site.baseurl }}/music-stylist-database/#the-ten-categories). The category words in the `StyleGroup_*` labels are older guesses that do not match them, and `StyleGroup_LatinDance_Table` (`0xECFCA8`) is not a group table: it lies 4 bytes into the root.
+The Program ROM holds the style browser's ten group tables, one per category; each entry is a style-name pointer and a variation-table pointer (`ui_widgets/style_bitmaps.s`). The browser reaches them through its root at `0xECFCA4` (`MstStyle_GenreTable`), ten {group name, group table} pairs. The categories are the ten of the [Music Stylist database]({{ site.baseurl }}/music-stylist-database/#the-ten-categories). The category words in the `StyleGroup_*` labels are older guesses that do not match them, and `StyleGroup_LatinDance_Table` (`0xECFCA8`) is not a group table: it lies 4 bytes into the root.
 
 | Table                             | Address    | Category (the firmware's group name) |
 |-----------------------------------|------------|--------------------------------------|
