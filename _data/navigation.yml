@@ -252,6 +252,8 @@
           url: /ui-framework/
         - title: UI Widget Types
           url: /ui-widget-types/
+        - title: Sound Editor Screens
+          url: /sound-editor-screens/
         - title: Sequencer
           url: /sequencer/
         - title: Accompaniment Engine
