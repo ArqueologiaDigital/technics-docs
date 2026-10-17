@@ -225,6 +225,39 @@ The `AccPart_*` functions manage part data access:
 | `AccPart_SelectSource` | Select data source (keyboard, Acc1-4) |
 | `AccPart_Deactivate` | Deactivate a part (with pedal/sync options) |
 
+## Per-tick vectors: variation stepping, Sound Arranger, tap tempo
+
+`Seq_DispatcherTick_Process` calls three jump vectors on every sequencer tick, in this order:
+
+1. **`AccDir_TickVector`** (`jp AccDir_Main`) steps the VARIATION field down or up: record `0x48` `+7`
+   bits 4-5 (`SndParam_Style_Variation`, RAM `0xFC61`), when the low 6 bits of RAM `0x3312` / `0x3313`
+   drop to 0. It acts only while `0xFD99` bit 0 is set and the style number is below 128, and posts the
+   change as panel event `0x48`/7, the same field `PanelButton_Variation` writes.
+2. **`SndArg_TickVector`** (`jp AccStyle_Process`) is the **Sound Arranger**. While one of its parts is
+   selected (`0x338E & 0x1F`, set from the Sound Arranger grid `AcSndArgGridBoxProc` and cleared when
+   mode 17, `MD_SND_ARG`, is entered or left), it compares the sounds of the five accompaniment parts
+   with their last values and writes any change into the current style's 10-byte arrangement record at
+   RAM `0x1E7810 + 10 * index`, setting `0x3393` bit 0:
+
+   | record bytes | part (record, RAM)     | step                       |
+   |--------------|------------------------|----------------------------|
+   | +0 / +1      | DRUM (20, `0xFBBE`)    | `SndArg_StoreDrumSound`    |
+   | +2 / +3      | BASS (19, `0xFBA4`)    | `SndArg_StoreBassSound`    |
+   | +4 / +5      | ACCOMP1 (16, `0xFB56`) | `SndArg_StoreAccomp1Sound` |
+   | +6 / +7      | ACCOMP2 (17, `0xFB70`) | `SndArg_StoreAccomp2Sound` |
+   | +8 / +9      | ACCOMP3 (18, `0xFB8A`) | `SndArg_StoreAccomp3Sound` |
+
+   Each pair is program, then bank (bit 7 of the bank byte is kept; for BASS and the ACCOMP parts it
+   comes from bit 6 of part record `+4`).
+3. **`AccProcess_TapTempoTick`** ends a TAP TEMPO sequence. The tap handler (the panel code `0xA8`
+   listener, `AccProcess_InlinedCode`) stores `SYSTEM_TIMESTAMP` in `TAP_TEMPO_LAST_TAP_TIME` (RAM
+   `0x348E`) on each press, clamps the interval to 100..750 and posts 30000 / interval as the tempo through
+   `AccProcess_PostAveragedTapTempo`. The tick vector clears the sequence (`0x3490` bit 0 and the three
+   stored intervals) once 0x400 timestamp units pass after the last tap.
+
+The names and evidence are in the disassembly repository's
+`analysis/kn5000-naming/proposals-2026-10-17-generic-r1.json` and `-corrections-r1.json`.
+
 ## Accompaniment Wrapper (AccWrap)
 
 `AccWrap_FlagSync` and `AccWrap_DispatchAndWaitSync` provide a synchronization layer:
