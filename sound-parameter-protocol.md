@@ -666,3 +666,9 @@ The pointer table at 0xE32A7A has **128 entries**; beyond the 40 above, the ones
 2. **DSP hardware path:** see the pages linked under Phase 4.
 3. **WAVE REVERB extra parameters:** Preset 9 (WAVE REVERB 2) has non-zero B7-B8 values (18, 84). These likely control waveform modulation parameters unique to the WAVE REVERB algorithm.
 4. **EQ crossover frequencies:** The 4 big-endian 16-bit values in EQ presets need verification as frequency values (Hz). The monotonic ordering suggests crossover points for a 4-band parametric EQ.
+
+## Related pages
+
+- [Panel Parameter Keys](/panel-parameter-keys/): the key of every editable setting, the 18-byte descriptor
+  that maps it to a panel-record byte, and the part namespace
+- [Sound Editor Screens](/sound-editor-screens/): the SOUND EDIT titles and their drawing methods
