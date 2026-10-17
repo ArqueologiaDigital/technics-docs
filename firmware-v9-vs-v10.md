@@ -59,7 +59,7 @@ The v9-to-v10 firmware update tells a clear story when read at the instruction l
 
 ### The First Edit: `SendPartDataBlock_DoGetError`
 
-The change is in `SendPartDataBlock_DoGetError`, the sound-RAM subsystem's phase-2 handler (entry 2 of `SoundRam_HandlerTable`). The boot code runs it through `ScreenGroup_Dispatch` slot 2 when `SubCPU_Payload_GetErrorFlag` is non-zero; `MainSysControl` runs it during a system initialisation (`EVT_SYS_INI`); and the MIDI transfer-abort recovery (`MidiSysEx_RecoverAbortedXferGroup`) calls it for the sound-RAM data group. It does not verify a transfer.
+The change is in `SendPartDataBlock_DoGetError`, the sound-RAM subsystem's phase-2 handler (entry 2 of `SoundRam_InitFuncTable`). The boot code runs it through `ScreenGroup_Dispatch` slot 2 when `SubCPU_Payload_GetErrorFlag` is non-zero; `MainSysControl` runs it during a system initialisation (`EVT_SYS_INI`); and the MIDI transfer-abort recovery (`MidiSysEx_RecoverAbortedXferGroup`) calls it for the sound-RAM data group. It does not verify a transfer.
 
 **v9:**
 ```asm

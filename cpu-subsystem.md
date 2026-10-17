@@ -255,7 +255,6 @@ main-CPU kernel names to be wrong. The main-CPU source still carries these names
 
 | Sub CPU (v1.42, named from the code)                 | Main CPU (v10 label)                                     | aligned run                                |
 |:-----------------------------------------------------|:---------------------------------------------------------|:-------------------------------------------|
-| `TaskSched_SpawnTask`                                | `Show_ScreenGroup` (0xEF1B9C)                            | 63 B at +32                                |
 | `TaskSched_PreemptiveYield`                          | `TaskSched_YieldToQueue`                                 | 63 B at +21                                |
 | `TaskSched_Block_Self` — blocks the **calling** task | `TaskSched_Resume` (0xEF1CEC)                            | 56 B at +15                                |
 | `TaskEvent_Signal` / `TaskEvent_Wait_SuspendTask`    | `TaskSched_SignalEvent` / `TaskSched_WaitForEvent_Block` | 38 B / 30 B                                |
@@ -264,16 +263,18 @@ main-CPU kernel names to be wrong. The main-CPU source still carries these names
 | `TaskSem_TryDec` / `TaskSem_GetCount`                | `AudioLock_TryAcquire` / `AudioLock_GetCount`            | 22 B / 26 B                                |
 | `TaskMsgQ_Send` / `TaskMsgQ_Receive`                 | `TaskMsg_Send` / `TaskMsg_Receive`                       | 41 B at +37 and 54 B at +102 / 39 B at +23 |
 
-The table used to have one more row: the main CPU's `SndTable_ByteBlock_ReadOps_Helper` (0xEF1C16,
-aligned run 20 B at +29 with the sub CPU's `TaskSched_ExitCurrentTask`). Since 2026-10-17 the main-CPU
-routine carries that name too, which its own callers support (kn5000-roms-disasm
+The table used to have two more rows. The main CPU's `Show_ScreenGroup` (0xEF1B9C, aligned run 63 B at +32
+with the sub CPU's `TaskSched_SpawnTask`) and `SndTable_ByteBlock_ReadOps_Helper` (0xEF1C16, 20 B at +29 with
+`TaskSched_ExitCurrentTask`) have carried the sub-CPU names since 2026-10-17, which their own main-CPU code
+supports: the first fills a task's TCB from `TaskSched_TaskTable` and queues it, the second ends the calling
+task (kn5000-roms-disasm `scripts/renaming/rename_task_spawn.sed`,
 `analysis/kn5000-naming/proposals-2026-10-17-helpers-h2.json`).
 
 So **`Audio_Lock_Acquire` / `Audio_Lock_Release` are the kernel's generic semaphore P/V
 routines**, not an audio-specific lock. Their "lock index" is a semaphore number. The audio
 command path happens to use semaphore 7 (see
 [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/#lock-mechanism)).
-`Show_ScreenGroup` spawns a task. `TaskSched_Resume` puts the calling task to sleep
+`TaskSched_SpawnTask` (formerly `Show_ScreenGroup`) spawns a task. `TaskSched_Resume` puts the calling task to sleep
 rather than resuming another. The run table also pairs the scheduler's init and dispatch
 (`TaskSched_Init_TaskDescriptors` / `TaskSched_InitTCBFields`,
 `TaskSched_Dispatch_ScanQueues` / `TaskSched_ScanPriorityQueues`) and the timer tick

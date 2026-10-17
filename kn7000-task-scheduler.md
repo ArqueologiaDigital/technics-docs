@@ -169,7 +169,7 @@ No overlap, and a gap of 0.41.
 match them: the site that actually corresponds to `MsgQueue_Send` is labelled
 `TaskSched_Wait`, the one matching `Kernel_SemaSignal` is labelled
 `TaskEvent_Wait`, and on the main CPU the site matching `Kernel_StartTask` at 0.978
-is called `Show_ScreenGroup`. Several KN5000 kernel labels are simply wrong —
+was called `Show_ScreenGroup` (renamed `TaskSched_SpawnTask` on 2026-10-17). Several KN5000 kernel labels are simply wrong —
 a renaming pass waiting to happen, and a reminder that names point an instrument at
 a region without being evidence about it.
 
