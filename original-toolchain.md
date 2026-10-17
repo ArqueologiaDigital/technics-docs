@@ -29,7 +29,7 @@ still holds those 1994-1997 sources. The KN5000's copies are the same instructio
 
 | Toshiba routine (source file in the package)                                    | KN5000 copy                                                                        | match                              |
 |---------------------------------------------------------------------------------|------------------------------------------------------------------------------------|------------------------------------|
-| `C9H_mulls` / `C9H_mullu` (LMULL.ASM, 1994)                                     | main CPU 0xFF0A5C (`Math_MultiplyAccumulate`); also sub CPU and HD-AE5000          | 10 of 10 instructions              |
+| `C9H_mulls` / `C9H_mullu` (LMULL.ASM, 1994)                                     | main CPU 0xFF0A5C (`Math_Multiply32`); also sub CPU and HD-AE5000                  | 10 of 10 instructions              |
 | `SDivMod`, `C9H_remls`, `C9H_divls`, `C9H_remlu`, `C9H_divlu` (LDIVL.ASM, 1994) | main CPU 0xFF0BC3-0xFF0C91; bootloader (table data) 0x9FFC0E                       | 96 of 96 instructions, both copies |
 | `memcpy`, TLCS-900 inline assembly (_MEMCPY.C, 1995)                            | main CPU 0xFF0D99 (`Mem_Copy`)                                                     | 17 of 17 instructions              |
 | `_ctype[256]` (_CTYPE.C, 1994)                                                  | main CPU 0xEED778 (`CType_ClassTable`); HD-AE5000 0x2F9362                         | 256 of 256 bytes                   |

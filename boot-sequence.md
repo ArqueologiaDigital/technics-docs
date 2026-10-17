@@ -328,9 +328,9 @@ Only two callers use the heap: `Boot_DetectDiskType` (sector-signature buffer) a
 `free at 0xFFFCDD` pair named in the decompression algorithm above.
 
 The divide runtime is the compiler's, not the bootloader's: the same routine is linked
-into the main CPU firmware (`DivMod32` / `Math_DivideU32`) and into the HD-AE5000
+into the main CPU firmware (`Math_RemainderU32` / `Math_DivideU32`) and into the HD-AE5000
 extension ROM (`HDAE5000_UMod32` / `HDAE5000_UDivMod32` at 0x29B8BF /
-0x29B8C5). It is Toshiba's LDIVL.ASM (`C9H_remlu` = `DivMod32`, `C9H_divlu` / `udiv32` =
+0x29B8C5). It is Toshiba's LDIVL.ASM (`C9H_remlu` = `Math_RemainderU32`, `C9H_divlu` / `udiv32` =
 `Math_DivideU32`). The bootloader's copy and the main CPU's are the same 96 instructions. The
 HD-AE5000's copy differs by one instruction: it has `stcf 0,BC` + `rrc 1,XBC` where the others
 have `rr 1,XBC`. That marks an older release of Toshiba's library, not a re-encoding. The HD-AE5000 labels used to be

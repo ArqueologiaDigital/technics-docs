@@ -274,7 +274,7 @@ rather than resuming another. The run table also pairs the scheduler's init and 
 (`TaskSched_Init_TaskDescriptors` / `TaskSched_InitTCBFields`,
 `TaskSched_Dispatch_ScanQueues` / `TaskSched_ScanPriorityQueues`) and the timer tick
 (`TaskSched_SoftTimer_Service` / `TaskSched_TimerTick`). The same scan shows that main-CPU
-`Free_ClearByte` (0xFF0BC3) is byte-identical to the sub CPU's `Int_SignedDiv` over 170 bytes.
+`Math_DivModSigned32` (0xFF0BC3) is byte-identical to the sub CPU's `Int_SignedDiv` over 170 bytes. Both are Toshiba's C runtime `SDivMod` (LDIVL.ASM); see [Original Toolchain]({{ site.baseurl }}/original-toolchain/).
 Source: `notes/lanes/wave2-2026-09-25/lane-reports/subcpu.json`, and the sub-CPU headers
 (`TaskSem_Release`'s says it was `TaskSched_PreemptiveYield_INT` until September 2026).
 
