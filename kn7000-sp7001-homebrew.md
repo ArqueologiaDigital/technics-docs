@@ -170,11 +170,15 @@ counter at that moment.
 
 ## A larger example: Another World
 
-The [Another World](https://en.wikipedia.org/wiki/Another_World_(video_game)) bytecode VM is being
-ported to the KN7000 as a ride-along plug-in that loads its game data from the SD card with the API
-above and blits a 320×200 frame into the LCD. The platform bring-up — code running, the SD read, and
-a full-frame blit that persists on the static SP7001 screen — is done; the interpreter port is in
-progress. Source: the `kn7000/` directory of the Another World repository.
+The [Another World](https://en.wikipedia.org/wiki/Another_World_(video_game)) bytecode VM runs on
+the KN7000 as a ride-along plug-in. It loads its game data from the SD card with the API above
+and blits a 320×200 frame into the LCD. In MAME the intro and the lake are pixel-identical to the
+reference VM, every part opens identically, and the game takes input from the keybed, MIDI IN 1
+and the panel. There is no sound yet. Source: the `kn7000/` directory of the Another World
+repository.
+
+The same VM also runs on a KN7000 **without** SP7001, from a floppy, as a style converter:
+[Your Own Code from a Floppy (.CNV)]({{ site.baseurl }}/kn7000-cnv-homebrew/).
 
 ## Limits and open work
 

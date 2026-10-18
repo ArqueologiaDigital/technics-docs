@@ -68,9 +68,19 @@ Two special cases sit in the firmware itself:
 | `0x47` | `_TT_STYLCNVMODL` |                                                                    |
 | `0x48` | `_TT_STYLCNVCNVT` | opened from the file-access request                                |
 | `0x49` | `_TT_STYLCNVSTOR` | conversion finished: store the style                               |
-| `0x4A` | `_TT_STYLCNVTXT`  | the converter asks for a text to be shown                          |
+| `0x4A` | `_TT_STYLCNVTXT`  | the converter asks for a text to be shown (request 5)              |
 | `0x4B` | `_TT_STYLCNVSEL`  | the converter asks for a choice                                    |
-| `0x4C` | `_TT_STYLCNVCONT` | an error, or an unknown request                                    |
+| `0x4C` | `_TT_STYLCNVCONT` | an error (request `0xFE`), or an unknown request                   |
+
+## Running a program of one's own
+
+The firmware runs whatever `.CNV` it finds, and nothing stops a converter from being some other
+program. A converter that answers request 5 on every call parks the firmware on its text screen.
+The firmware keeps calling it about 20 times a second, while the panel and keybed keep working.
+Meanwhile a task the converter started can run a program of its own. Request `0xFE` ends it: the
+firmware shows its message box, then "Continue Next?". YES calls the converter again, NO returns
+to the main screen. Another World runs on the stock KN7000 this way:
+[Your Own Code from a Floppy (.CNV)]({{ site.baseurl }}/kn7000-cnv-homebrew/).
 
 ## Not yet known
 
