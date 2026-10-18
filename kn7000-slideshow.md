@@ -330,9 +330,19 @@ The `kn6000_flop` software-list image is not: its FAT starts `F0 0F FF` and each
 sectors, and the KN6000's media check accepts only `F0 FF FF` / `F9 FF FF` and its file system
 expects 9-sector FATs; the same files copied onto a standard image load. (The same holds for
 every image in the `kn5000_flop`, `kn6000_flop`, `kn7000_flop` and `wsa1_flop` lists, and the
-KN7000's media check rejects them too.) The slides then hold on the first one: whether the
-`I KD` song plays could not be checked (the KN6000 driver's sound is silent), and what in it
-selects `<ACT NO=n>` is still unknown.
+KN7000's media check rejects them too.)
+
+At first the show then held its first slide: the KN6000's **tempo timer** was not emulated, so
+the song never advanced, and a KN6000 slide show follows its song exactly as the KN7000's does.
+The KN6000 paces its sequencer with the MN10300's 16-bit timer 6 (compare register `0x340010C4`
+= 1,250,000 ÷ BPM, interrupt group 9), not the KN7000's TM5
+([tempo clock]({{ site.baseurl }}/kn7000-sequencer/#the-tempo-clock-how-playback-actually-advances)).
+With that timer modelled, **all four CA-6FP presentations play, with their songs**:
+*Weserbergland* shows the river towns one by one and then the sing-along slides with the
+lyrics over the river; *Sexy Girls* and *Let's Get Back to Bed* show their pictures in turn;
+*Freisprecheinrichtung* runs its whole story and returns to the DEMONSTRATION menu. So the
+`I KD` songs do carry the slide cues, though not as the KN7000's picture events; how they are
+encoded was not decoded.
 
 Separately, an ordinary song with an `.ACT` and eight pictures loaded from SD into the main
 picture pool and showed them at its PIC points after START/STOP. A 640 × 240 JPEG slide
@@ -367,7 +377,8 @@ Inside a script, all picture errors are ignored: the slide simply lacks the pict
 - Which screens let a PIC event open the slide show (the firmware lists titles `0x01`,
   `0x03`, `0x81`, `0xAE`, `0xAF`, `0xCF` = DEMONSTRATION, `0x123`, `0x126`–`0x129`); the manual says "the
   normal display or the SEQUENCER PLAY display".
-- How the KN6000 presentations chose their slides, and what picture-flash entry 0 holds.
+- How a KN6000 `I KD` song encodes its slide cues (the songs do cue them: the presentations
+  play in MAME), and what picture-flash entry 0 holds.
 - Whether STEP RECORD shows PIC numbers counting from 0 or from 1.
 - A browse mode that steps through slides exists in the code, but nothing seems to turn it
   on.

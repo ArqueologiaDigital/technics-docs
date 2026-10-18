@@ -110,6 +110,12 @@ queued events due. Tempo changes simply rewrite the reload on the fly (clamped
 system tick that runs the RTOS scheduler and UI — which is why a machine can
 have a fully live UI while sequenced playback is stopped.
 
+The **KN6000/KN6500** run the same 96-PPQN tick handler (KN6000 `0x48468A69`, phase at
+`0x50276E0C`) and the same 1,250,000 ÷ BPM tempo formula, but on a different timer: the
+MN10300's 16-bit **timer 6** (mode `0x34001084`, compare A `0x340010C4`, interrupt group 9,
+GxICR `0x34000124`). Their TM5 is the millisecond counter instead. Until that timer was
+emulated (2026-10-18) nothing sequenced ever advanced on the emulated KN6000.
+
 The ten **demo songs** are self-contained in the program ROM: per song a
 zlib-compressed *setup* blob (track table and initial part programs), a
 *sequence* blob (256-byte-per-measure pages of delta-timed, running-status MIDI

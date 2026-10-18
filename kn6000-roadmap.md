@@ -243,11 +243,12 @@ Substantial work has landed since the section above was last written:
   system's memory pool. All three are fixed in the overlay; the details are on the
   [Storage]({{ site.baseurl }}/kn7000-storage-subsystem/) page. The KN6000's floppy code is
   the KN7000's with a different DMA count, and the KN7000 reads with the same model.
-- **CA-6FP01 *Weserbergland* loads.** Inserted on the DEMONSTRATION screen, the original
-  KN6000 presentation disk adds a **WESERBERGLAND** button, loads its song and pictures, and
-  draws the first slide ([Slide shows]({{ site.baseurl }}/kn7000-slideshow/#seen-in-mame)).
-  The slides do not advance yet, and the KN6000's sound is silent in MAME, so whether its
-  song plays is open.
+- **The feature presentations play.** Inserted on the DEMONSTRATION screen, each of the four
+  CA-6FP disks adds its button, loads its song and pictures, and plays its slide show with the
+  song ([Slide shows]({{ site.baseurl }}/kn7000-slideshow/#seen-in-mame)). The last missing piece
+  was the KN6000's tempo timer (the MN10300's timer 6, not the KN7000's TM5), without which the
+  shows stopped at their first slide — the same kind of fix that once got the KN7000's and
+  KN5000's demos going.
 - **The `kn6000_flop` images need rebuilding.** They were built with pyfatfs, whose FAT
   start (`F0 0F FF`) and 12-sector FATs the KN6000 rejects (and the KN7000, for its own list).
   The same files on a standard 1.44 MB layout load. The software lists in mainline MAME carry

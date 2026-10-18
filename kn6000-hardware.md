@@ -62,6 +62,9 @@ the display took **five stacked boot fixes**:
    handler** (slot 1); the driver now routes all maskable interrupts to the general handler instead of the
    fault vector — the old level-based routing had sent the timer IRQ to the fault handler, causing a
    deliberate halt.
+6. The **tempo timer** is the MN10300's 16-bit timer 6 (mode `0x34001084`, compare A `0x340010C4` =
+   1,250,000 ÷ BPM, INTC group 9), not the KN7000's TM5. Modelled in the core on 2026-10-18; before
+   that, songs, demos and feature presentations never advanced past their first tick.
 
 The play-screen graphics render correctly once the display format is handled: the KN6000/KN6500 LCD panel
 is **RGB555 and mounted rotated 180°** (unlike the KN7000's upright RGB565), so the overlay's shared
