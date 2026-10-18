@@ -297,9 +297,17 @@ carry no KN7000-style PIC events, and how they selected their slides is not know
 
 ## Seen in MAME
 
-The KN7000 MAME driver cannot read a floppy yet, so the disk-change bit was forced to
-produce the insert event, the two floppy checks were forced, and the drive byte was set to
-SD so that the files were read from the SD card. With CA-6FP01
+**From the floppy, nothing forced (2026-10-18, afternoon).** Once the driver modelled the
+floppy's DMA and its INDEX interrupt ([how a sector moves]({{ site.baseurl }}/kn7000-storage-subsystem/)),
+the converted CA-6FP01 disk was simply inserted on the DEMONSTRATION screen: the disk-in event
+fired, FEATURE.PRE was found, the song (`0xD7C0` bytes), the script and the 19 pictures loaded
+from the drive (about 2 s per picture), the external demo song started at t = 72 s and each
+PIC point drew its slide. The run that showed it first, and the procedure the earlier
+morning runs needed, are both below.
+
+**The morning runs.** Before that, the KN7000 MAME driver could not read a floppy, so the
+disk-change bit was forced to produce the insert event, the two floppy checks were forced,
+and the drive byte was set to SD so that the files were read from the SD card. With CA-6FP01
 converted as above, and the built-in OVERTURE song repackaged as a `J KD` file to supply
 PIC points:
 
@@ -310,6 +318,21 @@ PIC points:
   `<ACT NO=1>` … `<ACT NO=17>`, including the lyric lines the script draws over the
   pictures, centred, in colour 254;
 - the KN6000 originals, unconverted, gave the button `<EXEC SONG=1 SRC` and nothing played.
+
+**The KN6000 disks on the KN6000 driver.** The original, unconverted CA-6FP01 now loads on
+the emulated KN6000 the way its users loaded it: DEMO, then insert. The DEMONSTRATION screen
+gains a **WESERBERGLAND** button (the `NAME` of the `EXEC` tag), the song and the pictures
+load from the floppy, and the first slide (`<ACT NO=1>`, "Wo die Weser einen großen Bogen
+macht") is drawn. Three conditions: the driver's DMA channel must move exactly one byte per
+DRQ up to count + 1 (one byte more corrupted the KN6000's file-system memory), the INDEX
+interrupt must be delivered, and the disk image must be laid out like a DOS-formatted floppy.
+The `kn6000_flop` software-list image is not: its FAT starts `F0 0F FF` and each FAT has 12
+sectors, and the KN6000's media check accepts only `F0 FF FF` / `F9 FF FF` and its file system
+expects 9-sector FATs; the same files copied onto a standard image load. (The same holds for
+every image in the `kn5000_flop`, `kn6000_flop`, `kn7000_flop` and `wsa1_flop` lists, and the
+KN7000's media check rejects them too.) The slides then hold on the first one: whether the
+`I KD` song plays could not be checked (the KN6000 driver's sound is silent), and what in it
+selects `<ACT NO=n>` is still unknown.
 
 Separately, an ordinary song with an `.ACT` and eight pictures loaded from SD into the main
 picture pool and showed them at its PIC points after START/STOP. A 640 × 240 JPEG slide
@@ -348,7 +371,6 @@ Inside a script, all picture errors are ignored: the slide simply lacks the pict
 - Whether STEP RECORD shows PIC numbers counting from 0 or from 1.
 - A browse mode that steps through slides exists in the code, but nothing seems to turn it
   on.
-- The real floppy path has not been run (MAME's floppy reads no sectors yet).
 
 ## Related
 

@@ -233,6 +233,28 @@ Substantial work has landed since the section above was last written:
 - **Readable on the KN6000:** play screen, PROGRAM MENUS, the SOUND list, the HELP page,
   the disk error message and the DEMONSTRATION menu, checked in MAME on 2026-10-18.
 
+## Status update (2026-10-18, afternoon): the floppy drive, and a feature presentation
+
+- **The KN6000 reads floppies in MAME.** After the overlay was resynced with mainline
+  MAME, three driver defects stood between the KN6000 and its floppy drive: sector data
+  never reached RAM (the FDC's DRQ was not driving the CPU's DMA channel), an inserted disk
+  was never noticed (the drive's INDEX interrupt, IRQ7, was not delivered), and once both
+  worked the DMA channel moved one byte too many per sector, which corrupted the file
+  system's memory pool. All three are fixed in the overlay; the details are on the
+  [Storage]({{ site.baseurl }}/kn7000-storage-subsystem/) page. The KN6000's floppy code is
+  the KN7000's with a different DMA count, and the KN7000 reads with the same model.
+- **CA-6FP01 *Weserbergland* loads.** Inserted on the DEMONSTRATION screen, the original
+  KN6000 presentation disk adds a **WESERBERGLAND** button, loads its song and pictures, and
+  draws the first slide ([Slide shows]({{ site.baseurl }}/kn7000-slideshow/#seen-in-mame)).
+  The slides do not advance yet, and the KN6000's sound is silent in MAME, so whether its
+  song plays is open.
+- **The `kn6000_flop` images need rebuilding.** They were built with pyfatfs, whose FAT
+  start (`F0 0F FF`) and 12-sector FATs the KN6000 rejects (and the KN7000, for its own list).
+  The same files on a standard 1.44 MB layout load. The software lists in mainline MAME carry
+  the same images, so the fix is a change to those lists.
+- How to run it: `RUNNING-THE-BUILDS.md` in the KN7000 repository, "KN6000
+  feature-presentation disks".
+
 ## More Technics models incoming
 
 The user is supplying more devices for the same consolidated treatment

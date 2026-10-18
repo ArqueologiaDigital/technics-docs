@@ -209,14 +209,42 @@ from the **floppy's FDC** (IC103, N82077AA-compatible, memory-mapped at
 
 The FDC (IC103) is located, modelled and exercised at boot. Its interrupt (INTRQ)
 reaches the CPU on IRQ2, interrupt group `0x19`, not group `0x18` as first modelled;
-the schematic and the firmware's own handler registration agree. In mainline MAME
-([mamedev/mame#16394](https://github.com/mamedev/mame/pull/16394)), INTRQ drives IRQ2
-and DRQ drives the MN103002A's on-chip DMA channel 0, which moves the sector data.
-The merged pull request reports that with this the firmware reads floppies: the
-SP7001 setup reads `BASEEXT.XAP` off its floppy and completes. With INTRQ on the
-right group but the sector data still moved by software on group `0x18`, the floppy
-controller is no longer polled, yet a DISK MENU → LOAD read no sector in the October
-2026 tests. FORMAT was last tested before either fix. It failed with **ERROR 08**
+the schematic and the firmware's own handler registration agree.
+
+**How a sector moves (2026-10-18).** DRQ drives the MN103002A's on-chip DMA channel 0
+(registers `0x32000800`–`0x3200080C`), whose far end is the FDC's DACK port `0x98010000`.
+The firmware does not let the channel finish the transfer on its own:
+
+| step                                    | KN6000                                               | KN7000 (941)                                                                                |
+|-----------------------------------------|------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| count register (`0x3200080C`)           | length − 1 (`0x48510DEE`)                            | length − 2 (`0x484009BE`)                                                                   |
+| the channel moves count + 1 bytes       | the whole sector                                     | all but the last byte                                                                       |
+| end-of-transfer interrupt, group `0x0F` | asserts TC around one dummy DACK read (`0x48512476`) | polls IRQ1 (group `0x18`) for the last DRQ, moves that byte, then asserts TC (`0x4840219C`) |
+
+TC is GPIO `0x36008004` bit 4, active low, driven by the firmware. Mainline MAME
+([mamedev/mame#16394](https://github.com/mamedev/mame/pull/16394)) moves count + 2 bytes and
+pulses TC from the channel: that suits the KN7000 by coincidence (its SP7001 setup reads
+`BASEEXT.XAP` off a floppy) but writes one byte past every KN6000 sector buffer, which
+corrupted the KN6000 file system's memory pool. The project's overlay driver models the table
+above and both firmwares read floppies with it.
+
+**How an inserted disk is noticed.** The drive's INDEX line reaches the CPU on IRQ7, group
+`0x1E` (schematic net HDD.INDEX → pin 48). A disk-presence check (KN7000 `0x484025DD`, KN6000
+`0x485128A3`) reads DSKCHG from the FDC's DIR register: clear means a disk is present; set
+means present only if an INDEX interrupt arrived in the last `0x6E` ticks of the 2 ms time
+base (220 ms, one revolution at 300 rpm plus a margin). A disk inserted while the instrument
+runs keeps DSKCHG set until the next seek, so without the INDEX interrupt the firmware never
+sees it, and never posts its disk-in event `0x10708000` (which the DEMONSTRATION screen's
+FEATURE.PRE loader waits for). Mainline MAME does not wire INDEX yet.
+
+With these, a FEATURE.PRE presentation floppy inserted on the DEMONSTRATION screen loads
+its song, script and 19 pictures from the drive and plays, with nothing forced
+([Slide shows]({{ site.baseurl }}/kn7000-slideshow/#seen-in-mame)). A disk must be laid out
+like a DOS-formatted one: the media check accepts only a FAT starting `F0 FF FF` or
+`F9 FF FF`, and the KN6000 file system also assumes 9-sector FATs; the floppy images in
+MAME's software lists do not pass (see the slide-show page).
+
+FORMAT was last tested before these fixes. It failed with **ERROR 08**
 ("an error has occurred while the disk was formatting") inside the RTOS class-5
 disk-task dispatch, *before* the FDC was touched. That failure looked
 observation-sensitive, and SHARC DRC, `-debug`, `set_perfect_quantum` and
