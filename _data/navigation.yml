@@ -88,6 +88,8 @@
           url: /kn7000-initial-data/
         - title: Sequencer
           url: /kn7000-sequencer/
+        - title: Work RAM Map
+          url: /kn7000-work-ram/
     - title: Sound
       children:
         - title: Sound Subsystem

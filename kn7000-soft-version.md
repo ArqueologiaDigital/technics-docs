@@ -91,6 +91,27 @@ owner's reading matters so much:
   in a four-byte directory segment holding the literal ASCII `"84\n"`; an
   earlier build would hold `"80\n"` in the same slot.
 
+### The release number: one byte at `0x4840000F`
+
+The screen prints *build* numbers. The *release* number is stored elsewhere: it is
+byte 15 of the program flash, CPU `0x4840000F`, the last byte of the image's first
+16-byte row, and it reads as the release written in hexadecimal digits:
+
+| build | release                  | byte at `0x4840000F` | read from                                                                                                        |
+|-------|--------------------------|----------------------|------------------------------------------------------------------------------------------------------------------|
+| 893   | v1.3                     | `0x13`               | the owner's own instrument, on its MEMORY DUMP screen (2026-10-18); the same byte in the 893 photo transcription |
+| 929   | v1.4 (update set kn7-14) | not preserved        | it would be on program disk 1, which is lost; by the pattern, `0x14`                                             |
+| 935   | v1.5 (kn7-15)            | `0x15`               | `JK1.SLD` of kn7-15                                                                                              |
+| 941   | v1.6 (kn7-16)            | `0x16`               | `kn7000_program.rom`                                                                                             |
+| 942   | v1.6 PLUG-iN (SP7001)    | `0xFF`               | `HAMA1.SLD` of the SP7001 update                                                                                 |
+
+So the owner's PROGRAM 893 is release **v1.3**, older than every update set this
+project holds. The firmware also uses the byte as a switch: `GetRomConfigByte`
+(`0x484D7928`) reads it, and the value `0xFF` -- blank flash, as in the SP7001
+build -- unlocks the developer screens (Panel Simulator, DEBUG TOOLS, LCD capture);
+any release number keeps them shut. See
+[Two doors]({{ site.baseurl }}/kn7000-memory-dump-screen/#two-doors-the-configuration-byte-at-0x4840000f).
+
 So the owner's instrument differs from our reference images on **both** flash
 devices, consistently in the same direction (both numbers lower). That
 self-consistency is a mild corroboration that the reading is a genuine earlier
@@ -277,16 +298,18 @@ into [a video problem]({{ site.baseurl }}/kn7000-rom-from-the-screen/). The firs
 
 ## Provenance of the numbers on this page
 
-| Claim | How it was checked |
-|---|---|
-| Format strings at `0x1D67E0` | read directly out of `kn7000_program.rom` (`PROGRAM : %4d`, `TABLE   : %4d`, `RHYTHM  : %4d`, `PICTURE : %4d`, `0x10` apart, `0xFF`-padded) |
-| `PROGRAM` = 941 | `u16` LE at file `0x33660C` = `0x03AD` = 941 in `kn7000_program.rom` (sha1 `cc1c364c…`), and identically in the byte-interleaved pair `kn7000_program_{even,odd}.rom` that MAME actually loads |
-| `TABLE` = 84 | table directory entry 7 (u32 at table offset `0x1C`) = `0x139EE8`; the four bytes there are `"84\n\0"` in `kn7000_table.rom` (sha1 `fcf5645a…`) and in the interleaved even/odd pair |
-| Field ↔ source pairing | exhaustive 32-bit scan of the program image: one writer and one reader for each of `0x50007DC4` / `0x50007DC8` |
-| Handler names | `kn7000_disassembly` symbol table, recovered from the firmware's own reflection tables |
-| `PROGRAM : 893` / `TABLE : 80` | **owner testimony, 2026-08-08**, read off the LCD of a real SX-KN7000 |
-| The 1 + 6 + 8 chord | **owner testimony**, performed successfully on real hardware |
-| The 1 + 5 + 8 chord does *not* open a debug screen on KN7000 | **owner testimony**, negative result on real hardware |
+| Claim                                                        | How it was checked                                                                                                                                                                             |
+|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Format strings at `0x1D67E0`                                 | read directly out of `kn7000_program.rom` (`PROGRAM : %4d`, `TABLE   : %4d`, `RHYTHM  : %4d`, `PICTURE : %4d`, `0x10` apart, `0xFF`-padded)                                                    |
+| `PROGRAM` = 941                                              | `u16` LE at file `0x33660C` = `0x03AD` = 941 in `kn7000_program.rom` (sha1 `cc1c364c…`), and identically in the byte-interleaved pair `kn7000_program_{even,odd}.rom` that MAME actually loads |
+| `TABLE` = 84                                                 | table directory entry 7 (u32 at table offset `0x1C`) = `0x139EE8`; the four bytes there are `"84\n\0"` in `kn7000_table.rom` (sha1 `fcf5645a…`) and in the interleaved even/odd pair           |
+| Field ↔ source pairing                                       | exhaustive 32-bit scan of the program image: one writer and one reader for each of `0x50007DC4` / `0x50007DC8`                                                                                 |
+| Handler names                                                | `kn7000_disassembly` symbol table, recovered from the firmware's own reflection tables                                                                                                         |
+| `PROGRAM : 893` / `TABLE : 80`                               | **owner testimony, 2026-08-08**, read off the LCD of a real SX-KN7000                                                                                                                          |
+| `0x4840000F` = `0x13` on build 893                           | **owner hardware read, 2026-10-18**, on the instrument's MEMORY DUMP screen; agrees with row `0x48400000` of the 893 photo transcription                                                       |
+| The release byte of builds 935, 941, 942                     | read from `JK1.SLD` of kn7-15 (decompressed with the disassembly's `tools/sld_decompress.py`), `kn7000_program.rom` and `kn7000_program_sp7001.rom`                                            |
+| The 1 + 6 + 8 chord                                          | **owner testimony**, performed successfully on real hardware                                                                                                                                   |
+| The 1 + 5 + 8 chord does *not* open a debug screen on KN7000 | **owner testimony**, negative result on real hardware                                                                                                                                          |
 
 ## Related pages
 

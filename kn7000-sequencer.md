@@ -77,6 +77,22 @@ Songs interchange as **SMF** (`.MID`) through the storage layer:
 phrase — which is why the pad presets are themselves stored as MIDI event
 streams.
 
+## Song memory
+
+The sequencer's songs live in the never-cleared user-memory block of work RAM (see the
+[Work RAM Map]({{ site.baseurl }}/kn7000-work-ram/)):
+
+| range                     | size      | what                                                                           |
+|---------------------------|-----------|--------------------------------------------------------------------------------|
+| `0x501A5800`–`0x501AB9A0` | `0x61A0`  | 11 song records of `0x8E0` bytes                                               |
+| `0x501AB9A0`–`0x501F91A0` | `0x4D800` | the song event store: 1,240 pages of 256 bytes (`SongPageStorePtr`)            |
+| `0x5003D36C`–`0x50046B6C` | `0x9800`  | in `.bss`: the pages of the built-in demo song being played, inflated from ROM |
+
+The reset code never clears the user block, and its owners check the data before
+trusting it; the service manual gives about 80 minutes of retention for SEQUENCER data.
+The event store's size, 317,440 bytes, is the same number as the picture-import file
+limit, but nothing in the code ties the two together.
+
 ## The tempo clock (how playback actually advances)
 
 Everything the KN7000 plays in time — the sequencer, the rhythm accompaniment,

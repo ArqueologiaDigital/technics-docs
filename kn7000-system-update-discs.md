@@ -28,6 +28,14 @@ carried both, on four. The sets this project holds:
 | **SP7001**, program   | Program v1.6 PLUG-iN (build 942) | `HAMA1.SLD`, `SMCKPR1.INF`, `TECHNICS.PR1`               | `HAMA2.SLD`, `SMCKPR2.INF`, `TECHNICS.PR2`                 |
 | **SP7001**, table     | Table (build 83)                 | `JKT1.SLD`, `SMCKTB1.INF`, `TECHNICS.TB1`                | `JKTBL2.SLD`, `SMCKTB2.INF`, `TECHNICS.TB2`, `BASEEXT.XAP` |
 
+What the lost v1.4 disk 1 takes with it is the whole lower half of the program
+flash, CPU `0x48400000`–`0x485FFFFF`: the boot code, the chord and debug-screen code,
+and the release byte at `0x4840000F` (`0x15` on kn7-15's disk 1, `0x16` on kn7-16's;
+v1.4's would by that pattern be `0x14`, see
+[the release number]({{ site.baseurl }}/kn7000-soft-version/#the-release-number-one-byte-at-0x4840000f)).
+The surviving disk 2 holds no other release marker; its only version mark is the
+build stamp, `929`, at CPU `0x4873606C` (941 has its `941` at `0x4873660C`).
+
 Key Soft Service's SP7001 PLUG-iN update follows the same two-disk scheme. Its four
 disks are self-extracting ZIP archives (`PROGR1_2v1.6PLUG-iN.exe`,
 `PROGR2_2v1.6PLUG-iN.exe`, `table1_2.exe`, `table2_2PLUG-iN.exe`), whose members can

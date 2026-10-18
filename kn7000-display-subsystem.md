@@ -36,6 +36,14 @@ the 2-bit panel. The KN7000 itself has a 640×240 colour panel; the 2-bit path
 matches the 320×240, four-grey panel of the KN2400/KN2600, which run the same
 codebase.
 
+What selects mode 2 is a model word at `0x50005218`: when it is 2, the start-up code
+at `0x48414328` sets both the colour mode and the LCD mode to 2. In that mode
+`SetPaletteRGB` also stores, for each palette entry, the nearest of four grey levels
+(`ColorToMono4Level`, `0x4842DB3C`, into a 256-byte table at `0x50122CAC`), which the
+screen output and `CaptureLcd` read back through `GetPaletteRGB4`. The screen capture
+follows the mode: a 640 × 240 **4-bpp** BMP (76,918 bytes) in mode 2, a **24-bpp** one
+(460,854 bytes) on the colour panel.
+
 ## Palette-indexed bitmaps
 
 UI artwork is stored as **headerless palette-indexed bitmaps** (the same design
@@ -58,6 +66,7 @@ routine per source format, which is how the depths are known:
 | `DrawBitmapSP2`       | `0x484248DE` | caller's pointer, 1 bpp, foreground and background colour                    | no         |
 | `DrawBitmapFile`      | `0x48424A9F` | Windows BMP in memory, 1/4/8 bpp, pixels + 0x20; loads palette 0x20..0xCF    | no         |
 | `DrawBitmapFileEx`    | `0x48424CC8` | the same BMP, but it only loads the palette and marks the rectangle dirty    | -          |
+| `Draw2BpFile`         | `0x4842829F` | the same BMP; a second copy of `DrawBitmapFile` that cuts images at 240 rows | no         |
 | `DrawJpegFile`        | `0x48424EBD` | JPEG, decoded straight to direct-colour picture pixels                       | no         |
 | `DrawJpegFileR`       | `0x48424F7D` | the same, with rounded corners (8 pixels per corner keep the background)     | no         |
 
@@ -68,7 +77,36 @@ transparency. None of the blitters clips horizontally: an image wider than
 `640 - x` runs on into the next framebuffer row. The table and pointer
 blitters stop at the first row at `y >= 240`; the JPEG path has no such stop.
 Every routine has a fully labelled and commented listing in the disassembly
-(`annotations/gfx_draw.ann`, rendered into `src/program.s`).
+(`annotations/gfx_draw.ann` and `annotations/gfx_bmpfile.ann`, rendered into
+`src/program.s`). Despite its name, `Draw2BpFile` has nothing 2-bit about it: it takes
+1, 4 and 8 bpp and writes the 8-bit plane like `DrawBitmapFile`. Its only caller is the
+hidden DEBUG TOOLS > BITMAP LOAD screen; the "2Bp" most likely names the 2-bit panel
+mode above.
+
+## Windows BMP files
+
+Pictures loaded from disk or SD card, the homepage picture and the slide-show pictures
+are Windows BMP files kept whole in memory. Every BMP user in the firmware parses them
+with one routine, **`GetBitmapInfo`** (`0x48421DE1`, 13 call sites). It accepts only
+`"BM"` files with the 40-byte `BITMAPINFOHEADER`, one plane, 1, 4 or 8 bits per pixel,
+at most 256 colours and no compression (`BI_RGB`); it copies up to 1 KB of colour table
+and returns a pointer to the pixels. It never checks the width, the height, `bfSize`, or
+that the colour table and pixels lie inside the file.
+
+`DrawBitmapFile` loads the file's colours 0..`0xAF` into palette entries
+**`0x20`..`0xCF`** and adds `0x20` to every pixel. The rest of the palette belongs to the
+UI, so a picture can use **176 colours**, not 256. **`ConvertBitmapFile`**
+(`0x48421E88`) prepares a file for that: it repacks the BMP in place inside a given size
+(the colour table straight after the headers, the pixels straight after it) and, for an
+8-bpp file with more than 176 colours, calls **`BmpReduceColors`** (`0x4842215B`). That
+routine counts how often each colour index is used, sorts the palette most-used first
+(a comb sort), keeps the first 176 and maps every other colour to the kept one at the
+least squared RGB distance, rewriting palette and pixels in place. The slide show runs it
+before drawing a picture, and the homepage loader before it programs the picture into
+the custom flash.
+
+Where the files themselves sit in RAM while this happens is on the
+[Work RAM Map]({{ site.baseurl }}/kn7000-work-ram/#where-an-image-file-lands) page.
 
 Primitive drawing is provided too: `DrawLine`/`DrawLineEx`, `DrawBox`,
 `DrawFrame`/`DrawFrameEx`/`DrawFrameSP`, `DrawCircle`.

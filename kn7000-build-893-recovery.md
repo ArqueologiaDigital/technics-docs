@@ -136,6 +136,16 @@ inclusively — within a byte or two of the `0x1933` the correlation finds
 independently in that region. The point is the order of magnitude and the sign,
 not the last digit: an entirely independent observation lands on the same ~6.4 KB.
 
+**The release byte.** The transcribed row `0x48400000` reads
+`CC EE 79 CB CB CB CB CB DC BA 75 0D 00 FF FF 13`. Its last byte, CPU `0x4840000F`,
+is the release number the firmware carries in hexadecimal digits (`0x15` in v1.5
+build 935, `0x16` in v1.6 build 941; see
+[the release number]({{ site.baseurl }}/kn7000-soft-version/#the-release-number-one-byte-at-0x4840000f)).
+The owner re-read that byte directly on his instrument on 2026-10-18 and got `0x13`
+again, so build 893 is **v1.3**. The row's layout also matches build 935's first row
+(`CC EE 79 CB CB CB CB CB DC 85 77 0D 00 FF FF 15`, a 3-byte reset jump) rather than
+941's (`DC 7E FF 00 00 CB CB CB CB CB DC C5 77 0D 00 16`, a 5-byte one).
+
 ### The table half
 
 Shift 0 and 96.1 – 100 % agreement from `0x48000000` up to `0x48159000`, then
@@ -218,17 +228,19 @@ cannot photograph 4 MB, but a capture card holding down one button can.
 
 ## Provenance of the numbers on this page
 
-| Claim | How it was checked |
-|---|---|
-| `PROGRAM` = 941 at file `0x33660C` | re-read from `kn7000_program.rom` while writing this page: `u16` LE = `0x03AD` = 941 |
-| `TABLE` = 84 via table offset `0x1C` | re-read: `dir[7]` = `0x139EE8`, bytes there are `"84\n\0"` |
-| `PROGRAM : 893` / `TABLE : 80` | **owner testimony, 2026-08-08**, read off the LCD of a real SX-KN7000 |
-| 37 screens / 9,472 bytes / 17 unknown cells | counted from `screens.json` (37 records × 256 cells; 17 cells equal to `??`) |
-| The transcribed address list | the `base_address` field of all 37 records |
-| The four-step drift profile | `DRIFT-ANALYSIS.md` in the transcription directory — correlation of each screen against build 941 at every shift in ±0x8000 |
-| `0x487F55CF`–`0x487FFFFF` is all `0xFF` on 893 | owner hardware read, 2026-08-09, via the instrument's own MEMORY DUMP screen |
-| Our last non-`0xFF` byte is `0x487F6F00` | `kn7000_program.rom` is `0x3F6F01` bytes, so its final byte sits at CPU `0x487F6F00`; scanned the image and confirmed that byte (`0x4C`) is the highest non-`0xFF` one |
-| Nothing here is a dump | stated in the transcription directory's own `README.md`; no reconstructed image exists in any repository |
+| Claim                                          | How it was checked                                                                                                                                                     |
+|------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `PROGRAM` = 941 at file `0x33660C`             | re-read from `kn7000_program.rom` while writing this page: `u16` LE = `0x03AD` = 941                                                                                   |
+| `TABLE` = 84 via table offset `0x1C`           | re-read: `dir[7]` = `0x139EE8`, bytes there are `"84\n\0"`                                                                                                             |
+| `PROGRAM : 893` / `TABLE : 80`                 | **owner testimony, 2026-08-08**, read off the LCD of a real SX-KN7000                                                                                                  |
+| 37 screens / 9,472 bytes / 17 unknown cells    | counted from `screens.json` (37 records × 256 cells; 17 cells equal to `??`)                                                                                           |
+| The transcribed address list                   | the `base_address` field of all 37 records                                                                                                                             |
+| The four-step drift profile                    | `DRIFT-ANALYSIS.md` in the transcription directory — correlation of each screen against build 941 at every shift in ±0x8000                                            |
+| `0x487F55CF`–`0x487FFFFF` is all `0xFF` on 893 | owner hardware read, 2026-08-09, via the instrument's own MEMORY DUMP screen                                                                                           |
+| `0x4840000F` = `0x13` (v1.3) on 893            | owner hardware read, 2026-10-18, via the MEMORY DUMP screen; the same value as the transcribed row `0x48400000`                                                        |
+| Build 935's first row                          | `JK1.SLD` of the kn7-15 update set, decompressed with the disassembly's `tools/sld_decompress.py`                                                                      |
+| Our last non-`0xFF` byte is `0x487F6F00`       | `kn7000_program.rom` is `0x3F6F01` bytes, so its final byte sits at CPU `0x487F6F00`; scanned the image and confirmed that byte (`0x4C`) is the highest non-`0xFF` one |
+| Nothing here is a dump                         | stated in the transcription directory's own `README.md`; no reconstructed image exists in any repository                                                               |
 
 ## Related pages
 

@@ -148,8 +148,8 @@ per-model deltas.
   machine config, the `MN103002A` CPU core and the KN6000 control-panel device.
   mamedev/mame#16416 (merged 2026-10-13) added the `kn6000_flop` software list. Both are
   `MACHINE_NOT_WORKING | MACHINE_NO_SOUND`, declare IC13/IC14 `NO_DUMP` and have no panel
-  artwork yet. The panel layout, the KN7000 table-ROM placeholder and the placeholder-PCM
-  tone generator described below exist only in the kn7000_mame overlay.
+  artwork yet. The panel layout, the font placeholder for the table ROM and the
+  placeholder-PCM tone generator described below exist only in the kn7000_mame overlay.
 - **Open:** mamedev/mame#16220 adds the KN6000 expansion connector and the optional
   HD-SX6 board.
 
@@ -209,6 +209,28 @@ Substantial work has landed since the section above was last written:
   KN6xxx-authentic** — the real fix is still a hardware dump of KN6000's IC13/IC14
   (`QSIGX3C16008`/`QSIGX3C16007`) and KN6500's equivalents (`C3FBMD000069`/`68`).
   Mainline MAME carries no such placeholder: it declares IC13/IC14 `NO_DUMP` for both models.
+
+## Status update (2026-10-18): a font placeholder, and text on the KN6500 too
+
+- **The table-ROM placeholder is now fonts only.** Instead of the KN7000's whole 4 MB
+  table ROM, the overlay's `kn6000` and `kn6500` load a generated 256 KB image
+  (`tools/kn6xxx_font_placeholder.py`, `*_table_fontph.rom`, still `BAD_DUMP`). It holds
+  nothing but the KN7000's twelve bitmap fonts, at the offsets the KN6xxx firmware reads:
+  the five-pointer header at `0x200` (bitmap, frame and icon tables, font table, 0), the
+  font descriptors and glyphs from `0x237A4`, and an all-zero block that the bitmap, frame
+  and icon pointers share. So the menus show their text, while icons and pictures from the
+  table ROM stay empty boxes instead of showing the KN7000's artwork at the KN6xxx's
+  indices. The glyphs are still the KN7000's.
+- **The KN6500 reads its table ROM at `0x40010000`.** Its font initialiser (`0x48420433`)
+  is the KN6000's except that it loads the header from `0x40010200`, and its other
+  table-ROM references use the same base, at the KN6000's offsets. That is why the old placeholder never helped it. The overlay
+  now maps the region there for `kn6500`, and the **KN6500 renders text for the first
+  time**: play screen, PROGRAM MENUS, DEMONSTRATION. Its part names read the firmware's own
+  `Sound Name Error` and its SOUND list is empty: the KN6500 seems to take voice names from
+  the table ROM (header offsets `0x120`–`0x134`, which only it reads), so that will need the
+  real IC13/IC14.
+- **Readable on the KN6000:** play screen, PROGRAM MENUS, the SOUND list, the HELP page,
+  the disk error message and the DEMONSTRATION menu, checked in MAME on 2026-10-18.
 
 ## More Technics models incoming
 

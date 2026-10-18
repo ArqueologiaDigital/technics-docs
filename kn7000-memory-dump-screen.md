@@ -17,8 +17,12 @@ a particular unit.
 On the KN7000 it is **not** nested inside the Panel Simulator the way it is on
 the KN5000. On our image the chord opens the viewer directly, as a first-class
 screen (`_TT_MEMDUMP`, title id `0xF2`). Whether *your* instrument behaves that
-way depends on a single configuration byte — see
-[Two doors](#two-doors-the-configuration-byte-at-0x4840000f).
+way depends on a single byte of the program flash, which turns out to be the
+firmware's release number — see
+[Two doors](#two-doors-the-configuration-byte-at-0x4840000f). Every released
+version opens the viewer directly; only a build without a release number (`0xFF`)
+opens the developers' Panel Simulator and its [DEBUG TOOLS](#debug-tools) instead,
+and only such a build has the [LCD capture](#lcd-capture) chords.
 
 > ⚠ **Derived from PROGRAM 941 / TABLE 84; many owners run something else.**
 > Every address, constant and disassembly listing below was read out of the
@@ -276,7 +280,9 @@ flash window counted **zero writes** across a full open → drive-every-control 
 EXIT session in MAME.
 
 **Exactly one debug feature in the firmware writes a file, and it is the wrong
-one.** The LCD-capture chord runs `CaptureLcd` at `0x4841567D`, which does
+one** — and it only exists on a build whose release byte is `0xFF`, so not on any
+released version ([LCD capture](#lcd-capture)). Two chords run `CaptureLcd` at
+`0x4841567D`, which does
 `sprintf` into `LCDCAP%02d.BMP` (format string at `0x4859E2E4`, counter at
 `0x50021FC8`), `fopen`s it `"wb"` and writes a Windows bitmap. Its source is
 **hardcoded**:
@@ -377,14 +383,21 @@ whole image finds that value as a literal in exactly one place — this function
 own fallback. So the four addresses on his LCD are our four defaults, digit for
 digit.
 
+3. **His configuration byte reads `0x13`.** The owner dialled `0x48400000` and read
+   the last byte of the row, `0x4840000F`, as `0x13` (2026-10-18), the same value as
+   in the earlier [photo transcription]({{ site.baseurl }}/kn7000-build-893-recovery/).
+   It is his firmware's release number, v1.3 (see
+   [Two doors](#two-doors-the-configuration-byte-at-0x4840000f)).
+
 What that **proves**: the hidden viewer exists and opens on PROGRAM 893, and
 this initialiser — including a helper in a completely different part of the
 image — is present and behaves identically on a build we have never executed.
 It also means build 893's work-RAM layout in the `0x501A5xxx` region matches
 941's, a free cross-version calibration point.
-What it does **not** tell us: which of the two doors he came through, and
-therefore what his configuration byte is. Both routes end at the same viewer
-with the same defaults.
+It also settles which door he came through: with `0x13` the `1`/`4`/`5`/`8` chord
+opens the viewer directly, and the LCD-capture chords are dead on his unit, if
+893's gate code is the same as in every build we hold (it has not been
+transcribed; 893's first program row does have the same layout as v1.5's).
 
 A practical corollary of the flag at `0x50001304`: the defaults are installed
 **once**, and then the flag is cleared, so within a power cycle the slots keep
@@ -425,21 +438,144 @@ further in, through a **DEBUG TOOLS** screen (`_TT_DEBUG`, title id `0xFF`)
 that also offers MEMO LOG, ICON LIST, COLOR LIST, BITMAP LOAD, a
 `DEBUG MODE : OFF` toggle, a mode enumerator reading `015 : _MD_SONG`, and a
 `--- SOFTWARE VERSION ---` box with the same four numbers as the SOFT VERSION
-screen.
+screen (all described under [DEBUG TOOLS](#debug-tools)).
 
 The two outcomes are mutually exclusive, which makes the chord **a one-press
 probe of that byte on any unit**. It is worth reporting which screen you got
 even if you go no further.
 
-The LCD screen-capture chord is gated the *other* way: it requires the byte to
-**be** `0xFF`, so capture is dead on our image and live on a Panel-Simulator
-unit.
+The LCD screen-capture chords are gated the *other* way: they require the byte
+to **be** `0xFF`, so capture is dead on our image and live on a Panel-Simulator
+unit ([LCD capture](#lcd-capture)).
 
-The byte follows the release: it is `0x16` in v1.6 (build 941) and `0x15` in
-the v1.5 image (build 935), whose gate code is the same, so a v1.5 unit also
-opens the viewer directly. In the SP7001 build 942 it is `0xFF`, so on an
-SP7001-updated unit the chord is expected to open the Panel Simulator, with LCD
-capture live (read from the image, not yet run).
+**The byte is the release number.** The firmware itself prints it as a version:
+the welcome-screen class `AcMPVer` formats it with `"%s    Ver%1X.%1X"`, so `0x16`
+is "Ver1.6". Every build we can read agrees:
+
+| build | release                 | byte at `0x4840000F`                             | chord 1/4/5/8 opens | LCD capture                                      |
+|-------|-------------------------|--------------------------------------------------|---------------------|--------------------------------------------------|
+| 893   | v1.3 (the owner's unit) | `0x13`                                           | the hex viewer      | dead (same gate assumed)                         |
+| 929   | v1.4                    | lost with update disk 1 (by the pattern, `0x14`) | —                   | —                                                |
+| 935   | v1.5                    | `0x15`                                           | the hex viewer      | dead                                             |
+| 941   | v1.6                    | `0x16`                                           | the hex viewer      | dead                                             |
+| 942   | v1.6 PLUG-iN (SP7001)   | `0xFF`                                           | Panel Simulator 2.1 | live (read from the code; never run on hardware) |
+
+The gate code is the same in 935, 941 and 942 apart from relocated addresses. The
+byte lives in the program flash itself, so only a program update changes it.
+Installing the SP7001 update on an instrument would open these screens, and would
+also overwrite its program for good, which for the owner's unarchived 893 must not be
+done; MAME with the byte patched is the safe way to see them.
+
+## DEBUG TOOLS
+
+DEBUG TOOLS (`_TT_DEBUG`, title `0xFF`) is the developers' menu behind the Panel
+Simulator. It is reached only on a build whose byte at `0x4840000F` is `0xFF`: hold the
+`1`/`4`/`5`/`8` chord, which then opens "Technics / Panel Simulator 2.1", and press
+**LCDR5** (bottom right). On a released build there is no route to it: the chord opens
+MEMORY DUMP directly, and EXIT from there returns to the play screen (measured in MAME).
+Every call that could open the Panel Simulator or DEBUG TOOLS was checked; the only other
+"DEBUG TOOLS" key sits on an unreferenced "Panel Simulator for IK" test screen. In MAME,
+write `0xFF` to byte `0x0F` of the `:maincpu` region after boot and use the chord.
+
+The screen carries MEMORY DUMP and MEMO LOG on the left soft keys, ICON LIST, COLOR LIST
+and BITMAP LOAD on the right, the SOFTWARE VERSION box, and two controls worked with the
+part-mixer (balance) buttons:
+
+### DEBUG MODE : OFF / ON
+
+A developer switch that adds extras to five ordinary screens. **UP of balance column 2
+or 3 sets ON, DOWN sets OFF** (it is not a toggle; columns 1 and 4 do nothing). It lives
+in work RAM (`0x5015080C`, `DbModeEditBox`), so it is OFF again after every power-on.
+Changing it broadcasts `MT_SetDebugMode` to every mode and title of the UI. It adds no
+logging, relaxes no check and has nothing to do with LCD capture. What it changes, each
+seen in MAME:
+
+| screen                          | with DEBUG MODE ON                                                                                                     |
+|---------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| SOUND MENU > PART SETTING       | the PART SELECT list grows from 22 to 32 parts: ACCOMP 1–5, BASS, DRUM 1, DRUM 2, PADS 1 and PADS 2 become selectable  |
+| SOUND MENU > APC REVERB SETTING | a second DEPTH column at the right edge, read back from the eight accompaniment parts                                  |
+| PROGRAM MENUS > REVERB & EFFECT | the blank LCDL2 key opens a hidden **EFFECT DEBUG** screen (title `0x3E`): an effect grid with mode toggles            |
+| APC SELECT                      | a window with four editable APC wait times (OFF / 1st / 2nd / more 3; 0–500, defaults 192 / 40 / 24 / 4), columns 8–11 |
+| HELP text pages                 | a page-number box at the bottom right; column 16 steps through the help pages                                          |
+
+The first two react only to the broadcast, so they need the real switch; the last
+three read `0x5015080C` directly. The DEMO mode also records the setting, but nothing
+reads it there. Build 942 has the same code.
+
+### The mode / title list ("015 : _MD_SONG")
+
+The box next to DEBUG MODE is a separate tool (`DbVariableMenu`): a list of every UI
+**mode** and **title** by the developers' own names, which come from tables in the
+firmware. The number is hexadecimal — `015` is mode `0x15`, `_MD_SONG`. Balance column
+11 steps through the 32 modes (`_MD_PS`, mode 0, is the Panel Simulator) and then the 320
+titles (`_TT_PS` ... ); **LCDR5 jumps** to the selected one. It does not interact with
+DEBUG MODE. Some modes, `0x15` among them, are never registered, so jumping to them
+probably lands on the Panel Simulator (inferred).
+
+### BITMAP LOAD
+
+A preview tool: it shows a `.BMP` file from a floppy on the LCD, through the same
+drawing path the instrument uses for its own BMP pictures. It writes nothing.
+
+1. Insert a DOS floppy (1.44 MB or 720 KB) with the pictures in its **root
+   directory**, named `*.BMP`. Only the **first ten** matches can be reached.
+2. On DEBUG TOOLS press **LCDR3** (BITMAP LOAD). The box "BITMAP FILE :" shows
+   `NN:NAME`; step through the files with the UP/DOWN buttons of balance **column 5
+   or 6**.
+3. Press **LCDR4** (LOAD). The file is read — at most `0x18000` bytes (96 KB) — into
+   the work area at `0x502B8000` and drawn at the top-left corner by `Draw2BpFile`.
+4. EXIT goes back to the list (rescanned, back to file 00); EXIT again to DEBUG TOOLS.
+
+What a file must be: an uncompressed Windows BMP with the 40-byte header, 1, 4 or 8
+bits per pixel, rows bottom-up, and the whole file no larger than 98,304 bytes — so a
+full 640 × 240 picture needs 4 bpp or less. 8-bit pictures should use at most **176
+colours**: the routine loads the file's colours 0–175 into palette entries `0x20`–`0xCF`
+and adds `0x20` to every pixel, so higher indices show other colours. Tested in MAME
+with the files written into memory (MAME's floppy reads no sectors yet):
+
+| file                             | result                                                                         |
+|----------------------------------|--------------------------------------------------------------------------------|
+| 320 × 240, 8 bpp                 | drawn exactly, top-left                                                        |
+| 640 × 240, 4 bpp (76,918 bytes)  | fills the screen                                                               |
+| 640 × 240, 1 bpp                 | fills the screen                                                               |
+| taller than 240 rows             | the top 240 rows are shown                                                     |
+| 640 × 240, 8 bpp (154,678 bytes) | only the first 96 KB is read: rows 89–239 are right, the rest is stale memory  |
+| 700 pixels wide                  | not clipped: each row runs into the next screen line                           |
+| top-down (negative height)       | nothing drawn                                                                  |
+| 24 bpp, 2 bpp, RLE, V5 header    | refused: a black view with only the file label, no message                     |
+
+Why a developer would want it: a 640 × 240 4-bpp BMP is exactly what the firmware's
+own LCD capture writes on the 2-bit (4-grey) display variant, and the four DEBUG TOOLS
+sub-screens are an artwork check-list: ICON LIST pages through the icons, COLOR LIST
+shows all 256 palette entries with their RGB values, BITMAP LOAD shows a real file.
+The name `Draw2BpFile` most likely refers to that 2-bit display; the routine itself is a
+copy of the ordinary BMP blitter (see the
+[Display Subsystem]({{ site.baseurl }}/kn7000-display-subsystem/#windows-bmp-files)).
+
+## LCD capture
+
+On a build whose byte at `0x4840000F` is `0xFF` — of the builds we hold, only the SP7001
+build 942 — two chords save the screen as a BMP file:
+
+- **The four corners:** hold **LCDL1, LCDL5, LCDR1 and LCDR5** — the top and bottom soft
+  keys on both sides of the display — in any order. The capture happens when the fourth
+  goes down. The keys keep their normal functions, so choose a screen where they are
+  harmless (the play screen and MEMORY DUMP are). While all four are held, every press or
+  release of another key in that group makes another capture.
+- **DISPLAY HOLD + pads:** hold DISPLAY HOLD, hold PAD 1, press PAD 2. DISPLAY HOLD also
+  toggles hold mode and the pads sound; press DISPLAY HOLD once more afterwards.
+
+The file is `LCDCAP00.BMP`, `LCDCAP01.BMP`, … on the current drive — the floppy, `A:\`,
+outside SD-card operations: 640 × 240, 24-bit, uncompressed, 460,854 bytes (a 1.44 MB
+disk holds three). There is no message and no beep; the numbering starts again at 00 at
+every power-on and an existing file is replaced.
+
+In MAME, PROGRAM 941 with the byte patched to `0xFF` behaves exactly so: both chords run
+`CaptureLcd`. MAME's floppy cannot write yet, so the file was obtained by steering the
+firmware's file calls to its SD-card backend (an emulator-only intervention); the image
+is the screen shifted up by one row. Whether real hardware shows the same one-row shift
+is unknown. The SP7001 image itself does not boot in the current MAME build, so the
+capture has not been run on 942.
 
 ## What it can read
 
@@ -529,7 +665,7 @@ page, which touches nothing.
 - **The KN5000 chord does not work here, and that is not a bug.** Columns 1+5+8 give `0x91`, the KN5000's Panel Simulator constant. The KN7000 dispatcher has no case for `0x91`; it falls through and returns. Reproduced in the emulator: the accumulator reached exactly `0x00000091` — the instrument *saw* the input — and the screen never changed. Wrong constant for this firmware; not timing, not panel mapping, not an absent screen.
 - The dispatcher is complete and that is provable, not assumed. A byte scan for the absolute address of the both-held accumulator (`0x50021FE0`) finds exactly five references in the whole 4 MB image: the three in the block below, plus two resets at `0x48414C05` and `0x48414CA8`. **There is no second comparison site anywhere**, so `0x99`, `0xA1` and `0x110000` are the only chords this handler implements.
 - Not every chord has been swept behaviourally. All 56 three-column combinations over columns 1..8 *were* swept, with exactly one positive (`0xA1`). Four-column chords were not exhaustively swept — only `0x99` positive and `0x9B` negative. The disassembly closes the gap, but as a completeness statement this rests on the ROM scan rather than on measurement.
-- **Which physical caps produce the `0x110000` capture chord is not established.** `0x110000` is bits 16 and 20 of the same held-switch accumulator, and the mask table at `0x4859E1A0` runs `1 << N` well past bit 23 — so those two bits are held-switch *indices* 16 and 20, which lie beyond the sixteen part-mixer columns and therefore belong to some other switch group. The gating and the file-writing behaviour are proven; the button identification is not.
+- **The `0x110000` capture chord is the four corner soft keys.** Bits 16 and 20 of the held-switch accumulator are index switches `0x10` and `0x14`, produced only by LCDL1 and LCDL5 (the DOWN half) and LCDR1 and LCDR5 (the UP half); the names come from the firmware's own edit-switch table at `0x485B0C68`. Settled 2026-10-18 from the code and in MAME; see [LCD capture](#lcd-capture).
 - ADR3's target (the 11-entry table of `0x8E0`-byte records at `0x501A5800`) is **plausibly** the sequencer song slots — the bound is 11, the manual says `10 SONG MAX.`, and a sequencer initialiser is one of its callers — but nothing names it, so treat the identification as unproven.
 - The viewer keeps repainting while it is open (measured in the emulator: about every 3 s when idle), so a parked address is re-read over and over. That is harmless in ROM and RAM and is **not** harmless over I/O. Keep it in `0x48000000`–`0x487FFFFF` or `0x50000000`+ / `0x84000000`+, and stay off the flash command window, the TG/FDC window, the DSP port, the SD interface and CPU-internal I/O including the MIDI transmitter. FULLTIME makes this worse, not better.
 - RHYTHM and PICTURE read 0 in the emulator because those two devices have never been dumped and upstream MAME declares both `NO_DUMP` and maps neither (the kn7000_mame overlay substitutes a synthetic stand-in for the rhythm resource). **Any RHYTHM or PICTURE number seen in emulation is an artefact.** On real hardware those two rows show numbers this project holds from no source at all, which makes them worth photographing.
@@ -578,11 +714,11 @@ The dispatcher at `0x484148C0` tests exactly three constants and nothing else:
 484148da: ca 5f               bra  0x48414939        ; anything else: return
 ```
 
-| Accumulator | Held-switch bits | Result |
-|---|---|---|
-| `0x000000A1` | columns 1, 6, 8 | SOFT VERSION — ungated |
-| `0x00000099` | **columns 1, 4, 5, 8** | **MEMORY DUMP** — gated on `0x4840000F` ≠ `0xFF` |
-| `0x00110000` | bits 16 and 20 (not part-mixer columns; caps unidentified) | LCD capture to `LCDCAP%02d.BMP` — gated inversely, on `0x4840000F` = `0xFF` |
+| Accumulator  | Held-switch bits                                                           | Result                                                                      |
+|--------------|----------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| `0x000000A1` | columns 1, 6, 8                                                            | SOFT VERSION — ungated                                                      |
+| `0x00000099` | **columns 1, 4, 5, 8**                                                     | **MEMORY DUMP** — gated on `0x4840000F` ≠ `0xFF`                            |
+| `0x00110000` | bits 16 and 20: the four corner LCD soft keys (LCDL1, LCDL5, LCDR1, LCDR5) | LCD capture to `LCDCAP%02d.BMP` — gated inversely, on `0x4840000F` = `0xFF` |
 
 The viewer itself is `DbMemoryDumpProc` at `0x484878AC`. It dispatches through
 an open-addressed table of sixteen 8-byte `{key, handler}` slots at
