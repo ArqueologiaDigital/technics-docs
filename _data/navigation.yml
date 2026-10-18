@@ -92,6 +92,8 @@
           url: /kn7000-sequencer/
         - title: "Slide Shows (.ACT, FEATURE.PRE)"
           url: /kn7000-slideshow/
+        - title: "Style Converter (.CNV)"
+          url: /kn7000-style-converter/
         - title: Work RAM Map
           url: /kn7000-work-ram/
     - title: Sound
