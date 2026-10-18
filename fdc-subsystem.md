@@ -763,21 +763,50 @@ of `Check_for_Floppy_Disk_Change` and reads the same active-low Port D bit 6.
 
 > This table describes the **kn7000_mame overlay** build. In mainline MAME the `UPD72067` is instantiated but not mapped (`//FIXME: map(0x110000, ...)`), Port D bit 6 is unimplemented and no TC is wired, so a floppy cannot be read there yet; mainline offers only the `35hd` drive (mamedev/mame#16415).
 
-| Component          | Status                     | Notes                                                                                                                                                                                                                                                                                        |
-|--------------------|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| FDC device         | **Working**                | UPD72067 at 0x110008/0x11000A, 32MHz clock                                                                                                                                                                                                                                                   |
-| DMA data port      | **Working**                | 0x120000 for software DMA channel 3                                                                                                                                                                                                                                                          |
-| IRQ routing        | **Working**                | INT4 (command complete), INT5 (DRQ)                                                                                                                                                                                                                                                          |
-| Floppy connector   | **Working**                | 3.5" HD (1.44MB, default) and DD (720K), MFI format supported                                                                                                                                                                                                                                |
-| TC signal          | **Working (overlay only)** | Port H bit 0, strobed by the firmware's `FDC_Pulse_PH0` (from `INTTC3_HANDLER` at each DMA-3 end, at the end of a PIO transfer, and in `FDC_InitSequence_Full`): `m_maincpu->porth_write().set([this] (u8 data) { m_fdc->tc_w(BIT(data, 0)); })` (kn7000_mame 240a41f). Mainline wires no TC |
-| Disk images        | **Available**              | v5-v10 firmware update disks from [archive.org](https://archive.org/details/technics-kn5000-system-update-disks); mainline also ships the `hash/kn5000_flop.xml` software list (14 FAT12 reconstructions, mamedev/mame#16415)                                                                |
-| Disk change detect | **Working**                | Port D bit 6 — `dskchg_r()` inverted for the active-low hardware signal                                                                                                                                                                                                                      |
+| Component             | Status                     | Notes                                                                                                                                                                                                                                                                                                                                                                         |
+|-----------------------|----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| FDC device            | **Working**                | UPD72067 at 0x110008/0x11000A, 32MHz clock                                                                                                                                                                                                                                                                                                                                    |
+| DMA data port         | **Working**                | 0x120000 for software DMA channel 3                                                                                                                                                                                                                                                                                                                                           |
+| IRQ routing           | **Working**                | INT4 (command complete), INT5 (DRQ)                                                                                                                                                                                                                                                                                                                                           |
+| Floppy connector      | **Working (overlay only)** | 3.5" HD drive on **unit 1** (`fdc:1`): the firmware sets US = 1 in every command (`FDC_CMD_SEND` builds the unit/head byte with `set 0, a`). Raw `.img` loads (PC formats registered, 2026-10-18); before that only MFI and other flux containers did                                                                                                                         |
+| TC signal             | **Working (overlay only)** | Port H bit 0, strobed by the firmware's `FDC_Pulse_PH0` (from `INTTC3_HANDLER` at each DMA-3 end, at the end of a PIO transfer, and in `FDC_InitSequence_Full`): `m_maincpu->porth_write().set([this] (u8 data) { m_fdc->tc_w(BIT(data, 0)); })` (kn7000_mame 240a41f). Mainline wires no TC                                                                                  |
+| Disk images           | **Available**              | v5-v10 firmware update disks from [archive.org](https://archive.org/details/technics-kn5000-system-update-disks). Mainline ships `hash/kn5000_flop.xml` (14 FAT12 reconstructions, mamedev/mame#16415), but mainline cannot load a `.img`, and the images are to be rebuilt on the KN5000's own formatted disk ([Floppy Disk Images]({{ site.baseurl }}/floppy-disk-images/)) |
+| Disk present (FD.I/O) | **Working (overlay only)** | Port D bit 6, low while a disk is in the drive (a level; see below)                                                                                                                                                                                                                                                                                                           |
+| Motor                 | **Working**                | `FDC_CMD_ENABLE` sets bit 3 of SFR 0x28 and sends auxiliary command `0xFE` (enable motors, all drives), which MAME's uPD72067 applies                                                                                                                                                                                                                                         |
+| Ready (RDY)           | **Working (overlay only)** | tied active: the firmware issues its first SEEK about 5 ms after motor-on, far too soon for a drive's ready signal                                                                                                                                                                                                                                                            |
+| Data rate             | **Working (overlay only)** | auxiliary command "control internal mode": `0x4B` before a 1.44 MB attempt (500 kbit/s), `0x0B` before 720 KB (250 kbit/s); MAME's uPD72067 acknowledges it without changing rate, so the driver applies it                                                                                                                                                                   |
+| FORMAT                | **Working (overlay only)** | DISK TOOLS on a blank disk; FORMAT TRACK `4D 01 02 12 6C E5` (unit 1, 512-byte sectors, 18 per track, gap 0x6C, fill `E5`); the disk is byte-identical to the KN6000's and KN7000's ([Floppy Disk Images]({{ site.baseurl }}/floppy-disk-images/))                                                                                                                            |
 
-**Test command (overlay build):** `mame kn5000 -flop <disk_image.mfi>`
+**Test command (overlay build):** `kn7000 kn5000 -flop <disk_image.img>`
 
-### Disk Change Signal (Port D Bit 6)
+### Disk Present Signal (Port D Bit 6, FD.I/O)
 
-The firmware's `Check_for_Floppy_Disk_Change` (at 0xF98001) reads Port D bit 6 before issuing any FDC commands. This signal is active-low on the hardware (low = disk change detected). MAME's `floppy_image_device::dskchg_r()` returns active-high (1 = change detected), so the signal must be inverted: `(!floppy->dskchg_r()) << 6`. Without this inversion, the firmware always shows "ERROR 02! There is no disk in the disk drive."
+The firmware reads Port D bit 6 as a **level**, low while a disk is in the drive.
+`GetMediaType` reports "no disk" when it reads 1, without touching the drive, and
+`Reset_Floppy_Disk_Controller` skips its seek sweep on 1 (`Check_for_Floppy_Disk_Change`, at
+0xF98001, only reads the bit). Until 2026-10-18 the overlay fed it from MAME's
+`floppy_image_device::dskchg_r()`, inverted. That is a disk-change latch, which only a head step
+clears, and the firmware never steps while the line says "no disk". A disk present at power-on
+worked, because the latch starts set, but a disk inserted while the instrument ran was never
+seen: "ERROR 02! There is no disk in the disk drive." The line now follows whether a disk is in
+the drive, which gives the same value at boot.
+
+### Drive Unit, Ready and Data Rate
+
+Three more defects stopped the KN5000 reading or formatting any disk in MAME. They were found
+on 2026-10-18 by tapping the controller's registers while the firmware ran (kn7000_mame
+`tools/floppy-images/runs-2026-10-18/`).
+
+- **Unit 1.** Every command the firmware sends addresses drive 1 (SEEK `0F 01 05`, RECALIBRATE
+  `07 01`, READ DATA `C6 01 ...`), and the driver had the drive on unit 0. Every command came
+  back "not ready" (ST0 `0x69`/`0x49`), so every disk looked unformatted.
+- **RDY.** With the unit right, the controller still waited for the drive's ready signal. The
+  firmware sends motor-on (auxiliary `0xFE`) and seeks about 5 ms later, so on the board the
+  controller's RDY input must be tied active (inferred from the firmware; the schematic net for
+  that pin has not been traced).
+- **Data rate.** The firmware selects 500 kbit/s with auxiliary command `0x4B` before trying a
+  1.44 MB disk and 250 kbit/s with `0x0B` before 720 KB. MAME ignored the command, so every
+  track was read and written at 250 kbit/s, and a disk the KN5000 formatted was saved as 720 KB.
 
 ### Terminal Count (TC)
 

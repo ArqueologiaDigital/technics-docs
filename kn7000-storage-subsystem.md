@@ -242,15 +242,18 @@ its song, script and 19 pictures from the drive and plays, with nothing forced
 ([Slide shows]({{ site.baseurl }}/kn7000-slideshow/#seen-in-mame)). A disk must be laid out
 like a DOS-formatted one: the media check accepts only a FAT starting `F0 FF FF` or
 `F9 FF FF`, and the KN6000 file system also assumes 9-sector FATs; the floppy images in
-MAME's software lists do not pass (see the slide-show page).
+MAME's software lists do not pass (see the slide-show page), and are to be rebuilt on the
+instruments' own formatted disks ([Floppy Disk Images]({{ site.baseurl }}/floppy-disk-images/)).
 
-FORMAT was last tested before these fixes. It failed with **ERROR 08**
-("an error has occurred while the disk was formatting") inside the RTOS class-5
-disk-task dispatch, *before* the FDC was touched. That failure looked
-observation-sensitive, and SHARC DRC, `-debug`, `set_perfect_quantum` and
-`-sound none` were ruled out as causes. It has not been re-tested since, so it is no
-longer established as a timing defect. The full FORMAT navigation path is mapped and
-works — all ten LCD soft-keys are bound.
+**FORMAT works** (tested 2026-10-18 with the fixes above): DISK, DISK TOOLS on a blank disk
+opens FLOPPY DISK FORMAT; 1.44M, YES, then a message box (EXIT) and DISK NAMING. The disk it
+writes is described on [Floppy Disk Images]({{ site.baseurl }}/floppy-disk-images/), and it is
+byte-identical to what the KN5000 and KN6000 write. Before the DMA and INDEX fixes, FORMAT had
+failed with **ERROR 08** ("an error has occurred while the disk was formatting") inside the RTOS
+class-5 disk-task dispatch, before the FDC was touched; that run predates the fixes and was not
+reproduced. The KN6000 needed one more fix to format: its DMA-end interrupt makes a dummy read of
+the DMA acknowledge port, and the driver now lets such a read move data only while the controller
+requests it (otherwise it took FORMAT TRACK's last sector ID).
 
 ⚠ **ERROR 08 identifies no decision point.** It is `FmmFormatFunc`'s *default* message number — any result code absent from the status-to-error table at `0x48663794` produces it (the KN5000's copy is `FileIO_StatusToErrorCode`, `0xEA067C`), and the format worker's own `-6` maps to 8 as well. The code means "the format returned failure", nothing more. Reasoning that treats 8 as naming a particular branch is unsound; several earlier notes did.
 

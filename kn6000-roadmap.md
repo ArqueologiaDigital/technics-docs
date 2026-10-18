@@ -252,7 +252,11 @@ Substantial work has landed since the section above was last written:
 - **The `kn6000_flop` images need rebuilding.** They were built with pyfatfs, whose FAT
   start (`F0 0F FF`) and 12-sector FATs the KN6000 rejects (and the KN7000, for its own list).
   The same files on a standard 1.44 MB layout load. The software lists in mainline MAME carry
-  the same images, so the fix is a change to those lists.
+  the same images, so the fix is a change to those lists. The method is settled and tried on
+  `ca6fp01`: each image starts from a blank disk the KN6000 itself formatted in MAME
+  ([Floppy Disk Images]({{ site.baseurl }}/floppy-disk-images/)). Running the KN6000's FORMAT
+  needed one driver fix (a dummy DMA-acknowledge read in its DMA-end interrupt had taken FORMAT
+  TRACK's last sector ID).
 - How to run it: `RUNNING-THE-BUILDS.md` in the KN7000 repository, "KN6000
   feature-presentation disks".
 

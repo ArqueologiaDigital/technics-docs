@@ -342,7 +342,9 @@ The `kn6000_flop` software-list image is not: its FAT starts `F0 0F FF` and each
 sectors, and the KN6000's media check accepts only `F0 FF FF` / `F9 FF FF` and its file system
 expects 9-sector FATs; the same files copied onto a standard image load. (The same holds for
 every image in the `kn5000_flop`, `kn6000_flop`, `kn7000_flop` and `wsa1_flop` lists, and the
-KN7000's media check rejects them too.)
+KN7000's media check rejects them too.) The lists are being rebuilt on blank disks formatted by
+each instrument itself; `ca6fp01` built that way loads with no relayout step
+([Floppy Disk Images]({{ site.baseurl }}/floppy-disk-images/)).
 
 At first the show then held its first slide: the KN6000's **tempo timer** was not emulated, so
 the song never advanced, and a KN6000 slide show follows its song exactly as the KN7000's does.
