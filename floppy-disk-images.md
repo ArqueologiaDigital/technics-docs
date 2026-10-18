@@ -78,7 +78,8 @@ The KN5000 (v10), KN6000 and KN7000 (941) formatters produce **byte-identical** 
 | data           | 33-2879    | every byte `E5`                                                                                                                                                                                                                                                         |
 
 - **The label** is the typed name padded with `_` to 11 characters. With no name typed it is
-  eleven `_`. Typing "KN" on the KN6000 changed exactly two bytes.
+  eleven `_`. Typing "KN" on the KN6000 changed exactly two bytes. Pressing EXIT on the naming
+  screen instead leaves **no label at all**; the root directory stays empty.
 - **The fill byte `E5`** comes from the FORMAT TRACK command, which all three send with 512-byte
   sectors, 18 per track, gap length `0x6C` and fill `E5`, on all 80 cylinders and both heads.
   After that they write sectors 0-32 one at a time, write the label sector (19) again, and read
@@ -113,8 +114,37 @@ KN6000's blank disk with the label `CA6FP01`. Two builds give the same SHA-1,
 - **On the emulated KN6000** (DEMONSTRATION screen, insert the disk) it loads directly, with no
   relayout step, and the slides play from t = 69 s onwards.
 
-The remaining entries are to be rebuilt the same way, each on its own instrument's blank disk,
-before any of them goes upstream.
+All 40 entries that have an installer were then rebuilt the same way, each on its own
+instrument's blank disk and labelled with its name. Each one passes the checker and carries
+exactly the files of the image it replaces. They are staged for testing in the emulator before
+anything goes upstream; `TESTING.md` in `tools/floppy-images/` says how. `idd5000` has no
+installer: its files came copied off a disk, zipped in 2014, so its original layout is lost.
+
+## What official Technics disks look like
+
+The KN5000 system-update disks on archive.org (item `technics-kn5000-system-update-disks`)
+include images that nobody has touched since Matsushita made them. Versions 5 and 6 are `.IMG`
+files shipped with `DOSIMAGE.EXE`. Versions 7 and 8 are appended to `KN5KPV7.EXE` and
+`KN5KPV8.EXE`, Matsushita's own DOS writer ("Self executable Image file to FD V0.1, Copyright
+Matsushita Electric 1998, for 2HD disk only"). Compared with v9, v10 and our disks:
+
+- **The same boot sector.** Every one carries the instruments' `Technics` boot head with no
+  `55 AA`, so all were formatted on an instrument. On v5 and v6, Windows 95 later replaced the
+  OEM name with its `?????IHC` marker.
+- **No volume label on any of them,** which is what an instrument writes when the naming step
+  is skipped.
+- **The same file layout as our builder:** files contiguous from cluster 2 in directory order,
+  upper-case 8.3 names, creation and access fields zero, and the files' own write dates.
+- **The slack after a file's end is not clean.** It holds whatever the writing PC had (`E5`,
+  `00`, stray bytes); our builds write zeros there.
+- **Free space is `E5` on v7-v10.** On v5 and v6 it is `F6` and leftovers, so those master disks
+  had been used before.
+- **v9 and v10 as uploaded carry 2023 traces:** a dirty flag, access dates of 2023-02-26 and
+  creation dates of 1980-01-01, written by a read-write mount before they were uploaded.
+
+So the official disks confirm the boot sector, the fill and the file layout. On the label they
+differ: Matsushita left it out, while our rebuilt images carry the software-list name. The
+comparison and its sources are in `tools/floppy-images/runs-2026-10-18/official_update_disks_compared.md`.
 
 ## What it took to run the formatters in MAME
 
