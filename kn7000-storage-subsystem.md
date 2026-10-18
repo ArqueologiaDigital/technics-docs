@@ -42,19 +42,18 @@ naming (`SdcCustomFileNaming`, `SdcTechnicsFileNaming`, `FormatSdNaming`).
 FMM handles a family of file types, each with its own load/save path; the
 extensions `.MID` and `.CST` appear in a type table at `0x2637E4`:
 
-| Type                | Extension      | Contents                                                                           |
-|---------------------|----------------|------------------------------------------------------------------------------------|
-| SMF                 | `.MID`         | Standard MIDI File (songs)                                                         |
-| Custom              | `.CST`         | registration / "custom" panel setups                                               |
-| Technics song       | —              | native song format                                                                 |
-| Composer            | —              | user rhythm/style (see the Composer/`TCMP` data)                                   |
-| Sequence            | —              | the on-board sequencer's songs                                                     |
-| Wallpaper / Picture | —              | user display images                                                                |
-| Playlist            | —              | ordered play sets (`FE_SeqPlaylistSetting`, `0x4853F009`)                          |
-| Picture             | `.BMP`, `.JPG` | slide-show pictures (PICTURE LOAD): up to 640 × 480, files up to `0x4D800` bytes   |
-| Homepage            | `.HMP`         | the HOMEPAGE layout: a 0x18C-byte settings record + a 160 × 100 BMP (17,474 bytes) |
-| Homepage picture    | `.BMP`         | the homepage picture alone: 160 × 100, 2, 16 or 256 colours                        |
-| Custom data         | `.AST`         | the Initial Data / custom-data flash contents, zlib-compressed                     |
+| Type                                                                  | Extension      | Contents                                                                           |
+|-----------------------------------------------------------------------|----------------|------------------------------------------------------------------------------------|
+| SMF                                                                   | `.MID`         | Standard MIDI File (songs)                                                         |
+| Custom                                                                | `.CST`         | registration / "custom" panel setups                                               |
+| Technics song                                                         | —              | native song format                                                                 |
+| Composer                                                              | —              | user rhythm/style (see the Composer/`TCMP` data)                                   |
+| Sequence                                                              | —              | the on-board sequencer's songs                                                     |
+| Playlist                                                              | —              | ordered play sets (`FE_SeqPlaylistSetting`, `0x4853F009`)                          |
+| Picture                                                               | `.BMP`, `.JPG` | slide-show pictures (PICTURE LOAD): up to 640 × 480, files up to `0x4D800` bytes   |
+| Homepage                                                              | `.HMP`         | the HOMEPAGE layout: a 0x18C-byte settings record + a 160 × 100 BMP (17,474 bytes) |
+| Homepage picture (the firmware's "Wallpaper", `FmmWallpaperLoadFunc`) | `.BMP`         | the homepage picture alone: 160 × 100, 2, 16 or 256 colours                        |
+| Custom data                                                           | `.AST`         | the Initial Data / custom-data flash contents, zlib-compressed                     |
 
 FMM entry points are named per type: `FmmSmfLoadTitleFunc` /
 `FmmSmfSaveTitleFunc`, `FmmCstLSTitleFunc`, `FmmComposerLoadFunc`,
@@ -81,12 +80,15 @@ The file-manager screen strings — `- LOAD -`, `- SAVE -`, `CHECKING`,
 
 ## The fmm file layer
 
-Below the screens, every load and save goes through one small file API, the `fmm`
-calls. Each one dispatches on a drive byte at `0x5007125A` through a three-entry table:
+Below the screens, most loads and saves go through one small file API, the `fmm`
+calls (a few loaders, such as the custom-data record loader, open and read files through
+the file-system layer directly). Each one dispatches on a drive byte at `0x5007125A` through a three-entry table:
 **0 = floppy** (the name gets `A:\` in front), **1 = SD card** (`C:\`, or the current SD
 folder), **2 = a third backend** that keeps its own 2 KB buffer at `0x5017317C` and is
 not the FAT file system (its transport is not identified). `SetExtMode` (`0x48532346`)
-and `ResetExtMode` switch the byte around an SD operation; the rest of the time it is 0.
+and `ResetExtMode` (`0x48532355`) set the byte around an SD (1) or third-backend (2)
+operation; otherwise it is presumably 0 (floppy), inferred from those being its only
+writers.
 
 | call        | address      | what it does                                                                      |
 |-------------|--------------|-----------------------------------------------------------------------------------|

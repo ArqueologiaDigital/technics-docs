@@ -88,6 +88,8 @@
           url: /kn7000-initial-data/
         - title: Sequencer
           url: /kn7000-sequencer/
+        - title: "Slide Shows (.ACT, FEATURE.PRE)"
+          url: /kn7000-slideshow/
         - title: Work RAM Map
           url: /kn7000-work-ram/
     - title: Sound

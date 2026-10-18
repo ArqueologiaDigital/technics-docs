@@ -88,8 +88,11 @@ The sequencer's songs live in the never-cleared user-memory block of work RAM (s
 | `0x501AB9A0`–`0x501F91A0` | `0x4D800` | the song event store: 1,240 pages of 256 bytes (`SongPageStorePtr`)            |
 | `0x5003D36C`–`0x50046B6C` | `0x9800`  | in `.bss`: the pages of the built-in demo song being played, inflated from ROM |
 
-The reset code never clears the user block, and its owners check the data before
-trusting it; the service manual gives about 80 minutes of retention for SEQUENCER data.
+A song saved to disk or SD card is a `.SQT` file (signature `J KD`) with a `.ACT`
+slide-show file beside it, and loading a KN7000 song also loads its `.ACT` and pictures
+([Slide Shows]({{ site.baseurl }}/kn7000-slideshow/); a KN6000 `I KD` song is loaded
+without looking for one, inferred). The reset code never clears the
+user block, and its owners check the data before trusting it; the service manual gives about 80 minutes of retention for SEQUENCER data.
 The event store's size, 317,440 bytes, is the same number as the picture-import file
 limit, but nothing in the code ties the two together.
 
@@ -110,8 +113,9 @@ have a fully live UI while sequenced playback is stopped.
 The ten **demo songs** are self-contained in the program ROM: per song a
 zlib-compressed *setup* blob (track table and initial part programs), a
 *sequence* blob (256-byte-per-measure pages of delta-timed, running-status MIDI
-events) and a *sounds* blob, plus a text "ACT" script that paces the slideshow
-from the song position.
+events) and a *sounds* blob. Each also has a slide-show script in ROM, whose slides
+the song's PIC points select as it plays (see
+[Slide Shows]({{ site.baseurl }}/kn7000-slideshow/#the-built-in-demonstrations)).
 
 In MAME this timer was the last missing link for playback: with it modeled, the
 demo songs play end-to-end and the rhythm accompaniment starts and runs from

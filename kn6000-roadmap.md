@@ -59,14 +59,15 @@ directly, and a **four-way comparison** becomes a force-multiplier (below).
 The ca-software.com download set (self-extracting archives, same layout
 as the KN7000 download):
 
-| File                                    | Contents                                                      | Role                                                                                               |
-|-----------------------------------------|---------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| `kn6-71.zip`                            | → `kn6-v7-1a.exe` / `-1b.exe` → **`IK1.SLD` / `IK2.SLD`**     | **KN6000 firmware v7.1** — program flash, low half (0x200000) + high half (0x1F7A31), concatenated |
-| `kn65-13.zip`                           | → `kn65_v1-3a/b.exe` → **`IKV1.SLD` / `IKV2.SLD`**            | **KN6500 firmware v1.3** — program, low half (0x200000) + high half (0x181691), concatenated       |
-| `idd6000.exe`                           | `01ctmini.ast`, `03favini.fav`, `02umdini.md`, `04hpgini.hmp` | Initial-Data disk — **identical file set to `idd7000`**                                            |
-| `ca6001-ca6010`, `ca6000p/s`, `scd6000` | style / sound / CA-software modules                           | user-content packs (decode later)                                                                  |
-| `ca6tm01/02`                            | test-mode                                                     | service data                                                                                       |
-| `ca6fp01-04`, `ca6dim`                  | JPEG slideshows                                               | marketing (not firmware)                                                                           |
+| File                                    | Contents                                                                      | Role                                                                                                                                                                    |
+|-----------------------------------------|-------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kn6-71.zip`                            | → `kn6-v7-1a.exe` / `-1b.exe` → **`IK1.SLD` / `IK2.SLD`**                     | **KN6000 firmware v7.1** — program flash, low half (0x200000) + high half (0x1F7A31), concatenated                                                                      |
+| `kn65-13.zip`                           | → `kn65_v1-3a/b.exe` → **`IKV1.SLD` / `IKV2.SLD`**                            | **KN6500 firmware v1.3** — program, low half (0x200000) + high half (0x181691), concatenated                                                                            |
+| `idd6000.exe`                           | `01ctmini.ast`, `03favini.fav`, `02umdini.md`, `04hpgini.hmp`                 | Initial-Data disk — **identical file set to `idd7000`**                                                                                                                 |
+| `ca6001-ca6010`, `ca6000p/s`, `scd6000` | style / sound / CA-software modules                                           | user-content packs (decode later)                                                                                                                                       |
+| `ca6tm01/02`                            | test-mode                                                                     | service data                                                                                                                                                            |
+| `ca6fp01-04`                            | FEATURE PRESENTATIONS: `FEATURE.PRE`, a song, its `.ACT` slide show and JPEGs | demo-screen presentations published for the KN6000/KN6500 ([format]({{ site.baseurl }}/kn7000-slideshow/#the-kn5000kn6000-presentations-and-why-they-do-not-play-here)) |
+| `ca6dim`                                | songs                                                                         | user content                                                                                                                                                            |
 
 Extraction is **already proven**: `kn7000_extraction`'s `lzss` + `kn7000_extract.py`
 decoded all four `IK*.SLD` images with the magic `IKPRG4K` unmodified.

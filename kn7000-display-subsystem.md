@@ -32,14 +32,16 @@ grayscale** (value `1` is a further mono/other variant). A second halfword at
 `0x5000757A` (`GetLcdMode` / `SetLcdMode`) holds a related mode flag. The
 firmware branches on these throughout the graphics layer — e.g. it provides a
 `ConvPaletteMono4` routine to fold the colour palette down to 4 grey levels for
-the 2-bit panel. The KN7000 itself has a 640×240 colour panel; the 2-bit path
-matches the 320×240, four-grey panel of the KN2400/KN2600, which run the same
-codebase.
+the 2-bit panel. The KN7000 itself has a 640×240 colour panel. Which instrument
+reports the 2-bit model is not established (the model word is 2 when the ID byte at
+`0x9CC00000` is `0x04` and `TgStrapProbe` is not 3); in that mode the firmware still
+works with 640 × 240 frames.
 
 What selects mode 2 is a model word at `0x50005218`: when it is 2, the start-up code
 at `0x48414328` sets both the colour mode and the LCD mode to 2. In that mode
-`SetPaletteRGB` also stores, for each palette entry, the nearest of four grey levels
-(`ColorToMono4Level`, `0x4842DB3C`, into a 256-byte table at `0x50122CAC`), which the
+`SetPaletteRGB` also maps each palette entry to one of four grey levels
+(`ColorToMono4Level`, `0x4842DB3C`, by squared RGB distance kept in 16 bits, so not
+always the nearest) and stores the level 0..3 in a 256-byte table at `0x50122CAC`, which the
 screen output and `CaptureLcd` read back through `GetPaletteRGB4`. The screen capture
 follows the mode: a 640 × 240 **4-bpp** BMP (76,918 bytes) in mode 2, a **24-bpp** one
 (460,854 bytes) on the colour panel.
@@ -85,8 +87,9 @@ mode above.
 
 ## Windows BMP files
 
-Pictures loaded from disk or SD card, the homepage picture and the slide-show pictures
-are Windows BMP files kept whole in memory. Every BMP user in the firmware parses them
+Pictures loaded from disk or SD card and the slide-show pictures are BMP or JPEG files,
+and the homepage picture is a BMP; all are kept whole in memory. Every BMP user in the
+firmware parses them
 with one routine, **`GetBitmapInfo`** (`0x48421DE1`, 13 call sites). It accepts only
 `"BM"` files with the 40-byte `BITMAPINFOHEADER`, one plane, 1, 4 or 8 bits per pixel,
 at most 256 colours and no compression (`BI_RGB`); it copies up to 1 KB of colour table
@@ -98,7 +101,8 @@ that the colour table and pixels lie inside the file.
 UI, so a picture can use **176 colours**, not 256. **`ConvertBitmapFile`**
 (`0x48421E88`) prepares a file for that: it repacks the BMP in place inside a given size
 (the colour table straight after the headers, the pixels straight after it) and, for an
-8-bpp file with more than 176 colours, calls **`BmpReduceColors`** (`0x4842215B`). That
+8-bpp file whose repacked colour table has more than 176 entries (every 8-bpp homepage
+picture), calls **`BmpReduceColors`** (`0x4842215B`). That
 routine counts how often each colour index is used, sorts the palette most-used first
 (a comb sort), keeps the first 176 and maps every other colour to the kept one at the
 least squared RGB distance, rewriting palette and pixels in place. The slide show runs it
@@ -130,16 +134,16 @@ The firmware refers to palette entries by name through a `CL_*` constant table
 **VGA-16 layout** — the eight dark colours at indices `0x00`–`0x07` and the eight
 bright ones at `0xF8`–`0xFF`:
 
-| Index | Name | | Index | Name |
-|-------|------|-|-------|------|
-| `0x00` | `CL_Black` | | `0xF8` | `CL_Gray` |
-| `0x01` | `CL_Maroon` | | `0xF9` | `CL_Red` |
-| `0x02` | `CL_Green` | | `0xFA` | `CL_Lime` |
-| `0x03` | `CL_Olive` | | `0xFB` | `CL_Yellow` |
-| `0x04` | `CL_Navy` | | `0xFC` | `CL_Blue` |
-| `0x05` | `CL_Purple` | | `0xFD` | `CL_Fuchsia` |
-| `0x06` | `CL_Teal` | | `0xFE` | `CL_Aqua` |
-| `0x07` | `CL_Silver` | | `0xFF` | `CL_White` |
+| Index  | Name        |     | Index  | Name         |
+|--------|-------------|-----|--------|--------------|
+| `0x00` | `CL_Black`  |     | `0xF8` | `CL_Gray`    |
+| `0x01` | `CL_Maroon` |     | `0xF9` | `CL_Red`     |
+| `0x02` | `CL_Green`  |     | `0xFA` | `CL_Lime`    |
+| `0x03` | `CL_Olive`  |     | `0xFB` | `CL_Yellow`  |
+| `0x04` | `CL_Navy`   |     | `0xFC` | `CL_Blue`    |
+| `0x05` | `CL_Purple` |     | `0xFD` | `CL_Fuchsia` |
+| `0x06` | `CL_Teal`   |     | `0xFE` | `CL_Aqua`    |
+| `0x07` | `CL_Silver` |     | `0xFF` | `CL_White`   |
 
 On top of that sit **semantic UI colours** — `CL_TitleBar`, `CL_IconBack`,
 `CL_Text`, `CL_Selected`, `CL_PageBack`, `CL_EditSw` (`0x17`–`0x1C`), the

@@ -16,9 +16,13 @@ The map was built twice, by two methods that did not see each other's results: o
 from the code that sets RAM up (reset, `.data` copy, `.bss` clears, the allocators and
 their arenas) and once from a sweep of every work-RAM address the ROM references
 (4130 and 4129 distinct addresses; they differ at one). An independent verifier then
-re-derived each region from the code. The scripts behind it are in the
+re-read the boot code, the allocators and every buffer bound (note 11 lists what was
+named only from the routines that reference it). The scripts behind it are in the
 [disassembly]({{ site.baseurl }}/kn7000-firmware/) repository, `notes/work-ram-map-probes/`;
-routine names are those of `kn7000_manual.sym` (section "FILES, PICTURES, SLIDE SHOW").
+routine names are those of the disassembly's symbol files (`kn7000.sym`,
+`kn7000_manual.sym`, whose section "FILES, PICTURES, SLIDE SHOW" holds the file and
+picture routines, and `kn7000_exports_from_942.sym`); "InitTree" is a descriptive name
+for `func_4853397B`.
 
 > ⚠ **Build 941 only.** Another build can place things elsewhere. One calibration point
 > is known: the owner's PROGRAM 893 unit shows the same song-record address
@@ -51,7 +55,7 @@ routine names are those of `kn7000_manual.sym` (section "FILES, PICTURES, SLIDE 
 
 **The PICTURE LOAD import (PictureImport 0x485812E8).** 0x4D800 is the size of its
 file buffer: the same immediate is the size check (0x48581327), the read length
-(0x48581369) and the offset of the second work buffer, 0x502B8000 + 0x4D800 =
+(0x48581363, for fmmread at 0x48581369) and the offset of the second work buffer, 0x502B8000 + 0x4D800 =
 0x50305800 (0x485814B5, 0x485814E3). That buffer holds a JPEG decoded to 640 x 240 x 3
 bytes (0x70800) when a JPEG taller than 240 rows is trimmed; JpegDecodeCrop keeps the
 top, centre or bottom 240 rows and JpegEncode re-encodes them into 0x502B8000. BMPs
@@ -61,9 +65,11 @@ overflow; it refuses a file that would be stored cut short. Why exactly 310 KiB 
 in the code. Most likely it is the largest BMP the parser accepts at the manual's
 640 x 480 maximum (8 bpp with 256 colours = 308,278 bytes) rounded up; the song event
 store is also exactly 0x4D800 bytes, with no code link (`limit_arith.py` prints the
-candidates). The PICTURE LOAD screens send All Notes Off when they open (SD
-0x4855D148/0x4855D167, floppy 0x4852270F), which is the manual's "no sound is
-produced"; that is not tied to the buffer.
+candidates). The PICTURE LOAD screens stop sound when they open (floppy
+unconditionally at 0x4852270F; SD conditionally at 0x4855D148/0x4855D167, via
+SdUiBusyBegin). That matches the manual's "no sound is produced" at the moment the
+screen opens; what keeps the instrument silent afterwards was not traced. Neither is
+tied to the buffer.
 
 **The slide-show pool.** SswPoolAlloc is a bump allocator: a block is
 round4(n) + 4 bytes with its length word in front, and the payload starts at
@@ -80,7 +86,7 @@ heap. Nothing writes picture flash (0x57800000 is read only); pictures leave RAM
 through the slide-show save to disk. The pool is wiped by every song load from disk
 (SeqActFileLoad -> SswSongActLoad).
 
-**Script images and the FEATURE demo.** SswImageFileLoad reads straight into a pool
+**Script images and the FEATURE demo** (the file formats are on the [Slide Shows]({{ site.baseurl }}/kn7000-slideshow/) page). SswImageFileLoad reads straight into a pool
 block, no intermediate copy. On the song route the pool holds the script text, then
 the `<SLIDESHOW>` and `<ACTION>` sections, then the images in tag order. The FEATURE
 demo (FeaturePreLoad, FeatureDemoSqtLoad, FeatureDemoActLoad) reads the .SQT whole to
@@ -105,13 +111,13 @@ largest 160 x 100 BMP the manual allows; 0x4442 = the 0x18C-byte 'JK' settings r
 
 ## Above 0x502B8000
 
-| range                     | use                                                                              |
-|---------------------------|----------------------------------------------------------------------------------|
-| 0x502B8000..0x5037FFFF    | INSTALL_SCRATCH: shared, short-lived users that never run together (below)       |
-| 0x50380000..0x50387FFF    | RTOS system area                                                                 |
-| 0x50388000..0x503BBFFF    | RTOS memory pool, task stacks (about 0x23860 bytes used after boot in MAME)      |
-| 0x503BB800..0x503FFDBF    | zlib arena (overlaps the RTOS pool's configured tail by 0x800 bytes)             |
-| 0x503FFDC0..0x503FFFFF    | no reference found                                                               |
+| range                  | use                                                                                    |
+|------------------------|----------------------------------------------------------------------------------------|
+| 0x502B8000..0x5037FFFF | INSTALL_SCRATCH: shared by short-lived users not expected to overlap (inferred; below) |
+| 0x50380000..0x50387FFF | RTOS system area                                                                       |
+| 0x50388000..0x503BBFFF | RTOS memory pool, task stacks (about 0x23860 bytes used after boot in MAME)            |
+| 0x503BB800..0x503FFDBF | zlib arena (overlaps the RTOS pool's configured tail by 0x800 bytes)                   |
+| 0x503FFDC0..0x503FFFFF | no reference found                                                                     |
 
 Users of INSTALL_SCRATCH: the .AST custom-data install ({0x502B8000, 0xC0000}), the
 PICTURE LOAD import (file 0x502B8000..0x503057FF, JPEG crop buffer 0x50305800..
@@ -241,7 +247,7 @@ custom-flash directory edit buffer 0x5037A000..0x5037FFFF.
 - The 4 GUI-task queue slots at 0x5000757C (0x38 bytes each). Their buffer pointers run from 0x5002C044 to 0x50031474.
 - The demo-song stream tables 0x50000C20, 0x50000C50 and 0x50000C80.
 - Pointer words: 0x500058B8 = 0x502B8000, 0x50007A40 = 0x50149730, 0x50007DC0 = 0x50060DA4.
-- The finer split of `.data` into module variables is not in this note; `notes/work-ram-map-probes/scan_ramrefs.py` in the disassembly repository produces the reference census it can be built from.
+- The finer split of `.data` into module variables is not on this page; `notes/work-ram-map-probes/scan_ramrefs.py` in the disassembly repository produces the reference census it can be built from.
 
 **3. Built-in demo song** (0x484573A4..0x48457403):
 - 0x4853375D is zlib 1.0.4 `uncompress`. It calls inflateInit with version string 0x48664864 and inflate with Z_FINISH, and expects Z_STREAM_END.
@@ -279,7 +285,7 @@ Each gap between referenced bases equals count x stride. The strides come from t
 **7. Slideshow pool**:
 - Size: TgStrapProbe (0x484D7713) returns 1 only when bits 0x02 and 0x04 of 0x98070000 are both set; it returns 2 when 0x04 is clear and 3 when 0x02 is clear (no TG). With 1, the test at 0x4857F0CD..0x4857F0DF is constant-false and the pool gets the full 0x94E5C bytes (0x4857F0FD). Any other value takes 0x4857F0E1, which subtracts 0x40000: the pool is then 0x54E5C bytes and ends at 0x50257FFC.
 - Init 0x4857F116 zeroes the pool and writes a header at the base: +8 base, +0xC size, +0x10/+0x18 heap start = base + 0xDF0, +0x14/+0x1C free bytes.
-- It runs through the wrappers 0x4857EDAA, 0x4857EE02 and 0x4857EE8D (callers include 0x484579AE and 0x4851E2A8). Whether it runs at power-on, and so whether pictures survive a power cycle, is unknown. The service manual's retention list does not mention pictures.
+- It runs through the wrappers 0x4857EDAA, 0x4857EE02 and 0x4857EE8D (callers include 0x484579AE and 0x4851E2A8). Power-on runs it only when the battery-backed SRAM fails its checksum: the boot calls module hook 1 (a no-op for the pool) when BackupSramValidGet() == 0 and hook 2 (SswPoolMainInit) otherwise (0x484D73BA..0x484D73D1; hook table 0x48767408). Whether the pictures survive a power cycle therefore depends only on whether the DRAM keeps its contents, which the code cannot show (see Open questions). The service manual's retention list does not mention pictures.
 
 **8. 0x50298000..0x502B8000**:
 - In 941 its only reference is the reset clear. A raw scan of both 941 ROMs found 106 words with values in this range. Only 0x4841004A is a decoded operand. The other 105 are 21 instruction overlaps, 22 data bytes in the program data area and 62 in the table ROM; none forms a pointer table.
@@ -287,12 +293,12 @@ Each gap between referenced bases equals count x stride. The strides come from t
 - Program 942 clears the same span at reset. Its resident plug-in then copies its `.data` to 0x50298000..0x50299498 and clears `.bss` to 0x50299EE0 (table.s func_483E803E). It loads BASEEXT.XAP, at most 0x1D000 bytes, at 0x5029B000; 0x5029B000 + 0x1D000 = 0x502B8000 exactly.
 
 **9. Second allocator**:
-- The sentinel is in `.bss` at 0x501605F8. The arena is 0x503BB800, 0x445C0 bytes, so it lies above the asked range.
+- The sentinel is in `.bss` at 0x501605F8. The arena is 0x503BB800, 0x445C0 bytes, so it lies above INSTALL_SCRATCH, in the top 280,000 bytes of RAM.
 - Allocation is first fit and returns block + 0x10.
 - uncompress, the .HMP load and the homepage BMP load each re-initialise the arena first. Their buffers therefore start at 0x503BB810: 0x4442 bytes for .HMP, 0x42B6 for the BMP.
 - The arena overlaps the RTOS pool tail 0x503BB800..0x503BBFFF.
 
-**10. UI variables used by the other questions**:
+**10. UI variables used by the image loaders above**:
 - 0x5006B52C: BITMAP LOAD index.
 - 0x5006B52E: BITMAP LOAD file name.
 - 0x5006B5F8: homepage settings record (0x18C bytes).

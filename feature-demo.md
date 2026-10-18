@@ -71,11 +71,11 @@ The firmware carries a complete XML tag name table in the Program ROM. (`FDemoTe
 
 ### Command Tags
 
-| Tag | Purpose |
-|-----|---------|
-| **`EXEC`** | **Execute a command or routine** |
+| Tag        | Purpose                                                                                           |
+|------------|---------------------------------------------------------------------------------------------------|
+| **`EXEC`** | **Names the presentation: `SONG` number, `SRC` base name of the `.SQT` and `.ACT`, `NAME` title** |
 
-The `EXEC` tag is particularly notable — it strongly suggests the presentation format was designed to support executing code or commands as part of scripted presentations, going beyond simple display and playback.
+The name suggests more than it does. On the KN6000, whose tag table is the same, the `EXEC` handler stores a song number, a base file name (used for both the `.SQT` and the `.ACT`) and a title, then posts UI messages (what they trigger was not traced); it executes nothing from the script. The KN7000 dropped `EXEC` altogether and reads `FEATURE.PRE` as two plain lines (see [KN7000 Slide Shows]({{ site.baseurl }}/kn7000-slideshow/#the-kn5000kn6000-presentations-and-why-they-do-not-play-here)).
 
 ---
 

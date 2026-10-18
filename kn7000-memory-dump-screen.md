@@ -19,10 +19,13 @@ the KN5000. On our image the chord opens the viewer directly, as a first-class
 screen (`_TT_MEMDUMP`, title id `0xF2`). Whether *your* instrument behaves that
 way depends on a single byte of the program flash, which turns out to be the
 firmware's release number — see
-[Two doors](#two-doors-the-configuration-byte-at-0x4840000f). Every released
-version opens the viewer directly; only a build without a release number (`0xFF`)
-opens the developers' Panel Simulator and its [DEBUG TOOLS](#debug-tools) instead,
-and only such a build has the [LCD capture](#lcd-capture) chords.
+[Two doors](#two-doors-the-configuration-byte-at-0x4840000f). Every numbered release
+we can check opens the viewer directly: v1.5 and v1.6 from their code, v1.3 from its
+byte if its gate code is unchanged; v1.4 is unknown, its byte having been on a lost
+update disk. Only a build whose byte is `0xFF` opens the developers' Panel Simulator
+and its [DEBUG TOOLS](#debug-tools) instead; of the builds we hold that is the SP7001
+PLUG-iN build 942, which was shipped without a release number. Only on such a build
+are the [LCD capture](#lcd-capture) chords live.
 
 > ⚠ **Derived from PROGRAM 941 / TABLE 84; many owners run something else.**
 > Every address, constant and disassembly listing below was read out of the
@@ -83,12 +86,12 @@ Read the address in the caption line (` DUMP ADR0 = xxxx xxxx `) before doing an
 STEP 4 — DIAL AN ADDRESS
 Part-mixer columns **1 to 8 are the eight hex digits of the address, in reading order**: column 1 is the leftmost digit, column 8 the rightmost. UP raises a digit, DOWN lowers it.
 
-| Column | Step | Column | Step |
-|---|---|---|---|
-| 1 | ± `0x10000000` | 5 | ± `0x1000` |
-| 2 | ± `0x1000000` | 6 | ± `0x100` |
-| 3 | ± `0x100000` | 7 | ± `0x10` |
-| 4 | ± `0x10000` | 8 | ± `0x1` |
+| Column | Step           | Column | Step       |
+|--------|----------------|--------|------------|
+| 1      | ± `0x10000000` | 5      | ± `0x1000` |
+| 2      | ± `0x1000000`  | 6      | ± `0x100`  |
+| 3      | ± `0x100000`   | 7      | ± `0x10`   |
+| 4      | ± `0x10000`    | 8      | ± `0x1`    |
 
 Columns **10, 11, 12 and 13** set the four colour-highlight bytes named in the
 legend (`Aqua`, `Yellow`, `Lime`, `Fuchsia`) — any byte in the dump equal to one
@@ -106,14 +109,14 @@ out of those records (`0x485D5FE4`..`0x485D6224`, control index at `+0x1C`,
 edit-switch id at `+0x28`), and the step law `± (1 << 4i)` is read out of the
 step handler at `0x48487E60`:
 
-| Internal index *i* | Edit switch | Panel column | Effect |
-|---|---|---|---|
-| 0 | `ES_Bottom8` (7) | 8 | address ± `0x1` |
-| 1..6 | `ES_Bottom7`..`ES_Bottom2` | 7..2 | address ± `1 << 4i` |
-| 7 | `ES_Bottom1` (0) | 1 | address ± `0x10000000` |
-| 8 | `ES_Left2` (0x91) | *left soft key 2* | **FULLTIME** (not a rocker) |
-| 9..12 | `ES_Bottom10`..`ES_Bottom13` | 10..13 | highlight bytes 0..3, clamped 0..`0xFF` |
-| 13 | `ES_Bottom15` (0x0E) | 15 | ADR slot 0..3 |
+| Internal index *i* | Edit switch                  | Panel column      | Effect                                  |
+|--------------------|------------------------------|-------------------|-----------------------------------------|
+| 0                  | `ES_Bottom8` (7)             | 8                 | address ± `0x1`                         |
+| 1..6               | `ES_Bottom7`..`ES_Bottom2`   | 7..2              | address ± `1 << 4i`                     |
+| 7                  | `ES_Bottom1` (0)             | 1                 | address ± `0x10000000`                  |
+| 8                  | `ES_Left2` (0x91)            | *left soft key 2* | **FULLTIME** (not a rocker)             |
+| 9..12              | `ES_Bottom10`..`ES_Bottom13` | 10..13            | highlight bytes 0..3, clamped 0..`0xFF` |
+| 13                 | `ES_Bottom15` (0x0E)         | 15                | ADR slot 0..3                           |
 
 The digits therefore run "backwards" internally — index 0 is the *rightmost*
 digit — which is exactly why the panel column and the internal index never
@@ -203,12 +206,12 @@ addresses, and none of them is ROM. They are **watch-points on your own stored
 user data** — which is exactly what a factory technician would want, and exactly
 not what an archivist would want.
 
-| Slot | Address | What it is |
-|---|---|---|
-| ADR0 | `0x84000000` | Base of the **256 KB battery-backed backup SRAM** (IC23), i.e. the start of its checksummed settings header — `0x7A0` bytes, whose one's-complement word sum is stored back at `0x84030174`. |
+| Slot | Address      | What it is                                                                                                                                                                                              |
+|------|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ADR0 | `0x84000000` | Base of the **256 KB battery-backed backup SRAM** (IC23), i.e. the start of its checksummed settings header — `0x7A0` bytes, whose one's-complement word sum is stored back at `0x84030174`.            |
 | ADR1 | `0x84000770` | The global immediately after the **live panel-settings record**, which occupies `0x84000020`..`0x8400076F`. The library folds that record's size as the difference `0x84000770 − 0x84000020` = `0x750`. |
-| ADR2 | `0x84000814` | The `0x10`-byte header of the **PANEL MEMORY store**. |
-| ADR3 | `0x501A5920` | Record 0, field `+0x120`, of an 11-entry table of `0x8E0`-byte records at `0x501A5800` in work RAM. **Identity plausible only**: probably the sequencer song slots. |
+| ADR2 | `0x84000814` | The `0x10`-byte header of the **PANEL MEMORY store**.                                                                                                                                                   |
+| ADR3 | `0x501A5920` | Record 0, field `+0x120`, of an 11-entry table of `0x8E0`-byte records at `0x501A5800` in work RAM. **Identity plausible only**: probably the sequencer song slots.                                     |
 
 `0x44000000`, mirrored at `0x84000000`, is **not** generic work RAM. The service
 RAM DEVICE TEST walks it from
@@ -280,8 +283,8 @@ flash window counted **zero writes** across a full open → drive-every-control 
 EXIT session in MAME.
 
 **Exactly one debug feature in the firmware writes a file, and it is the wrong
-one** — and it only exists on a build whose release byte is `0xFF`, so not on any
-released version ([LCD capture](#lcd-capture)). Two chords run `CaptureLcd` at
+one** — and it only works on a build whose release byte is `0xFF`: of the builds we
+hold, only the SP7001 PLUG-iN build 942, not v1.5 or v1.6 ([LCD capture](#lcd-capture)). Two chords run `CaptureLcd` at
 `0x4841567D`, which does
 `sprintf` into `LCDCAP%02d.BMP` (format string at `0x4859E2E4`, counter at
 `0x50021FC8`), `fopen`s it `"wb"` and writes a Windows bitmap. Its source is
@@ -328,7 +331,7 @@ already been read the slow way, by hand, from photographs:
 
 ## What real hardware has already confirmed
 
-Two independent facts, both from the project owner's instrument running the
+Three independent facts, all from the project owner's instrument running the
 undumped PROGRAM 893:
 
 1. **The SOFT VERSION chord (columns 1, 6, 8) works on his machine.** That is
@@ -389,15 +392,15 @@ digit.
    It is his firmware's release number, v1.3 (see
    [Two doors](#two-doors-the-configuration-byte-at-0x4840000f)).
 
-What that **proves**: the hidden viewer exists and opens on PROGRAM 893, and
+What items 1 and 2 **prove**: the hidden viewer exists and opens on PROGRAM 893, and
 this initialiser — including a helper in a completely different part of the
 image — is present and behaves identically on a build we have never executed.
 It also means build 893's work-RAM layout in the `0x501A5xxx` region matches
 941's, a free cross-version calibration point.
-It also settles which door he came through: with `0x13` the `1`/`4`/`5`/`8` chord
-opens the viewer directly, and the LCD-capture chords are dead on his unit, if
-893's gate code is the same as in every build we hold (it has not been
-transcribed; 893's first program row does have the same layout as v1.5's).
+Item 3 makes it very likely that he came through the direct door: with `0x13`, the
+gate code of every complete build we hold (935, 941, 942) opens the viewer directly
+and keeps both LCD-capture chords dead. 893's own gate code has not been transcribed,
+though its first program row has the same layout as v1.5's.
 
 A practical corollary of the flag at `0x50001304`: the defaults are installed
 **once**, and then the flag is cleared, so within a power cycle the slots keep
@@ -433,10 +436,10 @@ header, and branches on it:
 
 In our PROGRAM 941 image that byte is **`0x16`** — non-`0xFF`, so our chord
 opens the hex viewer directly. On a unit where the byte is `0xFF` the same
-chord lands on **Panel Simulator 2.1** instead, and the viewer is one soft key
-further in, through a **DEBUG TOOLS** screen (`_TT_DEBUG`, title id `0xFF`)
-that also offers MEMO LOG, ICON LIST, COLOR LIST, BITMAP LOAD, a
-`DEBUG MODE : OFF` toggle, a mode enumerator reading `015 : _MD_SONG`, and a
+chord lands on **Panel Simulator 2.1** instead, and the viewer is two soft keys
+further in (LCDR5, then LCDL1), through a **DEBUG TOOLS** screen (`_TT_DEBUG`, title
+id `0xFF`) that also offers MEMO LOG, ICON LIST, COLOR LIST, BITMAP LOAD, a
+`DEBUG MODE : OFF/ON` switch, a mode enumerator reading `015 : _MD_SONG`, and a
 `--- SOFTWARE VERSION ---` box with the same four numbers as the SOFT VERSION
 screen (all described under [DEBUG TOOLS](#debug-tools)).
 
@@ -450,19 +453,20 @@ unit ([LCD capture](#lcd-capture)).
 
 **The byte is the release number.** The firmware itself prints it as a version:
 the welcome-screen class `AcMPVer` formats it with `"%s    Ver%1X.%1X"`, so `0x16`
-is "Ver1.6". Every build we can read agrees:
+is "Ver1.6" (and 942's `0xFF` would print "VerF.F"). The builds:
 
-| build | release                 | byte at `0x4840000F`                             | chord 1/4/5/8 opens | LCD capture                                      |
-|-------|-------------------------|--------------------------------------------------|---------------------|--------------------------------------------------|
-| 893   | v1.3 (the owner's unit) | `0x13`                                           | the hex viewer      | dead (same gate assumed)                         |
-| 929   | v1.4                    | lost with update disk 1 (by the pattern, `0x14`) | —                   | —                                                |
-| 935   | v1.5                    | `0x15`                                           | the hex viewer      | dead                                             |
-| 941   | v1.6                    | `0x16`                                           | the hex viewer      | dead                                             |
-| 942   | v1.6 PLUG-iN (SP7001)   | `0xFF`                                           | Panel Simulator 2.1 | live (read from the code; never run on hardware) |
+| build | release                 | byte at `0x4840000F`                             | chord 1/4/5/8 opens | LCD capture                          |
+|-------|-------------------------|--------------------------------------------------|---------------------|--------------------------------------|
+| 893   | v1.3 (the owner's unit) | `0x13`                                           | the hex viewer      | dead (same gate assumed)             |
+| 929   | v1.4                    | lost with update disk 1 (by the pattern, `0x14`) | —                   | —                                    |
+| 935   | v1.5                    | `0x15`                                           | the hex viewer      | dead                                 |
+| 941   | v1.6                    | `0x16`                                           | the hex viewer      | dead                                 |
+| 942   | v1.6 PLUG-iN (SP7001)   | `0xFF`                                           | Panel Simulator 2.1 | live (read from the code; never run) |
 
 The gate code is the same in 935, 941 and 942 apart from relocated addresses. The
 byte lives in the program flash itself, so only a program update changes it.
-Installing the SP7001 update on an instrument would open these screens, and would
+Going by its code, installing the SP7001 update would open these screens (942 has not
+been run in MAME or on hardware), and would
 also overwrite its program for good, which for the owner's unarchived 893 must not be
 done; MAME with the byte patched is the safe way to see them.
 
@@ -471,8 +475,9 @@ done; MAME with the byte patched is the safe way to see them.
 DEBUG TOOLS (`_TT_DEBUG`, title `0xFF`) is the developers' menu behind the Panel
 Simulator. It is reached only on a build whose byte at `0x4840000F` is `0xFF`: hold the
 `1`/`4`/`5`/`8` chord, which then opens "Technics / Panel Simulator 2.1", and press
-**LCDR5** (bottom right). On a released build there is no route to it: the chord opens
-MEMORY DUMP directly, and EXIT from there returns to the play screen (measured in MAME).
+**LCDR5** (bottom right). On v1.6 (941) there is no route to it: the chord opens
+MEMORY DUMP directly, and EXIT from there returns to the play screen (measured in MAME);
+v1.5's gate code is the same.
 Every call that could open the Panel Simulator or DEBUG TOOLS was checked; the only other
 "DEBUG TOOLS" key sits on an unreferenced "Panel Simulator for IK" test screen. In MAME,
 write `0xFF` to byte `0x0F` of the `:maincpu` region after boot and use the chord.
@@ -545,9 +550,10 @@ with the files written into memory (MAME's floppy reads no sectors yet):
 | 24 bpp, 2 bpp, RLE, V5 header    | refused: a black view with only the file label, no message                     |
 
 Why a developer would want it: a 640 × 240 4-bpp BMP is exactly what the firmware's
-own LCD capture writes on the 2-bit (4-grey) display variant, and the four DEBUG TOOLS
-sub-screens are an artwork check-list: ICON LIST pages through the icons, COLOR LIST
-shows all 256 palette entries with their RGB values, BITMAP LOAD shows a real file.
+own LCD capture writes on the 2-bit (4-grey) display variant, and three of the DEBUG
+TOOLS sub-screens form an artwork check-list: ICON LIST pages through the icons, COLOR
+LIST shows all 256 palette entries with their RGB values, and BITMAP LOAD shows a real
+file.
 The name `Draw2BpFile` most likely refers to that 2-bit display; the routine itself is a
 copy of the ordinary BMP blitter (see the
 [Display Subsystem]({{ site.baseurl }}/kn7000-display-subsystem/#windows-bmp-files)).
@@ -560,14 +566,18 @@ build 942 — two chords save the screen as a BMP file:
 - **The four corners:** hold **LCDL1, LCDL5, LCDR1 and LCDR5** — the top and bottom soft
   keys on both sides of the display — in any order. The capture happens when the fourth
   goes down. The keys keep their normal functions, so choose a screen where they are
-  harmless (the play screen and MEMORY DUMP are). While all four are held, every press or
-  release of another key in that group makes another capture.
-- **DISPLAY HOLD + pads:** hold DISPLAY HOLD, hold PAD 1, press PAD 2. DISPLAY HOLD also
+  harmless (the play screen and MEMORY DUMP are). While all four are held, almost any
+  further press or release of a soft key or part-mixer (balance) button makes another
+  capture; pressing both halves of another pair blocks it, and releasing that pair
+  captures again.
+- **DISPLAY HOLD + pads:** hold DISPLAY HOLD, hold PAD 1, then press PAD 2 (any other
+  performance pad also completes it). DISPLAY HOLD also
   toggles hold mode and the pads sound; press DISPLAY HOLD once more afterwards.
 
 The file is `LCDCAP00.BMP`, `LCDCAP01.BMP`, … on the current drive — the floppy, `A:\`,
-outside SD-card operations: 640 × 240, 24-bit, uncompressed, 460,854 bytes (a 1.44 MB
-disk holds three). There is no message and no beep; the numbering starts again at 00 at
+outside SD-card operations. On the KN7000's colour LCD it is 640 × 240, 24-bit,
+uncompressed, 460,854 bytes (a 1.44 MB disk holds three); in the 2-bit LCD mode the
+routine writes a 640 × 240 4-bpp file instead. There is no message and no beep; the numbering starts again at 00 at
 every power-on and an existing file is replaced.
 
 In MAME, PROGRAM 941 with the byte patched to `0xFF` behaves exactly so: both chords run
@@ -633,13 +643,13 @@ front of an instrument whose firmware may be the only surviving copy, and the
 destructive combinations are held **at power-on**, which is exactly when a
 curious owner is most likely to be holding buttons.
 
-| Combination | Effect |
-|---|---|
-| ⛔ **PANEL MEMORY 1 + 2 + 3 + 4 held during power-on** | Enters **Flash Memory Update**. Erases and reprograms IC16/IC17. On an instrument running an unpreserved build this **destroys it irreversibly**. |
-| ⛔ PANEL MEMORY 2 + 3 + 4 held during power-on | The same updater in verify-only mode. One button away from the destructive one — which is the reason it is listed here rather than recommended. |
-| ⛔ RHYTHM `[60s & 70s]` + `[MODERN DANCE]` + `[SOUL & R&B]` at power-on | Post-update re-initialisation. The vendor's own installation notes warn that all stored data except Custom memory is lost. |
-| ⛔ Factory service/test menu (keyboard notes held during power-on) | Contains a RAM DEVICE TEST that **writes to every byte of the battery-backed user SRAM** (it restores each byte, but it is still a write pass over your panel memories), and an FD SAVE/LOAD TEST that writes to whatever floppy is in the drive. |
-| ✅ SOUND GROUP `[PIANO]` + `[GUITAR]` + `[MALLET & ORCH PERC]` at power-on | Read-only version display, bottom right. Safe. |
+| Combination                                                                | Effect                                                                                                                                                                                                                                            |
+|----------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ⛔ **PANEL MEMORY 1 + 2 + 3 + 4 held during power-on**                     | Enters **Flash Memory Update**. Erases and reprograms IC16/IC17. On an instrument running an unpreserved build this **destroys it irreversibly**.                                                                                                 |
+| ⛔ PANEL MEMORY 2 + 3 + 4 held during power-on                             | The same updater in verify-only mode. One button away from the destructive one — which is the reason it is listed here rather than recommended.                                                                                                   |
+| ⛔ RHYTHM `[60s & 70s]` + `[MODERN DANCE]` + `[SOUL & R&B]` at power-on    | Post-update re-initialisation. The vendor's own installation notes warn that all stored data except Custom memory is lost.                                                                                                                        |
+| ⛔ Factory service/test menu (keyboard notes held during power-on)         | Contains a RAM DEVICE TEST that **writes to every byte of the battery-backed user SRAM** (it restores each byte, but it is still a write pass over your panel memories), and an FD SAVE/LOAD TEST that writes to whatever floppy is in the drive. |
+| ✅ SOUND GROUP `[PIANO]` + `[GUITAR]` + `[MALLET & ORCH PERC]` at power-on | Read-only version display, bottom right. Safe.                                                                                                                                                                                                    |
 
 These come from the vendor documentation shipped with the update disks and from
 the service manual, **not** from emulation: no power-on combination has been
@@ -660,7 +670,7 @@ page, which touches nothing.
 
 ## Caveats
 
-- **THE VERSION GAP IS THE MAIN CAVEAT.** Everything here was derived from PROGRAM 941 / TABLE 84 and driven in MAME. Many instruments — including the project owner's — run something else. Two elements are corroborated on real 893 hardware (the chord dispatcher via the `0xA1` SOFT VERSION case, and the viewer's four default address slots); the rest is expected-by-inheritance, not measured there.
+- **THE VERSION GAP IS THE MAIN CAVEAT.** Everything here was derived from PROGRAM 941 / TABLE 84 and driven in MAME. Many instruments — including the project owner's — run something else. Three elements are corroborated on real 893 hardware (the chord dispatcher via the `0xA1` SOFT VERSION case, the viewer's four default address slots, and the release byte `0x13` at `0x4840000F`); the rest is expected-by-inheritance, not measured there.
 - The compare is an equality, so the chord is brittle by design: `0x99` and only `0x99`. A single extra both-held column kills it. This was measured (`0x9B` → nothing), and it is the most likely reason for a failed attempt.
 - **The KN5000 chord does not work here, and that is not a bug.** Columns 1+5+8 give `0x91`, the KN5000's Panel Simulator constant. The KN7000 dispatcher has no case for `0x91`; it falls through and returns. Reproduced in the emulator: the accumulator reached exactly `0x00000091` — the instrument *saw* the input — and the screen never changed. Wrong constant for this firmware; not timing, not panel mapping, not an absent screen.
 - The dispatcher is complete and that is provable, not assumed. A byte scan for the absolute address of the both-held accumulator (`0x50021FE0`) finds exactly five references in the whole 4 MB image: the three in the block below, plus two resets at `0x48414C05` and `0x48414CA8`. **There is no second comparison site anywhere**, so `0x99`, `0xA1` and `0x110000` are the only chords this handler implements.
@@ -687,11 +697,11 @@ The balance-button ("index switch") handler at `0x48414735` maintains two
 *N*+1**: the index→mask table at `0x4859E1A0` is a plain `1 << N` (entries 0..11
 read `1, 2, 4, 8, 10, 20, 40, 80, 100, 200, 400, 800`).
 
-| Cell | Meaning |
-|---|---|
+| Cell         | Meaning                                                             |
+|--------------|---------------------------------------------------------------------|
 | `0x50021FD8` | columns whose **UP** cap is currently held (panel event `0x702001`) |
-| `0x50021FDC` | columns whose **DOWN** cap is currently held (event `0x702000`) |
-| `0x50021FE0` | `FD8 & FDC` — columns with **both** caps held |
+| `0x50021FDC` | columns whose **DOWN** cap is currently held (event `0x702000`)     |
+| `0x50021FE0` | `FD8 & FDC` — columns with **both** caps held                       |
 
 ```
 48414842: fc a6 e0 1f 02 50   mov  (0x50021fe0), d2
