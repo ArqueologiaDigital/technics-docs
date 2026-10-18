@@ -53,6 +53,31 @@ The sequencer screen has its own `EV_*` event block (name table at program
 * **transpose** — `EV_SEQ_TRAS_RESET`, `EV_SEQ_TRAS_UPDATE`, `EV_SEQ_TRAS_OK_WIN`
 * **file** — `EV_DISKFILENAME`, `EV_DISKFILENO`
 
+## What a song can carry
+
+Traced 2026-10-18 from the firmware (kn7000_disassembly
+`notes/presentation-control-probes/song-records.md`; not yet run in MAME). Besides notes, a song
+holds tempo (`0x80`), beat and bar markers (`0x81`, `0x84`), end of track (`0x82`), rhythm
+start/stop (`0x85`/`0x86`), PIC slide cues (`0x8A`), MIDI-style controller, program change,
+aftertouch and pitch bend events, and **parameter events** (`0xA1`–`0xA3` for a part,
+`0xF1`–`0xF3` global) that can name any 24-bit parameter id. Playback and recording both pass
+every event through a list of the ids allowed for that track's kind:
+
+| track kind     | what it can play and record besides notes                                                                                 |
+|----------------|---------------------------------------------------------------------------------------------------------------------------|
+| parts, B.PEDAL | program change, the mixer and sound-controller CCs, RPNs, part parameters, PIC                                            |
+| CONTROL        | rhythm, variation, intro, fill, ending, rhythm start/stop, tempo, transpose, panel-memory number, TECHNI-CHORD, fade, PIC |
+| RHYTHM, APC    | the rhythm subset (intro, fill, ending, start/stop, style, variation, tempo)                                              |
+| CHORD          | no list: everything                                                                                                       |
+
+Every change also reaches the GUI as `EV_MMMDATA`, so the screen that shows a setting redraws as
+the song changes it; nothing in a song switches screens. Panel operations made while recording
+are captured through the same lists, so an automated performance can be recorded on the
+instrument. A song cannot store SysEx: SysEx in a loaded Standard MIDI File is converted into
+parameter events or initial settings, and unrecognised SysEx is dropped. The global effect types
+are on no list, so they cannot change mid-song. Each song also stores a full settings snapshot,
+applied at SEQUENCER RESET.
+
 ## Record / play controls
 
 The recorder and transport are driven by the screen handlers (all recovered by

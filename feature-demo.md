@@ -256,6 +256,38 @@ No disc holding a `FEATURE.PRE` is known, and it is not established whether such
 
 ---
 
+## How the song drives the presentation
+
+Traced 2026-10-18 (kn5000-roms-disasm `notes/feature-presentation-cues-2026-10-18.md`, with
+the scripts that decode the song). The script says what each step shows; the **song** decides
+when the steps happen and what changes on the live screens.
+
+- **Slides are cued by PART15's pan.** The presentation's song is demo preset 18 (Table Data ROM
+  0x8E0000). Its track 14 is assigned to PART15 and is the track the developers' memo calls "CUE
+  data": it holds 23 panel-record writes `B0 tick 0E 08 n 7F`, which set PART15's pan to n. The
+  sequencer replays them like any other panel setting (`VoiceMode_ParamHandler_3` 0xFCB001, the
+  track's playback whitelist at 0xFCBFA3); the change notification for PART15's pan, whose
+  panel-setting (Lsw) key is `0xB80A`, reaches `AcPresentCtrl_CheckSSFStart` (0xF84625) as
+  `EVT_LSW_DATA {0xB80A, n}` and becomes `EVT_ACTION(n)`: run `<ACT NO=n>`. The `<ACT>` parser
+  (0xF858D5) accepts `NO=n` or `PAN=Ln / C / Rn` for this. ACTs 9, 10, 11 (ftdemo46–48) and 20
+  (the second Drawbar) are never cued by the factory song.
+- **The drawbars move because the song sets them.** Track 0 (RIGHT1) writes RIGHT1's drawbar
+  record (0x44, the nine footages) at beat 104, ten beats after ACT 19 shows `Drawbar`. While the
+  presentation (title 0xE4) is up, every panel-setting change is broadcast, so the shown screen
+  follows. Other automation in the song: volume ramps, pan sweeps, sustain toggles, program
+  changes.
+- **The song's 0xBn events are panel-record writes, not MIDI controllers:** `B0|flags, tick,
+  record tag, byte offset, value, mask`. Each track type has a fixed list of settings it may
+  play back (and record), so a song cannot set arbitrary parameters.
+- **`SHOW OBJ` searches every named view object** (`FDemoText_GetInstanceID` 0xF8526E, classes
+  255 down to 0), not only the `ftdemo` slot and the three live screens.
+
+**A user-made presentation** is possible in principle (established from the code, not built):
+real-time recording stores panel changes per track type, and a track assigned to PART15 records
+PART15's pan, so moving that pan to the slide number at each cue while recording produces the
+factory cue format. Put the song, a `.ACT` with `<ACT NO=n>` (or `PAN=`) entries and a
+`FEATURE.PRE` naming them on a floppy, and insert it on the Feature Presentation screen.
+
 ## Bitmap Loading Chain
 
 When `AcPresentationControlProc` processes a `<SHOW OBJ="ftdemo01">` action, the firmware:
@@ -303,6 +335,12 @@ The correct button sequence to activate the Feature Demo from the home screen:
 ---
 
 ## Two Distinct Activation Paths
+
+> **Correction (2026-10-18).** `GroupBoxProc_StartSSFPresentation` builds no special tag from a
+> button press: it is the generic translator from a panel-setting change to `EVT_LSW_DATA`, and
+> `0xB80A` comes out only because the changed setting is PART15's pan, which the song uses as its
+> slide cue ([How the song drives the presentation](#how-the-song-drives-the-presentation)). The
+> "SSF gate table" is a per-screen list of watched settings; title 0xE4 watches all of them.
 
 > **Correction (October 2026).** `DemoMenu_BuildItemWorkspace` is not called by the demo timer or by `DemoMode_Main_Operation`. Its only callers are `MainMemDrawControl` and `FDemoText_ParseControlMessage` (title 0xEA), and its `0x82xx` values are LSW (panel-setting) ids, not a wrong workspace tag. "Path 2" below is therefore not a path into the presentation.
 

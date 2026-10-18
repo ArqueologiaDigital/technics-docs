@@ -481,6 +481,11 @@ v1.5's gate code is the same.
 Every call that could open the Panel Simulator or DEBUG TOOLS was checked; the only other
 "DEBUG TOOLS" key sits on an unreferenced "Panel Simulator for IK" test screen. In MAME,
 write `0xFF` to byte `0x0F` of the `:maincpu` region after boot and use the chord.
+Nor can a disk open them (checked 2026-10-18): no slide-show script, presentation, song, file
+or MIDI data reaches the Panel Simulator's mode 0, title `0xFF` or the LCD capture, because the
+only calls that do sit behind the same gate. A presentation's `SHOW` tag paints a GUI object by
+name but cannot make it the active screen, and the debug screens are not among the names it finds
+([Slide shows]({{ site.baseurl }}/kn7000-slideshow/#can-a-presentation-operate-the-instrument)).
 
 The screen carries MEMORY DUMP and MEMO LOG on the left soft keys, ICON LIST, COLOR LIST
 and BITMAP LOAD on the right, the SOFTWARE VERSION box, and two controls worked with the

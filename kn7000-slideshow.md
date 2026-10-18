@@ -39,6 +39,7 @@ repository, `tools/slideshow/`.
 - [The built-in demonstrations](#the-built-in-demonstrations)
 - [The KN5000/KN6000 presentations, and why they do not play here](#the-kn5000kn6000-presentations-and-why-they-do-not-play-here)
 - [Seen in MAME](#seen-in-mame)
+- [Can a presentation operate the instrument?](#can-a-presentation-operate-the-instrument)
 - [Limits and error codes](#limits-and-error-codes)
 - [Open questions](#open-questions)
 
@@ -137,23 +138,25 @@ SSW-ACT-V01
 
 ### Tags
 
-| tag                  | attributes                                                                               | when a slide is shown                                                                                                                                                                                                          | when the file is loaded                        |
-|----------------------|------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------|
-| `ACT` … `/ACT`       | `NO` (0–127), `PAN`                                                                      | starts slide NO: resets text, font and alignment and probably clears the screen (inferred); `/ACT` ends it                                                                                                                     | registers slide NO                             |
-| `PPT` … `/PPT`       | `NO`                                                                                     | an overlay slide: shows what code NO−1 shows (code 1 for NO=0; the last slide number seen if NO is absent), without clearing, then draws its own content over it                                                               | registers slide NO                             |
-| `IMG`                | `SRC` (also ALT, ALIGN, VSPACE, HSPACE, WIDTH, HEIGHT, LOWSRC, BORDER: accepted, unused) | draws picture SRC at the text cursor; the cursor moves right by its width                                                                                                                                                      | reads file SRC into the pool (up to 640 × 240) |
-| `FONT` … `/FONT`     | `SIZE` 0–12, `COLOR` 0–255                                                               | font and colour, nested up to 8 levels                                                                                                                                                                                         | —                                              |
-| `CENTER` … `/CENTER` | —                                                                                        | line break and centred text and pictures, nested up to 8 levels                                                                                                                                                                | —                                              |
-| `BR`                 | —                                                                                        | line break                                                                                                                                                                                                                     | —                                              |
-| `SHOW`               | `OBJ`                                                                                    | shows a built-in GUI screen by its object name (the built-in demos use `fdemo_a1` …)                                                                                                                                           | —                                              |
-| `SCORE`              | `SRC`, `BEAT`, `X` (repeated, up to 64), `Y`, `DISP`                                     | draws picture SRC in a 640 × 120 band (even slides top, odd slides bottom) with a ball that moves to X[i] at song position BEAT + i (the position is inferred to count beats); without SRC the band is filled with colour 0xFF | reads file SRC                                 |
-| `SSW`                | `NO` 0–29, `IMG`                                                                         | draws USER slot NO                                                                                                                                                                                                             | loads file IMG into USER slot NO               |
-| `HDR`                | `SQT`, `CLASS`, `TITLE`, `POINT`, `TEMPO0`–`TEMPO2`                                      | —                                                                                                                                                                                                                              | stored; nothing in the firmware reads it       |
-| `DA`                 | `NO` 0–3                                                                                 | sets an internal parameter (`0x90600007`) whose meaning is unknown                                                                                                                                                             | —                                              |
+| tag                  | attributes                                                                               | when a slide is shown                                                                                                                                                                                                                                    | when the file is loaded                        |
+|----------------------|------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------|
+| `ACT` … `/ACT`       | `NO` (0–127), `PAN`                                                                      | starts slide NO: resets text, font and alignment and probably clears the screen (inferred); `/ACT` ends it                                                                                                                                               | registers slide NO                             |
+| `PPT` … `/PPT`       | `NO`                                                                                     | an overlay slide: shows what code NO−1 shows (code 1 for NO=0; the last slide number seen if NO is absent), without clearing, then draws its own content over it                                                                                         | registers slide NO                             |
+| `IMG`                | `SRC` (also ALT, ALIGN, VSPACE, HSPACE, WIDTH, HEIGHT, LOWSRC, BORDER: accepted, unused) | draws picture SRC at the text cursor; the cursor moves right by its width                                                                                                                                                                                | reads file SRC into the pool (up to 640 × 240) |
+| `FONT` … `/FONT`     | `SIZE` 0–12, `COLOR` 0–255                                                               | font and colour, nested up to 8 levels                                                                                                                                                                                                                   | —                                              |
+| `CENTER` … `/CENTER` | —                                                                                        | line break and centred text and pictures, nested up to 8 levels                                                                                                                                                                                          | —                                              |
+| `BR`                 | —                                                                                        | line break                                                                                                                                                                                                                                               | —                                              |
+| `SHOW`               | `OBJ`                                                                                    | paints a GUI object found by name: the lookup (`0x48580EE6`) searches every view slot and sends the object `EV_PAINT` (`0x00050009`); it draws the object but does not make it the active screen (the built-in demos use `fdemo_a1` …; MAME, 2026-10-18) | —                                              |
+| `SCORE`              | `SRC`, `BEAT`, `X` (repeated, up to 64), `Y`, `DISP`                                     | draws picture SRC in a 640 × 120 band (even slides top, odd slides bottom) with a ball that moves to X[i] at song position BEAT + i (the position is inferred to count beats); without SRC the band is filled with colour 0xFF                           | reads file SRC                                 |
+| `SSW`                | `NO` 0–29, `IMG`                                                                         | draws USER slot NO                                                                                                                                                                                                                                       | loads file IMG into USER slot NO               |
+| `HDR`                | `SQT`, `CLASS`, `TITLE`, `POINT`, `TEMPO0`–`TEMPO2`                                      | —                                                                                                                                                                                                                                                        | stored; nothing in the firmware reads it       |
+| `DA`                 | `NO` 0–3                                                                                 | sends `MT_SleepMainTask`, sets parameter `0x90600007` to NO with `PutM3Em`, then `MT_WakeUpMainTask`; what the parameter controls is unknown                                                                                                             | —                                              |
 
 FONT `SIZE` 0–12 selects the firmware fonts 5, 7, 8, 9, 3, 0, 1, 4, 2, 6, 1, 10, 11; the
-default is font 5 in colour `0xFF`. `PAN` (left over from the KN5000/KN6000) is written into
-the same variable as `NO`, so `PAN` after `NO` in one tag replaces the slide number.
+default is font 5 in colour `0xFF`. `PAN` (left over from the KN5000/KN6000, where a
+presentation's slides are cued by part 15's pan setting, see
+[below](#the-kn5000kn6000-presentations-and-why-they-do-not-play-here)) is written into the same
+variable as `NO`, so `PAN` after `NO` in one tag replaces the slide number.
 `<PRESENTATION>`, `<SLIDESHOW>` and `<ACTION>` have no handler of their own; there is no
 `EXEC`.
 
@@ -273,6 +276,15 @@ and their `.ACT` starts directly with `<ACTION>`. On the KN6000 the `EXEC` handl
 a song number, a base name (used for both the `.SQT` and the `.ACT`) and a title, then posts
 UI messages (what they trigger was not traced); it executes nothing from the script.
 
+**What cues their slides is part 15's pan.** Track 14 of each CA-6FP song holds nothing but
+`B0 0E 0A n`, controller 10 (pan) on part 0x0E, with n stepping through the ACT numbers
+(Weserbergland: 1–25, refrains repeated); the KN6000's presentation proc (`0x484CDB31`) matches
+that parameter and runs `<ACT NO=n>`. The KN5000's built-in Feature Presentation works the same
+way with its own song format ([Feature Demo]({{ site.baseurl }}/feature-demo/#how-the-song-drives-the-presentation)),
+and the `<ACT>` parser of both accepts `PAN=Ln`, `PAN=C` or `PAN=Rn` instead of `NO=` so that an
+author can key slides to the pan value shown on the panel. The KN7000 moved the cue to its own
+PIC event (`0x8A`).
+
 | part                                   | KN5000 / KN6000 / KN6500             | KN7000                            |
 |----------------------------------------|--------------------------------------|-----------------------------------|
 | `FEATURE.PRE`                          | `<PRESENTATION><EXEC SONG SRC NAME>` | two plain lines: base name, title |
@@ -347,6 +359,34 @@ encoded was not decoded.
 Separately, an ordinary song with an `.ACT` and eight pictures loaded from SD into the main
 picture pool and showed them at its PIC points after START/STOP. A 640 × 240 JPEG slide
 took 1–2.5 s of emulated time to finish drawing.
+
+## Can a presentation operate the instrument?
+
+Investigated 2026-10-18 (the full answer, with addresses, is in kn7000_disassembly
+`notes/presentation-control.md`).
+
+- **What a KN7000 script can put on screen:** pictures, text, and, through `SHOW`, any GUI object
+  that exists under that name, painted, not made active. In MAME the built-in demo screens
+  (`fdemo_a1` …, view slot 0x29) resolve and draw. Names tried for the debug screens
+  (`PPanelSimulator`, `simulator1`, `DbMemoryDump`, `DbVariableMenu`) are class names, not
+  objects, and are not found.
+- **What its song can change:** besides notes, tempo and PIC points, a song carries parameter
+  events filtered by track kind. A CONTROL track can play rhythm, variation, intro, fill, ending,
+  start/stop, tempo, transpose, the panel-memory number, TECHNI-CHORD and fade; part tracks voices
+  and mixer moves. The open screen redraws to follow (`EV_MMMDATA`), and the recorder captures
+  these panel operations, so an automated demo can be recorded on the instrument. A song cannot
+  store SysEx, cannot change the global effect types, and nothing in it switches screens.
+- **From SD:** `FEATURE.PRE` is read from the floppy only, but a song loaded from the SD card
+  brings its `.ACT` and pictures and shows them at its PIC points, `SHOW` slides included.
+- **The Panel Simulator, DEBUG TOOLS and LCD capture are out of reach** on PROGRAM 941. The only
+  call that enters the Panel Simulator's mode 0, and the only callers of the LCD capture, sit
+  behind the panel chord's release-byte gate (`0x4840000F` must be `0xFF`, as in the SP7001 build);
+  no slide-show, song, file or MIDI code calls a mode or title change, and the ungated
+  `CaptureLcdCheck` has no caller. See [Memory Dump screen]({{ site.baseurl }}/kn7000-memory-dump-screen/).
+
+On the KN5000 the same kind of disk can go further: its presentation shows live screens
+(Accordion, Drawbar, Sdmixer) and its song's panel-record writes change their settings while
+they are shown ([Feature Demo]({{ site.baseurl }}/feature-demo/#how-the-song-drives-the-presentation)).
 
 ## Limits and error codes
 
