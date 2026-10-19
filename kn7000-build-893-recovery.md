@@ -38,7 +38,7 @@ about the relationship between the two builds.
 
 ## 1. How the instrument names its own build
 
-Two of the four numbers on the SOFT VERSION screen are checkable against bytes
+The two numbers on the SOFT VERSION screen are checkable against bytes
 we hold, and they are what make a stranger's LCD reading actionable:
 
 | Field | Where the number physically is | Value in our images |

@@ -212,7 +212,7 @@ The CPU sees IC19 at `0x57800000`. Its contents:
 |-----------------------|-------------------------------------------------------------------------------------|
 | `0x000000`–`0x000197` | a directory: 102 u32 offsets from `0x57800000`, ascending                           |
 | `0x000198`–`0x0003FF` | zero                                                                                |
-| `0x000400`            | entry 0: the version string `"7\n"`, shown as `PICTURE : 7` on SOFT VERSION         |
+| `0x000400`            | entry 0: the version string `"7\n"`, read by the firmware as PICTURE 7              |
 | `0x000404`–`0x1FF49B` | entries 1–100: PRESET 0–99, each a JFIF JPEG padded with zeros to a 4-byte boundary |
 | `0x1FF49C`            | entry 101: the end of the data                                                      |
 | `0x1FF49C`–`0x1FFFFF` | `0xFF`                                                                              |
@@ -222,8 +222,9 @@ KN7000!").
 
 Entry 0 is not a picture but the chip's **version**: the bytes `37 0A 00 00`, the ASCII digit
 `"7"` and a line feed, the same form as the table flash's `"80\n"`. The hidden
-[SOFT VERSION screen]({{ site.baseurl }}/kn7000-soft-version/) prints it as `PICTURE : 7`: its
-routine `AcAromVerBoxProc` (`0x48488A0B`) takes the u32 at `0x57800000` (`0x400`), adds the base,
+firmware reads it as PICTURE 7, shown only in the version box of the developer DEBUG TOOLS screen
+(the [SOFT VERSION screen]({{ site.baseurl }}/kn7000-soft-version/#two-rows-not-four) shows only
+PROGRAM and TABLE). Its routine `AcAromVerBoxProc` (`0x48488A0B`) takes the u32 at `0x57800000` (`0x400`), adds the base,
 and reads decimal digits from `0x57800400` until the line feed.
 
 ## How the firmware finds a picture
@@ -275,7 +276,8 @@ day, was byte-identical to the first, the instrument's manifest included.
 
 ## Open questions
 
-- Whether that instrument's SOFT VERSION screen shows `PICTURE : 7`, as the chip says it should.
+- ~~Whether that instrument's SOFT VERSION screen shows `PICTURE : 7`.~~ Answered 2026-10-19: it shows
+  no PICTURE row at all (owner). The DEBUG TOOLS version box prints 7 in MAME with the ROM mapped.
 - Whether IC19 differs between production runs. This read comes from an early instrument
   (PROGRAM 893).
 - What the unreachable half of the chip holds.

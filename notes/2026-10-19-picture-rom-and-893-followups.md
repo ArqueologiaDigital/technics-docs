@@ -2,13 +2,14 @@
 
 Left open when `kn7000-picture-rom.md` went in (commit `54f3bdc`).
 
-- **Owner check:** does the instrument's SOFT VERSION screen show `PICTURE : 7`? The chip's version
-  string says it should (`kn7000-picture-rom.md`, "How they are stored").
+- ~~**Owner check:** does the instrument's SOFT VERSION screen show `PICTURE : 7`?~~ **Answered**
+  2026-10-19: the screen has no PICTURE row, only PROGRAM and TABLE (owner; MAME agrees). PICTURE
+  is in the DEBUG TOOLS version box, which prints 7 in MAME with the ROM mapped.
 - ~~Second reads~~ **Done** 2026-10-19: both passes were read twice the same day, byte-identical
   (files and manifests). PR #16517 is open; a note saying so is ready to paste in the KN7000 repo,
   `tools/mame-pr-planning/kn7000-v13-pr/comment-second-read.md`.
 - **MAME:** declare IC19 as the 2 MB image (CRC-32 `3372cb5c`, SHA-1 `9631dedf...`) and map it with
-  `.mirror(0x600000)` at `0x57800000`. Not started; owner decision on timing.
+  `.mirror(0x600000)` at `0x57800000`. **Prepared** 2026-10-19: branch `technics-kn7000-picrom`.
 - **Build-893 recovery page:** check the 9,472 transcribed bytes against the real read. That grades
   the transcription method; the page now says it predates the read. The transcription's data is in
   `technics-roms-disasm` `kn7000/dumps/build893-photo-transcription/` (`screens.hex`, `screens.json`).

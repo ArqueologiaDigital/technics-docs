@@ -67,14 +67,14 @@ rhythm ROM, whose CPU address nobody knows.
 - **What `find_rhythm.py` does with the files.**
   - It finds the header.
   - It repeats the firmware's own checksum over the data behind the header (`StyleResourceVerify`).
-  - It reads the RHYTHM number the SOFT VERSION screen would show.
+  - It reads the RHYTHM number the firmware's version code computes.
   - It compares the data with the truncated copy of the header that table 84 carries.
 - **What it found on the owner's instrument (2026-10-19).**
   - **IC18 answers on CS0** at `0x40000000`–`0x403FFFFF` and repeats at `0x40400000`. Its address
     pins take A1–A21, and its top pin is set by jumper JP7, so the CPU sees 4 MB of the 64 Mbit chip.
   - **The firmware's own check passes.** The header sits at `0x40010000`, the firmware's third probe
     address. Its checksum over 1 Mi words passes, it declares 220 styles, and the version string at
-    the top is `"jkr_33.ssf"`, which SOFT VERSION shows as RHYTHM 33.
+    the top is `"jkr_33.ssf"`, which the firmware reads as RHYTHM 33.
   - **The rest of the survey.** The windows show IC21 at `0x54800000` and IC19 at `0x55800000`,
     byte for byte the earlier dumps; everything else is open bus.
   - **IC18's first 64 KB is the boot ROM.** It is the code the CPU runs at reset, and it ends with

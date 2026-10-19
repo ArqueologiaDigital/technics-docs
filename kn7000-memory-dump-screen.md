@@ -66,7 +66,7 @@ PHYSICAL CONTROLS USED (KN7000 front panel)
 - EXIT.
 
 STEP 0 — CALIBRATION, ZERO RISK. DO THIS FIRST.
-Instrument on, at a normal play screen. Press and hold at the same time the UP and the DOWN cap of part-mixer columns **1, 6 and 8** (six caps). The SOFT VERSION screen should appear, showing PROGRAM / TABLE / RHYTHM / PICTURE, and go away again by itself after a few seconds. That is held-switch accumulator `0xA1`. **This step is confirmed working on real KN7000 hardware by the project owner** — it is not an emulator inference. If it works, the chord mechanism is live on your unit, your column numbering matches ours, and you have also just recorded the four numbers that identify your firmware (please report them; the [SOFT VERSION page]({{ site.baseurl }}/kn7000-soft-version/) explains why they matter).
+Instrument on, at a normal play screen. Press and hold at the same time the UP and the DOWN cap of part-mixer columns **1, 6 and 8** (six caps). The SOFT VERSION screen should appear, showing PROGRAM and TABLE, and go away again by itself after a few seconds. That is held-switch accumulator `0xA1`. **This step is confirmed working on real KN7000 hardware by the project owner** — it is not an emulator inference. If it works, the chord mechanism is live on your unit, your column numbering matches ours, and you have also just recorded the two numbers that identify your firmware (please report them; the [SOFT VERSION page]({{ site.baseurl }}/kn7000-soft-version/) explains why they matter).
 IF NOTHING HAPPENS: do not escalate to the four-column chord. Re-read the column numbering — count from the far left of the mixer row — and try again. Rolling the six caps on one at a time is easier than slamming them down together, and it may take two hands.
 
 STEP 1 — THE CHORD
@@ -440,8 +440,9 @@ chord lands on **Panel Simulator 2.1** instead, and the viewer is two soft keys
 further in (LCDR5, then LCDL1), through a **DEBUG TOOLS** screen (`_TT_DEBUG`, title
 id `0xFF`) that also offers MEMO LOG, ICON LIST, COLOR LIST, BITMAP LOAD, a
 `DEBUG MODE : OFF/ON` switch, a mode enumerator reading `015 : _MD_SONG`, and a
-`--- SOFTWARE VERSION ---` box with the same four numbers as the SOFT VERSION
-screen (all described under [DEBUG TOOLS](#debug-tools)).
+`--- SOFTWARE VERSION ---` box with four numbers: the SOFT VERSION screen's PROGRAM
+and TABLE, plus RHYTHM and PICTURE, which only this box shows (in MAME with the dumped
+ROMs: 33 and 7) (all described under [DEBUG TOOLS](#debug-tools)).
 
 The two outcomes are mutually exclusive, which makes the chord **a one-press
 probe of that byte on any unit**. It is worth reporting which screen you got
@@ -683,7 +684,7 @@ page, which touches nothing.
 - **The `0x110000` capture chord is the four corner soft keys.** Bits 16 and 20 of the held-switch accumulator are index switches `0x10` and `0x14`, produced only by LCDL1 and LCDL5 (the DOWN half) and LCDR1 and LCDR5 (the UP half); the names come from the firmware's own edit-switch table at `0x485B0C68`. Settled 2026-10-18 from the code and in MAME; see [LCD capture](#lcd-capture).
 - ADR3's target (the 11-entry table of `0x8E0`-byte records at `0x501A5800`) is **plausibly** the sequencer song slots — the bound is 11, the manual says `10 SONG MAX.`, and a sequencer initialiser is one of its callers — but nothing names it, so treat the identification as unproven.
 - The viewer keeps repainting while it is open (measured in the emulator: about every 3 s when idle), so a parked address is re-read over and over. That is harmless in ROM and RAM and is **not** harmless over I/O. Keep it in `0x48000000`–`0x487FFFFF` or `0x50000000`+ / `0x84000000`+, and stay off the flash command window, the TG/FDC window, the DSP port, the SD interface and CPU-internal I/O including the MIDI transmitter. FULLTIME makes this worse, not better.
-- RHYTHM and PICTURE read 0 in the emulator because upstream MAME declares both `NO_DUMP` and maps neither: the rhythm ROM and the picture ROM were first read in October 2026 (the rhythm ROM's version string is `"jkr_33.ssf"`, so RHYTHM should read 33) ([Picture ROM]({{ site.baseurl }}/kn7000-picture-rom/); its version string is `"7\n"`) (the kn7000_mame overlay substitutes a synthetic stand-in for the rhythm resource). **Any RHYTHM or PICTURE number seen in emulation is an artefact.** On real hardware those two rows show numbers this project holds from no source at all, which makes them worth photographing.
+- RHYTHM and PICTURE are rows of the DEBUG TOOLS screen's version box only: the SOFT VERSION screen shows PROGRAM and TABLE, on the instrument (owner, 2026-10-19) as in MAME. In upstream MAME they read 0, because it declares both ROMs `NO_DUMP` and maps neither. With the dumped ROMs mapped, the firmware prints RHYTHM 33 (`"jkr_33.ssf"`) and PICTURE 7 ([Picture ROM]({{ site.baseurl }}/kn7000-picture-rom/)). The kn7000_mame overlay's synthetic rhythm stand-in gives an artefact there.
 - The service manual documents no memory-dump screen. Its diagnostics are power-on combinations and jig-based device tests. The chord on this page is firmware-proven and manual-silent.
 - No photograph of a KN7000 MEMORY DUMP screen exists in this repository yet — neither from the emulator nor from hardware. The KN5000 page has screenshots; this one does not, and should get them.
 

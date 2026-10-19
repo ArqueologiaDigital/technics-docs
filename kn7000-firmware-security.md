@@ -158,9 +158,9 @@ builds — build 935 keeps it at `0x487365A8` and build 942 at `0x48737630` — 
 instruction that loads it, not by a fixed offset.
 
 This has already found an unpreserved firmware: a real instrument reports `PROGRAM : 893`
-and `TABLE : 80`. For where each of the four numbers comes from — only PROGRAM is a
-compiled-in constant; TABLE, RHYTHM and PICTURE are parsed as ASCII decimal out of their
-own flash devices — see the [SOFT VERSION screen]({{ site.baseurl }}/kn7000-soft-version/).
+and `TABLE : 80`. For where each number comes from — only PROGRAM is a compiled-in constant; TABLE (and
+RHYTHM and PICTURE, which only the developer DEBUG TOOLS screen shows) are parsed as ASCII
+decimal out of their own devices — see the [SOFT VERSION screen]({{ site.baseurl }}/kn7000-soft-version/).
 
 ### 4.2 The ROM device test checks integrity, but shows no fingerprint
 

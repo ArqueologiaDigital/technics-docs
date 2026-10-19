@@ -84,8 +84,8 @@ RHYTHM and PICTURE versions are read from devices not covered by these
 updates (the rhythm ROM and the picture ROM IC19 at `0x57800000`; the picture ROM has
 since been read from an instrument, see [Picture ROM (IC19)]({{ site.baseurl }}/kn7000-picture-rom/)).
 
-All four numbers are what the instrument's hidden **SOFT VERSION** screen
-prints. At least one surviving KN7000 reports `PROGRAM : 893` / `TABLE : 80` —
+PROGRAM and TABLE are what the instrument's hidden **SOFT VERSION** screen
+prints; RHYTHM and PICTURE appear only on the developer DEBUG TOOLS screen. At least one surviving KN7000 reports `PROGRAM : 893` / `TABLE : 80` —
 an earlier pair of images, unpreserved until that instrument's own chips were read on
 2026-10-19 with the [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/); see the
 [SOFT VERSION screen]({{ site.baseurl }}/kn7000-soft-version/).
