@@ -134,6 +134,8 @@
           url: /kn7000-expansion-and-wave-dump/
         - title: "Wave-ROM Dump Tutorial (Pi Pico)"
           url: /kn7000-wave-rom-dump/
+        - title: "ROM Dumper (floppy loader + SD card)"
+          url: /kn7000-rom-dumper/
         - title: Firmware Robustness & ROM Archival
           url: /kn7000-firmware-security/
     - title: SD PLUG-iN (SP7001)

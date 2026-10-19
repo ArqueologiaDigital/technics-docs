@@ -93,6 +93,17 @@ stack and does not move the stack pointer. A routine entered with `call X, 0, 0`
 another before making a frame of its own overwrites that address, and its return goes astray.
 That hung AW.CNV's first unpacker, so the build now checks every routine for it.
 
+**Parking without a repaint.** Request 5 makes the firmware repaint its converter screen. Its display
+task also recomposes the LCD while the SD routines sleep, so a program that draws its own screen loses
+it under request 5. **Request 1**, "copy four bytes and call again", parks the firmware just as well
+and leaves the screen alone. An idle request-1 loop calls back much faster than request 5's ~20 times a
+second. The [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/) parks this way.
+
+**A loader instead of one program per floppy.** The ROM dumper is split in two. `KN7LOAD.CNV`, on the
+floppy, finds the firmware routines by their code rather than by address, so it is not tied to one
+build. It loads the real application, `KN7APP.BIN`, from the SD card. A new application is then just a
+file copied to the card.
+
 ## How Another World uses it
 
 - **The program.** `AW.CNV` (13,840 bytes) is the same VM source as the SP7001 build, with a
