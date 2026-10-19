@@ -4,8 +4,8 @@ Left open when `kn7000-picture-rom.md` went in (commit `54f3bdc`).
 
 - **Owner check:** does the instrument's SOFT VERSION screen show `PICTURE : 7`? The chip's version
   string says it should (`kn7000-picture-rom.md`, "How they are stored").
-- **Second reads** of pass 1 (program, table, IC21) and pass 2 (IC19), to show the reads are stable.
-  Pass 1's also gates MAME PR #16517.
+- **Second read of pass 1** (program, table, IC21), to show those reads are stable; it also gates MAME
+  PR #16517. Pass 2 (IC19) was read twice the same day, byte-identical.
 - **MAME:** declare IC19 as the 2 MB image (CRC-32 `3372cb5c`, SHA-1 `9631dedf...`) and map it with
   `.mirror(0x600000)` at `0x57800000`. Not started; owner decision on timing.
 - **Build-893 recovery page:** check the 9,472 transcribed bytes against the real read. That grades

@@ -11,7 +11,7 @@ cities, Christmas scenes, instruments, animals, title cards and the numbers 1 to
 640 × 240 JPEG. They are all on this page, read from a real instrument.
 
 > **Status (2026-10-19).** Read through the CPU on a KN7000 (PROGRAM 893 / TABLE 80) with the
-> [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/)'s IC19 pass. All 100 pictures decode
+> [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/)'s IC19 pass, twice, with identical results. All 100 pictures decode
 > cleanly, and they are exactly the 100 the firmware's picture code accepts. The KN7000
 > disassembly rebuilds the chip's visible contents byte for byte from these files. Upstream MAME
 > still declares IC19 `NO_DUMP`.
@@ -261,8 +261,8 @@ either.
 The [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/)'s IC19 build read `0x57800000`–`0x57FFFFFF`
 on the owner's instrument and wrote it to the SD card, 8 MB. The instrument's CRC-32 matched the
 file on the computer, and the four 2 MB quarters are identical. The unique 2 MB has CRC-32
-`3372cb5c` and SHA-1 `9631dedfc501b8c11bb93efa2d99750e3c84465a`. A second read, to show the reads
-are stable, is still to come; the pictures all decoding cleanly already argues for it.
+`3372cb5c` and SHA-1 `9631dedfc501b8c11bb93efa2d99750e3c84465a`. A second read, later the same
+day, was byte-identical to the first, the instrument's manifest included.
 
 ## In the disassembly and in MAME
 
