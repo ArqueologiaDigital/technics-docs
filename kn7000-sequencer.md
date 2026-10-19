@@ -55,7 +55,7 @@ The sequencer screen has its own `EV_*` event block (name table at program
 
 ## What a song can carry
 
-Traced 2026-10-18 from the firmware (technics-roms-disasm
+Traced 2026-10-18 from the firmware ([technics-roms-disasm](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000)
 `kn7000/notes/presentation-control-probes/song-records.md`; not yet run in MAME). Besides notes, a song
 holds tempo (`0x80`), beat and bar markers (`0x81`, `0x84`), end of track (`0x82`), rhythm
 start/stop (`0x85`/`0x86`), PIC slide cues (`0x8A`), MIDI-style controller, program change,

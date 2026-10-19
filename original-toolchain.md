@@ -153,4 +153,4 @@ the time.
 - SNK Neo Geo Pocket Support CD (1999.4):
   https://web.archive.org/web/20210413082004/http://devrs.com/ngp/files/DoNotLink/MSWord/ManUpdate01/
 - Reproduction: `scripts/analysis/compiler_id/` in the
-  [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/kn5000-roms-disasm) repository.
+  [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/technics-roms-disasm) repository.

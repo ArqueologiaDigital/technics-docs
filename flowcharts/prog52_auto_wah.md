@@ -51,4 +51,4 @@ A biquad whose cutoff is swept by an LFO or an envelope (auto-wah).
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): RESONANCE, MANUAL, SWEEP RANGE, VOLUME, REV SEND.
 
-Per-instruction detail: [`../disasm/prog52_auto_wah.dsm`](https://github.com/ArqueologiaDigital/kn5000-roms-disasm/blob/main/dsp/disasm/prog52_auto_wah.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.
+Per-instruction detail: [`../disasm/prog52_auto_wah.dsm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/dsp/disasm/prog52_auto_wah.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.

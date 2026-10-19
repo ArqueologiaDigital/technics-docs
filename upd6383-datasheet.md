@@ -17,7 +17,7 @@ permalink: /upd6383-datasheet/
 > says so rather than omitting the row.
 >
 > **Source of truth:** `dsp/instruction-set.md` in the
-> [disassembly repository](https://github.com/ArqueologiaDigital/kn5000-roms-disasm), which is
+> [disassembly repository](https://github.com/ArqueologiaDigital/technics-roms-disasm), which is
 > kept in step with the Python disassembler and with MAME's `upd6383d.cpp`. This page can drift
 > from it; that one is authoritative.
 
@@ -52,7 +52,7 @@ common header, a call to unit 0's body, a call to unit 1's body, and a shared ou
 
 Read at 400 dpi from the SX-WSA1R service manual, sheet II-15/II-16, where IC30 is drawn complete.
 The full table with wiring notes is in
-[`dsp/hardware/upd6383-pinout.md`](https://github.com/ArqueologiaDigital/kn5000-roms-disasm).
+[`dsp/hardware/upd6383-pinout.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm).
 
 ### Pins 1-30 — bottom edge: host port, reset, serial audio
 

@@ -55,4 +55,4 @@ A rotating-speaker model: an LFO sweeps a delay (Doppler pitch) into a tone biqu
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): DRIVE, VOLUME ADJUST, TREBLE DEPTH, FAST, SLOW, WIND UP, WIND DOWN, BASS DEPTH, BASS FAST, BASS SLOW, WIND UP, WIND DOWN, VOLUME, SLOW/FAST, REV SEND.
 
-Per-instruction detail: [`../disasm/prog15_rock_rotary.dsm`](https://github.com/ArqueologiaDigital/kn5000-roms-disasm/blob/main/dsp/disasm/prog15_rock_rotary.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.
+Per-instruction detail: [`../disasm/prog15_rock_rotary.dsm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/dsp/disasm/prog15_rock_rotary.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.

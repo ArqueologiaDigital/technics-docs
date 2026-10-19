@@ -59,7 +59,7 @@ on *both* devices, in the same direction.
 
 ## 2. What was transcribed
 
-`technics-roms-disasm` `kn7000/dumps/build893-photo-transcription/` holds
+[`technics-roms-disasm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000) `kn7000/dumps/build893-photo-transcription/` holds
 `screens.json` (one record per photograph, with the source filename, the base
 address, and per-screen notes about glare and contested cells) and
 `screens.hex` (the same content, address-ordered and human-auditable).

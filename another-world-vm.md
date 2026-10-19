@@ -136,7 +136,7 @@ Requirements:
 - ASL Macro Assembler 1.42 Beta (`asl` and `p2bin`; Makefile variable `ASL_PATH`, default `../../tools/asl`)
 - Original KN5000 ROMs (for MAME ROM set). Pass their directory as `ORIGINAL_ROMS` and the ROM-set output directory as `ROMSET_BASE`: the Makefile's defaults are paths on the author's machine
 - The MS-DOS game data files (MEMLIST.BIN and BANK01-BANK0D) in `game_data/MSDOS/`; `tools/extract_resources.py` extracts the resources from them
-- A checkout of [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/kn5000-roms-disasm) at `../../kn5000-roms-disasm` (Makefile variable `DISASM_REPO`), whose `archive/asl/` sources the build includes
+- A checkout of [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/technics-roms-disasm) at `../../kn5000-roms-disasm` (Makefile variable `DISASM_REPO`), whose `archive/asl/` sources the build includes
 
 ## Implementation Status
 

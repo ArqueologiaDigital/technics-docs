@@ -316,7 +316,7 @@ descriptor material.
 ## Provenance
 
 * Carve + labels: commit `8c9b66d` in
-  [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/kn5000-roms-disasm) —
+  [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/technics-roms-disasm) —
   `v10/maincpu/ui_widgets/widget_descriptors.s`,
   `v10/maincpu/ui_widgets/naka_widget_descriptors.c` (and the v7/v9 copies),
   `v9,v10/maincpu/sequencer/sequencer_ui.s`.

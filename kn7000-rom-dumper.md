@@ -202,7 +202,7 @@ IC203/IC204. That is a driver issue for a later fix; the dumper follows the firm
 
 ## Sources
 
-- `technics-roms-disasm`, `kn7000/tools/cnv_romdump/`:
+- [`technics-roms-disasm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000), `kn7000/tools/cnv_romdump/`:
   - the loader, the dumper, their README;
   - the firmware search run over every program image (`find_fw.py`);
   - the probes behind the design (`probes/`);

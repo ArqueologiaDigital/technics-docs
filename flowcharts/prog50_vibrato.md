@@ -57,4 +57,4 @@ An LFO phase accumulator (a D-RAM cell ramping by the LFO-SPEED each frame) modu
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): DEPTH, LFO SPEED, PHASE, LFO WAVEFORM, VOLUME, REV SEND.
 
-Per-instruction detail: [`../disasm/prog50_vibrato.dsm`](https://github.com/ArqueologiaDigital/kn5000-roms-disasm/blob/main/dsp/disasm/prog50_vibrato.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.
+Per-instruction detail: [`../disasm/prog50_vibrato.dsm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/dsp/disasm/prog50_vibrato.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.

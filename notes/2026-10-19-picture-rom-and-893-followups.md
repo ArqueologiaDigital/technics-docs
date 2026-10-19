@@ -25,6 +25,7 @@ Left open when `kn7000-picture-rom.md` went in (commit `54f3bdc`).
 `kn5000-roms-disasm` is now `technics-roms-disasm` (the old path is a symlink), with the KN7000
 disassembly inside it as `kn7000/`; `kn7000_disassembly` is decommissioned. The site's live
 references were repointed; dated logs (notes/, roadmap entries) keep the old name, and their old
-commit hashes resolve through `kn7000/notes/migration-commit-map.txt`. On GitHub the repository is
-still `kn5000-roms-disasm` until the owner renames it; the site's existing links to that name will
-keep working through GitHub's redirect.
+commit hashes resolve through `kn7000/notes/migration-commit-map.txt`. The owner renamed the GitHub
+repository to `technics-roms-disasm` and pushed the same day; the site's 83 links to the old name
+were rewritten to the new one (all 45 distinct URLs answer 200), and the KN7000 pages now link the
+repository's `kn7000/` folder.

@@ -11,7 +11,7 @@ code is not in the instrument. It comes on the **Style Convert Disk** (`scd6000`
 `scd7000` for the KN7000, both in the floppy software lists) as six small MN10300 programs, the
 `.CNV` files, which the firmware loads into RAM and runs. Traced on 2026-10-18 from the KN7000's
 PROGRAM 941 and the KN6000 program, the two disks, and one RAM read on a booted KN7000.
-Details, addresses and scripts are in the technics-roms-disasm repository,
+Details, addresses and scripts are in the [technics-roms-disasm](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000) repository,
 `kn7000/notes/style-converter.md`.
 
 ## What is on the disk

@@ -51,4 +51,4 @@ gain(drive) &rarr; nonlinear transfer &rarr; gain(level); OVERDRIVE/EXCITER appe
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): DRIVE, ADJUST, VOLUME, REV SEND.
 
-Per-instruction detail: [`../disasm/prog34_fuzz.dsm`](https://github.com/ArqueologiaDigital/kn5000-roms-disasm/blob/main/dsp/disasm/prog34_fuzz.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.
+Per-instruction detail: [`../disasm/prog34_fuzz.dsm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/dsp/disasm/prog34_fuzz.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.

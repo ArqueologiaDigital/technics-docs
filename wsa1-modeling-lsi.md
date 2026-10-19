@@ -880,7 +880,7 @@ generator's register file, not this chip — their block numbers merely overlap.
 
 Each script reads the ROM images and no `.s` file, and each carries a
 `--selftest` that must reject a wrong value. All paths are relative to the
-[disassembly tree](https://github.com/ArqueologiaDigital/kn5000-roms-disasm).
+[disassembly tree](https://github.com/ArqueologiaDigital/technics-roms-disasm).
 
 | script | the question it answers |
 |---|---|

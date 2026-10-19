@@ -24,7 +24,7 @@ summarised under [What is still open](#what-is-still-open).
 ## Source modules
 
 The top-level module is `table_data/kn5000_table_data.s` in the
-[disassembly repo](https://github.com/ArqueologiaDigital/kn5000-roms-disasm); its banner is the
+[disassembly repo](https://github.com/ArqueologiaDigital/technics-roms-disasm); its banner is the
 canonical table of contents. Large regions live in their own modules:
 
 | Module | ROM range | Contents |

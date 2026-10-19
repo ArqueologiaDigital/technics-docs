@@ -51,4 +51,4 @@ External delay-DRAM (class-1 ESCAPE word, addr8 bit 6 = write vs read) + a feedb
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): DELAY1 DRY/WET, DELAY L, DELAY R, FEEDBACK L, FEEDBACK R, DELAY2 DRY/WET, DELAY L, DELAY R, FEEDBACK L, FEEDBACK R, VOLUME, REV SEND.
 
-Per-instruction detail: [`../disasm/prog65_s_delay_s_delay.dsm`](https://github.com/ArqueologiaDigital/kn5000-roms-disasm/blob/main/dsp/disasm/prog65_s_delay_s_delay.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.
+Per-instruction detail: [`../disasm/prog65_s_delay_s_delay.dsm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/dsp/disasm/prog65_s_delay_s_delay.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.

@@ -436,7 +436,7 @@ This event codes reference and the following related documentation must be updat
 
 1. **This page** (`event-codes.md`) -- Add new codes, update descriptions, correct dispatch paths
 2. **[HDAE5000 Homebrew Development]({{ site.baseurl }}/hdae5000-homebrew/)** -- Update handler examples and activation flow
-3. **ROM disassembly** ([kn5000-roms-disasm](https://github.com/ArqueologiaDigital/kn5000-roms-disasm)) -- Update symbolic names (`EVT_*` constants) in assembly source
+3. **ROM disassembly** ([kn5000-roms-disasm](https://github.com/ArqueologiaDigital/technics-roms-disasm)) -- Update symbolic names (`EVT_*` constants) in assembly source
 4. **Symbol reference files** -- `hdae5000_symbols_reference.txt` and `maincpu_symbols_reference.txt` are generated from the built ELF files: regenerate them after a rename (`scripts/analysis/l2_symbol_reference.py --regen`) and never edit them by hand
 
 See also: [HDAE5000 Homebrew Development]({{ site.baseurl }}/hdae5000-homebrew/) for the full handler registration and dispatch system documentation.

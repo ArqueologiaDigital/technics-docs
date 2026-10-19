@@ -280,7 +280,7 @@ mechanism that transfers to the KN5000 too:
   (`parent`, `top`, `super`, `fontcolor`, `pagemax`, `editsw`, …) are what the
   `MT_GetPropName`/`MT_GetPropData`/`MT_GetClass`/`MT_GetParentClass` RTTI reads.
 * **A named-constant table** for the property values — recovered by
-  `technics-roms-disasm/kn7000/tools/gen_constants.py`: `VF_*` view flags, `CL_*` palette
+  [`technics-roms-disasm/kn7000/tools/gen_constants.py`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/tools/gen_constants.py): `VF_*` view flags, `CL_*` palette
   colours, `BD_*` border styles, and part/track/step enums. These cross-check the
   rest of the reverse engineering exactly — `VF_Invisible=1`, `VF_Change=4`,
   `VF_Const=8` are precisely the object flag bits the KN7000's `SetVisible` /

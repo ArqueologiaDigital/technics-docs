@@ -51,4 +51,4 @@ External delay-DRAM (class-1 ESCAPE word, addr8 bit 6 = write vs read) + a feedb
 
 **UI parameters** (MEASURED, `notes/kn5000-dsp-paramlist.md`): DELAY 1, DELAY 2, DELAY 3, DELAY 4, PAN 1, PAN 2, PAN 3, PAN 4, FEEDBACK, HIGH DAMP GAIN, VOLUME, REV SEND.
 
-Per-instruction detail: [`../disasm/prog10_multi_tap_delay.dsm`](https://github.com/ArqueologiaDigital/kn5000-roms-disasm/blob/main/dsp/disasm/prog10_multi_tap_delay.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.
+Per-instruction detail: [`../disasm/prog10_multi_tap_delay.dsm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/dsp/disasm/prog10_multi_tap_delay.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.

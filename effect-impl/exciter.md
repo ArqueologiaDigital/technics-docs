@@ -26,7 +26,7 @@ driven toward a faithful low-level emulation). See also the
 ## DSP bytecode (reverse-engineered microprogram)
 
 The disassembled image the chip executes for this effect. Source (regenerable):
-[`dsp/disasm/prog35_exciter.dsm`](https://github.com/ArqueologiaDigital/kn5000-roms-disasm/blob/main/dsp/disasm/prog35_exciter.dsm).
+[`dsp/disasm/prog35_exciter.dsm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/dsp/disasm/prog35_exciter.dsm).
 
 ```
 ; Reverse-engineered disassembly of the KN5000 effects-DSP microcode

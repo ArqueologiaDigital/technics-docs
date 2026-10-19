@@ -42,4 +42,4 @@ A rectify/smooth level detector drives a gain multiply; no delay line.
 
 **Instruction hint:** the threshold/envelope path GATES a class-A MAC (LIVE: COMPRESSOR's SRC 0x07/ACT 0x15 store MAC does not fire every frame &mdash; the threshold conditional).
 
-Per-instruction detail: [`../disasm/prog00_no_operation.dsm`](https://github.com/ArqueologiaDigital/kn5000-roms-disasm/blob/main/dsp/disasm/prog00_no_operation.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.
+Per-instruction detail: [`../disasm/prog00_no_operation.dsm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/dsp/disasm/prog00_no_operation.dsm). Confidence legend and method: [`README.md`]({{ site.baseurl }}/effects-dsp/flowcharts/). Narrative: the MAME development blog, KN5000 effects-DSP series (Parts 78-84). Reference: the project docs site, `/effects-dsp/`.

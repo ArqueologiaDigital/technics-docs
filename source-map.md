@@ -6,7 +6,7 @@ permalink: /source-map/
 
 # Source Code Map
 
-The [disassembly repository](https://github.com/ArqueologiaDigital/kn5000-roms-disasm) holds
+The [disassembly repository](https://github.com/ArqueologiaDigital/technics-roms-disasm) holds
 two products as TLCS-900 assembly that reassembles to the original dumps byte for byte: the
 **KN5000** — nine gated images under `v10/`, `v9/`, `v7/`, `v142/`, `subcpu/`, `hdae5000/`,
 `table_data/` and `custom_data/` — and the **SX-WSA1R**, four images under `wsa1/`. Every image

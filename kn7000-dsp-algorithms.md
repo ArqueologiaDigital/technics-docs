@@ -290,7 +290,7 @@ voicings carry over to those models nearly wholesale. See the
 ## Sources
 
 The instruction-level annotations live in the `dsp/` tree of the
-`kn7000/` folder of the `technics-roms-disasm` repository (see
+`kn7000/` folder of the [`technics-roms-disasm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000) repository (see
 [Firmware Images]({{ site.baseurl }}/kn7000-firmware/)): the kernel in
 `kernel-architecture.md`, and the effect families in `reverb-algorithm.md`,
 `chorus-family-algorithms.md`, `insert-effects-algorithms.md`,

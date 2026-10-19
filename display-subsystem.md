@@ -485,7 +485,7 @@ The firmware contains **10 fonts** (IDs 0-9) in the Table Data ROM. Each font ha
 ![Font {{ i }}]({{ site.baseurl }}/assets/images/gallery/font_0{{ i }}.png)
 {% endfor %}
 
-BDF (Bitmap Distribution Format) exports are available in the [roms-disasm repository](https://github.com/ArqueologiaDigital/kn5000-roms-disasm/tree/main/extracted_fonts) for use in emulators and tools.
+BDF (Bitmap Distribution Format) exports are available in the [roms-disasm repository](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/extracted_fonts) for use in emulators and tools.
 
 ## Screen Layout and Regions
 

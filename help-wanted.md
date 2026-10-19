@@ -210,7 +210,7 @@ See `CLAUDE.md` in the repository for complete policy details.
 
 ## Getting Started
 
-1. Clone the [ROM disassembly repo](https://github.com/ArqueologiaDigital/kn5000-roms-disasm)
+1. Clone the [ROM disassembly repo](https://github.com/ArqueologiaDigital/technics-roms-disasm)
 2. Read the `CLAUDE.md` for build instructions and **contribution policies**
 3. Check the [Open Questions]({{ site.baseurl }}/questions/) for areas needing investigation
 4. Read the [Roadmap]({{ site.baseurl }}/roadmap/) for what the project is trying to reach and in what order

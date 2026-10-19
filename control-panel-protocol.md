@@ -1559,7 +1559,7 @@ DemoModeFunc (0xF222CC)
 
 ## References
 
-- **Firmware Disassembly**: [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/kn5000-roms-disasm) — `v10/maincpu/ui/cpanel_routines.s` (also in v9/ and v7/)
+- **Firmware Disassembly**: [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/technics-roms-disasm) — `v10/maincpu/ui/cpanel_routines.s` (also in v9/ and v7/)
 - **MAME Driver Source**: `src/mame/matsushita/kn5000_cpanel.cpp` (HLE), `kn5000.cpp` (wiring), in mainline MAME since [#15143](https://github.com/mamedev/mame/pull/15143) (control-panel HLE) and [#15919](https://github.com/mamedev/mame/pull/15919) (data wheel)
 - **CPU Serial Emulation**: `src/devices/cpu/tlcs900/tmp94c241_serial.cpp`
 - **Hardware Architecture**: [Hardware Architecture Page]({{ site.baseurl }}/hardware-architecture/)

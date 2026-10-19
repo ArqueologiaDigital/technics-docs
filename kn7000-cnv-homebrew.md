@@ -140,7 +140,7 @@ How it was checked, in MAME:
 
 - Another World repository, `kn7000/README-CNV.md` (the build) and `kn7000/probes/cnv/README.md`
   (the probes, their commands and results).
-- `technics-roms-disasm`, `kn7000/`: `notes/style-converter.md` (the firmware side, and what a
+- [`technics-roms-disasm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000), `kn7000/`: `notes/style-converter.md` (the firmware side, and what a
   converter of one's own showed) and `tools/itron_stubs.py` (the task services).
 - [Work RAM Map]({{ site.baseurl }}/kn7000-work-ram/) (what the firmware leaves free) and
   [Tasks & Scheduler]({{ site.baseurl }}/kn7000-task-scheduler/).

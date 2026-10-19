@@ -216,7 +216,7 @@ Still open:
   [System Update Discs]({{ site.baseurl }}/kn7000-system-update-discs/).
 - Disassembly: `GetTtSoftverID` `0x48488AAC`, disk-file dispatcher `0x4852B6B0`,
   `LibRomImageBase` `0x487B8FD1`, task switch `TaskYieldSwitch` `0x487F46D8`
-  (see `kn7000/notes/sd-plugin-interface.md` in the `technics-roms-disasm`
+  (see `kn7000/notes/sd-plugin-interface.md` in the [`technics-roms-disasm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000)
   repository). For build 942, table 83 and `BASEEXT.XAP`: `PlugInProbe`
   `0x48585B95`, `KssPluginLoad` `0x483EEAA9`, `XapEntry` `0x5029B000`
   (`notes/sp7001-build-diff.md` in the same repository).

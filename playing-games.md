@@ -84,7 +84,7 @@ See: [Another World VM technical details]({{ site.baseurl }}/another-world-vm/)
 - [ASL Macro Assembler](http://john.ccac.rwth-aachen.de:8000/as/) (`asl` and `p2bin`)
 - Original *Another World* game data files (DOS version)
 - Python 3 (for resource extraction)
-- A checkout of [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/kn5000-roms-disasm). The build includes the ASL sources in its `archive/asl/` tree; pass its location as `DISASM_REPO` (default `../../kn5000-roms-disasm`).
+- A checkout of [kn5000-roms-disasm](https://github.com/ArqueologiaDigital/technics-roms-disasm). The build includes the ASL sources in its `archive/asl/` tree; pass its location as `DISASM_REPO` (default `../../kn5000-roms-disasm`).
 
 ### Build
 

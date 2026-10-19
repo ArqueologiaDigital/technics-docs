@@ -45,7 +45,7 @@ that assembles the words, an exhaustive constraint search, or a live emulator tr
 ⚠ **The project's own standing rule is that a wrong decode costs more than a missing one.** The
 instruction-set reference's corrections table alone withdraws twenty-five readings, two of them
 within hours of being committed. The
-[instruction set reference](https://github.com/ArqueologiaDigital/kn5000-roms-disasm) opens with
+[instruction set reference](https://github.com/ArqueologiaDigital/technics-roms-disasm) opens with
 its own list of corrections, and that list is part of the result.
 
 ---

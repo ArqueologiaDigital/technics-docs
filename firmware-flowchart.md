@@ -14,7 +14,7 @@ internal doubler — with a cooperative task scheduler.
 The prose behind each diagram lives on the page it links to; the numbers behind each diagram
 live on [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/). Symbol addresses below
 are v10 and come from `symbols/maincpu_v10_symbols_reference.txt` in the
-[disassembly repository](https://github.com/ArqueologiaDigital/kn5000-roms-disasm).
+[disassembly repository](https://github.com/ArqueologiaDigital/technics-roms-disasm).
 
 ## Power-On Boot Sequence
 
