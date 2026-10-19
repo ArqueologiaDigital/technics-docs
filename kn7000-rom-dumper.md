@@ -47,7 +47,10 @@ window's extent was an assumption, so it got a pass of its own once the first wa
 On the real instrument the window turned out to hold one 2 MB image four times: the
 [100 Slide Show pictures]({{ site.baseurl }}/kn7000-picture-rom/).
 
-**The wave ROMs wait.** The full build reads them too, but see [what the tests can show](#what-the-tests-can-and-cannot-show).
+**Then the WAVE build** (`build/wave/KN7APP.BIN`, "KN7000 ROM DUMPER 1.0 WAVE") dumps the four wave
+ROMs alone, the same way, 64 MB. On the owner's instrument it read all four twice, byte-identical,
+and each chip's byte sum was exactly the one the firmware's own WAVE ROM test expects (2026-10-19).
+See [what the tests can show](#what-the-tests-can-and-cannot-show).
 
 1. Write the loader floppy (`kn7load_floppy.img`) to a 1.44 MB disk, and copy `KN7APP.BIN` to
    the SD card's root folder.
@@ -145,8 +148,16 @@ something looks unfamiliar; it writes down what it finds.
   - On the instrument, each chip's byte sum is compared with the sum the firmware's own test
     expects. A match shows every byte of the chip was read.
   - A sum does not depend on order, so the order of the words, and of the two bytes in each word,
-    is still an assumption. Checking it needs the real data: sample data that looks like audio,
-    and waveforms that start where the tone tables say they do.
+    had to be checked on the real data.
+  - **On the real instrument (2026-10-19):** all four sums matched, in two identical reads. The
+    data are 16-bit samples, stored low byte first:
+    - neighbouring samples correlate at about 0.85 when read low byte first, and 0.07 byte-swapped;
+    - each tone generator's Y and X ROMs are the even and odd samples of one stream, aligned word
+      for word;
+    - excerpts show instrument tones.
+
+    Whether waveforms start where the tone tables say is not yet checked. A permutation of whole
+    banks would not show in any of these tests.
 - **Picture window:** none in MAME, where the test served data at exactly that address. On the
   real instrument the read speaks for itself: a directory and 100 JPEGs that all decode, exactly the
   100 the firmware's picture code accepts ([Picture ROM (IC19)]({{ site.baseurl }}/kn7000-picture-rom/)).

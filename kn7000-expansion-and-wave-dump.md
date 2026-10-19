@@ -99,13 +99,16 @@ read:
     checksum += (word>>8) + (word & 0xFF)   for every 16-bit word across 0x00FFFFFF
   ```
 
-⚠ The chip names here rest on two assumptions that nothing confirms: that side 0 (`0x9805`) is the A
-side (IC203/IC204), and that bit 0 = 0 of the `+8` latch selects the side's `WAY`-bus ROM (IC203 or
-IC207), as mainline MAME also models it. For the side, mainline MAME assumes the opposite (its
-`0x98040000` port reads IC203/IC204). So which chip each port and bit reach, and therefore which golden
-checksum belongs to which chip, is not settled. A capture taken at a known connector (the
-[Pico tap]({{ site.baseurl }}/kn7000-wave-rom-dump/) on the A-side or B-side connectors) that matches
-one of the four checksums settles it.
+**Settled for the sums, 2026-10-19.** On a real KN7000 (PROGRAM 893) the
+[ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/) read each port and select bit through this protocol.
+Each one returned exactly the expected checksum of the index that reads it: `0x9805`, bit 0 = 0 gave
+`0x8164C77C`, and so on for all four, in two identical reads. So the firmware's own pairing of
+ports, bits and checksums holds on hardware. Mainline MAME, whose `0x98040000` port read
+IC203/IC204, had the sides swapped; a fix is prepared.
+
+⚠ The chip names (IC203 for `0x9805`, bit 0 = 0) are still the firmware's own screen labels, not a
+board-level trace. A capture at a known connector (the [Pico tap]({{ site.baseurl }}/kn7000-wave-rom-dump/)
+on the A-side or B-side connectors) would confirm them.
 
 **The CPU reads every raw sample word itself.** So the wave ROMs — 64 MB, the bulk of what is missing
 — have a fully *software* dump route: walk `0x9804/0x9805 0006/08 → 000A` across the address space and
