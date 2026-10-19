@@ -192,7 +192,8 @@ IC203/IC204. That is a driver issue for a later fix; the dumper follows the firm
   wrote all five files intact. The table flash came out byte-identical to SP7001's table 83, apart
   from the build digit and the data the SP7001 adds at the end. The IC19 build then read the picture
   ROM intact (CRC-32 as the instrument computed it), and a second IC19 read was byte-identical to
-  the first. A second run of the SAFE build, to show its reads are stable too, is still to come.
+  the first. A second run of the SAFE build was byte-identical too: every file, and the
+  instrument's manifest.
 - **Without file access** (no file table and no file routines found in some other build), the
   loader cannot read `KN7APP.BIN`; it says so, and nothing is written. Getting past that would take
   an SD card driver of our own, which is not written: it could not be checked in MAME first.
