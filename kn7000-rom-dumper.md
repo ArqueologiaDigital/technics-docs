@@ -52,6 +52,24 @@ ROMs alone, the same way, 64 MB. On the owner's instrument it read all four twic
 and each chip's byte sum was exactly the one the firmware's own WAVE ROM test expects (2026-10-19).
 See [what the tests can show](#what-the-tests-can-and-cannot-show).
 
+**Then the SURVEY build** (`build/survey/KN7APP.BIN`, "KN7000 ROM DUMPER 1.0 SURVEY") looks for the
+rhythm ROM, whose CPU address nobody knows.
+
+- **Where the firmware looks.** At every power-on it compares 16 bytes against "Technics Rhythms"
+  at `0x48010000`, `0x40610000`, `0x40010000`, `0x54E10000` and `0x40810000`. If none matches, it
+  uses `0x54E00000` without checking. Builds 893 and 941 use the same list.
+- **What the survey reads.** The two whole regions those addresses lie in, as six 8 MB files,
+  48 MB in all:
+  - CS0, `0x40000000`-`0x40FFFFFF`;
+  - CS5, `0x54000000`-`0x55FFFFFF`.
+
+  The first address is the table flash, and is already dumped. Table 80 has no header there.
+- **What `find_rhythm.py` does with the files.**
+  - It finds the header.
+  - It repeats the firmware's own checksum over the data behind the header (`StyleResourceVerify`).
+  - It reads the RHYTHM number the SOFT VERSION screen would show.
+  - It compares the data with the truncated copy of the header that table 84 carries.
+
 1. Write the loader floppy (`kn7load_floppy.img`) to a 1.44 MB disk, and copy `KN7APP.BIN` to
    the SD card's root folder.
 2. **DISK MENU** > **STYLE CONVERT**, choose `KN7LOAD.CNV`, **OK**.
@@ -86,7 +104,7 @@ See [what the tests can show](#what-the-tests-can-and-cannot-show).
 
 **Other parts worth dumping**, as far as we know the hardware:
 - **IC18, rhythm data** (`c3cbnd000046.ic18`, 8 MB): not dumped yet, because no CPU window for it
-  is confirmed. That would have to be found first.
+  is confirmed. The SURVEY build (above) reads every window where the firmware looks for it.
 - **IC23, the 256 KB battery-backed SRAM** at `0x44000000`: the user's panel memories and
   settings. It is user data, not a ROM, and has no MAME file, but it could be added.
 - **Not readable from the main CPU:** the SD sub-CPU's flash (IC414), the panel controllers' mask
