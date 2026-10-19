@@ -101,8 +101,9 @@ fetch a pair of samples per cycle for interpolation.
 | IC208 | sub (IC205) | BWAX | C3CBQD000003 |
 
 These four ROMs are **not** contained in the firmware-update disks, so they are
-currently **undumped** — the largest gap for faithful sound. The rhythm data is
-undumped too: IC18, or IC20 on earlier units; see the
+currently **undumped** — the largest gap for faithful sound. The rhythm data
+(IC18, or IC20 on earlier units) was read in October 2026, at CPU `0x40000000`; see the
+[ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/) and the
 [ROM Dumping Roadmap]({{ site.baseurl }}/rom-dumping-roadmap/).
 Wave-ROM expansion boards (SY-EW01…04) plug into connectors on the same TG
 buses.

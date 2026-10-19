@@ -69,6 +69,19 @@ rhythm ROM, whose CPU address nobody knows.
   - It repeats the firmware's own checksum over the data behind the header (`StyleResourceVerify`).
   - It reads the RHYTHM number the SOFT VERSION screen would show.
   - It compares the data with the truncated copy of the header that table 84 carries.
+- **What it found on the owner's instrument (2026-10-19).**
+  - **IC18 answers on CS0** at `0x40000000`–`0x403FFFFF` and repeats at `0x40400000`. Its address
+    pins take A1–A21, and its top pin is set by jumper JP7, so the CPU sees 4 MB of the 64 Mbit chip.
+  - **The firmware's own check passes.** The header sits at `0x40010000`, the firmware's third probe
+    address. Its checksum over 1 Mi words passes, it declares 220 styles, and the version string at
+    the top is `"jkr_33.ssf"`, which SOFT VERSION shows as RHYTHM 33.
+  - **The rest of the survey.** The windows show IC21 at `0x54800000` and IC19 at `0x55800000`,
+    byte for byte the earlier dumps; everything else is open bus.
+  - **IC18's first 64 KB is the boot ROM.** It is the code the CPU runs at reset, and it ends with
+    `jmp 0x48400000`. It also holds the **flash updater**, with write windows for the program and
+    table flash, IC21, the expansion boards, IC20 and the picture ROM.
+  - **In MAME.** With the image mapped there, the firmware drops its "8 Beat 1" stub and shows the
+    rhythm as "8Bt Standard".
 
 1. Write the loader floppy (`kn7load_floppy.img`) to a 1.44 MB disk, and copy `KN7APP.BIN` to
    the SD card's root folder.
@@ -103,8 +116,8 @@ rhythm ROM, whose CPU address nobody knows.
   service-mode WAVE ROM test reads them, through each tone generator's test latches, 16 MB per chip.
 
 **Other parts worth dumping**, as far as we know the hardware:
-- **IC18, rhythm data** (`c3cbnd000046.ic18`, 8 MB): not dumped yet, because no CPU window for it
-  is confirmed. The SURVEY build (above) reads every window where the firmware looks for it.
+- **IC18, rhythm data** (`c3cbnd000046.ic18`): found and read by the SURVEY build (above), at
+  `0x40000000`.
 - **IC23, the 256 KB battery-backed SRAM** at `0x44000000`: the user's panel memories and
   settings. It is user data, not a ROM, and has no MAME file, but it could be added.
 - **Not readable from the main CPU:** the SD sub-CPU's flash (IC414), the panel controllers' mask
