@@ -14,13 +14,13 @@ QUESTION ANSWERED
       "Style / Music-Stylist Names" list of kn7000-sound-names.md.
 
 SIGNAL READ
-  program ROM = CPU 0x48400000 + file offset (kn7000_program.rom, as rebuilt by kn7000_disassembly).
+  program ROM = CPU 0x48400000 + file offset (kn7000_program.rom, as rebuilt by technics-roms-disasm kn7000/).
   Pass = every catalog entry has exactly 4 indices, 1080 distinct indices
   0..1079, and StyleRecordTable[k].namePtr == 0x485D1038 + 17*k for all k.
 
 RUN
   python3 -I tools/kn7000_style_catalog.py PATH/kn7000_program.rom [--page kn7000-sound-names.md]
-  (the 8 MB program image as rebuilt from the update discs by kn7000_disassembly;
+  (the 8 MB program image as rebuilt from the update discs by technics-roms-disasm kn7000/;
   this repository does not hold it)
 
 OUTPUT on 2026-10-15 (kn7000_disassembly baserom/kn7000_program.rom):

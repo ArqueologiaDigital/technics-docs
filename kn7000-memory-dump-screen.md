@@ -693,7 +693,7 @@ All addresses are MN10300 CPU addresses; program-flash file offset = CPU
 address − `0x48400000`. A byte-exact, fully annotated disassembly of everything
 described here — the dispatcher, the gate, all ten event handlers of the viewer
 and its static data — is committed in the
-[`kn7000_disassembly` reconstruction project]({{ site.baseurl }}/kn7000-firmware/)
+[KN7000 reconstruction project (`technics-roms-disasm`, `kn7000/`)]({{ site.baseurl }}/kn7000-firmware/)
 as `disasm/debugger_memdump.asm`, where a checker re-reads every byte column out
 of the ROM and re-encodes every mnemonic with the project's own MN10300 encoder.
 

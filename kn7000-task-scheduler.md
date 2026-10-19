@@ -42,7 +42,7 @@ object, and the event dispatcher always acts on the running task's object.
 ## Kernel tasks and the tick (build 942)
 
 Read from the SP7001 firmware (program 942) and measured in MAME
-(`notes/sp7001-probes/rate_probe.lua` in `kn7000_disassembly`):
+(`kn7000/notes/sp7001-probes/rate_probe.lua` in `technics-roms-disasm`):
 
 | what             | value                                                                                                                                                                                                                                                                    |
 |------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

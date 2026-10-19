@@ -5,7 +5,7 @@ Question: how many JFIF streams does a KN7000 table-ROM image hold, how many
 decode with an ordinary decoder (Pillow), and what sizes are they?
 Recipe as on kn7000-table-rom.md: scan for ff d8 ff e0, end at the next ff d9.
 Run: python3 tools/kn7000_table_jpegs.py path/to/kn7000_table.rom   (needs Pillow; the
-image, as rebuilt from the update discs by kn7000_disassembly, is not in this repository)
+image, as rebuilt from the update discs by technics-roms-disasm kn7000/, is not in this repository)
 Prints counts only, never ROM contents.
 Result 2026-10-15: 119 SOI+APP0 hits, all tagged JFIF; 117 decode, 2 fail."""
 import io, sys, collections

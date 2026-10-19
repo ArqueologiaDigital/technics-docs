@@ -97,7 +97,7 @@ on the compositor: [Display]({{ site.baseurl }}/kn7000-display-subsystem/#the-co
 
 ## Toolchain
 
-The `kn7000_disassembly` repository provides:
+The `kn7000/` tree of the `technics-roms-disasm` repository provides:
 
 | tool                 | what it does                                                                                                                              |
 |----------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
@@ -164,7 +164,7 @@ back out of the frame. On 2026-10-16 the task took slot 10 and the digits read `
 `00:00:27` and `00:00:35` at 20, 28 and 36 s of emulated time — each the value of the kernel
 counter at that moment.
 
-    make -C kn7000_disassembly baserom/sp7001_baseext.xap
+    make -C technics-roms-disasm/kn7000 baserom/sp7001_baseext.xap
     make -C kn5000_homebrew/demos/kn7000_clock          # build/BASEEXT.XAP
     make -C kn5000_homebrew/demos/kn7000_clock card     # an SD-card image with it in place
 
@@ -194,6 +194,6 @@ The same VM also runs on a KN7000 **without** SP7001, from a floppy, as a style 
 - [SP7001 Firmware: What Changed, and the Plug-in]({{ site.baseurl }}/kn7000-sp7001-firmware/)
   (the loader, entry contract, export table, the framework-object method table).
 - [SD PLUG-iN (SP7001)]({{ site.baseurl }}/kn7000-sd-plugin/) (the product).
-- Disassembly (`kn7000_disassembly`, unpublished): `KssPluginLoad` `0x483EEAA9`, `XapEntry`
+- Disassembly (`technics-roms-disasm`, `kn7000/`): `KssPluginLoad` `0x483EEAA9`, `XapEntry`
   `0x5029B000`, `cre_tsk` `0x4C03D46B`, `KernelTickHandler` `0x4C02BB5F`, the compositor `0x48414D40`;
   the tick rates and the task table come from `notes/sp7001-probes/rate_probe.lua` in the same repository.

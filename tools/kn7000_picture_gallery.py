@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # kn7000_picture_gallery.py -- print the gallery block of kn7000-picture-rom.md from the 100 pictures in
-# assets/images/kn7000-picture-rom/ (copied from kn7000_disassembly src/picture/).
+# assets/images/kn7000-picture-rom/ (copied from technics-roms-disasm kn7000/src/picture/).
 #
 # Each caption gives the PRESET number and where the picture sits in IC19, as the CPU sees it at
 # 0x57800000. Those offsets are recomputed here the way the chip lays them out (first picture at 0x404,

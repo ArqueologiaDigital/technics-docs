@@ -364,8 +364,8 @@ took 1–2.5 s of emulated time to finish drawing.
 
 ## Can a presentation operate the instrument?
 
-Investigated 2026-10-18 (the full answer, with addresses, is in kn7000_disassembly
-`notes/presentation-control.md`).
+Investigated 2026-10-18 (the full answer, with addresses, is in technics-roms-disasm
+`kn7000/notes/presentation-control.md`).
 
 - **What a KN7000 script can put on screen:** pictures, text, and, through `SHOW`, any GUI object
   that exists under that name, painted, not made active. In MAME the built-in demo screens

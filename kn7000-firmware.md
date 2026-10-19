@@ -150,7 +150,8 @@ plug-in starts at `0x483E8000`; see
 
 ## Byte-exact disassembly project
 
-The `kn7000_disassembly` repository holds a reconstruction project for the
+The `kn7000/` folder of the `technics-roms-disasm` repository (until 2026-10-19 the separate
+`kn7000_disassembly`) holds a reconstruction project for the
 MN10300 firmware. Because no GNU binutils MN10300 target is available in common
 distributions, it ships a small self-contained assembler whose only job is
 byte-exact reconstruction: the source starts as a skeleton in which every byte is

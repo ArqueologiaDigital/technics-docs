@@ -34,8 +34,8 @@ import re
 import sys
 
 TOPS = ['v10', 'v9', 'v7', 'v142', 'subcpu', 'table_data', 'custom_data',
-        'hdae5000', 'shared', 'wsa1']
-EXTS = ('.s', '.c', '.h', '.ld', '.inc')
+        'hdae5000', 'shared', 'wsa1', 'kn7000']
+EXTS = ('.s', '.c', '.h', '.ld', '.inc', '.sym')     # .sym: kn7000/*.sym hold its hand-added names
 NAME = re.compile(r'`([A-Za-z_][A-Za-z0-9_]*)(?:\(\))?`')
 
 
@@ -55,8 +55,8 @@ def main():
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('pages', nargs='+')
-    ap.add_argument('--repo', default=os.path.join(here, '..', 'kn5000-roms-disasm'),
-                    help='kn5000-roms-disasm checkout (default: sibling of this repo)')
+    ap.add_argument('--repo', default=os.path.join(here, '..', 'technics-roms-disasm'),
+                    help='technics-roms-disasm checkout, formerly kn5000-roms-disasm (default: sibling of this repo)')
     args = ap.parse_args()
     if not os.path.isdir(os.path.join(args.repo, 'v10')):
         sys.exit('no disassembly at %s (use --repo)' % args.repo)

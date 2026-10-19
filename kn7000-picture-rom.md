@@ -266,7 +266,7 @@ are stable, is still to come; the pictures all decoding cleanly already argues f
 
 ## In the disassembly and in MAME
 
-- **Disassembly.** `src/picture.s` in the KN7000 disassembly declares the directory with labels,
+- **Disassembly.** `kn7000/src/picture.s` in `technics-roms-disasm` declares the directory with labels,
   then brings in each picture as a binary include: `.incbin "src/picture/preset_NN.jpg"`, then
   `.align 4`. `make verify-picture` rebuilds the 2 MB and checks it against the SHA-1 above.
 - **MAME.** The driver declares `c3cbmd000098.ic19` as an 8 MB `NO_DUMP` and does not map
@@ -284,6 +284,6 @@ are stable, is still to come; the pictures all decoding cleanly already argues f
 
 - Owner's manual (QQTG0671): Slide Show, pp. 77, 90–91; VIDEO OUT, p. 199.
 - Service manual: schematic p. 102 ("SX-KN7000 MAIN 1/5 SCHEMATIC DIAGRAM (2/2)").
-- KN7000 disassembly: `src/picture.s`, `tools/gen_picture_s.py`, `notes/ic19-picture-rom.md` and
-  its probes.
+- `technics-roms-disasm`, `kn7000/`: `src/picture.s`, `tools/gen_picture_s.py`,
+  `notes/ic19-picture-rom.md` and its probes.
 - This site: `tools/kn7000_picture_gallery.py` writes the gallery above.

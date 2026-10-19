@@ -208,8 +208,8 @@ variable, the saved framework object at `0x502B4044`, read 970 times.)
 
 ## Reproducing
 
-Everything above is reproduced by the `kn7000_disassembly` repository (unpublished, like its
-source images), whose `notes/sp7001-build-diff.md` gives the full numbers:
+Everything above is reproduced by the `kn7000/` tree of the `technics-roms-disasm` repository (its
+source images stay private), whose `kn7000/notes/sp7001-build-diff.md` gives the full numbers:
 
 | target                         | checks                                                                    |
 |--------------------------------|---------------------------------------------------------------------------|

@@ -128,8 +128,8 @@ the same mapping table.
 
 The full engine — `TechniChordCompute`, all fourteen voicing routines and
 their helpers — is now converted to re-assemblable, byte-exact MN10300 source
-in the `kn7000_disassembly` project (not yet published; `src/program.s`, names
-in `kn7000_manual.sym`).
+in the `technics-roms-disasm` repository (`kn7000/src/program.s`, names
+in `kn7000/kn7000_manual.sym`).
 
 ## Why this is dispositive — it is not hardware
 

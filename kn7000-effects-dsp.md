@@ -17,8 +17,8 @@ The striking result of reverse-engineering it: **the DSP has no boot ROM, and
 its programs are embedded in the main firmware.** So the entire effects engine —
 kernel and every effect algorithm — was recovered from `kn7000_program.rom`
 alone, with no physical chip and no undumped ROM. All 80 programs are
-disassembled and documented in the project's `kn7000_disassembly` repository
-(not yet published); this page explains how it works.
+disassembled and documented in the project's `technics-roms-disasm` repository
+(`kn7000/dsp/`); this page explains how it works.
 
 > **The documentation pass over the pool is complete.** Every record — the
 > kernel, the four boot probes, all 72 effect programs and the three data
