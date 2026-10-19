@@ -293,6 +293,19 @@ pair**, and there is no unread upper half at `0x48800000`. That leaves exactly o
 | 4   | `0x97FFFF00`     | top of IC19 — the KN5000 template position translated                                                                                              | code / vectors / `0xFF` / a mirror of probe 3                      |
 | 5   | `0x483E9400`     | bounds the hole from below on a build‑80 table                                                                                                     | our build 84 ends at `0x483E94D3`                                  |
 
+> **Results from a real instrument, 2026-10-19.** The [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/)
+> read the owner's PROGRAM 893 / TABLE 80 unit whole, which answers probes 1, 3, 4 and 5 for that build:
+>
+> - **The hole is empty on table 80.** The table half is byte-identical to SP7001's table 83 up to
+>   `0x483E065F` (bar the build digit), and erased (`0xFF`) from `0x483E0660` to `0x483FFFFF`. Probes
+>   1 and 5 read `0xFF` there.
+> - **IC19 holds pictures and nothing else the CPU can see.** Probe 3 lands on the picture directory.
+>   The 8 MB window repeats one 2 MB image four times, so probe 4 (`0x97FFFF00`) reads `0xFF`: the
+>   top of that image, past the last picture. IC19's other half is wired out of the CPU's reach
+>   ([Picture ROM (IC19)]({{ site.baseurl }}/kn7000-picture-rom/)), so it cannot hold code the CPU runs.
+>
+> So on this build neither of the KN5000-style places holds an updater.
+
 **Size: unknown.** We cannot yet say the updater exists in *any* reachable flash. For scale, the
 KN5000's analogous block is `0x6000` = 24,576 bytes ≈ 96 screenfuls at 256 bytes per screen.
 

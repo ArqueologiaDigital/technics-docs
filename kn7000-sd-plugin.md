@@ -163,10 +163,11 @@ Where the SP7001 interface *does* help the wider project:
   on the card.
 - That path could therefore run a **dumper plug-in on an SP7001 unit**: an `.XAP`
   linked for `0x5029B000`, in place of `BASEEXT.XAP`, is executed when the resident
-  plug-in loads it. That would be a clean way to read the still-undumped wave, rhythm
-  and picture ROMs over the SD interface, without opening the case. It has not been
+  plug-in loads it. That would be a clean way to read the still-undumped wave and rhythm
+  ROMs over the SD interface, without opening the case. It has not been
   tried, and whether the loader runs before the plug-in is activated has not been
-  traced. (The `0x4C000000` library is not a separate ROM: it self-loads from
+  traced. (The picture ROM has since been read another way, with no SP7001 at all: a
+  [style converter on a floppy]({{ site.baseurl }}/kn7000-rom-dumper/).) (The `0x4C000000` library is not a separate ROM: it self-loads from
   program flash, as noted above.)
 
 ## Open questions

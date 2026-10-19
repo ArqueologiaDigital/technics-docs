@@ -72,6 +72,8 @@
           url: /kn7000-memory-dump-screen/
         - title: Table ROM (Resources)
           url: /kn7000-table-rom/
+        - title: Picture ROM (IC19)
+          url: /kn7000-picture-rom/
         - title: Image Gallery
           url: /kn7000-image-gallery/
     - title: Firmware Internals

@@ -17,6 +17,11 @@ This page is about what has been done since: **9,472 bytes of build 893 read off
 the instrument's own screen and typed in by hand**, and what those bytes say
 about the relationship between the two builds.
 
+> **Update, 2026-10-19: build 893 and table 80 have since been read whole from the instrument's
+> own chips**, with the [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/), and kept in the
+> project's private ROM collection. This page predates that read. The transcription below has
+> not yet been checked against it; doing so would grade both the transcription and the method.
+
 > ## ⚠ Read this before anything else on the page
 >
 > **This is a transcription of photographs. It is not a dump.**

@@ -43,7 +43,9 @@ no folder, no long names, no raw sector access. That is about 10 MB.
 
 **Then the IC19 build** (`build/ic19/KN7APP.BIN`, "KN7000 ROM DUMPER 1.0 IC19") dumps the picture
 window alone, 8 MB, the same way. The firmware's own picture code addresses `0x57800000`, but the
-window's extent is assumed, so it gets a pass of its own once the first is safe on a computer.
+window's extent was an assumption, so it got a pass of its own once the first was safe on a computer.
+On the real instrument the window turned out to hold one 2 MB image four times: the
+[100 Slide Show pictures]({{ site.baseurl }}/kn7000-picture-rom/).
 
 **The wave ROMs wait.** The full build reads them too, but see [what the tests can show](#what-the-tests-can-and-cannot-show).
 
@@ -70,7 +72,7 @@ window's extent is assumed, so it gets a pass of its own once the first is safe 
 | `custom_data.ic21`                             | CPU `0x96800000`–`0x969FFFFF`: the custom data flash, whole       | 2 MB       |
 | `c3cbqd000002.ic203`, `c3cbqd000001.ic204`     | main tone generator's wave port `0x98050000`, select 0 and 1      | 16 MB each |
 | `c3cbqd000004.ic207`, `c3cbqd000003.ic208`     | sub tone generator's wave port `0x98040000`, select 0 and 1       | 16 MB each |
-| `c3cbmd000098.ic19`                            | CPU `0x57800000`–`0x57FFFFFF`: picture flash (window unconfirmed) | 8 MB       |
+| `c3cbmd000098.ic19`                            | CPU `0x57800000`–`0x57FFFFFF`: picture ROM (2 MB, 4 copies)       | 8 MB       |
 
 - **Names.** The program and table names follow the driver's pattern, filled in with the build
   numbers the firmware reports on its SOFT VERSION screen: `…_v1.6_b941`, `…_b84` on build 941,
@@ -145,8 +147,9 @@ something looks unfamiliar; it writes down what it finds.
   - A sum does not depend on order, so the order of the words, and of the two bytes in each word,
     is still an assumption. Checking it needs the real data: sample data that looks like audio,
     and waveforms that start where the tone tables say they do.
-- **Picture window:** none. `0x57800000` is a guess, and in MAME the test served data at exactly
-  that address.
+- **Picture window:** none in MAME, where the test served data at exactly that address. On the
+  real instrument the read speaks for itself: a directory and 100 JPEGs that all decode, exactly the
+  100 the firmware's picture code accepts ([Picture ROM (IC19)]({{ site.baseurl }}/kn7000-picture-rom/)).
 
 ## How it was tested
 
@@ -187,8 +190,9 @@ IC203/IC204. That is a driver issue for a later fix; the dumper follows the firm
 - **Run once on a real instrument so far (2026-10-19).** The owner's KN7000 runs **PROGRAM 893 /
   TABLE 80**, which had never been dumped. The SAFE build found everything it looks for in 893 and
   wrote all five files intact. The table flash came out byte-identical to SP7001's table 83, apart
-  from the build digit and the data the SP7001 adds at the end. A second run, to confirm the reads
-  are stable, and the IC19 pass are still to come.
+  from the build digit and the data the SP7001 adds at the end. The IC19 build then read the picture
+  ROM intact (CRC-32 as the instrument computed it). A second run of each, to confirm the reads
+  are stable, is still to come.
 - **Without file access** (no file table and no file routines found in some other build), the
   loader cannot read `KN7APP.BIN`; it says so, and nothing is written. Getting past that would take
   an SD card driver of our own, which is not written: it could not be checked in MAME first.

@@ -29,6 +29,13 @@ this project holds**.
 > project made executed program 941. Program 893 has never been executed by anything
 > except the machines that shipped with it.
 >
+> **Update, 2026-10-19: both images, and the picture ROM, have been read from that instrument**
+> with the [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/). They carry the numbers the screen
+> showed: the program's build constant is 893 and the table's string is `"80\n"`. Program 893 now
+> boots in MAME as `-bios v13`, submitted upstream as PR #16517. The picture ROM's version string
+> is `"7\n"`, so that instrument's PICTURE row should read 7 (see
+> [Picture ROM (IC19)]({{ site.baseurl }}/kn7000-picture-rom/)); worth checking on the screen.
+>
 > Recorded as owner testimony, read off the instrument's own LCD. No photograph
 > of the screen is in the repository yet, and the numbers have not been
 > independently re-read.
@@ -72,12 +79,12 @@ among the service-mode entries catalogued on this site.
 The screen is drawn under the header `--- SOFTWARE VERSION ---` and each row is
 produced by its own window procedure formatting a `%4d`:
 
-| Row             | Format string            | Where the number comes from                                                                                                                                                     | Do we hold that device?                                                                                                                                                                                                                                               |
-|-----------------|--------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `PROGRAM : %4d` | program flash `0x1D67E0` | a **constant compiled into the program flash**: the `u16` at CPU `0x4873660C` (file offset `0x33660C`)                                                                          | ✅ yes — four builds: **941** (v1.6), **942** (SP7001), **935** (v1.5) and the upper half of **929** (v1.4); the stamp moves between builds                                                                                                                           |
-| `TABLE   : %4d` | `0x1D67F0`               | an **ASCII decimal string read out of the table flash** at boot: the firmware follows the u32 at `0x4800001C` (segment 7 of the table directory) and parses the digits it finds | ✅ yes — two builds: `"84\n"` and `"83\n"` (SP7001). Segments 68–70 carry three more 4-byte markers, `"84\n"` in build 84 but `"80\n"` in the SP7001 table; only segment 7 is shown ([details]({{ site.baseurl }}/kn7000-sp7001-firmware/#table-83-against-table-84)) |
-| `RHYTHM  : %4d` | `0x1D6800`               | an ASCII decimal parsed out of the **rhythm ROM** (IC18, or the IC20 flash on earlier units), `0x14` bytes below the top of a 4 MB region                                       | ❌ **undumped**                                                                                                                                                                                                                                                       |
-| `PICTURE : %4d` | `0x1D6810`               | an ASCII decimal parsed out of the **picture ROM** (IC19) at `0x57800000`, via the u32 pointer stored at its base                                                               | ❌ **undumped**                                                                                                                                                                                                                                                       |
+| Row             | Format string            | Where the number comes from                                                                                                                                                     | Do we hold that device?                                                                                                                                                                                                                                                                                    |
+|-----------------|--------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `PROGRAM : %4d` | program flash `0x1D67E0` | a **constant compiled into the program flash**: the `u16` at CPU `0x4873660C` (file offset `0x33660C`)                                                                          | ✅ yes — five builds: **941** (v1.6), **942** (SP7001), **935** (v1.5) the upper half of **929** (v1.4) and **893** (v1.3, read from the owner's instrument); the stamp moves between builds                                                                                                               |
+| `TABLE   : %4d` | `0x1D67F0`               | an **ASCII decimal string read out of the table flash** at boot: the firmware follows the u32 at `0x4800001C` (segment 7 of the table directory) and parses the digits it finds | ✅ yes — three builds: `"84\n"`, `"83\n"` (SP7001) and `"80\n"` (the owner's instrument). Segments 68–70 carry three more 4-byte markers, `"84\n"` in build 84 but `"80\n"` in the SP7001 table; only segment 7 is shown ([details]({{ site.baseurl }}/kn7000-sp7001-firmware/#table-83-against-table-84)) |
+| `RHYTHM  : %4d` | `0x1D6800`               | an ASCII decimal parsed out of the **rhythm ROM** (IC18, or the IC20 flash on earlier units), `0x14` bytes below the top of a 4 MB region                                       | ❌ **undumped**                                                                                                                                                                                                                                                                                            |
+| `PICTURE : %4d` | `0x1D6810`               | an ASCII decimal parsed out of the **picture ROM** (IC19) at `0x57800000`, via the u32 pointer stored at its base                                                               | ✅ yes — one read, from the owner's instrument: `"7\n"` at `0x57800400` ([Picture ROM]({{ site.baseurl }}/kn7000-picture-rom/))                                                                                                                                                                            |
 
 Two consequences follow directly from that table, and they are the reason the
 owner's reading matters so much:
@@ -117,8 +124,9 @@ devices, consistently in the same direction (both numbers lower). That
 self-consistency is a mild corroboration that the reading is a genuine earlier
 release pair rather than a misread.
 
-The **RHYTHM** and **PICTURE** rows cannot be reproduced in emulation at all:
-those two devices have never been dumped. (Upstream MAME's KN7000 driver
+The **RHYTHM** and **PICTURE** rows cannot be reproduced in emulation yet: the
+rhythm ROM has never been dumped, and the picture ROM, read in October 2026, is not
+in MAME yet. (Upstream MAME's KN7000 driver
 declares both devices `NO_DUMP` and maps nothing at `0x57800000`; the development
 driver in the kn7000_mame overlay also substitutes a clearly-labelled synthetic
 `BAD_DUMP` stand-in for the rhythm resource.) Anything those rows show in the emulator is

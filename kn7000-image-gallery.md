@@ -18,6 +18,11 @@ The KN7000 firmware stores graphics in **two** ways:
   headerless 4/8bpp indexed pixel data reached through a pointer hierarchy in the
   table ROM (see [Raw UI bitmaps](#raw-ui-bitmaps-table-rom) at the bottom).
 
+A third set lives outside the firmware images: the **100 PRESET pictures** of the
+Slide Show, 640×240 JPEGs in the picture ROM IC19, read from a real instrument in
+October 2026. They have [a page of their own]({{ site.baseurl }}/kn7000-picture-rom/);
+a sample is [below](#picture-rom-ic19--the-slide-shows-100-preset-pictures).
+
 So the earlier "the KN7000 uses standard formats *unlike* the KN5000" is only
 half the story: it **adds** JPEG/BMP but still keeps the KN5000's raw-bitmap
 design for its UI icons — one more piece of the
@@ -240,6 +245,22 @@ A set of 42 small 38×80 BMPs render the on-screen **digital drawbars** for the 
 <figure style="margin:0;text-align:center;"><img src="{{ "/assets/images/kn7000-gallery/table_3cf7f2.png" | relative_url }}" loading="lazy" alt="table 0x3cf7f2 · 38x80" style="max-width:100%;height:auto;border:1px solid #ccc;background:#f6f6f6;border-radius:3px;"><figcaption style="font-size:0.7rem;color:#777;margin-top:2px;">table 0x3cf7f2 · 38x80</figcaption></figure>
 <figure style="margin:0;text-align:center;"><img src="{{ "/assets/images/kn7000-gallery/table_3cfea8.png" | relative_url }}" loading="lazy" alt="table 0x3cfea8 · 38x80" style="max-width:100%;height:auto;border:1px solid #ccc;background:#f6f6f6;border-radius:3px;"><figcaption style="font-size:0.7rem;color:#777;margin-top:2px;">table 0x3cfea8 · 38x80</figcaption></figure>
 <figure style="margin:0;text-align:center;"><img src="{{ "/assets/images/kn7000-gallery/table_3d055e.png" | relative_url }}" loading="lazy" alt="table 0x3d055e · 38x80" style="max-width:100%;height:auto;border:1px solid #ccc;background:#f6f6f6;border-radius:3px;"><figcaption style="font-size:0.7rem;color:#777;margin-top:2px;">table 0x3d055e · 38x80</figcaption></figure>
+</div>
+
+## Picture ROM (IC19) — the Slide Show's 100 PRESET pictures
+
+The pictures a song can show at its PIC points ([Slide Shows]({{ site.baseurl }}/kn7000-slideshow/)),
+stored in IC19, not in the program or table image: 100 JPEGs of 640×240, in ten themes of ten.
+Six of them; all 100, how they are stored and how the chip is wired are on the
+[Picture ROM (IC19)]({{ site.baseurl }}/kn7000-picture-rom/) page.
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin:1rem 0;">
+<figure style="margin:0;text-align:center;"><a href="{{ site.baseurl }}/kn7000-picture-rom/"><img src="{{ "/assets/images/kn7000-picture-rom/preset_01.jpg" | relative_url }}" loading="lazy" alt="PRESET 1" style="max-width:100%;height:auto;border:1px solid #ccc;border-radius:3px;"></a><figcaption style="font-size:0.7rem;color:#777;">PRESET 1</figcaption></figure>
+<figure style="margin:0;text-align:center;"><a href="{{ site.baseurl }}/kn7000-picture-rom/"><img src="{{ "/assets/images/kn7000-picture-rom/preset_27.jpg" | relative_url }}" loading="lazy" alt="PRESET 27" style="max-width:100%;height:auto;border:1px solid #ccc;border-radius:3px;"></a><figcaption style="font-size:0.7rem;color:#777;">PRESET 27</figcaption></figure>
+<figure style="margin:0;text-align:center;"><a href="{{ site.baseurl }}/kn7000-picture-rom/"><img src="{{ "/assets/images/kn7000-picture-rom/preset_50.jpg" | relative_url }}" loading="lazy" alt="PRESET 50" style="max-width:100%;height:auto;border:1px solid #ccc;border-radius:3px;"></a><figcaption style="font-size:0.7rem;color:#777;">PRESET 50</figcaption></figure>
+<figure style="margin:0;text-align:center;"><a href="{{ site.baseurl }}/kn7000-picture-rom/"><img src="{{ "/assets/images/kn7000-picture-rom/preset_64.jpg" | relative_url }}" loading="lazy" alt="PRESET 64" style="max-width:100%;height:auto;border:1px solid #ccc;border-radius:3px;"></a><figcaption style="font-size:0.7rem;color:#777;">PRESET 64</figcaption></figure>
+<figure style="margin:0;text-align:center;"><a href="{{ site.baseurl }}/kn7000-picture-rom/"><img src="{{ "/assets/images/kn7000-picture-rom/preset_76.jpg" | relative_url }}" loading="lazy" alt="PRESET 76" style="max-width:100%;height:auto;border:1px solid #ccc;border-radius:3px;"></a><figcaption style="font-size:0.7rem;color:#777;">PRESET 76</figcaption></figure>
+<figure style="margin:0;text-align:center;"><a href="{{ site.baseurl }}/kn7000-picture-rom/"><img src="{{ "/assets/images/kn7000-picture-rom/preset_84.jpg" | relative_url }}" loading="lazy" alt="PRESET 84" style="max-width:100%;height:auto;border:1px solid #ccc;border-radius:3px;"></a><figcaption style="font-size:0.7rem;color:#777;">PRESET 84</figcaption></figure>
 </div>
 
 ## Raw UI bitmaps (Table ROM)

@@ -47,8 +47,8 @@ repository, `tools/slideshow/`.
 
 **Pictures.** A song can use two kinds of picture:
 
-- **PRESET** pictures 0–99, stored in the instrument's picture flash at `0x57800000`
-  (undumped);
+- **PRESET** pictures 0–99, stored in the instrument's picture ROM IC19 at `0x57800000`
+  (all 100 are shown on the [Picture ROM (IC19)]({{ site.baseurl }}/kn7000-picture-rom/) page);
 - **USER** pictures 0–29: 30 slots (these are the firmware's internal numbers; whether
   STEP RECORD shows them counting from 1 was not checked), filled with PICTURE LOAD from a floppy or SD card.
   PICTURE LOAD reads `.BMP` or `.JPG` files up to 640 × 480 and `0x4D800` bytes, and cuts
@@ -227,7 +227,7 @@ decides what n shows:
 |-------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
 | USER 0–29, and that USER slot holds a picture               | the picture, centred (the screen is presumably cleared first, inferred) — this wins over a slide n |
 | USER 0–29 with an empty slot, or 30–127, and slide n exists | slide `<ACT NO=n>` (or `<PPT NO=n>`) of the `.ACT`                                                 |
-| PRESET 0–99                                                 | preset picture n from the picture flash                                                            |
+| PRESET 0–99                                                 | preset picture n from the picture ROM                                                              |
 | anything else                                               | a cleared screen with `NO PICTURE DATA`                                                            |
 
 STEP RECORD caps USER numbers at 29, so slides 30–127 can only be reached by songs whose
