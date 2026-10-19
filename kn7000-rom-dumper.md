@@ -23,9 +23,11 @@ ROM it can reach to the card, under the file names MAME's `kn7000` driver uses.
 | SD card root | `KN7APP.BIN`  | the application, here the ROM dumper                                                  |
 
 **The loader** is a style converter. On its first call it:
-1. Searches the program flash for the firmware routines it needs, by their code.
+1. Searches the program flash for the firmware routines it needs. It finds them by their code, or,
+   for the file routines, also by the shape of the firmware's table of them.
 2. Fills a table of services for the application: file open, read, write and close on the SD card,
-   raw sector access, folder creation, the build numbers, and text drawing.
+   raw sector access, folder creation, the build numbers, and text drawing. Only file access is
+   required; the application works around anything else that is missing.
 3. Reads `C:\KN7APP.BIN` and checks its header and CRC-32.
 
 From then on it passes every converter call to the application. The floppy never needs to change:
@@ -33,6 +35,17 @@ a new version of the dumper, or any other application, is just a new `KN7APP.BIN
 card from a computer.
 
 ## Using it
+
+**For a first run, use the SAFE build** (`build/safe/KN7APP.BIN`, shown as "KN7000 ROM DUMPER 1.0
+SAFE"). It dumps only the program flash, the table flash and IC21: plain reads of memory the
+firmware itself runs from. It writes ordinary files to the card's root folder and nothing else:
+no folder, no long names, no raw sector access. That is about 10 MB.
+
+**Then the IC19 build** (`build/ic19/KN7APP.BIN`, "KN7000 ROM DUMPER 1.0 IC19") dumps the picture
+window alone, 8 MB, the same way. The firmware's own picture code addresses `0x57800000`, but the
+window's extent is assumed, so it gets a pass of its own once the first is safe on a computer.
+
+**The wave ROMs wait.** The full build reads them too, but see [what the tests can show](#what-the-tests-can-and-cannot-show).
 
 1. Write the loader floppy (`kn7load_floppy.img`) to a 1.44 MB disk, and copy `KN7APP.BIN` to
    the SD card's root folder.
@@ -42,8 +55,9 @@ card from a computer.
 4. When it says **Done**, the results stay on screen for 15 seconds. Then the firmware asks
    "Continue Next?": **NO** leaves, **YES** dumps again.
 5. On a computer, `C:\KN7DUMP` holds the files under MAME's names, plus `DUMPLIST.TXT`. That lists
-   each file's size, CRC-32 and byte sum. For a wave ROM it also gives the sum the firmware's own
-   WAVE ROM test expects, so a bad wave dump shows up on the instrument already (`[SUM?]`).
+   each file's size, CRC-32 and byte sum, and what the loader found in the firmware. For a wave ROM
+   it also gives the sum the firmware's own WAVE ROM test expects, so a bad wave dump shows up on the
+   instrument already (`[SUM?]`).
 
 ## What it dumps
 
@@ -78,11 +92,9 @@ card from a computer.
 - **Memory.** It uses only the 192 KB the firmware sets aside for a style converter
   (`0x502B8000`–`0x502E7FFF`): loader, application, buffers and variables. Beyond that it writes
   only the converter mailbox, the LCD and the tone generators' wave-test latches.
-- **No hard-coded firmware addresses.** The routines it calls are found by their code, with only
-  the operands that change between builds masked. Each must be found exactly once, or the loader
-  says "Unsupported firmware" and does nothing. On every program image we have, each routine is
-  found exactly once: builds 941, 942 (SP7001) and 935, and the surviving half of 929 for the one
-  routine in that half.
+- **No hard-coded firmware addresses.** The routines it calls are found in the program flash, by
+  their code with only the operands that change between builds masked. A signature counts only if
+  it matches exactly once. On builds 941, 942 (SP7001) and 935, every one does.
 - **The firmware keeps running.** Every call does one 32 KB step and returns, so the firmware's
   main loop runs between steps. The file layer is switched to the SD card only during a step.
 - **Long file names.** The firmware's FAT library writes 8.3 names only. The dumper writes
@@ -90,6 +102,51 @@ card from a computer.
   entries in front of the unchanged 8.3 entries. It reads the cluster back to check it. It touches
   nothing else, and does nothing if the folder holds other files. `fsck.fat` finds no errors on a
   card written this way.
+
+## Made for firmware nobody has dumped
+
+The instrument this is for runs a build nobody has dumped. So the dumper never stops because
+something looks unfamiliar; it writes down what it finds.
+
+- **File access has two independent sources.** The firmware keeps its file routines in a table:
+  eleven records of three code pointers, one each for the floppy, the SD card and a third backend.
+  The loader finds that table by its shape alone, with no code signature: pointers into the program
+  flash, two columns each in ascending order within 64 KB, three columns that do not overlap. That
+  shape occurs exactly once in builds 941, 942 and 935. It even occurs in the surviving upper half
+  of 929, which has none of the routines' code. Failing that, the loader looks for the dispatcher
+  routines by their code.
+- **Everything else is optional:**
+
+  | when the loader does not find  | the dumper                                                          |
+  |--------------------------------|---------------------------------------------------------------------|
+  | raw SD sector access           | keeps the 8.3 names (`PRGEVEN.BIN` ...); `DUMPLIST.TXT` maps them   |
+  | the folder routines            | writes into the card's current folder instead of `KN7DUMP`          |
+  | a build number                 | names the files `…_bunknown…` and shows `?`                         |
+  | the kernel's millisecond clock | holds the result screen about 15 s by a delay loop instead          |
+
+- **What it reads is never judged.** Each ROM is written as it comes. A wave ROM whose byte sum is
+  not the one the firmware's own test expects is marked `[SUM?]`, but still written. The release
+  byte goes into the file names as it is.
+- **A file that cannot be written** is marked `[FAIL]`, and its error code goes in `DUMPLIST.TXT`.
+  The dump goes on with the next ROM.
+- **Only one case writes nothing:** neither the file table nor the file routines found. Then the
+  loader cannot even read `KN7APP.BIN`, and says so on the screen.
+
+## What the tests can and cannot show
+
+- **Program, table and IC21:** strong. MAME's hashes for these come from real chips, so a dump that
+  matches them is right.
+- **Wave ROMs:** weak in MAME. The real chips are undumped, so MAME was given random test data,
+  and MAME's handler for the wave port is ours, written from the same reading of the firmware's
+  WAVE ROM test as the dumper. A match shows the dumper and that model agree: every bank and word
+  read, the files complete. It cannot show that the real tone generator answers the same way.
+  - On the instrument, each chip's byte sum is compared with the sum the firmware's own test
+    expects. A match shows every byte of the chip was read.
+  - A sum does not depend on order, so the order of the words, and of the two bytes in each word,
+    is still an assumption. Checking it needs the real data: sample data that looks like audio,
+    and waveforms that start where the tone tables say they do.
+- **Picture window:** none. `0x57800000` is a guess, and in MAME the test served data at exactly
+  that address.
 
 ## How it was tested
 
@@ -107,7 +164,19 @@ card:
 - the custom data flash matches what the CPU reads there;
 - the wave and picture files match the test data.
 
-All 11 files matched, about 74 MB, in about 11 minutes of emulated time.
+All 11 files matched, about 74 MB, in about 11 minutes of emulated time, boot included. The SAFE
+build's five files also matched at full size, in about two minutes, and the IC19 build's 8 MB
+file in under two. These final runs used the very files handed over for the first run on the
+instrument.
+
+The fallbacks were tested by switching parts of the firmware search off:
+
+| switched off                               | result                                                               |
+|--------------------------------------------|----------------------------------------------------------------------|
+| the file table search                      | the file routines found by their code; all files match               |
+| everything optional, file routines by code | the file table alone; 8.3 names in the root, `_bunknown`; all match  |
+| the kernel clock                           | all match; the screens held about 15 s by a timed delay loop         |
+| both ways to the file routines             | nothing written; the loader says what it found and why it stopped    |
 
 Upstream MAME maps the wave ports the other way round from the firmware: its `0x98050000` reads
 `waveform_sub_*`, while the firmware's test screen calls that port the MAIN tone generator with
@@ -116,8 +185,9 @@ IC203/IC204. That is a driver issue for a later fix; the dumper follows the firm
 ## Limits
 
 - **Not run on a real instrument yet.** The owner's KN7000 runs **PROGRAM 893 / TABLE 80**, which
-  has never been dumped. The loader looks for its routines by their code rather than by address,
-  so it may well find them in 893. If it does not, it says so and writes nothing.
+  has never been dumped. Without file access in 893 (no file table, no file routines found) the
+  loader cannot read `KN7APP.BIN`; it says so, and nothing is written. Getting past that would take
+  an SD card driver of our own, which is not written: it could not be checked in MAME first.
 - **Time.** About 74 MB go to the card. In MAME that takes about 11 minutes of emulated time; on
   the instrument it depends on the card.
 - **Do not play during the dump.** The wave ROMs are read through the tone generators' test mode.
