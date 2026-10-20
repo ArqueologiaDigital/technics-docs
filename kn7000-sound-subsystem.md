@@ -93,12 +93,12 @@ checksum it. Each TG drives **two** wave ROMs over two independent 24-bit
 address ports (`AWAX`/`AWAY` on the master, `BWAX`/`BWAY` on the sub) so it can
 fetch a pair of samples per cycle for interpolation.
 
-| ROM | attaches to | address port | part |
-|---|---|---|---|
-| IC203 | master (IC201) | AWAY | C3CBQD000002 |
-| IC204 | master (IC201) | AWAX | C3CBQD000001 |
-| IC207 | sub (IC205) | BWAY | C3CBQD000004 |
-| IC208 | sub (IC205) | BWAX | C3CBQD000003 |
+| ROM   | attaches to    | address port | part         |
+|-------|----------------|--------------|--------------|
+| IC203 | master (IC201) | AWAY         | C3CBQD000002 |
+| IC204 | master (IC201) | AWAX         | C3CBQD000001 |
+| IC207 | sub (IC205)    | BWAY         | C3CBQD000004 |
+| IC208 | sub (IC205)    | BWAX         | C3CBQD000003 |
 
 These four ROMs are not on the firmware-update disks. They were **read on the
 owner's instrument on 2026-10-19**, through the readback window, by the WAVE build of

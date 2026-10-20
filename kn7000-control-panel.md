@@ -112,8 +112,8 @@ against its per-segment shadow to recover the pressed/released edges.
 **LCD soft-keys.** All ten are bound and working. The left column is one port; the
 right column is spread over three.
 
-| Key | Port | Mask | Key | Port | Mask |
-|---|---|---|---|---|---|
+| Key    | Port       | Mask   | Key    | Port       | Mask   |
+|--------|------------|--------|--------|------------|--------|
 | LCDL 1 | `CPL_SEG0` | `0x02` | LCDR 1 | `CPR_SEG5` | `0x10` |
 | LCDL 2 | `CPL_SEG0` | `0x08` | LCDR 2 | `CPR_SEG5` | `0x20` |
 | LCDL 3 | `CPL_SEG0` | `0x20` | LCDR 3 | `CPR_SEG7` | `0x01` |
@@ -141,11 +141,11 @@ right column is spread over three.
 
 **The 16-part mute matrix**, all on CPC, two bits (ON/OFF) per part:
 
-| Port | Parts | Port | Parts |
-|---|---|---|---|
-| `CPC_SEG5` (bits 4–7) | 1–2 | `CPC_SEG10` | 11–14 |
-| `CPC_SEG8` | 3–6 | `CPC_SEG11` (bits 0–3) | 15–16 |
-| `CPC_SEG9` | 7–10 | | |
+| Port                  | Parts | Port                   | Parts |
+|-----------------------|-------|------------------------|-------|
+| `CPC_SEG5` (bits 4–7) | 1–2   | `CPC_SEG10`            | 11–14 |
+| `CPC_SEG8`            | 3–6   | `CPC_SEG11` (bits 0–3) | 15–16 |
+| `CPC_SEG9`            | 7–10  |                        |       |
 
 CPL and CPR each scan a switch matrix and drive LEDs (CPL's also covers the CPC
 board); the test mode lights them group by group (`CPL LEDS to light`, `CPC LEDs
@@ -319,10 +319,10 @@ bank `00`: **`0x17` is the TEMPO/PROGRAM knob** and **`0x10` is the large DATA d
 (the one with the central `SET` button). Neither is an absolute pot, and the two are
 consumed differently:
 
-| Wire | Control | Firmware consumption | Driver port |
-|---|---|---|---|
-| `0x17` | TEMPO/PROGRAM knob | **Adds** the wire byte as a signed 8-bit step every frame: `tempo += (int8_t)wire`. It does not diff an absolute position, and the response is linear — one detent is about 1 BPM. | `TEMPO_KNOB`, a `PORT_ADJUSTER(50)` that the layout knob drags in a circle |
-| `0x10` | DATA dial | The panel keeps an 8-bit position counter and ships it; the main-CPU handler **diffs** successive positions. It moves the *focused* edit field and leaves the tempo alone on the home screen. | `DIAL`, an `IPT_DIAL` (0..255, wraps), forwarded verbatim |
+| Wire   | Control            | Firmware consumption                                                                                                                                                                          | Driver port                                                                |
+|--------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
+| `0x17` | TEMPO/PROGRAM knob | **Adds** the wire byte as a signed 8-bit step every frame: `tempo += (int8_t)wire`. It does not diff an absolute position, and the response is linear — one detent is about 1 BPM.            | `TEMPO_KNOB`, a `PORT_ADJUSTER(50)` that the layout knob drags in a circle |
+| `0x10` | DATA dial          | The panel keeps an 8-bit position counter and ships it; the main-CPU handler **diffs** successive positions. It moves the *focused* edit field and leaves the tempo alone on the home screen. | `DIAL`, an `IPT_DIAL` (0..255, wraps), forwarded verbatim                  |
 
 Both are bound. The TEMPO knob's adjuster is an infinite rotary control, so a
 full-circle drag wraps its 0..100 range; the device takes the direction the short way
@@ -385,10 +385,10 @@ and CPR carry a microcontroller, and their concrete test-mode and handler names.
 The firmware resolves these two CPC rockers as ordinary **pseudo-part up/down**
 events, which the panel scanner delivers like any other switch:
 
-| Rocker | Pseudo-part | Event pair | Driver bits (normSeg.bit) | Notes |
-|---|---|---|---|---|
-| **PAGE Up / Down** | `0x18` | `0x2001` / `0x2000` | `SEG0B` 0x10 / 0x20 | page-box widget `0x4841DF23` accepts key `0x18`; `AcWindowPageProc` does page +1 / −1 |
-| **CONTRAST + / −** | `0x1D` | `0x2001` / `0x2000` | `SEG05` 0x04 / 0x08 | contrast-edit filter `0x4854E693` accepts only arg-hi `0x1D`; shares the value stepper with the Tempo/Program wheel |
+| Rocker             | Pseudo-part | Event pair          | Driver bits (normSeg.bit) | Notes                                                                                                               |
+|--------------------|-------------|---------------------|---------------------------|---------------------------------------------------------------------------------------------------------------------|
+| **PAGE Up / Down** | `0x18`      | `0x2001` / `0x2000` | `SEG0B` 0x10 / 0x20       | page-box widget `0x4841DF23` accepts key `0x18`; `AcWindowPageProc` does page +1 / −1                               |
+| **CONTRAST + / −** | `0x1D`      | `0x2001` / `0x2000` | `SEG05` 0x04 / 0x08       | contrast-edit filter `0x4854E693` accepts only arg-hi `0x1D`; shares the value stepper with the Tempo/Program wheel |
 
 In the overlay's numbering, normSeg `0x16`–`0x19` (wire `0xD0`–`0xD3`) are the four
 volume faders, `0x1A` (wire `0x10`) is the DATA dial and `0x20` (wire `0x17`) is the

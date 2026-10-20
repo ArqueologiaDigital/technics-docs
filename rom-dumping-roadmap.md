@@ -96,24 +96,24 @@ bytes exist ([Build 893 Recovery]({{ site.baseurl }}/kn7000-build-893-recovery/)
 
 ### SX-KN6000 — 7 devices, 40 MB
 
-| device | part | size | type | role |
-|---|---|---|---|---|
-| IC13 | `QSIGX3C16008` | 2 MB | mask ROM | table / font |
-| IC14 | `QSIGX3C16007` | 2 MB | mask ROM | table / font |
-| IC205 · IC206 | `QSIGX3C64004` · `QSIGX3C64005` | 8 MB each | mask ROM | wave |
-| IC207 · IC208 | `QSIGX3C64006` · `QSIGX3C64007` | 8 MB each | mask ROM | wave |
-| IC15 | `QSIGX3C32021` | 4 MB | mask ROM | rhythm data |
+| device        | part                            | size      | type     | role         |
+|---------------|---------------------------------|-----------|----------|--------------|
+| IC13          | `QSIGX3C16008`                  | 2 MB      | mask ROM | table / font |
+| IC14          | `QSIGX3C16007`                  | 2 MB      | mask ROM | table / font |
+| IC205 · IC206 | `QSIGX3C64004` · `QSIGX3C64005` | 8 MB each | mask ROM | wave         |
+| IC207 · IC208 | `QSIGX3C64006` · `QSIGX3C64007` | 8 MB each | mask ROM | wave         |
+| IC15          | `QSIGX3C32021`                  | 4 MB      | mask ROM | rhythm data  |
 
 ### SX-KN6500 — 9 devices, 56 MB
 
 **Five are the same parts as the KN6000** (IC205–IC208, IC15) — dump a KN6000 and most of the
 KN6500 comes with it. KN6500-only:
 
-| device | part | size | type | role |
-|---|---|---|---|---|
-| IC13 | `C3FBMD000069` | 2 MB | **flash** | table / font |
-| IC14 | `C3FBMD000068` | 2 MB | **flash** | table / font |
-| IC209 · IC210 | `QSIGX3C64020` · `QSIGX3C64019` | 8 MB each | mask ROM | wave (extra pair) |
+| device        | part                            | size      | type      | role              |
+|---------------|---------------------------------|-----------|-----------|-------------------|
+| IC13          | `C3FBMD000069`                  | 2 MB      | **flash** | table / font      |
+| IC14          | `C3FBMD000068`                  | 2 MB      | **flash** | table / font      |
+| IC209 · IC210 | `QSIGX3C64020` · `QSIGX3C64019` | 8 MB each | mask ROM  | wave (extra pair) |
 
 > Note the KN6500 uses **flash** where the KN6000 uses mask ROM for table/font — the pinout
 > settles it (`RESET#`, `RY/BY#`, `VPP` are present). The two models' table/font parts are not
@@ -269,11 +269,11 @@ so a Method B′ dump of those four parts can be verified with no instrument at 
 Σ(hi+lo) over every 16-bit word of the device:
 
 | device | expected checksum |
-|---|---|
-| IC203 | `0x8164C77C` |
-| IC204 | `0x815CFC83` |
-| IC207 | `0x8331EF0B` |
-| IC208 | `0x83254F9D` |
+|--------|-------------------|
+| IC203  | `0x8164C77C`      |
+| IC204  | `0x815CFC83`      |
+| IC207  | `0x8331EF0B`      |
+| IC208  | `0x83254F9D`      |
 
 Which value belongs to which chip is not settled. The four values are stored per firmware test, not
 per chip: port `0x9805` first, then `0x9804`, and for each port bit 0 of the `+8` latch = 0, then 1.

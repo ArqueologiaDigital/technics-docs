@@ -27,18 +27,18 @@ The KN7000's gaps in the project's overlay emulator are in their own section,
 
 ## What the emulator does today
 
-| Aspect | Hardware | MAME | Verdict |
-|---|---|---|---|
-| Address decode | six programmable chip-select blocks | registers stored, never consulted | not modelled |
-| Reset entry | table-data bootloader at `0xFFB4E8` | program flash at `0xEF03C6` | wrong path, right end state |
-| Program flash IC4/IC6 | writable flash pair | `.rom()` region | not modelled |
-| Table data IC1/IC3 | mask ROM *or* flash — unresolved | `.rom()` region | unknown |
-| Custom data IC19 | AM29F400/800B-family flash | `amd_29f800b_16bit` flash device | modelled — JEDEC autoselect returns device ID `0x2258` |
-| FDC | µPD72068GF | `UPD72067` device | approximation |
-| Floppy formats | 1.44 MB PC-format discs | MFM containers only, no `FLOPPY_PC_FORMAT` | cannot mount `.img` |
-| Sub-CPU DRAM strap | Port G bit 0 selects chip-select-3 sizing | hardcoded, sub-CPU port G unimplemented | one variant silently chosen |
-| Region code | 4 values on a two-pin strap | `AREA` dip offers 3 | Region 4 unreachable |
-| HD-AE5000 window | firmware treats `0x280000` as banked | flat 512 KB `.rom()` | possibly a superset never exercised |
+| Aspect                | Hardware                                  | MAME                                       | Verdict                                                |
+|-----------------------|-------------------------------------------|--------------------------------------------|--------------------------------------------------------|
+| Address decode        | six programmable chip-select blocks       | registers stored, never consulted          | not modelled                                           |
+| Reset entry           | table-data bootloader at `0xFFB4E8`       | program flash at `0xEF03C6`                | wrong path, right end state                            |
+| Program flash IC4/IC6 | writable flash pair                       | `.rom()` region                            | not modelled                                           |
+| Table data IC1/IC3    | mask ROM *or* flash — unresolved          | `.rom()` region                            | unknown                                                |
+| Custom data IC19      | AM29F400/800B-family flash                | `amd_29f800b_16bit` flash device           | modelled — JEDEC autoselect returns device ID `0x2258` |
+| FDC                   | µPD72068GF                                | `UPD72067` device                          | approximation                                          |
+| Floppy formats        | 1.44 MB PC-format discs                   | MFM containers only, no `FLOPPY_PC_FORMAT` | cannot mount `.img`                                    |
+| Sub-CPU DRAM strap    | Port G bit 0 selects chip-select-3 sizing | hardcoded, sub-CPU port G unimplemented    | one variant silently chosen                            |
+| Region code           | 4 values on a two-pin strap               | `AREA` dip offers 3                        | Region 4 unreachable                                   |
+| HD-AE5000 window      | firmware treats `0x280000` as banked      | flat 512 KB `.rom()`                       | possibly a superset never exercised                    |
 
 ## Gap 1 — the FDC and its disc formats
 
@@ -76,11 +76,11 @@ device choice is questionable, **undecided** whether it is load-bearing.
 Three flash populations exist on the main board. **IC19 (custom data) is a real flash
 device; the program and table-data pairs are `.rom()`, by design.**
 
-| Window | Devices | Bus | MAME |
-|---|---|---|---|
+| Window              | Devices                                 | Bus    | MAME                      |
+|---------------------|-----------------------------------------|--------|---------------------------|
 | `0x300000-0x3FFFFF` | IC19, one ×16 part (or two on Region 4) | 16-bit | `amd_29f800b_16bit` flash |
-| `0x800000-0x9FFFFF` | pair of ×16 dies (table data) | 32-bit | `.rom()` |
-| `0xE00000-0xFFFFFF` | pair of ×16 dies (program) | 32-bit | `.rom()` |
+| `0x800000-0x9FFFFF` | pair of ×16 dies (table data)           | 32-bit | `.rom()`                  |
+| `0xE00000-0xFFFFFF` | pair of ×16 dies (program)              | 32-bit | `.rom()`                  |
 
 **IC19 is an exact-match device.** `amd_29f800b_16bit_device` is `0x100000` bytes, 16-bit,
 manufacturer `MFG_AMD`, device ID `0x2258` — the right size, the right bus width, and an ID

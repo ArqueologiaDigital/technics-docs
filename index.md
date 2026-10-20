@@ -51,12 +51,12 @@ for the comparison across the family.
 
 ## Project Goals
 
-| Goal | Description |
-|------|-------------|
-| **ROM Reconstruction** | Create buildable source code that produces byte-identical ROMs |
-| **MAME Emulation** | Full system emulation in the MAME framework |
-| **Homebrew Development** | Enable custom software development for the hardware |
-| **Compiler Development** | LLVM backend for TLCS-900/H2, enabling C/C++ development |
+| Goal                     | Description                                                    |
+|--------------------------|----------------------------------------------------------------|
+| **ROM Reconstruction**   | Create buildable source code that produces byte-identical ROMs |
+| **MAME Emulation**       | Full system emulation in the MAME framework                    |
+| **Homebrew Development** | Enable custom software development for the hardware            |
+| **Compiler Development** | LLVM backend for TLCS-900/H2, enabling C/C++ development       |
 
 ---
 
@@ -97,12 +97,12 @@ and hardware have been reverse engineered in depth.
 
 ### Hardware & Memory
 
-| Page | Description |
-|------|-------------|
-| [System Overview]({{ site.baseurl }}/system-overview/) | Architecture diagram and subsystem guide |
-| [Hardware Architecture]({{ site.baseurl }}/hardware-architecture/) | Physical components from service manual |
-| [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/) | TMP94C241F dual-CPU design |
-| [Memory Map]({{ site.baseurl }}/memory-map/) | Complete address space layout |
+| Page                                                               | Description                              |
+|--------------------------------------------------------------------|------------------------------------------|
+| [System Overview]({{ site.baseurl }}/system-overview/)             | Architecture diagram and subsystem guide |
+| [Hardware Architecture]({{ site.baseurl }}/hardware-architecture/) | Physical components from service manual  |
+| [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/)                 | TMP94C241F dual-CPU design               |
+| [Memory Map]({{ site.baseurl }}/memory-map/)                       | Complete address space layout            |
 
 ### Subsystems
 
@@ -123,34 +123,34 @@ and hardware have been reverse engineered in depth.
 
 ### Protocols
 
-| Page | Description |
-|------|-------------|
-| [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/) | MCU serial communication |
-| [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/) | Main/Sub CPU latch protocol |
-| [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/) | IDE/ATA and PC parallel port |
-| [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) | Custom filesystem and lyric files |
+| Page                                                                   | Description                       |
+|------------------------------------------------------------------------|-----------------------------------|
+| [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/)   | MCU serial communication          |
+| [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/)           | Main/Sub CPU latch protocol       |
+| [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/) | IDE/ATA and PC parallel port      |
+| [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/)         | Custom filesystem and lyric files |
 
 ### Firmware Analysis
 
-| Page | Description |
-|------|-------------|
-| [Boot Sequence]({{ site.baseurl }}/boot-sequence/) | Power-on to ready state |
-| [SubCPU Payload Loading]({{ site.baseurl }}/subcpu-payload-loading/) | LZSS decompression, E1 bulk transfer, DMA investigation |
-| [Sub CPU Payload Transfer]({{ site.baseurl }}/boot-sequence/#subcpu_send_payload-details) | 192KB firmware loading mechanism |
-| [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/) | Disassembly progress |
-| [Source Code Map]({{ site.baseurl }}/source-map/) | Guide to every source file in the disassembly |
-| [FDC Subsystem]({{ site.baseurl }}/fdc-subsystem/) | Floppy disk handlers |
-| [Feature Demo & Presentation System]({{ site.baseurl }}/feature-demo/) | SSF XML scripting, demo assets, planned-but-unshipped floppy loading |
-| [Floppy Security Analysis]({{ site.baseurl }}/floppy-security-analysis/) | Code injection vectors via crafted update discs |
-| [HDAE5000]({{ site.baseurl }}/hdae5000/) | Hard disk expansion firmware |
-| [Firmware v9 vs v10]({{ site.baseurl }}/firmware-v9-vs-v10/) | Detailed comparison of the last two firmware releases |
+| Page                                                                                      | Description                                                          |
+|-------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| [Boot Sequence]({{ site.baseurl }}/boot-sequence/)                                        | Power-on to ready state                                              |
+| [SubCPU Payload Loading]({{ site.baseurl }}/subcpu-payload-loading/)                      | LZSS decompression, E1 bulk transfer, DMA investigation              |
+| [Sub CPU Payload Transfer]({{ site.baseurl }}/boot-sequence/#subcpu_send_payload-details) | 192KB firmware loading mechanism                                     |
+| [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/)                              | Disassembly progress                                                 |
+| [Source Code Map]({{ site.baseurl }}/source-map/)                                         | Guide to every source file in the disassembly                        |
+| [FDC Subsystem]({{ site.baseurl }}/fdc-subsystem/)                                        | Floppy disk handlers                                                 |
+| [Feature Demo & Presentation System]({{ site.baseurl }}/feature-demo/)                    | SSF XML scripting, demo assets, planned-but-unshipped floppy loading |
+| [Floppy Security Analysis]({{ site.baseurl }}/floppy-security-analysis/)                  | Code injection vectors via crafted update discs                      |
+| [HDAE5000]({{ site.baseurl }}/hdae5000/)                                                  | Hard disk expansion firmware                                         |
+| [Firmware v9 vs v10]({{ site.baseurl }}/firmware-v9-vs-v10/)                              | Detailed comparison of the last two firmware releases                |
 
 ### Homebrew
 
-| Page | Description |
-|------|-------------|
-| [Playing Games on MAME]({{ site.baseurl }}/playing-games/) | Step-by-step guide to running homebrew games in the emulator |
-| [Another World VM]({{ site.baseurl }}/another-world-vm/) | Full game port: bytecode VM, polygon rendering, input, frame timing |
+| Page                                                       | Description                                                         |
+|------------------------------------------------------------|---------------------------------------------------------------------|
+| [Playing Games on MAME]({{ site.baseurl }}/playing-games/) | Step-by-step guide to running homebrew games in the emulator        |
+| [Another World VM]({{ site.baseurl }}/another-world-vm/)   | Full game port: bytecode VM, polygon rendering, input, frame timing |
 
 ### Resources
 

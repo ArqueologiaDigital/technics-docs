@@ -102,13 +102,13 @@ Four 320x200 game pages (64,000 bytes each, one per 64 KB slot) support double-b
 
 The KN5000's control panel buttons are read via **SC1 synchronous serial** at 250 kHz. The game polls three button segments each frame (CPL_SEG10's HELP and OTHER PARTS/TR open the help screen and the password part):
 
-| KN5000 Button | Segment | Bit | Game Action |
-|--------------|---------|-----|-------------|
-| Part Select: RIGHT 2 | CPR_SEG4 | 1 | Jump (UP) |
-| CONDUCTOR: LEFT | CPR_SEG4 | 4 | Move LEFT |
-| CONDUCTOR: RIGHT 2 | CPR_SEG4 | 5 | Crouch (DOWN) |
-| CONDUCTOR: RIGHT 1 | CPR_SEG4 | 6 | Move RIGHT |
-| VARIATION 4 | CPL_SEG4 | 3 | ACTION (run/kick/draw gun) |
+| KN5000 Button        | Segment  | Bit | Game Action                |
+|----------------------|----------|-----|----------------------------|
+| Part Select: RIGHT 2 | CPR_SEG4 | 1   | Jump (UP)                  |
+| CONDUCTOR: LEFT      | CPR_SEG4 | 4   | Move LEFT                  |
+| CONDUCTOR: RIGHT 2   | CPR_SEG4 | 5   | Crouch (DOWN)              |
+| CONDUCTOR: RIGHT 1   | CPR_SEG4 | 6   | Move RIGHT                 |
+| VARIATION 4          | CPL_SEG4 | 3   | ACTION (run/kick/draw gun) |
 
 ### Serial Protocol
 
@@ -133,15 +133,15 @@ A hardware timer provides frame pacing:
 
 The game consists of multiple "parts", each with its own set of resources (bytecode, video data, palettes):
 
-| Part | ID | Description |
-|------|----|-------------|
-| 0 | Protection/Logo | Interplay logo, copy protection (bypassed) |
-| 1 | Intro | Opening cinematic |
-| 2 | Water | First gameplay level |
-| 3 | Prison | Escape sequence |
-| 4 | Citadel | Main exploration |
-| 5-7 | Arena/Baths | Later levels |
-| 8-9 | Password | Password entry screen |
+| Part | ID              | Description                                |
+|------|-----------------|--------------------------------------------|
+| 0    | Protection/Logo | Interplay logo, copy protection (bypassed) |
+| 1    | Intro           | Opening cinematic                          |
+| 2    | Water           | First gameplay level                       |
+| 3    | Prison          | Escape sequence                            |
+| 4    | Citadel         | Main exploration                           |
+| 5-7  | Arena/Baths     | Later levels                               |
+| 8-9  | Password        | Password entry screen                      |
 
 Part switching loads new resources and reinitializes the VM. Copy protection checks (parts 0, 2, 4, 8-9) are bypassed by pre-setting VM variables at startup.
 
