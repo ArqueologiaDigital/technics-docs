@@ -174,11 +174,12 @@ The [Another World](https://en.wikipedia.org/wiki/Another_World_(video_game)) by
 the KN7000 as a ride-along plug-in. It loads its game data from the SD card with the API above
 and blits a 320×200 frame into the LCD. In MAME the intro and the lake are pixel-identical to the
 reference VM, every part opens identically, and the game takes input from the keybed, MIDI IN 1
-and the panel. There is no sound yet. Source: the `kn7000/` directory of the Another World
-repository.
+and the panel. This build is silent, and it runs in MAME only: it keeps its data in the
+`0x44000000` window, which on the instrument is IC23, the battery-backed panel memories. Source:
+the `kn7000/` directory of the Another World repository.
 
-The same VM also runs on a KN7000 **without** SP7001, from a floppy, as a style converter:
-[Your Own Code from a Floppy (.CNV)]({{ site.baseurl }}/kn7000-cnv-homebrew/).
+The same VM runs on the real instrument **without** SP7001, with sound, as a program the SD loader
+starts: [Your Own Code on a Stock KN7000]({{ site.baseurl }}/kn7000-cnv-homebrew/#another-world-on-the-instrument).
 
 ## Limits and open work
 

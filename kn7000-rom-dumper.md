@@ -251,6 +251,6 @@ IC203/IC204. That is a driver issue for a later fix; the dumper follows the firm
   - the probes behind the design (`probes/`);
   - the end-to-end test (`test/run_test.sh`, `prefill.lua`, `verify_dump.py`).
 - `notes/wave-rom-port.md`: the wave ROM test protocol and the inventory of the other parts.
-- [Your Own Code from a Floppy (.CNV)]({{ site.baseurl }}/kn7000-cnv-homebrew/): what a converter
-  gets.
+- [Your Own Code on a Stock KN7000]({{ site.baseurl }}/kn7000-cnv-homebrew/): the program menu, and
+  what a converter gets.
 - [Style Converter (.CNV)]({{ site.baseurl }}/kn7000-style-converter/).

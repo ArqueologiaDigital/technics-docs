@@ -79,8 +79,9 @@ program. A converter that answers request 5 on every call parks the firmware on 
 The firmware keeps calling it about 20 times a second, while the panel and keybed keep working.
 Meanwhile a task the converter started can run a program of its own. Request `0xFE` ends it: the
 firmware shows its message box, then "Continue Next?". YES calls the converter again, NO returns
-to the main screen. Another World runs on the stock KN7000 this way:
-[Your Own Code from a Floppy (.CNV)]({{ site.baseurl }}/kn7000-cnv-homebrew/).
+to the main screen. The project's loader, `KN7LOAD.CNV`, uses this door to run programs from the SD
+card, Another World among them, on the owner's stock KN7000:
+[Your Own Code on a Stock KN7000]({{ site.baseurl }}/kn7000-cnv-homebrew/).
 
 ## Not yet known
 

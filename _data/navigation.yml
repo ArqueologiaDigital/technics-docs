@@ -96,7 +96,7 @@
           url: /kn7000-slideshow/
         - title: "Style Converter (.CNV)"
           url: /kn7000-style-converter/
-        - title: "Your Own Code from a Floppy (.CNV)"
+        - title: "Your Own Code on a Stock KN7000"
           url: /kn7000-cnv-homebrew/
         - title: Work RAM Map
           url: /kn7000-work-ram/
