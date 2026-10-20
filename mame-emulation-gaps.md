@@ -14,6 +14,8 @@ everything the first-stage bootloader owns.
 This page inventories what the emulator does not model, distinguishes what is a fidelity
 defect from what is merely a shortcut that happens to land in the right place, and gives
 the order in which the three prerequisites have to be built.
+The KN7000's gaps in the project's overlay emulator are in their own section,
+[KN7000: the overlay emulator](#kn7000-the-overlay-emulator).
 
 > Every claim here was checked against the MAME sources in `kn7000_mame/src/` and
 > `mame/src/` in August-September 2026 (IC19: 2026-09-05). Unless a row says otherwise,
@@ -271,6 +273,49 @@ Two of these are exact and mechanical, which is unusual and worth exploiting:
    `0xFFB4E8` before `0xEF050F`, and that a read of `0xFFFEDC` returns `FF FF FF FF` before
    the `MSAR2` store and `1B 0F 05 EF` after it.
 
+## KN7000: the overlay emulator
+
+The project's own build of the KN7000 is the kn7000_mame overlay. Its published binary is
+`kn7000-emulator/kn7000`, md5 `3077b137…`, from kn7000_mame `f01af6b` (2026-10-20). The overlay
+keeps a living list of what it still lacks, `OVERLAY-GAPS.md` in that repository, and the items
+below come from it. Mainline MAME's `kn7000` has none of the sound work: it is
+`MACHINE_NO_SOUND`, without a tone-generator voice engine or an effects DSP.
+
+**Closed on 2026-10-20**, each against a measurement on the owner's unit:
+
+| gap (OVERLAY-GAPS item)                    | what the overlay does now                                                                                                                                                                         | evidence on the unit                                   |
+|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
+| voices on placeholder samples (G13)        | the KN7000's voices play the four dumped wave ROMs: the 20-bit select, the page directories, the pitch law ([Sound Subsystem]({{ site.baseurl }}/kn7000-sound-subsystem/#real-timbre-2026-10-20)) | the wave ROMs read twice, sums as the firmware expects |
+| the board strap (G13)                      | answers `0xF8F7`, hardware subtype 2; it read `0x9406` before, and subtype 5 before that, which sent every voice to the expansion range                                                           | pass 9                                                 |
+| DSP reads of MSGR registers (G4)           | the kernel's reads of MSGR0-7 return what was written; before, the mic reverbs' ring-3 pointer became 0 and a SPORT transfer block was zeroed                                                     | pass 7 (MSGR2 moves; the TCB survives)                 |
+| the 1 kHz tick and the DSP handshake (G20) | the tick is timer 4 as the firmware programs it; the group-0x17 handshake comes once per DSP frame; FLAG3 is high on every other frame                                                            | pass 8 (44.1 kHz, one handshake per frame)             |
+| SPORT DMA registers (G20)                  | DMASTAT, each ring's index and count, and the transmit status read live, at the unit's phase                                                                                                      | pass 6                                                 |
+| CPU timing (G22)                           | 64 MHz, per-instruction cycles, a fetch queue, 4 KB instruction and data caches, per-chip-select bus costs; CHCTR and MEMCTR read back                                                            | pass 9 (99 of 109 tests within 3 %), pass 8            |
+| the floppy's last byte (with G22)          | IRQ1 is raised again for a sector's last byte, which MAME's 82077 delivers without a DMA request edge; at the real CPU speed STYLE CONVERT could not load otherwise                               | the unit loads from floppy                             |
+| IC23 (G6)                                  | a 256 KB battery-backed NVRAM repeating every 256 KB; panel memories survive a session that ends with the machine's POWER OFF input                                                               | pass 5 (the 256 KB repeat)                             |
+
+The timing work shows. Another World's speed build plays its intro at 17 frames per second in the
+overlay, with its speed display on, where it used to run at 38. The KN7000 audio oracle of the overlay's gate moved
+with each change and was re-baselined each time.
+
+**Still open** (the full list, with sizes and states, is `OVERLAY-GAPS.md`):
+
+- **Effects DSP save state (G3).** After a state load the effects freeze. Trivial to fix.
+- **The rest of the effects DSP branch (G4)** and **its clock (G5)**. The overlay runs the
+  ADSP-21065L at 66 MHz; the part is a 60 MHz grade. The other IOP registers still read 0 to the
+  kernel, and the SPORT transfers still go through fixed ring slots, not the DMA. STCTL0's sticky
+  start-up underflow bit is not modelled.
+- **The power-on path (G9).** The CPU really starts in IC18's boot code at `0x40000000`, with the
+  flash updater; the overlay starts at the program flash. **Interrupt vectors through IVAR (G8)**,
+  **the uncached views at `0x9xxxxxxx` (G7)**, **CS5 mirrors and open-bus reads (G10)**.
+- **The LCD under load.** The timing model uses pass 9's clean LCD costs. On the unit the LCD is
+  slower while the display runs (3-4 times, by Another World's benchmark), so bulk LCD writes are
+  still faster in the overlay than on the instrument.
+- **Instruction classes pass 9 did not time** (jmp and call with 32-bit targets, bit operations,
+  rti, trap, the extension unit, interrupt acceptance) use the manual's counts or guesses.
+- **The SD sub-CPU IC401 (G21)**, the SD card read with no card selected (G14), the custom data
+  byte order (G11).
+
 ## See also
 
 - [TMP94C241 Memory Controller]({{ site.baseurl }}/tmp94c241-memory-controller/)
@@ -280,3 +325,4 @@ Two of these are exact and mechanical, which is unusual and worth exploiting:
 - [FDC Subsystem]({{ site.baseurl }}/fdc-subsystem/)
 - [MAME Branch Review & Roadmap]({{ site.baseurl }}/mame-branch-review/)
 - [MAME Pull Requests]({{ site.baseurl }}/mame-pull-requests/)
+- [KN7000 Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/) and [KN7000 Sound Subsystem]({{ site.baseurl }}/kn7000-sound-subsystem/)
