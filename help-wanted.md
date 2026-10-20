@@ -100,6 +100,14 @@ If you have a working KN5000:
 - Document hardware behavior for edge cases
 - Take photos of PCB for chip identification
 
+If you have a working KN7000:
+- Run the ROM dumper's probe passes from an SD card and one floppy, with no opened case and no
+  change to the firmware ([ROM Dumper]({{ site.baseurl }}/kn7000-rom-dumper/#the-probe-builds-passes-5-to-9)).
+  A second unit's strap word, CPU timing and DSP frame rate would show which of the owner's figures
+  hold for every KN7000. Tell us your PROGRAM and TABLE builds from the SOFT VERSION screen.
+- Record a sound built from 8-bit wave samples, such as STRINGS, from the line out, to settle the
+  samples' gain law ([Open Questions]({{ site.baseurl }}/questions/#kn7000-hardware-and-sound)).
+
 ### ~~Read six pins on the SX-WSA1R's effects board~~ — ✅ **ANSWERED 2026-09-15**
 
 Kept here because the *method* is the reusable part, and because the answer is a negative
