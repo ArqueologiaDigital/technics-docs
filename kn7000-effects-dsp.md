@@ -160,9 +160,9 @@ KN5000 [Effects DSP]({{ site.baseurl }}/effects-dsp/) page.)
 
 ## Why this matters for emulation
 
-Unlike the tone-generator side — which is blocked by the
-[undumped wave ROMs]({{ site.baseurl }}/kn7000-sound-subsystem/) — the effects DSP is **fully
-recoverable from data we already have**. Both the DSP core and its programs
+Unlike the tone generators, whose samples had to be
+[read from the instrument's own wave ROMs]({{ site.baseurl }}/kn7000-sound-subsystem/#wave-roms-ic203-ic204-ic207-ic208),
+the effects DSP is **fully recoverable from the firmware alone**. Both the DSP core and its programs
 exist, and the integration path is now completely mapped out:
 
 - **The DSP core is already in MAME.** MAME emulates the ADSP-2106x SHARC family
@@ -269,10 +269,13 @@ of unit 0 (REVERB, `0xC362/63`), unit 1 (MULTI, `0xC364/65`) and unit 9
   "index" written to `0x98000000` is literally the SHARC IOP register address
   (IIEP0/IMEP0/CEP0/DMAC-EP0/EPB0...). All runtime parameter and level traffic
   travels as ordinary framed DM/PM uploads; there are no hidden level registers.
-- **The DSP runs at 60 MHz** (the KS-240 speed grade) and completes exactly
-  44,100 effect frames per second; per-frame the kernel walks the unit CALL
-  chain (slots at PM `0x8080-0x80A0`, patched to relocated programs at
-  `0x8400 + unit×0x100`).
+- **The DSP runs 44,100 effect frames per second**, one host handshake per
+  frame, as the owner's unit showed ([below](#the-chip-on-the-owners-instrument-2026-10-20)).
+  Per frame the kernel walks the unit CALL chain (slots at PM `0x8080-0x80A0`,
+  patched to relocated programs at `0x8400 + unit×0x100`). The part is the
+  60 MHz speed grade (KS-240), which leaves about 1,360 cycles a frame; the
+  overlay emulator clocks its SHARC at 66 MHz, and the chip's own clock has
+  not been measured.
 
 ### Fix catalogue for MAME's SHARC core
 
@@ -323,8 +326,9 @@ ten effect programs are loaded and run every frame; the silent ones were simply 
 (the bridge historically filled only unit 0's input slot). A special case: four
 of the seventy-two effect programs, the mic reverbs rec58–61 on unit 7,
 gate on the SHARC **FLAG3** input pin, which the kernel uses as an fs/2
-frame-parity strobe; those need the faithful frame model, not just an input
-feed.
+frame-parity strobe. The owner's unit confirmed it (FLAG3 high on every other
+frame), and since 2026-10-20 the overlay drives FLAG3 that way, so their ring
+scrolls at half rate as on the chip.
 
 **Divergence sweep (July 2026): every effect type validated.** The reverb-rail
 bug was root-caused to the recompiler missing the SHARC's fixed-point saturation
@@ -372,3 +376,55 @@ constant that has **not yet been calibrated against a real KN7000** — so the e
 dry-vs-wet balance is still provisional and awaits an A/B against the instrument.
 (This is the classic remaining gap once an algorithm is faithful: it does the
 right thing, at a level that still needs a reference ear.)
+
+## The chip on the owner's instrument (2026-10-20)
+
+Three probe builds of the [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/#the-probe-builds-passes-5-to-9)
+read the running DSP on the owner's KN7000 (program 893), passes 6 to 8. They drive no port
+themselves: they find the firmware's own host-port routines by code signature and call them, so
+every access keeps the firmware's lock, its handshake wait and its "DSP dead" guard. The dead flag
+stayed 0 through all three. The files hold the DSP program the firmware loads, so they are kept
+privately; what they showed:
+
+| question                  | what the chip said                                                                                                                                              |
+|---------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| set-up (pass 6)           | as emulated: SYSCON `0x410` (16-bit host bus, low half first), the eight SPORT DMA chain pointers, DMAC0 `0xA0`, WAIT, SDRDIV, the SPORT control bits           |
+| downloaded code (pass 7)  | identical to the emulator's, word for word: kernel, helpers, boot-init, the ten CALL slots and the nine effect programs (3,584 PM and 3,456 DM words read back) |
+| frame rate (pass 8)       | **44.1 kHz, one handshake per frame**: the handshakes lie on a lattice of 22.68231 µs, 44,087 Hz by the firmware's tick                                         |
+| FLAG3 (pass 8)            | high on **alternate frames**: the ring-3 pointer steps on 0.5000 of the frames                                                                                  |
+| MSGR2 (passes 6 and 8)    | holds I3, the **ring-3 pointer**, and moves: the mic-reverb effects 58-61 save I3 there and read it back                                                        |
+| state the chip keeps      | DMASTAT `0x33F` (all eight SPORT DMA channels running), SYSTAT `0x13`, IOSTAT `0x80000000`, STCTLx status bits, IOCTL bits 31 and 15 reading 0, MSGR3 `0`       |
+| SPORT rings at every read | receive rings at their base + 3 (count 5), transmit rings at base + 5 (count 3): every firmware access lands at the same point of the frame                     |
+| timers                    | unused (TPERIOD0/1 are 0)                                                                                                                                       |
+
+**How the rate was measured.** Each of the firmware's data-port accesses first writes 1 to G17ICR
+and waits for the DSP to raise interrupt group `0x17` again; if a wait runs out after `0x3FFFF` polls,
+the firmware sets its dead flag and leaves the DSP alone until the next power-up. Pass 6 saw the
+accesses come 24.15 µs apart but timed them only with the millisecond counter, which left two
+readings open. Pass 8 stamped them with the main CPU's timer 4, which the firmware programs as its
+1 kHz tick (`TM4BR` `0x7D0`, counting at 2 MHz). The stamps fit one kind of event every 22.68231 µs.
+96.8 % of the firmware's accesses take one frame each. The 44,087 Hz figure takes the tick as
+exactly 1 ms; the DSP and the CPU run from separate crystals.
+
+**Pass 7 read the DSP's memory back** over the same port: external-port DMA channel 8 in transmit
+direction (DMAC0 `0xA5` for program memory, `0x45` for data memory), one word through EPB0 at a
+time. It restored the channel's four registers afterwards. Every word the firmware downloads
+matched the emulator. Words the firmware never writes hold power-on SRAM contents on the chip
+and 0 in MAME. Unit 0's slot read `06BE04008400`, "CALL (0x8400) (DB)".
+
+### What the emulator took from it
+
+All of it is in the project's overlay (kn7000_mame, `OVERLAY-GAPS.md` items G4 and G20), for the
+KN7000 only:
+
+- **MSGR read-back.** Pass 7 found one emulator bug. The kernel's own reads of IOP registers
+  returned 0, so the mic reverbs restored I3 as 0. The kernel's ring-3 scrub then zeroed DM
+  `0xC329`, a SPORT transfer control block, which survives on the chip. The kernel's reads of
+  MSGR0-7 now return what was written, and the TCB survives.
+- **Timer 4 and the handshake.** The 1 kHz tick is TM4 as the firmware programs it (1.0005 ms), no
+  longer a fixed driver timer. The group-0x17 handshake is answered once per DSP frame after the
+  boot, not at once. FLAG3 is high on every other frame. Pass 8 run in MAME now gives the unit's
+  verdict, at 44,100.0 Hz.
+- **SPORT DMA registers read live**: DMASTAT, every ring's index and count, and the transmit status
+  read as on the unit, at the unit's phase. Not modelled: STCTL0's sticky start-up underflow bit, and
+  the transfers themselves (the bridge still exchanges fixed ring slots).
