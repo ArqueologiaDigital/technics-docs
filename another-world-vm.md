@@ -20,6 +20,29 @@ A port of Delphine Software's **Another World** (1991) running natively on the T
 | Build Targets | Standalone maincpu ROM (2 MB). An HDAE5000 extension build (512 KB) compiles, but the game's 974 KB of resources do not fit, so at most the intro can run that way |
 | Game Data     | Original MS-DOS release resources (MEMLIST.BIN + BANK01-BANK0D: bytecode, polygons, palettes, bitmaps)                                                             |
 
+## The KN7000 port, on the real instrument
+
+The same VM also runs on the Technics **KN7000**, rewritten for its Panasonic MN10300 CPU. One
+build is a program for the project's SD loader: the stock firmware starts it from the SD card
+through STYLE CONVERT and one loader floppy. That build **runs on the owner's KN7000**:
+
+- **Speed.** The first run on the unit, on 2026-10-20, managed 1.5 frames per second, because the
+  LCD frame is slow to write. A blit that writes only the pixels that changed brought it to 19-21
+  frames per second over a whole run, 25-30 at best.
+- **Sound.** Sound effects and music play through the KN7000's own tone generator. The game writes
+  MIDI into the firmware's MIDI IN 1 receive ring, on channels 4-7, 10 and 11-14, with GM program
+  changes, and its music player produces the intro's sync marks (variable `0xF4`). The owner
+  confirmed that it plays on the instrument.
+- **Memory.** It loads each part's files from the card when the part starts and keeps everything in
+  the RAM the firmware leaves to a converter. It never touches the battery-backed panel memories.
+
+The details, with the memory map, the controls and the unit's own speed figures, are on
+[Your Own Code on a Stock KN7000]({{ site.baseurl }}/kn7000-cnv-homebrew/#another-world-on-the-instrument).
+A second KN7000 build, a ride-along in the SP7001 SD plug-in, is silent and runs in MAME only
+([SP7001 homebrew]({{ site.baseurl }}/kn7000-sp7001-homebrew/#a-larger-example-another-world)).
+
+The rest of this page is about the KN5000 port.
+
 ## Architecture
 
 The game uses a bytecode virtual machine originally designed for the Amiga (Motorola 68000). The VM interprets **big-endian bytecode on a little-endian CPU**, requiring byte-swap operations (`EX W, A`) on every 16-bit fetch.
@@ -140,19 +163,19 @@ Requirements:
 
 ## Implementation Status
 
-| Feature | Status |
-|---------|--------|
-| All VM opcodes (0x00-0x1A) | Implemented |
-| Polygon rendering | Working |
-| Bitmap decompression | Working (ByteKiller) |
-| Palette management | Working (4-bit DAC) |
-| Frame timing | Working (hardware timer, 12,500 Hz cascade) |
-| Part switching | Working (all protection checks bypassed) |
-| Input (directions + action) | Working (SC1 serial to cpanel HLE) |
-| MAME control panel | **Fully working** — both left and right panels |
-| Copy protection bypass | Working (var[0xBC], var[0xDC], var[0xF2]) |
-| Sound effects | Stub (consumes bytecode, no output) |
-| Music | Stub (consumes bytecode, no output) |
+| Feature                     | Status                                                                                                             |
+|-----------------------------|--------------------------------------------------------------------------------------------------------------------|
+| All VM opcodes (0x00-0x1A)  | Implemented                                                                                                        |
+| Polygon rendering           | Working                                                                                                            |
+| Bitmap decompression        | Working (ByteKiller)                                                                                               |
+| Palette management          | Working (4-bit DAC)                                                                                                |
+| Frame timing                | Working (hardware timer, 12,500 Hz cascade)                                                                        |
+| Part switching              | Working (all protection checks bypassed)                                                                           |
+| Input (directions + action) | Working (SC1 serial to cpanel HLE)                                                                                 |
+| MAME control panel          | **Fully working** — both left and right panels                                                                     |
+| Copy protection bypass      | Working (var[0xBC], var[0xDC], var[0xF2])                                                                          |
+| Sound effects               | Stub (consumes bytecode, no output); the KN7000 port plays them ([above](#the-kn7000-port-on-the-real-instrument)) |
+| Music                       | Stub (consumes bytecode, no output); the KN7000 port plays it                                                      |
 
 The MAME KN5000 driver's control panel HLE (High Level Emulation) was developed alongside this VM. All serial communication bugs discovered during VM development were fixed while maintaining compatibility with the original KN5000 firmware. See the [Serial Firmware Compatibility]({{ site.baseurl }}/serial-firmware-compatibility/) report for details.
 
