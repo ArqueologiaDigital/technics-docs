@@ -100,6 +100,13 @@ under the `custom_data` block.
 *(The SX-KN2400 and SX-KN2600 service manuals are EMID0304001C0 and EMID0304002C0,
 both dated 2003; the driver's list does not give them yet.)*
 
+*(Two statements in this header are out of date for the KN7000. Its wave, rhythm and picture
+ROMs were read on the owner's instrument in October 2026
+([ROM Dumper]({{ site.baseurl }}/kn7000-rom-dumper/)). Its core clock is not inferred any more:
+the unit measured 64 MHz, the 16 MHz X1 multiplied by 4
+([CPU clock]({{ site.baseurl }}/kn7000/#cpu-clock-64-mhz-with-caches-measured)). The KN6000,
+KN6500 and KN2400 clocks are still unmeasured.)*
+
 
 **`constexpr offs_t IRQ_VECTOR_BASE = 0x50000000;`**
 

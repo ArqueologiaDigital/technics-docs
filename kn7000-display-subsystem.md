@@ -201,6 +201,27 @@ registers: the interrupt controller's `GxICR` at `0x34000108`–`0x3400017F`,
 are the uncached views of work RAM (`0x50000000`) and of the self-loaded library
 (`0x4C000000`).
 
+### What the LCD costs the CPU
+
+The frame at `0x9CE00000` is reached uncached, over a 16-bit bus, and it is slow. Pass 9 of the
+[ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/#the-probe-builds-passes-5-to-9) timed it on the
+owner's instrument (program 893, the CPU at 64 MHz; [CPU clock]({{ site.baseurl }}/kn7000/#cpu-clock-64-mhz-with-caches-measured)):
+
+| access, clean runs | ns    | CPU cycles |
+|--------------------|-------|------------|
+| 16-bit store       | 439.3 | 28.1       |
+| 32-bit store       | 888.5 | 56.9       |
+| 16-bit load        | 693.6 | 44.4       |
+
+A load or store that hits the data cache in work RAM takes one cycle. The clean figures are a
+floor. Some of pass 9's LCD tests had median runs 2 to 2.4 times their clean ones, and Another
+World's own benchmark on the same unit measured 1.3-1.8 µs per 16-bit store while the display was
+running, three to four times the clean 439 ns. Nobody has yet shown why. One explanation that
+fits is that the LCD controller holds the CPU off while it fetches the display. So a program that
+draws should write only the pixels that change. Another World went from 1.5 to about 20 frames
+per second on the unit that way
+([Your Own Code on a Stock KN7000]({{ site.baseurl }}/kn7000-cnv-homebrew/#another-world-on-the-instrument)).
+
 ## Relationship to the KN5000
 
 The bitmap storage design, the transparent index `0xF7`, the CLUT approach and
