@@ -428,3 +428,54 @@ KN7000 only:
 - **SPORT DMA registers read live**: DMASTAT, every ring's index and count, and the transmit status
   read as on the unit, at the unit's phase. Not modelled: STCTL0's sticky start-up underflow bit, and
   the transfers themselves (the bridge still exchanges fixed ring slots).
+
+## Our own program on the DSP: DSPTONE (iteration 1, MAME only)
+
+> **Status (2026-10-21): verified in MAME only. It has not run on the instrument yet.**
+
+The tone generators play only what is in their wave ROMs, so sound of our own has to come from the
+effects DSP. DSPTONE is the first step: a program-menu application
+([Your Own Code on a Stock KN7000]({{ site.baseurl }}/kn7000-cnv-homebrew/)) that puts a SHARC
+program of our own into the running DSP. It plays a 440 Hz tone, or a one-second PCM sweep that the
+main CPU copied into the DSP's SDRAM, and then puts the firmware's effect back.
+
+- **Where it hooks in.** It keeps the firmware's kernel and changes one word: effect unit 0's CALL
+  slot at PM `0x8080`, the panel REVERB (`CALL (0x8400) (DB)` on the owner's unit). It points the
+  slot at our program at PM `0x8200`, which the firmware never writes. So the kernel's frame loop,
+  and with it the handshake the firmware polls, runs exactly as before.
+- **What the program does** (91 instructions, one effect unit with the kernel's unit ABI): every
+  frame it reads unit 0's input pair, adds a sample to it (the sine from a table at DM `0x9D00`, or
+  the next PCM sample from SDRAM `0x70000`) and writes unit 0's return. It also counts the frames
+  in MSGR7. MSGR4-6 carry the main CPU's commands: the copy request, its target and the mode. So
+  the tone is heard where the reverb is heard, through the tone generator's REVERB return, and only
+  while REVERB is on.
+- **How it gets there.** Through the firmware's own upload routines and the host port
+  (`0x98000000` index, `0x9C000000` data): IIEP0, IMEP0 and CEP0, then DMAC0 `0xA1` (program memory)
+  or `0x41` (data memory), the words through EPB0, then DMAC0 `0xA0`. Every upload is read back and
+  compared. It checks the DSP first: dead flag 0, kernel loaded, SYSCON as the firmware leaves it,
+  channel 8 idle.
+- **The firmware's dead flag is the safety net.** If our unit stalled the DSP, the firmware's next
+  handshake wait would run out and the firmware would set its dead flag: no effects, and possibly
+  quiet main sound with REVERB on, until a power cycle. DSPTONE writes nothing that outlives a power
+  cycle, since the firmware resets and reloads the DSP at every power-up.
+- **The program builds' kernels differ.** Builds 893 (the owner's) and 935 set the modify
+  registers M0 = +1, M1 = +2, M2 = +3, and their effects step the output cursor with `DM(I4, M0)`.
+  Builds 941 and 942, whose listings the project disassembled first, set M2 = +1 and use
+  `DM(I4, M2)`. A first build written to the 941 listing wrote its output three words apart on 893
+  in MAME. The program now addresses memory with immediate offsets and `MODIFY`, never through
+  M0-M7.
+
+**Checked in MAME** (the overlay, program 893, the released loader floppy, the program menu, a copy
+of the owner's card), one end-to-end run, 10 of 10 checks. The slot was hooked and restored, read
+back each time. MSGR7 rose 44,100 a second. The recording peaked at 440.0 Hz. All 44,100 sweep
+samples read back equal from SDRAM. The reverb's own state stopped while hooked and resumed after.
+A C4 played after the restore matched one played before (+0.00 dB). What MAME cannot tell: how loud
+the tone is on the instrument (MAME's wet level is uncalibrated, [above](#emulation-status-which-effects-are-audible-2026-07)),
+whether the chip runs the hand-encoded instructions as MAME's SHARC core does, and how the real
+handshake behaves with our unit in the chain. The first run on the unit answers those. The
+heartbeat line also gives the DSP's frame rate a second time.
+
+The next iteration would play Another World's own samples through the DSP. It would need a sample
+bank in SDRAM, a four-voice mixer on the DSP, a command ring in internal memory, and a return that
+does not depend on the REVERB button. Source: [`technics-roms-disasm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000)
+`kn7000/tools/dsptone/` and `kn7000/dsp/kernel-architecture.md`.
