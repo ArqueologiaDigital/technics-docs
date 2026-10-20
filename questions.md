@@ -190,6 +190,53 @@ See [Parameter Records]({{ site.baseurl }}/wsa1-parameters/).
 - [ ] Four maths helpers beside the `Double_*` routines are unnamed (`sub_FC8EE5`,
   `sub_FC9FA3`, `sub_FC9ACB` with no caller, `sub_FC9BBC`).
 
+## KN7000 hardware and sound
+
+Measured on the owner's instrument (program 893) by the ROM dumper's probe passes on 2026-10-20,
+unless a line says otherwise ([ROM Dumper]({{ site.baseurl }}/kn7000-rom-dumper/#the-probe-builds-passes-5-to-9)).
+
+- [x] **What is the main CPU's clock?** *Answered 2026-10-20:* **64 MHz**, the 16 MHz X1 ×4, with
+  IOCLK at 16 MHz; both caches are on (CHCTR `0x8F`). The earlier 32 MHz assumed a ×2 multiplier.
+  ([CPU clock]({{ site.baseurl }}/kn7000/#cpu-clock-64-mhz-with-caches-measured))
+- [x] **What does the board strap at `0x98070000` read?** *Answered 2026-10-20:* `0xF8F7`: board
+  class 1, hardware subtype 2, both tone generators present.
+  ([Sound Subsystem]({{ site.baseurl }}/kn7000-sound-subsystem/#emulation-status))
+- [x] **At what rate does the effects DSP run its frames, and how often may the host talk to it?**
+  *Answered 2026-10-20:* 44.1 kHz (a 22.68 µs lattice), with exactly one host handshake per frame.
+  FLAG3 is high on alternate frames, and MSGR2 holds the ring-3 pointer.
+  ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#the-chip-on-the-owners-instrument-2026-10-20))
+- [x] **Is the DSP code the emulator downloads the code on the chip?** *Answered 2026-10-20:* yes,
+  word for word, for everything the firmware downloads.
+- [x] **Can the KN7000 play samples of your own?** *Answered 2026-10-21:* no. It has no
+  user-sample facility. The tone generators read only their own wave mask ROMs (IC203/IC204,
+  IC207/IC208) and an expansion board on the same wave bus, and they cannot read CPU RAM. The
+  only sound expansion is the optional Wave Expansion Board (SY-EW01-04).
+  ([Sound Subsystem]({{ site.baseurl }}/kn7000-sound-subsystem/#can-it-play-samples-of-your-own))
+- [x] **Are `.MSP` files audio?** *Answered 2026-10-21:* no. They are the Performance Pads' (MSP
+  1-6) phrase banks, which hold sequencer data.
+- [x] **Does SD-Audio go through the tone generators or the DSP?** No. Its decoder (IC402) is
+  mixed into the analog output on a separate path.
+- [ ] **Why is the LCD slower while the display runs?** A 16-bit store to the frame takes 439 ns
+  in pass 9's clean runs. Some of pass 9's runs took 2 to 2.4 times that, and Another World's
+  benchmark saw 1.3-1.8 µs while the game ran. The LCD controller holding the CPU off during
+  display fetches would explain it; nothing has shown it.
+  ([Display Subsystem]({{ site.baseurl }}/kn7000-display-subsystem/#what-the-lcd-costs-the-cpu))
+- [ ] **Which chip select serves which window, and what do the MEMCTR fields mean?** The
+  costs are measured per window. Only CS0-CS3 follow MEMCTR bits 12:8, and 941 raises MEMCTR3's
+  waits around the DSP data port at `0x9C000000`, which the 64 MB map puts on CS7.
+- [ ] **What is the DSP's clock?** The part is the 60 MHz grade, and the overlay runs its SHARC at
+  66 MHz to finish every frame. The chip's clock has not been measured. DSPTONE's
+  frames-per-second line on the unit would not settle it either: it counts frames, not cycles.
+- [ ] **Which TG is on which chip select?** The firmware's WAVE ROM test reads the pair it labels
+  IC203/IC204 through the port at `0x98050000`, and the schematic gives that pair to the master TG,
+  IC201. The [Sound Subsystem]({{ site.baseurl }}/kn7000-sound-subsystem/#tone-generators-ic201-ic205)
+  table puts IC201 at `0x98040000`. The decoder's outputs on the schematic would settle it.
+- [ ] **The 8-bit wave samples' gain law** is fitted (2^(−b/2) per segment code), not derived. A
+  line-out recording of a sound built from 8-bit samples, such as STRINGS, would settle it.
+- [ ] **Does our own DSP program run on the chip as it does in MAME?** DSPTONE has run only in
+  MAME ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#our-own-program-on-the-dsp-dsptone-iteration-1-mame-only)).
+  The unit's run gives the tone's level against a note and checks the hand-encoded SHARC words.
+
 ## KN7000 SP7001 PLUG-iN
 
 - [x] **What firmware services does `BASEEXT.XAP` call?** *Answered 2026-10-16:* the firmware only, through the MILK framework object. Its `+0x1C` method table is a static vtable at `0x487280D0`, so 639 of the plug-in's 1,340 indirect calls are named firmware methods — `SendEvent` (285), `PostEvent` (89), `SetVisible` (65), `GetViewInstance` (35), … The other 701 go through MILK objects it creates (their vtables not yet pinned). ([SP7001 Firmware]({{ site.baseurl }}/kn7000-sp7001-firmware/#answered-and-still-open))
