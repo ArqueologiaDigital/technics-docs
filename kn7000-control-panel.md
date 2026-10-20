@@ -187,9 +187,9 @@ event into an internal note (in parallel with the MIDI-in path). The MAME driver
 models this FIFO. All **61 keys (C2..C7)** are declared, each carrying
 `PORT_GM_NOTE` musical-note markup, so a USB-MIDI controller routed through MAME's
 midi input provider plays the whole bed; the middle two octaves (C4..C6) additionally
-keep PC tracker-style key bindings. Mainline MAME makes no sound yet (the tone
-generators' registers are decoded, but the wave ROMs are undumped and the
-ADSP-21065L effects DSP is not emulated), but the note reaches the firmware.
+keep PC tracker-style key bindings. Mainline MAME makes no sound yet (it decodes the
+tone generators' registers without producing output, and it does not emulate the
+ADSP-21065L effects DSP), but the note reaches the firmware.
 
 ## The data dial
 

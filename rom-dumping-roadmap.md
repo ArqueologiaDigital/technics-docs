@@ -179,6 +179,11 @@ the CPU bus. On the **KN7000 the wave ROMs also qualify** (see Method B′); on 
 
 ### Method B′ — read the KN7000 wave ROMs through the tone-generator port *(no desoldering, no harness)*
 
+> **Done on 2026-10-19**, with no firmware change: the [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/)
+> reads the port from a style converter on the stock firmware. It read all four wave ROMs on the
+> owner's instrument twice, byte-identical, each byte sum the one the firmware's WAVE ROM test
+> expects. The proposal below is kept as it was written.
+
 The KN7000's wave ROMs are reachable from the CPU: the tone generators expose a
 **wave-memory read port**, and the service-mode §8.9 WAVE ROM test already sweeps the full 16 MiB of
 each part through it. The read loop (checksum core `0x484839A1`) is simply:
