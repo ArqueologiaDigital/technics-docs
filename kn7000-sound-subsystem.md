@@ -100,13 +100,28 @@ fetch a pair of samples per cycle for interpolation.
 | IC207 | sub (IC205) | BWAY | C3CBQD000004 |
 | IC208 | sub (IC205) | BWAX | C3CBQD000003 |
 
-These four ROMs are **not** contained in the firmware-update disks, so they are
-currently **undumped** — the largest gap for faithful sound. The rhythm data
-(IC18, or IC20 on earlier units) was read in October 2026, at CPU `0x40000000`; see the
-[ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/) and the
-[ROM Dumping Roadmap]({{ site.baseurl }}/rom-dumping-roadmap/).
-Wave-ROM expansion boards (SY-EW01…04) plug into connectors on the same TG
-buses.
+These four ROMs are not on the firmware-update disks. They were **read on the
+owner's instrument on 2026-10-19**, through the readback window, by the WAVE build of
+the [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/): two reads, byte-identical,
+and each chip's byte sum exactly the one the firmware's own WAVE ROM test expects.
+The rhythm data (IC18, or IC20 on earlier units) was read the same month, at CPU
+`0x40000000`. The firmware's WAVE ROM test labels the pair it reads through the port at
+`0x98050000` IC203/IC204, and the decoded voices agree that each TG plays the pair
+behind its own port. That puts the pair the schematic gives the master TG on the port
+the table above gives the sub TG. Which chip select reaches which TG has not been
+checked on the schematic yet.
+
+**The format** (decoded from the dumps, 2026-10-20). Each TG's two ROMs are the even and
+odd 16-bit samples of one stream, low byte first. The stream is 16 pages of 1 Mi words,
+and every page starts with its own directory. A directory entry gives a sample's start,
+its format (16-bit, or 8-bit with a per-segment gain code), its loop and its pitch
+exponent. The firmware never sends an address, a loop or a length. It writes a 20-bit
+**select** to register plane `0x1C`: bits 19:12 name the ROM page, bits 11:0 the
+directory entry. Pages `0x20` and up are the expansion board's. The tone generator reads
+the rest from the ROM.
+
+Wave expansion boards (SY-EW01…04) plug into connectors on the same TG buses
+([Expansion Bus & Wave-ROM Dump]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/)).
 
 ## Effects DSP (IC306)
 
@@ -156,7 +171,7 @@ map:
 | `0x98040006/8/A` / `0x98050006/8/A` | wave-ROM readback windows                                                                                |
 | `0x9805000E`                        | not a sound register: the SD card's SPI clock-rate latch, next to the SPI shift register at `0x9805000C` |
 | `0x98060000`                        | bit-banged serial config to the DAC/codec                                                                |
-| `0x98070000`                        | read-only sound-board status / strap word                                                                |
+| `0x98070000`                        | read-only board strap word: `0xF8F7` on the owner's unit                                                 |
 | `0x98000000` + `0x9C000000`         | effects-DSP host port (index + data)                                                                     |
 
 The firmware's sound engine allocates voices, writes them to the tone
@@ -234,6 +249,15 @@ though the key press reached the firmware. The emulator now reports both tone
 generators present (the KN7000 has both), so the gate opens and the voice engine
 drives the hardware from the moment the home screen appears.
 
+The same word carries a **hardware subtype** in bits 11:10, which decides where the
+firmware sends each voice. The overlay's strap used to read subtype 5. Under subtype 5 the
+firmware remaps every wave page onto the expansion range and assigns voices to the tone
+generators from a table, so not one of 488 traced selects named an internal sample. The
+owner's unit reads `0xF8F7` (pass 9 of the
+[ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/#the-probe-builds-passes-5-to-9), 2026-10-20):
+board class 1, subtype 2, both tone generators present. Under subtype 2 every voice lands on
+the TG whose pair holds its sample. The overlay now answers that halfword.
+
 With the tone generators driven, the instrument **plays on the home screen**: key
 bed, chord finder, rhythm accompaniment and the built-in demo songs all sound. The
 demo songs and the auto-accompaniment run off a modelled on-chip tempo timer — the
@@ -250,7 +274,9 @@ parts run at the tempo the panel sets.
 > (`technics-kn7000-tonegen`, 2026-09-24, not yet submitted) drops it, because a
 > tone generator cannot read CPU RAM. It decodes pitch from the register alone
 > against one fixed anchor (pitch18 `0x1C838` = MIDI 96). That anchor is still
-> unsettled.
+> unsettled. Since 2026-10-20 the overlay plays the KN7000's voices from the dumped
+> wave ROMs and takes their rate from the register itself, by the law under
+> [Real timbre](#real-timbre-2026-10-20) below.
 
 The obvious reading of the TG pitch register — an absolute pitch value — turned
 out to be wrong, and the correction is worth recording. The 18-bit pitch field
@@ -295,14 +321,25 @@ The full **7-stage** amplitude envelope is only partially modelled. A few sounds
 ring its own multi-stage envelope; the placeholder holds those at their sustain
 level instead — a known limitation, alongside a still-provisional chip rate curve.
 
-One honest caveat remains above all: **placeholder timbre**. The four PCM wave ROMs
-are still undumped, so in the branches prepared for upstream each voice plays a
-stand-in **sine**, stored as a one-cycle sample so it goes through the same
-sample-playback path. The overlay instead plays a labelled synthetic wave pack
-built from KN5000 donor samples. Real timbre awaits the ROMs. The tone
-descriptors in the dumped table ROM already map every voice to its wave sample
-number, so real-sample playback is ready to slot in once the ROMs are dumped (the
-firmware's readback window can extract them from a real unit).
+### Real timbre (2026-10-20)
+
+The overlay's KN7000 now plays every voice from the
+dumped wave ROMs, through the select described [above](#wave-roms-ic203-ic204-ic207-ic208).
+Its rate follows one law:
+
+> rate = 2^((pitch18 − `0x1E200`) / `0x3000` + E − 9) × 2093.0045 / 44100 source samples per output sample
+
+`0x1E200` is note 96 (C7); E is the sample's pitch exponent from its directory entry. The
+firmware already folds each zone's tuning into pitch18, so the tone generator adds only the
+sample's octave. Of 556 traced voices, 478 pass a pitch test against the note the firmware meant. The
+rest are voices whose note is not the key: the drawbar and tab-organ footages, the sax's breath layer.
+Played notes come out within a few cents (piano C4 +4.5 cents). Program 893, the owner's
+build, plays the same. Still open: the gain law of the 8-bit samples (fitted, not derived), the split lists, and
+the post-loop data that many samples carry. The KN6000, KN6500 and KN2400 have no dumped wave
+ROMs and keep a labelled synthetic wave pack built from KN5000 donor samples. The branches
+prepared for upstream still play a stand-in **sine** in every voice.
+
+### The effects in the emulator
 
 The **effects DSP** is fully recovered — its programs are in the firmware — and
 the emulator boots its ADSP-21065L kernel (running as low-level SHARC code, with
@@ -311,3 +348,30 @@ Four effect units are driven and audible, each with its own return level — rev
 chorus, the Sound DSP, and the multi-effect — and the reverb's on/off tail works: a
 MODE1 `ALUSAT` saturation fix in the SHARC recompiler stopped the reverb's feedback
 path from railing. See the [Effects DSP page]({{ site.baseurl }}/kn7000-effects-dsp/).
+
+## Can it play samples of your own?
+
+No. The questions that come up, answered (2026-10-21):
+
+- **User samples.** The KN7000 has no sampling or user-sample facility. Each tone generator
+  plays only from its own pair of wave mask ROMs (and from an expansion board on the same
+  wave bus); it has no path to the CPU's RAM. The only sound expansion is the optional
+  **Wave Expansion Board**: the owner's manual has "EW EXPANSION" select its preset sounds
+  "when it has been installed". What the firmware does with one, and how a board sits on both
+  the CPU and the wave bus, is on the
+  [Expansion Bus page]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/).
+- **`.MSP` files are not audio.** They hold the banks of the **Performance Pads** (MSP 1-6):
+  recorded phrases, that is, sequencer data. The firmware's own names for the pad screens are
+  `Msp*` (`MspPadNmOk`, `MspBnkShow`, `MspPadRecShowHideFunc`, `AcMspCompileGridBoxProc`), and
+  the 120 preset pad phrases in the table ROM are
+  [MIDI phrases]({{ site.baseurl }}/kn7000-sound-names/).
+- **SD-Audio is a separate path.** SD-Audio playback (the SD sub-system's decoder IC402) is mixed
+  in the analog domain and never reaches the tone generators or the effects DSP
+  ([above](#a-separate-dsp-bypassing-audio-path)).
+- **So new sounds have to come from the effects DSP**, which runs code the main CPU uploads at
+  every power-up. A first program of our own exists there: it plays a tone or a PCM sweep from
+  the DSP's SDRAM through the REVERB unit. It has been verified in MAME only
+  ([DSPTONE]({{ site.baseurl }}/kn7000-effects-dsp/#our-own-program-on-the-dsp-dsptone-iteration-1-mame-only)).
+  Another World on the instrument plays its sounds a different way, as MIDI notes on the
+  firmware's own tone generator
+  ([Your Own Code on a Stock KN7000]({{ site.baseurl }}/kn7000-cnv-homebrew/#another-world-on-the-instrument)).
