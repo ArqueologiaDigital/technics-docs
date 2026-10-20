@@ -11,9 +11,11 @@ same door Technics' [style converters]({{ site.baseurl }}/kn7000-style-converter
 no SP7001, no opened case and no hardware: one floppy, made once, and an SD card. It writes every
 ROM it can reach to the card, under the file names MAME's `kn7000` driver uses.
 
-> **Status (2026-10-19): works in MAME.** Every file it writes matches: the program and table
-> flash match MAME's hashes, and the undumped ROMs match the test data MAME was given. It has not
-> run on a real KN7000 yet; see [the limits](#limits).
+> **Status (2026-10-21): it has run on the owner's KN7000 in nine passes.** Passes 1 to 4
+> (2026-10-19) read the program and table flash, IC21, the picture ROM, the four wave ROMs and the
+> rhythm ROM. Passes 5 to 9 (2026-10-20) read IC23 and the remaining windows, then probed the
+> effects DSP and timed the CPU ([below](#the-probe-builds-passes-5-to-9)). In MAME every file it
+> writes matches.
 
 ## Two parts: a loader on the floppy, the application on the card
 
@@ -119,9 +121,44 @@ rhythm ROM, whose CPU address nobody knows.
 - **IC18, rhythm data** (`c3cbnd000046.ic18`): found and read by the SURVEY build (above), at
   `0x40000000`.
 - **IC23, the 256 KB battery-backed SRAM** at `0x44000000`: the user's panel memories and
-  settings. It is user data, not a ROM, and has no MAME file, but it could be added.
+  settings. It is user data, not a ROM, and has no MAME file. The SURVEY2 build reads it (below);
+  the owner's copy stays private.
 - **Not readable from the main CPU:** the SD sub-CPU's flash (IC414), the panel controllers' mask
   ROMs, and the effects DSP, which has no ROM.
+
+## The probe builds: passes 5 to 9
+
+Five more builds of the same application went to the owner's instrument on 2026-10-20. Each one
+writes plain 8.3 files to the card's root and reads no I/O window beyond what it names. Since the
+[program menu]({{ site.baseurl }}/kn7000-cnv-homebrew/) came along, each sits in a folder of its own
+on one card (`SURVEY2\`, `DSPPROBE\`, `DSPMEM\`, `DSPRATE\`, `CPUTIME\`). The files they read
+back hold the owner's settings or the DSP program the firmware loads, so they are kept privately.
+What they found is public:
+
+| pass | build (folder)                   | what it reads                                                                                                          | what it found                                                                                                                                                                                     |
+|------|----------------------------------|------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 5    | SURVEY2 (`SURVEY2\`)             | 14 memory windows: pass 4's again, IC23, the work RAM the firmware never clears, the library RAM, four expansion slots | **IC23 repeats every 256 KB** through its window, header checksum valid; `0x56800000` is IC21 again; the library RAM is program flash from `0x487B76B1`; empty expansion slots read 99.9 % `0xFF` |
+| 6    | DSP probe, phase 1 (`DSPPROBE\`) | the effects DSP's IOP registers, twice, and a time series, through the firmware's own host-port routines               | the DSP is set up as emulated; the chip keeps status the emulator lacked; the firmware's accesses come every 24.15 µs                                                                             |
+| 7    | DSP probe, phase 2 (`DSPMEM\`)   | the DSP's program and data memory, back through external-port DMA                                                      | the downloaded code is identical to the emulator's, word for word; one emulator bug found (MSGR read-back)                                                                                        |
+| 8    | DSP frame rate (`DSPRATE\`)      | the firmware's DSP accesses and the ring-3 pointer, stamped with the CPU's timer 4                                     | **44.1 kHz, one host handshake per frame**; FLAG3 high on alternate frames                                                                                                                        |
+| 9    | CPU timing (`CPUTIME\`)          | 119 timed tests: instruction classes, loads and stores per memory region, cached and uncached; the bus registers       | **the CPU runs at 64 MHz** with both caches on; an LCD store costs about 28 cycles; the strap at `0x98070000` reads `0xF8F7`                                                                      |
+
+- **They drive no DSP port themselves.** The DSP builds find the firmware's own host-port
+  routines by code signature and call them. That keeps the firmware's lock, its handshake wait
+  and its "DSP dead" guard: if a wait ran out, the firmware would mark the DSP dead and leave it
+  alone until the next power-up. The probes check that flag before every read; it stayed 0
+  throughout.
+- **Phase 2 writes four DSP registers** (the external-port DMA channel's), and puts them back as it
+  found them. Nothing else in the DSP is written, and a power cycle reloads the DSP anyway.
+- **Pass 9 writes only** its own scratch in the converter's RAM and LCD pixels with the value
+  already there.
+- **Every build ran in MAME first**, from the same floppy image and card, with write taps checking
+  each rule.
+
+The results are written up where they belong: the
+[CPU clock and memory costs]({{ site.baseurl }}/kn7000/#cpu-clock-64-mhz-with-caches-measured), the
+[LCD's cost]({{ site.baseurl }}/kn7000-display-subsystem/#what-the-lcd-costs-the-cpu), and
+[the effects DSP on the unit]({{ site.baseurl }}/kn7000-effects-dsp/#the-chip-on-the-owners-instrument-2026-10-20).
 
 ## How it stays safe
 
@@ -198,7 +235,7 @@ something looks unfamiliar; it writes down what it finds.
 The test runs upstream MAME's `kn7000` with the loader floppy and a copy of the real KN7000's SD
 card, with `KN7APP.BIN` added.
 
-The wave ROMs are undumped, so MAME was given test data: its four wave ROM regions were filled with
+The wave ROMs were not dumped yet, so MAME was given test data: its four wave ROM regions were filled with
 seeded pseudo-random data. The picture flash window, which the driver does not map, answered with
 the same kind of data.
 
