@@ -111,6 +111,19 @@ If you have a working KN7000:
   DSP sound is against a note (by ear they are close; the CHORUS unit's return is always mixed, as
   the owner heard it with REVERB and CHORUS both off)
   ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#what-the-two-programs-showed-about-the-dsp)).
+- Record from the line out what the overlay's plan for the effects DSP asks of the instrument ([MAME
+  Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/#the-effects-dsp-plan-2026-10-21)). Two need
+  no code on the unit, only a MIDI file (the project supplies it) played into it: **a C4, held 2 s and
+  released, with REVERB off, on at the default depth, on at depth 0 and on at 127** (about a minute in
+  all), which shows whether the dry sound stays with REVERB on and how the depth scales the reverb;
+  and **a staccato C4 with Concert1 and a held C4 with Chorus1**, to compare the effects' own sound
+  with MAME's. Later, one program-menu folder with five modes would map which DSP returns reach the
+  output (four 15 s recordings) and read the DSP's clock, memory map and arithmetic (one run). Note
+  the MAIN VOLUME position; 44.1 or 48 kHz, 16 or 24 bit.
+- Play Another World's third round on the unit (it has run only in MAME): how long the sounds take
+  to load (the help screen's "SENT IN n S"), whether PART SELECT RIGHT 1 silences the notes your
+  keys play and brings them back (MAME cannot let it be heard), and whether A♭5 and B♭5 both work as
+  UP ([Another World on the instrument]({{ site.baseurl }}/kn7000-cnv-homebrew/#another-world-on-the-instrument)).
 
 ### ~~Read six pins on the SX-WSA1R's effects board~~ — ✅ **ANSWERED 2026-09-15**
 

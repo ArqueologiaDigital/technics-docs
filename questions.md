@@ -224,9 +224,18 @@ unless a line says otherwise ([ROM Dumper]({{ site.baseurl }}/kn7000-rom-dumper/
 - [ ] **Which chip select serves which window, and what do the MEMCTR fields mean?** The
   costs are measured per window. Only CS0-CS3 follow MEMCTR bits 12:8, and 941 raises MEMCTR3's
   waits around the DSP data port at `0x9C000000`, which the 64 MB map puts on CS7.
-- [ ] **What is the DSP's clock?** The part is the 60 MHz grade, and the overlay runs its SHARC at
-  66 MHz to finish every frame. The chip's clock has not been measured. DSPTONE's heartbeat on
-  the unit (44,087 frames a second) does not settle it: it counts frames, not cycles.
+- [ ] **What is the DSP's clock?** The part is the 60 MHz grade, and the SDRAM refresh divisor the
+  kernel writes (930) is the ADSP-21065L manual's worked example for a 30 MHz CLKIN, doubled to 60.
+  The overlay has run its SHARC at 60 MHz since 2026-10-21 (66 before). The chip's clock has not been
+  measured. DSPTONE's heartbeat on the unit (44,087 frames a second) does not settle it: it counts
+  frames, not cycles. A DSP program that reads the chip's timer every frame would (the overlay's DSP
+  plan, experiment E3).
+- [ ] **Does the instrument keep the dry sound with REVERB on?** The firmware's reverb programs
+  write only the wet signal, and the overlay plays unit 0's return alone while REVERB is on, so MAME's
+  output then has no dry sound and is 6-7 dB quieter than with REVERB off. Reading the firmware says
+  the tone generator keeps its dry path; no recording from the unit has shown it. A C4 recorded from
+  the line out with REVERB off, then on, would settle it
+  ([MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/#kn7000-the-overlay-emulator)).
 - [ ] **Which TG is on which chip select?** The firmware's WAVE ROM test reads the pair it labels
   IC203/IC204 through the port at `0x98050000`, and the schematic gives that pair to the master TG,
   IC201. The [Sound Subsystem]({{ site.baseurl }}/kn7000-sound-subsystem/#tone-generators-ic201-ic205)
