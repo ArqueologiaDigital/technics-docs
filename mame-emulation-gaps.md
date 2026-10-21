@@ -276,7 +276,7 @@ Two of these are exact and mechanical, which is unusual and worth exploiting:
 ## KN7000: the overlay emulator
 
 The project's own build of the KN7000 is the kn7000_mame overlay. Its published binary is
-`kn7000-emulator/kn7000`, md5 `3077b137…`, from kn7000_mame `f01af6b` (2026-10-20). The overlay
+`kn7000-emulator/kn7000`, md5 `7336efbe…`, from kn7000_mame `4f7b9c7` (2026-10-21). The overlay
 keeps a living list of what it still lacks, `OVERLAY-GAPS.md` in that repository, and the items
 below come from it. Mainline MAME's `kn7000` has none of the sound work: it is
 `MACHINE_NO_SOUND`, without a tone-generator voice engine or an effects DSP.
@@ -298,19 +298,59 @@ The timing work shows. Another World's speed build plays its intro at 17 frames 
 overlay, with its speed display on, where it used to run at 38. The KN7000 audio oracle of the overlay's gate moved
 with each change and was re-baselined each time.
 
+**Closed on 2026-10-21: the effects DSP's clock (G5).** The overlay ran the ADSP-21065L at 66 MHz; it
+now runs it at **60 MHz**. The part is the 60 MHz grade, and the SDRAM refresh divisor the kernel
+writes (SDRDIV 930, with its IOCTL's CAS latency 2 and tRP 2) is the manual's own worked example for a
+30 MHz CLKIN, which the chip doubles. This comes from reading, not from the unit: a timer probe on the DSP (E3,
+[below](#the-effects-dsp-plan-2026-10-21)) would measure the clock. The gate's audio oracle did not
+move, DSPTONE's MAME test passed 10 of 10, and Another World's DSP mode gave the 66 MHz run's event
+log line for line.
+
+**The "noise" in MAME's KN7000 sound is emulation speed, not wrong audio** (kn7000_mame
+`notes/dsp-noise-2026-10-21/README.md`, 2026-10-21). What MAME computes is clean: a `-wavwrite`
+recording has no broadband noise and no clipping, and it is identical, md5 for md5, at any host
+speed. What a listener hears is that stream played at the emulation's speed. Below 100 % it comes out
+stretched, flat (a C4 at 241 Hz for 261.5 at 60 % speed) and with a noise floor between the
+harmonics 13-21 dB higher, with the DSP emulated or bypassed alike; at about 100 % the live sound
+equals the computed stream. The owner listened to the computed recording of Another World's intro in
+the DSP mode and called it perfect. Where the host's time goes on the project's VM, in a window: the
+window's drawing about 56 %, the SHARC about 27 %, everything else 29 % (from separate runs, so they
+do not add exactly). How to get closer to 100 % is [below](#running-it-at-full-speed).
+
 **Still open** (the full list, with sizes and states, is `OVERLAY-GAPS.md`):
 
-- **Effects DSP save state (G3).** After a state load the effects freeze. Trivial to fix.
-- **The rest of the effects DSP branch (G4)** and **its clock (G5)**. The overlay runs the
-  ADSP-21065L at 66 MHz; the part is a 60 MHz grade. The other IOP registers still read 0 to the
-  kernel, and the SPORT transfers still go through fixed ring slots, not the DMA. STCTL0's sticky
-  start-up underflow bit is not modelled. Host uploads go straight into DSP memory; the chip moves
-  them through the EPB0 FIFO and DMA channel 8.
+- **Effects DSP save state (G3).** After a state load the effects freeze; a run on 2026-10-21
+  confirmed it. Trivial to fix (plan step S1).
+- **With REVERB on, MAME drops the dry sound.** The bridge between the DSP and the DAC then plays
+  unit 0's return alone, and the reverb programs write only the wet signal. MAME's output with
+  REVERB on (the boot state) is 6-7 dB quieter than with it off: a held C4 7.2 dB under the same
+  note dry, and every section of a MIDI file 6.0-6.5 dB, with the reverb's pre-delay before the
+  first sound. That the instrument keeps its dry sound rests on reading the firmware, not on a
+  recording; one from the unit would settle it (plan D2, step S4,
+  [Help Wanted]({{ site.baseurl }}/help-wanted/#testing)).
 - **The CHORUS unit's return.** The overlay mixes effect unit 9's return only while CHORUS is on.
   The instrument mixes it whatever CHORUS is: the owner heard Another World's DSP sound with REVERB
   and CHORUS both off (2026-10-21), so the overlay is wrong here
-  ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#what-the-two-programs-showed-about-the-dsp)).
-  The level of every DSP return against the dry sound is uncalibrated.
+  ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#what-the-two-programs-showed-about-the-dsp);
+  plan D1, step S5). The level of every DSP return against the dry sound is uncalibrated.
+- **Notes received over MIDI don't stop.** Notes that reach MIDI IN 1 do not end at their note-off
+  for GM 0 (piano), 48 (strings) and 89 (pad); GM 19 (church organ) falls 9 dB and then holds; All
+  Notes Off and All Sound Off do not end them either; GM 80 (square lead) ends. Found by the
+  listening recordings of 2026-10-21 (kn7000_mame `notes/listen-2026-10-21/README.md`); which release
+  write the firmware sends for a MIDI note-off on these voices has not been traced. Another World's
+  tone-generator mode feeds the same receive ring, so in MAME some of its notes can ring on too. It is
+  an emulator fault: on the instrument the notes are expected to end.
+- **The rest of the effects DSP branch (G4).** The other IOP registers still read 0 to the
+  kernel, and the SPORT transfers still go through fixed ring slots, not the DMA. STCTL0's sticky
+  start-up underflow bit is not modelled. Host uploads go straight into DSP memory; the chip moves
+  them through the EPB0 FIFO and DMA channel 8.
+- **The SHARC interpreter misses frames.** MAME already runs the effects DSP under its recompiler
+  (DRC), which finishes all 44,100 frames a second, as the chip does. The interpreter (`-nodrc`)
+  checks for interrupts only once per time slice, so it takes the frame interrupt late and finishes
+  about 11,800 frames a second; with REVERB on its sound is noise. That is the cause of the 22 % of
+  samples by which the two differ (plan D11, step S15). Never pass `-nodrc` to the KN7000.
+- **No switch to bypass the effects DSP (G19).** It is still planned (step S2) for research, but it
+  is not what removes the noise: bypassed, the sound is just as broken below 100 % speed.
 - **The power-on path (G9).** The CPU really starts in IC18's boot code at `0x40000000`, with the
   flash updater; the overlay starts at the program flash. **Interrupt vectors through IVAR (G8)**,
   **the uncached views at `0x9xxxxxxx` (G7)**, **CS5 mirrors and open-bus reads (G10)**.
@@ -321,6 +361,72 @@ with each change and was re-baselined each time.
   rti, trap, the extension unit, interrupt acceptance) use the manual's counts or guesses.
 - **The SD sub-CPU IC401 (G21)**, the SD card read with no card selected (G14), the custom data
   byte order (G11).
+
+### Running it at full speed
+
+The KN7000 needs **100 % speed** for its sound to come out right. The published binary already runs
+the SHARC under the DRC at 60 MHz; on the project's VM the window's drawing is the biggest cost.
+Measured there on 2026-10-21, 60 emulated seconds each ("throttled" is as you play):
+
+| setting                               | throttled  | unthrottled |
+|---------------------------------------|------------|-------------|
+| `-window` alone                       | 69.8 %     | 69.2 %      |
+| `-autoframeskip`                      | 88.5 %     | 67.8 %      |
+| `-view "Screen Block"`                | 68.6 %     | 76.4 %      |
+| `-autoframeskip -view "Screen Block"` | **92.6 %** | 75.2 %      |
+| `-frameskip 10 -view "Screen Block"`  | 86.7 %     |             |
+| `-autoframeskip -nofilter`            |            | 71.2 %      |
+| `-video soft`                         |            | 64.3 %      |
+
+So the best setting found is:
+
+    cd ~/compartilhado/kn7000-emulator
+    ./run.sh -window -autoframeskip -view "Screen Block"
+
+still short of 100 % on that VM. `-autoframeskip` skips drawing frames while the emulation is behind
+(the screen gets jerkier, the sound does not), and it only acts while MAME is throttled, which is why
+it gains nothing unthrottled. `-view "Screen Block"` draws only the LCD block of the panel artwork,
+so the buttons outside it cannot be clicked. Two more to try: `-audio_latency 2` to `4`, a larger
+sound buffer that rides out short stalls (the sound lags the keys a little), and `-nofilter`. Press
+**F11** to show the speed, or read "Average speed" when MAME exits. Repeat runs on the shared VM vary
+by several points (`-video none`, throttled, read 98.5 % in one session and 84.8 % in another), so
+compare settings in one sitting, on a quiet machine; your own host will differ.
+
+Source: `RUNNING-THE-BUILDS.md` in the KN7000 repository, "Running the KN7000 at full speed", which
+also has `tools/mame-speed/speed.sh`, a script that measures a setting the same way every time on a
+copy of the factory SD card, with its own cfg and nvram.
+
+### The effects DSP plan (2026-10-21)
+
+The overlay's plan for the KN7000's effects DSP (IC306, an ADSP-21065L) is
+`notes/PLAN-2026-10-21-dsp-emulation.md` in kn7000_mame. It is planning only, written for the owner to
+choose from. Its reading of the present state:
+
+- **Faithful, by the unit's passes 6-8:** the downloaded code, the set-up registers, the 44.1 kHz frame
+  rate, the per-frame handshake and FLAG3. DSPTONE and Another World's mixer run on both the unit
+  and MAME.
+- **Not faithful:** everything between the SHARC and the DAC. The serial ports carry no data (the
+  driver reads and writes fixed ring words once a frame), and a hand-tuned bridge mixes the returns
+  with constants. Two errors are audible from it: the dry sound missing with REVERB on (D2), and unit
+  9's return mixed only with CHORUS on (D1).
+
+| phase                     | steps                                                                                                                                                | state                                      |
+|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------|
+| 1, cheap correctness      | S1 the save state (G3); S2 the bypass switch (G19); S3 60 MHz (G5)                                                                                   | S3 done and published; S1 and S2 open      |
+| 2, the two audible errors | S4 keep the dry sound with REVERB on (D2); S5 always mix unit 9's return (D1); S6 return gains from the unit                                         | open; S6 waits for the unit's recordings   |
+| 3, the serial audio path  | S7 one SHARC core with the upstream branch's fixes; S8 SPORT DMA moving the words; S9 the tone generator owning sends and returns; S10 units 7 and 8 | open                                       |
+| 4, chip fidelity          | S10a-S16: the memory map, status registers, timers, arithmetic, the interpreter's interrupts (S15), the handshake from the DSP                       | open; several wait for a probe on the unit |
+| 5, the other machines     | S19-S21: the KN6000/KN6500 unit map and flags, the KN2400/KN2600's inherited SHARC                                                                   | open                                       |
+
+Its next steps, in order: S1-S3, then S4-S5 (each a small change in the bridge), then S8, S9 and
+S11-S14. Its experiments on the unit, cheapest first, all through the program menu's route and
+undone by a power cycle: E2, a recording of a supplied MIDI file with REVERB off and on (no code; it
+settles D2); E1, an app that puts a different tone on every DSP transmit slot (which returns reach
+the DAC, at what gain); E3, a timer read every frame (the DSP's clock and each effect's cost). What
+it asks the owner to record is on [Help Wanted]({{ site.baseurl }}/help-wanted/#testing).
+Decisions left to him include the bypass switch's default, the reference for the SHARC core (the
+overlay or the upstream branch), and whether the core fixes go upstream ahead of the tone-generator
+pull request.
 
 ## See also
 
