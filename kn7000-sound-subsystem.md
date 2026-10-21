@@ -306,20 +306,26 @@ adds 36.
 
 Note-release turned out **not** to be the `0x0001 = 0xC000` voice mute the register
 map first suggested — that write is only boot init and voice-steal. On a real key-up
-the firmware ramps the note down by rewriting registers 0, 1, 4, 5, 8, 9 of the
-note's **odd companion block** with a decay target and rates (`reg0` drops from full
-scale to `0x9180`), and it aims at the companion block even when only the even block
-is sounding. The emulator models this: a below-full-scale `reg0` rewrite on either
-half releases every gated voice of the pair `{v & ~1, v | 1}` that has been held
-longer than 20 ms (the guard skips the note-on's own programming). Each voice's held
-level comes from its programmed amplitude envelope — the sustain level (SUS1) and
-decay-rate (DCY2) registers the firmware writes at note-on — so a Concert Grand
-decays while an organ or string patch sustains.
+the firmware ramps **every voice of the note** down by rewriting its registers 0, 1, 4,
+5, 8, 9 with a decay target and rates: the key-off write is `reg0` with bit 7 of its
+low byte set (`0x9180`; All Sound Off writes `0xA280`, a reset `0xFF80`), and its low
+bits carry the release rate. The emulator releases a voice on exactly that write.
 
-The full **7-stage** amplitude envelope is only partially modelled. A few sounds
-(the plucked guitar/mallet family) send no key-up write at all and let the sample
-ring its own multi-stage envelope; the placeholder holds those at their sustain
-level instead — a known limitation, alongside a still-provisional chip rate curve.
+The firmware only does this for voices it still believes are sounding. It keeps asking
+the tone generators: it writes a status address and reads the data port back
+(`0xFC08 + g` gives sixteen "still sounding" bits for a group of voices, `0xFC02 | slot<<4`
+a voice's level). Until 2026-10-21 the emulator answered 0 to every such read, so the
+firmware dropped each new voice from its list within 43-82 ms and had nothing to release
+at the key-up: one-voice MIDI notes rang on for ever and two-voice notes lost a voice. The
+earlier reading of this page, that the key-up targets only an "odd companion block" and
+that the plucked/mallet sounds send no key-up write, was a product of that fault
+(kn7000_mame G23, `notes/tg-release-2026-10-21/README.md`). The bits' meaning is read from
+the firmware code; the chip's real level curve has not been measured.
+
+Each voice's held level comes from its programmed amplitude envelope — the sustain level
+(SUS1) and decay-rate (DCY2) registers the firmware writes at note-on — so a Concert Grand
+decays while an organ or string patch sustains. The full **7-stage** envelope is only
+partially modelled, and the release-rate curve is still a provisional fit.
 
 ### Real timbre (2026-10-20)
 

@@ -276,7 +276,7 @@ Two of these are exact and mechanical, which is unusual and worth exploiting:
 ## KN7000: the overlay emulator
 
 The project's own build of the KN7000 is the kn7000_mame overlay. Its published binary is
-`kn7000-emulator/kn7000`, md5 `7336efbe…`, from kn7000_mame `4f7b9c7` (2026-10-21). The overlay
+`kn7000-emulator/kn7000`, md5 `06334896…`, from kn7000_mame `7ad5627` (2026-10-21). The overlay
 keeps a living list of what it still lacks, `OVERLAY-GAPS.md` in that repository, and the items
 below come from it. Mainline MAME's `kn7000` has none of the sound work: it is
 `MACHINE_NO_SOUND`, without a tone-generator voice engine or an effects DSP.
@@ -333,13 +333,17 @@ do not add exactly). How to get closer to 100 % is [below](#running-it-at-full-s
   and CHORUS both off (2026-10-21), so the overlay is wrong here
   ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#what-the-two-programs-showed-about-the-dsp);
   plan D1, step S5). The level of every DSP return against the dry sound is uncalibrated.
-- **Notes received over MIDI don't stop.** Notes that reach MIDI IN 1 do not end at their note-off
-  for GM 0 (piano), 48 (strings) and 89 (pad); GM 19 (church organ) falls 9 dB and then holds; All
-  Notes Off and All Sound Off do not end them either; GM 80 (square lead) ends. Found by the
-  listening recordings of 2026-10-21 (kn7000_mame `notes/listen-2026-10-21/README.md`); which release
-  write the firmware sends for a MIDI note-off on these voices has not been traced. Another World's
-  tone-generator mode feeds the same receive ring, so in MAME some of its notes can ring on too. It is
-  an emulator fault: on the instrument the notes are expected to end.
+- ~~**Notes received over MIDI don't stop.**~~ *Fixed 2026-10-21 (G23, kn7000_mame `7ad5627`).* It was not
+  MIDI-only: the firmware polls the tone generators for which voices are still sounding (status addresses
+  `0xFC08 + g`, 16 bits per group, and `0xFC02 | slot<<4`, a voice's level, read back through the data port),
+  and the emulator answered every such read with 0. So 43-82 ms after each note-on the firmware dropped the
+  new voice as silent and, at note-off, had nothing left to release: a one-voice GM piano, strings or pad got
+  no tone-generator write at all, and a two-voice note lost one voice early. The overlay now answers the
+  status reads from its voice state and releases a voice on the firmware's own key-off write (`r0` with
+  low-byte bit 7 set, at that write's rate). Measured after the fix (40 dB fall after the note-off, REVERB
+  off): GM piano 0.36 s, strings 0.59 s, pad 0.89 s, organ 0.13 s, the keybed's C4 0.32 s; CC 123 and CC 120
+  end every note. That "still sounding" reading is inferred from the firmware code, and the release-rate
+  law is still a provisional fit (kn7000_mame `notes/tg-release-2026-10-21/README.md`).
 - **The rest of the effects DSP branch (G4).** The other IOP registers still read 0 to the
   kernel, and the SPORT transfers still go through fixed ring slots, not the DMA. STCTL0's sticky
   start-up underflow bit is not modelled. Host uploads go straight into DSP memory; the chip moves
