@@ -304,7 +304,13 @@ with each change and was re-baselined each time.
 - **The rest of the effects DSP branch (G4)** and **its clock (G5)**. The overlay runs the
   ADSP-21065L at 66 MHz; the part is a 60 MHz grade. The other IOP registers still read 0 to the
   kernel, and the SPORT transfers still go through fixed ring slots, not the DMA. STCTL0's sticky
-  start-up underflow bit is not modelled.
+  start-up underflow bit is not modelled. Host uploads go straight into DSP memory; the chip moves
+  them through the EPB0 FIFO and DMA channel 8.
+- **The CHORUS unit's return.** The overlay mixes effect unit 9's return only while CHORUS is on.
+  On the unit, Another World's DSP sound was heard with REVERB off, through that return; whether
+  the instrument mixes it with CHORUS off too is not yet known
+  ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#what-the-two-programs-showed-about-the-dsp)).
+  The level of every DSP return against the dry sound is uncalibrated.
 - **The power-on path (G9).** The CPU really starts in IC18's boot code at `0x40000000`, with the
   flash updater; the overlay starts at the program flash. **Interrupt vectors through IVAR (G8)**,
   **the uncached views at `0x9xxxxxxx` (G7)**, **CS5 mirrors and open-bus reads (G10)**.
