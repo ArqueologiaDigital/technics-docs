@@ -123,7 +123,7 @@ item 4 is still half (the kn7menu README's "What is new on the unit" table is un
     he listened to the computed recording of Another World's intro (`aw-intro-dsp-computed.wav`,
     kn7000_mame `notes/listen-2026-10-21/`) and called it perfect, which backs "the noise is speed".
     Neither that README nor OVERLAY-GAPS G19 records it; the site states it, attributed to the owner.
-21. **The MIDI note-off bug was open when this pass looked.** OVERLAY-GAPS at `74a3d26` lists it as a
+21. *Closed 2026-10-21 (`b294be6`: fixed as G23, kn7000_mame `7ad5627`, binary `06334896`; the sound page's note-off section corrected too).* **The MIDI note-off bug was open when this pass looked.** OVERLAY-GAPS at `74a3d26` lists it as a
     side finding, untraced; an uncommitted `notes/tg-release-2026-10-21/` suggests a fix in progress.
     When a fix is committed and published (new binary md5), update `mame-emulation-gaps.md` ("Notes
     received over MIDI don't stop", and the published binary's md5 and commit at the top of the
