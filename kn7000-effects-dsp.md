@@ -429,53 +429,123 @@ KN7000 only:
   read as on the unit, at the unit's phase. Not modelled: STCTL0's sticky start-up underflow bit, and
   the transfers themselves (the bridge still exchanges fixed ring slots).
 
-## Our own program on the DSP: DSPTONE (iteration 1, MAME only)
-
-> **Status (2026-10-21): verified in MAME only. It has not run on the instrument yet.**
+## Our own programs on the DSP
 
 The tone generators play only what is in their wave ROMs, so sound of our own has to come from the
-effects DSP. DSPTONE is the first step: a program-menu application
-([Your Own Code on a Stock KN7000]({{ site.baseurl }}/kn7000-cnv-homebrew/)) that puts a SHARC
-program of our own into the running DSP. It plays a 440 Hz tone, or a one-second PCM sweep that the
-main CPU copied into the DSP's SDRAM, and then puts the firmware's effect back.
+effects DSP. Two program-menu applications
+([Your Own Code on a Stock KN7000]({{ site.baseurl }}/kn7000-cnv-homebrew/)) have put SHARC
+programs of our own into the running DSP: DSPTONE, a test tone, and then Another World's sound.
+Both keep the firmware's kernel and run as one of its effect units, and both use only the
+firmware's own host-port routines. **Both have run on the owner's KN7000** (program 893) on
+2026-10-21.
 
-- **Where it hooks in.** It keeps the firmware's kernel and changes one word: effect unit 0's CALL
-  slot at PM `0x8080`, the panel REVERB (`CALL (0x8400) (DB)` on the owner's unit). It points the
-  slot at our program at PM `0x8200`, which the firmware never writes. So the kernel's frame loop,
-  and with it the handshake the firmware polls, runs exactly as before.
-- **What the program does** (91 instructions, one effect unit with the kernel's unit ABI): every
-  frame it reads unit 0's input pair, adds a sample to it (the sine from a table at DM `0x9D00`, or
-  the next PCM sample from SDRAM `0x70000`) and writes unit 0's return. It also counts the frames
-  in MSGR7. MSGR4-6 carry the main CPU's commands: the copy request, its target and the mode. So
-  the tone is heard where the reverb is heard, through the tone generator's REVERB return, and only
-  while REVERB is on.
-- **How it gets there.** Through the firmware's own upload routines and the host port
-  (`0x98000000` index, `0x9C000000` data): IIEP0, IMEP0 and CEP0, then DMAC0 `0xA1` (program memory)
-  or `0x41` (data memory), the words through EPB0, then DMAC0 `0xA0`. Every upload is read back and
-  compared. It checks the DSP first: dead flag 0, kernel loaded, SYSCON as the firmware leaves it,
-  channel 8 idle.
+### DSPTONE (iteration 1): a tone and a sweep
+
+> **Status (2026-10-21): it runs on the owner's KN7000** (`KN7APP.BIN` `5d7d5df5…`), as it did in
+> MAME. Every screen line came up as in MAME. The owner heard the tone and the sweep, and the
+> reverb came back after STOP.
+
+DSPTONE plays a 440 Hz tone, or a one-second PCM sweep from 220 to 3,520 Hz that the main CPU copies
+into the DSP's SDRAM. Then it puts the firmware's effect back.
+
+- **Where it hooks in.** It changes one word: effect unit 0's CALL slot at PM `0x8080`, the panel
+  REVERB (`CALL (0x8400) (DB)` on the owner's unit). It points the slot at our program at PM
+  `0x8200`, which the firmware never writes. So the kernel's frame loop, and with it the handshake
+  the firmware polls, runs exactly as before.
+- **What the program does** (91 instructions, one effect unit with the kernel's unit ABI). Every
+  frame it reads unit 0's input pair. It adds a sample to it, either the sine from a table at DM
+  `0x9D00` or the next PCM sample from SDRAM `0x70000`, and writes unit 0's return. It counts the
+  frames in MSGR7. MSGR4-6 carry the main CPU's commands: the copy request, its target and the
+  mode. So the tone is heard where the reverb is heard, through the tone generator's REVERB return,
+  and only while REVERB is on.
+- **How it gets there.** Through the firmware's own upload routines (below), and every upload is
+  read back and compared. It checks the DSP first: the firmware's dead flag 0, the kernel loaded,
+  SYSCON as the firmware leaves it, channel 8 idle.
 - **The firmware's dead flag is the safety net.** If our unit stalled the DSP, the firmware's next
   handshake wait would run out and the firmware would set its dead flag: no effects, and possibly
   quiet main sound with REVERB on, until a power cycle. DSPTONE writes nothing that outlives a power
   cycle, since the firmware resets and reloads the DSP at every power-up.
-- **The program builds' kernels differ.** Builds 893 (the owner's) and 935 set the modify
-  registers M0 = +1, M1 = +2, M2 = +3, and their effects step the output cursor with `DM(I4, M0)`.
-  Builds 941 and 942, whose listings the project disassembled first, set M2 = +1 and use
-  `DM(I4, M2)`. A first build written to the 941 listing wrote its output three words apart on 893
-  in MAME. The program now addresses memory with immediate offsets and `MODIFY`, never through
-  M0-M7.
 
-**Checked in MAME** (the overlay, program 893, the released loader floppy, the program menu, a copy
-of the owner's card), one end-to-end run, 10 of 10 checks. The slot was hooked and restored, read
-back each time. MSGR7 rose 44,100 a second. The recording peaked at 440.0 Hz. All 44,100 sweep
-samples read back equal from SDRAM. The reverb's own state stopped while hooked and resumed after.
-A C4 played after the restore matched one played before (+0.00 dB). What MAME cannot tell: how loud
-the tone is on the instrument (MAME's wet level is uncalibrated, [above](#emulation-status-which-effects-are-audible-2026-07)),
-whether the chip runs the hand-encoded instructions as MAME's SHARC core does, and how the real
-handshake behaves with our unit in the chain. The first run on the unit answers those. The
-heartbeat line also gives the DSP's frame rate a second time.
+**On the instrument** (2026-10-21, program 893):
 
-The next iteration would play Another World's own samples through the DSP. It would need a sample
-bank in SDRAM, a four-voice mixer on the DSP, a command ring in internal memory, and a return that
-does not depend on the REVERB button. Source: [`technics-roms-disasm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000)
-`kn7000/tools/dsptone/` and `kn7000/dsp/kernel-architecture.md`.
+| step            | what the unit showed                                                                                                          |
+|-----------------|-------------------------------------------------------------------------------------------------------------------------------|
+| the routines    | found at the same addresses as in MAME: register read `0x4840B433`, write `0x4840B3F5`, data port `0x4840B090` / `0x4840B00D` |
+| the DSP's state | SYSCON `0x410`, DMAC0 `0xA0`, DMASTAT `0x33F`, as the probe passes read them                                                  |
+| the load        | 91 words at PM `0x8200`, read back equal                                                                                      |
+| the slot        | hooked (`06BE04008200`, `CALL (0x8200) (DB)`) and restored (`06BE04008400`), both read back                                   |
+| the heartbeat   | **44,087 frames a second**, the figure pass 8 measured                                                                        |
+| the PCM         | sent whole: PCMLEN read back 44,100                                                                                           |
+| what was heard  | the 440 Hz tone and the sweep; after STOP, the firmware's reverb again                                                        |
+
+Not measured: the tone's level against a played note.
+
+**In MAME** (the overlay, program 893, the released loader floppy, the program menu, a copy of the
+owner's card), one end-to-end run passed 10 of 10 checks. The slot was hooked and restored, read back
+each time. MSGR7 rose 44,100 a second. The recording peaked at 440.0 Hz. All 44,100 sweep samples
+read back equal from SDRAM. The reverb's own state stopped while hooked and resumed after. A C4
+played after the restore matched one played before (+0.00 dB).
+
+### Another World's own samples (iteration 2)
+
+> **Status (2026-10-21): it plays on the owner's KN7000** (`KN7APP.BIN` `a2fbbaa6…`, program 893).
+> By the owner's report the sounds play perfectly with REVERB on and with REVERB off; on is a
+> little louder. The game's level is close to a piano note's. Nothing was garbled or stuck, no "NO
+> DSP" line showed, and the reverb and the chorus came back after quitting. The first load of the
+> sample bank felt slow; it was not timed on the unit (25.9 s in MAME).
+
+The [Another World port]({{ site.baseurl }}/kn7000-cnv-homebrew/#another-world-on-the-instrument)
+plays the original game's own samples through the DSP. Its earlier sound, the tone generator over
+MIDI, stays as a second mode.
+
+- **The sample bank.** All 93 sounds the game plays, 684,980 8-bit samples, four to an SDRAM word:
+  171,576 words from `0x70000` to `0x99E37`, above the kernel's delay rings, which end at
+  `0x69D3F`. The game sends the bank once per power-on, 256 words at a time into a staging buffer in
+  internal memory, which the mixer copies into SDRAM 8 words a frame. A marker in DM (`0x9D00`:
+  "AWSB" and a CRC-32 of the bank) lets a later run skip the upload.
+- **The mixer.** 162 instructions at PM `0x8200`, eight voices: the game's four sound-effect
+  channels and its module player's four. Each voice has a start, an end, a loop, a 16.16 step and a
+  volume (0-63). It plays the nearest sample, with no interpolation; one voice at full volume peaks
+  at −18 dBFS. It costs at most about 650 of the 1,360 cycles a frame has.
+- **Commands.** The game writes a five-word record per voice into DM and a mask (start, change,
+  stop) into MSGR6. The mixer applies it at its next frame and writes MSGR6 back to 0. MSGR4 and
+  MSGR5 carry the bank's copy requests, MSGR7 the heartbeat.
+- **Two slots.** The mixer sits in unit 0's slot (PM `0x8080`, the REVERB), whose return is unit
+  0's input plus the mix, and in unit 9's (PM `0x80A0`, the CHORUS, pointed at `0x8296`), whose
+  return is the mix alone. While the game's sound is on the DSP the reverb and chorus programs do
+  not run, so the keybed sounds dry.
+- **Putting it back.** Quitting, leaving the DSP mode, any failure, and the firmware no longer
+  calling the converter for 5 s all put both slots back as they were found, each read back.
+- **Three sound modes**, cycled by PART SELECT RIGHT 2: the DSP's samples, the tone generator over
+  MIDI, and off. The help screen's first page names the current one.
+
+**In MAME** one session through the program menu passed 11 of 11 checks. The bank went over in
+25.9 s. Both slots were hooked through the intro and both units counted 44,100 frames a second. All
+eight voices sounded, and no MIDI was sent in the DSP mode. Switching to the tone generator put
+both slots back, and switching back hooked them again. After each quit both slots were as found
+and the reverb ran again. A second game from the menu found the bank by its marker and did not
+send it again.
+
+### What the two programs showed about the DSP
+
+| finding                                    | what the sources say                                                                                                                                                                                                                                                                     | on the unit, or only in MAME                                                                                                                                                                                    |
+|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| unit slots                                 | the kernel calls its ten units through CALL slots from PM `0x8080` (unit 0) to `0x80A0` (unit 9); the firmware points each at `0x8400 + unit × 0x100` with a single-word PM upload, and so can a program of ours; PM `0x8200` is never written by the firmware                           | **unit**: unit 0's slot hooked and restored by both programs, unit 9's by Another World, each read back                                                                                                         |
+| which returns the tone generator mixes     | unit 0's return only while REVERB is on (the return crossfade `0x803A`; live capture 2026-07-20). The CHORUS (unit 9) has no return register: its button moves only its send (`0x8198`)                                                                                                  | **unit**: Another World was heard with REVERB off, so a return other than REVERB's reached the DAC: unit 9's. The report does not say whether CHORUS was on. MAME mixes unit 9's return only while CHORUS is on |
+| the modify registers differ between builds | the kernels of 893 (the owner's) and 935 set M0 = +1, M1 = +2, M2 = +3, and their effects step with `DM(I4, M0)`; those of 941 and 942 set M2 = +1 and use `DM(I4, M2)`; M1 and M3-M14 are the same in all four                                                                          | read from the kernel records; the bug it causes (output words three apart, 33,053 of 44,100 sweep samples misplaced) was seen in MAME; the fixed program, which uses no M0-M7, ran right on the unit            |
+| the dead flag                              | 893 `0x500066D8`: set when a handshake wait runs out after `0x3FFFF` polls (893 `0x4840AE77`); the firmware then sends the DSP nothing more until the next power-up                                                                                                                      | **unit**: 0 through passes 6-8, DSPTONE and Another World                                                                                                                                                       |
+| the upload protocol                        | IIEP0 (`0x40`) = address, IMEP0 (`0x41`) = 1, CEP0 (`0x42`) = word count, DMAC0 (`0x1C`) = `0xA1` for program memory (three halves a word) or `0x41` for data memory (two), the halves into EPB0 (register 4) low half first, then DMAC0 = `0xA0`; a readback uses DMAC0 `0xA5` / `0x45` | **unit**: every upload read back equal. MAME writes uploaded words straight into DSP memory; the chip moves them through the EPB0 FIFO and DMA channel 8                                                        |
+| host writes to MSGR4-7                     | the kernel zeroes MSGR3-7 at boot and nothing else uses MSGR4-7                                                                                                                                                                                                                          | **unit**: new with DSPTONE, and they worked                                                                                                                                                                     |
+| host-port throughput                       | one 16-bit half per data-port access, and one access per DSP frame: at most about 88 KB a second                                                                                                                                                                                         | MAME: DSPTONE's 88,200-byte sweep in 2.5 s, Another World's bank in 25.9 s. The unit has not been timed; the bank's first load felt slow                                                                        |
+| SDRAM above the kernel's rings             | free from `0x70000`; the chip has 1M words                                                                                                                                                                                                                                               | **unit**: DSPTONE's PCM up to `0x7AC44` and Another World's bank up to `0x99E37` played                                                                                                                         |
+
+Still open: how loud our sound is against a played note, which only the instrument can tell
+(MAME's wet level is uncalibrated, [above](#emulation-status-which-effects-are-audible-2026-07));
+whether unit 9's return is mixed with CHORUS off; and the DSP's clock (the heartbeat counts frames,
+not cycles).
+
+Sources: [`technics-roms-disasm`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000)
+`kn7000/tools/dsptone/README.md` and `kn7000/dsp/kernel-architecture.md`;
+[`technics-anotherworld`](https://github.com/felipesanches/technics-anotherworld)
+`kn7000/README-CNV.md` ("Sound", "The DSP mode") and `kn7000/probes/cnv/README.md` ("Sound on the
+effects DSP").

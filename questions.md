@@ -225,17 +225,27 @@ unless a line says otherwise ([ROM Dumper]({{ site.baseurl }}/kn7000-rom-dumper/
   costs are measured per window. Only CS0-CS3 follow MEMCTR bits 12:8, and 941 raises MEMCTR3's
   waits around the DSP data port at `0x9C000000`, which the 64 MB map puts on CS7.
 - [ ] **What is the DSP's clock?** The part is the 60 MHz grade, and the overlay runs its SHARC at
-  66 MHz to finish every frame. The chip's clock has not been measured. DSPTONE's
-  frames-per-second line on the unit would not settle it either: it counts frames, not cycles.
+  66 MHz to finish every frame. The chip's clock has not been measured. DSPTONE's heartbeat on
+  the unit (44,087 frames a second) does not settle it: it counts frames, not cycles.
 - [ ] **Which TG is on which chip select?** The firmware's WAVE ROM test reads the pair it labels
   IC203/IC204 through the port at `0x98050000`, and the schematic gives that pair to the master TG,
   IC201. The [Sound Subsystem]({{ site.baseurl }}/kn7000-sound-subsystem/#tone-generators-ic201-ic205)
   table puts IC201 at `0x98040000`. The decoder's outputs on the schematic would settle it.
 - [ ] **The 8-bit wave samples' gain law** is fitted (2^(−b/2) per segment code), not derived. A
   line-out recording of a sound built from 8-bit samples, such as STRINGS, would settle it.
-- [ ] **Does our own DSP program run on the chip as it does in MAME?** DSPTONE has run only in
-  MAME ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#our-own-program-on-the-dsp-dsptone-iteration-1-mame-only)).
-  The unit's run gives the tone's level against a note and checks the hand-encoded SHARC words.
+- [x] **Does our own DSP program run on the chip as it does in MAME?** *Answered 2026-10-21:* yes.
+  DSPTONE ran on the owner's KN7000 as in MAME: the same routines, the program read back equal, the
+  heartbeat at 44,087 frames a second, the tone and the sweep heard, the reverb back after STOP.
+  Another World's eight-voice mixer then played the game's samples there.
+  ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#our-own-programs-on-the-dsp))
+- [ ] **Does the tone generator mix the CHORUS unit's return whatever CHORUS is?** Another World's
+  DSP sound was heard on the unit with REVERB off, through unit 9's return, but the report does not
+  say whether CHORUS was on. MAME mixes that return only while CHORUS is on. One run with REVERB and
+  CHORUS both off would settle it.
+  ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#what-the-two-programs-showed-about-the-dsp))
+- [ ] **How loud is our DSP sound against a played note?** Neither DSPTONE's tone nor Another
+  World's samples have been measured against a note on the unit; by ear, the game is close to a
+  piano note's level. MAME's return level is not calibrated.
 
 ## KN7000 SP7001 PLUG-iN
 

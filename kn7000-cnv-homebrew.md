@@ -32,8 +32,9 @@ A new program is a new folder on the card. Nothing on the floppy changes.
 >   sound plays on the instrument ([below](#another-world-on-the-instrument)).
 > - **The program menu** passes its tests in MAME, on program 893 with the owner's loader floppy
 >   image and a copy of his card. Its write-up does not yet record a run on the unit.
-> - **DSPTONE**, a program of our own on the effects DSP, is verified in MAME only
->   ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#our-own-program-on-the-dsp-dsptone-iteration-1-mame-only)).
+> - **DSPTONE**, a program of our own on the effects DSP, ran on the unit on 2026-10-21: the owner
+>   heard its tone and its sweep, and the reverb came back after STOP
+>   ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#dsptone-iteration-1-a-tone-and-a-sweep)).
 
 ## Running a program
 

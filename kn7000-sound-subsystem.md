@@ -369,9 +369,9 @@ No. The questions that come up, answered (2026-10-21):
   in the analog domain and never reaches the tone generators or the effects DSP
   ([above](#a-separate-dsp-bypassing-audio-path)).
 - **So new sounds have to come from the effects DSP**, which runs code the main CPU uploads at
-  every power-up. A first program of our own exists there: it plays a tone or a PCM sweep from
-  the DSP's SDRAM through the REVERB unit. It has been verified in MAME only
-  ([DSPTONE]({{ site.baseurl }}/kn7000-effects-dsp/#our-own-program-on-the-dsp-dsptone-iteration-1-mame-only)).
-  Another World on the instrument plays its sounds a different way, as MIDI notes on the
-  firmware's own tone generator
-  ([Your Own Code on a Stock KN7000]({{ site.baseurl }}/kn7000-cnv-homebrew/#another-world-on-the-instrument)).
+  every power-up. Programs of our own run there on the owner's KN7000: DSPTONE plays a tone or a
+  PCM sweep from the DSP's SDRAM through the REVERB unit, and Another World plays its own samples
+  with an eight-voice mixer
+  ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#our-own-programs-on-the-dsp)). The game
+  can also play its sounds as MIDI notes on the firmware's own tone generator
+  ([Your Own Code on a Stock KN7000]({{ site.baseurl }}/kn7000-cnv-homebrew/#sound)).
