@@ -236,7 +236,7 @@ This difference is cosmetic and does not affect functionality.
 
 ## Creating Update Discs
 
-The [kn5000-anotherworld](https://github.com/felipesanches/kn5000-anotherworld) homebrew repository includes a tool for creating update discs, `tools/make_update_disc.py`:
+The [technics-anotherworld](https://github.com/felipesanches/technics-anotherworld) homebrew repository includes a tool for creating update discs, `tools/make_update_disc.py`:
 
 ```bash
 # Create compressed program ROM update disc

@@ -89,8 +89,8 @@ See: [Another World VM technical details]({{ site.baseurl }}/another-world-vm/)
 ### Build
 
 ```bash
-git clone https://github.com/felipesanches/kn5000-anotherworld.git
-cd kn5000-anotherworld
+git clone https://github.com/felipesanches/technics-anotherworld.git
+cd technics-anotherworld
 
 # Place your Another World DOS game files in game_data/MSDOS/
 # Required: BANK*, MEMLIST.BIN
@@ -108,7 +108,7 @@ This builds a custom main CPU ROM with the game replacing the firmware, and asse
 ./mame kn5000 -rompath /path/to/custom-roms/anotherworld -window -skip_gameinfo
 
 # Or use the Makefile shortcut (with the same ROM paths as for the build):
-cd kn5000-anotherworld
+cd technics-anotherworld
 make test ORIGINAL_ROMS=/path/to/roms/kn5000 ROMSET_BASE=/path/to/custom-roms/anotherworld
 ```
 

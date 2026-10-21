@@ -248,7 +248,7 @@ A [homebrew SDK]({{ site.baseurl }}/hdae5000-homebrew/) is available for writing
 
 - [Service Manual PDF]({{ site.baseurl }}/service_manual/technics_sx-kn5000.pdf) (26MB, EMID971655 A5) - Schematics, board layouts, IC pinouts
 - [GitHub: ROM Disassembly](https://github.com/ArqueologiaDigital/technics-roms-disasm) - Source code
-- [GitHub: Mines (KN5000 port)](https://github.com/ArqueologiaDigital/Mines/tree/kn5000_port/platforms/kn5000) and [GitHub: Another World](https://github.com/felipesanches/kn5000-anotherworld) - Homebrew games (the earlier [kn5000_homebrew](https://github.com/felipesanches/kn5000_homebrew/) holds firmware-customisation scripts and early assembly demos)
+- [GitHub: Mines (KN5000 port)](https://github.com/ArqueologiaDigital/Mines/tree/kn5000_port/platforms/kn5000) and [GitHub: Another World](https://github.com/felipesanches/technics-anotherworld) - Homebrew games (the earlier [kn5000_homebrew](https://github.com/felipesanches/kn5000_homebrew/) holds firmware-customisation scripts and early assembly demos)
 - [MAME Pull Requests]({{ site.baseurl }}/mame-pull-requests/) - the KN5000 pull-request series; current upstreaming state is on [MAME Branch Review]({{ site.baseurl }}/mame-branch-review/)
 - [Discussion Forum](https://forum.fiozera.com.br/t/technics-kn5000-homebrew-development/321)
 - [Firmware Archive](https://archive.org/details/technics-kn5000-system-update-disks) - All versions (v5-v10, HD-AE5000 updates)

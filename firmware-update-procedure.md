@@ -113,7 +113,7 @@ For technical documentation of the update process internals, see:
 
 ## Creating Custom Update Discs
 
-Custom firmware update discs can be created with `tools/make_update_disc.py` from the [kn5000-anotherworld](https://github.com/felipesanches/kn5000-anotherworld) repository:
+Custom firmware update discs can be created with `tools/make_update_disc.py` from the [technics-anotherworld](https://github.com/felipesanches/technics-anotherworld) repository:
 
 ```bash
 python tools/make_update_disc.py <rom_file> <output_disc.img> --type 7

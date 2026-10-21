@@ -8,7 +8,7 @@ permalink: /another-world-vm/
 
 A port of Delphine Software's **Another World** (1991) running natively on the Technics KN5000 keyboard. The game's original bytecode interpreter is reimplemented in TLCS-900/H2 assembly, executing the unmodified game data of the MS-DOS release on the KN5000's hardware.
 
-> **Project Page:** [felipesanches.github.io/kn5000-anotherworld](https://felipesanches.github.io/kn5000-anotherworld/) | **Source:** [GitHub](https://github.com/felipesanches/kn5000-anotherworld)
+> **Project Page:** [felipesanches.github.io/technics-anotherworld](https://felipesanches.github.io/technics-anotherworld/) | **Source:** [GitHub](https://github.com/felipesanches/technics-anotherworld)
 
 ## Overview
 
@@ -148,7 +148,7 @@ Part switching loads new resources and reinitializes the VM. Copy protection che
 ## Build and Test
 
 ```bash
-cd kn5000-anotherworld/
+cd technics-anotherworld/
 
 make            # Build maincpu ROM + create MAME ROM set
 make extension  # Build as HDAE5000 extension ROM (resources do not fit: intro only)
