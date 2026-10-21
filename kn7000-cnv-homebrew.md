@@ -28,10 +28,12 @@ A new program is a new folder on the card. Nothing on the floppy changes.
 > - **The loader** (`KN7LOAD.CNV`, SHA-1 `6b81f382fd29b9bc5a025854af0e20a194e68bec`, unchanged since
 >   2026-10-19) has run on the owner's unit in every pass of the [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/).
 > - **Another World** ran on the unit on 2026-10-20, from the card's root: first slowly, then with
->   the faster blit at about 20 frames per second. The owner has since confirmed that the build with
->   sound plays on the instrument ([below](#another-world-on-the-instrument)).
+>   the faster blit at about 20 frames per second. Its sound played there too, first on the tone
+>   generator over MIDI and, since 2026-10-21, as the game's own samples on the effects DSP
+>   ([below](#sound)).
 > - **The program menu** passes its tests in MAME, on program 893 with the owner's loader floppy
->   image and a copy of his card. Its write-up does not yet record a run on the unit.
+>   image and a copy of his card. On the unit it has started Another World from `AW\` and DSPTONE
+>   (2026-10-21).
 > - **DSPTONE**, a program of our own on the effects DSP, ran on the unit on 2026-10-21: the owner
 >   heard its tone and its sweep, and the reverb came back after STOP
 >   ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#dsptone-iteration-1-a-tone-and-a-sweep)).
@@ -59,7 +61,7 @@ The menu's build (`make card` in `kn7000/tools/kn7menu`) writes everything for t
 | on the card  | what                                                                                    |
 |--------------|-----------------------------------------------------------------------------------------|
 | `KN7APP.BIN` | the program menu (12,739 bytes)                                                         |
-| `AW\`        | Another World: its `KN7APP.BIN` and 46 game files, made from your own copy of the game  |
+| `AW\`        | Another World: its `KN7APP.BIN` and 140 game files, made from your own copy of the game |
 | `SURVEY2\`   | the ROM dumper's pass 5                                                                 |
 | `DSPPROBE\`  | pass 6, the DSP probe, phase 1                                                          |
 | `DSPMEM\`    | pass 7, the DSP probe, phase 2                                                          |
@@ -247,8 +249,48 @@ overlay emulator now models the CPU's real timing, so MAME shows the slow LCD to
 
 ### Sound
 
-The game plays its sound effects and its music on the **KN7000's own tone generator**. It outputs
-no samples: it becomes a MIDI source inside the instrument.
+The game has three sound modes, and **PART SELECT RIGHT 2** cycles through them: the game's own
+samples on the **effects DSP**, the **tone generator** over MIDI, and **off**. The first page of
+the help screen names the current mode. The game starts in the DSP mode when it could set the DSP
+up, and in the tone generator's otherwise. In every mode the music player runs and writes the
+**sync marks** the intro reads (variable `0xF4`), so the intro's scenes follow the music, as in the
+original, whether the sound is on or off.
+
+#### The DSP mode: the game's own samples
+
+> **On the instrument (2026-10-21, `KN7APP.BIN` `a2fbbaa6…`, program 893).** By the owner's
+> report the sounds play perfectly, with REVERB on and with REVERB off (on is a little louder),
+> at about a piano note's level. Nothing was garbled or stuck, and the reverb and the chorus came
+> back after quitting. The first load of the sounds felt slow.
+
+The tone generators play only their wave ROMs, so the game's own sounds have to come from the
+effects DSP. The game puts a sample mixer of its own into the DSP's running kernel, as
+[DSPTONE]({{ site.baseurl }}/kn7000-effects-dsp/#dsptone-iteration-1-a-tone-and-a-sweep) did,
+through the firmware's own host-port routines.
+
+- **The bank, once per power-on.** The 93 sounds the game plays, 684,980 samples, are their own
+  card files. At the first start after power-on the game sends them all into the DSP's SDRAM;
+  "LOADING ANOTHER WORLD: SOUNDS" and the load bar show while it runs (25.9 s in MAME). A marker
+  left in DSP memory lets every later start skip it.
+- **Eight voices**: the original's four sound-effect channels and its module player's four, mixed
+  on the DSP at the samples' own rates and volumes.
+- **Where it is heard.** The mixer takes over two of the kernel's effect units, the REVERB's and the
+  CHORUS's, so the panel's reverb and chorus are off while it plays and the keybed sounds dry.
+  Quitting, switching to another sound mode, any failure, and the firmware no longer calling the
+  game all put both units back, read back.
+- **Safety.** Only the firmware's routines touch the DSP. The game checks the DSP before it starts,
+  reads its mixer back before using it, and watches the firmware's "DSP dead" flag at every step.
+  If the DSP cannot be used, the help screen says "NO DSP" with a reason code, and the game falls
+  back to the tone generator. Nothing of this outlives a power cycle.
+
+The details, with what the run showed about the DSP, are on
+[Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#another-worlds-own-samples-iteration-2).
+
+#### The tone generator mode: MIDI notes
+
+The first sound build played the game's sounds on the **KN7000's own tone generator**. It outputs
+no samples: it becomes a MIDI source inside the instrument. The owner reported that it plays
+properly on his instrument (2026-10-21, `KN7APP.BIN` `97fbd9e6…`).
 
 - **The way in.** The game writes each MIDI message into the firmware's **MIDI IN 1 receive ring**,
   as the receive interrupt does, with interrupts masked so that neither the interrupt nor a task
@@ -263,14 +305,13 @@ no samples: it becomes a MIDI source inside the instrument.
   a hand-made table. The game's frequency index moves the note by semitones, the volume is the
   velocity, and the note lasts as long as the sample would.
 - **Music.** The original's module player runs on the kernel's millisecond counter and sends each
-  row's notes. It also produces the **sync marks** the intro reads (variable `0xF4`), so the intro's
-  scenes follow the music, as in the original, whether the sound is on or off.
-- **PART SELECT RIGHT 2** turns the sound off and on. Quitting sends all notes off, all sound off
-  and reset all controllers on every channel the game used.
+  row's notes.
+- **Leaving the mode** sends all notes off and all sound off. **Quitting** sends all notes off,
+  all sound off and reset all controllers on every channel the game used.
 
-The owner confirmed that the sound plays on his instrument. Two limits remain. The GM sounds were
-chosen without hearing the KN7000 play them, and the routing is the instrument's initial one. If
-PART 4-14 have been given other channels, the game may sound different or not at all.
+Two limits remain in this mode. The GM sounds were chosen without hearing the KN7000 play them, and
+the routing is the instrument's initial one. If PART 4-14 have been given other channels, the game
+may sound different or not at all.
 
 ## History: `AW.CNV`, one program per floppy (retired)
 

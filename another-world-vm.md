@@ -29,10 +29,12 @@ through STYLE CONVERT and one loader floppy. That build **runs on the owner's KN
 - **Speed.** The first run on the unit, on 2026-10-20, managed 1.5 frames per second, because the
   LCD frame is slow to write. A blit that writes only the pixels that changed brought it to 19-21
   frames per second over a whole run, 25-30 at best.
-- **Sound.** Sound effects and music play through the KN7000's own tone generator. The game writes
-  MIDI into the firmware's MIDI IN 1 receive ring, on channels 4-7, 10 and 11-14, with GM program
-  changes, and its music player produces the intro's sync marks (variable `0xF4`). The owner
-  confirmed that it plays on the instrument.
+- **Sound.** The game plays its own samples on the KN7000's effects DSP: an eight-voice mixer of
+  ours runs inside the firmware's DSP kernel, and the 93 sounds go into the DSP's SDRAM once per
+  power-on. A second mode plays them as MIDI notes on the instrument's tone generator, written into
+  the firmware's MIDI IN 1 receive ring. PART SELECT RIGHT 2 switches between the two and off. Its
+  music player produces the intro's sync marks (variable `0xF4`) in every mode. Both modes have played on
+  the owner's instrument.
 - **Memory.** It loads each part's files from the card when the part starts and keeps everything in
   the RAM the firmware leaves to a converter. It never touches the battery-backed panel memories.
 
