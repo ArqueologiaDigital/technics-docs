@@ -107,9 +107,9 @@ If you have a working KN7000:
   hold for every KN7000. Tell us your PROGRAM and TABLE builds from the SOFT VERSION screen.
 - Record a sound built from 8-bit wave samples, such as STRINGS, from the line out, to settle the
   samples' gain law ([Open Questions]({{ site.baseurl }}/questions/#kn7000-hardware-and-sound)).
-- Run Another World's DSP sound with REVERB and CHORUS both off, and record it and a played note
-  from the line out. That would show whether the CHORUS unit's return is always mixed,
-  and how loud our DSP sound is against a note
+- Record Another World's DSP sound and a played note from the line out, to measure how loud our
+  DSP sound is against a note (by ear they are close; the CHORUS unit's return is always mixed, as
+  the owner heard it with REVERB and CHORUS both off)
   ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#what-the-two-programs-showed-about-the-dsp)).
 
 ### ~~Read six pins on the SX-WSA1R's effects board~~ — ✅ **ANSWERED 2026-09-15**

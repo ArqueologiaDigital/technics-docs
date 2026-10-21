@@ -238,10 +238,11 @@ unless a line says otherwise ([ROM Dumper]({{ site.baseurl }}/kn7000-rom-dumper/
   heartbeat at 44,087 frames a second, the tone and the sweep heard, the reverb back after STOP.
   Another World's eight-voice mixer then played the game's samples there.
   ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#our-own-programs-on-the-dsp))
-- [ ] **Does the tone generator mix the CHORUS unit's return whatever CHORUS is?** Another World's
-  DSP sound was heard on the unit with REVERB off, through unit 9's return, but the report does not
-  say whether CHORUS was on. MAME mixes that return only while CHORUS is on. One run with REVERB and
-  CHORUS both off would settle it.
+- [x] **Does the tone generator mix the CHORUS unit's return whatever CHORUS is?** *Answered
+  2026-10-21:* yes. On the owner's unit Another World's DSP sound plays properly with REVERB **and**
+  CHORUS both off, so the return it goes through, unit 9's (the CHORUS has no return register; its
+  button moves only its send), is mixed whatever the panel says. With REVERB on it is a little louder:
+  unit 0's return adds to it. MAME mixes unit 9's return only while CHORUS is on, which is wrong.
   ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#what-the-two-programs-showed-about-the-dsp))
 - [ ] **How loud is our DSP sound against a played note?** Neither DSPTONE's tone nor Another
   World's samples have been measured against a note on the unit; by ear, the game is close to a

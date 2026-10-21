@@ -307,8 +307,8 @@ with each change and was re-baselined each time.
   start-up underflow bit is not modelled. Host uploads go straight into DSP memory; the chip moves
   them through the EPB0 FIFO and DMA channel 8.
 - **The CHORUS unit's return.** The overlay mixes effect unit 9's return only while CHORUS is on.
-  On the unit, Another World's DSP sound was heard with REVERB off, through that return; whether
-  the instrument mixes it with CHORUS off too is not yet known
+  The instrument mixes it whatever CHORUS is: the owner heard Another World's DSP sound with REVERB
+  and CHORUS both off (2026-10-21), so the overlay is wrong here
   ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#what-the-two-programs-showed-about-the-dsp)).
   The level of every DSP return against the dry sound is uncalibrated.
 - **The power-on path (G9).** The CPU really starts in IC18's boot code at `0x40000000`, with the
