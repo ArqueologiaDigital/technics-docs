@@ -30,7 +30,9 @@ A new program is a new folder on the card. Nothing on the floppy changes.
 > - **Another World** ran on the unit on 2026-10-20, from the card's root: first slowly, then with
 >   the faster blit at about 20 frames per second. Its sound played there too, first on the tone
 >   generator over MIDI and, since 2026-10-21, as the game's own samples on the effects DSP
->   ([below](#sound)).
+>   ([below](#sound)). Its third round (2026-10-21: the sounds load faster, the keybed alone plays
+>   the game, PART SELECT RIGHT 1 mutes the keys' own notes; `KN7APP.BIN` `94910f68…`) has run only
+>   in MAME so far.
 > - **The program menu** passes its tests in MAME, on program 893 with the owner's loader floppy
 >   image and a copy of his card. On the unit it has started Another World from `AW\` and DSPTONE
 >   (2026-10-21).
@@ -216,10 +218,32 @@ signature, and runs on programs 893, 935, 941 and 942.
   pools: a build-time guard, run-time range checks and MAME write taps over whole sessions check
   it. The procedure for a run on the unit records IC23 before and after the session with the
   dumper's SURVEY2 pass, so that any change would show.
-- **Controls.** The keybed (or MIDI IN 1 on channels 1-3) is preferred: F5 left, C6 right, Bb5 or
-  B5 up, A5 down, C4 or any lower key for action. The panel works too: PART SELECT LEFT / RIGHT 1,
-  R1/R2 OCTAVE + / − and SUSTAIN; but the firmware still acts on OCTAVE and SUSTAIN while the game
-  runs. HELP shows the controls and the level codes; hold EXIT for 1.5 s to quit.
+- **Controls.** Since the third round (2026-10-21) the game is played on the **keybed only**, or
+  over MIDI IN 1 on channels 1-3; no panel button moves the player any more (the keys: the table
+  below). A♭5 and B♭5 are the black keys either side of A5; B5 is no control (the owner's choice). With
+  three keys down at once (an action key, a direction and up: run and jump) the keybed's scan
+  matrix can lose A♭5 or B♭5. The panel's buttons are the port's own: OTHER PART & FR the level
+  codes, HELP the help pages (PAGE UP / PAGE DOWN turn them; one gives the project's address,
+  `github.com/felipesanches/technics-anotherworld`), **PART SELECT RIGHT 2** the game's
+  sound mode ([below](#sound)), **PART SELECT RIGHT 1** the keybed's own sound, PAGE UP the speed
+  overlay, PAGE DOWN the old blit. Hold EXIT for 1.5 s to quit. R1/R2 OCTAVE + / − and SUSTAIN
+  no longer do anything in the game, but the firmware still does their own job while it runs.
+- **The keybed's own sound.** The instrument plays its own voice for every key that steers the
+  game. PART SELECT RIGHT 1 mutes those notes and brings them back: the game sends expression
+  (MIDI CC 11) 0 on channels 1-3 (RIGHT 1, RIGHT 2, LEFT) through the firmware's MIDI IN path, and
+  127 again when it leaves and at every new game. Expression is a live controller, so nothing is
+  stored. The help screen's first page shows "KEYBED SOUND: ON" or "OFF". In MAME the firmware's
+  expression byte goes to 0 and back, but the mute cannot be heard there: the overlay's tone
+  generator ignores the level word the firmware writes for it. Whether it silences the notes on the
+  instrument is for the owner's ears.
+
+| game   | key (or MIDI IN 1, channels 1-3) |
+|--------|----------------------------------|
+| up     | A♭5 or B♭5                       |
+| down   | A5                               |
+| left   | F5                               |
+| right  | C6                               |
+| action | C4 or any key below              |
 
 ### Speed
 
@@ -250,8 +274,10 @@ overlay emulator now models the CPU's real timing, so MAME shows the slow LCD to
 ### Sound
 
 The game has three sound modes, and **PART SELECT RIGHT 2** cycles through them: the game's own
-samples on the **effects DSP**, the **tone generator** over MIDI, and **off**. The first page of
-the help screen names the current mode. The game starts in the DSP mode when it could set the DSP
+samples on the **effects DSP**, the **tone generator** over MIDI, and **off**. The key works inside
+the help screen too, whose first page names the current mode at once ("NOW: DSP SAMPLES", "NOW:
+TONE GENERATOR", "NOW: OFF"), with "NO DSP n" when the DSP was given up, and how long the sample
+bank took ("SENT IN n S", or "CHECKED IN n S" when it was already there). The game starts in the DSP mode when it could set the DSP
 up, and in the tone generator's otherwise. In every mode the music player runs and writes the
 **sync marks** the intro reads (variable `0xF4`), so the intro's scenes follow the music, as in the
 original, whether the sound is on or off.
@@ -261,17 +287,25 @@ original, whether the sound is on or off.
 > **On the instrument (2026-10-21, `KN7APP.BIN` `a2fbbaa6…`, program 893).** By the owner's
 > report the sounds play perfectly, with REVERB on and with REVERB off (on is a little louder),
 > at about a piano note's level. Nothing was garbled or stuck, and the reverb and the chorus came
-> back after quitting. The first load of the sounds felt slow.
+> back after quitting. The first load of the sounds felt slow. The third round (`94910f68…`), with
+> the coded bank, has run only in MAME.
 
 The tone generators play only their wave ROMs, so the game's own sounds have to come from the
 effects DSP. The game puts a sample mixer of its own into the DSP's running kernel, as
 [DSPTONE]({{ site.baseurl }}/kn7000-effects-dsp/#dsptone-iteration-1-a-tone-and-a-sweep) did,
 through the firmware's own host-port routines.
 
-- **The bank, once per power-on.** The 93 sounds the game plays, 684,980 samples, are their own
-  card files. At the first start after power-on the game sends them all into the DSP's SDRAM;
-  "LOADING ANOTHER WORLD: SOUNDS" and the load bar show while it runs (25.9 s in MAME). A marker
-  left in DSP memory lets every later start skip it.
+- **The bank, once per power-on.** The 93 sounds the game plays, 684,980 samples, go into the
+  DSP's SDRAM at the first start after power-on; "LOADING ANOTHER WORLD: SOUNDS" and the load bar
+  show while it runs. Since the third round the bank is **coded losslessly** (Rice-coded, each
+  sample against the one before) into 14 card files of 431,724 bytes; the bank itself is 686,304
+  bytes, and the 93 packed files it replaced held 574,084. The DSP
+  decodes it into SDRAM itself, then computes a checksum of what it wrote, and the game uses the
+  bank only when that checksum is the one the build recorded. The first load went from 25.9 s to
+  **11.6 s in MAME**. On the instrument it should take about 9.5 s, against about 22 s for the
+  build before by the same estimate (from the unit's handshake rate, one DSP frame each; not a
+  measurement: the help screen will show it). A marker left in DSP memory lets every later start have the DSP check the bank (0.4 s
+  in MAME) instead of sending it again.
 - **Eight voices**: the original's four sound-effect channels and its module player's four, mixed
   on the DSP at the samples' own rates and volumes.
 - **Where it is heard.** The mixer takes over two of the kernel's effect units, the REVERB's and the

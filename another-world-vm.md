@@ -35,6 +35,10 @@ through STYLE CONVERT and one loader floppy. That build **runs on the owner's KN
   the firmware's MIDI IN 1 receive ring. PART SELECT RIGHT 2 switches between the two and off. Its
   music player produces the intro's sync marks (variable `0xF4`) in every mode. Both modes have played on
   the owner's instrument.
+- **Controls.** Since its third round (2026-10-21) the keybed alone plays the game: F5 and C6 left
+  and right, A♭5 or B♭5 up, A5 down, C4 and below the action; PART SELECT RIGHT 1 mutes the
+  instrument's own notes for those keys. The sample bank is also coded, so it loads in 11.6 s in
+  MAME where it took 25.9. That round has run only in MAME so far.
 - **Memory.** It loads each part's files from the card when the part starts and keeps everything in
   the RAM the firmware leaves to a converter. It never touches the battery-backed panel memories.
 
