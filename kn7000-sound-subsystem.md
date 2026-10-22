@@ -322,6 +322,13 @@ that the plucked/mallet sounds send no key-up write, was a product of that fault
 (kn7000_mame G23, `notes/tg-release-2026-10-21/README.md`). The bits' meaning is read from
 the firmware code; the chip's real level curve has not been measured.
 
+The KN6000 does the same with its single tone generator. Its sweep at `0x4849A499` reads the
+same two addresses. Its key-off burst writes the same rate bytes (`0x8D80` for the GM piano,
+`0xA280` for All Sound Off) to registers 4, 5, 8, 9, C and D, the KN7000's six shifted by
+four. Its index 0 (`0x87FF`, then `0x8000`) is written inside every note-on, as the KN7000's
+register 3 is; it is not a key-up gate, as was once thought. The emulator answered 0 there
+too until 2026-10-22, and KN6000 notes hung in the same way (`notes/tg-release-kn6000-2026-10-22/README.md`).
+
 Each voice's held level comes from its programmed amplitude envelope — the sustain level
 (SUS1) and decay-rate (DCY2) registers the firmware writes at note-on — so a Concert Grand
 decays while an organ or string patch sustains. The full **7-stage** envelope is only
