@@ -95,7 +95,7 @@ the unit.
 **The game's own samples, on the effects DSP (`make DSND=1`, MAME only so far).** A four-channel mixer
 of ours runs on IC311, fed by a streamer of ours in the sub CPU's DRAM. That streamer steps the
 channels over the game's samples 4000 times a second, and the sound effects and music module both
-drive the four channels, as on the Amiga. Each part's sounds load with the part: about 14 s more
+drive the four channels, as on the Amiga. Each part's sounds load with the part: about 8 s more
 for the intro. Leaving the game puts IC311's own effects back as they were. It is heard in MAME's
 IC311 build only, and it has not run on a real KN5000:
 [DSP Sample Playback — Research Plan]({{ site.baseurl }}/kn5000-dsp-sample-playback-research/#results-second-pass-a-mixer-fed-by-the-sub-cpu).

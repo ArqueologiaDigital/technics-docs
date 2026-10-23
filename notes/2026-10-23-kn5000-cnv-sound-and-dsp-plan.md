@@ -21,7 +21,7 @@ Later the same day: the research plan's second pass (a sub-CPU-fed mixer on IC31
 - Q6, done: the running sub program accepts E1 writes into its DRAM, and its RAM trampolines can be pointed
   at code of ours (whether `0x2D` uploads a replaced stream was not needed and is not tested).
 - The DSP sound: a tick rate above 4000 Hz (how much of the sub CPU the streamer takes is not measured); a
-  faster part load (14 s for the intro's sounds, half of it decoding and E1).
+  faster part load (8 s for the intro's sounds, most of it the firmware's floppy reads).
 - MAME: an organ's note (Chapel Organ) does not end after its note-off; not looked into.
 - MAME, done for programs of ours: the IC311 build mixes DO1/DO2 (Q9). The firmware's own effects are still
   not heard, the presentation words being undecoded (`UPD6383_PRESENT_ASIS` only for programs that make

@@ -126,13 +126,13 @@ with the probe that made it).
 
 **Measured in MAME:**
 
-| measurement                                                   | result                                                                                              |
-|---------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
-| test program, four sines of 220-660 Hz in D-RAM               | the speakers carry the four tones; everything else 35 dB below (DO1 itself: 50 dB)                  |
-| the streamer's test sine (62.5 Hz) through E1, sub CPU, IC311 | heard from the converter's start; timer 4 ticks 4000 times a second                                 |
-| the game's intro                                              | its own sound effects and music on the four channels, nothing clipped                               |
-| loading a part's sounds (the intro: 148,508 bytes of samples) | 14 s: one open of `AWSND.BIN`, a seek and a read per sound (an open costs the firmware about 1.5 s) |
-| leaving the game                                              | IC311's I-RAM and C-RAM identical to before the game                                                |
+| measurement                                                   | result                                                                                                                                                           |
+|---------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| test program, four sines of 220-660 Hz in D-RAM               | the speakers carry the four tones; everything else 35 dB below (DO1 itself: 50 dB)                                                                               |
+| the streamer's test sine (62.5 Hz) through E1, sub CPU, IC311 | heard from the converter's start; timer 4 ticks 4000 times a second                                                                                              |
+| the game's intro                                              | its own sound effects and music on the four channels, nothing clipped                                                                                            |
+| loading a part's sounds (the intro: 148,508 bytes of samples) | 7.9 s: one open of `AWSND.BIN`, one read per run of sounds that follow each other in it (an open costs the firmware about 1.5 s); the bank checked byte for byte |
+| leaving the game                                              | IC311's I-RAM and C-RAM identical to before the game                                                                                                             |
 
 **An emulator fault it found**: IC311 runs inside the tone generator's sound-stream update, so a whole
 batch of DSP frames saw only the D-RAM the sub CPU had left at the end of the batch: samples written at
