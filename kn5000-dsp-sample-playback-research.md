@@ -145,14 +145,14 @@ its own DSP command ring.
 
 **Where the questions stand:**
 
-| #   | now                                                                                                                                                                       |
-|-----|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Q1  | as in the first pass; not needed by this design                                                                                                                           |
-| Q2  | as in the first pass; side-stepped: no sample enters the delay memory                                                                                                     |
-| Q5  | the sub CPU writes the four samples, the output level and changed volumes every tick: 4000 ticks a second, measured; how far it can go is open                            |
-| Q6  | the running sub program accepts E1 transfers into its DRAM, and its RAM interrupt trampolines can be pointed at code of ours; delivery needs no replaced algorithm stream |
-| Q7  | open (the unit)                                                                                                                                                           |
-| Q9  | answered for development: the IC311 build mixes DO1 and DO2, and a program of ours is heard; the firmware's own effects still are not                                     |
+| #   | now                                                                                                                                                                                                          |
+|-----|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Q1  | as in the first pass; not needed by this design                                                                                                                                                              |
+| Q2  | as in the first pass; side-stepped: no sample enters the delay memory                                                                                                                                        |
+| Q5  | the sub CPU writes 33 bytes a tick (four samples, the output level, changed volumes): at 4000 ticks a second that takes 55 % of it in MAME (87 % with the firmware's byte writer, which could not pass 4709) |
+| Q6  | the running sub program accepts E1 transfers into its DRAM, and its RAM interrupt trampolines can be pointed at code of ours; delivery needs no replaced algorithm stream                                    |
+| Q7  | open (the unit)                                                                                                                                                                                              |
+| Q9  | answered for development: the IC311 build mixes DO1 and DO2, and a program of ours is heard; the firmware's own effects still are not                                                                        |
 
 **Limits.** Four thousand samples a second leaves 2 kHz of bandwidth, so the sounds are dull. The
 CALL and its rebase, the return address and the output level are the core's readings of the shipped
