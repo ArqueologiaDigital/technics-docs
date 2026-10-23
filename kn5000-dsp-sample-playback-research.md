@@ -67,8 +67,38 @@ says what is missing, what would settle each question, and in which order.
 | Q9  | **MAME.** The IC311 core in a build where its return is mixed                                                                                                                  | behind the existing `KN5000_ENABLE_DSP1` switch; confirm a firmware effect against a recording from the unit before trusting our own program on it                                                                    | whether development can happen in the emulator          |
 | Q10 | **IC310 (MN19413) instead.** The whole main mix passes through it, and it has its own 1-Mbit DRAM                                                                              | its instruction set is undecoded and it is not emulated: a project of its own, of the size IC311's has been                                                                                                           | a second route if IC311's fails                         |
 
+## Results so far
+
+**Step 1, first pass (2026-10-23).**
+
+- **Q1, partly answered from the ROM, positive.** The decode's register (technics-roms-disasm
+  `dsp/analysis/SPECULATIVE-APPLIED-REGISTER.md` §152) already shows the modulation offset carries a
+  **sample count**: ENHANCER's DELAY L of 350 ms reaches its word as 15,435 = 350 x 44,100 / 1,000.
+  And the word's class selects **interpolation**: class 3 keeps the fraction and reads two adjacent
+  words, class 2 truncates. So a read at a fractional, computed position is something the chip does.
+  Still open: the offset's full width, and its sign handling past what the effects use.
+- **Q2, negative in the corpus.** Of the 99 delay reads in the 38 programs, 35 follow an
+  apply-modulation-offset word within three words; **none of the 101 delay writes does**
+  (`dsp/tools/mod_write_census.py`). Every shipped program writes its delay memory at descriptor +
+  frame counter only. Whether a write *can* take the offset is untested; nothing shipped shows it.
+- **A blocker the plan had not listed: the output stage.** The word that hands a unit's result to
+  DO1 (output stage `w73`, `E30.C.00.404`) and the DO write itself are undecoded
+  (`dsp/analysis/k5-output-stage.md` §3.2), and in MAME's core DO1 and DO2 have been **exactly zero
+  for every program ever run** (1.2 M frames, "§54 VERDICT: SILENT"). Until that is decoded, no
+  program on IC311, the firmware's or ours, is heard in MAME (Q9), and on the instrument a program of
+  ours would have to hand its result to the firmware's output stage the way effect bodies do, which is
+  also undecoded. **This now comes first**: it is the decode project's own open problem, and Q9
+  depends on it.
+
+A design that avoids writing samples into the delay memory (Q2) stays possible: the sub CPU keeps the
+sample bank in its own DRAM, steps each channel, and writes the four current samples into DSP
+registers at a fixed rate; the DSP program multiplies them by the four volumes and sums them, using
+only the multiply-accumulate words the decode has measured. It still needs the output stage.
+
 ## The order
 
+0. **The output stage** (above): how a body hands its result to DO1/DO2. Without it nothing is heard
+   in MAME, and a program of ours cannot be checked anywhere but on the unit.
 1. **Desk work, in the emulator and the ROM corpora (Q1, Q2, Q3, Q8).** No hardware. If the
    modulation offset is narrow and integer-only, and writes are frame-relative only, a mixer of
    arbitrary pitch is out of reach on IC311, and the route is Q10 or nothing; record that here.
