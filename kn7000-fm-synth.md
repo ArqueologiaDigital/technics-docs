@@ -39,14 +39,14 @@ Source: `kn5000_homebrew/demos/kn7000_fm/` (its `README.md` has the details).
 The reference model, `tools/fm_model.py`, defines every number the DSP computes. It follows msfa (Raph Levien's
 engine, Google, Apache License 2.0, as Dexed carries it), fitted to the DSP:
 
-| part         | how                                                                                                             |
-|--------------|-----------------------------------------------------------------------------------------------------------------|
-| operator     | a 24-bit phase, a 256-point sine with linear interpolation, times a gain                                        |
-| gain         | moves linearly over 64 frames between control values (msfa's own interpolation over its 64-sample blocks)       |
-| control      | one thing of one voice per frame: each operator's envelope, gain and frequency every 64 frames, msfa's rate      |
-| exp2         | a cubic for 2^f, then SCALB/FIX, in float: no room for tables (1.4e-4 relative error)                            |
-| algorithms   | msfa's encoding: two buses, the output, self-feedback; the DSP runs code generated for the patch's algorithm    |
-| carriers     | scaled 1/32 of msfa's, so that 8 voices of 6 carriers sum without overflow; one at full level is -18 dBFS        |
+| part       | how                                                                                                          |
+|------------|--------------------------------------------------------------------------------------------------------------|
+| operator   | a 24-bit phase, a 256-point sine with linear interpolation, times a gain                                     |
+| gain       | moves linearly over 64 frames between control values (msfa's own interpolation over its 64-sample blocks)    |
+| control    | one thing of one voice per frame: each operator's envelope, gain and frequency every 64 frames, msfa's rate  |
+| exp2       | a cubic for 2^f, then SCALB/FIX, in float: no room for tables (1.4e-4 relative error)                        |
+| algorithms | msfa's encoding: two buses, the output, self-feedback; the DSP runs code generated for the patch's algorithm |
+| carriers   | scaled 1/32 of msfa's, so that 8 voices of 6 carriers sum without overflow; one at full level is -18 dBFS    |
 
 Checked against msfa built from source (`tests/msfa_ref/`). For 32 random voices, one per algorithm, C4 at
 velocity 100: level median 0.00 dB (worst -0.52 dB), envelope error median 0.13 dB (worst 0.97 dB). Steady-state
