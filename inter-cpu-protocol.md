@@ -748,6 +748,45 @@ The following naming patterns are used consistently across both CPUs:
 | `SubCPU_Init_DMA_Channels`                        | `InterCPU_Latch_Setup`        | DMA channel initialization                                                                                                                                                                        |
 | `sendCOMM`                                        | `Audio_CmdHandler_*`          | High-level send wrapper vs. per-range handlers                                                                                                                                                    |
 
+## Records a converter can send (2026-10-22)
+
+What the main CPU sends the sub CPU while the firmware plays, read off the latch in MAME (v10;
+technics-anotherworld `kn5000cnv/probes/latch.lua`, cut into packets by `tools/latch_decode.py`):
+
+| what                     | packets (header \| record)                                                                |
+|--------------------------|-------------------------------------------------------------------------------------------|
+| C3 pressed on the keybed | `03 \| 90 00 3C 64`, then `82 \| 90 3C 64` (the same note to the computer-interface port) |
+| released                 | `03 \| 90 00 3C 00`, `03 \| B0 00 7B 00`                                                  |
+| BRASS (SOUND GROUP)      | `04 \| C0 00 38 00 00`: part 0, program 56, bank selector 0 = "Bigband Brass"             |
+| the rhythm's drums       | `03 \| 90 14 key velocity` on part `0x14`, the kit set by `C0 14 00 40 00`                |
+
+A program change is `C0 part program selector X`: the program and bank selector of the
+[Tone Database]({{ site.baseurl }}/tone-database/#program-change-lookup-bank-map--tone-number--offset-table)
+(`X` is `0x00` or `0x7F` in what the firmware sends; its meaning is not established).
+
+**The parts, by what the boot sends them:**
+
+| part          | at power-on                                    | role                                                     |
+|---------------|------------------------------------------------|----------------------------------------------------------|
+| `0x00`-`0x02` | Piano, Bigband Brass, Modern E.P.1             | RIGHT 1, RIGHT 2, LEFT (the panel's voices, MIDI 1-3)    |
+| `0x03`-`0x0E` | Piano, volume 100, expression 127, pan centre  | MIDI receive parts of channels 4-15, idle with no song   |
+| `0x0F`        | drum kit, selector `0x40` program 0            | MIDI channel 10                                          |
+| `0x10`-`0x16` | the style's voices; `0x14` its drum kit        | the accompaniment                                        |
+| `0x17`-`0x19` | no program change at boot                      | not identified (`0x17` answers the MSP parameter keys)   |
+
+**Sending them without the firmware.** A converter runs while the firmware's main loop is stopped,
+so nothing turns MIDI or the keybed into records then. `sendCOMM` can be called, or its path copied:
+`AW.CNV` carries its own copy of `InterCPU_Send_Data_Block` and its byte loop (wait for port Z bit 3
+high, clear bit 0, write the header to `0x140000`, wait for bit 3 low, set bit 0, write the record's
+bytes; the firmware's transfer-state word `0x05E0` set to 1 meanwhile), which needs no address of the
+firmware's and works on every version. It plays the game's sound that way on parts 3-10 and gives
+them their boot settings back on leaving.
+
+**In MAME, few voices sound.** Only one of the four wave ROMs is dumped. Of 66 voices tried on part 3
+(C3, velocity 100), about twenty were heard, and no drum key on any part or kit; an organ's note
+does not end. The list is in technics-anotherworld `kn5000cnv/README.md` ("Sound"), made with its
+`SND_TEST=1` build.
+
 ## Research Needed
 
 - [x] Document exact latch register bit layout - See Boot ROM Protocol above

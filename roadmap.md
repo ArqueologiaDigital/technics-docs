@@ -304,6 +304,11 @@ catalogue, and the shared wave helper the KN7000/KN6000 will reuse. Strict order
 Deprioritise anything whose acceptance test needs the missing wave banks, and say why in the docs so
 an outside reader is not misled.
 
+**Programs of ours on the effects DSP.** The KN7000 plays Another World's own samples with a mixer of
+ours in its DSP; the KN5000 cannot yet. What the uPD6383GF decode would have to establish first (the
+modulation offset's range, writing the delay memory at known places, a delivery path through the sub
+CPU) and in which order is on [DSP Sample Playback — Research Plan]({{ site.baseurl }}/kn5000-dsp-sample-playback-research/).
+
 ### Phase 3 — KN7000 desk work · *3–4 weeks, parallel to Phase 2*
 
 - **Felipe's own SD card is banked hardware ground truth needing no hardware.** It holds effect,

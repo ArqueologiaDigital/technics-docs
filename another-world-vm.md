@@ -47,7 +47,18 @@ The details, with the memory map, the controls and the unit's own speed figures,
 A second KN7000 build, a ride-along in the SP7001 SD plug-in, is silent and runs in MAME only
 ([SP7001 homebrew]({{ site.baseurl }}/kn7000-sp7001-homebrew/#a-larger-example-another-world)).
 
-The rest of this page is about the KN5000 port.
+## The KN5000 style-converter build
+
+Since 2026-10-22 the KN5000 VM also runs on a **stock KN5000**, as a style converter: `AW.CNV`, with
+the game's files on the same floppy, started from DISK MENU > STYLE CONVERT. It runs in MAME on
+firmware v5 to v10, with the controls on the panel and on the keybed and the game's sound on the
+instrument's own voices; it has not run on a real KN5000 yet. The details are on
+[Your Own Code on a Stock KN5000]({{ site.baseurl }}/kn5000-cnv-homebrew/). The game's own samples, as
+on the KN7000, would need the KN5000's effects DSP:
+[DSP Sample Playback — Research Plan]({{ site.baseurl }}/kn5000-dsp-sample-playback-research/).
+
+The rest of this page is about the KN5000 port's standalone ROM builds, and the VM they share with the
+converter.
 
 ## Architecture
 
@@ -116,6 +127,11 @@ The KN5000's control panel buttons are read via **SC1 synchronous serial** at 25
 | CONDUCTOR: RIGHT 1   | CPR_SEG4 | 6   | Move RIGHT                 |
 | VARIATION 4          | CPL_SEG4 | 3   | ACTION (run/kick/draw gun) |
 
+The converter build also reads the **keybed**: the firmware's interrupt path still writes each key's
+note and velocity into the main CPU's note ring (`0x202CB`), which the game drains each frame. F4 and
+C5 move left and right, A♭4 or B♭4 is up, A4 down, C3 and below the action
+([details]({{ site.baseurl }}/kn5000-cnv-homebrew/#running-it)).
+
 ### Serial Protocol
 
 Each button query is a 4-byte exchange:
@@ -132,8 +148,12 @@ A hardware timer provides frame pacing:
 
 - **Timer 0/1 cascade** at 12,500 Hz (80 µs per tick)
 - `INTT1` ISR increments `SYSTEM_TICKS` counter
-- `PAUSE` opcode reads `var[0xFF]` for frame duration in 20 ms slices (250 ticks each)
-- DJNZ fallback counter provides minimum frame time
+- `BLIT_FRAMEBUFFER` pauses for `var[0xFF]` slices of 20 ms (250 ticks each), stamps the time, then
+  shows the page, as the reference engine does: the whole frame's work counts toward the pause (until
+  2026-10-23 the page was shown first and the next frame timed from the end of the thread loop, so
+  frames ran about 1.5 times too long; the converter build measured 124 ms for an 80 ms frame, now 85)
+- DJNZ fallback counter bounds the wait if the timer does not run
+- The converter build counts the firmware's own 488 Hz Timer 1 ticks at `0x0409` instead (10 a slice)
 
 ## Game Parts
 
@@ -169,19 +189,19 @@ Requirements:
 
 ## Implementation Status
 
-| Feature                     | Status                                                                                                             |
-|-----------------------------|--------------------------------------------------------------------------------------------------------------------|
-| All VM opcodes (0x00-0x1A)  | Implemented                                                                                                        |
-| Polygon rendering           | Working                                                                                                            |
-| Bitmap decompression        | Working (ByteKiller)                                                                                               |
-| Palette management          | Working (4-bit DAC)                                                                                                |
-| Frame timing                | Working (hardware timer, 12,500 Hz cascade)                                                                        |
-| Part switching              | Working (all protection checks bypassed)                                                                           |
-| Input (directions + action) | Working (SC1 serial to cpanel HLE)                                                                                 |
-| MAME control panel          | **Fully working** — both left and right panels                                                                     |
-| Copy protection bypass      | Working (var[0xBC], var[0xDC], var[0xF2])                                                                          |
-| Sound effects               | Stub (consumes bytecode, no output); the KN7000 port plays them ([above](#the-kn7000-port-on-the-real-instrument)) |
-| Music                       | Stub (consumes bytecode, no output); the KN7000 port plays it                                                      |
+| Feature                     | Status                                                                                                                 |
+|-----------------------------|------------------------------------------------------------------------------------------------------------------------|
+| All VM opcodes (0x00-0x1A)  | Implemented                                                                                                            |
+| Polygon rendering           | Working                                                                                                                |
+| Bitmap decompression        | Working (ByteKiller)                                                                                                   |
+| Palette management          | Working (4-bit DAC)                                                                                                    |
+| Frame timing                | Working (hardware timer, 12,500 Hz cascade)                                                                            |
+| Part switching              | Working (all protection checks bypassed)                                                                               |
+| Input (directions + action) | Working (SC1 serial to cpanel HLE)                                                                                     |
+| MAME control panel          | **Fully working** — both left and right panels                                                                         |
+| Copy protection bypass      | Working (var[0xBC], var[0xDC], var[0xF2])                                                                              |
+| Sound effects               | On the instrument's voices in the converter build ([above](#the-kn5000-style-converter-build)); stub in the ROM builds |
+| Music                       | On the instrument's voices in the converter build, sync marks in var `0xF4`; stub in the ROM builds                    |
 
 The MAME KN5000 driver's control panel HLE (High Level Emulation) was developed alongside this VM. All serial communication bugs discovered during VM development were fixed while maintaining compatibility with the original KN5000 firmware. See the [Serial Firmware Compatibility]({{ site.baseurl }}/serial-firmware-compatibility/) report for details.
 
@@ -196,6 +216,14 @@ The MN89304's RAMDAC is 4-bit (0-15), not 6-bit like standard VGA. The game's 4-
 ### Copy Protection
 The original game includes protection checks that read specific VM variables. These are bypassed by initializing `var[0xBC]`, `var[0xDC]`, and `var[0xF2]` to expected values at startup.
 
+### Indexing with a whole register
+
+`CHECK_THREAD_REQUESTS` walked the 64 threads with `LD A, 0` but indexed the thread table with all of
+`WA`. On the frame a part switch ran, `W` still held what `initForPart` left in it, so that frame's 64
+thread updates went 0x2800 bytes past the thread table. In the converter build that is the middle of
+the new part's bytecode, and dying or climbing out of the lake froze the game; the ROM builds wrote
+elsewhere. Fixed 2026-10-22 (`LD WA, 0`); the other loops already cleared `W`.
+
 ### FREEZE Semantics
 The VM's thread freeze mechanism is **persistent**: `CHECK_THREAD_REQUESTS` applies `thread->state = thread->requested_state` every frame without clearing the request. The `REQUESTED_STATE` is initialized to `NOT_FROZEN`. `RESET_THREAD` type 0 = unfreeze, type 1 = freeze. This matches the reference implementation — threads stay frozen until explicitly unfrozen by another thread's opcode.
 
@@ -206,3 +234,5 @@ The VM's thread freeze mechanism is **persistent**: `CHECK_THREAD_REQUESTS` appl
 - [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/) — Button/LED serial protocol
 - [Memory Map]({{ site.baseurl }}/memory-map/) — KN5000 address space
 - [HDAE5000]({{ site.baseurl }}/hdae5000/) — Extension board (alternative build target)
+- [Your Own Code on a Stock KN5000]({{ site.baseurl }}/kn5000-cnv-homebrew/) — the style-converter build
+- [DSP Sample Playback — Research Plan]({{ site.baseurl }}/kn5000-dsp-sample-playback-research/)

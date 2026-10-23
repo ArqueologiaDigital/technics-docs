@@ -261,6 +261,19 @@ well; see [Boot CP-Serial Link]({{ site.baseurl }}/boot-cpserial-link/#handshake
   among the cheapest fidelity evidence available, so one measured run settles it. See
   [Test Modes]({{ site.baseurl }}/test-modes/).
 
+- **Most voices are silent, every drum kit is, and an organ's note does not end.** Three of the four
+  wave ROMs are undumped (their sockets hold copies of IC307). Measured 2026-10-23 with a converter
+  that plays one note per voice (technics-anotherworld `kn5000cnv`, `SND_TEST=1`): of 66 voices,
+  about twenty are heard (the pianos, Electric and Mute Bass, Glockenspiel, Steel Drum, Sleigh Bell,
+  Halo Pad, Sine Lead, Dream, Kalimba, Agogo, Wood Block, Taiko, Synth Drum, Seashore, Gun Shot, the
+  organs); no drum key sounds on the rhythm part or on the MIDI drum part with either kit; the Chapel
+  Organ's note goes on after its note-off. The first two follow from the missing ROMs; the third has
+  not been looked into.
+- **IC311's return is not mixed.** The effects DSP's core is left out of the default build
+  (`KN5000_ENABLE_DSP1=0`), and even with it in, its wet return into IC303 is not wired: nothing it
+  computes is heard. Any work on programs of ours for the chip needs this first
+  ([research plan]({{ site.baseurl }}/kn5000-dsp-sample-playback-research/), Q9).
+
 ## Acceptance tests worth writing
 
 Two of these are exact and mechanical, which is unusual and worth exploiting:

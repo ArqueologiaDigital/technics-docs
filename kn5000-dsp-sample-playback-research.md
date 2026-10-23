@@ -1,0 +1,95 @@
+---
+layout: page
+title: "DSP Sample Playback — Research Plan"
+permalink: /kn5000-dsp-sample-playback-research/
+---
+
+# Playing our own samples on the KN5000's DSPs — a research plan
+
+On the KN7000, Another World plays the game's own samples: an eight-voice mixer of ours runs in the
+effects DSP, the samples in the DSP's SDRAM ([KN7000 converter page]({{ site.baseurl }}/kn7000-cnv-homebrew/#sound)).
+The KN5000 port plays its sound on the instrument's voices instead
+([KN5000 converter page]({{ site.baseurl }}/kn5000-cnv-homebrew/#sound)), and in MAME, with three of
+the four wave ROMs undumped, few voices sound. A mixer of ours on the KN5000's effects DSP would
+play the game's own sounds on any KN5000 and in MAME alike.
+
+**The initial result (2026-10-23): it cannot be written yet.** That is a statement about what is
+known of the chip today, not about the chip: the decode of the uPD6383GF is still moving, and the
+modulation effects show that the chip already does the hardest part of a sample player. This page
+says what is missing, what would settle each question, and in which order.
+
+## What the KN7000 had that the KN5000 does not, yet
+
+| a mixer needs                   | KN7000 (ADSP-21065L)                                     | KN5000 (IC311, uPD6383GF), as known today                                                                                                   |
+|---------------------------------|----------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| an instruction set we can write | documented; an assembler of ours                         | about 81 % of the distinct microwords decoded ([decode status]({{ site.baseurl }}/upd6383-decode-status/)); no assembler                    |
+| memory for the samples          | 1M words of SDRAM the host writes                        | 256K x 16 delay DRAM that only the DSP's own write words reach; the host writes coefficients and registers, five bytes a value              |
+| reading at a computed position  | any address                                              | a delay address is a descriptor plus the frame counter, **plus a modulation offset** on CHORUS-type words (below): range and precision open |
+| getting a program in            | the firmware's own host-port routines, from the main CPU | only the sub CPU writes the DSP; the converter runs on the main CPU                                                                         |
+| knowing what the DSP did        | host reads of DSP memory                                 | none: the host port is write-only, the condition flags are strapped on this board                                                           |
+| hearing it                      | its unit slots' returns, measured on the unit            | IC311 is a send/return insert: its wet return goes back into IC303, which mixes it; which return is heard when is not measured              |
+| developing it in MAME           | the SHARC core                                           | a draft core, not in the default build, and its return is not mixed                                                                         |
+
+## Why there is hope
+
+- **The chip reads its delay memory at a moving, computed position.** CHORUS is decoded as an
+  LFO-modulated delay: a phase accumulator (`phase += increment`, wrapped at 2²³−1) drives a waveform
+  lookup whose output sweeps the read tap of a delay line, through the step the decode calls *apply
+  modulation offset* (`lo12 = 0x44C`). Captured live, CHORUS's phase cell ramps +114 a frame, and the
+  LFO-SPEED knob moves the step ([Effects DSP]({{ site.baseurl }}/effects-dsp/#modulation--a-quadrature-lfo-swept-delay-strong-by-composition)).
+  A sample player is that same machine with a slow ramp in place of the LFO: a position accumulator
+  stepping by the pitch, reading the delay memory where the sample is.
+- **The chip keeps state across frames and runs a fixed budget**: 567 cycles a frame at 25 MHz
+  against 384 instruction words, straight-line. Four voices of accumulate, read, scale and sum fit
+  that budget easily; the KN7000 mixer spends about 40 instructions on a sounding voice.
+- **A delivery path exists in principle.** The sub CPU's effect programs are bytecode streams in its
+  DRAM, in the program image the main CPU downloads at power-on
+  ([DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/),
+  [DSP Bytecode Interpreter]({{ site.baseurl }}/dsp-bytecode-interpreter/)). The main CPU writes the
+  sub CPU's DRAM with E1 transfers, and selects an algorithm with command `0x2D`. Replacing one
+  algorithm's stream and selecting it would have the sub CPU's own, tested routines upload our
+  program, much as the KN7000 port used the firmware's host-port routines.
+- **The output is audible on the real instrument**: every DSP effect is heard, and IC311's returns
+  are mixed by IC303.
+
+## The open questions, and what settles each
+
+| #   | question                                                                                                                                                                       | how to settle it                                                                                                                                                                                                      | what it decides                                         |
+|-----|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------|
+| Q1  | **The modulation offset's range and precision.** Does the `0x44C` step add an offset as wide as the delay memory, or a bounded one? Integer, or fractional with interpolation? | trace CHORUS, FLANGER and the delays live in the emulator's LLE (`dsp/hle/lle_trace_diff.py`), with the HLE as oracle; census every `0x44C` word in both products' corpora; compare the sweep depths the programs use | whether a voice can play a sample at an arbitrary pitch |
+| Q2  | **Writing at a known place.** Can a write word take the modulated address, or only descriptor + frame counter?                                                                 | the same census for write words; if only the frame counter, check Q3                                                                                                                                                  | how samples get into the delay memory                   |
+| Q3  | **A frame counter of our own.** Can a program keep a cell that steps by one each frame and use it to turn frame-relative addresses into fixed ones?                            | follows from Q1 (a phase accumulator with step 1)                                                                                                                                                                     | loading without readback                                |
+| Q4  | **The width of the delay address** (`mod 2^N`, N open: the firmware never uses more than 16 bits; 17 address pins)                                                             | a program that writes past 64K words and reads back through the audio path, on the unit                                                                                                                               | 128K or 256K words for samples                          |
+| Q5  | **Feeding samples in.** How fast can the sub CPU write coefficient or register cells, and can the DSP copy one into the delay memory each frame?                               | time the firmware's own coefficient uploads (bytecode interpreter) in MAME; design a loader word sequence from decoded steps                                                                                          | how long a part's sounds take to load                   |
+| Q6  | **Delivery.** Does the running sub-CPU program accept E1 transfers into its DRAM, and does selecting a replaced algorithm with `0x2D` upload it unchanged?                     | in MAME: replace the NO OPERATION program's stream with a known variant and compare what the core receives with what was written                                                                                      | whether we need our own sub-CPU code                    |
+| Q7  | **Which return is heard.** IC311's outputs DO1/DO2 return into IC303 (`SDIA`/`SDIB`); which is mixed always, which only with an effect on                                      | on the unit, a program that outputs a known tone on one return at a time (as the KN7000's DSPTONE did)                                                                                                                | where the mixer's output goes                           |
+| Q8  | **The bank's size.** The game's 93 sounds are 684,980 8-bit samples; one word per sample does not fit 256K words, two need unpacking in the DSP                                | the decode of shifts and masks; else only the sounds of the part being played                                                                                                                                         | load per part, or once                                  |
+| Q9  | **MAME.** The IC311 core in a build where its return is mixed                                                                                                                  | behind the existing `KN5000_ENABLE_DSP1` switch; confirm a firmware effect against a recording from the unit before trusting our own program on it                                                                    | whether development can happen in the emulator          |
+| Q10 | **IC310 (MN19413) instead.** The whole main mix passes through it, and it has its own 1-Mbit DRAM                                                                              | its instruction set is undecoded and it is not emulated: a project of its own, of the size IC311's has been                                                                                                           | a second route if IC311's fails                         |
+
+## The order
+
+1. **Desk work, in the emulator and the ROM corpora (Q1, Q2, Q3, Q8).** No hardware. If the
+   modulation offset is narrow and integer-only, and writes are frame-relative only, a mixer of
+   arbitrary pitch is out of reach on IC311, and the route is Q10 or nothing; record that here.
+2. **Delivery in MAME (Q6, Q5).** Replace the NO OPERATION algorithm's program with a variant and
+   see it reach the chip unchanged, then time a coefficient stream.
+3. **A tone of our own (Q9, then Q7 and Q4 on the unit).** A KN5000 DSPTONE: a phase accumulator
+   reading a waveform table, its step from a coefficient the converter writes. In MAME first, then on
+   the instrument when it is back, one return at a time.
+4. **One voice from the delay memory**: load a sample through the loader words, play it at two
+   pitches.
+5. **The mixer**: four voices for PLAY_SOUND, four for the music, as the KN7000's; a command
+   protocol through coefficient cells; the bank per part or once. The instrument-voice sound stays as
+   the fallback, as the KN7000's tone-generator mode did.
+
+Each step's result goes on this page, and in the decode's own records
+([uPD6383 decode status]({{ site.baseurl }}/upd6383-decode-status/)).
+
+## Tools to build on
+
+- The decode's own: the HLE models and `lle_trace_diff.py`, the two-sided gate `pair_gate.sh`, the
+  program catalogue and flowcharts ([Effects-DSP Flowcharts]({{ site.baseurl }}/effects-dsp/flowcharts/)).
+- The KN7000's mixer (technics-anotherworld `kn7000/tools/dsp_mixer.py`) as the design to follow.
+- The KN5000 converter's sound path: records to the sub CPU, a test build that plays a note list
+  before the game, and a level meter for MAME recordings (technics-anotherworld `kn5000cnv/`).
