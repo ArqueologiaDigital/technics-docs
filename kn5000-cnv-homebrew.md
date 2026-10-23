@@ -14,8 +14,9 @@ files on the same floppy (technics-anotherworld `kn5000cnv/`).
 
 > **Status (2026-10-23).** `AW.CNV` runs in MAME on firmware v5, v6, v7 and v10 (v8 and v9 share
 > v10's addresses): the whole intro, the water part, the controls on the panel and on the keybed,
-> the game's sound on the instrument's voices. It has **not** run on a real KN5000: the project's
-> unit is away. Building it found three emulator bugs, fixed in the project's MAME overlay
+> the game's sound on the instrument's voices, and, in a test build, the game's own samples through
+> a mixer of ours on the effects DSP. It has **not** run on a real KN5000: the project's
+> unit is away. Building it found four emulator bugs, fixed in the project's MAME overlay
 > ([below](#emulator-bugs-it-found)).
 
 ## Running it
@@ -89,8 +90,15 @@ in the original.
 MAME has only one of the KN5000's four wave ROMs dumped, and plays few of its voices: of 66 voices
 tried, about twenty sound, and no drum kit does. The voices were chosen among those, and the drums
 are voices at a fixed note; the real instrument plays every voice, so the table is one to retune on
-the unit. The game's own samples, as the KN7000 plays them on its effects DSP, are not possible on
-the KN5000 yet: [DSP Sample Playback — Research Plan]({{ site.baseurl }}/kn5000-dsp-sample-playback-research/).
+the unit.
+
+**The game's own samples, on the effects DSP (`make DSND=1`, MAME only so far).** A four-channel mixer
+of ours runs on IC311, fed by a streamer of ours in the sub CPU's DRAM. That streamer steps the
+channels over the game's samples 4000 times a second, and the sound effects and music module both
+drive the four channels, as on the Amiga. Each part's sounds load with the part: about 14 s more
+for the intro. Leaving the game puts IC311's own effects back as they were. It is heard in MAME's
+IC311 build only, and it has not run on a real KN5000:
+[DSP Sample Playback — Research Plan]({{ site.baseurl }}/kn5000-dsp-sample-playback-research/#results-second-pass-a-mixer-fed-by-the-sub-cpu).
 
 ### A VM bug it found
 
@@ -108,6 +116,7 @@ writes landing elsewhere. Clearing `W` fixed both.
 | v7 and v9 panel buttons did the wrong thing (DISK nothing, EXIT transposed), v6 showed "ERROR in CPU data transmission": the panel model raised INTA while a command was still being sent, and lost every other packet of a long answer       | `kn5000_cpanel`: answer no sooner than 150 us after a command; 150 us between packets |
 | opening STYLE CONVERT held the sub CPU in reset (keybed dead, "Sound Name Error" afterwards): the TMP94C241's ports A and B have no control register, so a read gave the pins, and the firmware's `set 3,(PA)` cleared the sub CPU's `/RESET` | ports A and B read back their output latch                                            |
 | every keybed input was named an octave above the instrument's own name for the key                                                                                                                                                            | inputs renamed C1..C6                                                                 |
+| with IC311 emulated, the DSP saw the sub CPU's writes only once per sound-stream batch (about 90 times a second for a 4 kHz sample stream)                                                                                                    | the tone generator's stream is brought up to date before each IC311 host byte         |
 
 ## Sources
 
