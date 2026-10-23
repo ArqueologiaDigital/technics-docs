@@ -60,16 +60,16 @@ A new program is a new folder on the card. Nothing on the floppy changes.
 
 The menu's build (`make card` in `kn7000/tools/kn7menu`) writes everything for the card's root:
 
-| on the card  | what                                                                                                           |
-|--------------|----------------------------------------------------------------------------------------------------------------|
-| `KN7APP.BIN` | the program menu (12,739 bytes)                                                                                |
-| `AW\`        | Another World: its `KN7APP.BIN` and 140 game files, made from your own copy of the game                        |
-| `SURVEY2\`   | the ROM dumper's pass 5                                                                                        |
-| `DSPPROBE\`  | pass 6, the DSP probe, phase 1                                                                                 |
-| `DSPMEM\`    | pass 7, the DSP probe, phase 2                                                                                 |
-| `DSPRATE\`   | pass 8, the DSP frame rate                                                                                     |
-| `CPUTIME\`   | pass 9, the CPU timing probe                                                                                   |
-| `DSPTONE\`   | our own program on the effects DSP, iteration 1                                                                |
+| on the card  | what                                                                                    |
+|--------------|-----------------------------------------------------------------------------------------|
+| `KN7APP.BIN` | the program menu (12,739 bytes)                                                         |
+| `AW\`        | Another World: its `KN7APP.BIN` and 140 game files, made from your own copy of the game |
+| `SURVEY2\`   | the ROM dumper's pass 5                                                                 |
+| `DSPPROBE\`  | pass 6, the DSP probe, phase 1                                                          |
+| `DSPMEM\`    | pass 7, the DSP probe, phase 2                                                          |
+| `DSPRATE\`   | pass 8, the DSP frame rate                                                              |
+| `CPUTIME\`   | pass 9, the CPU timing probe                                                            |
+| `DSPTONE\`   | our own program on the effects DSP, iteration 1                                         |
 
 [KN7FM]({{ site.baseurl }}/kn7000-fm-synth/), a DX7-style FM synthesizer on the effects DSP, is a program for the same
 card but not part of this build: its folder `KN7FM\` comes from its own `make card-dir` (kn5000_homebrew
