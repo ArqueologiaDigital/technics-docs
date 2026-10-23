@@ -106,6 +106,8 @@
           url: /kn7000-sound-subsystem/
         - title: Effects DSP (ADSP-21065L)
           url: /kn7000-effects-dsp/
+        - title: "KN7FM: FM Synthesizer on the DSP"
+          url: /kn7000-fm-synth/
         - title: DSP Algorithm Catalog
           url: /kn7000-dsp-algorithms/
         - title: Sound GUI Map
