@@ -14,14 +14,19 @@ firmware's own host-port routines, as DSPTONE and Another World load theirs. KN7
 
 Source: `kn5000_homebrew/demos/kn7000_fm/` (its `README.md` has the details).
 
-> **Status (2026-10-23): in development.** The engine's reference model is checked against msfa, the DX7
-> engine Dexed uses. The DSP program is checked against the model in a simulator of the SHARC instructions it uses.
-> The main CPU's program (firmware search, DSP load, keybed, editor) is written and is being tested in MAME. It has
-> not run on an instrument.
+> **Status (2026-10-23): runs in MAME; not yet tried on an instrument.** In MAME (program 893, the loader floppy, the
+> program menu) KN7FM:
+> - finds the firmware, loads and hooks the DSP;
+> - plays the keybed's notes, with the DSP's output equal to the model's sample for sample under both of MAME's
+>   SHARC cores;
+> - edits, loads and saves banks;
+> - puts the firmware's effects back when it ends.
+>
+> How many voices the instrument's DSP has time for is not known: in MAME, five.
 
 ## What it does
 
-- **Sound.** Eight voices of six operators, the DX7's 32 algorithms, operator feedback, four-rate/four-level
+- **Sound.** Up to eight voices (five to start: [Voices](#voices)) of six operators, the DX7's 32 algorithms, operator feedback, four-rate/four-level
   envelopes, keyboard level and rate scaling, velocity sensitivity, ratio and fixed frequencies with fine tuning and
   detune, the pitch envelope, the LFO (six waveforms, delay, pitch and amplitude modulation), oscillator key sync,
   transpose, the sustain pedal. Played from the keybed (and MIDI IN). The instrument's own sound for the keys is
@@ -95,3 +100,36 @@ The MN10300 program (`src/`) is an application of KN7LOAD.CNV:
   IN's), from a read pointer of its own. It computes msfa's key-on words in integers on msfa's tables, so they are
   exactly the model's, and gives them to a voice.
 - **The editor** draws a piece at a time between note polls.
+
+## Checked in MAME
+
+| what                             | result                                                                                                                                              |
+|----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| the main CPU's words for the DSP | the bank, every patch word and every key-on word equal the model's (`tests/mame/check_words.py`)                                                    |
+| the DSP's output                 | one C4, 2 s, every DSP frame recorded with a write tap: all 88,200 samples equal the model's under the recompiler, all 35,217 under the interpreter |
+| the editor                       | an envelope rate, the algorithm (its kernel swapped into the other buffer), the volume: each reaches the DSP                                        |
+| LOAD and SAVE                    | `BANK1.SYX` loaded; `BANK2.SYX`, read back off the card image, equals it byte for byte                                                              |
+| the end                          | EXIT held 1.5 s: both CALL slots back as the firmware had them, read back; MSGR4-MSGR7 zero                                                         |
+
+In MAME the keybed's own sound is still heard under KN7FM's: the expression it sends to mute it is not emulated
+(Another World records the same).
+
+## Voices
+
+The kernel's other eight units run in the same 44.1 kHz frame. In MAME, which counts one cycle per instruction, the
+DSP keeps every frame with five KN7FM voices of the E.PIANO and drops to 30,731 frames a second with six. KN7FM
+therefore takes three measures:
+- it plays five voices to start;
+- the BANK page's POLY column sets 1-8;
+- every second it reads the DSP's frame counter, and below 43,500 frames a second it plays a voice less, with a
+  message.
+
+On the chip a frame probably costs more than MAME counts: taken branches, SDRAM wait states. Fewer voices may fit
+there.
+
+Two findings about MAME came out of this:
+- The KN7000 driver writes a host-port IOP register at each 16-bit half (kn7000_mame
+  `notes/dsp-host-iop-write-halves.md`). A command in MSGR6's low half was taken twice, so KN7FM's commands are in
+  the high half.
+- Under `-nodrc` the DSP runs about 17,800 frames a second with any unit, DSPTONE's too. That is the interpreter's
+  doing, not the units'.
