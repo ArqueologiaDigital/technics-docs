@@ -16,7 +16,7 @@ shown to be code (1,654 of its 1,713 B are a palette and a bitmap).
 
 ## Context
 
-All thirteen TLCS-900 images rebuild byte-identically from source. That is necessary for
+All sixteen TLCS-900 images (twelve KN5000, four SX-WSA1R) rebuild byte-identically from source. That is necessary for
 correct disassembly but not sufficient: a `.byte` run that spells real code, or a data
 region disassembled into plausible-but-wrong instruction mnemonics, both reassemble to the
 same bytes and pass the gate cleanly. Whether a `.byte` run is undecoded code can only be
@@ -44,7 +44,7 @@ PNG-backed image as hex reduces the metric while destroying the better represent
 Neither direction is progress.
 
 **Scope:** `.byte` sequences that encode native TLCS-900 CPU instructions across all
-thirteen TLCS-900 images. Data tables, strings, bitmaps, firmware bytecode for software interpreters, and padding are out of scope (correct as-is).
+sixteen TLCS-900 images. Data tables, strings, bitmaps, firmware bytecode for software interpreters, and padding are out of scope (correct as-is).
 
 ## Current Status
 

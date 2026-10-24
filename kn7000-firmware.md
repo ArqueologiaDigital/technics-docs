@@ -169,10 +169,10 @@ every step. Disassembly listings are generated with MAME's `unidasm`
 (`-arch mn10300`).
 
 This mirrors the KN5000 approach, whose
-[ROM reconstruction]({{ site.baseurl }}/rom-reconstruction/) rebuilds thirteen TLCS-900 images
-byte-identically from source; `make gate-all` there covers those and the thirteen KN7000 images
-(`make gate-kn7000`: program 941 and table 84, the SP7001 set, the picture ROM and the seven
-Style Convert converters) in one run.
+[ROM reconstruction]({{ site.baseurl }}/rom-reconstruction/) rebuilds sixteen TLCS-900 images
+byte-identically from source; `make gate-all` there covers those, the fifteen KN7000 images
+(`make gate-kn7000`: program 941, tables 84 and 80, the IC18 boot ROM, the SP7001 set, the
+picture ROM and the seven Style Convert converters) and the four MN10300 sibling trees in one run.
 
 ### 2,302 functions named by reusing KN5000 knowledge
 

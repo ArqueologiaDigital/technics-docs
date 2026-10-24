@@ -369,7 +369,7 @@ hand-picked example.
 The pinned toolchain commit is recorded in the disassembly repository's
 `TOOLCHAIN_VERSION` file, which is the authority — read it rather than quoting a
 hash from here. It also carries the byte-level proofs and the `make gate-all`
-verification across all thirteen KN5000 and SX-WSA1R images.
+verification across all sixteen KN5000 and SX-WSA1R images.
 
 ## Process for Each Phase
 
@@ -377,8 +377,8 @@ verification across all thirteen KN5000 and SX-WSA1R images.
 2. **Add encoding case** in `MCCodeEmitter.cpp` (or reuse existing format)
 3. **Add decoding case** in `TLCS900Disassembler.cpp` to emit semantic mnemonic
 4. **Build LLVM:** `ninja -C build llc llvm-mc` (from the llvm-project checkout)
-5. **Update all `.s` files** in every tree that uses the mnemonic: the three KN5000 main-CPU versions, the sub-CPU payload and boot ROM, table data, HD-AE5000 and the SX-WSA1R images. The sources are latin-1. Where the new spelling needs a new assembler, the tree and the `TOOLCHAIN_VERSION` pin move in one commit.
-6. **Rebuild ROMs:** `make gate-all` — all thirteen TLCS-900 images byte-identical (the KN7000 half of the gate does not use LLVM), or the change does not land
+5. **Update all `.s` files** in every tree that uses the mnemonic: the KN5000 main-CPU versions (v10, v9 — which also builds v8 — and v7), the sub-CPU payload (v1.41 is generated from v1.42's source) and boot ROM, table data, HD-AE5000 and the SX-WSA1R images. The sources are latin-1. Where the new spelling needs a new assembler, the tree and the `TOOLCHAIN_VERSION` pin move in one commit.
+6. **Rebuild ROMs:** `make gate-all` — all sixteen TLCS-900 images byte-identical (the MN10300 half of the gate does not use LLVM), or the change does not land
 7. **Run LLVM tests:** `build/bin/llvm-lit llvm/test/MC/TLCS900/ llvm/test/MC/Disassembler/TLCS900/ llvm/test/CodeGen/TLCS900/`
 
 ## See Also

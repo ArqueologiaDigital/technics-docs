@@ -363,7 +363,7 @@ ld.lld -T linker.ld output.o -o output.elf
 llvm-objcopy -O binary output.elf output.bin
 ```
 
-All nine KN5000 images (Main CPU v10/v9/v7, Sub CPU boot, Sub CPU payload and its recompressed form, Table Data, HDAE5000, Custom Data) and the four SX-WSA1R EPROMs rebuild **byte-identically** against the original dumps (twelve distinct images, 12,386,304 bytes, plus the recompressed payload), checked by `make gate-all`.
+All twelve KN5000 images (Main CPU v10/v9/v8/v7, Sub CPU boot, Sub CPU payloads v1.42 and v1.41 and their recompressed update images, Table Data, HDAE5000, Custom Data) and the four SX-WSA1R EPROMs, sixteen TLCS-900 images in all, rebuild **byte-identically** against the original dumps, checked by `make gate-all` (which also checks the nineteen MN10300 images, 35 in all).
 
 The ASL Macro Assembler (used historically) is archived in `archive/asl/`.
 

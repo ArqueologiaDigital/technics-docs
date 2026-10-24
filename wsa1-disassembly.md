@@ -44,8 +44,9 @@ additionally carry an `LLVM: <branch>@<short> (<full>)` line, enforced by a comm
 hook. **The pinned toolchain is recorded in `TOOLCHAIN_VERSION`, which is the
 authority — read it rather than quoting a commit id from here.** The same LLVM
 TLCS-900 backend assembles the KN5000 tree, so a backend change is gated on all
-thirteen TLCS-900 images at once (the KN7000's thirteen use the repository's own MN10300
-assembler and are gated separately by `make gate-kn7000`).
+sixteen TLCS-900 images at once (the nineteen MN10300 images, the KN7000's fifteen and one
+each for the KN2400, KN6000, KN6500 and HD-SX trees, use the repository's own MN10300
+assembler and are gated separately by `make gate-kn7000` and the sibling gates).
 
 ## ⚠ The rule the gate cannot enforce
 

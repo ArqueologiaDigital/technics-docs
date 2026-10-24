@@ -510,7 +510,7 @@ as it is decoded, with the withdrawn claims listed first), `algorithms/`, `disas
 ## Build System
 
 ```
-make all          # the nine KN5000 images (LLVM), then compare_roms.py
+make all          # the twelve KN5000 images (LLVM), then compare_roms.py
 make wsa1         # the four SX-WSA1R images
 make everything   # both
 make gate         # KN5000: assert every image assembles, then assert byte identity
