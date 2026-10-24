@@ -52,6 +52,8 @@
   pages:
     - title: KN2400 / KN2600 / PR54
       url: /kn2400-kn2600/
+    - title: Disassembly
+      url: /kn2400-disassembly/
 
 - title: Technics KN7000
   released: 2002
@@ -164,6 +166,8 @@
       url: /kn6000-names/
     - title: Roadmap & Plan
       url: /kn6000-roadmap/
+    - title: "Disassembly (KN6000, KN6500, HD-SX plug-in)"
+      url: /kn6000-disassembly/
 
 - title: Technics KN5000
   released: 1997
