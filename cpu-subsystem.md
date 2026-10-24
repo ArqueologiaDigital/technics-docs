@@ -263,9 +263,10 @@ main-CPU kernel names to be wrong. The main-CPU source still carries these names
 | `TaskSem_TryDec` / `TaskSem_GetCount`                | `AudioLock_TryAcquire` / `AudioLock_GetCount`            | 22 B / 26 B                                |
 | `TaskMsgQ_Send` / `TaskMsgQ_Receive`                 | `TaskMsg_Send` / `TaskMsg_Receive`                       | 41 B at +37 and 54 B at +102 / 39 B at +23 |
 
-The table used to have two more rows. The main CPU's `Show_ScreenGroup` (0xEF1B9C, aligned run 63 B at +32
-with the sub CPU's `TaskSched_SpawnTask`) and `SndTable_ByteBlock_ReadOps_Helper` (0xEF1C16, 20 B at +29 with
-`TaskSched_ExitCurrentTask`) have carried the sub-CPU names since 2026-10-17, which their own main-CPU code
+The table used to have two more rows. The main CPU routines at 0xEF1B9C (formerly `Show_ScreenGroup`; aligned
+run 63 B at +32 with the sub CPU's `TaskSched_SpawnTask`) and 0xEF1C16 (formerly
+`SndTable_ByteBlock_ReadOps_Helper`; 20 B at +29 with `TaskSched_ExitCurrentTask`) have carried the sub-CPU
+names since 2026-10-17, which their own main-CPU code
 supports: the first fills a task's TCB from `TaskSched_TaskTable` and queues it, the second ends the calling
 task (kn5000-roms-disasm `scripts/renaming/rename_task_spawn.sed`,
 `analysis/kn5000-naming/proposals-2026-10-17-helpers-h2.json`).

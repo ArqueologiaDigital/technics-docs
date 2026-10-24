@@ -9,12 +9,12 @@ and `kn7000.md` against `technics-roms-disasm/notes/repo-audit-2026-10-24/` (HEA
 Every one of these pages says, in one sentence, that a wave of work is in progress on the
 disassembly repository and is not merged. When it lands, update:
 
-| page                        | what changes                                                                                  |
-|-----------------------------|-----------------------------------------------------------------------------------------------|
-| `source-tree-inventory.md`  | v8, sub-CPU v1.41, KN7000 IC18 boot ROM and table 80, KN2400/KN6000/KN6500/HD-SX3 rows; the warning box |
-| `rom-reconstruction.md`     | the v8 row and the sub-CPU paragraph; the gate count (26 today) if new images join `gate-all`  |
-| `kn7000-firmware.md`, `kn7000.md`, `kn7000-roadmap.md` | the converted-function counts (561 + 437 today) and the 3.88% figure, after the bulk conversion |
-| `rom-dumping-roadmap.md`    | the "not yet in mainline MAME" phrasing once the six KN7000 reads are declared upstream          |
+| page                                                   | what changes                                                                                            |
+|--------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
+| `source-tree-inventory.md`                             | v8, sub-CPU v1.41, KN7000 IC18 boot ROM and table 80, KN2400/KN6000/KN6500/HD-SX3 rows; the warning box |
+| `rom-reconstruction.md`                                | the v8 row and the sub-CPU paragraph; the gate count (26 today) if new images join `gate-all`           |
+| `kn7000-firmware.md`, `kn7000.md`, `kn7000-roadmap.md` | the converted-function counts (561 + 437 today) and the 3.88% figure, after the bulk conversion         |
+| `rom-dumping-roadmap.md`                               | the "not yet in mainline MAME" phrasing once the six KN7000 reads are declared upstream                 |
 
 ## Symbol-name lint: what `tools/check_doc_symbols.py` still reports, and why it was left
 
@@ -31,7 +31,9 @@ deliberate history: the first two sit in `hdae5000-filesystem.md`'s "Routines Th
 Misnamed" table beside their current names, and `Audio_SendCommand` is quoted only as
 "formerly" on every page that carries it.
 
-What remains falls into these groups, none of which is a stale label:
+What remains falls into these groups. Spot checks found no stale label among them, but they were
+not read one by one, and the reviewer of this session found one such case (`cpu-subsystem.md`
+quoted `SndTable_ByteBlock_ReadOps_Helper` as if it were live; now marked "formerly"):
 
 1. **Names quoted as history** ("was `X`", "formerly `X`", "until 2026-09-25 named `X`"):
    `boot-sequence.md`, `dsp-name-tables.md`, `feature-demo.md`, `hdae5000.md` (`GFX_DATA_1`,
