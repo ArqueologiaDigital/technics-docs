@@ -33,7 +33,7 @@ both hold `0x50381470` because the main task is the one running. See
 [Kernel tasks and the tick](#kernel-tasks-and-the-tick-build-942).)
 
 Code decides "am I the main or the AP task?" by comparing them — exactly what the
-event layer's `GetCurrentObjectId` helper (`func_48414A4F` in the disassembly) does
+event layer's `GetCurrentObjectId` helper (`func_48414A4D_entry` in the disassembly, the call entry after the register-save prologue `func_48414A4D`) does
 before it picks the active task's focused-object id (`0x500D3C60` for main,
 `0x500D3C5C` for AP; see the
 [event page]({{ site.baseurl }}/kn7000-event-system/)). So each task carries its own focused UI

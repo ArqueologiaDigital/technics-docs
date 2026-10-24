@@ -79,7 +79,7 @@ GetCurrentTarget:                 # CPU 0x4842943B
     add     -0x10, sp
     mov     sp, a0
     add     0xc, a0               # a0 -> a halfword on the stack
-    call    func_48414A4F, [a2], 4  # GetCurrentObjectId (below): id -> (a0)
+    call    func_48414A4D_entry, [a2], 4  # GetCurrentObjectId (below): id -> (a0)
     movhu   (0xc, sp), d0         # d0 <- the active object's id
     mov     0x38, d1
     exth    d0
@@ -104,7 +104,8 @@ The KN7000 runs two cooperative UI tasks — a **main** task and an **AP**
 find "the current object" selects between the two:
 
 ```
-GetCurrentObjectId:               # CPU 0x48414A4F  (func_48414A4F)
+GetCurrentObjectId:               # prologue func_48414A4D: movm [a2], (sp)
+                                  # CPU 0x48414A4F  (func_48414A4D_entry)
     mov     (0x50380004), a2      # current-task handle
     mov     (0x5038002c), a1      # main-task handle
     cmp     a1, a2
