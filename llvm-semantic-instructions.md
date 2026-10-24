@@ -206,7 +206,15 @@ tracked `.s` files of that day:
 
 The same census at disassembly `3417969c0`, over 550 files, counts 1,275,163
 sites under 75 shared names, 43,347 under 220 synthetic names and 29,563 under
-125 macros.
+125 macros. Most of those macro sites were the SX-WSA1R's byte-emitter macros
+(`wsa1/include/tlcs900_mem_ops.inc`). On 2026-10-24 (disassembly lane
+`wave1/wsa1-respell`, merged as `5ae4fa9f2`) `scripts/converters/respell_wsa1_macros.py`
+rewrote every call site it could as a native instruction, each proven byte for byte
+against the macro's own expansion and cross-checked against `unidasm`. At `2319e9b94`
+`respell_wsa1_macros.py --left` reports 9 call sites left, all in `prom_b`, in three
+macros the pinned backend has no spelling for: `m_rd_add_rrx` (5, `add R32,<bank reg>`,
+the `E7` long form), `m_rd_ldcf_ax` (2) and `m_rd_stcf_ax` (2), the `C7` byte forms of
+`ldcf`/`stcf` with a bank register.
 
 Retiring the 459 synthetic names of 2026-09-02 splits three ways, and the split
 is what makes the work stageable:

@@ -69,9 +69,9 @@ Auto-accompaniment patterns are not here: they are read from the Rhythm ROM at `
 
 | Metric              | Value                                                          |
 |---------------------|----------------------------------------------------------------|
-| Rebuild             | Byte-identical from `table_data/` (one of the 13 gated images) |
-| Census strict grade | 98.93 % (2026-10-06)                                           |
-| Verbatim `.incbin`  | 318,468 B, the six FTBMP bitmaps                               |
+| Rebuild             | Byte-identical from `table_data/` (one of the 35 gated images) |
+| Census strict grade | 98.93 % (2026-10-24, unchanged since 2026-10-06)               |
+| Verbatim `.incbin`  | 0 B: the six FTBMP bitmaps are built from PNG since 2026-10-24 |
 
 ## Custom Data Flash
 

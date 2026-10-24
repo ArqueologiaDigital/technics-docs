@@ -189,7 +189,7 @@ slide image (`ftdemo01`, `ftdemo04`, ...); steps 16/17, 19/20 and 25 bring up th
 [Feature Demo]({{ site.baseurl }}/feature-demo/).
 
 The six slide images are ordinary Windows 3.x BMP files (8bpp indexed, 256-colour palette,
-320 px wide) stored verbatim, each echoed by a 24-byte `FeatureDemo_FileEntry` record at
+320 px wide) stored whole, header included, each echoed by a 24-byte `FeatureDemo_FileEntry` record at
 `0x8CE01C` giving name, address and size:
 
 | Label | Address | File | Size |
@@ -200,6 +200,12 @@ The six slide images are ordinary Windows 3.x BMP files (8bpp indexed, 256-colou
 | `Feature_Bitmap_4` | `0x8A753A` | `FTBMP04.BMP` | 39,478 B |
 | `Feature_Bitmap_5` | `0x8B0F70` | `FTBMP05.BMP` | 41,078 B |
 | `Feature_Bitmap_6` | `0x8BAFE6` | `FTBMP06.BMP` | 77,878 B |
+
+In the disassembly the six files are no longer kept as blobs (since 2026-10-24, disassembly
+`4eb218937`): each is built from a palette-indexed PNG, `table_data/images/FTBMPnn.png`, plus
+`table_data/images/ftbmp_headers.json`, which holds every BMP header field, by
+`scripts/build/ftbmp_images.py build`, and the build checks the round trip byte for byte. They
+are shown in the [Image Gallery]({{ site.baseurl }}/image-gallery/#feature-demo-slides-ftbmp01-06).
 
 ## Demo-song presets (SLIDE4K)
 
