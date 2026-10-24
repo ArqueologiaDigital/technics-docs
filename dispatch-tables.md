@@ -10,7 +10,7 @@ This page catalogs all indirect call/jump dispatch tables found in the KN5000 RO
 
 ## Current state: the dispatch-table census
 
-Since 2026-10-05 the disassembly measures this with its dispatch-table census (`scripts/analysis/dispatch_table_census/`, run by `make dispatch-census`; snapshots in `docs/coverage/`). The latest committed snapshot, `dispatch-census-2026-10-06-31` (committed in disassembly commit `d8574de89`), finds no unused table in any KN5000 image. Every entry of every framed jump or call table lands on a labelled instruction and is spelled symbolically:
+Since 2026-10-05 the disassembly measures this with its dispatch-table census (`scripts/analysis/dispatch_table_census/`, run by `make dispatch-census`; snapshots in `docs/coverage/`). The latest committed snapshot, `dispatch-census-2026-10-24-02` (committed in disassembly commit `cdc6226ff`), finds no unused table in any KN5000 image; its KN5000 rows are the same as in `dispatch-census-2026-10-06-31`. Main CPU v8 and sub-CPU v1.41 have no rows of their own, because they are built from the v9 and v1.42 sources. Every entry of every framed jump or call table lands on a labelled instruction and is spelled symbolically:
 
 | Image                 | Framed tables | Used |
 |-----------------------|---------------|------|
