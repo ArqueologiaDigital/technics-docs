@@ -692,21 +692,21 @@ The expansion board's SRAM. Selected variables, named in
 `hdae5000/hd-ae5000_v2_06i.s` (`HDAE5000_RAM_*`, each `.equ` carrying its
 evidence):
 
-| Address | Name | Contents |
-|---------|------|----------|
-| `0x201632` | `HDAE5000_RAM_DirNames` | directory names, 16 B × 120 |
-| `0x201DB2` | `HDAE5000_RAM_SongRecords` | song records, 76 B × 1920 |
-| `0x2257B2` | `HDAE5000_RAM_FlsRecords` | FLS records, 144 B × 120 |
-| `0x22A000` | — | start of the 0xF52A-byte work area cleared at boot |
-| `0x22B430` | `HDAE5000_RAM_LyricBuffer` | the lyric file, 0x5000 bytes ([format]({{ site.baseurl }}/hdae5000-filesystem/#lyric-files-tlx)) |
-| `0x230884` | `HDAE5000_RAM_FdLyricNames` | 40 × 9-byte base names of the floppy's `*.TLX` files |
-| `0x230ECC` / `0x230ED2` / `0x230ED6` | `HDAE5000_RAM_SqSrtcPtr` / `_SqBtofPtr` / `_SqBeadtPtr` | addresses of the main CPU's sequencer variables `sqsrtc`, `sqbtof`, `sq_beadt` (RAM `0x0421` / `0x041C` / `0x041B`) |
-| `0x230EDA` | `HDAE5000_RAM_HdPresent` | result of `HDAE5000_Check_HD_Present` |
-| `0x23952A` | — | RAM copy of the 0x0C82-byte `.data` image (ROM `0x2F94B2`) |
-| `0x23A0AA` | `HDAE5000_RAM_LyricLines` | **six 40-byte text lines of the lyric window** |
-| `0x23A19C` | `HDAE5000_RAM_LyricLoaded` | 1 once a lyric file is loaded |
-| `0x23A19E` | `HDAE5000_RAM_LyricBoxObj` | **object id of the open lyric box**, `0xFFFFFFFF` when none is open |
-| `0x23A1A2` | `HDAE5000_RAM_MainWorkspacePtr` | the main CPU's object table (`0x027ED2`), passed to `Boot_Init` in XWA |
+| Address                              | Name                                                                            | Contents                                                                                                            |
+|--------------------------------------|---------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+| `0x201632`                           | `HDAE5000_RAM_DirNames`                                                         | directory names, 16 B × 120                                                                                         |
+| `0x201DB2`                           | `HDAE5000_RAM_SongRecords`                                                      | song records, 76 B × 1920                                                                                           |
+| `0x2257B2`                           | `HDAE5000_RAM_FlsRecords`                                                       | FLS records, 144 B × 120                                                                                            |
+| `0x22A000`                           | —                                                                               | start of the 0xF52A-byte work area cleared at boot                                                                  |
+| `0x22B430`                           | `HDAE5000_RAM_LyricBuffer`                                                      | the lyric file, 0x5000 bytes ([format]({{ site.baseurl }}/hdae5000-filesystem/#lyric-files-tlx))                    |
+| `0x230884`                           | `HDAE5000_RAM_FdLyricNames`                                                     | 40 × 9-byte base names of the floppy's `*.TLX` files                                                                |
+| `0x230ECC` / `0x230ED2` / `0x230ED6` | `HDAE5000_RAM_SqSrtcPtr` / `HDAE5000_RAM_SqBtofPtr` / `HDAE5000_RAM_SqBeadtPtr` | addresses of the main CPU's sequencer variables `sqsrtc`, `sqbtof`, `sq_beadt` (RAM `0x0421` / `0x041C` / `0x041B`) |
+| `0x230EDA`                           | `HDAE5000_RAM_HdPresent`                                                        | result of `HDAE5000_Check_HD_Present`                                                                               |
+| `0x23952A`                           | —                                                                               | RAM copy of the 0x0C82-byte `.data` image (ROM `0x2F94B2`)                                                          |
+| `0x23A0AA`                           | `HDAE5000_RAM_LyricLines`                                                       | **six 40-byte text lines of the lyric window**                                                                      |
+| `0x23A19C`                           | `HDAE5000_RAM_LyricLoaded`                                                      | 1 once a lyric file is loaded                                                                                       |
+| `0x23A19E`                           | `HDAE5000_RAM_LyricBoxObj`                                                      | **object id of the open lyric box**, `0xFFFFFFFF` when none is open                                                 |
+| `0x23A1A2`                           | `HDAE5000_RAM_MainWorkspacePtr`                                                 | the main CPU's object table (`0x027ED2`), passed to `Boot_Init` in XWA                                              |
 
 Two of these were misread on earlier versions of the HD-AE5000 pages.
 `0x23A0AA` was called a "directory entry display (5 slots × 40 bytes)" and is

@@ -55,7 +55,7 @@ The English help database describes the hierarchy the records implement:
 So in Technics' own vocabulary the three name fields of a record are **category**
 (10 of them), **sub category** (250), and **style** (1000, four per sub category). The
 assembly source uses the older working names *style name* for the sub category and
-*arrangement name* for the style; the symbol prefix is `StyleRec_`.
+*arrangement name* for the style; the records are the symbols `StyleRec_000` to `StyleRec_999`.
 
 ## Grid geometry
 

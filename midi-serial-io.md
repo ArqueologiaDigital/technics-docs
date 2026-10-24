@@ -162,7 +162,7 @@ For Note On with velocity 0 in a full buffer, the event is silently dropped (eff
 - `0x41` (Roland)
 - `0x7E` (Universal Non-Realtime)
 
-If matched: set SysEx capture flag (DRAM 1074 bit 1), write both bytes to `SeqBuf2`. Subsequent data bytes are accumulated until `0xF7` terminates the message. Unrecognized manufacturer IDs cause the SysEx to be silently ignored.
+If matched: set SysEx capture flag (DRAM 1074 bit 1), write both bytes with `SeqBuf2_WriteByte`. Subsequent data bytes are accumulated until `0xF7` terminates the message. Unrecognized manufacturer IDs cause the SysEx to be silently ignored.
 
 ## MIDI Transmit Path
 

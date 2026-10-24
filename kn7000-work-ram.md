@@ -22,7 +22,7 @@ named only from the routines that reference it). The scripts behind it are in th
 routine names are those of the disassembly's symbol files (`kn7000.sym`,
 `kn7000_manual.sym`, whose section "FILES, PICTURES, SLIDE SHOW" holds the file and
 picture routines, and `kn7000_exports_from_942.sym`); "InitTree" is a descriptive name
-for `func_4853397B`.
+for the routine at `0x4853397B`, which has no name in those files.
 
 > ⚠ **Build 941 only.** Another build can place things elsewhere. One calibration point
 > is known: the owner's PROGRAM 893 unit shows the same song-record address

@@ -185,7 +185,7 @@ The chord change triggers real-time transposition of the accompaniment pattern t
 
 ## Voice Assignment
 
-The `AccVoice` subsystem manages the mapping between accompaniment parts and tone generator voices:
+The accompaniment voice-assignment subsystem (labels prefixed AccVoice_, for example `AccVoice_SlotRows` and `AccVoice_RomRecords13`) manages the mapping between accompaniment parts and tone generator voices:
 
 ### Part Types
 

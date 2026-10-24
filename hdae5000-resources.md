@@ -18,12 +18,12 @@ This page collects them. It is a companion to the [HDAE5000 Hard Disk Expansion]
 |----------|-------:|------------------------------------------------------------------------------------------------------------------|
 | 0x29BAFC | 1,252  | Name strings for the 69 registered objects                                                                       |
 | 0x29BFE0 | 202    | Parameter-name strings for the 13 UI classes                                                                     |
-| 0x29C0AA | 6,356  | `RECORD_TABLE` — 13 class records of 24 bytes, then the 13 class-name strings                                    |
+| 0x29C0AA | 6,356  | `HDAE5000_RECORD_TABLE` — 13 class records of 24 bytes, then the 13 class-name strings                           |
 | 0x29D97E | 660    | Record-count word `0x000D`, then 44 `EV_*` / `MT_*` / `*Proc` name strings                                       |
 | 0x29DC12 | 33,050 | The 769 UI object descriptors — typed records `HdaeUiObj_000` …; 13,334 B of class-specific body still undecoded |
-| 0x2A5D2C | 3,160  | `UiObject_PtrTable` — 790 `.long`                                                                                |
-| 0x2A6984 | 3,160  | `UiObjectName_PtrTable` — 790 `.long`                                                                            |
-| 0x2A75DC | 3,774  | `UiObjectName_Pool` — the object name strings                                                                    |
+| 0x2A5D2C | 3,160  | `HDAE5000_UiObject_PtrTable` — 790 `.long`                                                                       |
+| 0x2A6984 | 3,160  | `HDAE5000_UiObjectName_PtrTable` — 790 `.long`                                                                   |
+| 0x2A75DC | 3,774  | `HDAE5000_UiObjectName_Pool` — the object name strings                                                           |
 | 0x2A849A | 244    | 15 screen and switch-catch name strings                                                                          |
 | 0x2F94B2 | 3,202  | The initialised `.data` image, copied to RAM 0x23952A at boot                                                    |
 
