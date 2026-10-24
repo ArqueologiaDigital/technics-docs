@@ -21,9 +21,7 @@ pairs; then `make gate-kn7000`, which is `make -C kn7000 verify verify-sp7001 ve
 verify-cnv` and `cmp`s or SHA-1-checks thirteen more images (program 941 and table 84; the
 SP7001 program 942, table 83 and `BASEEXT.XAP`; the IC19 picture ROM; the seven Style Convert
 converters); and finally `assert_toolchain_is_a_prerequisite.py` to prove the assembler is a
-prerequisite of every image rather than a stale object comparing green forever. The count was
-checked against the root and `kn7000/` Makefiles on 2026-10-24; older pages still say
-"thirteen", which was right before the KN7000 gate joined. It **compares bytes and
+prerequisite of every image rather than a stale object comparing green forever. It **compares bytes and
 exits non-zero on any difference**. A change that fails it is reverted, not explained away.
 
 > ⚠ **`compare_roms.py` is a similarity report, not the gate.** It prints
@@ -367,7 +365,7 @@ confirmed instances exist in [HD-AE5000]({{ site.baseurl }}/hdae5000/) — a 309
 string disassembled as garbage instructions, and a 6,356-byte record table with zero call or
 jump sites anywhere in the tree, loaded only as an address.
 
-**All thirteen gated images have been censused for data-as-code, and a "clean" verdict has
+**All thirteen TLCS-900 images have been censused for data-as-code, and a "clean" verdict has
 not held everywhere.** Sub-CPU boot, table data, custom data, `prom_c` and `prom_d` came
 back clean and nothing since has contradicted it; for those the "every debt figure is a
 lower bound" caveat below is lifted. (`prom_c`'s 84 remaining data-as-code markers are all
@@ -424,7 +422,7 @@ At `be376096` the residue still included 585/611/2,102 in the main-CPU trees and
 `prom_c`'s dead `UNREFERENCED_TRAMPOLINES` block; see
 [SX-WSA1R older-build remnants]({{ site.baseurl }}/wsa1-disassembly/#older-build-remnants-and-why-unreached-code-can-be-correct).
 
-## Verbatim debt across all thirteen gated images
+## Verbatim debt across all thirteen TLCS-900 images
 
 `scripts/analysis/kn5000_source_coverage.py` measures **verbatim debt** — bytes that enter
 the build through an `.incbin` of a committed blob with no generating source — across all
@@ -435,7 +433,7 @@ happens to re-assemble to the right bytes (see the data-as-code note above), is 
 it. Outside the five data-as-code-clean images above, every debt figure on this page is
 therefore a lower bound.
 
-**Eleven of the thirteen images are at zero verbatim debt: 100% source.** Nothing in
+**Eleven of the thirteen TLCS-900 images are at zero verbatim debt: 100% source.** Nothing in
 maincpu v10 or v9, the sub-CPU payload v142, the sub-CPU boot ROM, custom data,
 HD-AE5000, or any of the four SX-WSA1R images enters the build as an opaque blob — even
 the eight flash-update boot banners round-trip from committed PNGs
@@ -601,7 +599,7 @@ By image: v10 70,509 B, v9 70,816, v7 77,018, v142 105, table data 7,999, HD-AE5
 none (`tools/census_research_by_image.py out.json` in this repository splits the census's
 JSON this way, with the census's own target rule).
 
-> The thirteenth gated image, `kn5000_subprogram_v142_compressed.rom`, is deliberately
+> The thirteenth TLCS-900 image, `kn5000_subprogram_v142_compressed.rom`, is deliberately
 > outside the denominator: it is the v1.42 payload re-compressed, so its bytes are already
 > counted under `v142`. Counting it would inflate the total with a duplicate.
 

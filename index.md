@@ -190,9 +190,9 @@ Choose based on your goal:
 
 ### ROM Reconstruction Progress
 
-**Thirteen ROM images rebuild byte-identically from source** — nine KN5000 and four
-[SX-WSA1R]({{ site.baseurl }}/wsa1-disassembly/), 12,386,304 bytes, gated together by
-`make gate-all` after every commit. Built with a custom
+**Thirteen TLCS-900 ROM images rebuild byte-identically from source** — nine KN5000 and four
+[SX-WSA1R]({{ site.baseurl }}/wsa1-disassembly/), 12,386,304 bytes, gated after every commit by
+`make gate-all` (all 26: 9 KN5000 + 4 SX-WSA1R + 13 KN7000). Built with a custom
 [LLVM TLCS-900 backend](https://github.com/felipesanches/llvm-project/tree/tlcs900_backend)
 (the disassembly currently needs `tlcs900_backend` at `a3a81863f87d`, which has not yet been
 pushed to that branch).
@@ -218,7 +218,7 @@ census's strict grade on 2026-10-06 (95.04 % after the September 25 semantic pus
 64.15 %; part of the later rise comes from a 2026-10-06 change in how one-line table blocks
 inherit their header, so the two figures are not strictly comparable). The grade is
 keyword-based, and its hand-audited error sample predates the push and has not been
-redrawn. That covers the twelve distinct images; the thirteenth gated image is a compressed
+redrawn. That covers the twelve distinct images; the thirteenth TLCS-900 image is a compressed
 re-encoding of the sub-CPU payload. Measured by `scripts/analysis/data_range_census.py`; see
 [how much of the data is actually explained]({{ site.baseurl }}/rom-reconstruction/#how-much-of-the-data-is-actually-explained).*
 

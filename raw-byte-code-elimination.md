@@ -6,7 +6,7 @@ permalink: /raw-byte-code-elimination/
 
 # Raw Byte Code Elimination
 
-**Status: IN PROGRESS.** All thirteen gated images are byte-identical to their physical
+**Status: IN PROGRESS.** All thirteen TLCS-900 images are byte-identical to their physical
 dumps, but that is a build-match guarantee, not a disassembly guarantee: a `.byte` run that spells real
 code reassembles to the same bytes as an `.incbin` of those bytes, and passes the gate
 identically either way. Measured code-as-`.byte` remains in the Main CPU, Sub CPU Payload
@@ -16,7 +16,7 @@ shown to be code (1,654 of its 1,713 B are a palette and a bitmap).
 
 ## Context
 
-All thirteen gated images rebuild byte-identically from source. That is necessary for
+All thirteen TLCS-900 images rebuild byte-identically from source. That is necessary for
 correct disassembly but not sufficient: a `.byte` run that spells real code, or a data
 region disassembled into plausible-but-wrong instruction mnemonics, both reassemble to the
 same bytes and pass the gate cleanly. Whether a `.byte` run is undecoded code can only be
@@ -44,7 +44,7 @@ PNG-backed image as hex reduces the metric while destroying the better represent
 Neither direction is progress.
 
 **Scope:** `.byte` sequences that encode native TLCS-900 CPU instructions across all
-thirteen gated images. Data tables, strings, bitmaps, firmware bytecode for software interpreters, and padding are out of scope (correct as-is).
+thirteen TLCS-900 images. Data tables, strings, bitmaps, firmware bytecode for software interpreters, and padding are out of scope (correct as-is).
 
 ## Current Status
 

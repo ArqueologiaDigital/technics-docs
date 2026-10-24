@@ -515,7 +515,7 @@ make wsa1         # the four SX-WSA1R images
 make everything   # both
 make gate         # KN5000: assert every image assembles, then assert byte identity
 make gate-wsa1    # SX-WSA1R byte identity
-make gate-all     # all thirteen, plus the check that the assembler is a prerequisite of every image
+make gate-all     # all 26: 9 KN5000 + 4 SX-WSA1R + 13 KN7000 (make gate-kn7000), plus the check that the assembler is a prerequisite of every image
 ```
 
 The pipeline per image is `llvm-mc -triple=tlcs900` → `ld.lld -T <image>.ld` →
