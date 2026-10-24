@@ -29,37 +29,48 @@ The Table Data ROM also contains 8 system update message bitmaps at address `0x9
 
 **Note:** The Table Data ROM uses 16-bit word-level interleaving (stored across two physical ROM chips: odd.ic1 and even.ic3). When properly combined, the bitmap data is byte-identical to the Main CPU versions. The disassembly source shares the same bitmap files between both ROMs.
 
-### FTBMP01 - Technics Logo + World Globe (`Feature_Bitmap_1`, 0x880418)
+### Feature Demo slides (FTBMP01-06)
+
+The six slides of the Feature Demo, stored in the table-data ROM as complete Windows BMP files
+with their own 256-entry palettes. Since 2026-10-24 (disassembly `4eb218937`) they are no
+longer kept as verbatim blobs: each is built from a palette-indexed PNG,
+`table_data/images/FTBMPnn.png`, plus `table_data/images/ftbmp_headers.json`, which holds
+every BMP header field. `scripts/build/ftbmp_images.py build` writes the BMPs and the build
+checks the round trip byte for byte. That removed the last 318,468 bytes of verbatim debt from
+table data. The renders below come from `scripts/build/convert_images.py` (`make gallery`),
+which decodes each BMP with its own palette.
+
+#### FTBMP01 - Technics Logo + World Globe (`Feature_Bitmap_1`, 0x880418)
 
 ![FTBMP01]({{ "/assets/images/gallery/FTBMP01.png" | relative_url }})
 
 *320x240, 8-bit color* — The Technics brand logo overlaid on a world globe graphic. Used as the opening image of the Feature Demo presentation.
 
-### FTBMP02 - Subwoofers (`Feature_Bitmap_2`, 0x89344E)
+#### FTBMP02 - Subwoofers (`Feature_Bitmap_2`, 0x89344E)
 
 ![FTBMP02]({{ "/assets/images/gallery/FTBMP02.png" | relative_url }})
 
 *320x130, 8-bit color* — A showcase image of the KN5000's integrated subwoofer speakers.
 
-### FTBMP03 - Floppy Disks (`Feature_Bitmap_3`, 0x89DB04)
+#### FTBMP03 - Floppy Disks (`Feature_Bitmap_3`, 0x89DB04)
 
 ![FTBMP03]({{ "/assets/images/gallery/FTBMP03.png" | relative_url }})
 
 *320x120, 8-bit color* — A collection of floppy disks, highlighting the keyboard's built-in floppy drive.
 
-### FTBMP04 - Disk Insertion (`Feature_Bitmap_4`, 0x8A753A)
+#### FTBMP04 - Disk Insertion (`Feature_Bitmap_4`, 0x8A753A)
 
 ![FTBMP04]({{ "/assets/images/gallery/FTBMP04.png" | relative_url }})
 
 *320x120, 8-bit color* — A floppy disk being inserted into the KN5000's drive slot.
 
-### FTBMP05 - 360° Surround Arrows (`Feature_Bitmap_5`, 0x8B0F70)
+#### FTBMP05 - 360° Surround Arrows (`Feature_Bitmap_5`, 0x8B0F70)
 
 ![FTBMP05]({{ "/assets/images/gallery/FTBMP05.png" | relative_url }})
 
 *320x125, 8-bit color* — Arrows arranged in a 360° pattern, representing the keyboard's surround sound capabilities.
 
-### FTBMP06 - KN5000 + Rainbow Comet (`Feature_Bitmap_6`, 0x8BAFE6)
+#### FTBMP06 - KN5000 + Rainbow Comet (`Feature_Bitmap_6`, 0x8BAFE6)
 
 ![FTBMP06]({{ "/assets/images/gallery/FTBMP06.png" | relative_url }})
 
@@ -157,8 +168,6 @@ These images show keyboard split point notes displayed when configuring the keyb
 | ![Ntedt0d]({{ "/assets/images/gallery/BitmapNtedt0d.png" | relative_url }})   | `BitmapNtedt0d.bin`  | 240x127, 8-bit | Note-edit screen grid                 |
 | ![Ntedt0k]({{ "/assets/images/gallery/BitmapNtedt0k.png" | relative_url }})   | `BitmapNtedt0k.bin`  | 16x127, 8-bit  | Note-edit screen vertical piano ruler |
 
-> **Render caveat.** The Ntedt0k render above is an old 127×16 mis-decode of this 16×127 image. `convert_images.py` in kn5000-roms-disasm now decodes it at 16×127 (`scripts/build/convert_images.py:148-150`), but the PNG has not been regenerated.
-
 ---
 
 ## HDAE5000 Hard Disk Expansion ROM Images
@@ -218,7 +227,7 @@ The file-selection panel background: three sunken list wells over a blue stone f
 
 Small icon depicting a hard disk with magnetic head, used in UI elements. Its resource descriptor (`0x280395`, registered under the firmware's own name `BitmapHdd_icon`) answers 27 for both width and height, and the last byte of each of the 27 rows is 0x00 — a pad column.
 
-> **Extraction caveat.** `hdae5000/images/HDAE5000_Icon.bin` in the disassembly repo is still 784 bytes (28×28): its last 28 bytes are the start of the C program's `.rodata` (`HDAE5000_Str_V206i` at `0x2E1C82`, the ASCII "V2.06i"). The build does not use it. It emits the 756-byte icon from `images/HDAE5000_Icon.png`, and `convert_images.py` now decodes 27×27 with a 28-byte stride, but the render above predates that.
+> **Extraction caveat.** `hdae5000/images/HDAE5000_Icon.bin` in the disassembly repo is still 784 bytes (28×28): its last 28 bytes are the start of the C program's `.rodata` (`HDAE5000_Str_V206i` at `0x2E1C82`, the ASCII "V2.06i"). The build does not use it. It emits the 756-byte icon from `images/HDAE5000_Icon.png`, and `convert_images.py` decodes 27×27 with a 28-byte stride (the render above was regenerated with it on 2026-10-24; the script still warns about the file's 784-byte size).
 
 ### STORE Button
 
