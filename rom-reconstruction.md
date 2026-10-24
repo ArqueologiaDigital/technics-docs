@@ -11,31 +11,63 @@ Goal: rebuild every KN5000 firmware image from disassembled source, byte for byt
 Byte-identity is the project's only acceptance criterion. The gate is
 
 ```
-make gate-all      # 26 images: 9 KN5000 + 4 SX-WSA1R + 13 KN7000
+make gate-all      # 35 images: 12 KN5000 + 4 SX-WSA1R + 15 KN7000 + 4 MN10300 siblings
 ```
 
-which rebuilds, then runs `scripts/analysis/assert_images_assemble.py` (each root source
-must assemble, asked of the assembler directly) and
-`scripts/analysis/assert_byte_identical.py` over nine KN5000 image pairs and four SX-WSA1R
-pairs; then `make gate-kn7000`, which is `make -C kn7000 verify verify-sp7001 verify-picture
-verify-cnv` and `cmp`s or SHA-1-checks thirteen more images (program 941 and table 84; the
-SP7001 program 942, table 83 and `BASEEXT.XAP`; the IC19 picture ROM; the seven Style Convert
-converters); and finally `assert_toolchain_is_a_prerequisite.py` to prove the assembler is a
-prerequisite of every image rather than a stale object comparing green forever. It **compares bytes and
-exits non-zero on any difference**. A change that fails it is reverted, not explained away.
+which runs, in order (the counts are the image rows each target checks, as the root
+`Makefile` and the scripts it calls define them at disassembly `2319e9b94`):
+
+| target                                          | what it checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+|-------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `make gate`                                     | rebuilds the KN5000 trees, then `scripts/analysis/assert_images_assemble.py` (each root source must assemble, asked of the assembler directly) and `scripts/analysis/assert_byte_identical.py` over 12 image pairs: main CPU v10, v9, v8 and v7; sub-CPU payload v1.42 and v1.41 and their two update images; sub-CPU boot (IC30); table data; custom data (IC19); HD-AE5000 v2.06i. Then the v8 reference's SHA-1, the v1.40/v1.41/v1.42 update images' decompression check (`scripts/build/verify_subprogram_update_images.py`), and `create_v141_subcpu_source.py --check` (the v1.41 tree is still "v1.42 + `EDITS`") |
+| `make gate-wsa1`                                | the four SX-WSA1R images (`prom_a`, `prom_b`, `prom_c`, `prom_d`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `make gate-kn7000`                              | `make -C kn7000 verify verify-sp7001 verify-picture verify-cnv verify-table80 verify-ic18`: program 941 and table 84; the SP7001 program 942, table 83 and `BASEEXT.XAP`; the IC19 picture ROM; the seven Style Convert converters; table build 80; the IC18 boot ROM (15 images)                                                                                                                                                                                                                                                                                                                                         |
+| `make gate-kn2400`                              | the KN2400 program image, and `verify-kn2600`: the KN2600 package's uncompressed `KN24PRG.DAT` equals it byte for byte                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `make gate-kn6000`, `gate-kn6500`, `gate-hdsx3` | one program image each                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+
+and finally `assert_toolchain_is_a_prerequisite.py`, to prove the assembler is a
+prerequisite of every image rather than a stale object comparing green forever. It
+**compares bytes and exits non-zero on any difference**. A change that fails it is reverted,
+not explained away. The MN10300 trees (KN7000 and its four siblings) have their own
+assembler, `kn7000/tools/kn7asm.py`; how much of each model's images is source is in
+[Every model: how much is source](#every-model-how-much-is-source) below.
 
 > ⚠ **`compare_roms.py` is a similarity report, not the gate.** It prints
 > `Similarity: 100.00%`, rounded to two decimals — in a 2,097,152-byte ROM that rounding
 > covers up to 104 differing bytes, and `grep -c "Similarity: 100.00%"` prefix-matches the
 > failing line `Similarity: 100.00%  (N incorrect bytes)` as well. It is useful for locating
-> where a divergence sits, and it is what prints the fifteen verification sections below
-> (nine LLVM, six legacy ASL). It is not an acceptance criterion; see
+> where a divergence sits, and it is what prints the eighteen verification sections below
+> (twelve LLVM, six legacy ASL). It covers the KN5000 only. It is not an acceptance criterion; see
 > [Disassembly Workflow]({{ site.baseurl }}/disassembly-workflow/#-never-gate-on-a-percentage).
 >
 > A full similarity run needs `make clean-all && make all && make asl-all` before it, because
 > `make all` builds only the LLVM targets and `compare_roms.py` silently skips a section whose
-> built file is missing — the short form prints nine sections, all reading `100.00%`, having
+> built file is missing — the short form prints twelve sections, all reading `100.00%`, having
 > never assembled the mirror.
+
+## Every model: how much is source
+
+A green gate says nothing about how much of an image is real source rather than a
+passed-through blob, so that is measured separately, per model, with the commands below
+(run at disassembly `2319e9b94`, 2026-10-24):
+
+| model                         | how much of the image is source                                                                                                                                 | command (in the disassembly repository)                       |
+|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+| KN5000                        | 99.9% of its 8 measured images (10,289,152 B); every image 100% except main CPU v7 (99.7%, a 6,591 B blob). v8 is v9's source; v1.41 is not measured on its own | `python3 scripts/analysis/kn5000_source_coverage.py`          |
+| SX-WSA1R                      | 100%: no `.incbin` left; 78.0% substantive, the rest verified filler emitted as `.fill`                                                                         | `cd wsa1 && python3 scripts/analysis/source_coverage.py`      |
+| KN7000                        | 44.58% of program 941 (1,853,232 of 4,157,185 B): all 3,658 function blocks are instructions; the 2.3 MB data region still enters as `.incbin_range`            | `cd kn7000 && python3 tools/coverage_score.py`                |
+| KN2400 / KN2600               | 98.91% of the code ranges emitted as instructions (46.77% of the image)                                                                                         | `kn2400/notes/conversion-stats.txt`, written by the generator |
+| KN6000                        | 98.72% of the code ranges (36.64% of the image)                                                                                                                 | `kn6000/notes/conversion-stats.txt`                           |
+| KN6500                        | 98.96% of the code ranges (41.63% of the image)                                                                                                                 | `kn6500/notes/conversion-stats.txt`                           |
+| HD-SX3 (most probably HD-SX6) | 99.53% of the code ranges (32.09% of the image)                                                                                                                 | `hdsx3/notes/conversion-stats.txt`                            |
+
+The MN10300 rows measure something weaker than the TLCS-900 ones. `kn5000_source_coverage.py`
+counts only verbatim blobs as debt, so typed data counts as source; the MN10300 generators
+count instructions against `.incbin_range` passthrough, and the data regions of those
+images are not typed yet. The MN10300 trees are described on
+[KN7000 Firmware Images]({{ site.baseurl }}/kn7000-firmware/),
+[KN2400 / KN2600 Disassembly]({{ site.baseurl }}/kn2400-disassembly/) and
+[KN6000 / KN6500 / HD-SX Disassembly]({{ site.baseurl }}/kn6000-disassembly/).
 
 ## Firmware Version History
 
@@ -47,29 +79,35 @@ Official firmware updates were distributed on floppy disk. All versions are arch
 
 ### Main Board Firmware
 
-| Version | Release Date | Source tree                                                                                                                                                         |
-|---------|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| v5      | 1997-11-12   | none — the earliest release held; its dump is in the private romset (MAME BIOS 5), not in the repository                                                            |
-| v6      | 1998-01-16   | none — dump in the private romset (MAME BIOS 4), not in the repository                                                                                              |
-| **v7**  | 1998-06-26   | `v7/maincpu/`, byte-identical                                                                                                                                       |
-| v8      | 1998-11-13   | none yet — dump in the private romset (MAME BIOS 2); it is v9 with one byte changed, the version byte at `0xFFFFE8`, and a build from the v9 sources is in progress |
-| **v9**  | 1999-01-26   | `v9/maincpu/`, byte-identical                                                                                                                                       |
-| **v10** | 1999-08-02   | `v10/maincpu/` — the primary disassembly target                                                                                                                     |
+| Version | Release Date | Source tree                                                                                                                      |
+|---------|--------------|----------------------------------------------------------------------------------------------------------------------------------|
+| v5      | 1997-11-12   | none — the earliest release held; its dump is in the private romset (MAME BIOS 5), not in the repository                         |
+| v6      | 1998-01-16   | none — dump in the private romset (MAME BIOS 4), not in the repository                                                           |
+| **v7**  | 1998-06-26   | `v7/maincpu/`, byte-identical                                                                                                    |
+| **v8**  | 1998-11-13   | built from the `v9/maincpu/` sources with `--defsym FW_VERSION_BYTE=0x08`, byte-identical; the dump is not committed (see below) |
+| **v9**  | 1999-01-26   | `v9/maincpu/`, byte-identical                                                                                                    |
+| **v10** | 1999-08-02   | `v10/maincpu/` — the primary disassembly target                                                                                  |
 
-Three of the six main-CPU releases are source-built. v5, v6 and v8 are archived on
+Four of the six main-CPU releases are source-built. v8 joined them on 2026-10-24
+(disassembly `96de17552`, merged as `79ce44080`). It needs no tree of its own: `cmp -l`
+against v9 prints one line, file offset `0x1FFFE8`, `0x08` for `0x09`, so the Makefile
+assembles `v9/maincpu/kn5000_v9_program.s` again with `llvm-mc --defsym FW_VERSION_BYTE=0x08`
+(the byte is a `.set` in `v9/maincpu/boot/rom_end_structure.s` that defaults to `0x09`).
+The v8 dump itself is **not** in the repository, which has a public remote: `make` copies it
+from the private romset (`KN5000_V8_REF=`) into the git-ignored `original_ROMs/` path and
+refuses it unless its SHA-1 is `a10a6f5a35175b74c3cfb42cef3bdf571c2858bb`, and `make gate`
+re-checks that hash. v5 and v6 are archived on
 [archive.org](https://archive.org/details/technics-kn5000-system-update-disks) and selectable
-as MAME BIOS options; their chip dumps are held in the private romset beside the repository,
-but not in the repository itself, and none has a source tree yet, so they are outside the byte
-gate. v8 costs almost nothing: `cmp -l` against v9 prints one line, offset `0x1FFFE8`,
-`0x08` for `0x09` (re-checked 2026-10-24). A v8 build from the v9 sources is part of the wave
-of work in progress on the disassembly repository; it is not merged, and this page will be
-updated when it lands.
+as MAME BIOS options; their chip dumps are held in the private romset, and neither has a
+source tree yet. How far each is from v7 is measured in
+`notes/kn5000-version-deltas-2026-10-24/` in the disassembly repository.
 
-The sub-CPU payload has the same shape: `v142/subcpu/` is source-built and gated, while v1.40
-and v1.41 are tracked in `original_ROMs/` (payload and compressed update image each) but no
-Makefile target builds or checks them and neither has a source tree — see
-[Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/). A v1.41 tree is in the
-same wave of work.
+The sub-CPU payload has the same shape: `v142/subcpu/` and, since 2026-10-24,
+`v141/subcpu/` are source-built and gated, each together with its compressed update image.
+The v1.41 tree is generated from v1.42 plus three recorded edits, the only real changes
+between the two revisions. v1.40 is tracked in `original_ROMs/` (payload and compressed update
+image) and `make gate` proves that the two agree, but no tree builds it. See
+[Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/).
 
 The [Source Tree Inventory]({{ site.baseurl }}/source-tree-inventory/) lists every held image
 of every model with its state in the repository.
@@ -87,17 +125,20 @@ of every model with its state in the repository.
 
 ### Primary build (LLVM)
 
-| Section                      | Original image                          | Size    | Base     | Top-level source                                  |
-|------------------------------|-----------------------------------------|---------|----------|---------------------------------------------------|
-| maincpu v10                  | `kn5000_v10_program.rom`                | 2MB     | 0xE00000 | `v10/maincpu/kn5000_v10_program.s`                |
-| maincpu v9                   | `kn5000_v9_program.rom`                 | 2MB     | 0xE00000 | `v9/maincpu/kn5000_v9_program.s`                  |
-| maincpu v7                   | `kn5000_v7_program.rom`                 | 2MB     | 0xE00000 | `v7/maincpu/kn5000_v7_program.s`                  |
-| subcpu payload v142          | `kn5000_subprogram_v142.rom`            | 192KB   | 0x0400   | `v142/subcpu/kn5000_subprogram_v142.s`            |
-| **subcpu v142 update image** | `kn5000_subprogram_v142_compressed.rom` | 93,203B | 0x3E0000 | *(compressed from the built payload — see below)* |
-| subcpu boot                  | `kn5000_subcpu_boot.ic30`               | 128KB   | 0xFE0000 | `subcpu/boot/kn5000_subcpu_boot.s`                |
-| hdae5000                     | `hd-ae5000_v2_06i.ic4`                  | 512KB   | 0x280000 | `hdae5000/hd-ae5000_v2_06i.s`                     |
-| table data                   | `kn5000_table_data.rom`                 | 2MB     | 0x800000 | `table_data/kn5000_table_data.s`                  |
-| custom data                  | `kn5000_custom_data.ic19`               | 1MB     | 0x300000 | `custom_data/kn5000_custom_data.s`                |
+| Section                      | Original image                          | Size    | Base     | Top-level source                                         |
+|------------------------------|-----------------------------------------|---------|----------|----------------------------------------------------------|
+| maincpu v10                  | `kn5000_v10_program.rom`                | 2MB     | 0xE00000 | `v10/maincpu/kn5000_v10_program.s`                       |
+| maincpu v9                   | `kn5000_v9_program.rom`                 | 2MB     | 0xE00000 | `v9/maincpu/kn5000_v9_program.s`                         |
+| maincpu v8                   | `kn5000_v8_program.rom` (not committed) | 2MB     | 0xE00000 | `v9/maincpu/kn5000_v9_program.s`, `FW_VERSION_BYTE=0x08` |
+| maincpu v7                   | `kn5000_v7_program.rom`                 | 2MB     | 0xE00000 | `v7/maincpu/kn5000_v7_program.s`                         |
+| subcpu payload v142          | `kn5000_subprogram_v142.rom`            | 192KB   | 0x0400   | `v142/subcpu/kn5000_subprogram_v142.s`                   |
+| **subcpu v142 update image** | `kn5000_subprogram_v142_compressed.rom` | 93,203B | 0x3E0000 | *(compressed from the built payload — see below)*        |
+| subcpu payload v141          | `kn5000_subprogram_v141.rom`            | 192KB   | 0x0400   | `v141/subcpu/kn5000_subprogram_v141.s`                   |
+| **subcpu v141 update image** | `kn5000_subprogram_v141_compressed.rom` | 93,181B | 0x3E0000 | *(compressed from the built payload, as for v142)*       |
+| subcpu boot                  | `kn5000_subcpu_boot.ic30`               | 128KB   | 0xFE0000 | `subcpu/boot/kn5000_subcpu_boot.s`                       |
+| hdae5000                     | `hd-ae5000_v2_06i.ic4`                  | 512KB   | 0x280000 | `hdae5000/hd-ae5000_v2_06i.s`                            |
+| table data                   | `kn5000_table_data.rom`                 | 2MB     | 0x800000 | `table_data/kn5000_table_data.s`                         |
+| custom data                  | `kn5000_custom_data.ic19`               | 1MB     | 0x300000 | `custom_data/kn5000_custom_data.s`                       |
 
 ### Legacy ASL mirror build
 
@@ -332,7 +373,7 @@ Additional known-unfinished items:
   from 2 KB read at each end (0xFE0000–0xFE07FF and 0xFF7800–0xFF7FFF), the range was never
   read, and its `0xFF` is assumed (see [Dump Provenance](#dump-provenance)). The comment, not
   the bytes, needs correcting in the disassembly.
-- The v1.41 sub-CPU payload has no source tree; see
+- The v1.40 sub-CPU payload has no source tree (v1.41 has had one since 2026-10-24); see
   [Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/).
 
 Three items on this list were closed by the August waves, and a fourth, the HD-AE5000 UI
@@ -422,55 +463,48 @@ At `be376096` the residue still included 585/611/2,102 in the main-CPU trees and
 `prom_c`'s dead `UNREFERENCED_TRAMPOLINES` block; see
 [SX-WSA1R older-build remnants]({{ site.baseurl }}/wsa1-disassembly/#older-build-remnants-and-why-unreached-code-can-be-correct).
 
-## Verbatim debt across all thirteen TLCS-900 images
+## Verbatim debt across the twelve measured TLCS-900 images
 
-`scripts/analysis/kn5000_source_coverage.py` measures **verbatim debt** — bytes that enter
-the build through an `.incbin` of a committed blob with no generating source — across all
-nine KN5000 images and the four SX-WSA1R images together (13 total, 12,386,304 B). This is
-a narrower question than "is this region understood": a `.byte` run that spells real code
-(tracked separately per image — see the maincpu figures above), or a wrong disassembly that
-happens to re-assemble to the right bytes (see the data-as-code note above), is invisible to
-it. Outside the five data-as-code-clean images above, every debt figure on this page is
-therefore a lower bound.
+`scripts/analysis/kn5000_source_coverage.py` measures **verbatim debt**: bytes that enter
+the build through an `.incbin` of a committed blob with no generating source. It measures
+eight KN5000 images and the four SX-WSA1R images together, 12,386,304 B. It leaves out the
+four gated KN5000 images that would count bytes twice: v8 (v9's source with one byte
+changed), the v1.41 payload (generated from v1.42's) and the two compressed update images
+(re-encodings of the payloads). This is a narrower question than "is this region
+understood": a `.byte` run that spells real code (tracked separately per image; see the
+maincpu figures above), or a wrong disassembly that happens to re-assemble to the right
+bytes (see the data-as-code note above), is invisible to it. Outside the five
+data-as-code-clean images above, every debt figure on this page is therefore a lower bound.
 
-**Eleven of the thirteen TLCS-900 images are at zero verbatim debt: 100% source.** Nothing in
-maincpu v10 or v9, the sub-CPU payload v142, the sub-CPU boot ROM, custom data,
-HD-AE5000, or any of the four SX-WSA1R images enters the build as an opaque blob — even
-the eight flash-update boot banners round-trip from committed PNGs
+**Eleven of the twelve measured images are at zero verbatim debt: 100% source.** Nothing in
+maincpu v10 or v9, the sub-CPU payload v142, the sub-CPU boot ROM, table data, custom data,
+HD-AE5000, or any of the four SX-WSA1R images enters the build as an opaque blob. Even the
+eight flash-update boot banners round-trip from committed PNGs
 (`python3 scripts/build/mono_images.py verify` reports `ROUND TRIP EXACT: all 8 banners x
 2 revisions (9,856 B)`, the same 616-byte-each files shared byte-for-byte between the two
-firmware revisions). v9's confirmed-region backlog — the high-confidence code-as-`.byte`
-shape `v9_v10_undisassembled_census.py --judge` can find — is closed on both images:
+firmware revisions). v9's confirmed-region backlog (the high-confidence code-as-`.byte`
+shape `v9_v10_undisassembled_census.py --judge` can find) is closed on both images:
 re-running it directly against v9 (not mirrored from v10, whose source has since drifted
 out of lockstep) finds zero confirmed hits beyond the same hand-audited DATA regions
 already on record.
 
-The two remaining rows (reproduce with the command above; these are current measurements,
-not the tool's raw total — see the note on table data below):
+| Image        | Verbatim debt | % source |
+|--------------|--------------:|---------:|
+| `v7/maincpu` | 6,591 B       | 99.7%    |
+| all twelve   | 6,591 B       | 99.9%    |
 
-| Image        | Verbatim debt                       | % source  |
-|--------------|------------------------------------:|----------:|
-| `v7/maincpu` | 6,591 B                             | 99.7%     |
-| `table_data` | 0 B real (318,468 B raw tool total) | see below |
+*(2026-10-24, disassembly `2319e9b94`, from the command above. The v7 row falls as
+conversion lanes land; re-run rather than quoting this table.)*
 
-**So the tree's only real remaining verbatim debt is v7's 6,591 B.** The whole-tree
-figure the tool prints, 325,059 B over 12,386,304 B (97.4% source), is that plus table
-data's BMPs.
-
-*(2026-10-06, disassembly `3417969c0`, from the command above. The v7 row falls as
-conversion lanes land, sometimes within hours — re-run rather than quoting this table.)*
-
-**Table data's real remaining debt is zero.** The tool's raw 318,468 B figure is entirely the
-six `FTBMP01-06.BMP` feature-demo slide images — genuine, uncompressed 8bpp Windows BMPs
-(`BM` magic, correct 40-byte DIB header, viewable in any image tool) that are already the
-shipped artefact in its best form. The tool counts them as debt because it classifies by
-*mechanism* (does a generator exist?) rather than by *what is understood*; giving them a
-round-trip PNG generator would add machinery for no viewability gain and would discard the
-genuine artefact Technics's own toolchain shipped. The only other slice ever counted against
-table data — a 17,570 B stale remnant duplicating the live English/German help-database
-streams 0x8000 lower in the ROM — is now itself derived from those streams by a committed
-generator (`gen_stale_help_duplicate.py`) rather than stored as a raw blob, so it no longer
-counts as debt either: table data's unclassified, real conversion debt is 0 B.
+**Table data reached zero on 2026-10-24.** Until then the tool counted 318,468 B against it:
+the six `FTBMP01-06.BMP` feature-demo slide images, genuine uncompressed 8bpp Windows BMPs
+that were stored verbatim. They are now generated by `scripts/build/ftbmp_images.py` from a
+committed PNG plus a JSON file holding each BMP header, and the build checks that the
+round trip is exact (disassembly `4eb218937`, merged as `1cdebf1f5`). The six images are in
+the [Image Gallery]({{ site.baseurl }}/image-gallery/#feature-demo-slides-ftbmp01-06). The
+only other slice ever counted against table data, a 17,570 B stale remnant duplicating the
+live English/German help-database streams 0x8000 lower in the ROM, is derived from those
+streams by a committed generator (`gen_stale_help_duplicate.py`).
 
 ## How much of the data is actually explained
 
@@ -478,10 +512,10 @@ Byte identity says the source reproduces the ROM. It says nothing about whether 
 can state what a given range of bytes *represents*. That is a separate measurement, and it
 is the one that decides whether "the ROMs are done" is true.
 
-**Of the 12,386,304 bytes across the twelve distinct images, 96.34 % (11,932,811 B) are
-CODE, evidenced data or verified filler** -- the census's *strict* figure at `7936b0a2`
-(2026-10-06), which the disassembly README now publishes as the *bytes understood* component
-of its [semantic score](#the-semantic-score). After the September 25 semantic push (Wave 2),
+**Of the 12,386,304 bytes across the twelve distinct images, 96.80 % (11,989,987 B) are
+CODE, evidenced data or verified filler** -- the census's *strict* figure at `2319e9b94`
+(2026-10-24; it was 96.34 % at `7936b0a2` on 2026-10-06), which the disassembly README
+publishes as the *bytes understood* component of its [semantic score](#the-semantic-score). After the September 25 semantic push (Wave 2),
 whose twenty lanes turned named-but-unevidenced data into data whose header cites its
 reader, it was 95.04 % (11,771,934 B); before that push it was 64.15 % (details
 [below](#after-wave-2-2026-09-25)). Part of the last rise is the instrument rather than the
@@ -519,21 +553,32 @@ file.
 
 Since 2026-10-06 (`c2bf2d04a`) the disassembly README has carried badges for a measured
 *semantic score*, produced by `make semantic-score` (`scripts/analysis/semantic_score.py`).
-It is the mean of four components (three for the SX-WSA1R, which has no C), computed per
-model and overall. Every number behind it, with its commit, is in
+It is the mean of the components a model has: four for the KN5000, three for the SX-WSA1R
+(no C), two for the KN7000. Every number behind it, with its commit, is in
 `docs/badges/semantic-score.json`, and the trend is in
 `docs/badges/semantic-score-history.csv`. Byte identity is not a component, because every
-image already passes the gate. At `7936b0a2`:
+image already passes the gate. The KN7000 joined on 2026-10-24 (the script's "rules 3"):
+its program 941, table 84 and the seven Style Convert converters, rated from the sources
+because the MN10300 trees have no ELF, no dispatch census and no C. Its *bytes* component is
+the share emitted as source rather than `.incbin_range` passthrough, which is an upper bound
+on the TLCS-900 definition (a byte spelled as `.byte` counts whether or not its purpose is
+stated). The SP7001 set, the IC19 picture image, table 80, the IC18 boot ROM and the four
+MN10300 siblings are not rated yet. At `cdc6226f` (2026-10-24, after the first wave of
+that day's work was merged):
 
-| component            | what it counts                                                                                                                     | all images                          | KN5000      | SX-WSA1R    |
-|----------------------|------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------|-------------|-------------|
-| bytes understood     | the census's strict figure (above)                                                                                                 | 96.34 % (11,932,811 / 12,386,304 B) | 96.66 %     | 94.75 %     |
-| semantic names       | linked symbols whose name says what the thing is, not an address or a position                                                     | 92.57 % (154,116 / 166,478)         | 93.79 %     | 83.11 %     |
-| jump tables resolved | jump/call tables whose every entry lands on a labelled instruction, spelled symbolically (the dispatch census in `docs/coverage/`) | 100 % (3,021 / 3,021)               | 100 %       | 100 %       |
-| C fields named       | C struct members with a meaningful name rather than an index                                                                       | 93.25 % (71,227 / 76,386)           | 93.25 %     | —           |
-| **score**            | the mean of the components                                                                                                         | **95.54 %**                         | **95.93 %** | **92.62 %** |
+| component            | what it counts                                                                                                                     | KN5000                            | SX-WSA1R                        | KN7000                          | all models pooled                 |
+|----------------------|------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------|---------------------------------|---------------------------------|-----------------------------------|
+| bytes understood     | KN5000, SX-WSA1R: the census's strict figure (below); KN7000: the source share (above)                                             | 97.20 % (10,001,313 / 10,289,152) | 94.83 % (1,988,674 / 2,097,152) | 45.76 % (4,103,364 / 8,967,897) | 75.36 % (16,093,351 / 21,354,201) |
+| semantic names       | linked symbols whose name says what the thing is, not an address or a position (KN7000: named routines)                            | 96.27 % (141,380 / 146,853)       | 83.12 % (15,792 / 18,999)       | 84.83 % (3,422 / 4,034)         | 94.53 % (160,594 / 169,886)       |
+| jump tables resolved | jump/call tables whose every entry lands on a labelled instruction, spelled symbolically (the dispatch census in `docs/coverage/`) | 100 % (2,259 / 2,259)             | 100 % (772 / 772)               | —                               | 100 % (3,031 / 3,031)             |
+| C fields named       | C struct members with a meaningful name rather than an index                                                                       | 94.52 % (71,734 / 75,894)         | —                               | —                               | 94.52 % (71,734 / 75,894)         |
+| **score**            | the mean of the components                                                                                                         | **97.00 %**                       | **92.65 %**                     | **65.29 %**                     | **91.10 %**                       |
 
-The first measurement, at `f6458f02` earlier the same day, was 75.75 %.
+The pooled *bytes* figure mixes the two definitions (the KN7000 is about 42 % of its
+denominator), so compare the per-model columns, not the pooled one. The pooled score fell
+from 96.47 % to 87.26 % when the KN7000 was added, and rose to 91.10 % once the day's
+first wave of work was merged (KN7000 45.67 % to 65.29 %, mostly from the program
+conversion); the change of rules itself moved neither the KN5000 nor the SX-WSA1R score. The first measurement, at `f6458f02` on 2026-10-06, was 75.75 %.
 
 ### The grades
 
@@ -575,10 +620,15 @@ and undocumented data sandwiched between two instruction regions ("embedded-in-c
 | `prom_d`     | 0             | 329,425       | 1,096       | 0          | 193,767       | 99.79 %     |
 | **total**    | **3,977,832** | **6,429,576** | **557,803** | **56,567** | **1,364,526** | **95.04 %** |
 
-At `7936b0a2` (2026-10-06), after the census fix `d6c4e0ead`, the strict share per image is
+At `7936b0a2` (2026-10-06), after the census fix `d6c4e0ead`, the strict share per image was
 v10 95.48 %, v9 95.02 %, v7 94.71 %, v142 99.41 %, sub-CPU boot 99.97 %, table data 98.93 %,
 custom data 100 %, HD-AE5000 98.15 %, `prom_a` 95.33 %, `prom_b` 85.86 %, `prom_c` 98.01 %
-and `prom_d` 99.79 %, or 96.34 % overall (`docs/badges/semantic-score.json`). The
+and `prom_d` 99.79 %, or 96.34 % overall (`docs/badges/semantic-score.json`). At `2319e9b94`
+(2026-10-24, the first command above) it is v10 96.27 %, v9 96.24 %, v7 95.36 %, v142
+99.41 %, sub-CPU boot 99.97 %, table data 98.93 %, custom data 100 %, HD-AE5000 98.15 %,
+`prom_a` 95.34 %, `prom_b` 86.16 %, `prom_c` 98.02 % and `prom_d` 99.79 %, or 96.80 %
+overall; the buckets total CODE 3,988,810 B, KNOWN-A 6,636,538 B, KNOWN-B 384,808 B,
+UNKNOWN 11,509 B and FILLER 1,364,639 B. The
 five-bucket split above has not been republished here since Wave 2; the HD-AE5000's at
 `3417969c0` is on [HD-AE5000]({{ site.baseurl }}/hdae5000/#disassembly-status), and the
 SX-WSA1R images' UNKNOWN, KNOWN-B and research-target figures at `3417969c0` are on
@@ -615,7 +665,7 @@ reports: `prom_a`'s MIDI-in tables for two unidentified controllers now say so (
 to research on purpose), and 24 streams in `prom_c`'s P7 pool are stated as unreferenced
 (5,897 B). The admission is the true statement; the name it replaced was not.
 
-**96.34 % is the instrument's grade, not an audited figure.** KNOWN-A is keyword-graded
+**96.80 % is the instrument's grade, not an audited figure.** KNOWN-A is keyword-graded
 (`grade_purpose()` in `scripts/analysis/data_range_census.py`), by either of two routes: a
 header of eight or more words carrying two evidence tokens, or a descriptive
 (non-address-derived) name with a header of six or more words carrying one — and in both
@@ -628,7 +678,7 @@ size-weighted, seed 90902 (`--load … --sample 40 --seed 90902`). **That audit 
 7.5 %, Wilson 95 % interval 2.6 %–19.9 % — and a further 8 of 40 passing only at the
 granularity of a whole blob. Its run is in `notes/data-census-2026-09-02/` and
 `notes/DATA-CENSUS-2026-09-02.md`. Until the sample is redrawn from the current tree, quote
-96.34 % together with that sentence.
+96.80 % together with that sentence.
 
 **Some of the grading is known to be wrong in both directions** (listed for Wave 3 in
 `notes/lanes/wave2-2026-09-25/WAVE3-LEADS.md` — the first two below under "Instruments", the
@@ -667,9 +717,9 @@ The CODE/DATA split is corroborated by a completely separate instrument,
    debt above.
 2. **A region is only as explained as the one label and header attached to it.** A
    C-compiled struct can enter the ROM as a single large `.incbin` whose labels are offsets
-   into it, so a region can be much larger than the object its label names. **103 regions of
-   ≥ 8 KiB carry 3,014,878 B — 43.1 % of the explained figure — and 26 regions of ≥ 32 KiB
-   carry 1,703,154 B.**
+   into it, so a region can be much larger than the object its label names. At `2319e9b94`,
+   **100 regions of ≥ 8 KiB carry 2,948,497 B — 42.0 % of the explained figure — and 26
+   regions of ≥ 32 KiB carry 1,703,154 B.**
 3. **A self-admitted open question is not the same as an unexplained region.** A header
    asking one question about an otherwise understood object — a font whose role, metrics
    and loader are all established but whose encoding is not — trips the flag anyway. The
@@ -697,34 +747,54 @@ can only be a false positive.
 
 ![ROM Status Diagram]({{ "/assets/images/rom-status-diagram.png" | relative_url }})
 
-**Legend:** green = disassembled code · blue = known data structures · cyan = strings ·
-light green = pointer/jump tables · purple = binary includes · red = raw bytes, unknown ·
-orange = raw bytes known to be code · gray = padding/unused · yellow = undetermined.
-Rectangle width is proportional to ROM size.
+What kind of source emits each byte of the six KN5000 images that are not other builds'
+copies (main CPU v10, table data, sub-CPU boot IC30, sub-CPU payload v1.42, custom data
+IC19, HD-AE5000). One pixel is 8 bytes, so each block's area is proportional to its ROM size.
+The classes are the data census's buckets above, with compiled C split out of the data:
 
-> **This image is stale.** It was generated on 2026-02-07, before the source tree was
-> reorganised per firmware version, and `scripts/build/generate_rom_status_diagram.py`
-> still looks for the pre-split ASL paths (`maincpu/kn5000_v10_program.asm`, …) that no
-> longer exist. Treat the picture as historical until the generator is repointed at the
-> `.s` sources; the tables above are measured from the current tree.
+**Legend:** green = assembly code · light green = compiled C (clang `.incbin`) ·
+blue = data, purpose explained (census A) · cyan = data, named (census B) ·
+red = data, purpose unexplained · gray = verified filler.
+
+Generated by `make rom-status DOCS_DIR=<this site>` in the disassembly repository
+(`scripts/build/generate_rom_status_diagram.py`, about a minute), at `2319e9b94`
+(2026-10-24). The same run printed:
+
+| image                 | bytes     | asm   | C    | data A | data B | data ? | filler |
+|-----------------------|-----------|-------|------|--------|--------|--------|--------|
+| Main CPU v10          | 2,097,152 | 47.5% | 0.4% | 45.6%  | 3.5%   | 0.1%   | 2.8%   |
+| Table Data            | 2,097,152 | 0.9%  | 0.0% | 89.3%  | 1.1%   | 0.0%   | 8.7%   |
+| Sub CPU Boot IC30     | 131,072   | 2.7%  | 0.0% | 0.7%   | 0.0%   | 0.0%   | 96.6%  |
+| Sub CPU Payload v1.42 | 196,608   | 65.6% | 0.0% | 33.7%  | 0.6%   | 0.0%   | 0.1%   |
+| HD-AE5000 v2.06i      | 524,288   | 21.4% | 0.0% | 70.9%  | 1.8%   | 0.0%   | 5.8%   |
+| Custom Data IC19      | 1,048,576 | 0.0%  | 0.0% | 63.0%  | 0.0%   | 0.0%   | 37.0%  |
+
+Read it with the census's limits in mind: it describes what the *source* claims, so code
+spelled as `.byte` is counted as data and data spelled as instructions as code. Compiled C
+here is only the clang `.incbin` output under `<tree>/includes/generated/` that
+`kn5000_source_coverage.py` classifies as C. The sub-CPU boot ROM's gray is mostly bytes
+that were never read (see [Dump Provenance](#dump-provenance)). The picture that stood here
+until 2026-10-24 dated from 2026-02-07; its generator then read the archived ASL paths, found
+none of them and painted every image "undetermined".
 
 ## Original ROM Files
 
 The original firmware dumps are stored in `original_ROMs/`:
 
-| File                                                                  | Size           | Description                                                                  |
-|-----------------------------------------------------------------------|----------------|------------------------------------------------------------------------------|
-| `kn5000_v10_program.rom`                                              | 2MB            | Main CPU program ROM (also `kn5000_v9_program.rom`, `kn5000_v7_program.rom`) |
-| `kn5000_subprogram_v142.rom`                                          | 192KB          | Sub CPU payload (sent by main CPU at boot)                                   |
-| `kn5000_subprogram_v142_compressed.rom`                               | 93,203B        | Same payload as shipped on update disks                                      |
-| `kn5000_subprogram_v141.rom`, `kn5000_subprogram_v141_compressed.rom` | 192KB, 93,181B | Sub CPU payload v1.41, both shapes — tracked, built by nothing               |
-| `kn5000_subprogram_v140.rom`, `kn5000_subprogram_v140_compressed.rom` | 192KB, 93,124B | Sub CPU payload v1.40, both shapes — tracked, built by nothing               |
-| `kn5000_subcpu_boot.ic30`                                             | 128KB          | Sub CPU boot ROM                                                             |
-| `kn5000_table_data_rom_odd.ic1`                                       | 1MB            | Table data ROM (odd words)                                                   |
-| `kn5000_table_data_rom_even.ic3`                                      | 1MB            | Table data ROM (even words)                                                  |
-| `kn5000_table_data.rom`                                               | 2MB            | The two halves interleaved; the image the build compares against             |
-| `kn5000_custom_data.ic19`                                             | 1MB            | Custom data flash (user storage)                                             |
-| `hd-ae5000_v2_06i.ic4`                                                | 512KB          | HDAE5000 hard disk expansion ROM                                             |
+| File                                                                  | Size           | Description                                                                    |
+|-----------------------------------------------------------------------|----------------|--------------------------------------------------------------------------------|
+| `kn5000_v10_program.rom`                                              | 2MB            | Main CPU program ROM (also `kn5000_v9_program.rom`, `kn5000_v7_program.rom`)   |
+| `kn5000_v8_program.rom`                                               | 2MB            | Main CPU v8: **git-ignored**, copied from the private romset and SHA-1-checked |
+| `kn5000_subprogram_v142.rom`                                          | 192KB          | Sub CPU payload (sent by main CPU at boot)                                     |
+| `kn5000_subprogram_v142_compressed.rom`                               | 93,203B        | Same payload as shipped on update disks                                        |
+| `kn5000_subprogram_v141.rom`, `kn5000_subprogram_v141_compressed.rom` | 192KB, 93,181B | Sub CPU payload v1.41, both shapes — built by `v141/subcpu/`                   |
+| `kn5000_subprogram_v140.rom`, `kn5000_subprogram_v140_compressed.rom` | 192KB, 93,124B | Sub CPU payload v1.40, both shapes — tracked, checked against each other       |
+| `kn5000_subcpu_boot.ic30`                                             | 128KB          | Sub CPU boot ROM                                                               |
+| `kn5000_table_data_rom_odd.ic1`                                       | 1MB            | Table data ROM (odd words)                                                     |
+| `kn5000_table_data_rom_even.ic3`                                      | 1MB            | Table data ROM (even words)                                                    |
+| `kn5000_table_data.rom`                                               | 2MB            | The two halves interleaved; the image the build compares against               |
+| `kn5000_custom_data.ic19`                                             | 1MB            | Custom data flash (user storage)                                               |
+| `hd-ae5000_v2_06i.ic4`                                                | 512KB          | HDAE5000 hard disk expansion ROM                                               |
 
 **ROM interleaving:** the table-data ROM uses 16-bit **word-level** interleaving across two
 physical chips. `kn5000_table_data.rom` is built by alternating 16-bit words from
@@ -834,7 +904,7 @@ A reasonable worry, given the KN7000 precedent — where the "program ROM" we ho
 to be the *update payload*, which deliberately omits the top `0x90FF` of the part and so
 leaves it neither shipped nor dumped — is whether the KN5000 main-program image has the same
 blind spot. (On the KN7000 that gap was for a while assumed to hold the resident updater;
-[that assumption is refuted]({{ site.baseurl }}/kn7000-firmware-security/#45-where-does-the-flash-updater-live-unresolved)
+[that assumption is refuted]({{ site.baseurl }}/kn7000-firmware-security/#45-where-does-the-flash-updater-live)
 — real hardware reads the region as erased — but the *payload is not the whole chip* point
 stands, which is what makes the worry reasonable.)
 
@@ -872,14 +942,14 @@ instructions are encoded natively — no workaround macros needed.
 5. `compare_roms.py` verifies every section byte-for-byte against the originals
 
 ```bash
-cd kn5000-roms-disasm
+cd technics-roms-disasm
 
-make gate-all                         # the gate: 26 images (9 KN5000, 4 WSA1R, 13 KN7000), byte-exact or non-zero exit
+make gate-all                         # the gate: 35 images (12 KN5000, 4 WSA1R, 15 KN7000, 4 MN10300 siblings), byte-exact or non-zero exit
 
-# the full similarity report: expect FIFTEEN sections, all 100.00%
+# the full KN5000 similarity report: expect EIGHTEEN sections, all 100.00%
 make clean-all && make all && make asl-all && python3 scripts/build/compare_roms.py
 
-make all                              # LLVM sections only (nine) + compare
+make all                              # KN5000 LLVM sections only (twelve) + compare
 python3 scripts/build/compare_roms.py # compare whatever is already built
 make verify-demo-presets              # 19/19
 make verify-help-databases            # 6/6
