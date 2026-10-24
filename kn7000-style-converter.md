@@ -16,17 +16,20 @@ Details, addresses and scripts are in the [technics-roms-disasm](https://github.
 
 ## What is on the disk
 
-| file                     | converts styles of                                  | same on both disks?                            |
-|--------------------------|-----------------------------------------------------|------------------------------------------------|
-| `GEM_WS2.CNV`            | GEM (General Music) WS2                             | identical                                      |
-| `GEM_WX2.CNV`            | GEM WX2                                             | identical                                      |
-| `KORG.CNV`               | Korg                                                | identical                                      |
-| `Roland.cnv`             | Roland                                              | identical                                      |
-| `SOLTON.CNV`             | Solton                                              | identical                                      |
-| `TECHNICS.CNV`           | Technics KN1000 / KN750, per the firmware's prompt  | same program, relinked (data addresses moved)  |
-| `V1%0_.ver`, `V2%0_.ver` | nothing: a version tag                              | same content, different name                   |
+| file                     | converts styles of                  | same on both disks?                  |
+|--------------------------|-------------------------------------|--------------------------------------|
+| `GEM_WS2.CNV`            | GEM (General Music) WS2             | identical                            |
+| `GEM_WX2.CNV`            | GEM WX2                             | identical                            |
+| `KORG.CNV`               | Korg i1 - i5 series                 | identical                            |
+| `ROLAND.CNV`             | Roland                              | identical                            |
+| `SOLTON.CNV`             | Solton                              | identical                            |
+| `TECHNICS.CNV`           | Technics KN 800/770 and KN 1000/750 | two builds: 4 of 128 routines differ |
+| `V1%0_.ver`, `V2%0_.ver` | nothing: a version tag              | same content, different name         |
 
-The brand names are only in the file names; the converters contain no text at all.
+The converters carry their own texts: 120 to 299 strings each. Among them are their disk
+prompts ("Insert Style Disk of Korg i1 - i5 series"), file patterns such as `*.STY,***`, menu
+texts and sixteen error messages. (This page said until 2026-10-24 that they contain no text;
+that was wrong.) `ROLAND.CNV` is spelled `Roland.cnv` in the installer.
 
 ## How it works
 
@@ -60,6 +63,39 @@ Two special cases sit in the firmware itself:
   name with `TECHNICS`, kept in RAM, and treats it differently. It shows its own prompt, "Insert
   Style Disk of Technics KN 1000/750", and finishes along another path.
 
+## The disassembly
+
+All seven converters are disassembled, byte-exact, in the repository's
+[`kn7000/src/cnv/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000/src/cnv);
+`make verify-cnv` rebuilds each one from its source. The sources are complete: no file is
+included as raw bytes, and every code byte is an instruction.
+
+| converter           | bytes   | instructions | routines | of them, never called |
+|---------------------|---------|--------------|----------|-----------------------|
+| `GEM_WS2.CNV`       | 99,857  | 19,640       | 140      | 23                    |
+| `GEM_WX2.CNV`       | 108,049 | 21,822       | 149      | 25                    |
+| `KORG.CNV`          | 108,912 | 22,593       | 144      | 24                    |
+| `ROLAND.CNV`        | 91,872  | 17,247       | 132      | 25                    |
+| `SOLTON.CNV`        | 96,706  | 18,945       | 137      | 23                    |
+| `TECHNICS.CNV` 6000 | 101,992 | 16,920       | 128      | 35                    |
+| `TECHNICS.CNV` 7000 | 101,992 | 16,941       | 128      | 35                    |
+
+What the disassembly shows:
+- **A shared library.** 75 routines have the same code in all seven: the mailbox and error
+  routines, the C string and memory functions, IEEE double arithmetic and byte-order helpers.
+  Several are byte-identical to routines of the firmware's own library.
+- **The file is laid out by its C start-up code.** Code comes first, then constant data and
+  strings, then the image of the initialised variables. Zeros follow, up to the end of the
+  file: the room those variables are copied into, and the uninitialised ones. So the firmware's
+  load is a plain copy of the file.
+- **Requests from the converter side.** A request is byte 0 of the mailbox. The text it sends
+  follows from byte 1, or from byte 2 after a sub-code at byte 1. The firmware's answer is read
+  back from byte 0: `0xFF` means served.
+- **The file size comes with the first call.** The firmware passes the converter's own size at
+  mailbox+2, and the converter's free memory starts after it.
+- **Errors.** Codes 1 to 16 index the sixteen error texts, from "Nullpointer assignment!" to
+  "No Drum Track in this song!". A higher code is shown as "Fcode = n".
+
 ## Screens
 
 | title  | name              | when                                                               |
@@ -85,7 +121,8 @@ card, Another World among them, on the owner's stock KN7000:
 
 ## Not yet known
 
-- **Request arguments:** the exact layout of each request's arguments in the mailbox.
+- **Request arguments:** the layout of the file-access requests' arguments in the mailbox (the
+  text requests are above).
 - **The result:** where a finished conversion is left for the STORE screen.
 - **The Technics path:** what it does after finishing.
 - **A real run:** no conversion has been run end to end in the emulator yet.
