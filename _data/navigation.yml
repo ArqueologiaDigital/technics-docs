@@ -30,6 +30,8 @@
       url: /rom-dumping-roadmap/
     - title: Shared Codebase Map
       url: /technics-shared-codebase/
+    - title: Source Tree Inventory (which ROMs are in the repo)
+      url: /source-tree-inventory/
     - title: Floppy Disk Images (software lists)
       url: /floppy-disk-images/
     - title: Help Wanted
