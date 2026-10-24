@@ -31,7 +31,7 @@ cannot be rebuilt from public sources until the branch is pushed.
 
 ```
 make gate-wsa1     # the four SX-WSA1R images
-make gate-all      # all thirteen: 9 KN5000 + 4 SX-WSA1R
+make gate-all      # all 26: 9 KN5000 + 4 SX-WSA1R + 13 KN7000 (make gate-kn7000)
 ```
 
 Both rebuild first and then compare bytes, and must print
@@ -44,7 +44,8 @@ additionally carry an `LLVM: <branch>@<short> (<full>)` line, enforced by a comm
 hook. **The pinned toolchain is recorded in `TOOLCHAIN_VERSION`, which is the
 authority — read it rather than quoting a commit id from here.** The same LLVM
 TLCS-900 backend assembles the KN5000 tree, so a backend change is gated on all
-thirteen images at once.
+thirteen TLCS-900 images at once (the KN7000's thirteen use the repository's own MN10300
+assembler and are gated separately by `make gate-kn7000`).
 
 ## ⚠ The rule the gate cannot enforce
 
@@ -262,7 +263,7 @@ roots. Everything that differs is one equate:
 | CPU 2 (`prom_c`) | `0x00E00000` |
 
 Three use sites, and **no conditional assembly anywhere in the body**. The
-byte-identity gate covers it: 13 images rebuild identically (9 KN5000 + 4
+byte-identity gate covers it: the 13 TLCS-900 images rebuild identically (9 KN5000 + 4
 WSA1R), and the negative control — setting the sub-CPU equate wrong — fails
 `prom_c` at exactly three bytes while leaving `prom_a` green, so the gate is
 demonstrably load-bearing here.
@@ -456,14 +457,18 @@ byte identity, not a reading of the WSA1 code.
   `prom_a` 1,958 B plus eleven panel lookup tables and the LED wire maps; in `prom_b` nine
   tables). `prom_c` and `prom_d` survived a deliberate attack on this hazard.
 
-| image | verbatim `.incbin` | source |
-|---|---:|---:|
-| `prom_a` | 0 | 100% |
-| `prom_b` | 0 | 100% |
-| `prom_c` | 0 | 100% |
-| `prom_d` | 0 | 100% |
+| image    | verbatim `.incbin` | source |
+|----------|-------------------:|-------:|
+| `prom_a` |                  0 |   100% |
+| `prom_b` |                  0 |   100% |
+| `prom_c` |                  0 |   100% |
+| `prom_d` |                  0 |   100% |
 
-*(2026-09-02, `python3 scripts/analysis/kn5000_source_coverage.py`.)*
+*(2026-09-02, `python3 scripts/analysis/kn5000_source_coverage.py`; unchanged when
+`wsa1/scripts/analysis/source_coverage.py` was re-run on 2026-10-24: 0 `.incbin` bytes in every
+image, 457,875 / 452,994 / 395,072 / 330,521 substantive bytes, the figures in the table above.
+The repository audit of that day found that `wsa1/README.md`'s own status table still quoted
+175 KB of `.incbin`; that README, not this page, is the stale copy.)*
 
 ⚠ **Zero verbatim debt is a statement about `.incbin`, not about understanding.** The
 per-range data census, run at `3417969c0` (2026-10-06), gives these images:

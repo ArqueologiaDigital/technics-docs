@@ -124,10 +124,13 @@ sha256 of the payload: `16a1b654cea132ac433c16162db4a72ef7227fcc962ff6fae0ce088a
 
 ### v1.40 — a preservation recovery
 
-**Before August 2026, no decompressed copy of the v1.40 sub-CPU payload existed anywhere
-in this project.** The only artifact was the compressed update image, and nothing in the
-build ever unpacked it. A corrupted or lost 93 KB file would have taken the revision with
-it.
+**Before August 2026, no decompressed copy of the v1.40 sub-CPU payload existed in the
+disassembly repository.** The only artifact there was the compressed update image, and nothing
+in the build ever unpacked it. (The private romset beside the repository had held an identical
+`kn5000_subprogram_v140.rom` since 2026-07-20, which the repository audit of 2026-10-24
+found: its SHA-1, `b7f47152…`, is the committed file's. So the extraction below was not the
+only copy, as this page and the disassembly's `analysis/binclude-audit-2026-08-07/PLAN.md`
+once said; it is confirmed by an independent one.)
 
 The 196,608-byte payload has now been decompressed out of that single copy and committed
 as `original_ROMs/kn5000_subprogram_v140.rom` (commit `2fb8a95`):
