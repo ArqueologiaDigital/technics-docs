@@ -330,7 +330,7 @@ REVERB slot (`sndparam-r3/inferred.json` says what would confirm each).
 
 ## Related pages
 
-* [Sound Parameter Protocol](/sound-parameter-protocol/): how a changed value travels
+* [Sound Parameter Protocol]({{ site.baseurl }}/sound-parameter-protocol/): how a changed value travels
   to the sub CPU and the DSP
-* [MIDI Subsystem](/midi-subsystem/)
-* [UI Framework](/ui-framework/)
+* [MIDI Subsystem]({{ site.baseurl }}/midi-subsystem/)
+* [UI Framework]({{ site.baseurl }}/ui-framework/)

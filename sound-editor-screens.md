@@ -83,7 +83,7 @@ and XIX the exclusive end. Records are `{op, length, ...}`:
 
 Field routines use bound records (`sdb_num`, `sdb_str`, `sdb_box` ...). These tie a RAM
 parameter (address, mask, shift) to a display style and a cell. `SeGfx_DrawIndexedBoundRecord`
-draws entry A of such a list. The record formats are in [ScreenData C conversion](/screendata-c-conversion/).
+draws entry A of such a list. The record formats are in [ScreenData C conversion]({{ site.baseurl }}/screendata-c-conversion/).
 
 ## Across models
 
@@ -98,6 +98,6 @@ title per filter type), the KN6000 has one title per section. `TT_SEMENU`, `TT_S
 
 ## Related pages
 
-- [UI Framework](/ui-framework/): titles, main functions and the NAKA object model
-- [Panel Parameter Keys](/panel-parameter-keys/)
-- [KN7000 Sound GUI Map](/kn7000-sound-gui-map/)
+- [UI Framework]({{ site.baseurl }}/ui-framework/): titles, main functions and the NAKA object model
+- [Panel Parameter Keys]({{ site.baseurl }}/panel-parameter-keys/)
+- [KN7000 Sound GUI Map]({{ site.baseurl }}/kn7000-sound-gui-map/)

@@ -677,6 +677,6 @@ The pointer table at 0xE32A7A has **128 entries**; beyond the 40 above, the ones
 
 ## Related pages
 
-- [Panel Parameter Keys](/panel-parameter-keys/): the key of every editable setting, the 18-byte descriptor
+- [Panel Parameter Keys]({{ site.baseurl }}/panel-parameter-keys/): the key of every editable setting, the 18-byte descriptor
   that maps it to a panel-record byte, and the part namespace
-- [Sound Editor Screens](/sound-editor-screens/): the SOUND EDIT titles and their drawing methods
+- [Sound Editor Screens]({{ site.baseurl }}/sound-editor-screens/): the SOUND EDIT titles and their drawing methods
