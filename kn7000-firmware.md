@@ -211,8 +211,10 @@ SetVisible:                        # CPU 0x4842D3DF
     ret     [d2], 0x10
 ```
 
-504 functions of code region 1 and 437 functions of the library are converted
-this way so far. Among them are the task/event and display/object framework
+561 functions of code region 1 and 437 functions of the library are converted
+this way so far (`tools/coverage_score.py` counts 999 of 4,201 named functions converted and
+3.88% of the image's bytes, 161,369 of 4,157,185, as real source, measured 2026-10-18 and
+unchanged at the 2026-10-24 audit; a bulk conversion of the rest is in progress and not merged). Among them are the task/event and display/object framework
 clusters, the complete Techni-Chord harmony engine, and the complete control-panel
 serial protocol (the `PanelTransaction`/ISR/state-machine chain that drove the MAME
 panel HLE). Growing the set converts more, always holding the 100% byte-match
