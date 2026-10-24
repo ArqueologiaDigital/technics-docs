@@ -139,7 +139,7 @@ baseline JPEGs** (built-in demo slideshows, all verified decodable, 160×80 up t
 > standard update ships. The SP7001 PLUG-iN table update is a full `0x400000`
 > bytes and writes its plug-in code and strings there (up to `0x483FB59F`); what a
 > stock unit holds in that range has never been read. See
-> [Where does the flash updater live?]({{ site.baseurl }}/kn7000-firmware-security/#45-where-does-the-flash-updater-live-unresolved).
+> [Where does the flash updater live?]({{ site.baseurl }}/kn7000-firmware-security/#45-where-does-the-flash-updater-live).
 
 The SP7001's table, build 83, keeps this layout: 78 of its 84 segments are
 byte-identical to build 84's. It differs in the version string (`"83\n"`), in three

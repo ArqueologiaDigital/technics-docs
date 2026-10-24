@@ -205,7 +205,19 @@ composite VIDEO OUT carries whatever the hidden hex viewer shows. See
 build 893 have already been recovered the slow way, by transcribing photographs of that screen —
 [Recovering build 893]({{ site.baseurl }}/kn7000-build-893-recovery/).
 
-### 4.5 Where does the flash updater live? (unresolved)
+### 4.5 Where does the flash updater live?
+
+> **Resolved (2026-10-19 read, 2026-10-24 disassembly): in the boot ROM, the first 64 KB of
+> the rhythm ROM IC18.** The CPU starts there, at `0x40000000`. When the right keys are held at
+> power-on it runs the UPDATE SYSTEM MENU, the floppy and SD flash updates, UPDATE DISK CHECK
+> and DEVICE INFO, with a flash driver for every writable device; otherwise it jumps to the
+> firmware at `0x48400000`. That is hypothesis H5 below: a device no update disk targets as
+> part of a normal program or table update. Its kinds 8 and 9 can rewrite CS0, which on early
+> units is an IC20 flash in IC18's place. The [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/)
+> read it on 2026-10-19, and the disassembly repository rebuilds it byte for byte from
+> `kn7000/src/ic18/boot.s`; see [KN7000 Boot ROM (IC18)]({{ site.baseurl }}/kn7000-boot-rom/).
+> The rest of this section is the search as it stood before that read, kept because its
+> refutations still hold.
 
 The KN7000 unquestionably *has* a flash updater — holding PANEL MEMORY 1+2+3+4 at power‑on enters
 Flash Memory Update, and the public update disks work. The question is which device the updater code
@@ -228,7 +240,7 @@ factory‑programmed resident block would be build‑independent, so that null a
 | H2 — the update writes the payload and leaves the rest erased  | **SUPPORTED** — but it describes the *payload*, and says nothing about where the machinery lives                                                              |
 | H3 — the updater is somewhere in the dumped 8 MB, unidentified | **REFUTED** for uncompressed forms                                                                                                                            |
 | H4 — the updater is loaded from the update floppy              | **REFUTED** for the disks held on 2026-08-09 (kn7-16 and the kn7-14 table disks); further update disks (v1.4 disk 2, v1.5, SP7001) were found in October 2026 |
-| H5 — the updater is in another device                          | **SUPPORTED** — the only survivor; *which* device is undecided                                                                                                |
+| H5 — the updater is in another device                          | **CONFIRMED** — the boot ROM in the first 64 KB of IC18 ([KN7000 Boot ROM]({{ site.baseurl }}/kn7000-boot-rom/))                                              |
 
 **The cross‑reference evidence behind §2.2 was a byte‑misframing artifact.** It rested partly on "33
 dword cross‑references into `0x487Fxxxx`, several past the dump end". Two independent kills:
@@ -304,10 +316,12 @@ pair**, and there is no unread upper half at `0x48800000`. That leaves exactly o
 >   top of that image, past the last picture. IC19's other half is wired out of the CPU's reach
 >   ([Picture ROM (IC19)]({{ site.baseurl }}/kn7000-picture-rom/)), so it cannot hold code the CPU runs.
 >
-> So on this build neither of the KN5000-style places holds an updater.
+> So on this build neither of the KN5000-style places holds an updater. The same read found it
+> at probe 2, `0x40000000`: IC18's first 64 KB are the boot ROM, and the boot ROM holds the
+> updater ([KN7000 Boot ROM (IC18)]({{ site.baseurl }}/kn7000-boot-rom/)).
 
-**Size: unknown.** We cannot yet say the updater exists in *any* reachable flash. For scale, the
-KN5000's analogous block is `0x6000` = 24,576 bytes ≈ 96 screenfuls at 256 bytes per screen.
+**Size.** The boot ROM uses 63,148 of its 65,536 bytes, and the update system is most of it.
+For scale, the KN5000's analogous block is `0x6000` = 24,576 bytes.
 
 > ⚠ **Do not dial `0x88400000`.** The `+0x40000000` uncached‑alias convention is real, so that is the
 > program flash's *command* window, and the viewer repaints the address it is parked on.

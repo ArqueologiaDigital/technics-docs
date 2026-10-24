@@ -130,7 +130,7 @@ decompressor used for the KN5000 (`pylzss`, 4 KB window, zero-initialized).
 > simply varies by build (`0x3F6E9D` bytes for v1.5, `0x3F6F01` for v1.6,
 > `0x3F8BDB` for the SP7001 build 942, which writes into the very range v1.6
 > leaves blank). See
-> [Where does the flash updater live?]({{ site.baseurl }}/kn7000-firmware-security/#45-where-does-the-flash-updater-live-unresolved).
+> [Where does the flash updater live?]({{ site.baseurl }}/kn7000-firmware-security/#45-where-does-the-flash-updater-live).
 >
 > The only never-read part of the IC16/IC17 pair on a unit without the SP7001
 > PLUG-iN is at the *other* end of the address space: **`0x483E94D4`–`0x483FFFFF`**,

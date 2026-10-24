@@ -663,15 +663,15 @@ executed in MAME, and none should be attempted on an instrument holding an
 unpreserved image. Do not confuse any of them with the runtime chord on this
 page, which touches nothing.
 
-> **Where the flash updater lives is unresolved** — see
-> [Where does the flash updater live?]({{ site.baseurl }}/kn7000-firmware-security/#45-where-does-the-flash-updater-live-unresolved).
-> Two things it is *not*: a string sweep finding no KN5000-style "Flash Memory
-> Update" text proves nothing, because the updater's UI is *bitmaps* — those ASCII
-> strings are absent from a genuine KN5000 dump too; and it is not in the top
-> `0x90FF` of the program flash: on the owner's build-893 unit everything from
-> `0x487F55CF` up reads as one unbroken block of `0xFF`.
+> **The flash updater lives in the boot ROM**, the first 64 KB of the rhythm ROM IC18 — see
+> [KN7000 Boot ROM (IC18)]({{ site.baseurl }}/kn7000-boot-rom/) and
+> [Where does the flash updater live?]({{ site.baseurl }}/kn7000-firmware-security/#45-where-does-the-flash-updater-live).
+> The search that ended there ruled out the top `0x90FF` of the program flash: on
+> the owner's build-893 unit everything from `0x487F55CF` up reads as one unbroken
+> block of `0xFF`. Sweeps of the program and table images for update strings found
+> nothing because the boot ROM was in neither image.
 >
-> Not knowing where it lives does not make the combinations in this table any less
+> Knowing where it lives does not make the combinations in this table any less
 > destructive. The update path demonstrably runs.
 
 ## Caveats

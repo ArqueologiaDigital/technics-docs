@@ -70,6 +70,8 @@
           url: /kn7000-system-update-discs/
         - title: Firmware Images
           url: /kn7000-firmware/
+        - title: "Boot ROM (IC18): reset & update system"
+          url: /kn7000-boot-rom/
         - title: SOFT VERSION Screen
           url: /kn7000-soft-version/
         - title: MEMORY DUMP Screen (hidden hex viewer)
