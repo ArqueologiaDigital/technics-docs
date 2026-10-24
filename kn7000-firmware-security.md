@@ -320,7 +320,8 @@ pair**, and there is no unread upper half at `0x48800000`. That leaves exactly o
 > at probe 2, `0x40000000`: IC18's first 64 KB are the boot ROM, and the boot ROM holds the
 > updater ([KN7000 Boot ROM (IC18)]({{ site.baseurl }}/kn7000-boot-rom/)).
 
-**Size.** The boot ROM uses 63,148 of its 65,536 bytes, and the update system is most of it.
+**Size.** The boot ROM uses 63,148 of its 65,536 bytes; besides the update system it holds a C
+library, the panel link, the FDC driver and the LCD console.
 For scale, the KN5000's analogous block is `0x6000` = 24,576 bytes.
 
 > ⚠ **Do not dial `0x88400000`.** The `+0x40000000` uncached‑alias convention is real, so that is the

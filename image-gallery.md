@@ -36,7 +36,8 @@ with their own 256-entry palettes. Since 2026-10-24 (disassembly `4eb218937`) th
 longer kept as verbatim blobs: each is built from a palette-indexed PNG,
 `table_data/images/FTBMPnn.png`, plus `table_data/images/ftbmp_headers.json`, which holds
 every BMP header field. `scripts/build/ftbmp_images.py build` writes the BMPs and the build
-checks the round trip byte for byte. That removed the last 318,468 bytes of verbatim debt from
+checks the round trip byte for byte (the `.BMP` files stay in git as a build cache that
+`ftbmp_images.py build` regenerates and `ftbmp_images.py verify` checks). That removed the last 318,468 bytes of verbatim debt from
 table data. The renders below come from `scripts/build/convert_images.py` (`make gallery`),
 which decodes each BMP with its own palette.
 
