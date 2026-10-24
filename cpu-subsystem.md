@@ -53,14 +53,14 @@ The TMP94C241F is a Toshiba 32-bit microcontroller from the TLCS-900/H2 family.
 
 ### Architecture
 
-| Feature | Specification |
-|---------|---------------|
-| CPU Core | TLCS-900/H2 (32-bit) |
-| Clock | main CPU 8 MHz crystal, sub CPU 10 MHz, each with the part's internal clock doubler — 16 MHz and 20 MHz respectively (`TMP94C241(config, m_maincpu, 2 * 8_MHz_XTAL)` / `2 * 10_MHz_XTAL` in `kn5000.cpp`) |
-| Address Bus | 24-bit (16MB address space) |
-| Data Bus | 16-bit external |
-| Registers | 8 general purpose (32-bit each) |
-| Instruction Set | CISC, variable length (1-7 bytes) — see [Instruction Encoding Reference]({{ site.baseurl }}/tlcs900-instruction-encoding/) |
+| Feature         | Specification                                                                                                                                                                                             |
+|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| CPU Core        | TLCS-900/H2 (32-bit)                                                                                                                                                                                      |
+| Clock           | main CPU 8 MHz crystal, sub CPU 10 MHz, each with the part's internal clock doubler — 16 MHz and 20 MHz respectively (`TMP94C241(config, m_maincpu, 2 * 8_MHz_XTAL)` / `2 * 10_MHz_XTAL` in `kn5000.cpp`) |
+| Address Bus     | 24-bit (16MB address space)                                                                                                                                                                               |
+| Data Bus        | 16-bit external                                                                                                                                                                                           |
+| Registers       | 8 general purpose (32-bit each)                                                                                                                                                                           |
+| Instruction Set | CISC, variable length (1-7 bytes) — see [Instruction Encoding Reference]({{ site.baseurl }}/tlcs900-instruction-encoding/)                                                                                |
 
 ### On-Chip Peripherals
 
@@ -155,17 +155,17 @@ extension slot and the flash devices. What each bit does is established from the
 firmware's own reads and from the direction registers the boot code programs; the SFR
 addresses are `PD = 0x34`, `PE = 0x38`, `PG = 0x40`, `PZ = 0x68`.
 
-| Port bit | Direction | Function |
-|---|---|---|
-| PD.6 | input | floppy disk-change (`Check_for_Floppy_Disk_Change`) — ⚠ also read into the pedal parameter block, see below |
-| PE.0 | input | extension board present. **0 = an HD-AE5000 is fitted**, 1 = the slot is empty |
-| PE.4 | input | MICSNS — latched every main loop; a change sends an 8-byte packet on the computer-interface port |
-| PE.5 | input | control-panel INTA. The panel routines proceed only while it reads low |
-| PG.2 | input | foot switch FS1 |
-| PG.3 | input | foot switch FS2 |
-| PG.4–PG.7 | input | foot controllers FC1–FC4 |
-| PZ.7–PZ.4 | input | COM SELECT rotary switch — MIDI / MAC / PC1 / PC2 |
-| P7.5 | input | flash ready/busy, polled before every flash command |
+| Port bit  | Direction | Function                                                                                                    |
+|-----------|-----------|-------------------------------------------------------------------------------------------------------------|
+| PD.6      | input     | floppy disk-change (`Check_for_Floppy_Disk_Change`) — ⚠ also read into the pedal parameter block, see below |
+| PE.0      | input     | extension board present. **0 = an HD-AE5000 is fitted**, 1 = the slot is empty                              |
+| PE.4      | input     | MICSNS — latched every main loop; a change sends an 8-byte packet on the computer-interface port            |
+| PE.5      | input     | control-panel INTA. The panel routines proceed only while it reads low                                      |
+| PG.2      | input     | foot switch FS1                                                                                             |
+| PG.3      | input     | foot switch FS2                                                                                             |
+| PG.4–PG.7 | input     | foot controllers FC1–FC4                                                                                    |
+| PZ.7–PZ.4 | input     | COM SELECT rotary switch — MIDI / MAC / PC1 / PC2                                                           |
+| P7.5      | input     | flash ready/busy, polled before every flash command                                                         |
 
 **Port G is the pedal port, and its pins are active low.** `PanelInput_ScanPedalPorts`
 (`v10/maincpu/audio/audio_control_engine.s:2093`, reached from `PanelInput_Poll`)

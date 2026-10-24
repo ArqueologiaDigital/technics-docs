@@ -74,12 +74,12 @@ The waves were scoped by a prior audit rather than by intuition about what looke
 interesting. Ten agents — seven scanners and three adversarial verifiers — walked every
 `.incbin`/`binclude` directive and every compressed region in the repository.
 
-| Quantity | Result |
-|----------|--------|
-| Directives inventoried | 598 |
-| Honest build products (compiled from C/asm, or generated from documented data) | 505 |
-| Findings recorded | 55 |
-| Adversarial verdicts | 24 (14 CONFIRMED, 10 REFUTED) |
+| Quantity                                                                       | Result                        |
+|--------------------------------------------------------------------------------|-------------------------------|
+| Directives inventoried                                                         | 598                           |
+| Honest build products (compiled from C/asm, or generated from documented data) | 505                           |
+| Findings recorded                                                              | 55                            |
+| Adversarial verdicts                                                           | 24 (14 CONFIRMED, 10 REFUTED) |
 
 The output was a machine-readable `findings.json` plus a plan that ordered the remaining
 work into waves. Crucially, the audit distinguished *build products* from *undocumented
@@ -333,10 +333,10 @@ documentation refresh that followed the waves was put through its own adversaria
 Every writer recorded the claims it made and the evidence it cited — 292 claims — and two
 independent verifier passes graded them against the repository:
 
-| Pass | Verdicts | Confirmed | Refuted | Unverifiable |
-|---|---:|---:|---:|---:|
-| Addresses and structure | 24 | 12 | 12 | 0 |
-| Behaviour, provenance and overclaiming | 58 | 47 | 9 | 2 |
+| Pass                                   | Verdicts | Confirmed | Refuted | Unverifiable |
+|----------------------------------------|---------:|----------:|--------:|-------------:|
+| Addresses and structure                | 24       | 12        | 12      | 0            |
+| Behaviour, provenance and overclaiming | 58       | 47        | 9       | 2            |
 
 All 82 verdicts were applied before publishing. The refutations were not cosmetic: one
 boundary address had been stated four different ways across four pages, a claim about the

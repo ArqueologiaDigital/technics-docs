@@ -59,34 +59,34 @@ assembly source uses the older working names *style name* for the sub category a
 
 ## Grid geometry
 
-| property | value |
-|:---|:---|
-| first record | `StyleRec_000` @ `0x951000` |
-| grid stride | 198 bytes |
-| record count | 1000 (`StyleRec_000`..`StyleRec_999`) |
+| property               | value                                                             |
+|:-----------------------|:------------------------------------------------------------------|
+| first record           | `StyleRec_000` @ `0x951000`                                       |
+| grid stride            | 198 bytes                                                         |
+| record count           | 1000 (`StyleRec_000`..`StyleRec_999`)                             |
 | declared record length | 197 (the `.long` at +0x00); the 198th byte is uncommitted padding |
-| last record | `StyleRec_999` @ `0x9814AA` |
-| end of grid | `0x981570` |
+| last record            | `StyleRec_999` @ `0x9814AA`                                       |
+| end of grid            | `0x981570`                                                        |
 
 The four records of one sub category are consecutive and carry identical category and
 sub-category name fields -- verified for all 250 groups.
 
 ## Record layout
 
-| offset | size | field |
-|:---|:---|:---|
-| +0x00 | long | record byte count -- **197** in every record |
-| +0x04 | long | offset to the parameter block -- **77** (0x4D) in every record |
-| +0x08 | 16 | category name, space-padded ASCII (`Easy Listening  `) |
-| +0x18 | 16 | sub-category name, space-padded ASCII (`German Schlager `) |
-| +0x28 | short | constant `1` in every record |
-| +0x2A | byte | display-string length -- **32** in every record |
-| +0x2B | 32 | display string: 29-char style name + 3-char right-aligned decimal number |
-| +0x4B | 2 | `0x00 0x00` terminator/pad for the display string |
-| +0x4D | 113 | **parameter block** -- the panel setup the Stylist applies ([decoded below](#the-parameter-block)) |
-| +0xBE | 1 | no reader found (0x40 ×850, 0xAD ×95, 0x97 ×54, 0x99 ×1) |
-| +0xBF | 6 | `FF` ×6, constant in every record |
-| +0xC5 | 1 | grid padding, **not** part of the 197-byte record (93 distinct values across the grid) |
+| offset | size  | field                                                                                              |
+|:-------|:------|:---------------------------------------------------------------------------------------------------|
+| +0x00  | long  | record byte count -- **197** in every record                                                       |
+| +0x04  | long  | offset to the parameter block -- **77** (0x4D) in every record                                     |
+| +0x08  | 16    | category name, space-padded ASCII (`Easy Listening  `)                                             |
+| +0x18  | 16    | sub-category name, space-padded ASCII (`German Schlager `)                                         |
+| +0x28  | short | constant `1` in every record                                                                       |
+| +0x2A  | byte  | display-string length -- **32** in every record                                                    |
+| +0x2B  | 32    | display string: 29-char style name + 3-char right-aligned decimal number                           |
+| +0x4B  | 2     | `0x00 0x00` terminator/pad for the display string                                                  |
+| +0x4D  | 113   | **parameter block** -- the panel setup the Stylist applies ([decoded below](#the-parameter-block)) |
+| +0xBE  | 1     | no reader found (0x40 ×850, 0xAD ×95, 0x97 ×54, 0x99 ×1)                                           |
+| +0xBF  | 6     | `FF` ×6, constant in every record                                                                  |
+| +0xC5  | 1     | grid padding, **not** part of the 197-byte record (93 distinct values across the grid)             |
 
 The generator asserts these invariants for all 1000 records before it emits a line: the
 two `.long`s, the printable name ranges, the constant `1`, the length byte 32, the
@@ -121,24 +121,24 @@ RAM `0x03C2C4`:
   For bytes 29/30 it disagrees with the walker table (part 03 +0/+1 versus +1/+2); the
   source records the disagreement without resolving it.
 
-| record | bytes | destination | content |
-|:---|---:|:---|:---|
-| +0x4D | 10 | part 00 (RIGHT 1) +0..+9 | sound, bank, levels, reverb/chorus bits, pan |
-| +0x57 | 10 | part 01 (RIGHT 2) +0..+9 | same |
-| +0x61 | 9 | part 02 (LEFT) +0..+8 | same |
-| +0x6A | 5 | part 03 ("PART 4") | sound, bank, +3, +4, +8 |
-| +0x6F | 10 | parts 10..14 +3, +7 | ACC1, ACC2, ACC3, RHYTHM, BASS |
-| +0x79 / +0x81 / +0x89 | 8 each | tags 44 / 45 / 46 | RIGHT 1 / RIGHT 2 / LEFT drawbar registrations |
-| +0x91 | 2 | tag 48 +0/+1 | **style number** (11-bit) |
-| +0x93 | 3 | tag 48 +2, +3, +4 | +2 = 0 and +3 = 0xEA in all 1000 |
-| +0x96 | 1 | tag 48 +7 | bits 5:4 = the arrangement's slot in its style (record index mod 4, 998 of 1000) |
-| +0x97 | 2 | tag 48 +8/+9 | **tempo in BPM** |
-| +0x99 | 4 | tag 90 +0..+3 | |
-| +0x9D | 1 | tag 60 +1 | (bits 7:6 only on the PatchTable path) |
-| +0x9E | 18 | tag 61 +0..+17 | DSP-effect slot-0 block |
-| +0xB0 | 9 | tag 63 +0..+8 | the block `ReverbPreset_Load` sends |
-| +0xB9 | 2 | tag 65 +0, +1 | DSP-effect slot-2 block |
-| +0xBB | 3 | tag 70 +0, +3, +4 | digital-effect selection |
+| record                | bytes  | destination              | content                                                                          |
+|:----------------------|-------:|:-------------------------|:---------------------------------------------------------------------------------|
+| +0x4D                 | 10     | part 00 (RIGHT 1) +0..+9 | sound, bank, levels, reverb/chorus bits, pan                                     |
+| +0x57                 | 10     | part 01 (RIGHT 2) +0..+9 | same                                                                             |
+| +0x61                 | 9      | part 02 (LEFT) +0..+8    | same                                                                             |
+| +0x6A                 | 5      | part 03 ("PART 4")       | sound, bank, +3, +4, +8                                                          |
+| +0x6F                 | 10     | parts 10..14 +3, +7      | ACC1, ACC2, ACC3, RHYTHM, BASS                                                   |
+| +0x79 / +0x81 / +0x89 | 8 each | tags 44 / 45 / 46        | RIGHT 1 / RIGHT 2 / LEFT drawbar registrations                                   |
+| +0x91                 | 2      | tag 48 +0/+1             | **style number** (11-bit)                                                        |
+| +0x93                 | 3      | tag 48 +2, +3, +4        | +2 = 0 and +3 = 0xEA in all 1000                                                 |
+| +0x96                 | 1      | tag 48 +7                | bits 5:4 = the arrangement's slot in its style (record index mod 4, 998 of 1000) |
+| +0x97                 | 2      | tag 48 +8/+9             | **tempo in BPM**                                                                 |
+| +0x99                 | 4      | tag 90 +0..+3            |                                                                                  |
+| +0x9D                 | 1      | tag 60 +1                | (bits 7:6 only on the PatchTable path)                                           |
+| +0x9E                 | 18     | tag 61 +0..+17           | DSP-effect slot-0 block                                                          |
+| +0xB0                 | 9      | tag 63 +0..+8            | the block `ReverbPreset_Load` sends                                              |
+| +0xB9                 | 2      | tag 65 +0, +1            | DSP-effect slot-2 block                                                          |
+| +0xBB                 | 3      | tag 70 +0, +3, +4        | digital-effect selection                                                         |
 
 Tags 00/01/02 are RIGHT 1 / RIGHT 2 / LEFT. Tags 10..14 are the accompaniment parts. Part
 03 is "PART 4" in the part-name table at `0xE9F374`; which panel part that is on the
@@ -159,19 +159,19 @@ facts are re-derived, over all 1000 records and all three firmware versions, by
 
 Record ranges are contiguous and in ROM order:
 
-| # | category | records | sub categories |
-|:---|:---|:---|---:|
-| 1 | Easy Listening | 000-123 | 31 |
-| 2 | Rock & Pop | 124-255 | 33 |
-| 3 | Dance Pop | 256-323 | 17 |
-| 4 | Party Music | 324-399 | 19 |
-| 5 | Gospel/Blues/R&B | 400-471 | 18 |
-| 6 | Jazz & Swing | 472-591 | 30 |
-| 7 | Show/Trad Dance | 592-715 | 31 |
-| 8 | Trad & Folk | 716-815 | 25 |
-| 9 | Country | 816-883 | 17 |
-| 10 | Latin / World | 884-999 | 29 |
-| | **total** | **1000** | **250** |
+| #   | category         | records  | sub categories |
+|:----|:-----------------|:---------|---------------:|
+| 1   | Easy Listening   | 000-123  | 31             |
+| 2   | Rock & Pop       | 124-255  | 33             |
+| 3   | Dance Pop        | 256-323  | 17             |
+| 4   | Party Music      | 324-399  | 19             |
+| 5   | Gospel/Blues/R&B | 400-471  | 18             |
+| 6   | Jazz & Swing     | 472-591  | 30             |
+| 7   | Show/Trad Dance  | 592-715  | 31             |
+| 8   | Trad & Folk      | 716-815  | 25             |
+| 9   | Country          | 816-883  | 17             |
+| 10  | Latin / World    | 884-999  | 29             |
+|     | **total**        | **1000** | **250**        |
 
 The STYLE EXPLORER screen carries the same ten strings, with one cosmetic difference: the
 screen label reads `Trad / Folk` where the records read `Trad & Folk`. The labels are
@@ -249,10 +249,10 @@ Synth Reggae, Jamaican Swing
 
 ## The two pointer tables
 
-| symbol | address | contents |
-|:---|:---|:---|
+| symbol                            | address    | contents                                                                                                    |
+|:----------------------------------|:-----------|:------------------------------------------------------------------------------------------------------------|
 | `StyleRec_PtrTable_CategoryOrder` | `0x986000` | 1000 x 4-byte LE pointer, then 96 bytes of residue (`StyleRec_PtrTable_CategoryOrder_Residue` @ `0x986FA0`) |
-| `StyleRec_PtrTable_Default` | `0x987000` | 1000 x 4-byte LE pointer, then 96 bytes of residue (`StyleRec_PtrTable_Default_Residue` @ `0x987FA0`) |
+| `StyleRec_PtrTable_Default`       | `0x987000` | 1000 x 4-byte LE pointer, then 96 bytes of residue (`StyleRec_PtrTable_Default_Residue` @ `0x987FA0`)       |
 
 Each occupies one 4 KB page; 1000 x 4 = 4000 bytes, leaving 96 bytes at the end of each
 page. Every pointer in both tables lands exactly on a grid record (verified:

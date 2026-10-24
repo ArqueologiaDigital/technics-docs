@@ -85,12 +85,12 @@ they have not been re-verified against the current tree.
 
 Added `directaddr` operand class to LLVM backend. All 61,436 direct address operands across 155 `.s` files now use parenthesized syntax:
 
-| Before | After |
-|--------|-------|
-| `ldb_da a, 0xe12345` | `ldb_da a, (0xe12345)` |
-| `stw_da 0xe12345, wa` | `stw_da (0xe12345), wa` |
-| `cpw_da 0x3ef50, 0` | `cpw_da (0x3ef50), 0` |
-| `incdi8_24 1, 0xcee5` | `incdi8_24 1, (0xcee5)` |
+| Before                 | After                    |
+|------------------------|--------------------------|
+| `ldb_da a, 0xe12345`   | `ldb_da a, (0xe12345)`   |
+| `stw_da 0xe12345, wa`  | `stw_da (0xe12345), wa`  |
+| `cpw_da 0x3ef50, 0`    | `cpw_da (0x3ef50), 0`    |
+| `incdi8_24 1, 0xcee5`  | `incdi8_24 1, (0xcee5)`  |
 | `bitda_24 3, 0xe12345` | `bitda_24 3, (0xe12345)` |
 
 Changes:
@@ -110,15 +110,15 @@ current mnemonics.
 
 ### Phase 2: 24-bit Addressing Mode Semantics (~1,700 instances)
 
-| Current | Semantic | Count | Status |
-|---------|----------|-------|--------|
-| `ld16_24 reg, addr` | `ld reg, (addr24)` | 645 | Complete |
-| `ld32_24 reg, addr` | `ld reg, (addr24)` | 161 | Complete |
-| `st16_24 addr, reg` | `ld (addr24), reg` | 252 | Complete |
-| `st32_24 addr, reg` | `ld (addr24), reg` | 139 | Complete |
-| `sti16_24 addr, imm` | `ld (addr24), imm16` | 209 | Complete |
-| `cpi8_24 addr, imm` | `cp (addr24), imm8` | 63 | Complete |
-| `cpdi16_24 addr, imm` | `cp (addr24), imm16` | 120 | Complete |
+| Current               | Semantic             | Count | Status   |
+|-----------------------|----------------------|-------|----------|
+| `ld16_24 reg, addr`   | `ld reg, (addr24)`   | 645   | Complete |
+| `ld32_24 reg, addr`   | `ld reg, (addr24)`   | 161   | Complete |
+| `st16_24 addr, reg`   | `ld (addr24), reg`   | 252   | Complete |
+| `st32_24 addr, reg`   | `ld (addr24), reg`   | 139   | Complete |
+| `sti16_24 addr, imm`  | `ld (addr24), imm16` | 209   | Complete |
+| `cpi8_24 addr, imm`   | `cp (addr24), imm8`  | 63    | Complete |
+| `cpdi16_24 addr, imm` | `cp (addr24), imm16` | 120   | Complete |
 
 ### Phase 3: Extended Register Pair Modes (~3,300 instances)
 
@@ -151,12 +151,12 @@ current mnemonics.
 
 ### Phase 5: Miscellaneous (~700 instances)
 
-| Current | Semantic | Count | Status |
-|---------|----------|-------|--------|
-| `ld_srib` / `ld_sriw` | `ld val, (reg)` | 341 | Complete |
-| `mrid2` | Various | 48 | Complete |
-| `ldada` / `ldda8` / `stda8` | `ld` with direct addressing | ~200 | Complete |
-| `addm32_24` / `addmi16` / etc. | `add (addr), imm` | ~100 | Complete |
+| Current                        | Semantic                    | Count | Status   |
+|--------------------------------|-----------------------------|-------|----------|
+| `ld_srib` / `ld_sriw`          | `ld val, (reg)`             | 341   | Complete |
+| `mrid2`                        | Various                     | 48    | Complete |
+| `ldada` / `ldda8` / `stda8`    | `ld` with direct addressing | ~200  | Complete |
+| `addm32_24` / `addmi16` / etc. | `add (addr), imm`           | ~100  | Complete |
 
 ## Assembly syntax: native LLVM mnemonics, with the form in the operand
 
@@ -169,20 +169,20 @@ That is a decision about what can carry a byte-identity gate, and it is measured
 rather than argued. `unidasm`'s output renders more than one encoding with the
 same text, so it cannot be assembled back:
 
-| feeding unidasm's own text to this assembler | spellings | sites | share |
-|---|---:|---:|---:|
-| accepted, **correct** bytes | 36,280 | 701,697 | 66.9 % |
-| accepted, **wrong** bytes — silent | 25,553 | **246,622** | **23.5 %** |
-| rejected outright | 12,574 | 100,267 | 9.6 % |
+| feeding unidasm's own text to this assembler | spellings | sites       | share      |
+|----------------------------------------------|----------:|------------:|-----------:|
+| accepted, **correct** bytes                  | 36,280    | 701,697     | 66.9 %     |
+| accepted, **wrong** bytes — silent           | 25,553    | **246,622** | **23.5 %** |
+| rejected outright                            | 12,574    | 100,267     | 9.6 %      |
 
 The 9.6 % is cheap: spellings a parser could learn. The 23.5 % is
 disqualifying, because nothing reports it. The direct proof is a count of
 distinct byte strings that print as the same text, measured with its own control:
 
-| notation | distinct texts | ambiguous texts | sites under them |
-|---|---:|---:|---:|
-| `unidasm` | 133,690 | **134** | 3,172 |
-| this tree's LLVM text | 89,904 | **0** | 0 |
+| notation              | distinct texts | ambiguous texts | sites under them |
+|-----------------------|---------------:|----------------:|-----------------:|
+| `unidasm`             | 133,690        | **134**         | 3,172            |
+| this tree's LLVM text | 89,904         | **0**           | 0                |
 
 `ldirw` is both `93 11` and `95 11`; `ld W,0x00` is both `20 00` and
 `c8 03 00`; `ret GE` is both `b0 f9` and `b6 f9`. Zero ambiguity on the LLVM
@@ -198,11 +198,11 @@ seventh record and is detected 5,763 times). The mnemonic *text* differs at
 What the divergence was made of on 2026-09-02, from the census over the 547
 tracked `.s` files of that day:
 
-| bucket | sites | distinct names |
-|---|---:|---:|
-| a name `unidasm` also has | 1,034,935 | 71 |
-| a backend name `unidasm` does not have | 265,116 | 459 |
-| a `.macro` defined in this tree | 16,922 | 113 |
+| bucket                                 | sites     | distinct names |
+|----------------------------------------|----------:|---------------:|
+| a name `unidasm` also has              | 1,034,935 | 71             |
+| a backend name `unidasm` does not have | 265,116   | 459            |
+| a `.macro` defined in this tree        | 16,922    | 113            |
 
 The same census at disassembly `3417969c0`, over 550 files, counts 1,275,163
 sites under 75 shared names, 43,347 under 220 synthetic names and 29,563 under

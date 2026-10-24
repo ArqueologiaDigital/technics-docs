@@ -257,10 +257,10 @@ The kernel is not the only source both processors share. `dsp/dsp_channel_regs.s
 byte-identical between the two CPUs** — is now a single file included by both
 roots. Everything that differs is one equate:
 
-| CPU | `DSP_REGS_BASE` |
-|---|---|
-| CPU 1 (`prom_a`) | `0x007F0000` |
-| CPU 2 (`prom_c`) | `0x00E00000` |
+| CPU              | `DSP_REGS_BASE` |
+|------------------|-----------------|
+| CPU 1 (`prom_a`) | `0x007F0000`    |
+| CPU 2 (`prom_c`) | `0x00E00000`    |
 
 Three use sites, and **no conditional assembly anywhere in the body**. The
 byte-identity gate covers it: the 13 TLCS-900 images rebuild identically (9 KN5000 + 4
@@ -271,10 +271,10 @@ demonstrably load-bearing here.
 ⚠ **The merge produced a finding, not just a tidier tree.** With both files'
 call-site annotations on one page, they disagree twice, in opposite directions:
 
-| routine | CPU 1 | CPU 2 |
-|---|---|---|
-| `DSP_ChannelRegs_Init` | no call site found | called at boot from `0xF98B95` |
-| `DSP_WriteAllChannelRegs` | published via `prom_b` thunk `0xF42DE4` | not traced |
+| routine                   | CPU 1                                   | CPU 2                          |
+|---------------------------|-----------------------------------------|--------------------------------|
+| `DSP_ChannelRegs_Init`    | no call site found                      | called at boot from `0xF98B95` |
+| `DSP_WriteAllChannelRegs` | published via `prom_b` thunk `0xF42DE4` | not traced                     |
 
 Identical bytes, different reachability per processor — each one uses the
 routine the other does not. This is **unexplained**. In either file alone an
@@ -284,10 +284,10 @@ asymmetry.
 The control that decides it is a **foil** — the identical search run over WSA1R
 code that is *not* the kernel:
 
-| | n | max | median | ≥ 0.70 |
-|---|---:|---:|---:|---:|
-| kernel routines (≥ 20 instr) | 20 | 1.000 | **0.909** | **20** |
-| non-kernel foils, same lengths | 26 | **0.333** | 0.212 | **0** |
+|                                | n   | max       | median    | ≥ 0.70 |
+|--------------------------------|----:|----------:|----------:|-------:|
+| kernel routines (≥ 20 instr)   | 20  | 1.000     | **0.909** | **20** |
+| non-kernel foils, same lengths | 26  | **0.333** | 0.212     | **0**  |
 
 No overlap, a gap of 0.41. `prom_b` — same product, no kernel, and code from a different
 compiler (see [Original Toolchain]({{ site.baseurl }}/original-toolchain/)) —
@@ -310,12 +310,12 @@ to *itself*. `notes/prom_c_prom_a_routine_diff.py` aligns two routines
 instruction by instruction and separates *different mnemonic* (structural) from
 *same mnemonic, different operand* (a substituted address):
 
-| | |
-|---|---:|
-| routine pairs | **36** (35 in the block, plus `INTT3_KernelTick`) |
-| pairs whose prom_c length equals their prom_a length | **36 of 36** |
-| pairs with **zero** structural differences | **35 of 36** |
-| the exception | `Kernel_InitRam`, with **2** — both inside an 8-byte inline data block |
+|                                                      |                                                                        |
+|------------------------------------------------------|-----------------------------------------------------------------------:|
+| routine pairs                                        | **36** (35 in the block, plus `INTT3_KernelTick`)                      |
+| pairs whose prom_c length equals their prom_a length | **36 of 36**                                                           |
+| pairs with **zero** structural differences           | **35 of 36**                                                           |
+| the exception                                        | `Kernel_InitRam`, with **2** — both inside an 8-byte inline data block |
 
 The routine boundaries are **checked, not asserted**: `notes/prom_c_kernel_map.py --pairs`
 verifies that each
@@ -363,13 +363,13 @@ bytes. `scripts/analysis/kn5000_shared_runs.py` finds every maximal run of ≥ 1
 bytes shared between the WSA1 images and the KN5000 sub-CPU payload, and grades
 each one:
 
-| | |
-|---|---:|
-| kept (survived the entropy guard) | **32,795 B** |
-| rejected as low-entropy fill | 291,802 B |
-| **shuffle null** (same byte histogram, sequence destroyed) | **0 B** |
-| signal-to-null | **32,795×** |
-| of the kept mass, held in **prom_c** | **28,916 B** |
+|                                                            |              |
+|------------------------------------------------------------|-------------:|
+| kept (survived the entropy guard)                          | **32,795 B** |
+| rejected as low-entropy fill                               | 291,802 B    |
+| **shuffle null** (same byte histogram, sequence destroyed) | **0 B**      |
+| signal-to-null                                             | **32,795×**  |
+| of the kept mass, held in **prom_c**                       | **28,916 B** |
 
 *(Re-run 2026-08-26; the figures above are that run's output.)*
 
@@ -586,11 +586,11 @@ objects, each by its own script under `notes/promb-2026-09-25/` in the disassemb
 repository (run from the repository root; one of the three needs the caveat below the
 table):
 
-| range | what it is | position | proof |
-|---|---|---|---|
-| `0xF0ED50`–`0xF0EFFF` (688 B) | the display-list interpreter's data block: the tail of its two handler tables, the value-glyph quantiser, the value-glyph table and the first four 24 × 24 value glyphs (`OldBuild_DLHandlerTables_Tail`, `OldBuild_ValueGlyph_*`) | live − `0x23001` | `stale_dl_tables_f0ed50.py` (its byte checks — see below) |
-| `0xF17A5F`–`0xF17BFF` (417 B) | a second copy of the value-glyph data: quantiser tail, 29-word glyph table, glyphs 0–3 (`OldBuild2_ValueGlyph_*`) | live − `0x1A401` | `stale_value_glyphs_f17a5f.py` |
-| `0xF6F000`–`0xF6F3FF` (1,024 B) | **code**: the module whose live copy is `0xF7AA00`–`0xF7ADFF`, identical except for the nine bytes relocation changes (`OldCopy_*`) | live − `0xBA00` | `old_module_copy_f6f000.py` |
+| range                           | what it is                                                                                                                                                                                                                         | position         | proof                                                     |
+|---------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------|-----------------------------------------------------------|
+| `0xF0ED50`–`0xF0EFFF` (688 B)   | the display-list interpreter's data block: the tail of its two handler tables, the value-glyph quantiser, the value-glyph table and the first four 24 × 24 value glyphs (`OldBuild_DLHandlerTables_Tail`, `OldBuild_ValueGlyph_*`) | live − `0x23001` | `stale_dl_tables_f0ed50.py` (its byte checks — see below) |
+| `0xF17A5F`–`0xF17BFF` (417 B)   | a second copy of the value-glyph data: quantiser tail, 29-word glyph table, glyphs 0–3 (`OldBuild2_ValueGlyph_*`)                                                                                                                  | live − `0x1A401` | `stale_value_glyphs_f17a5f.py`                            |
+| `0xF6F000`–`0xF6F3FF` (1,024 B) | **code**: the module whose live copy is `0xF7AA00`–`0xF7ADFF`, identical except for the nine bytes relocation changes (`OldCopy_*`)                                                                                                | live − `0xBA00`  | `old_module_copy_f6f000.py`                               |
 
 ⚠ `stale_value_glyphs_f17a5f.py` and `old_module_copy_f6f000.py` end `VERDICT: PASS` on the
 current tree. `stale_dl_tables_f0ed50.py` does not: it is also the script that rewrote the
@@ -668,10 +668,10 @@ so absence from that map is not evidence that a device does not exist.
 
 ## Related
 
-| Page | Description |
-|------|-------------|
-| [SX-WSA1 / SX-WSA1R Overview]({{ site.baseurl }}/wsa1/) | The machine, the hardware, the memory maps, the model strap |
-| [Emulation Status]({{ site.baseurl }}/wsa1-emulation/) | The MAME driver the disassembly feeds, and which feeds it back |
+| Page                                                                      | Description                                                         |
+|---------------------------------------------------------------------------|---------------------------------------------------------------------|
+| [SX-WSA1 / SX-WSA1R Overview]({{ site.baseurl }}/wsa1/)                   | The machine, the hardware, the memory maps, the model strap         |
+| [Emulation Status]({{ site.baseurl }}/wsa1-emulation/)                    | The MAME driver the disassembly feeds, and which feeds it back      |
 | [Acoustic Modelling LSI (L7A1429)]({{ site.baseurl }}/wsa1-modeling-lsi/) | What the CPU 2 device drivers in this tree turned out to be driving |
-| [Shared Codebase Map]({{ site.baseurl }}/technics-shared-codebase/) | Where this machine's code meets the KN5000's and the KN7000's |
-| [KN5000 ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/) | The sibling project, and where these practices come from |
+| [Shared Codebase Map]({{ site.baseurl }}/technics-shared-codebase/)       | Where this machine's code meets the KN5000's and the KN7000's       |
+| [KN5000 ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/)       | The sibling project, and where these practices come from            |

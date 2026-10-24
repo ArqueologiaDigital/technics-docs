@@ -53,12 +53,12 @@ HLE.
 
 ### Region map
 
-| Range | Contents |
-|-------|----------|
-| `0x000080` – ~`0x186000` | Main firmware code (region 1) |
-| ~`0x185DC0` – `0x186208` | `float64` decibel-ratio table (137 IEEE-754 doubles, e.g. `1.25892544` = 10^0.1) |
+| Range                     | Contents                                                                                                                                                         |
+|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x000080` – ~`0x186000`  | Main firmware code (region 1)                                                                                                                                    |
+| ~`0x185DC0` – `0x186208`  | `float64` decibel-ratio table (137 IEEE-754 doubles, e.g. `1.25892544` = 10^0.1)                                                                                 |
 | ~`0x186208` – ~`0x3B8000` | Data / resources: multi-language UI text, FAT boot template, flash-chip ID strings, RGB palettes, fonts, GUI resource tables, 9 JPEGs, two Windows `.BMP` images |
-| ~`0x3B8000` – `0x3F6F01` | Code region 2: the `MILK MN10300` kernel + zlib 1.0.4 |
+| ~`0x3B8000` – `0x3F6F01`  | Code region 2: the `MILK MN10300` kernel + zlib 1.0.4                                                                                                            |
 
 ### Version numbers
 
@@ -67,10 +67,10 @@ program update, and `kn7-14` is the four-disk v1.4 update, whose table disks
 (3–4) the table image comes from. The firmware carries **its own internal build
 numbers**, unrelated to those:
 
-| Component | Value | Where |
-|-----------|-------|-------|
-| PROGRAM | **941** | `u16` at file `0x33660C` (the loader reads 32 bits but keeps only the low half), shown by `PROGRAM : %4d` (`0x1D67E0`) |
-| TABLE | **84** | ASCII `"84\n"` at table file `0x139EE8`, reached via the pointer at table offset `0x1C` |
+| Component | Value   | Where                                                                                                                  |
+|-----------|---------|------------------------------------------------------------------------------------------------------------------------|
+| PROGRAM   | **941** | `u16` at file `0x33660C` (the loader reads 32 bits but keeps only the low half), shown by `PROGRAM : %4d` (`0x1D67E0`) |
+| TABLE     | **84**  | ASCII `"84\n"` at table file `0x139EE8`, reached via the pointer at table offset `0x1C`                                |
 
 Three more program builds have since been recovered from update disks, and all
 four have been MAME BIOS options since
@@ -120,11 +120,11 @@ part of its artwork, and none of the KN5000 bitmap pixel data is reused.
 
 A resource archive fronted by an offset directory:
 
-| Offset | Contents |
-|--------|----------|
+| Offset  | Contents                                                                                                                               |
+|---------|----------------------------------------------------------------------------------------------------------------------------------------|
 | `0x000` | 85 × `uint32` little-endian offsets: `dir[0]=0x200` (first segment) … `dir[84]=0x3E94D4` (= file size, end sentinel) → **84 segments** |
-| `0x154` | zero padding to `0x200` |
-| `0x200` | segment data |
+| `0x154` | zero padding to `0x200`                                                                                                                |
+| `0x200` | segment data                                                                                                                           |
 
 Segment *i* spans `dir[i]..dir[i+1]`. The 84 segments break down as **57
 baseline JPEGs** (built-in demo slideshows, all verified decodable, 160×80 up to

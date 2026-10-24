@@ -58,14 +58,14 @@ Every module registers its tables in one object table in RAM at `0x027ED2`.
 to `0x027ED2 + 14 × index`. For most kinds of table the index is a **kind
 number plus the module number**:
 
-| Kind | Index | Class id | Proc | Holds |
-|------|-------|----------|------|-------|
-| Class table | 0x160 + module | `0x01600004` | `ClassProc` | the module's class definitions (see below) |
-| Function table | 0x100 + module | `0x01600001` | `FunctionProc` | code addresses; names at index + 0x300 |
-| ApFunction table | 0x120 + module | `0x01600002` | `ApFunctionProc` | code addresses; names at index + 0x300 |
-| MainFunction table | 0x140 + module | `0x01600003` | `MainFunctionProc` | code addresses; names at index + 0x300 |
-| ResEvent table | 0x1C0 + module | `0x0160000C` | `ResEventProc` | event names |
-| ResMethod table | 0x1E0 + module | `0x0160000D` | `ResMethodProc` | method names |
+| Kind               | Index          | Class id     | Proc               | Holds                                      |
+|--------------------|----------------|--------------|--------------------|--------------------------------------------|
+| Class table        | 0x160 + module | `0x01600004` | `ClassProc`        | the module's class definitions (see below) |
+| Function table     | 0x100 + module | `0x01600001` | `FunctionProc`     | code addresses; names at index + 0x300     |
+| ApFunction table   | 0x120 + module | `0x01600002` | `ApFunctionProc`   | code addresses; names at index + 0x300     |
+| MainFunction table | 0x140 + module | `0x01600003` | `MainFunctionProc` | code addresses; names at index + 0x300     |
+| ResEvent table     | 0x1C0 + module | `0x0160000C` | `ResEventProc`     | event names                                |
+| ResMethod table    | 0x1E0 + module | `0x0160000D` | `ResMethodProc`    | method names                               |
 
 The Class-table registrations in v10 give the module numbers: Root 0
 (`InitializeRoot`), Murai 1, Toshi 2, East 3, Suna 4, Cheap 5, Scoop 6, Yoko 7,
@@ -96,15 +96,15 @@ The NAKA object model is **self-describing**. Each module's Class table holds
 24-byte class definitions. The fields of a class definition are named by the
 root class that describes class definitions, `Class` (entry 4 of table 0x160):
 
-| Offset | Field | Size | Meaning |
-|--------|-------|------|---------|
-| +0 | `proc` | 4 | the class procedure (e.g. `ViewableProc`, `EffectBoxProc`) |
-| +4 | `parent` | 4 | class id of the parent class |
-| +8 | `allsize` | 2 | size of an instance record, inherited fields included |
-| +10 | `selfsize` | 2 | bytes this class adds to its parent's record |
-| +12 | `name` | 4 | → class name string |
-| +16 | `propdata` | 4 | → one type letter per own field |
-| +20 | `propname` | 4 | → one name pointer per letter, then a pointer to `""`, then the strings |
+| Offset | Field      | Size | Meaning                                                                 |
+|--------|------------|------|-------------------------------------------------------------------------|
+| +0     | `proc`     | 4    | the class procedure (e.g. `ViewableProc`, `EffectBoxProc`)              |
+| +4     | `parent`   | 4    | class id of the parent class                                            |
+| +8     | `allsize`  | 2    | size of an instance record, inherited fields included                   |
+| +10    | `selfsize` | 2    | bytes this class adds to its parent's record                            |
+| +12    | `name`     | 4    | → class name string                                                     |
+| +16    | `propdata` | 4    | → one type letter per own field                                         |
+| +20    | `propname` | 4    | → one name pointer per letter, then a pointer to `""`, then the strings |
 
 **Class ids.** A class id is `0x016S_KKKK`, entry *KKKK* of the Class table at
 index 0x16S. `ClassProc` computes it with `srl 16; and 0xFFF` and a ×24 index.
@@ -124,15 +124,15 @@ of classes defined by other modules carry 0x0161-0x0168 in the high half.
 concatenation of its class chain's own fields, and `propname` names each of
 them. The root of all widgets is `Viewable` (allsize 22):
 
-| Offset | Viewable field | What it holds (from the code) |
-|--------|----------------|-------------------------------|
-| +0 | `class` | the record's class id |
-| +4 | `super` | element index of the **parent** in the same Viewable table (0xFFFF = none) |
-| +6 | `sub` | index of the **first child** |
-| +8 | `next` | index of the **next sibling** |
-| +10 | `prev` | index of the **previous sibling** |
-| +12 | `flag` | |
-| +14 | `rect` | the screen rectangle x1, y1, x2, y2 (4 × 16 bits), inside the parent's |
+| Offset | Viewable field | What it holds (from the code)                                              |
+|--------|----------------|----------------------------------------------------------------------------|
+| +0     | `class`        | the record's class id                                                      |
+| +4     | `super`        | element index of the **parent** in the same Viewable table (0xFFFF = none) |
+| +6     | `sub`          | index of the **first child**                                               |
+| +8     | `next`         | index of the **next sibling**                                              |
+| +10    | `prev`         | index of the **previous sibling**                                          |
+| +12    | `flag`         |                                                                            |
+| +14    | `rect`         | the screen rectangle x1, y1, x2, y2 (4 × 16 bits), inside the parent's     |
 
 The ext lane established the four links and the rectangle by checking them
 against each other (`scripts/analysis/ext_lane_checks.py widgets` / `test1`).
@@ -145,12 +145,12 @@ their fields. `Label` adds `str`, `font` and `fontcolor` (allsize 32).
 **Type letters.** `propdata` has one letter per own field. The sizes were solved
 so that the letters' sizes sum to `selfsize` for all 293 classes:
 
-| Size | Letters |
-|------|---------|
-| 1 byte | `C` |
-| 2 bytes | `A` `B` `G` `[` `]` `^` `_` `d` `e` `f` `g` `h` `l` `u` `v` `w` |
+| Size    | Letters                                                                             |
+|---------|-------------------------------------------------------------------------------------|
+| 1 byte  | `C`                                                                                 |
+| 2 bytes | `A` `B` `G` `[` `]` `^` `_` `d` `e` `f` `g` `h` `l` `u` `v` `w`                     |
 | 4 bytes | `F` `I` `J` `K` `L` `M` `N` `X` `` ` `` `a` `b` `c` `i` `j` `k` `m` `n` `r` `s` `t` |
-| 8 bytes | `P` (a rectangle) |
+| 8 bytes | `P` (a rectangle)                                                                   |
 
 The nakabig lane found one exception to its smaller letter table: `AcCmpRecBox`
 with `"CC"`. The nakarest table resolves it with `C` = 1 byte.
@@ -187,102 +187,102 @@ and are not the class tree.
 
 ### Base Classes
 
-| Proc | Description |
-|------|-------------|
-| `DefaultClassProc` | Root of the class hierarchy |
-| `ClassProc` | Base class handler |
-| `ObjectProc` | Object-level handler |
-| `ViewableProc` | Base for all visible widgets |
-| `FunctionProc` | Function dispatch handler |
-| `InheritedProc` | Calls parent class handler |
+| Proc               | Description                  |
+|--------------------|------------------------------|
+| `DefaultClassProc` | Root of the class hierarchy  |
+| `ClassProc`        | Base class handler           |
+| `ObjectProc`       | Object-level handler         |
+| `ViewableProc`     | Base for all visible widgets |
+| `FunctionProc`     | Function dispatch handler    |
+| `InheritedProc`    | Calls parent class handler   |
 
 ### Primitive Widgets
 
-| Proc | Description |
-|------|-------------|
-| `BoxProc` | Basic rectangular container |
-| `GroupBoxProc` | Grouped container with title |
-| `WindowProc` | Top-level window |
-| `ScreenProc` | Full-screen display |
-| `StringBoxProc` | Text display box |
-| `TextBoxProc` | Text content area |
-| `LabelProc` | Static text label |
-| `BitmapProc` | Image display |
-| `IconProc` | Small icon display |
-| `LineProc` | Line element |
-| `FrameProc` | Bordered frame |
-| `EditSwProc` | Edit switch/toggle |
+| Proc            | Description                  |
+|-----------------|------------------------------|
+| `BoxProc`       | Basic rectangular container  |
+| `GroupBoxProc`  | Grouped container with title |
+| `WindowProc`    | Top-level window             |
+| `ScreenProc`    | Full-screen display          |
+| `StringBoxProc` | Text display box             |
+| `TextBoxProc`   | Text content area            |
+| `LabelProc`     | Static text label            |
+| `BitmapProc`    | Image display                |
+| `IconProc`      | Small icon display           |
+| `LineProc`      | Line element                 |
+| `FrameProc`     | Bordered frame               |
+| `EditSwProc`    | Edit switch/toggle           |
 
 ### View Widgets (Vw* prefix)
 
 View widgets are interactive display containers:
 
-| Proc | Description |
-|------|-------------|
-| `VwBoxProc` | Interactive box container |
-| `VwMenuBoxProc` | Menu container |
-| `VwEditSwBoxProc` | Edit switch box |
-| `VwUserBitmapProc` | User bitmap display |
-| `VwUserBitmapByNameProc` | Bitmap by name lookup |
-| `VwScreenTitleProc` | Screen title bar |
+| Proc                     | Description               |
+|--------------------------|---------------------------|
+| `VwBoxProc`              | Interactive box container |
+| `VwMenuBoxProc`          | Menu container            |
+| `VwEditSwBoxProc`        | Edit switch box           |
+| `VwUserBitmapProc`       | User bitmap display       |
+| `VwUserBitmapByNameProc` | Bitmap by name lookup     |
+| `VwScreenTitleProc`      | Screen title bar          |
 
 ### Page/Settings Widgets (Ps* prefix)
 
 Settings-page widgets for parameter display:
 
-| Proc | Description |
-|------|-------------|
-| `PsParaBoxProc` | Parameter box |
-| `PsPageBoxProc` | Page container |
-| `PsMenuBoxProc` | Settings menu |
-| `PsEditSwBoxProc` | Settings edit switch |
-| `PsToggleBoxProc` | Toggle button |
-| `PsListBoxProc` | Scrollable list |
-| `PsGridBoxProc` | Grid/table layout |
-| `PsEditBoxProc` | Text edit field |
-| `PsNumEditBoxProc` | Numeric editor |
-| `PsTblEditBoxProc` | Table editor |
-| `PsRadioBoxProc` | Radio button group |
-| `PsMixerControlProc` | Mixer fader control |
+| Proc                 | Description          |
+|----------------------|----------------------|
+| `PsParaBoxProc`      | Parameter box        |
+| `PsPageBoxProc`      | Page container       |
+| `PsMenuBoxProc`      | Settings menu        |
+| `PsEditSwBoxProc`    | Settings edit switch |
+| `PsToggleBoxProc`    | Toggle button        |
+| `PsListBoxProc`      | Scrollable list      |
+| `PsGridBoxProc`      | Grid/table layout    |
+| `PsEditBoxProc`      | Text edit field      |
+| `PsNumEditBoxProc`   | Numeric editor       |
+| `PsTblEditBoxProc`   | Table editor         |
+| `PsRadioBoxProc`     | Radio button group   |
+| `PsMixerControlProc` | Mixer fader control  |
 
 ### Action/Control Widgets (Ac* prefix)
 
 Interactive control widgets that respond to user input:
 
-| Proc | Description |
-|------|-------------|
-| `AcOnOffBoxProc` | On/off toggle |
-| `AcIndexToggleProc` | Index selector toggle |
-| `AcFuncToggleProc` | Function toggle |
-| `AcNumEditBoxProc` | Numeric edit control |
-| `AcBitEditBoxProc` | Bit-level edit |
-| `AcStrRadioBoxProc` | String-based radio buttons |
-| `AcTempoBoxProc` | Tempo display/edit |
-| `AcGridBoxProc` | Interactive grid |
-| `AcListBoxProc` | Interactive list |
-| `AcDrawbarNameProc` | Drawbar organ label |
-| `AcAccordionTabProc` | Accordion tab control |
-| `AcMixerVolProc` | Mixer volume fader |
-| `AcPartMixerProc` | Part mixer control |
-| `AcTrackMixerProc` | Track mixer control |
-| `AcPresentationBoxProc` | SSF presentation display |
+| Proc                        | Description                 |
+|-----------------------------|-----------------------------|
+| `AcOnOffBoxProc`            | On/off toggle               |
+| `AcIndexToggleProc`         | Index selector toggle       |
+| `AcFuncToggleProc`          | Function toggle             |
+| `AcNumEditBoxProc`          | Numeric edit control        |
+| `AcBitEditBoxProc`          | Bit-level edit              |
+| `AcStrRadioBoxProc`         | String-based radio buttons  |
+| `AcTempoBoxProc`            | Tempo display/edit          |
+| `AcGridBoxProc`             | Interactive grid            |
+| `AcListBoxProc`             | Interactive list            |
+| `AcDrawbarNameProc`         | Drawbar organ label         |
+| `AcAccordionTabProc`        | Accordion tab control       |
+| `AcMixerVolProc`            | Mixer volume fader          |
+| `AcPartMixerProc`           | Part mixer control          |
+| `AcTrackMixerProc`          | Track mixer control         |
+| `AcPresentationBoxProc`     | SSF presentation display    |
 | `AcPresentationControlProc` | SSF presentation controller |
-| `AcNamingWindowProc` | File/item naming dialog |
+| `AcNamingWindowProc`        | File/item naming dialog     |
 
 ### Specialized Grid Widgets
 
 Many domain-specific grid configurations exist:
 
-| Proc | Domain |
-|------|--------|
-| `AcEasyCmpGridBoxProc` | Easy Composer settings |
-| `AcCmpSetGridBoxProc` | Composer set grid |
-| `AcSndArgGridBoxProc` | Sound argument grid |
-| `AcCtlMsgGridBoxProc` | Control message grid |
-| `AcFadeSetGridBoxProc` | Fade settings grid |
-| `AcInOutGridBoxProc` | Input/output routing grid |
-| `AcMidiPartGridBoxProc` | MIDI part assignment grid |
-| `AcParaLoadOptGridBoxProc` | Parameter load options |
+| Proc                       | Domain                    |
+|----------------------------|---------------------------|
+| `AcEasyCmpGridBoxProc`     | Easy Composer settings    |
+| `AcCmpSetGridBoxProc`      | Composer set grid         |
+| `AcSndArgGridBoxProc`      | Sound argument grid       |
+| `AcCtlMsgGridBoxProc`      | Control message grid      |
+| `AcFadeSetGridBoxProc`     | Fade settings grid        |
+| `AcInOutGridBoxProc`       | Input/output routing grid |
+| `AcMidiPartGridBoxProc`    | MIDI part assignment grid |
+| `AcParaLoadOptGridBoxProc` | Parameter load options    |
 
 ### Screen Types
 
@@ -347,13 +347,13 @@ cell's initial value is set. The C source names each cell after its widget and f
 
 A property type is a procedure called with the event in XBC. It converts one property value between its stored form and its text form, for the dump and edit machinery. The ID types answer a common set of events, and `CommonIDProc` handles whatever a type leaves out:
 
-| Event | What the type does |
-|:---|:---|
-| `EVT_SET_PROPERTY_EX` | parse the text, store the value (via `IDCursorAdvance`) |
-| `EVT_GET_PROPERTY_EX` / `EVT_DUMP_PROPERTY_EX` | read the value at the cursor and write its text |
-| `EVT_MAKE_DUMP` | build the dump name: a prefix (`"id"`, `"idICON_"`, `"idf"`, `"idc"`) + the value's name |
-| `EVT_GET_PROP_DATA_COUNT_SP` / `EVT_GET_PROP_DATA_SP` | the number of choices, and choice *n*'s text |
-| `EVT_GET_PROP_MEMBER` / `EVT_CHECK_PROP_STRING` | the geometry types: the member name (`"x"`, `"y"`, `"height"`) and a check or rewrite of the text |
+| Event                                                 | What the type does                                                                                |
+|:------------------------------------------------------|:--------------------------------------------------------------------------------------------------|
+| `EVT_SET_PROPERTY_EX`                                 | parse the text, store the value (via `IDCursorAdvance`)                                           |
+| `EVT_GET_PROPERTY_EX` / `EVT_DUMP_PROPERTY_EX`        | read the value at the cursor and write its text                                                   |
+| `EVT_MAKE_DUMP`                                       | build the dump name: a prefix (`"id"`, `"idICON_"`, `"idf"`, `"idc"`) + the value's name          |
+| `EVT_GET_PROP_DATA_COUNT_SP` / `EVT_GET_PROP_DATA_SP` | the number of choices, and choice *n*'s text                                                      |
+| `EVT_GET_PROP_MEMBER` / `EVT_CHECK_PROP_STRING`       | the geometry types: the member name (`"x"`, `"y"`, `"height"`) and a check or rewrite of the text |
 
 Three storage shapes recur, and the labels inside each routine are named after these roles (`<Type>_OnSetPropertyEx`, `<Type>_SetProp_CompareName`, `<Type>_ForwardToCommon` ...):
 
@@ -390,18 +390,18 @@ Events use 32-bit codes divided into two spaces:
 
 **Methods (0x01Em00nn, firmware `MT_*`)** — queries and commands sent to an object:
 
-| Event | Code | Description |
-|-------|------|-------------|
-| `EVT_GET_CLASS_SP` | 0x1E00000 | MT_GetClassSp. Asks an object table's proc for the class id of the object. SendEvent asks this of every target first ... |
-| `EVT_GET_PARENT_CLASS_SP` | 0x1E00001 | MT_GetParentClassSp. Class-level query that returns the parent class id (Class record +4 'parent'). |
-| `EVT_GET_PROCEDURE_SP` | 0x1E00002 | MT_GetProcedureSp. Returns the class procedure pointer (Class record +0 'proc'). |
-| `EVT_GET_INSTANCE_SIZE_SP` | 0x1E00003 | MT_GetInstanceSizeSp. Returns the instance size of the class (WORD at Class record +8 'allsize'). Not *(XHL+0x0C), as ... |
-| `EVT_GET_PROP_DATA_SP` | 0x1E0000D | MT_GetPropDataSp. Returns entry #n of an ID-typed property's value domain: FontIDProc returns the n-th font from the ... |
+| Event                        | Code      | Description                                                                                                                |
+|------------------------------|-----------|----------------------------------------------------------------------------------------------------------------------------|
+| `EVT_GET_CLASS_SP`           | 0x1E00000 | MT_GetClassSp. Asks an object table's proc for the class id of the object. SendEvent asks this of every target first ...   |
+| `EVT_GET_PARENT_CLASS_SP`    | 0x1E00001 | MT_GetParentClassSp. Class-level query that returns the parent class id (Class record +4 'parent').                        |
+| `EVT_GET_PROCEDURE_SP`       | 0x1E00002 | MT_GetProcedureSp. Returns the class procedure pointer (Class record +0 'proc').                                           |
+| `EVT_GET_INSTANCE_SIZE_SP`   | 0x1E00003 | MT_GetInstanceSizeSp. Returns the instance size of the class (WORD at Class record +8 'allsize'). Not *(XHL+0x0C), as ...  |
+| `EVT_GET_PROP_DATA_SP`       | 0x1E0000D | MT_GetPropDataSp. Returns entry #n of an ID-typed property's value domain: FontIDProc returns the n-th font from the ...   |
 | `EVT_GET_PROP_DATA_COUNT_SP` | 0x1E0000E | MT_GetPropDataCountSp. Number of entries in an ID-typed property's value domain; FontIDProc returns the font count. It ... |
-| `EVT_GET_INSTANCE` | 0x1E0000F | MT_GetInstance. Returns a pointer to the object's instance record: the class record for a class, the mode or title ... |
-| `EVT_CHECK_CLASS` | 0x1E00014 | MT_CheckClass. Object-level is-a test: returns 1 if the object's class is, or derives from, the class id in the ... |
-| `EVT_GET_SELECTED_CEL` | 0x1E0008F | Firmware method MT_GetSelectedCel. It returns the selected cell packed as (col<<16)/row. |
-| `EVT_SET_VISIBLE` | 0x1E0009C | Firmware method MT_SetVisible. It shows or hides a view: parameter 0 sets bit 0 of the view flags at instance+12 ... |
+| `EVT_GET_INSTANCE`           | 0x1E0000F | MT_GetInstance. Returns a pointer to the object's instance record: the class record for a class, the mode or title ...     |
+| `EVT_CHECK_CLASS`            | 0x1E00014 | MT_CheckClass. Object-level is-a test: returns 1 if the object's class is, or derives from, the class id in the ...        |
+| `EVT_GET_SELECTED_CEL`       | 0x1E0008F | Firmware method MT_GetSelectedCel. It returns the selected cell packed as (col<<16)/row.                                   |
+| `EVT_SET_VISIBLE`            | 0x1E0009C | Firmware method MT_SetVisible. It shows or hides a view: parameter 0 sets bit 0 of the view flags at instance+12 ...       |
 
 ### Event Dispatch Functions
 
@@ -423,12 +423,12 @@ Each of the 32 sound-editor titles has an event proc, `SeXxxTitleFunc` (the firm
 anything outside 0..15. It then looks up a 16-bit offset in `DirmdEmulator_CaseTable`, one per event, and jumps to
 `DirmdEmulator_Dispatch` plus that offset. Only four events have a case:
 
-| event | case | method called |
-|---|---|---|
-| `EVT_HIDE` | `DirmdEmulator_Dispatch` | +4 `SeXxxTitleFunc_OnHide` (`SeMenu_SetCurrentStep(0)`, then `SeMenu_ResetSubIndex`) |
-| `EVT_SW_IN`, switch number ≤ 255 | `DirmdEmu_OnSwitchIn` | +8 `SeXxxTitleFunc_OnSwitchIn`, with (switch & 31, bit 7) pushed |
-| `EVT_ALL_PAINT` | `DirmdEmu_OnAllPaint` | +0 `SeXxxTitleFunc_OnDraw`, after the drawing state is reset |
-| `EVT_PARA_DRAW` | `DirmdEmu_OnParaDraw` | +0 `SeXxxTitleFunc_OnDraw`, with the redraw mode byte set to 16 |
+| event                            | case                     | method called                                                                        |
+|----------------------------------|--------------------------|--------------------------------------------------------------------------------------|
+| `EVT_HIDE`                       | `DirmdEmulator_Dispatch` | +4 `SeXxxTitleFunc_OnHide` (`SeMenu_SetCurrentStep(0)`, then `SeMenu_ResetSubIndex`) |
+| `EVT_SW_IN`, switch number ≤ 255 | `DirmdEmu_OnSwitchIn`    | +8 `SeXxxTitleFunc_OnSwitchIn`, with (switch & 31, bit 7) pushed                     |
+| `EVT_ALL_PAINT`                  | `DirmdEmu_OnAllPaint`    | +0 `SeXxxTitleFunc_OnDraw`, after the drawing state is reset                         |
+| `EVT_PARA_DRAW`                  | `DirmdEmu_OnParaDraw`    | +0 `SeXxxTitleFunc_OnDraw`, with the redraw mode byte set to 16                      |
 
 The fourth method, +12 `SeXxxTitleFunc_Nop`, is a `jp` to a bare `ret`, and `DirmdEmulator` never calls it. Every
 event, handled or not, then runs `DirmdEmu_DefaultCase`, which posts the part-change, mode-change, refresh and
@@ -436,12 +436,12 @@ other events whose request flags a method left set.
 
 `SeXxxTitleFunc_OnSwitchIn` jumps to the title's `SeXxxTitleFunc_DispatchSwitch`, which calls `SeTitle_DecodeSwitch`:
 
-| switch number | handler index | bank byte |
-|---|---|---|
-| 0–16 | the switch number | 1 for the second bank, else 0 |
-| 17–24 | switch − 17 | bit 7 set |
-| 25 | 16 | as above |
-| anything else | not handled (HL = 0xFFFF) | |
+| switch number | handler index             | bank byte                     |
+|---------------|---------------------------|-------------------------------|
+| 0–16          | the switch number         | 1 for the second bank, else 0 |
+| 17–24         | switch − 17               | bit 7 set                     |
+| 25            | 16                        | as above                      |
+| anything else | not handled (HL = 0xFFFF) |                               |
 
 The index names a control on the LCD. A button pair shares one switch number: the panel code posts
 `EVT_SW_IN` with the pair's number, or with the number OR 0x80 for the pair's other button.
@@ -468,9 +468,9 @@ The firmware provides a complete set of drawing primitives that render to the of
 
 ### Line Drawing
 
-| Function | Description |
-|----------|-------------|
-| `DrawLine` | Draw a line between two points |
+| Function     | Description                        |
+|--------------|------------------------------------|
+| `DrawLine`   | Draw a line between two points     |
 | `DrawLineEx` | Extended line with pattern support |
 
 ### Geometric Shapes
@@ -485,14 +485,14 @@ The firmware provides a complete set of drawing primitives that render to the of
 
 ### Bitmap Rendering
 
-| Function | Description |
-|----------|-------------|
-| `DrawBitmap` | Standard bitmap render |
-| `DrawBitmapFast` | Optimized bitmap render |
-| `DrawBitmapSP` | Bitmap with transparency |
+| Function           | Description                  |
+|--------------------|------------------------------|
+| `DrawBitmap`       | Standard bitmap render       |
+| `DrawBitmapFast`   | Optimized bitmap render      |
+| `DrawBitmapSP`     | Bitmap with transparency     |
 | `DrawBitmapSPFast` | Optimized transparent bitmap |
-| `DrawBitmapSP2` | Bitmap variant 2 |
-| `DrawBitmapFile` | Render bitmap from file data |
+| `DrawBitmapSP2`    | Bitmap variant 2             |
+| `DrawBitmapFile`   | Render bitmap from file data |
 
 ### Text Rendering
 
@@ -507,10 +507,10 @@ The firmware provides a complete set of drawing primitives that render to the of
 
 ### Pixel Operations
 
-| Function | Description |
-|----------|-------------|
+| Function     | Description           |
+|--------------|-----------------------|
 | `MovePixels` | Block pixel copy/move |
-| `DrawIcons` | Render icon set |
+| `DrawIcons`  | Render icon set       |
 
 ## Page Management
 
@@ -555,16 +555,16 @@ See [Feature Demo & Presentation System]({{ site.baseurl }}/feature-demo/) for f
 
 ### Key Routines
 
-| Symbol | Address | Description |
-|--------|---------|-------------|
+| Symbol                  | Address  | Description                      |
+|-------------------------|----------|----------------------------------|
 | `InitializeObjectTable` | 0xFA40B3 | Boot-time UI module registration |
-| `MainDispatchEvent` | — | Primary event router |
-| `MainFuncCall` | — | Widget function call dispatcher |
-| `GetViewInstance` | — | Get widget view instance |
-| `RegisterObjectTable` | — | Register widget object table |
-| `DrawLine` | — | Line drawing primitive |
-| `DrawBitmapFile` | — | File-based bitmap rendering |
-| `DrawStringCentered` | — | Centered text rendering |
+| `MainDispatchEvent`     | —        | Primary event router             |
+| `MainFuncCall`          | —        | Widget function call dispatcher  |
+| `GetViewInstance`       | —        | Get widget view instance         |
+| `RegisterObjectTable`   | —        | Register widget object table     |
+| `DrawLine`              | —        | Line drawing primitive           |
+| `DrawBitmapFile`        | —        | File-based bitmap rendering      |
+| `DrawStringCentered`    | —        | Centered text rendering          |
 
 ## Related Pages
 
@@ -594,20 +594,20 @@ For all other opcodes, byte 2 is the total command length.
 
 ### Opcode Reference
 
-| Opcode | Name | Size | Description |
-|--------|------|------|-------------|
-| 0x01 | HLINE | 10 | Horizontal line: `op + 0x0a + x1(2) + y1(2) + x2(2) + y2(2)` |
-| 0x02/0x0a | VLINE | 10 | Vertical line: `op + 0x0a + x1(2) + y1(2) + x2(2) + y2(2)` |
-| 0x02/other | WIDGET | 15 | Widget ref: `op + sub + id(2) + flags(2) + handler(7) + x(1) + y(1)` |
-| 0x03 | SETUP | var | Setup block with coordinate arrays |
-| 0x04 | CONTROL | var | Control metadata |
-| 0x06 | REF | var | Reference (sometimes with text label) |
-| 0x07 | SHORTREF | var | Short reference |
-| 0x09 | RECT | 10 | Rectangle outline: same coord format as HLINE |
-| 0x0a | FILLED_RECT | 10 | Filled rectangle: same coord format as HLINE |
-| 0x0b | BLOCK | var | Block data |
-| 0x0e | CALLBACK | var | Callback reference |
-| 0x20 | STRING | var | Text: `op + len + x(1) + y(1) + text_bytes...` |
+| Opcode     | Name        | Size | Description                                                          |
+|------------|-------------|------|----------------------------------------------------------------------|
+| 0x01       | HLINE       | 10   | Horizontal line: `op + 0x0a + x1(2) + y1(2) + x2(2) + y2(2)`         |
+| 0x02/0x0a  | VLINE       | 10   | Vertical line: `op + 0x0a + x1(2) + y1(2) + x2(2) + y2(2)`           |
+| 0x02/other | WIDGET      | 15   | Widget ref: `op + sub + id(2) + flags(2) + handler(7) + x(1) + y(1)` |
+| 0x03       | SETUP       | var  | Setup block with coordinate arrays                                   |
+| 0x04       | CONTROL     | var  | Control metadata                                                     |
+| 0x06       | REF         | var  | Reference (sometimes with text label)                                |
+| 0x07       | SHORTREF    | var  | Short reference                                                      |
+| 0x09       | RECT        | 10   | Rectangle outline: same coord format as HLINE                        |
+| 0x0a       | FILLED_RECT | 10   | Filled rectangle: same coord format as HLINE                         |
+| 0x0b       | BLOCK       | var  | Block data                                                           |
+| 0x0e       | CALLBACK    | var  | Callback reference                                                   |
+| 0x20       | STRING      | var  | Text: `op + len + x(1) + y(1) + text_bytes...`                       |
 
 ### WIDGET Structure (15 bytes)
 
@@ -626,13 +626,13 @@ All coordinates are **little-endian 16-bit** values. The LCD display is 320×240
 
 ### LCD Character Codes
 
-| Byte | Character |
-|------|-----------|
-| 0x20-0x7E | Standard ASCII |
-| 0x88 | ♭ (flat) |
-| 0x8C | ♯ (sharp) |
-| 0x8D | │ (vertical bar / up arrow) |
-| 0x8E | ~ (down arrow) |
+| Byte      | Character                   |
+|-----------|-----------------------------|
+| 0x20-0x7E | Standard ASCII              |
+| 0x88      | ♭ (flat)                    |
+| 0x8C      | ♯ (sharp)                   |
+| 0x8D      | │ (vertical bar / up arrow) |
+| 0x8E      | ~ (down arrow)              |
 
 ### Decoded Files
 
@@ -641,12 +641,12 @@ These blocks are typed C struct source per `<version>/maincpu/style_ui/*.c`, com
 **[ScreenData C Conversion]({{ site.baseurl }}/screendata-c-conversion/)** for the full
 inventory across all three ScreenData subsystems:
 
-| File | Bytes | Commands | Contents |
-|------|-------|----------|----------|
-| `style_ui/main.c` | 3531 | 375 | Style editor main grid: chord boxes, parameter widgets, chord name tables, bottom bar |
-| `style_ui/meascursor.c` | 184 | 18 | Measure cursor: MEAS/CURSOR/CTL labels, BAL/ERS refs, navigation arrows |
-| `style_ui/yesctl.c` | 228 | 29 | Yes/No confirmation + measure cursor + CTL value |
-| `style_ui/ctlonly.c` | 551 | 4+tables | CTL-only: 4 commands + LCD charset translation table + format strings |
+| File                    | Bytes | Commands | Contents                                                                              |
+|-------------------------|-------|----------|---------------------------------------------------------------------------------------|
+| `style_ui/main.c`       | 3531  | 375      | Style editor main grid: chord boxes, parameter widgets, chord name tables, bottom bar |
+| `style_ui/meascursor.c` | 184   | 18       | Measure cursor: MEAS/CURSOR/CTL labels, BAL/ERS refs, navigation arrows               |
+| `style_ui/yesctl.c`     | 228   | 29       | Yes/No confirmation + measure cursor + CTL value                                      |
+| `style_ui/ctlonly.c`    | 551   | 4+tables | CTL-only: 4 commands + LCD charset translation table + format strings                 |
 
 ### Decoder Scripts
 

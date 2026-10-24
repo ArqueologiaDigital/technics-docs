@@ -87,17 +87,17 @@ of every model with its state in the repository.
 
 ### Primary build (LLVM)
 
-| Section | Original image | Size | Base | Top-level source |
-|---------|----------------|------|------|------------------|
-| maincpu v10 | `kn5000_v10_program.rom` | 2MB | 0xE00000 | `v10/maincpu/kn5000_v10_program.s` |
-| maincpu v9 | `kn5000_v9_program.rom` | 2MB | 0xE00000 | `v9/maincpu/kn5000_v9_program.s` |
-| maincpu v7 | `kn5000_v7_program.rom` | 2MB | 0xE00000 | `v7/maincpu/kn5000_v7_program.s` |
-| subcpu payload v142 | `kn5000_subprogram_v142.rom` | 192KB | 0x0400 | `v142/subcpu/kn5000_subprogram_v142.s` |
+| Section                      | Original image                          | Size    | Base     | Top-level source                                  |
+|------------------------------|-----------------------------------------|---------|----------|---------------------------------------------------|
+| maincpu v10                  | `kn5000_v10_program.rom`                | 2MB     | 0xE00000 | `v10/maincpu/kn5000_v10_program.s`                |
+| maincpu v9                   | `kn5000_v9_program.rom`                 | 2MB     | 0xE00000 | `v9/maincpu/kn5000_v9_program.s`                  |
+| maincpu v7                   | `kn5000_v7_program.rom`                 | 2MB     | 0xE00000 | `v7/maincpu/kn5000_v7_program.s`                  |
+| subcpu payload v142          | `kn5000_subprogram_v142.rom`            | 192KB   | 0x0400   | `v142/subcpu/kn5000_subprogram_v142.s`            |
 | **subcpu v142 update image** | `kn5000_subprogram_v142_compressed.rom` | 93,203B | 0x3E0000 | *(compressed from the built payload — see below)* |
-| subcpu boot | `kn5000_subcpu_boot.ic30` | 128KB | 0xFE0000 | `subcpu/boot/kn5000_subcpu_boot.s` |
-| hdae5000 | `hd-ae5000_v2_06i.ic4` | 512KB | 0x280000 | `hdae5000/hd-ae5000_v2_06i.s` |
-| table data | `kn5000_table_data.rom` | 2MB | 0x800000 | `table_data/kn5000_table_data.s` |
-| custom data | `kn5000_custom_data.ic19` | 1MB | 0x300000 | `custom_data/kn5000_custom_data.s` |
+| subcpu boot                  | `kn5000_subcpu_boot.ic30`               | 128KB   | 0xFE0000 | `subcpu/boot/kn5000_subcpu_boot.s`                |
+| hdae5000                     | `hd-ae5000_v2_06i.ic4`                  | 512KB   | 0x280000 | `hdae5000/hd-ae5000_v2_06i.s`                     |
+| table data                   | `kn5000_table_data.rom`                 | 2MB     | 0x800000 | `table_data/kn5000_table_data.s`                  |
+| custom data                  | `kn5000_custom_data.ic19`               | 1MB     | 0x300000 | `custom_data/kn5000_custom_data.s`                |
 
 ### Legacy ASL mirror build
 
@@ -150,10 +150,10 @@ for the v1.40 and v1.41 payloads.
 Two families of compressed data are no longer bincluded as opaque payloads; they are
 rebuilt from checked-in sources and compared against factory slices.
 
-| Target | What it rebuilds | Check |
-|--------|------------------|-------|
-| `make verify-demo-presets` | 19 SLIDE4K demo-song presets, from `.mid` + `.yaml` sidecars | 19/19 byte-identical |
-| `make verify-help-databases` | 6 SLIDE8K help databases, recompressed from the checked-in decompressed database binaries | 6/6 byte-identical |
+| Target                       | What it rebuilds                                                                          | Check                |
+|------------------------------|-------------------------------------------------------------------------------------------|----------------------|
+| `make verify-demo-presets`   | 19 SLIDE4K demo-song presets, from `.mid` + `.yaml` sidecars                              | 19/19 byte-identical |
+| `make verify-help-databases` | 6 SLIDE8K help databases, recompressed from the checked-in decompressed database binaries | 6/6 byte-identical   |
 
 **Demo presets.** All 19 presets (entries 0–17 at 0x9C4050–0x9F94CA plus the Feature
 Presentation at 0x8E0000) round-trip from a `.mid` file — the musical content, editable
@@ -352,11 +352,11 @@ source-built demo-preset region and is read by nothing.
 Disassembly debt in this tree comes in three distinct shapes, counted by three different
 instruments, and quoting any one of them as "the" debt figure is the mistake to avoid:
 
-| kind | what it is | counted by |
-|---|---|---|
-| **verbatim** | bytes handed back through `.incbin` of a blob with no generating source | `scripts/analysis/kn5000_source_coverage.py` |
-| **code-as-`.byte`** | real instructions spelled as data directives | per-image census tools, e.g. `scripts/analysis/v9_v10_undisassembled_census.py` |
-| **data-as-code** | data disassembled into plausible instruction mnemonics that re-assemble byte-exact | `scripts/analysis/v10_data_as_code_census.py`, `wsa1/notes/data_as_code_audit.py`, `scripts/analysis/kn5000_rest_data_as_code_audit.py` |
+| kind                | what it is                                                                         | counted by                                                                                                                              |
+|---------------------|------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| **verbatim**        | bytes handed back through `.incbin` of a blob with no generating source            | `scripts/analysis/kn5000_source_coverage.py`                                                                                            |
+| **code-as-`.byte`** | real instructions spelled as data directives                                       | per-image census tools, e.g. `scripts/analysis/v9_v10_undisassembled_census.py`                                                         |
+| **data-as-code**    | data disassembled into plausible instruction mnemonics that re-assemble byte-exact | `scripts/analysis/v10_data_as_code_census.py`, `wsa1/notes/data_as_code_audit.py`, `scripts/analysis/kn5000_rest_data_as_code_audit.py` |
 
 A `.byte` run is exactly as undecoded as an `.incbin`, but passes every "no `.incbin`" check
 — and the third kind is invisible by construction: a re-assembly of a wrong interpretation
@@ -559,21 +559,21 @@ and undocumented data sandwiched between two instruction regions ("embedded-in-c
 
 ### After Wave 2 (2026-09-25)
 
-| image | CODE | KNOWN-A | KNOWN-B | UNKNOWN | FILLER | strict |
-|---|---:|---:|---:|---:|---:|---:|
-| v10 | 995,508 | 917,658 | 108,608 | 16,943 | 58,435 | 94.01 % |
-| v9 | 995,358 | 917,199 | 109,203 | 16,943 | 58,449 | 93.98 % |
-| v7 | 985,895 | 915,445 | 114,755 | 20,662 | 60,395 | 93.54 % |
-| v142 sub-CPU | 128,860 | 65,969 | 1,687 | 44 | 48 | 99.12 % |
-| sub-CPU boot | 3,604 | 870 | 35 | 0 | 126,563 | 99.97 % |
-| table data | 19,426 | 1,800,585 | 95,143 | 0 | 181,998 | 95.46 % |
-| custom data | 0 | 660,657 | 0 | 0 | 387,919 | 100.00 % |
-| HD-AE5000 | 112,324 | 373,890 | 7,736 | 0 | 30,338 | 98.52 % |
-| `prom_a` | 324,950 | 107,566 | 24,023 | 1,355 | 66,394 | 95.16 % |
-| `prom_b` | 204,396 | 163,160 | 85,108 | 620 | 71,004 | 83.65 % |
-| `prom_c` | 207,511 | 177,152 | 10,409 | 0 | 129,216 | 98.01 % |
-| `prom_d` | 0 | 329,425 | 1,096 | 0 | 193,767 | 99.79 % |
-| **total** | **3,977,832** | **6,429,576** | **557,803** | **56,567** | **1,364,526** | **95.04 %** |
+| image        | CODE          | KNOWN-A       | KNOWN-B     | UNKNOWN    | FILLER        | strict      |
+|--------------|--------------:|--------------:|------------:|-----------:|--------------:|------------:|
+| v10          | 995,508       | 917,658       | 108,608     | 16,943     | 58,435        | 94.01 %     |
+| v9           | 995,358       | 917,199       | 109,203     | 16,943     | 58,449        | 93.98 %     |
+| v7           | 985,895       | 915,445       | 114,755     | 20,662     | 60,395        | 93.54 %     |
+| v142 sub-CPU | 128,860       | 65,969        | 1,687       | 44         | 48            | 99.12 %     |
+| sub-CPU boot | 3,604         | 870           | 35          | 0          | 126,563       | 99.97 %     |
+| table data   | 19,426        | 1,800,585     | 95,143      | 0          | 181,998       | 95.46 %     |
+| custom data  | 0             | 660,657       | 0           | 0          | 387,919       | 100.00 %    |
+| HD-AE5000    | 112,324       | 373,890       | 7,736       | 0          | 30,338        | 98.52 %     |
+| `prom_a`     | 324,950       | 107,566       | 24,023      | 1,355      | 66,394        | 95.16 %     |
+| `prom_b`     | 204,396       | 163,160       | 85,108      | 620        | 71,004        | 83.65 %     |
+| `prom_c`     | 207,511       | 177,152       | 10,409      | 0          | 129,216       | 98.01 %     |
+| `prom_d`     | 0             | 329,425       | 1,096       | 0          | 193,767       | 99.79 %     |
+| **total**    | **3,977,832** | **6,429,576** | **557,803** | **56,567** | **1,364,526** | **95.04 %** |
 
 At `7936b0a2` (2026-10-06), after the census fix `d6c4e0ead`, the strict share per image is
 v10 95.48 %, v9 95.02 %, v7 94.71 %, v142 99.41 %, sub-CPU boot 99.97 %, table data 98.93 %,
@@ -584,13 +584,13 @@ five-bucket split above has not been republished here since Wave 2; the HD-AE500
 SX-WSA1R images' UNKNOWN, KNOWN-B and research-target figures at `3417969c0` are on
 [SX-WSA1R Disassembly]({{ site.baseurl }}/wsa1-disassembly/#what-is-left).
 
-| | before Wave 2 (`3958235e`) | after (`5fc8d5bd`) |
-|---|---:|---:|
-| strict (CODE + KNOWN-A + FILLER) | 64.15 % | **95.04 %** |
-| KNOWN-A (evidence header) | 2,778,685 B | 6,429,576 B |
-| KNOWN-B (name only) | 4,428,721 B | 557,803 B |
-| UNKNOWN | 12,357 B | 56,567 B |
-| research targets | 395,986 B in 26,553 ranges | 328,853 B in 5,077 ranges |
+|                                  | before Wave 2 (`3958235e`) | after (`5fc8d5bd`)        |
+|----------------------------------|---------------------------:|--------------------------:|
+| strict (CODE + KNOWN-A + FILLER) | 64.15 %                    | **95.04 %**               |
+| KNOWN-A (evidence header)        | 2,778,685 B                | 6,429,576 B               |
+| KNOWN-B (name only)              | 4,428,721 B                | 557,803 B                 |
+| UNKNOWN                          | 12,357 B                   | 56,567 B                  |
+| research targets                 | 395,986 B in 26,553 ranges | 328,853 B in 5,077 ranges |
 
 The research targets split by reason as 248,744 B self-admitted, 59,562 B with no
 explanation and 20,547 B embedded-in-code (apportioned where a range has more than one).
@@ -682,11 +682,11 @@ The CODE/DATA split is corroborated by a completely separate instrument,
 Three independent flags, reported as leads and not verdicts. Nothing is converted on the
 strength of them.
 
-| flag | regions | bytes | what it means |
-|---|---:|---:|---|
-| embedded-in-code | 3,687 | 20,547 | an undocumented data region with an *instruction* region on both sides in the same file |
-| code-shaped label | 8,812 | 360,387 | the label carries a routine token (`_Loop`, `_Prologue`, `_Dispatch`, `Initialize*`, …) |
-| code-suspect | 1,100 | 25,424 | a label at or inside the region is the target of a `call`/`jp`/`jr`/`jrl` somewhere in the tree |
+| flag              | regions | bytes   | what it means                                                                                   |
+|-------------------|--------:|--------:|-------------------------------------------------------------------------------------------------|
+| embedded-in-code  | 3,687   | 20,547  | an undocumented data region with an *instruction* region on both sides in the same file         |
+| code-shaped label | 8,812   | 360,387 | the label carries a routine token (`_Loop`, `_Prologue`, `_Dispatch`, `Initialize*`, …)         |
+| code-suspect      | 1,100   | 25,424  | a label at or inside the region is the target of a `call`/`jp`/`jr`/`jrl` somewhere in the tree |
 
 The name-based flag comes with its null, because without one it would be worthless: 55.1 %
 of regions the source itself frames as CODE carry such a name, against 4.1 % of the data
@@ -750,15 +750,15 @@ another country).
 
 What is measured in the file today:
 
-| Quantity | Value |
-|---|---|
-| File size | 131,072 bytes (`sha1 d29429a9…`) |
-| Bytes that are not `0xFF` | **4,352 — 3.3% of the chip** |
-| Non-`0xFF` content, block 1 | file `0x18000-0x1904C` = CPU `0xFF8000-0xFF904C`, 4,173 B |
-| Non-`0xFF` content, block 2 | file `0x1FE80-0x1FFB3` = CPU `0xFFFE80-0xFFFFB3`, 308 B |
-| Non-`0xFF` content, block 3 | file `0x1FFF0-0x1FFFF` = CPU `0xFFFFF0-0xFFFFFF`, 16 B |
-| Windows actually read | `0xFE0000-0xFE07FF`, `0xFF7800-0xFF97FF`, `0xFFF000-0xFFFFFF` — 14,336 B, 10.9% of the chip |
-| Bytes never read | **116,736 — 89.1%**, present in the file as assumed `0xFF` |
+| Quantity                    | Value                                                                                       |
+|-----------------------------|---------------------------------------------------------------------------------------------|
+| File size                   | 131,072 bytes (`sha1 d29429a9…`)                                                            |
+| Bytes that are not `0xFF`   | **4,352 — 3.3% of the chip**                                                                |
+| Non-`0xFF` content, block 1 | file `0x18000-0x1904C` = CPU `0xFF8000-0xFF904C`, 4,173 B                                   |
+| Non-`0xFF` content, block 2 | file `0x1FE80-0x1FFB3` = CPU `0xFFFE80-0xFFFFB3`, 308 B                                     |
+| Non-`0xFF` content, block 3 | file `0x1FFF0-0x1FFFF` = CPU `0xFFFFF0-0xFFFFFF`, 16 B                                      |
+| Windows actually read       | `0xFE0000-0xFE07FF`, `0xFF7800-0xFF97FF`, `0xFFF000-0xFFFFFF` — 14,336 B, 10.9% of the chip |
+| Bytes never read            | **116,736 — 89.1%**, present in the file as assumed `0xFF`                                  |
 
 The three window sizes are corroborated by the driver's own comment and by the owner's
 dump script, whose chunking constant is `0x800`. But note that **the window boundaries are
@@ -985,13 +985,13 @@ debug/diagnostic tail at 0xFFFE80.
 
 **DMA transfer routines (0xFF8604–0xFF881E):**
 
-| Routine | Address | Size | Description |
-|---------|---------|------|-------------|
-| `SendData_Chunked` | 0xFF8604 | 69 bytes | Send data in 32-byte chunks via DMA |
-| `InterCPU_SendChunk` | 0xFF8649 | 99 bytes | Send single data block via DMA |
-| `SendCmd_E3` | 0xFF86AC | 48 bytes | Send E3 (payload ready) command |
-| `SendParams_E2` | 0xFF86DC | 112 bytes | Wait for DMA, then send E2 command |
-| `TwoPhase_Transfer` | 0xFF874C | 211 bytes | Two-phase DMA with E1 command, 200-cycle delays |
+| Routine              | Address  | Size      | Description                                     |
+|----------------------|----------|-----------|-------------------------------------------------|
+| `SendData_Chunked`   | 0xFF8604 | 69 bytes  | Send data in 32-byte chunks via DMA             |
+| `InterCPU_SendChunk` | 0xFF8649 | 99 bytes  | Send single data block via DMA                  |
+| `SendCmd_E3`         | 0xFF86AC | 48 bytes  | Send E3 (payload ready) command                 |
+| `SendParams_E2`      | 0xFF86DC | 112 bytes | Wait for DMA, then send E2 command              |
+| `TwoPhase_Transfer`  | 0xFF874C | 211 bytes | Two-phase DMA with E1 command, 200-cycle delays |
 
 **The 656-byte data region at 0xFF8000–0xFF828F is now source.** A single `.incbin` was
 hiding eight cross-referenced objects: an 8-entry command-handler jump table of `.long`
@@ -1018,32 +1018,32 @@ at boot-time alias 0xFFxxxx (+0x600000) until `Boot_Init` reprograms the memory
 controller. Source labels are at ROM addresses; the 0xFFxxxx aliases appear in comments,
 and the handful of `CALL`-absolute sites that must stay numeric are marked as such.
 
-| Component | Address range | Module |
-|-----------|---------------|--------|
-| FDC dispatch offset tables | 0x9FB496–0x9FB4D1 | `kn5000_table_data.s` (three tables) |
-| `Boot_BitMaskTable` + `Boot_InitParams` | 0x9FB4D2–0x9FB4E7 | `kn5000_table_data.s` |
-| `Boot_Init`, halt handler, `Boot_ClearRAM` | 0x9FB4E8–0x9FB7F1 | `kn5000_table_data.s`, `shared/` |
-| HDAE5000 boot-flash tail | 0x9FC6F6–0x9FC8C1 | `kn5000_table_data.s` (was `bootcode_hdae_to_lzss.bin`) |
-| LZSS decoder suite | 0x9FC8C2–0x9FCC29 | `kn5000_table_data.s` (872 bytes, five routines) |
-| FDC command-layer driver | 0x9FD8A5–0x9FEA9C | `boot_fdc_driver.s` |
-| Disk-format probe | 0x9FEB2B–0x9FEC6D | `boot_disk_probe.s` |
-| CP-serial driver (polling half) | 0x9FEC6E–0x9FF228 | `boot_cpserial.s` |
-| CP-serial ISRs | 0x9FF229–0x9FF2F1 | `boot_cpserial_isr.s` |
-| CP-serial state handlers/codecs | 0x9FF2F2–0x9FFB2E | `boot_cpserial_states.s` |
-| Boot C runtime | 0x9FFB2F–0x9FFE7F | `boot_clib.s` |
-| Debug group (disabled) | 0x9FFE80–0x9FFEDF | `boot_debug.s` |
-| `RESET_HANDLER` + IVT | 0x9FFEE0–0x9FFFFF | `kn5000_table_data.s` |
+| Component                                  | Address range     | Module                                                  |
+|--------------------------------------------|-------------------|---------------------------------------------------------|
+| FDC dispatch offset tables                 | 0x9FB496–0x9FB4D1 | `kn5000_table_data.s` (three tables)                    |
+| `Boot_BitMaskTable` + `Boot_InitParams`    | 0x9FB4D2–0x9FB4E7 | `kn5000_table_data.s`                                   |
+| `Boot_Init`, halt handler, `Boot_ClearRAM` | 0x9FB4E8–0x9FB7F1 | `kn5000_table_data.s`, `shared/`                        |
+| HDAE5000 boot-flash tail                   | 0x9FC6F6–0x9FC8C1 | `kn5000_table_data.s` (was `bootcode_hdae_to_lzss.bin`) |
+| LZSS decoder suite                         | 0x9FC8C2–0x9FCC29 | `kn5000_table_data.s` (872 bytes, five routines)        |
+| FDC command-layer driver                   | 0x9FD8A5–0x9FEA9C | `boot_fdc_driver.s`                                     |
+| Disk-format probe                          | 0x9FEB2B–0x9FEC6D | `boot_disk_probe.s`                                     |
+| CP-serial driver (polling half)            | 0x9FEC6E–0x9FF228 | `boot_cpserial.s`                                       |
+| CP-serial ISRs                             | 0x9FF229–0x9FF2F1 | `boot_cpserial_isr.s`                                   |
+| CP-serial state handlers/codecs            | 0x9FF2F2–0x9FFB2E | `boot_cpserial_states.s`                                |
+| Boot C runtime                             | 0x9FFB2F–0x9FFE7F | `boot_clib.s`                                           |
+| Debug group (disabled)                     | 0x9FFE80–0x9FFEDF | `boot_debug.s`                                          |
+| `RESET_HANDLER` + IVT                      | 0x9FFEE0–0x9FFFFF | `kn5000_table_data.s`                                   |
 
 The LZSS decoder is SLIDE4K (4 KB sliding window, 12-bit offset, 4-bit length) and is
 invoked during flash firmware updates:
 
-| Routine | Address | Size | Purpose |
-|---------|---------|------|---------|
-| `LZSS_ReadByte` | 0x9FC8C2 | 115 bytes | Read from compressed stream with sector buffering |
-| `LZSS_OutputByte` | 0x9FC935 | 63 bytes | Write decompressed bytes with 32-bit batching |
-| `LZSS_OutputByte_Alt` | 0x9FC974 | 63 bytes | Alternative output for flash update mode |
-| `LZSS_ParseHeader` | 0x9FC9B3 | 157 bytes | Parse/validate firmware header, set up source |
-| `LZSS_Decompress` | 0x9FCA50 | 474 bytes | Main decompression loop with sliding window |
+| Routine               | Address  | Size      | Purpose                                           |
+|-----------------------|----------|-----------|---------------------------------------------------|
+| `LZSS_ReadByte`       | 0x9FC8C2 | 115 bytes | Read from compressed stream with sector buffering |
+| `LZSS_OutputByte`     | 0x9FC935 | 63 bytes  | Write decompressed bytes with 32-bit batching     |
+| `LZSS_OutputByte_Alt` | 0x9FC974 | 63 bytes  | Alternative output for flash update mode          |
+| `LZSS_ParseHeader`    | 0x9FC9B3 | 157 bytes | Parse/validate firmware header, set up source     |
+| `LZSS_Decompress`     | 0x9FCA50 | 474 bytes | Main decompression loop with sliding window       |
 
 (The 4 KB/8 KB *variant* dispatch lives in the main-CPU firmware, not here — see the help
 database note above.)
@@ -1052,16 +1052,16 @@ database note above.)
 (224×22 px, 616 bytes each) at 0x9FA156, byte-identical to the main-CPU copies; both ROMs
 `.incbin` the same files.
 
-| Address | Image |
-|---------|-------|
+| Address  | Image               |
+|----------|---------------------|
 | 0x9FA156 | Flash Memory Update |
-| 0x9FA3BE | Now Erasing |
-| 0x9FA626 | FD to Flash Memory |
-| 0x9FA88E | Completed |
-| 0x9FAAF6 | Please Wait |
-| 0x9FAD5E | Change FD 2 of 2 |
-| 0x9FAFC6 | Illegal Disk |
-| 0x9FB22E | Turn On AGAIN |
+| 0x9FA3BE | Now Erasing         |
+| 0x9FA626 | FD to Flash Memory  |
+| 0x9FA88E | Completed           |
+| 0x9FAAF6 | Please Wait         |
+| 0x9FAD5E | Change FD 2 of 2    |
+| 0x9FAFC6 | Illegal Disk        |
+| 0x9FB22E | Turn On AGAIN       |
 
 **Key discovery (still valid):** the interrupt vector table holds boot-time addresses
 (0xFFxxxx) precisely because of the reset-time mapping described above.
@@ -1072,24 +1072,24 @@ Several bootloader routines are byte-identical or semantically identical to main
 utilities — both ROMs were built from common source. The disassembly now uses real shared
 modules in `shared/`:
 
-| File | Description |
-|------|-------------|
-| `shared/vga_constants.s` | VGA register addresses and constants |
-| `shared/vga_init.s` | VGA initialization data + completion code |
-| `shared/vga_io.s` | VGA register I/O routines (byte-identical between ROMs) |
-| `shared/boot_call_init_handlers.s` | Init handler dispatch (conditional assembly) |
-| `shared/boot_routines.s` | Boot initialization routines + LZSS decoder |
-| `shared/macros.s`, `shared/sfr_tmp94c241.s` | Macros and SFR definitions |
+| File                                        | Description                                             |
+|---------------------------------------------|---------------------------------------------------------|
+| `shared/vga_constants.s`                    | VGA register addresses and constants                    |
+| `shared/vga_init.s`                         | VGA initialization data + completion code               |
+| `shared/vga_io.s`                           | VGA register I/O routines (byte-identical between ROMs) |
+| `shared/boot_call_init_handlers.s`          | Init handler dispatch (conditional assembly)            |
+| `shared/boot_routines.s`                    | Boot initialization routines + LZSS decoder             |
+| `shared/macros.s`, `shared/sfr_tmp94c241.s` | Macros and SFR definitions                              |
 
 **Shared routine mapping:**
 
-| Table Data | Main CPU | Size | Routine |
-|------------|----------|------|---------|
+| Table Data        | Main CPU          | Size        | Routine                                   |
+|-------------------|-------------------|-------------|-------------------------------------------|
 | 0x9FCDFC-0x9FCE1D | 0xEF5141-0xEF515F | 30-34 bytes | `Write_VGA_Register`, `Read_VGA_Register` |
-| 0x9FB70A-0x9FB73F | 0xEF086F-0xEF08A3 | 53-54 bytes | `Boot_CallInitHandlers` |
-| 0x9FCD9A-0x9FD7BD | 0xEF50DF-0xEF5B02 | 2,596 bytes | `VRAM_FillRect` and display routines |
-| 0x9FBC3C-0x9FBECF | 0xEF3CE0-0xEF3F73 | 660 bytes | Boot utility routines |
-| 0x9FB4F2-0x9FB622 | 0xEF03D0-0xEF0500 | 305 bytes | Boot initialization code |
+| 0x9FB70A-0x9FB73F | 0xEF086F-0xEF08A3 | 53-54 bytes | `Boot_CallInitHandlers`                   |
+| 0x9FCD9A-0x9FD7BD | 0xEF50DF-0xEF5B02 | 2,596 bytes | `VRAM_FillRect` and display routines      |
+| 0x9FBC3C-0x9FBECF | 0xEF3CE0-0xEF3F73 | 660 bytes   | Boot utility routines                     |
+| 0x9FB4F2-0x9FB622 | 0xEF03D0-0xEF0500 | 305 bytes   | Boot initialization code                  |
 
 Where the two ROMs differ in encoding (byte vs word compare, different helper addresses),
 conditional assembly handles it — each ROM defines the required parameters before
@@ -1114,78 +1114,78 @@ archived ASL mirror, which is still built.
 
 **DMA register macros:**
 
-| Macro | Encoding | Description |
-|-------|----------|-------------|
-| `LDC_DMAS0_XWA` | `e8 2e 00` | Load DMA source 0 from XWA |
-| `LDC_DMAS2_XDE` | `ea 2e 08` | Load DMA source 2 from XDE |
-| `LDC_DMAS2_XHL` | `eb 2e 08` | Load DMA source 2 from XHL |
+| Macro           | Encoding   | Description                     |
+|-----------------|------------|---------------------------------|
+| `LDC_DMAS0_XWA` | `e8 2e 00` | Load DMA source 0 from XWA      |
+| `LDC_DMAS2_XDE` | `ea 2e 08` | Load DMA source 2 from XDE      |
+| `LDC_DMAS2_XHL` | `eb 2e 08` | Load DMA source 2 from XHL      |
 | `LDC_DMAD0_XWA` | `e8 2e 20` | Load DMA destination 0 from XWA |
 | `LDC_DMAD0_XBC` | `e9 2e 20` | Load DMA destination 0 from XBC |
 | `LDC_DMAD2_XWA` | `e8 2e 28` | Load DMA destination 2 from XWA |
-| `LDC_DMAC0_WA` | `d8 2e 40` | Load DMA count 0 from WA |
-| `LDC_DMAC0_A` | `c9 2e 42` | Load DMA count 0 from A |
-| `LDC_DMAC2_A` | `c9 2e 4a` | Load DMA count 2 from A |
-| `LDC_DMAC2_BC` | `d9 2e 48` | Load DMA count 2 from BC |
-| `LDC_DMAC2_WA` | `d8 2e 48` | Load DMA count 2 from WA |
+| `LDC_DMAC0_WA`  | `d8 2e 40` | Load DMA count 0 from WA        |
+| `LDC_DMAC0_A`   | `c9 2e 42` | Load DMA count 0 from A         |
+| `LDC_DMAC2_A`   | `c9 2e 4a` | Load DMA count 2 from A         |
+| `LDC_DMAC2_BC`  | `d9 2e 48` | Load DMA count 2 from BC        |
+| `LDC_DMAC2_WA`  | `d8 2e 48` | Load DMA count 2 from WA        |
 
 **Additional sub CPU boot ROM macros:**
 
-| Macro | Encoding | Description |
-|-------|----------|-------------|
-| `INC_0_XBC` | `e9 60` | Increment XBC by 1 |
-| `PUSH_WORD value` | `0b LL HH` | Push 16-bit immediate |
-| `CP_pXWA_WORD value` | `90 3f LL HH` | Compare (XWA) with 16-bit immediate |
-| `CP_pXBC_d_WORD d,val` | `99 dd 3f LL HH` | Compare (XBC+d) with 16-bit immediate |
-| `LDA_XWA_IMM24 value` | `f2 LL MM HH 30` | Load 24-bit address into XWA |
-| `CALR target` | `1e LL HH` | Call relative (3-byte encoding) |
-| `CALL_ABS24 target` | `1d LL MM HH` | Call absolute with 24-bit address |
-| `JRL_T target` | `78 LL HH` | Jump relative long (always true) |
-| `LDIR_94` | `83 11` | Block copy (TMP94C241 encoding) |
-| `LD_A value` | `21 nn` | Load immediate to A register |
-| `LD_D value` | `24 nn` | Load immediate to D register |
-| `LD_E value` | `25 nn` | Load immediate to E register |
-| `LD_L value` | `27 nn` | Load immediate to L register |
-| `LD_W value` | `20 nn` | Load immediate to W register |
-| `LD_pXIX_IMM16 value` | `b4 02 LL HH` | Store 16-bit imm to (XIX) |
-| `LD_pXHL_IMM16 value` | `b3 02 LL HH` | Store 16-bit imm to (XHL) |
-| `LD_MEM24_IMM16 addr,val` | `f2 LL MM HH 02 VV WW` | Store 16-bit to 24-bit addr |
+| Macro                     | Encoding               | Description                           |
+|---------------------------|------------------------|---------------------------------------|
+| `INC_0_XBC`               | `e9 60`                | Increment XBC by 1                    |
+| `PUSH_WORD value`         | `0b LL HH`             | Push 16-bit immediate                 |
+| `CP_pXWA_WORD value`      | `90 3f LL HH`          | Compare (XWA) with 16-bit immediate   |
+| `CP_pXBC_d_WORD d,val`    | `99 dd 3f LL HH`       | Compare (XBC+d) with 16-bit immediate |
+| `LDA_XWA_IMM24 value`     | `f2 LL MM HH 30`       | Load 24-bit address into XWA          |
+| `CALR target`             | `1e LL HH`             | Call relative (3-byte encoding)       |
+| `CALL_ABS24 target`       | `1d LL MM HH`          | Call absolute with 24-bit address     |
+| `JRL_T target`            | `78 LL HH`             | Jump relative long (always true)      |
+| `LDIR_94`                 | `83 11`                | Block copy (TMP94C241 encoding)       |
+| `LD_A value`              | `21 nn`                | Load immediate to A register          |
+| `LD_D value`              | `24 nn`                | Load immediate to D register          |
+| `LD_E value`              | `25 nn`                | Load immediate to E register          |
+| `LD_L value`              | `27 nn`                | Load immediate to L register          |
+| `LD_W value`              | `20 nn`                | Load immediate to W register          |
+| `LD_pXIX_IMM16 value`     | `b4 02 LL HH`          | Store 16-bit imm to (XIX)             |
+| `LD_pXHL_IMM16 value`     | `b3 02 LL HH`          | Store 16-bit imm to (XHL)             |
+| `LD_MEM24_IMM16 addr,val` | `f2 LL MM HH 02 VV WW` | Store 16-bit to 24-bit addr           |
 
 **Stack frame and register macros (DMA routines):**
 
-| Macro | Encoding | Description |
-|-------|----------|-------------|
-| `DEC_6_XSP` | `ef 6e` | Decrement XSP by 6 (allocate stack frame) |
-| `INC_6_XSP` | `ef 66` | Increment XSP by 6 (deallocate stack frame) |
-| `LD_IZ_BC` | `d9 8e` | Load IZ from BC |
-| `CP_IZ_imm16 val` | `de cf LL HH` | Compare IZ with 16-bit immediate |
-| `SUB_IZ_imm16 val` | `de ca LL HH` | Subtract 16-bit immediate from IZ |
-| `LD_C_IZL` | `c7 f8 8b` | Load C from low byte of IZ |
-| `EXTZ_WA` | `d8 12` | Zero-extend A to WA |
-| `EXTZ_BC` | `d9 12` | Zero-extend C to BC |
+| Macro              | Encoding      | Description                                 |
+|--------------------|---------------|---------------------------------------------|
+| `DEC_6_XSP`        | `ef 6e`       | Decrement XSP by 6 (allocate stack frame)   |
+| `INC_6_XSP`        | `ef 66`       | Increment XSP by 6 (deallocate stack frame) |
+| `LD_IZ_BC`         | `d9 8e`       | Load IZ from BC                             |
+| `CP_IZ_imm16 val`  | `de cf LL HH` | Compare IZ with 16-bit immediate            |
+| `SUB_IZ_imm16 val` | `de ca LL HH` | Subtract 16-bit immediate from IZ           |
+| `LD_C_IZL`         | `c7 f8 8b`    | Load C from low byte of IZ                  |
+| `EXTZ_WA`          | `d8 12`       | Zero-extend A to WA                         |
+| `EXTZ_BC`          | `d9 12`       | Zero-extend C to BC                         |
 
 **Stack-relative addressing macros:**
 
-| Macro | Encoding | Description |
-|-------|----------|-------------|
-| `LD_A_pXSP_d disp` | `8f dd 21` | Load A from (XSP+disp) |
-| `LD_XDE_pXSP_d disp` | `af dd 22` | Load XDE from (XSP+disp) |
-| `LD_XBC_pXSP_d disp` | `af dd 21` | Load XBC from (XSP+disp) |
-| `LD_pXSP_d_A disp` | `bf dd 41` | Store A to (XSP+disp) |
-| `LD_pXSP_d_XDE disp` | `bf dd 62` | Store XDE to (XSP+disp) |
-| `ADD_pXSP_d_XWA disp` | `af dd 88` | Add XWA to (XSP+disp) |
+| Macro                 | Encoding   | Description              |
+|-----------------------|------------|--------------------------|
+| `LD_A_pXSP_d disp`    | `8f dd 21` | Load A from (XSP+disp)   |
+| `LD_XDE_pXSP_d disp`  | `af dd 22` | Load XDE from (XSP+disp) |
+| `LD_XBC_pXSP_d disp`  | `af dd 21` | Load XBC from (XSP+disp) |
+| `LD_pXSP_d_A disp`    | `bf dd 41` | Store A to (XSP+disp)    |
+| `LD_pXSP_d_XDE disp`  | `bf dd 62` | Store XDE to (XSP+disp)  |
+| `ADD_pXSP_d_XWA disp` | `af dd 88` | Add XWA to (XSP+disp)    |
 
 ### Encoding Differences
 
 ASL sometimes chooses different (but functionally equivalent) encodings than the original ROM:
 
-| Instruction | Original | ASL Default | Notes |
-|-------------|----------|-------------|-------|
-| `lda XWA, imm16` | 5-byte (24-bit addr) | 4-byte (16-bit) | Use `LDA_XWA_IMM24` macro |
-| `call addr` | 3-byte `calr` | 4-byte `call` | Use `CALR` macro when target is within range |
-| `jp addr` | 3-byte `jrl T` | 4-byte `jp` | Use `JRL_T` macro for relative long jump |
-| `ldir` | `83 11` | `85 11` | Use `LDIR_94` macro for TMP94C241 encoding |
-| `ld A, imm8` | `21 nn` | Different | Use `LD_A` macro |
-| `ld D, imm8` | `24 nn` | Different | Use `LD_D` macro |
+| Instruction      | Original             | ASL Default     | Notes                                        |
+|------------------|----------------------|-----------------|----------------------------------------------|
+| `lda XWA, imm16` | 5-byte (24-bit addr) | 4-byte (16-bit) | Use `LDA_XWA_IMM24` macro                    |
+| `call addr`      | 3-byte `calr`        | 4-byte `call`   | Use `CALR` macro when target is within range |
+| `jp addr`        | 3-byte `jrl T`       | 4-byte `jp`     | Use `JRL_T` macro for relative long jump     |
+| `ldir`           | `83 11`              | `85 11`         | Use `LDIR_94` macro for TMP94C241 encoding   |
+| `ld A, imm8`     | `21 nn`              | Different       | Use `LD_A` macro                             |
+| `ld D, imm8`     | `24 nn`              | Different       | Use `LD_D` macro                             |
 
 ## How the source represents the ROM
 

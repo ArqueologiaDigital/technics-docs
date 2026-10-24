@@ -12,13 +12,13 @@ The KN5000 provides external MIDI communication through Serial Channel 0 (SC0) o
 
 ### Serial Channel 0 Registers
 
-| Register | Address | Name | Purpose |
-|----------|---------|------|---------|
-| SC0BUF | `0xD0` | Serial Buffer | TX/RX data register |
-| SC0CR | `0xD1` | Control Register | Serial control/status |
-| SC0MOD | `0xD2` | Mode Register | Async mode, parity, stop bits |
-| BR0CR | `0xD3` | Baud Rate Control | Clock divider for baud rate |
-| INTES0 | `0xEA` | Interrupt Enable | TX/RX interrupt priority |
+| Register | Address | Name              | Purpose                       |
+|----------|---------|-------------------|-------------------------------|
+| SC0BUF   | `0xD0`  | Serial Buffer     | TX/RX data register           |
+| SC0CR    | `0xD1`  | Control Register  | Serial control/status         |
+| SC0MOD   | `0xD2`  | Mode Register     | Async mode, parity, stop bits |
+| BR0CR    | `0xD3`  | Baud Rate Control | Clock divider for baud rate   |
+| INTES0   | `0xEA`  | Interrupt Enable  | TX/RX interrupt priority      |
 
 ### Initialization (`SC0Init_EnableRegisters`)
 
@@ -36,12 +36,12 @@ The baud rate generator uses `fc/4/N` where `fc` = 16 MHz and `N` = BR0CR value.
 
 The KN5000 rear panel has a rotary switch read from **Port Z** bits 7-4 (SFR `0x68`, shifted right by 4). The switch positions are **active low** — one bit low selects the mode, and any other pattern is treated as MIDI. It selects between four communication modes:
 
-| Switch Position | Value | Mode | Protocol |
-|----------------|-------|------|----------|
-| MIDI | `0x00` | Standard MIDI | 31,250 baud, 8N1 |
-| MAC | `0x01` | Apple Macintosh serial | (different baud/protocol) |
-| PC1 | `0x02` | PC serial mode 1 | (different baud/protocol) |
-| PC2 | `0x03` | PC serial mode 2 | (different baud/protocol) |
+| Switch Position | Value  | Mode                   | Protocol                  |
+|-----------------|--------|------------------------|---------------------------|
+| MIDI            | `0x00` | Standard MIDI          | 31,250 baud, 8N1          |
+| MAC             | `0x01` | Apple Macintosh serial | (different baud/protocol) |
+| PC1             | `0x02` | PC serial mode 1       | (different baud/protocol) |
+| PC2             | `0x03` | PC serial mode 2       | (different baud/protocol) |
 
 `READ_COM_SELECT_SWITCH` (`0xFCF8F6`) reads `PZ`, shifts the upper nibble down and indexes `MidiSerial_OffsetTable`, a 16-entry lookup that maps every bit pattern to one of the four modes; invalid switch states (more than one low bit) map to MIDI. The result is stored at DRAM `0xB7E0` (47072), the `COM_SELECT` byte.
 
@@ -51,13 +51,13 @@ The TX dispatch (`MIDI_SC0_TX_DISPATCH`) checks this value: `0x00` uses the MIDI
 
 Two sets of timing constants are computed during initialization based on hardware revision:
 
-| Entry | Standard Mode | Alternate Mode | Purpose |
-|-------|--------------|----------------|---------|
-| DRAM 47060 | 31,250 | 23,437 | Base clock rate |
-| DRAM 47062 | 10,416 | 7,812 | MIDI clock timing |
-| DRAM 47064 | 4,166 | 3,125 | Fine timing |
-| DRAM 47066 | 1,000 | 750 | Sub-timing |
-| DRAM 47068 | 8 | 6 | BR0CR register value |
+| Entry      | Standard Mode | Alternate Mode | Purpose              |
+|------------|---------------|----------------|----------------------|
+| DRAM 47060 | 31,250        | 23,437         | Base clock rate      |
+| DRAM 47062 | 10,416        | 7,812          | MIDI clock timing    |
+| DRAM 47064 | 4,166         | 3,125          | Fine timing          |
+| DRAM 47066 | 1,000         | 750            | Sub-timing           |
+| DRAM 47068 | 8             | 6              | BR0CR register value |
 
 ## MIDI Receive Path
 
@@ -102,15 +102,15 @@ Return (wait for data bytes)
 
 The MIDI RX handler maintains a full saved register context at DRAM 1080-1104. This allows MIDI processing to be interrupted and resumed without losing state:
 
-| DRAM Address | Register | Size |
-|-------------|----------|------|
-| 1080 | XWA | 4 bytes |
-| 1084 | XBC | 4 bytes |
-| 1088 | XDE | 4 bytes |
-| 1092 | XHL | 4 bytes |
-| 1096 | XIX | 4 bytes |
-| 1100 | XIY | 4 bytes |
-| 1104 | XIZ | 4 bytes |
+| DRAM Address | Register | Size    |
+|--------------|----------|---------|
+| 1080         | XWA      | 4 bytes |
+| 1084         | XBC      | 4 bytes |
+| 1088         | XDE      | 4 bytes |
+| 1092         | XHL      | 4 bytes |
+| 1096         | XIX      | 4 bytes |
+| 1100         | XIY      | 4 bytes |
+| 1104         | XIZ      | 4 bytes |
 
 `MIDI_RX_CONTEXT_RESTORE` loads all 7 registers at entry; `MIDI_RX_CONTEXT_SAVE` stores them on exit. This design allows the MIDI parser to maintain multi-byte message parsing state across interrupts.
 
@@ -151,11 +151,11 @@ For Note On with velocity 0 in a full buffer, the event is silently dropped (eff
 
 `MIDI_SYSTEM_EXCLUSIVE_HANDLER` (`0xFCF800`) handles system messages:
 
-| Status | Message | Action |
-|--------|---------|--------|
-| `0xF0` | SysEx Start | Set SysEx-in-progress flag; check manufacturer ID |
-| `0xF2` | Song Position | Set running status, capture LSB |
-| `0xF3` | Song Select | Queue to sequencer |
+| Status | Message       | Action                                            |
+|--------|---------------|---------------------------------------------------|
+| `0xF0` | SysEx Start   | Set SysEx-in-progress flag; check manufacturer ID |
+| `0xF2` | Song Position | Set running status, capture LSB                   |
+| `0xF3` | Song Select   | Queue to sequencer                                |
 
 **SysEx manufacturer ID filtering:** After `0xF0`, the next byte is checked against three accepted manufacturer IDs:
 - `0x50` (Technics/Panasonic)
@@ -194,14 +194,14 @@ Called when new data is available for transmission:
 
 `MIDI_SYSTEM_MESSAGE_HANDLER` handles incoming real-time messages:
 
-| Byte | Message | Action |
-|------|---------|--------|
-| `0xF8` | Timing Clock | Process MIDI clock tick |
-| `0xFA` | Start | Reset playback position, arm sync |
-| `0xFB` | Continue | Resume from current position |
-| `0xFC` | Stop | Halt playback, save position |
-| `0xFE` | Active Sense | Set alive flag (DRAM 1063 bit 7) |
-| `0xFF` | System Reset | Ignored (in MIDI mode) |
+| Byte   | Message      | Action                            |
+|--------|--------------|-----------------------------------|
+| `0xF8` | Timing Clock | Process MIDI clock tick           |
+| `0xFA` | Start        | Reset playback position, arm sync |
+| `0xFB` | Continue     | Resume from current position      |
+| `0xFC` | Stop         | Halt playback, save position      |
+| `0xFE` | Active Sense | Set alive flag (DRAM 1063 bit 7)  |
+| `0xFF` | System Reset | Ignored (in MIDI mode)            |
 
 ### MIDI Clock Synchronization
 
@@ -231,10 +231,10 @@ The error correction in Source 2 computes a running delta between clock ticks an
 
 When external Start/Stop/Continue messages change the transport state, the firmware queues events to the internal sequencer:
 
-| Event | Code | Trigger |
-|-------|------|---------|
+| Event  | Code        | Trigger                          |
+|--------|-------------|----------------------------------|
 | `0x85` | Start/Reset | External Start (`0xFA`) received |
-| `0x86` | Stop | External Stop (`0xFC`) received |
+| `0x86` | Stop        | External Stop (`0xFC`) received  |
 
 Events are queued via `MIDI_QUEUE_EVENT_PAIR` which writes both the event code and the current sub-beat position to the sequencer FIFO (ring buffer at `0x1E753`, capacity checked against 2 entries minimum).
 
@@ -255,12 +255,12 @@ Above the interrupt-driven byte-level I/O, `MidiSerial_ProcessInput` (`0xFCF9AE`
 The 16-entry jump table at `MidiSerial_CmdJumpTable` covers the **system** messages
 `F0`-`FF`, indexed by the status byte's low nibble (reader `MidiRx_SystemMsgDispatch`):
 
-| Index | Status | Handler | Purpose |
-|-------|--------|---------|---------|
-| 0-1 | `F0`, `F1` | `MidiRx_SystemMsg_MarkIgnored` | sets bit 0 of RAM `0x428` |
-| 2 | `F2` | `MidiSerial_HandleSongPosition` | Song Position Pointer: data word to RAM `0x42D`/`0x42E` (bit 7 of the high byte set per `0xFD52` bit 2) |
-| 3 | `F3` | `MidiSerial_HandleSongSelect` | Song Select: data byte to RAM `0x42C` (bit 7 set per `0xFD51` bit 3) |
-| 4-15 | `F4`-`FF` | `MidiRx_SystemMsg_MarkIgnored` | sets bit 0 of RAM `0x428` |
+| Index | Status     | Handler                         | Purpose                                                                                                 |
+|-------|------------|---------------------------------|---------------------------------------------------------------------------------------------------------|
+| 0-1   | `F0`, `F1` | `MidiRx_SystemMsg_MarkIgnored`  | sets bit 0 of RAM `0x428`                                                                               |
+| 2     | `F2`       | `MidiSerial_HandleSongPosition` | Song Position Pointer: data word to RAM `0x42D`/`0x42E` (bit 7 of the high byte set per `0xFD52` bit 2) |
+| 3     | `F3`       | `MidiSerial_HandleSongSelect`   | Song Select: data byte to RAM `0x42C` (bit 7 set per `0xFD51` bit 3)                                    |
+| 4-15  | `F4`-`FF`  | `MidiRx_SystemMsg_MarkIgnored`  | sets bit 0 of RAM `0x428`                                                                               |
 
 Slots 2 and 3 were earlier labelled `MidiSerial_HandleSysReset_Data` / `_HandleSysCommon_Data`.
 The midi lane renamed them in September 2026 from the status bytes that reach them

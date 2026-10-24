@@ -162,11 +162,11 @@ The proposed route is the one the main-CPU v7/v9/v10 trees already use: start fr
 v142 source and reconcile against the v141 ROM. The raw byte diff looks daunting but is
 not — most of it is address-constant ripple that symbolic assembly absorbs for free:
 
-| Pair | Differing bytes | Contiguous runs |
-|------|----------------:|----------------:|
-| v1.40 ↔ v1.41 | 56,018 | 2,508 |
-| v1.41 ↔ v1.42 | 124,033 | 2,875 |
-| v1.40 ↔ v1.42 | 124,032 | 2,590 |
+| Pair          | Differing bytes | Contiguous runs |
+|---------------|----------------:|----------------:|
+| v1.40 ↔ v1.41 | 56,018          | 2,508           |
+| v1.41 ↔ v1.42 | 124,033         | 2,875           |
+| v1.40 ↔ v1.42 | 124,032         | 2,590           |
 
 v1.40 is much closer to v1.41 than to v1.42, so a future v1.40 tree should be diffed
 against v1.41 rather than against the current target.

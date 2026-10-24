@@ -26,12 +26,12 @@ below Phase 5 assumes zero physical access.
 The project has never defined this, which is why "working" has meant different things on different
 pages. Four grades, applied per **model × subsystem**:
 
-| grade | criterion |
-|---|---|
-| **G0 — structural** | Every register and bit the firmware writes is decoded, or explicitly listed as undecoded. A committed script asserts it, with its expected output recorded. |
-| **G1 — behavioural** | The firmware cannot tell. It passes **its own factory service diagnostics inside the emulator**, showing the same values a real unit shows. |
-| **G2 — signal** | A committed golden capture with a criterion that *can fail*: a positive control that must differ, a null that must not, and a stated tolerance (pitch ±5 cents, envelope times ±10 %). |
-| **G3 — provenance** | No `BAD_DUMP`, synthetic, or donor content anywhere in the path being claimed. |
+| grade                | criterion                                                                                                                                                                              |
+|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **G0 — structural**  | Every register and bit the firmware writes is decoded, or explicitly listed as undecoded. A committed script asserts it, with its expected output recorded.                            |
+| **G1 — behavioural** | The firmware cannot tell. It passes **its own factory service diagnostics inside the emulator**, showing the same values a real unit shows.                                            |
+| **G2 — signal**      | A committed golden capture with a criterion that *can fail*: a positive control that must differ, a null that must not, and a stated tolerance (pitch ±5 cents, envelope times ±10 %). |
+| **G3 — provenance**  | No `BAD_DUMP`, synthetic, or donor content anywhere in the path being claimed.                                                                                                         |
 
 A model is **done** when every subsystem is G2 and G3.
 
@@ -120,10 +120,10 @@ therefore carries the KN5000's PCM tone generator, with the modelling LSI feedin
 
 Measured asset sharing (`technics_roms/tools/wsa1_kinship.py`):
 
-| measurement | result | null |
-|---|---|---|
-| WSA1 16-char tone-name fields also in the KN7000 table ROM | **195 / 252 (77.4 %)** | — |
-| KN5000 sub-CPU payload bytes verbatim in the WSA1 | **31,046 B in 588 runs (15.8 %)** | **0 B** on an unrelated ROM |
+| measurement                                                | result                            | null                        |
+|------------------------------------------------------------|-----------------------------------|-----------------------------|
+| WSA1 16-char tone-name fields also in the KN7000 table ROM | **195 / 252 (77.4 %)**            | —                           |
+| KN5000 sub-CPU payload bytes verbatim in the WSA1          | **31,046 B in 588 runs (15.8 %)** | **0 B** on an unrelated ROM |
 
 Where it **breaks down**, and this matters as much: the WSA1 has **no MILK toolkit**, a different
 vendor codepage (`¿` = `0xBB` not `0xBF`), a different text engine, an Epson SED1330 mono LCD

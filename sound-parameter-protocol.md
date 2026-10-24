@@ -187,11 +187,11 @@ the bodies agree (0x81 stores `(value - 0x80) × 2` and refreshes the sounding p
 
 The 16-bit word at offset +0x72 is a bitfield shared by multiple CC handlers:
 
-| Bit | CC | Meaning | Set mask | Clear mask |
-|-----|-----|---------|----------|------------|
-| 0 | 0x40 | Sustain pedal on | 0x0001 | 0xFFFE |
-| 2 | 0x95 | Chorus enable | 0x0004 | 0xFFFB |
-| 14 | (0x5E chain) | Alt sustain mode | 0x4000 | 0xBFFF |
+| Bit | CC           | Meaning          | Set mask | Clear mask |
+|-----|--------------|------------------|----------|------------|
+| 0   | 0x40         | Sustain pedal on | 0x0001   | 0xFFFE     |
+| 2   | 0x95         | Chorus enable    | 0x0004   | 0xFFFB     |
+| 14  | (0x5E chain) | Alt sustain mode | 0x4000   | 0xBFFF     |
 
 ### Volume and Expression: Lookup Table
 
@@ -369,30 +369,30 @@ The values 0x63 and 0x64 that the preset loaders use are not command bytes: `Rev
 
 Effect names are 18-byte entries (16 chars + NUL + 0xFF) in `DspEffectName_Strings` (0xE32C7A, 128 entries, stored in descending effect order). The rows below are the tail of that block, from 0xE331E4 (effect 50) on:
 
-| Flat Index | Address | Name | Category |
-|------------|---------|------|----------|
-| 0x00 | E331E4 | VIBRATO | Modulation |
-| 0x01 | E331F6 | PITCH SHIFTER | Modulation |
-| 0x02 | E33208 | AUTO PAN | Modulation |
-| 0x05 | E3323E | CELM | Internal |
-| 0x06 | E33250 | CEL | Internal |
-| 0x0B | E332AA | PARAMETRIC EQ | EQ |
-| 0x0C | E332BC | NOISE FLANGER | Modulation |
-| 0x0D | E332CE | SLOW ATTACKER | Dynamics |
-| 0x0E | E332E0 | COMPRESSOR | Dynamics |
-| 0x0F | E332F2 | EXCITER | Dynamics |
-| 0x10 | E33304 | FUZZ | Distortion |
-| 0x11 | E33316 | OVERDRIVE | Distortion |
-| 0x12 | E33328 | DISTORTION | Distortion |
-| 0x17 | E33382 | WAVE REVERB 2 | Reverb |
-| 0x18 | E33394 | WAVE REVERB 1 | Reverb |
-| 0x19-0x22 | E333A6-E33448 | *(10 more reverbs)* | Reverb |
-| 0x23 | E3345A | ROCK ROTARY | Modulation |
-| 0x27 | E334A2 | MODULATION DELAY | Delay |
-| 0x28 | E334B4 | MULTI TAP DELAY | Delay |
-| 0x29 | E334C6 | SINGLE DELAY | Delay |
-| 0x2A | E334D8 | GATED REVERB | Reverb |
-| 0x2C-0x32 | E334FC-E33568 | ENSEMBLE..NO OPERATION | Various |
+| Flat Index | Address       | Name                   | Category   |
+|------------|---------------|------------------------|------------|
+| 0x00       | E331E4        | VIBRATO                | Modulation |
+| 0x01       | E331F6        | PITCH SHIFTER          | Modulation |
+| 0x02       | E33208        | AUTO PAN               | Modulation |
+| 0x05       | E3323E        | CELM                   | Internal   |
+| 0x06       | E33250        | CEL                    | Internal   |
+| 0x0B       | E332AA        | PARAMETRIC EQ          | EQ         |
+| 0x0C       | E332BC        | NOISE FLANGER          | Modulation |
+| 0x0D       | E332CE        | SLOW ATTACKER          | Dynamics   |
+| 0x0E       | E332E0        | COMPRESSOR             | Dynamics   |
+| 0x0F       | E332F2        | EXCITER                | Dynamics   |
+| 0x10       | E33304        | FUZZ                   | Distortion |
+| 0x11       | E33316        | OVERDRIVE              | Distortion |
+| 0x12       | E33328        | DISTORTION             | Distortion |
+| 0x17       | E33382        | WAVE REVERB 2          | Reverb     |
+| 0x18       | E33394        | WAVE REVERB 1          | Reverb     |
+| 0x19-0x22  | E333A6-E33448 | *(10 more reverbs)*    | Reverb     |
+| 0x23       | E3345A        | ROCK ROTARY            | Modulation |
+| 0x27       | E334A2        | MODULATION DELAY       | Delay      |
+| 0x28       | E334B4        | MULTI TAP DELAY        | Delay      |
+| 0x29       | E334C6        | SINGLE DELAY           | Delay      |
+| 0x2A       | E334D8        | GATED REVERB           | Reverb     |
+| 0x2C-0x32  | E334FC-E33568 | ENSEMBLE..NO OPERATION | Various    |
 
 (Unused/placeholder entries with "----------" at indices 0x03-0x04, 0x07-0x0A, 0x13-0x16, 0x24-0x26, 0x2B omitted.)
 
@@ -400,43 +400,43 @@ Effect names are 18-byte entries (16 chars + NUL + 0xFF) in `DspEffectName_Strin
 
 The firmware does NOT use the flat name table index as the DSP algorithm ID. Instead, it uses an **indirect pointer table** at `0xE32A7A` (`DspEffectName_PtrTable`, 128 entries of 4 bytes; algorithm IDs 0-39 are listed here). This table maps DSP algorithm IDs (0-39) to name table entries in **reverse display order**:
 
-| Algo ID | Name | Category |
-|---------|------|----------|
-| 0 | NO OPERATION | None |
-| 1 | CHORUS | Modulation |
-| 2 | MODULATED CHORUS | Modulation |
-| 3 | ENHANCER | Dynamics |
-| 4 | FLANGER | Modulation |
-| 5 | PHASER | Modulation |
-| 6 | ENSEMBLE | Modulation |
-| 7 | *(reserved)* | - |
-| 8 | GATED REVERB | Reverb |
-| 9 | SINGLE DELAY | Delay |
-| 10 | MULTI TAP DELAY | Delay |
-| 11 | MODULATION DELAY | Delay |
-| 12-14 | *(reserved)* | - |
-| 15 | ROCK ROTARY | Modulation |
-| **16** | **ROOM REVERB 1** | **Reverb** |
-| **17** | **ROOM REVERB 2** | **Reverb** |
-| **18** | **PLATE REVERB 1** | **Reverb** |
-| **19** | **PLATE REVERB 2** | **Reverb** |
-| **20** | **CONCERT REVERB 1** | **Reverb** |
-| **21** | **CONCERT REVERB 2** | **Reverb** |
-| **22** | **DARK REVERB 1** | **Reverb** |
-| **23** | **DARK REVERB 2** | **Reverb** |
-| **24** | **BRIGHT REVERB 1** | **Reverb** |
-| **25** | **BRIGHT REVERB 2** | **Reverb** |
-| **26** | **WAVE REVERB 1** | **Reverb** |
-| **27** | **WAVE REVERB 2** | **Reverb** |
-| 28-31 | *(reserved)* | - |
-| 32 | DISTORTION | Distortion |
-| 33 | OVERDRIVE | Distortion |
-| 34 | FUZZ | Distortion |
-| 35 | EXCITER | Dynamics |
-| 36 | COMPRESSOR | Dynamics |
-| 37 | SLOW ATTACKER | Dynamics |
-| 38 | NOISE FLANGER | Modulation |
-| 39 | PARAMETRIC EQ | EQ |
+| Algo ID | Name                 | Category   |
+|---------|----------------------|------------|
+| 0       | NO OPERATION         | None       |
+| 1       | CHORUS               | Modulation |
+| 2       | MODULATED CHORUS     | Modulation |
+| 3       | ENHANCER             | Dynamics   |
+| 4       | FLANGER              | Modulation |
+| 5       | PHASER               | Modulation |
+| 6       | ENSEMBLE             | Modulation |
+| 7       | *(reserved)*         | -          |
+| 8       | GATED REVERB         | Reverb     |
+| 9       | SINGLE DELAY         | Delay      |
+| 10      | MULTI TAP DELAY      | Delay      |
+| 11      | MODULATION DELAY     | Delay      |
+| 12-14   | *(reserved)*         | -          |
+| 15      | ROCK ROTARY          | Modulation |
+| **16**  | **ROOM REVERB 1**    | **Reverb** |
+| **17**  | **ROOM REVERB 2**    | **Reverb** |
+| **18**  | **PLATE REVERB 1**   | **Reverb** |
+| **19**  | **PLATE REVERB 2**   | **Reverb** |
+| **20**  | **CONCERT REVERB 1** | **Reverb** |
+| **21**  | **CONCERT REVERB 2** | **Reverb** |
+| **22**  | **DARK REVERB 1**    | **Reverb** |
+| **23**  | **DARK REVERB 2**    | **Reverb** |
+| **24**  | **BRIGHT REVERB 1**  | **Reverb** |
+| **25**  | **BRIGHT REVERB 2**  | **Reverb** |
+| **26**  | **WAVE REVERB 1**    | **Reverb** |
+| **27**  | **WAVE REVERB 2**    | **Reverb** |
+| 28-31   | *(reserved)*         | -          |
+| 32      | DISTORTION           | Distortion |
+| 33      | OVERDRIVE            | Distortion |
+| 34      | FUZZ                 | Distortion |
+| 35      | EXCITER              | Dynamics   |
+| 36      | COMPRESSOR           | Dynamics   |
+| 37      | SLOW ATTACKER        | Dynamics   |
+| 38      | NOISE FLANGER        | Modulation |
+| 39      | PARAMETRIC EQ        | EQ         |
 
 The display code at `DspItem0_DisplayEffectName` (F355F3) resolves names by: `name_ptr = pointer_table[algo_id]`, then copies the 16-char string to the widget display buffer.
 
@@ -456,13 +456,13 @@ Block layout (4 blocks × 128 bytes):
 
 **Block 1 — DSP1 Per-Category Name Indices (E446DC):**
 
-| Row | ROM Addr | Category | Slot 0 | Slot 1 | Slot 2 | Slot 3 | Slot 4 | Slot 5 | Slot 6 | Slot 7 |
-|-----|----------|----------|--------|--------|--------|--------|--------|--------|--------|--------|
-| 0 | E446DC | Distortion/Dynamics | FF | VOLUME | REV SEND | DRIVE | ADJUST | EMPH.GAIN | DEPTH | VOLUME |
-| 2 | E446FC | Rotary (treble) | SLOW LFO | FAST LFO | RESONANCE | MANUAL | SLOW/FAST | TREB.FAST | - | SLOW |
-| 3 | E4470C | Rotary (bass) | WIND UP | - | WIND DN | - | BASS FAST | BASS SLOW | OSC SPD | - |
-| 4 | E4471C | Delay/Chorus/Flng/Phs | DELAY L | DELAY R | FEEDBACK L | DRY/WET D | DRY/WET C | - | DRY/WET F | DRY/WET P |
-| **6** | **E4473C** | **Reverb** | **REV TIME** | **PRE DLY** | **HI DAMP** | **ER.LEVEL** | - | - | - | - |
+| Row   | ROM Addr   | Category              | Slot 0       | Slot 1      | Slot 2      | Slot 3       | Slot 4    | Slot 5    | Slot 6    | Slot 7    |
+|-------|------------|-----------------------|--------------|-------------|-------------|--------------|-----------|-----------|-----------|-----------|
+| 0     | E446DC     | Distortion/Dynamics   | FF           | VOLUME      | REV SEND    | DRIVE        | ADJUST    | EMPH.GAIN | DEPTH     | VOLUME    |
+| 2     | E446FC     | Rotary (treble)       | SLOW LFO     | FAST LFO    | RESONANCE   | MANUAL       | SLOW/FAST | TREB.FAST | -         | SLOW      |
+| 3     | E4470C     | Rotary (bass)         | WIND UP      | -           | WIND DN     | -            | BASS FAST | BASS SLOW | OSC SPD   | -         |
+| 4     | E4471C     | Delay/Chorus/Flng/Phs | DELAY L      | DELAY R     | FEEDBACK L  | DRY/WET D    | DRY/WET C | -         | DRY/WET F | DRY/WET P |
+| **6** | **E4473C** | **Reverb**            | **REV TIME** | **PRE DLY** | **HI DAMP** | **ER.LEVEL** | -         | -         | -         | -         |
 
 (Rows 1, 5, 7 are empty/unused. Name abbreviations from parameter name table at E324C4.)
 
@@ -486,22 +486,22 @@ below are now carved and labelled in the disassembly as `DspParamName_Table` /
 tables that sit beside them are on
 [DSP Name Tables (Main CPU)]({{ site.baseurl }}/dsp-name-tables/). Key entries:
 
-| Index | Name | Typical Unit | Used by |
-|-------|------|-------------|---------|
-| 0x01 | VOLUME | - | Distortion/Dynamics |
-| 0x03 | REV SEND | - | Distortion/Dynamics |
-| 0x04 | DRIVE | - | Distortion/Dynamics |
-| 0x07 | DEPTH | - | Modulation effects |
-| 0x08 | LFO SPEED | Hz | Modulation effects |
-| 0x16-0x17 | DELAY L / DELAY R | ms | Delay effects |
-| 0x18-0x19 | FEEDBACK L / FEEDBACK R | - | Delay effects |
-| 0x1A-0x1D | DRY/WET (Delay/Chorus/Flanger/Phaser) | - | Various |
-| **0x22** | **REVERB TIME** | **s** | **Reverb** |
-| **0x23** | **PRE DELAY** | **ms** | **Reverb** |
-| **0x24** | **HIGH DAMP GAIN** | - | **Reverb** |
-| **0x25** | **ER.LEVEL** | - | **Reverb** |
-| 0x26-0x27 | PITCH L / PITCH R | - | Pitch shifter |
-| 0x28-0x2D | THRESHOLD / RATIO / ATTACK / RELEASE / SENS. / RATE | - | Compressor/Gate |
+| Index     | Name                                                | Typical Unit | Used by             |
+|-----------|-----------------------------------------------------|--------------|---------------------|
+| 0x01      | VOLUME                                              | -            | Distortion/Dynamics |
+| 0x03      | REV SEND                                            | -            | Distortion/Dynamics |
+| 0x04      | DRIVE                                               | -            | Distortion/Dynamics |
+| 0x07      | DEPTH                                               | -            | Modulation effects  |
+| 0x08      | LFO SPEED                                           | Hz           | Modulation effects  |
+| 0x16-0x17 | DELAY L / DELAY R                                   | ms           | Delay effects       |
+| 0x18-0x19 | FEEDBACK L / FEEDBACK R                             | -            | Delay effects       |
+| 0x1A-0x1D | DRY/WET (Delay/Chorus/Flanger/Phaser)               | -            | Various             |
+| **0x22**  | **REVERB TIME**                                     | **s**        | **Reverb**          |
+| **0x23**  | **PRE DELAY**                                       | **ms**       | **Reverb**          |
+| **0x24**  | **HIGH DAMP GAIN**                                  | -            | **Reverb**          |
+| **0x25**  | **ER.LEVEL**                                        | -            | **Reverb**          |
+| 0x26-0x27 | PITCH L / PITCH R                                   | -            | Pitch shifter       |
+| 0x28-0x2D | THRESHOLD / RATIO / ATTACK / RELEASE / SENS. / RATE | -            | Compressor/Gate     |
 
 A companion unit suffix table at **0xE32418** (86 entries × 2 bytes ASCII, one index shared with the name table) provides the display unit for each parameter. Only four values occur in the whole table: `"  "` (55 slots), `"Hz"` (13), `"ms"` (11) and `"s "` (7) — the one-character units are padded with a trailing **space**, not a NUL.
 
@@ -509,18 +509,18 @@ A companion unit suffix table at **0xE32418** (86 entries × 2 bytes ASCII, one 
 
 All 10 reverb presets stored contiguously at 0xEDA6EC (24 bytes each, 240 bytes total). The pointer table at 0xEDB36C indexes into this region.
 
-| Preset | Algo ID | Algorithm Name | REV TIME | (pad) | PRE DLY | HI DAMP | ER.LVL | Param5 | Param6 | Param7 | B22 |
-|--------|---------|---------------|----------|-------|---------|---------|--------|--------|--------|--------|-----|
-| 0 | 0x11 (17) | ROOM REVERB 2 | 50 | 0 | 12 | 20 | 50 | 93 | 0 | 0 | 99 |
-| 1 | 0x10 (16) | ROOM REVERB 1 | 24 | 0 | 97 | 24 | 99 | 94 | 0 | 0 | 99 |
-| 2 | 0x12 (18) | PLATE REVERB 1 | 2 | 0 | 45 | 12 | 50 | 80 | 0 | 0 | 99 |
-| 3 | 0x14 (20) | CONCERT REVERB 1 | 46 | 0 | 29 | 20 | 58 | 80 | 0 | 0 | 99 |
-| 4 | 0x15 (21) | CONCERT REVERB 2 | 32 | 0 | 60 | 24 | 80 | 78 | 0 | 0 | 99 |
-| 5 | 0x16 (22) | DARK REVERB 1 | 20 | 0 | 21 | 24 | 52 | 73 | 0 | 0 | 99 |
-| 6 | 0x18 (24) | BRIGHT REVERB 1 | 33 | 0 | 2 | 0 | 96 | 79 | 0 | 0 | 99 |
-| 7 | 0x19 (25) | BRIGHT REVERB 2 | 43 | 0 | 26 | 0 | 5 | 58 | 0 | 0 | 99 |
-| 8 | 0x1A (26) | WAVE REVERB 1 | 15 | 0 | 17 | 21 | 23 | 79 | 0 | 0 | 99 |
-| 9 | 0x1B (27) | WAVE REVERB 2 | 60 | 0 | 26 | 18 | 50 | 86 | 18 | 84 | 99 |
+| Preset | Algo ID   | Algorithm Name   | REV TIME | (pad) | PRE DLY | HI DAMP | ER.LVL | Param5 | Param6 | Param7 | B22 |
+|--------|-----------|------------------|----------|-------|---------|---------|--------|--------|--------|--------|-----|
+| 0      | 0x11 (17) | ROOM REVERB 2    | 50       | 0     | 12      | 20      | 50     | 93     | 0      | 0      | 99  |
+| 1      | 0x10 (16) | ROOM REVERB 1    | 24       | 0     | 97      | 24      | 99     | 94     | 0      | 0      | 99  |
+| 2      | 0x12 (18) | PLATE REVERB 1   | 2        | 0     | 45      | 12      | 50     | 80     | 0      | 0      | 99  |
+| 3      | 0x14 (20) | CONCERT REVERB 1 | 46       | 0     | 29      | 20      | 58     | 80     | 0      | 0      | 99  |
+| 4      | 0x15 (21) | CONCERT REVERB 2 | 32       | 0     | 60      | 24      | 80     | 78     | 0      | 0      | 99  |
+| 5      | 0x16 (22) | DARK REVERB 1    | 20       | 0     | 21      | 24      | 52     | 73     | 0      | 0      | 99  |
+| 6      | 0x18 (24) | BRIGHT REVERB 1  | 33       | 0     | 2       | 0       | 96     | 79     | 0      | 0      | 99  |
+| 7      | 0x19 (25) | BRIGHT REVERB 2  | 43       | 0     | 26      | 0       | 5      | 58     | 0      | 0      | 99  |
+| 8      | 0x1A (26) | WAVE REVERB 1    | 15       | 0     | 17      | 21      | 23     | 79     | 0      | 0      | 99  |
+| 9      | 0x1B (27) | WAVE REVERB 2    | 60       | 0     | 26      | 18      | 50     | 86     | 18     | 84     | 99  |
 
 **24-byte preset block structure:**
 - **B0:** DSP algorithm ID (0x10-0x1B for reverb types)
@@ -629,20 +629,20 @@ Second set: 0x47, 0x57, 0x67, 0x77, 0x87, 0x97, 0xA7, 0xB7
 
 The pointer table at 0xE32A7A has **128 entries**; beyond the 40 above, the ones in use cover combination effects and the graphic EQ:
 
-| Algo ID Range | Category |
-|---------------|----------|
-| 0 | NO OPERATION |
-| 1-6 | Modulation (Chorus, Mod.Chorus, Enhancer, Flanger, Phaser, Ensemble) |
-| 8 | GATED REVERB |
-| 9-11 | Delays (Single, Multi-tap, Modulation) |
-| 15 | ROCK ROTARY |
-| 16-27 | Reverbs (Room/Plate/Concert/Dark/Bright/Wave × 1/2) |
-| 32-39 | Distortion/Dynamics (Dist, OD, Fuzz, Exciter, Comp, SlowAtk, NoiseFlng, PEQ) |
-| 44-45 | CEL, CELM |
-| 48-56 | Extended (AutoPan, PitchShift, Vibrato, PedalWah, AutoWah, RotarySpeaker, RingMod, HARS, MixUp) |
-| 57-60, 63 | Presets (Standard, Percussive, Symphonic, Deep Space, String) |
-| 64-75 | Combination effects (e.g., S.DELAY+CHORUS, PEQ+COMPRESSOR) |
-| 79 | GEQ (Graphic EQ) |
+| Algo ID Range | Category                                                                                        |
+|---------------|-------------------------------------------------------------------------------------------------|
+| 0             | NO OPERATION                                                                                    |
+| 1-6           | Modulation (Chorus, Mod.Chorus, Enhancer, Flanger, Phaser, Ensemble)                            |
+| 8             | GATED REVERB                                                                                    |
+| 9-11          | Delays (Single, Multi-tap, Modulation)                                                          |
+| 15            | ROCK ROTARY                                                                                     |
+| 16-27         | Reverbs (Room/Plate/Concert/Dark/Bright/Wave × 1/2)                                             |
+| 32-39         | Distortion/Dynamics (Dist, OD, Fuzz, Exciter, Comp, SlowAtk, NoiseFlng, PEQ)                    |
+| 44-45         | CEL, CELM                                                                                       |
+| 48-56         | Extended (AutoPan, PitchShift, Vibrato, PedalWah, AutoWah, RotarySpeaker, RingMod, HARS, MixUp) |
+| 57-60, 63     | Presets (Standard, Percussive, Symphonic, Deep Space, String)                                   |
+| 64-75         | Combination effects (e.g., S.DELAY+CHORUS, PEQ+COMPRESSOR)                                      |
+| 79            | GEQ (Graphic EQ)                                                                                |
 
 ### Key Addresses Summary (DSP Path)
 

@@ -48,13 +48,13 @@ Work DRAM is volatile, so `Boot_InitWorkRAM` (called from `RESET_HANDLER`
 before anything else) prepares it. It zero-fills two blocks and then copies two
 **ROM images of initialised RAM**:
 
-| Step | Source (program ROM) | Destination (DRAM) | Length |
-|------|----------------------|--------------------|-------:|
-| zero | — | `0x010000 - 0x03D523` | 0x2D524 |
-| zero | — | `0x000400 - 0x00E35C` (v7: to `0x00E2C0`) | 0xDF5D (v7: 0xDEC1) |
-| image 1 | `0xEED8C8` (`WorkRamInit_Image`) | `0x03D524 - 0x03F6C1` | 0x219E (8,606) |
-| image 2 | `0xEEFA66` | `0x00E35E - 0x00ECB8` | 0x95B (2,395) |
-| image 2, **v7** | `0xEEFA66` | `0x00E2C2 - 0x00EBF2` | 0x931 (2,353) |
+| Step            | Source (program ROM)             | Destination (DRAM)                        | Length              |
+|-----------------|----------------------------------|-------------------------------------------|--------------------:|
+| zero            | —                                | `0x010000 - 0x03D523`                     | 0x2D524             |
+| zero            | —                                | `0x000400 - 0x00E35C` (v7: to `0x00E2C0`) | 0xDF5D (v7: 0xDEC1) |
+| image 1         | `0xEED8C8` (`WorkRamInit_Image`) | `0x03D524 - 0x03F6C1`                     | 0x219E (8,606)      |
+| image 2         | `0xEEFA66`                       | `0x00E35E - 0x00ECB8`                     | 0x95B (2,395)       |
+| image 2, **v7** | `0xEEFA66`                       | `0x00E2C2 - 0x00EBF2`                     | 0x931 (2,353)       |
 
 The image-1 source address and length are the same in v7, v9 and v10. Image 2
 is where v7 differs: its destination is 0x9C lower and it is 42 bytes shorter.
@@ -109,70 +109,70 @@ top-level map as recorded in `table_data/kn5000_table_data.s`; see
 [Table Data ROM]({{ site.baseurl }}/table-data-rom/) for per-region detail and
 [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/) for conversion status.
 
-| Address Range | Contents | Source module |
-|---------------|----------|---------------|
-| `0x800000 - 0x82FFFF` | Section directory (34 LE32 entries: 33 targets + null) and 26 8bpp bitmaps, each byte-identical to a program-ROM image. Not preset data — see [Table Data ROM]({{ site.baseurl }}/table-data-rom/) | `preset_banks.s` |
-| `0x830000 - 0x8324D3` | Tone database directory, bank maps, 629-entry tone-record offset table | `tone_database_directory.s` |
-| `0x8324D4 - 0x855A47` | 579 tone/voice records | `tone_database_records.s` |
-| `0x855A48 - 0x87FFEF` | Drum kits, percussion and name lists, envelope data | `tone_database_aux.s` |
-| `0x87FFF0 - 0x8CFFFF` | Feature Demo data (SSF file, BMP bitmaps, file entries) | `kn5000_table_data.s` |
-| `0x8D0000 - 0x8DFFFF` | Unused (0xFF fill) | — |
-| `0x8E0000 - 0x8ECFFF` | SLIDE4K compressed preset block (demo preset 18, the Feature Presentation) | `kn5000_table_data.s` |
-| `0x8ED000 - 0x912FFF` | Two 320×240 8bpp wallpapers, each followed by a 1KB trailer of 16-entry `{r,g,b,0}` shade ramps | `kn5000_table_data.s` |
-| `0x913000 - 0x91CFFF` | UI bitmap descriptor table (34 entries) + 8bpp pixel runs | `ui_bitmaps.s` |
-| `0x91D000 - 0x933FFF` | Section banks 6 and 28-32: factory UI images (Technics logo, KN5000 picture, note/drum-edit backgrounds) | `ui_bitmaps.s` |
-| `0x934000 - 0x937FFF` | UI frame-piece descriptor table (53 entries) + pixel runs | `ui_bitmaps.s` |
-| `0x938000 - 0x938587` | Icon descriptor table (176 entries + terminator) | `kn5000_table_data.s` |
-| `0x938588 - 0x944D77` | Icon pixel data (176 × 24×24 4bpp, plus one unreferenced "E.L.S." signature icon) | `kn5000_table_data.s` |
-| `0x945C00 - 0x945CAF` | Font descriptor table (10 fonts × 16 bytes + null slot) | `fonts.s` |
-| `0x945CB0 - 0x950A5F` | Font glyph bitmaps (1bpp, characters 0x20-0xFF per font) | `fonts.s` |
-| `0x951000 - 0x98156F` | Music Stylist preset records (1000 × 198 bytes) | `style_records.s` |
-| `0x981570 - 0x983B39` | Unreferenced residue after the record grid, plus a ramp remnant | `style_records.s` |
-| `0x983B3A - 0x985FFF` | Stale, truncated SLIDE8K help database (superseded German revision) | `help_databases.s` |
-| `0x986000 - 0x986FFF` | Music Stylist pointer table (UI states 0xC2/0xC5) | `style_record_ptr_tables.s` |
-| `0x987000 - 0x987FFF` | Music Stylist pointer table (all other UI states) | `style_record_ptr_tables.s` |
-| `0x988000 - 0x98868F` | Help language index (two 6-entry pointer tables) + intro strings | `help_databases.s` |
-| `0x988690 - 0x9999CB` | Five SLIDE8K help databases (EN, DE, FR, ES, Indonesian) | `help_databases.s` |
-| `0x99EC00 - 0x99EC9F` | Panel Memory factory bank names (10 × 16 chars) | `panel_memory_presets.s` |
-| `0x99ECA0 - 0x9ABF3F` | Panel Memory factory presets (80 × 674-byte chunk records) | `panel_memory_presets.s` |
-| `0x9B4000 - 0x9C3FFF` | Composer factory user-style memory image (copied to RAM 0x94800) | `kn5000_table_data.s` |
-| `0x9C4000 - 0x9C404F` | Demo song preset pointer table (19 LE32 entries + null) | `kn5000_table_data.s` |
-| `0x9C4050 - 0x9F94CA` | SLIDE4K compressed demo song presets, entries 0-17 (0xFF fill from 0x9F94CB) | `kn5000_table_data.s` |
-| `0x9FA000 - 0x9FA14F` | File identifier strings (floppy disk format IDs) | `kn5000_table_data.s` |
-| `0x9FA150 - 0x9FB495` | Boot screen bitmaps (1bpp, 224×22) | `kn5000_table_data.s` |
-| `0x9FB496 - 0x9FFFFF` | First-stage bootloader: dispatch tables, init, FDC driver, CP-serial driver, C runtime, IVT | see below |
+| Address Range         | Contents                                                                                                                                                                                           | Source module               |
+|-----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------|
+| `0x800000 - 0x82FFFF` | Section directory (34 LE32 entries: 33 targets + null) and 26 8bpp bitmaps, each byte-identical to a program-ROM image. Not preset data — see [Table Data ROM]({{ site.baseurl }}/table-data-rom/) | `preset_banks.s`            |
+| `0x830000 - 0x8324D3` | Tone database directory, bank maps, 629-entry tone-record offset table                                                                                                                             | `tone_database_directory.s` |
+| `0x8324D4 - 0x855A47` | 579 tone/voice records                                                                                                                                                                             | `tone_database_records.s`   |
+| `0x855A48 - 0x87FFEF` | Drum kits, percussion and name lists, envelope data                                                                                                                                                | `tone_database_aux.s`       |
+| `0x87FFF0 - 0x8CFFFF` | Feature Demo data (SSF file, BMP bitmaps, file entries)                                                                                                                                            | `kn5000_table_data.s`       |
+| `0x8D0000 - 0x8DFFFF` | Unused (0xFF fill)                                                                                                                                                                                 | —                           |
+| `0x8E0000 - 0x8ECFFF` | SLIDE4K compressed preset block (demo preset 18, the Feature Presentation)                                                                                                                         | `kn5000_table_data.s`       |
+| `0x8ED000 - 0x912FFF` | Two 320×240 8bpp wallpapers, each followed by a 1KB trailer of 16-entry `{r,g,b,0}` shade ramps                                                                                                    | `kn5000_table_data.s`       |
+| `0x913000 - 0x91CFFF` | UI bitmap descriptor table (34 entries) + 8bpp pixel runs                                                                                                                                          | `ui_bitmaps.s`              |
+| `0x91D000 - 0x933FFF` | Section banks 6 and 28-32: factory UI images (Technics logo, KN5000 picture, note/drum-edit backgrounds)                                                                                           | `ui_bitmaps.s`              |
+| `0x934000 - 0x937FFF` | UI frame-piece descriptor table (53 entries) + pixel runs                                                                                                                                          | `ui_bitmaps.s`              |
+| `0x938000 - 0x938587` | Icon descriptor table (176 entries + terminator)                                                                                                                                                   | `kn5000_table_data.s`       |
+| `0x938588 - 0x944D77` | Icon pixel data (176 × 24×24 4bpp, plus one unreferenced "E.L.S." signature icon)                                                                                                                  | `kn5000_table_data.s`       |
+| `0x945C00 - 0x945CAF` | Font descriptor table (10 fonts × 16 bytes + null slot)                                                                                                                                            | `fonts.s`                   |
+| `0x945CB0 - 0x950A5F` | Font glyph bitmaps (1bpp, characters 0x20-0xFF per font)                                                                                                                                           | `fonts.s`                   |
+| `0x951000 - 0x98156F` | Music Stylist preset records (1000 × 198 bytes)                                                                                                                                                    | `style_records.s`           |
+| `0x981570 - 0x983B39` | Unreferenced residue after the record grid, plus a ramp remnant                                                                                                                                    | `style_records.s`           |
+| `0x983B3A - 0x985FFF` | Stale, truncated SLIDE8K help database (superseded German revision)                                                                                                                                | `help_databases.s`          |
+| `0x986000 - 0x986FFF` | Music Stylist pointer table (UI states 0xC2/0xC5)                                                                                                                                                  | `style_record_ptr_tables.s` |
+| `0x987000 - 0x987FFF` | Music Stylist pointer table (all other UI states)                                                                                                                                                  | `style_record_ptr_tables.s` |
+| `0x988000 - 0x98868F` | Help language index (two 6-entry pointer tables) + intro strings                                                                                                                                   | `help_databases.s`          |
+| `0x988690 - 0x9999CB` | Five SLIDE8K help databases (EN, DE, FR, ES, Indonesian)                                                                                                                                           | `help_databases.s`          |
+| `0x99EC00 - 0x99EC9F` | Panel Memory factory bank names (10 × 16 chars)                                                                                                                                                    | `panel_memory_presets.s`    |
+| `0x99ECA0 - 0x9ABF3F` | Panel Memory factory presets (80 × 674-byte chunk records)                                                                                                                                         | `panel_memory_presets.s`    |
+| `0x9B4000 - 0x9C3FFF` | Composer factory user-style memory image (copied to RAM 0x94800)                                                                                                                                   | `kn5000_table_data.s`       |
+| `0x9C4000 - 0x9C404F` | Demo song preset pointer table (19 LE32 entries + null)                                                                                                                                            | `kn5000_table_data.s`       |
+| `0x9C4050 - 0x9F94CA` | SLIDE4K compressed demo song presets, entries 0-17 (0xFF fill from 0x9F94CB)                                                                                                                       | `kn5000_table_data.s`       |
+| `0x9FA000 - 0x9FA14F` | File identifier strings (floppy disk format IDs)                                                                                                                                                   | `kn5000_table_data.s`       |
+| `0x9FA150 - 0x9FB495` | Boot screen bitmaps (1bpp, 224×22)                                                                                                                                                                 | `kn5000_table_data.s`       |
+| `0x9FB496 - 0x9FFFFF` | First-stage bootloader: dispatch tables, init, FDC driver, CP-serial driver, C runtime, IVT                                                                                                        | see below                   |
 
 **Key tables the Main CPU reads from this ROM:**
 
-| Address | Table |
-|---------|-------|
-| `0x800000` | Section directory — 33 bitmap pointers. **No reader found** in any ROM held. Its accessor routines at `0x82F000` (`SectionInfo_SecNN`) return (base, width, height) |
-| `0x830000` | Tone database directory (see [Sub CPU](#tone-database-in-sub-cpu-ram) — the whole database is shipped to the sub CPU) |
-| `0x945C00` | Font descriptors — 10 fonts, 16 bytes each (w, h, descent, ascent, glyph ptr, kern ptr) |
-| `0x986000` / `0x987000` | Music Stylist preset pointers, selected by the current UI state ID (RAM `0x8D38`) |
-| `0x988000` | Help language index — 6 intro-string pointers + 6 SLIDE8K database pointers; slot 4 of each reuses English |
-| `0x9C4000` | Demo song presets — 19 pointers to SLIDE4K blocks; entry 18 is `0x008E0000` |
+| Address                 | Table                                                                                                                                                               |
+|-------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x800000`              | Section directory — 33 bitmap pointers. **No reader found** in any ROM held. Its accessor routines at `0x82F000` (`SectionInfo_SecNN`) return (base, width, height) |
+| `0x830000`              | Tone database directory (see [Sub CPU](#tone-database-in-sub-cpu-ram) — the whole database is shipped to the sub CPU)                                               |
+| `0x945C00`              | Font descriptors — 10 fonts, 16 bytes each (w, h, descent, ascent, glyph ptr, kern ptr)                                                                             |
+| `0x986000` / `0x987000` | Music Stylist preset pointers, selected by the current UI state ID (RAM `0x8D38`)                                                                                   |
+| `0x988000`              | Help language index — 6 intro-string pointers + 6 SLIDE8K database pointers; slot 4 of each reuses English                                                          |
+| `0x9C4000`              | Demo song presets — 19 pointers to SLIDE4K blocks; entry 18 is `0x008E0000`                                                                                         |
 
 ### First-Stage Bootloader Regions
 
-| Address Range | Contents |
-|---------------|----------|
-| `0x9FB496 - 0x9FB4D1` | Three FDC dispatch offset tables (for the `jp T,XIX+WA` sites) |
-| `0x9FB4D2 - 0x9FB4E7` | `Boot_BitMaskTable` (0x9FB4D2) + `Boot_InitParams` (0x9FB4DC) |
-| `0x9FB4E8 - 0x9FB7F1` | `Boot_Init`, halt handler, `Boot_ClearRAM` |
-| `0x9FC6F6 - 0x9FC8C1` | HD-AE5000 boot-flash programming tail |
+| Address Range         | Contents                                                                                                                       |
+|-----------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| `0x9FB496 - 0x9FB4D1` | Three FDC dispatch offset tables (for the `jp T,XIX+WA` sites)                                                                 |
+| `0x9FB4D2 - 0x9FB4E7` | `Boot_BitMaskTable` (0x9FB4D2) + `Boot_InitParams` (0x9FB4DC)                                                                  |
+| `0x9FB4E8 - 0x9FB7F1` | `Boot_Init`, halt handler, `Boot_ClearRAM`                                                                                     |
+| `0x9FC6F6 - 0x9FC8C1` | HD-AE5000 boot-flash programming tail                                                                                          |
 | `0x9FC8C2 - 0x9FCC29` | LZSS (SLIDE4K) decoder suite: `LZSS_ReadByte`, `LZSS_OutputByte`, `LZSS_OutputByte_Alt`, `LZSS_ParseHeader`, `LZSS_Decompress` |
-| `0x9FCC2A - 0x9FD8A4` | Flash-update main, bitmap/display helpers, VGA register I/O |
-| `0x9FD8A5 - 0x9FEA9C` | FDC command-layer driver (uPD72068 at IC208) — a compact port of the maincpu FDC driver |
-| `0x9FEA9D - 0x9FEB2A` | `BootTimer_InterruptHandler` (0x9FEA9D) and `Handler_INT4` (0x9FEAB2) |
-| `0x9FEB2B - 0x9FEC6D` | Floppy disk-format probe (`Boot_PulsePD0`, `FDC_ProbeDiskFormat`) |
-| `0x9FEC6E - 0x9FF228` | Boot-time CP-serial driver, polling/setup half |
-| `0x9FF229 - 0x9FF2F1` | Boot-time CP-serial ISRs (three handlers + two `.long` dispatch tables) |
-| `0x9FF2F2 - 0x9FFB2E` | Boot-time CP-serial state handlers and packet codecs |
-| `0x9FFB2F - 0x9FFE7F` | Boot C runtime (Toshiba `c900ml.lib`): first-fit heap (list head at RAM `0x0099A0`), `strncmp`, 32-bit divide/modulo |
-| `0x9FFE80 - 0x9FFEDF` | Debug character-output group — present but NOP-patched out in shipped firmware |
-| `0x9FFEE0 - 0x9FFEFF` | `RESET_HANDLER` |
-| `0x9FFF00 - 0x9FFFFF` | TMP94C241F interrupt vector table (entries hold boot-time `0xFFxxxx` addresses) |
+| `0x9FCC2A - 0x9FD8A4` | Flash-update main, bitmap/display helpers, VGA register I/O                                                                    |
+| `0x9FD8A5 - 0x9FEA9C` | FDC command-layer driver (uPD72068 at IC208) — a compact port of the maincpu FDC driver                                        |
+| `0x9FEA9D - 0x9FEB2A` | `BootTimer_InterruptHandler` (0x9FEA9D) and `Handler_INT4` (0x9FEAB2)                                                          |
+| `0x9FEB2B - 0x9FEC6D` | Floppy disk-format probe (`Boot_PulsePD0`, `FDC_ProbeDiskFormat`)                                                              |
+| `0x9FEC6E - 0x9FF228` | Boot-time CP-serial driver, polling/setup half                                                                                 |
+| `0x9FF229 - 0x9FF2F1` | Boot-time CP-serial ISRs (three handlers + two `.long` dispatch tables)                                                        |
+| `0x9FF2F2 - 0x9FFB2E` | Boot-time CP-serial state handlers and packet codecs                                                                           |
+| `0x9FFB2F - 0x9FFE7F` | Boot C runtime (Toshiba `c900ml.lib`): first-fit heap (list head at RAM `0x0099A0`), `strncmp`, 32-bit divide/modulo           |
+| `0x9FFE80 - 0x9FFEDF` | Debug character-output group — present but NOP-patched out in shipped firmware                                                 |
+| `0x9FFEE0 - 0x9FFEFF` | `RESET_HANDLER`                                                                                                                |
+| `0x9FFF00 - 0x9FFFFF` | TMP94C241F interrupt vector table (entries hold boot-time `0xFFxxxx` addresses)                                                |
 
 The boot-time CP-serial driver is a **separate implementation** from the runtime
 `CPanel_*` protocol stack in the program ROM; findings about one do not transfer to the
@@ -182,14 +182,14 @@ other. See [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/).
 
 ### Serial Channels
 
-| Register | Address | Description |
-|----------|---------|-------------|
-| `SC0BUF` | - | Serial Channel 0 Buffer |
-| `SC0CR` | - | Serial Channel 0 Control |
-| `SC0MOD` | - | Serial Channel 0 Mode |
-| `SC1BUF` | - | Serial Channel 1 Buffer |
-| `SC1CR` | - | Serial Channel 1 Control |
-| `SC1MOD` | - | Serial Channel 1 Mode |
+| Register | Address | Description              |
+|----------|---------|--------------------------|
+| `SC0BUF` | -       | Serial Channel 0 Buffer  |
+| `SC0CR`  | -       | Serial Channel 0 Control |
+| `SC0MOD` | -       | Serial Channel 0 Mode    |
+| `SC1BUF` | -       | Serial Channel 1 Buffer  |
+| `SC1CR`  | -       | Serial Channel 1 Control |
+| `SC1MOD` | -       | Serial Channel 1 Mode    |
 
 ### Timers
 
@@ -207,26 +207,26 @@ other. See [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/).
 
 DMA source (DMAS), destination (DMAD), count (DMAC), and mode (DMAM) registers are accessed via the `LDC` instruction with control register (CR) numbers. **Note:** TMP94C241 uses different CR numbers than TMP96C141/TMP95C063:
 
-| Register | TMP96C141 CR | TMP94C241 CR | Size |
-|----------|-------------|-------------|------|
-| DMAS0-3 | 0x00-0x0C | 0x00-0x0C | 32-bit (same) |
-| DMAD0-3 | 0x10-0x1C | 0x20-0x2C | 32-bit (different) |
-| DMAC0-3 | 0x20-0x2C | 0x40-0x4C | 16-bit (different) |
-| DMAM0-3 | 0x22-0x2E | 0x42-0x4E | 8-bit (different) |
+| Register | TMP96C141 CR | TMP94C241 CR | Size               |
+|----------|--------------|--------------|--------------------|
+| DMAS0-3  | 0x00-0x0C    | 0x00-0x0C    | 32-bit (same)      |
+| DMAD0-3  | 0x10-0x1C    | 0x20-0x2C    | 32-bit (different) |
+| DMAC0-3  | 0x20-0x2C    | 0x40-0x4C    | 16-bit (different) |
+| DMAM0-3  | 0x22-0x2E    | 0x42-0x4E    | 8-bit (different)  |
 
 **DMAM encoding (bits 4-0):**
 
-| Value | Source | Destination | Size |
-|-------|--------|-------------|------|
-| 0x00 | Fixed | Increment | Byte |
-| 0x01 | Fixed | Increment | Word |
-| 0x02 | Fixed | Increment | Long |
-| 0x04 | Fixed | Decrement | Byte |
-| 0x08 | Increment | Fixed | Byte |
-| 0x09 | Increment | Fixed | Word |
-| 0x0A | Increment | Fixed | Long |
-| 0x10 | Increment (counter only) | — | Byte |
-| 0x14 | Increment (counter only) | — | Byte |
+| Value | Source                   | Destination | Size |
+|-------|--------------------------|-------------|------|
+| 0x00  | Fixed                    | Increment   | Byte |
+| 0x01  | Fixed                    | Increment   | Word |
+| 0x02  | Fixed                    | Increment   | Long |
+| 0x04  | Fixed                    | Decrement   | Byte |
+| 0x08  | Increment                | Fixed       | Byte |
+| 0x09  | Increment                | Fixed       | Word |
+| 0x0A  | Increment                | Fixed       | Long |
+| 0x10  | Increment (counter only) | —           | Byte |
+| 0x14  | Increment (counter only) | —           | Byte |
 
 ### Interrupt Control
 
@@ -248,10 +248,10 @@ DMA source (DMAS), destination (DMAD), count (DMAC), and mode (DMAM) registers a
 
 ### Interrupts
 
-| Vector | Handler | Description |
-|--------|---------|-------------|
+| Vector | Handler        | Description                   |
+|--------|----------------|-------------------------------|
 | `INTA` | `INTA_HANDLER` | Interrupt A (includes serial) |
-| `INT0` | `INT0_HANDLER` | External Interrupt 0 |
+| `INT0` | `INT0_HANDLER` | External Interrupt 0          |
 
 ## Control Panel Memory
 
@@ -270,86 +270,86 @@ names). The page-named ones are in each tree's `shared/ram_variables.s`.
 
 ### Button State
 
-| Address | Variable | Description |
-|---------|----------|-------------|
-| `0x8E4A` | `STATE_OF_CPANEL_BUTTONS` | Button state array (Right panel) |
-| `0x8E5A` | `STATE_OF_CPANEL_BUTTONS_LEFT` | Button state array (Left panel) |
+| Address  | Variable                       | Description                          |
+|----------|--------------------------------|--------------------------------------|
+| `0x8E4A` | `STATE_OF_CPANEL_BUTTONS`      | Button state array (Right panel)     |
+| `0x8E5A` | `STATE_OF_CPANEL_BUTTONS_LEFT` | Button state array (Left panel)      |
 | `0x8E55` | `STATE_OF_CPANEL_BUTTONS + 11` | Bits 6,7 select value 0x0c/0x0d/0x0e |
 
 ### LED State
 
-| Address | Variable | Description |
-|---------|----------|-------------|
-| `0x8DFD` | `CPANEL_LED_READ_PTR` | LED TX buffer read pointer (word) |
+| Address  | Variable               | Description                        |
+|----------|------------------------|------------------------------------|
+| `0x8DFD` | `CPANEL_LED_READ_PTR`  | LED TX buffer read pointer (word)  |
 | `0x8DFF` | `CPANEL_LED_WRITE_PTR` | LED TX buffer write pointer (word) |
-| `0x8E01` | `CPANEL_LED_TX_BUFFER` | LED state TX buffer (60 bytes) |
+| `0x8E01` | `CPANEL_LED_TX_BUFFER` | LED state TX buffer (60 bytes)     |
 
 ### Protocol State
 
-| Address | Variable | Description |
-|---------|----------|-------------|
+| Address  | Variable                     | Description                             |
+|----------|------------------------------|-----------------------------------------|
 | `0x8D8A` | `CPANEL_STATE_MACHINE_INDEX` | State machine index (byte, values 0-10) |
-| `0x8D8B` | `CPANEL_PACKET_BYTE_COUNT` | Packet byte counter (byte, values 0-17) |
-| `0x8D9D` | `CPANEL_RX_READ_PTR` | RX buffer read pointer (word) |
-| `0x8D9F` | `CPANEL_RX_WRITE_PTR` | RX buffer write pointer (word) |
+| `0x8D8B` | `CPANEL_PACKET_BYTE_COUNT`   | Packet byte counter (byte, values 0-17) |
+| `0x8D9D` | `CPANEL_RX_READ_PTR`         | RX buffer read pointer (word)           |
+| `0x8D9F` | `CPANEL_RX_WRITE_PTR`        | RX buffer write pointer (word)          |
 
 ### Status Flags
 
-| Address | Variable | Description |
-|---------|----------|-------------|
-| `0x8D8C` | `CPANEL_TX_RX_FLAGS` | TX/RX protocol flags (byte) |
-| `0x8D92` | `CPANEL_PROTOCOL_FLAGS` | Protocol state flags (byte) |
+| Address  | Variable                    | Description                  |
+|----------|-----------------------------|------------------------------|
+| `0x8D8C` | `CPANEL_TX_RX_FLAGS`        | TX/RX protocol flags (byte)  |
+| `0x8D92` | `CPANEL_PROTOCOL_FLAGS`     | Protocol state flags (byte)  |
 | `0x8D93` | `CPANEL_PANEL_DETECT_FLAGS` | Panel detection flags (byte) |
 
 ### Encoder Raw Input Storage
 
-| Address | Variable | Description |
-|---------|----------|-------------|
-| `0x8ECA` | `ENCODER_RAW_MODWHEEL` | Raw modulation wheel input |
-| `0x8ECC` | `ENCODER_RAW_VOLUME` | Raw volume slider input |
-| `0x8ED4` | `ENCODER_RAW_BREATH` | Raw breath controller input |
-| `0x8ED6` | `ENCODER_RAW_FOOT` | Raw foot controller input |
-| `0x8ED8` | `ENCODER_RAW_EXPRESSION` | Raw expression pedal input |
-| `0x8EDA` | `ENCODER_BREATH_MODE` | Breath controller mode/enable |
-| `0x8EDC` | `ENCODER_VOLUME_MODE` | Volume mode configuration |
-| `0x8EDE` | `ENCODER_RANGE_LIMIT` | Encoder range limit value |
+| Address  | Variable                 | Description                   |
+|----------|--------------------------|-------------------------------|
+| `0x8ECA` | `ENCODER_RAW_MODWHEEL`   | Raw modulation wheel input    |
+| `0x8ECC` | `ENCODER_RAW_VOLUME`     | Raw volume slider input       |
+| `0x8ED4` | `ENCODER_RAW_BREATH`     | Raw breath controller input   |
+| `0x8ED6` | `ENCODER_RAW_FOOT`       | Raw foot controller input     |
+| `0x8ED8` | `ENCODER_RAW_EXPRESSION` | Raw expression pedal input    |
+| `0x8EDA` | `ENCODER_BREATH_MODE`    | Breath controller mode/enable |
+| `0x8EDC` | `ENCODER_VOLUME_MODE`    | Volume mode configuration     |
+| `0x8EDE` | `ENCODER_RANGE_LIMIT`    | Encoder range limit value     |
 
 ### MIDI Controller Values
 
-| Address | Variable | Description |
-|---------|----------|-------------|
-| `0x8EE0` | `MIDI_CC_MODWHEEL_PENDING` | Modulation value with change flag (bit 7) |
+| Address  | Variable                     | Description                               |
+|----------|------------------------------|-------------------------------------------|
+| `0x8EE0` | `MIDI_CC_MODWHEEL_PENDING`   | Modulation value with change flag (bit 7) |
 | `0x8EE2` | `MIDI_CC_EXPRESSION_PENDING` | Expression value with change flag (bit 7) |
-| `0x8EE4` | `MIDI_CC_MODWHEEL_VALUE` | Current modulation wheel value (CC#1) |
-| `0x8EE6` | `MIDI_CC_EXPRESSION_VALUE` | Current expression value (CC#0) |
-| `0x8EE8` | `MIDI_CC_BREATH_VALUE` | Breath controller value (CC#2) |
-| `0x8EEA` | `MIDI_CC_FOOT_VALUE` | Foot controller value (CC#4) |
-| `0x8EF4` | `MIDI_CC_VOLUME_VALUE` | Volume controller value (CC#7) |
+| `0x8EE4` | `MIDI_CC_MODWHEEL_VALUE`     | Current modulation wheel value (CC#1)     |
+| `0x8EE6` | `MIDI_CC_EXPRESSION_VALUE`   | Current expression value (CC#0)           |
+| `0x8EE8` | `MIDI_CC_BREATH_VALUE`       | Breath controller value (CC#2)            |
+| `0x8EEA` | `MIDI_CC_FOOT_VALUE`         | Foot controller value (CC#4)              |
+| `0x8EF4` | `MIDI_CC_VOLUME_VALUE`       | Volume controller value (CC#7)            |
 
 ### Encoder State
 
-| Address | Variable | Description |
-|---------|----------|-------------|
-| `0x8EFC` | `ENCODER_0_LAST_VALUE` | Previous encoder 0 reading (for delta) |
-| `0x8EFE` | `ENCODER_1_LAST_VALUE` | Previous encoder 1 reading (for delta) |
-| `0x8F04` | `ENCODER_0_STATUS` | Encoder 0 status flags (bit 3 = changed) |
-| `0x8F06` | `ENCODER_1_STATUS` | Encoder 1 status flags (bit 3 = changed) |
-| `0x8F10` | `ENCODER_0_OUTPUT` | Encoder 0 output buffer (2 bytes) |
-| `0x8F16` | `ENCODER_1_OUTPUT` | Encoder 1 output buffer (2 bytes) |
-| `0x8F18` | `ENCODER_STATE_BASE` | Base of encoder state structure |
+| Address  | Variable               | Description                              |
+|----------|------------------------|------------------------------------------|
+| `0x8EFC` | `ENCODER_0_LAST_VALUE` | Previous encoder 0 reading (for delta)   |
+| `0x8EFE` | `ENCODER_1_LAST_VALUE` | Previous encoder 1 reading (for delta)   |
+| `0x8F04` | `ENCODER_0_STATUS`     | Encoder 0 status flags (bit 3 = changed) |
+| `0x8F06` | `ENCODER_1_STATUS`     | Encoder 1 status flags (bit 3 = changed) |
+| `0x8F10` | `ENCODER_0_OUTPUT`     | Encoder 0 output buffer (2 bytes)        |
+| `0x8F16` | `ENCODER_1_OUTPUT`     | Encoder 1 output buffer (2 bytes)        |
+| `0x8F18` | `ENCODER_STATE_BASE`   | Base of encoder state structure          |
 
 ### Encoder Lookup Tables (ROM)
 
-| Address | Variable | Description |
-|---------|----------|-------------|
-| `0xEDA13C` | `ENCODER_LUT_MODWHEEL` | Modulation wheel value lookup |
-| `0xEDA1BC` | `ENCODER_LUT_VOLUME` | Volume slider value lookup |
-| `0xEDA2BC` | `ENCODER_LUT_BREATH_INDEX` | Breath controller index lookup |
-| `0xEDA2D2` | `ENCODER_LUT_BREATH_VALUE` | Breath controller value lookup |
-| `0xEDA3D2` | `ENCODER_LUT_BREATH_MULT` | Breath controller multiplier table |
-| `0xEDA3EA` | `ENCODER_LUT_BREATH_OFFSET` | Breath controller offset table |
-| `0xEDA402` | `ENCODER_LUT_FOOT` | Foot controller value lookup |
-| `0xEDA482` | `ENCODER_LUT_EXPRESSION` | Expression pedal value lookup |
+| Address    | Variable                    | Description                        |
+|------------|-----------------------------|------------------------------------|
+| `0xEDA13C` | `ENCODER_LUT_MODWHEEL`      | Modulation wheel value lookup      |
+| `0xEDA1BC` | `ENCODER_LUT_VOLUME`        | Volume slider value lookup         |
+| `0xEDA2BC` | `ENCODER_LUT_BREATH_INDEX`  | Breath controller index lookup     |
+| `0xEDA2D2` | `ENCODER_LUT_BREATH_VALUE`  | Breath controller value lookup     |
+| `0xEDA3D2` | `ENCODER_LUT_BREATH_MULT`   | Breath controller multiplier table |
+| `0xEDA3EA` | `ENCODER_LUT_BREATH_OFFSET` | Breath controller offset table     |
+| `0xEDA402` | `ENCODER_LUT_FOOT`          | Foot controller value lookup       |
+| `0xEDA482` | `ENCODER_LUT_EXPRESSION`    | Expression pedal value lookup      |
 
 ## Sequencer/Medley Memory
 
@@ -357,23 +357,23 @@ The internal medley system keeps its song slots in work DRAM at `0xAB000` (`SEQ_
 
 ### Internal Medley Song Storage
 
-| Address | Size | Description |
-|---------|------|-------------|
-| `0xAB000` | 20KB | Internal medley song slots (10 slots × 0x800 bytes) |
-| `0xAB0D0` | - | Song slot 0 data start (0xAB000 + 0xD0 header offset) |
-| `0xF180` | 2KB | Current playback buffer (active song copied here) |
+| Address   | Size | Description                                           |
+|-----------|------|-------------------------------------------------------|
+| `0xAB000` | 20KB | Internal medley song slots (10 slots × 0x800 bytes)   |
+| `0xAB0D0` | -    | Song slot 0 data start (0xAB000 + 0xD0 header offset) |
+| `0xF180`  | 2KB  | Current playback buffer (active song copied here)     |
 
 Each song slot is 2048 bytes (0x800). The slot address is calculated as: `0xAB000 + (slot_index × 0x800)`.
 
 ### Medley State Variables
 
-| Address | Variable | Description |
-|---------|----------|-------------|
-| `0x84FE` | `MEDLEY_PLAY_FLAG` | Play state: 0=stopped, 1=playing |
-| `0x8890` | `MEDLEY_ORDER_ARRAY` | Play order array (10 bytes, 0xFF=unused, 0xFE=marked) |
-| `0x889A` | `MEDLEY_SONG_COUNT` | Number of songs in current playlist |
-| `0x889C` | `MEDLEY_CURRENT_INDEX` | Currently playing song index |
-| `0x889E` | `MEDLEY_REPEAT_FLAG` | Repeat mode: 0=no repeat, 1=repeat all |
+| Address  | Variable               | Description                                           |
+|----------|------------------------|-------------------------------------------------------|
+| `0x84FE` | `MEDLEY_PLAY_FLAG`     | Play state: 0=stopped, 1=playing                      |
+| `0x8890` | `MEDLEY_ORDER_ARRAY`   | Play order array (10 bytes, 0xFF=unused, 0xFE=marked) |
+| `0x889A` | `MEDLEY_SONG_COUNT`    | Number of songs in current playlist                   |
+| `0x889C` | `MEDLEY_CURRENT_INDEX` | Currently playing song index                          |
+| `0x889E` | `MEDLEY_REPEAT_FLAG`   | Repeat mode: 0=no repeat, 1=repeat all                |
 
 ### Key Medley Routines (ROM)
 
@@ -453,9 +453,9 @@ The 196,608-byte sub-CPU payload is **not one contiguous region**. The main CPU 
 it as four bulk transfers (`SubCPU_Send_Payload`), and the reconstructed `.rom` image is
 the concatenation of the two resulting extents:
 
-| Sub CPU addresses | Size | Note |
-|-------------------|------|------|
-| `0x000400 - 0x0004FF` | 256B | Vector/trampoline area, sent last |
+| Sub CPU addresses     | Size     | Note                                                             |
+|-----------------------|----------|------------------------------------------------------------------|
+| `0x000400 - 0x0004FF` | 256B     | Vector/trampoline area, sent last                                |
 | `0x00F000 - 0x03EEFF` | 196,352B | The payload proper (three transfers: 0x10000 + 0x10000 + 0xFF00) |
 
 This is why the build post-processes the linked ELF with `dd` before comparison — the
@@ -474,15 +474,15 @@ At boot the main CPU copies table-data ROM `0x830000-0x87FFFF` into sub-CPU work
 read as a sub-CPU address (`0x050000 + offset`). The sub-CPU disassembly never sees the
 `0x83xxxx` form.
 
-| Sub CPU | Table Data ROM | Contents |
-|---------|----------------|----------|
-| `0x050000` | `0x830000` | Directory of 4-byte slots (offset / scalar / unused) |
-| `0x050100` | `0x830100` | `ToneDB_BankMap_Main` — 128-entry bank-select byte map |
-| `0x050180` | `0x830180` | `ToneDB_ToneNumBanks_Main` — 11 banks × 128 LE16 tone numbers |
-| `0x050C80` | `0x830C80` | `ToneDB_BankMap_Coeff` — 128-entry bank-select byte map |
-| `0x050D00` | `0x830D00` | `ToneDB_ToneNumBanks_Coeff` — 14 banks × 128 LE16 tone numbers |
-| `0x051B00` | `0x831B00` | `ToneDB_ToneOffsetTable` — 629 LE32 offsets to tone records |
-| `0x0524D4` | `0x8324D4` | Tone/voice records (`ToneRec_000`…), variable length, 16-char space-padded name first |
+| Sub CPU    | Table Data ROM | Contents                                                                              |
+|------------|----------------|---------------------------------------------------------------------------------------|
+| `0x050000` | `0x830000`     | Directory of 4-byte slots (offset / scalar / unused)                                  |
+| `0x050100` | `0x830100`     | `ToneDB_BankMap_Main` — 128-entry bank-select byte map                                |
+| `0x050180` | `0x830180`     | `ToneDB_ToneNumBanks_Main` — 11 banks × 128 LE16 tone numbers                         |
+| `0x050C80` | `0x830C80`     | `ToneDB_BankMap_Coeff` — 128-entry bank-select byte map                               |
+| `0x050D00` | `0x830D00`     | `ToneDB_ToneNumBanks_Coeff` — 14 banks × 128 LE16 tone numbers                        |
+| `0x051B00` | `0x831B00`     | `ToneDB_ToneOffsetTable` — 629 LE32 offsets to tone records                           |
+| `0x0524D4` | `0x8324D4`     | Tone/voice records (`ToneRec_000`…), variable length, 16-char space-padded name first |
 
 **Important:** this region is *data*. The claim that the sub-CPU executable lives at
 table-data `0x830000` is wrong. The runtime code payload comes from the SLIDE4K image at
@@ -495,14 +495,14 @@ provenance of the IC19 dump is still open — see
 Three large constant-pool regions inside the payload were carved into individually
 labelled tables in August 2026. All addresses are sub-CPU addresses.
 
-| Range | Size | Contents |
-|-------|------|----------|
-| `0x00F7E6 - 0x012114` | ~10.5KB | Voice trim/portamento/key-bend tables, transfer-curve families, jump tables and case maps, DSP algorithm descriptors |
-| `0x012115 - 0x012158` | 68B | Tone-generator voice template |
-| `0x012195 - 0x014738` | ~9.6KB | EQ and coefficient pools, floating-point constant pools, per-effect parameter metadata for all 100 algorithms (from `0x0133CF`: a copy of main-CPU `0xEE4FC6-0xEE636B`, which only the main CPU reads — see [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/#the-main-cpu-holds-the-same-metadata-and-reads-it)) |
-| `0x0131CF - 0x0133CE` | 512B | `DSP_MixerGain_Curve` — 128 × u32 monotonic **gain** curve (piecewise-exponential, 53.5 dB span, ends at 0x7FFFFF00). Read by `DSP_MixerCoeff_Compute`; it is *not* a pitch table |
-| `0x0147B3 - 0x01E17E` | 39,372B | DSP effect bytecode + parameter zone — see [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/) |
-| `0x01ED7C` / `0x01EF0C` / `0x01F09C` / `0x01F22C` | 400B each | The four 100-entry `u32` pointer arrays that index the effect zone (algorithm bytecode, coefficient bytecode, parameter values, parameter descriptors) |
+| Range                                             | Size      | Contents                                                                                                                                                                                                                                                                                                                        |
+|---------------------------------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x00F7E6 - 0x012114`                             | ~10.5KB   | Voice trim/portamento/key-bend tables, transfer-curve families, jump tables and case maps, DSP algorithm descriptors                                                                                                                                                                                                            |
+| `0x012115 - 0x012158`                             | 68B       | Tone-generator voice template                                                                                                                                                                                                                                                                                                   |
+| `0x012195 - 0x014738`                             | ~9.6KB    | EQ and coefficient pools, floating-point constant pools, per-effect parameter metadata for all 100 algorithms (from `0x0133CF`: a copy of main-CPU `0xEE4FC6-0xEE636B`, which only the main CPU reads — see [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/#the-main-cpu-holds-the-same-metadata-and-reads-it)) |
+| `0x0131CF - 0x0133CE`                             | 512B      | `DSP_MixerGain_Curve` — 128 × u32 monotonic **gain** curve (piecewise-exponential, 53.5 dB span, ends at 0x7FFFFF00). Read by `DSP_MixerCoeff_Compute`; it is *not* a pitch table                                                                                                                                               |
+| `0x0147B3 - 0x01E17E`                             | 39,372B   | DSP effect bytecode + parameter zone — see [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/)                                                                                                                                                                                                                     |
+| `0x01ED7C` / `0x01EF0C` / `0x01F09C` / `0x01F22C` | 400B each | The four 100-entry `u32` pointer arrays that index the effect zone (algorithm bytecode, coefficient bytecode, parameter values, parameter descriptors)                                                                                                                                                                          |
 
 ## Inter-CPU Communication
 
@@ -515,10 +515,10 @@ controller's DMA-acknowledge window and has nothing to do with the latches.
 
 ### Latch Addresses
 
-| Bus | Address | Access | Description |
-|---|---------|--------|-------------|
-| Sub CPU | `0x120000` | R/W | Inter-CPU Communication Latch |
-| Main CPU | `0x140000` | R/W | the same latch pair |
+| Bus      | Address    | Access | Description                   |
+|----------|------------|--------|-------------------------------|
+| Sub CPU  | `0x120000` | R/W    | Inter-CPU Communication Latch |
+| Main CPU | `0x140000` | R/W    | the same latch pair           |
 
 The sub CPU boot ROM configures DMA to use this address for bidirectional communication with the main CPU.
 
@@ -526,12 +526,12 @@ The sub CPU boot ROM configures DMA to use this address for bidirectional commun
 
 The sub CPU boot ROM implements this command protocol:
 
-| Command Byte | Action | Data Size | Buffer Address |
-|--------------|--------|-----------|----------------|
-| `0x00 - 0x1F` | Handler dispatch + data | 1-32 bytes | `0x051E` |
-| `0xE1` | DMA transfer type 1 | 6 bytes | `0x0544` |
-| `0xE2` | DMA transfer type 2 | 10 bytes | `0x054A` |
-| `0xE3` | Signal payload ready | 0 bytes | - |
+| Command Byte  | Action                  | Data Size  | Buffer Address |
+|---------------|-------------------------|------------|----------------|
+| `0x00 - 0x1F` | Handler dispatch + data | 1-32 bytes | `0x051E`       |
+| `0xE1`        | DMA transfer type 1     | 6 bytes    | `0x0544`       |
+| `0xE2`        | DMA transfer type 2     | 10 bytes   | `0x054A`       |
+| `0xE3`        | Signal payload ready    | 0 bytes    | -              |
 
 **Command Encoding (0x00-0x1F):**
 
@@ -660,9 +660,9 @@ The boot ROM's `INIT_TONE_GEN` (0xFF84A8) writes initial patterns to this block;
 
 **DSP State Buffers:**
 
-| Address | Size | Description |
-|---------|------|-------------|
-| `0x041342` | 38B | DSP state buffer 1 |
+| Address    | Size  | Description        |
+|------------|-------|--------------------|
+| `0x041342` | 38B   | DSP state buffer 1 |
 | `0x041368` | 7462B | DSP state buffer 2 |
 
 ## HDAE5000 Hard Disk Expansion
@@ -681,9 +681,9 @@ The HD-AE5000 is a hard disk expansion system providing 1.08GB storage for music
 
 ### ROM Entry Points
 
-| Address | Target | Description |
-|---------|--------|-------------|
-| `0x280008` | JP 0x28F576 | Boot initialization |
+| Address    | Target      | Description                   |
+|------------|-------------|-------------------------------|
+| `0x280008` | JP 0x28F576 | Boot initialization           |
 | `0x280010` | JP 0x28F662 | Frame handler (PPORT polling) |
 
 ### HD-AE5000 RAM (0x200000-0x27FFFF)
@@ -718,12 +718,12 @@ at the top of `hdae5000/hd-ae5000_v2_06i.s`.
 
 ### Analyzed Firmware Version
 
-| Property | Value |
-|----------|-------|
-| ROM File | `hd-ae5000_v2_06i.ic4` |
-| Internal Version | 2.33J |
-| Development Period | Juli-Oktober 1996 |
-| Author | M. Kitajima |
+| Property           | Value                  |
+|--------------------|------------------------|
+| ROM File           | `hd-ae5000_v2_06i.ic4` |
+| Internal Version   | 2.33J                  |
+| Development Period | Juli-Oktober 1996      |
+| Author             | M. Kitajima            |
 
 ### PPORT Commands (PC Parallel Port)
 

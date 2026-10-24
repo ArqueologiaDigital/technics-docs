@@ -143,12 +143,12 @@ A 0x87 byte links to the next 256-byte block: `AccompSeq_ReadBeatHeader` reads t
 
 Styles are organized into variation groups; the factory patterns are read from the Rhythm ROM at 0x400000 (see [Sequencer]({{ site.baseurl }}/sequencer/#pattern-loading-pipeline)). Each style has multiple variations:
 
-| Variation | Description |
-|-----------|-------------|
-| Vari1-4 | Main pattern variations (increasing complexity) |
-| Fill1-2 | Fill-in patterns (short transitional phrases) |
-| Int1-2 | Intro patterns |
-| End1-2 | Ending patterns |
+| Variation | Description                                     |
+|-----------|-------------------------------------------------|
+| Vari1-4   | Main pattern variations (increasing complexity) |
+| Fill1-2   | Fill-in patterns (short transitional phrases)   |
+| Int1-2    | Intro patterns                                  |
+| End1-2    | Ending patterns                                 |
 
 Each variation group (A, B, C) has these sections. The `StyleVarGrp_*` labels are not pattern data: they are the one-letter group strings ("A", "B", "C") that the UI shows, in the Program ROM (`ui_widgets/naka_screen_dispatch.s`, listed by `PtrTbl_StyleVarGroupCodes`).
 
@@ -189,11 +189,11 @@ The accompaniment voice-assignment subsystem (labels prefixed AccVoice_, for exa
 
 ### Part Types
 
-| Part | Function | Description |
-|------|----------|-------------|
-| Bass | `AccBass_*` | Single-note bass lines |
-| Chord | `AccChord_*` | Multi-note chord voicings |
-| Rhythm | `AccRhythm_*` | Drum/percussion patterns |
+| Part   | Function      | Description               |
+|--------|---------------|---------------------------|
+| Bass   | `AccBass_*`   | Single-note bass lines    |
+| Chord  | `AccChord_*`  | Multi-note chord voicings |
+| Rhythm | `AccRhythm_*` | Drum/percussion patterns  |
 
 ### Voice Allocation Pipeline
 
@@ -207,23 +207,23 @@ The accompaniment voice-assignment subsystem (labels prefixed AccVoice_, for exa
 
 Each accompaniment part has parameters stored at calculated offsets:
 
-| Parameter | Function |
-|-----------|----------|
-| Voice/Instrument | `AccVoice_SelectAndApplyPatch` |
-| Tuning | `AccTuning_SetAllFromLookup`, `AccTuning_CopyAllPartsFromStyle` |
-| Rhythm mapping | `RhythmPart3_ProcessAccentData/4/5` |
-| Channel assignment | `AccVoice_CheckChannelSetActive` |
+| Parameter          | Function                                                        |
+|--------------------|-----------------------------------------------------------------|
+| Voice/Instrument   | `AccVoice_SelectAndApplyPatch`                                  |
+| Tuning             | `AccTuning_SetAllFromLookup`, `AccTuning_CopyAllPartsFromStyle` |
+| Rhythm mapping     | `RhythmPart3_ProcessAccentData/4/5`                             |
+| Channel assignment | `AccVoice_CheckChannelSetActive`                                |
 
 The `AccPart_*` functions manage part data access:
 
-| Function | Purpose |
-|----------|---------|
-| `AccPart_InitPositionsAndBase` | Initialize part position and base address |
-| `AccPart_GetVoiceParamOffsetTable` | Look up voice parameter offset table |
-| `AccPart_ResolveStyleAddr` | Resolve style data address for a part |
-| `AccPart_CheckEndOfDataMarker` | Check for end-of-data in part stream |
-| `AccPart_SelectSource` | Select data source (keyboard, Acc1-4) |
-| `AccPart_Deactivate` | Deactivate a part (with pedal/sync options) |
+| Function                           | Purpose                                     |
+|------------------------------------|---------------------------------------------|
+| `AccPart_InitPositionsAndBase`     | Initialize part position and base address   |
+| `AccPart_GetVoiceParamOffsetTable` | Look up voice parameter offset table        |
+| `AccPart_ResolveStyleAddr`         | Resolve style data address for a part       |
+| `AccPart_CheckEndOfDataMarker`     | Check for end-of-data in part stream        |
+| `AccPart_SelectSource`             | Select data source (keyboard, Acc1-4)       |
+| `AccPart_Deactivate`               | Deactivate a part (with pedal/sync options) |
 
 ## Per-tick vectors: variation stepping, Sound Arranger, tap tempo
 
@@ -277,13 +277,13 @@ These ensure accompaniment state changes (start/stop, variation switch) are sync
 
 The rhythm section uses a specialized note dispatch system:
 
-| Function | Purpose |
-|----------|---------|
-| `Rhythm_NoteDispatchWrapper` | Wrapper for rhythm note events |
-| `Rhythm_NoteOnAfterSetup_A/B/C` | Note-on for three rhythm channels |
-| `Rhythm_NoteRangeCheck` | Validate note is in playable range |
-| `Rhythm_NoteOffMax_Dispatch` | Note-off with part-specific dispatch (D4-D7) |
-| `DrumChannel_MapToIndexA/B` | Map drum MIDI notes to internal indices |
+| Function                        | Purpose                                      |
+|---------------------------------|----------------------------------------------|
+| `Rhythm_NoteDispatchWrapper`    | Wrapper for rhythm note events               |
+| `Rhythm_NoteOnAfterSetup_A/B/C` | Note-on for three rhythm channels            |
+| `Rhythm_NoteRangeCheck`         | Validate note is in playable range           |
+| `Rhythm_NoteOffMax_Dispatch`    | Note-off with part-specific dispatch (D4-D7) |
+| `DrumChannel_MapToIndexA/B`     | Map drum MIDI notes to internal indices      |
 
 ## Display Integration
 
@@ -299,12 +299,12 @@ The `AccIll` (Accompaniment Illustration) subsystem handles the visual represent
 
 The `StyleUI_*` labels define parameter blocks and screen layouts for the style editing interface:
 
-| Label | Purpose |
-|-------|---------|
-| `StyleUI_ParamBlock_BAL` | Balance parameter display |
-| `StyleUI_ParamBlock_VALUE` | Value parameter display |
-| `StyleUI_ScreenData_Main` | Main style screen layout |
-| `StyleUI_ScreenData_MeasCursor` | Measure cursor display |
+| Label                           | Purpose                   |
+|---------------------------------|---------------------------|
+| `StyleUI_ParamBlock_BAL`        | Balance parameter display |
+| `StyleUI_ParamBlock_VALUE`      | Value parameter display   |
+| `StyleUI_ScreenData_Main`       | Main style screen layout  |
+| `StyleUI_ScreenData_MeasCursor` | Measure cursor display    |
 
 ## Related Pages
 
