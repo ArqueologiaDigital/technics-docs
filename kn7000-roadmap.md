@@ -190,11 +190,14 @@ The full analysis is on the dedicated [Techni-chord]({{ site.baseurl }}/kn7000-t
    mainline MAME since #16250 (2026-10-07).
 5. **Subsystem docs** — port the KN5000 subsystem pages, adapting for the dual tone
    generators, SD/USB storage, and panel sub-CPUs.
-6. **Chase the undumped ROMs** — the four wave mask ROMs (IC203/IC204/IC207/IC208),
-   the rhythm ROM (IC18, or the IC20 flash on earlier units), the picture ROM IC19
-   at `0x57800000`, the SD sub-CPU flash IC414, and the lower half of the v1.4
-   program (update floppy 1). The `0x4C000000` library is not a ROM: it is copied
-   out of the program flash at boot.
+6. **Chase the remaining undumped ROMs** — the SD sub-CPU flash IC414, the IC20 rhythm
+   flash of earlier units, and the lower half of the v1.4 program (update floppy 1).
+   The four wave mask ROMs (IC203/IC204/IC207/IC208), the CPU-visible half of the
+   rhythm ROM IC18 and the 2 MB image that fills the CPU-visible half of the picture ROM IC19 at `0x57800000`
+   were read from the owner's unit in October 2026 with the
+   [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/) and are not yet in mainline MAME
+   ([ROM Dumping Roadmap]({{ site.baseurl }}/rom-dumping-roadmap/)). The `0x4C000000`
+   library is not a ROM: it is copied out of the program flash at boot.
 
 ## Development log
 

@@ -38,7 +38,8 @@ A model is **done** when every subsystem is G2 and G3.
 Two consequences worth stating plainly, because they are unwelcome:
 
 - **G2/G3 for every model is not reachable on any horizon we can plan.** The five MN10300
-  machines alone have 30 undumped ROM entries over 22 distinct devices (see the
+  machines alone have 30 undumped ROM entries over 22 distinct devices in mainline MAME's lists,
+  24 over 16 once the KN7000 reads of October 2026 are counted (see the
   [ROM Dumping Roadmap]({{ site.baseurl }}/rom-dumping-roadmap/)). On top of those come the
   KN5000's own waveform trio (IC304/305/306), the SX-WSA1R's six wave mask ROMs and its flash,
   and the unread ranges of the KN5000 sub-CPU boot ROM. The *reachable* programme goal is **every model at G1, with an honest provenance register** saying

@@ -9,26 +9,32 @@ permalink: /rom-dumping-roadmap/
 Where every ROM in the MN10300 family of Technics keyboards stands: what is preserved, what is
 not, and — for each device still missing — a concrete proposal for how to obtain it.
 
-*Last reviewed: 2026-10-15. Status is taken from the MAME driver (mainline
-`src/mame/matsushita/kn7000.cpp`), which is the authoritative inventory; run `mame -listroms <machine>` to regenerate it.*
+*Last reviewed: 2026-10-24. Status is taken from the MAME driver (mainline
+`src/mame/matsushita/kn7000.cpp`), which is the authoritative inventory; run `mame -listroms <machine>` to regenerate it.
+Mainline still declares the KN7000's four wave ROMs, its rhythm ROM IC18 and its picture ROM IC19
+`NO_DUMP`; all six were read from the owner's instrument in October 2026 ([§2](#2-what-is-sorted-out)),
+so the tables below keep mainline's count and say which entries have since been read.*
 
 ---
 
 ## 1. Summary
 
-| machine   | devices preserved                                                                                                                                       | devices still undumped        | missing volume |
-|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------|----------------|
-| SX-KN7000 | 4 program builds (v1.4 upper half only) + 2 table builds + the factory-default custom flash (all nine data sets are in the `kn7000_flop` software list) | **7**                         | 80.5 MB        |
-| SX-KN6000 | 2 program + 1 custom-flash image                                                                                                                        | **7**                         | 40 MB          |
-| SX-KN6500 | 2 program + 1 custom-flash image                                                                                                                        | **9**                         | 56 MB          |
-| SX-KN2400 | half of the 2-device program pair                                                                                                                       | **3** + the pair's other half | 28 MB          |
-| SX-KN2600 | half of the program pair (shared with KN2400)                                                                                                           | **4** + the pair's other half | 28.5 MB        |
+| machine   | devices preserved                                                                                                                                                                                                                                                                                                                                                                    | devices still undumped                               | missing volume                                                                                           |
+|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------|----------------------------------------------------------------------------------------------------------|
+| SX-KN7000 | 4 program builds (v1.4 upper half only) + 2 table builds + the factory-default custom flash (all nine data sets are in the `kn7000_flop` software list); since October 2026 also the four wave ROMs, the CPU-visible half of the rhythm ROM IC18 and the 2 MB image that fills the CPU-visible half of the picture ROM IC19, read from the owner's unit and not yet in mainline MAME | **7** in mainline's list, **1** (IC414) still unread | 80.5 MB in mainline's list; 0.5 MB still unread, plus the halves of IC18 and IC19 the CPU cannot address |
+| SX-KN6000 | 2 program + 1 custom-flash image                                                                                                                                                                                                                                                                                                                                                     | **7**                                                | 40 MB                                                                                                    |
+| SX-KN6500 | 2 program + 1 custom-flash image                                                                                                                                                                                                                                                                                                                                                     | **9**                                                | 56 MB                                                                                                    |
+| SX-KN2400 | half of the 2-device program pair                                                                                                                                                                                                                                                                                                                                                    | **3** + the pair's other half                        | 28 MB                                                                                                    |
+| SX-KN2600 | half of the program pair (shared with KN2400)                                                                                                                                                                                                                                                                                                                                        | **4** + the pair's other half                        | 28.5 MB                                                                                                  |
 
-**30 undumped entries across the five ROM sets, but only 22 distinct physical devices** — five
-parts are fitted to both the KN6000 and the KN6500, and three to both the KN2400 and the KN2600,
-so one donor instrument serves two machines.
+**Mainline MAME lists 30 undumped entries across the five ROM sets, but only 22 distinct physical
+devices** — five parts are fitted to both the KN6000 and the KN6500, and three to both the KN2400
+and the KN2600, so one donor instrument serves two machines. Six of the 22, all KN7000 (the four
+wave ROMs, IC18 and IC19), have since been read from the owner's unit, which leaves **24 entries
+and 16 distinct devices** with no read at all.
 
-Everything preserved so far was obtained **without opening an instrument**. That is the headline
+Everything preserved so far was obtained **without opening an instrument**: the update disks for
+the program images, and the instrument's own CPU for the KN7000 chip reads. That is the headline
 fact of this roadmap and it shapes every proposal below.
 
 ---
@@ -36,7 +42,12 @@ fact of this roadmap and it shapes every proposal below.
 ## 2. What is sorted out
 
 **Program firmware — all five machines; table data — the KN7000 only.** Extracted from
-Panasonic's own update disks (`.SLD` payloads, SLIDE4K LZSS), not from chips. (The KN6000/KN6500
+Panasonic's own update disks (`.SLD` payloads, SLIDE4K LZSS), not from chips. The extraction is
+scripted end to end and never runs the installers: `kn7000/tools/sfx_extract.py` in the disassembly
+repository reads the zip appended to each self-extracting `.exe` with Python's `zipfile`,
+`sld_decompress.py` unpacks the `.SLD`, and `smck_check.py` applies the checksum oracle below. No
+DOSBox or Windows is needed, and the KN6000, KN6500 and KN2400 images regenerate this way with the
+same MD5s as the stored copies (checked in the 2026-10-24 repository audit). (The KN6000/KN6500
 `IK2`/`IKV2` parts are the program's upper half; their table/font devices are listed in §3.) The
 images validate against **Panasonic's own checksum oracles** — the `SMCK*.INF` files shipped
 alongside them, giving a 32-bit total plus 16-bit sums of every `0x40000` block — with two KN7000
@@ -70,29 +81,46 @@ software list (mamedev/mame#16394). One shared IDD6000 payload serves the KN6000
 
 **HD-SX6 expansion firmware** (Key Soft Service's HD-SX6 OS v1.1 REV3, for the KN6000/KN6500).
 768 KiB, decompressed from `EXTAPR.SLD` on 2026-08-02 — the first time this image had been
-recovered. No HD-SX3 image has been found.
+recovered. The private romset files it as `hd-sx3_v1_1.bin`, and the installer's own `TECHNICS.HDD`
+descriptor reads `KN6KHD Technics KN6000 HDD-FIRMWARE`; no image distinct from it has been found
+for the HD-SX3.
+
+**KN7000 wave, rhythm and picture ROMs — read from the owner's instrument, October 2026.** The
+[ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/), a style converter that runs on the stock
+firmware, read through the CPU: the picture window on 2026-10-19 (pass 2: one 2 MB image repeated
+four times, since jumper JP10 holds the chip's top address pin low; the 100 pictures are in the
+disassembly, [Picture ROM]({{ site.baseurl }}/kn7000-picture-rom/)); the four wave ROMs the same day
+(pass 3: 64 MB, read twice byte-identical, each chip's sum the one the firmware's WAVE ROM test
+expects; [Expansion Bus & Wave-ROM Dump Routes]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/)); and
+the rhythm ROM IC18 (pass 4: the 4 MB the CPU can address at `0x40000000`, header at `0x40010000`,
+the firmware's own checksum passing, the first 64 KB being the instrument's boot ROM). The halves of
+IC18 and IC19 behind their jumpers are reachable by no program on the instrument. Mainline MAME still
+declares all six `NO_DUMP`. Build 893 and table 80, the owner's firmware, were read whole in pass 1
+of the same run ([Build 893 Recovery]({{ site.baseurl }}/kn7000-build-893-recovery/)). The
+[Source Tree Inventory]({{ site.baseurl }}/source-tree-inventory/) says which of these images the
+disassembly repository holds.
 
 ---
 
 ## 3. What remains
 
-### SX-KN7000 — 7 devices, 80.5 MB
+### SX-KN7000 — 7 devices in mainline's list, 80.5 MB; 1 still unread
 
-| device | part           | size   | type     | role                                                                                                                                |
-|--------|----------------|--------|----------|-------------------------------------------------------------------------------------------------------------------------------------|
-| IC203  | `C3CBQD000002` | 16 MB  | mask ROM | wave, main TG bank Y                                                                                                                |
-| IC204  | `C3CBQD000001` | 16 MB  | mask ROM | wave, main TG bank X                                                                                                                |
-| IC207  | `C3CBQD000004` | 16 MB  | mask ROM | wave, sub TG bank Y                                                                                                                 |
-| IC208  | `C3CBQD000003` | 16 MB  | mask ROM | wave, sub TG bank X                                                                                                                 |
-| IC18   | `C3CBND000046` | 8 MB   | mask ROM | rhythm (later production)                                                                                                           |
-| IC20   | `C3FBMD000050` | 4 MB   | flash    | rhythm, earlier production — the alternative fitted at IC18's site (a unit carries one or the other, so it is not counted in the 7) |
-| IC19   | `C3CBMD000098` | 8 MB   | mask ROM | picture                                                                                                                             |
-| IC414  | `C3FBKD000162` | 512 KB | flash    | SD card sub-CPU program                                                                                                             |
+| device | part           | size   | type     | role                                                                                                                                | read (2026-10-24)                                                                                     |
+|--------|----------------|--------|----------|-------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
+| IC203  | `C3CBQD000002` | 16 MB  | mask ROM | wave, main TG bank Y                                                                                                                | read 2026-10-19 through the tone-generator port, twice, sum as the firmware expects                   |
+| IC204  | `C3CBQD000001` | 16 MB  | mask ROM | wave, main TG bank X                                                                                                                | read 2026-10-19, as above                                                                             |
+| IC207  | `C3CBQD000004` | 16 MB  | mask ROM | wave, sub TG bank Y                                                                                                                 | read 2026-10-19, as above                                                                             |
+| IC208  | `C3CBQD000003` | 16 MB  | mask ROM | wave, sub TG bank X                                                                                                                 | read 2026-10-19, as above                                                                             |
+| IC18   | `C3CBND000046` | 8 MB   | mask ROM | rhythm (later production)                                                                                                           | the CPU-visible 4 MB read 2026-10-19; the other half sits behind jumper JP7                           |
+| IC20   | `C3FBMD000050` | 4 MB   | flash    | rhythm, earlier production — the alternative fitted at IC18's site (a unit carries one or the other, so it is not counted in the 7) | not read (the owner's unit carries IC18)                                                              |
+| IC19   | `C3CBMD000098` | 8 MB   | mask ROM | picture                                                                                                                             | the CPU-visible 2 MB read 2026-10-19 (repeated four times in the window); the rest behind jumper JP10 |
+| IC414  | `C3FBKD000162` | 512 KB | flash    | SD card sub-CPU program                                                                                                             | **not read**                                                                                          |
 
-Not devices, but still missing: the lower half of the v1.4 program (update disk 1,
-`kn7-14_1.exe`, which the Wayback Machine archived only as a 'page not found' stub), and
-build 893 / table 80, the firmware of the owner's unit, of which only 9,472 hand-transcribed
-bytes exist ([Build 893 Recovery]({{ site.baseurl }}/kn7000-build-893-recovery/)).
+Not a device, but still missing: the lower half of the v1.4 program (update disk 1,
+`kn7-14_1.exe`, which the Wayback Machine archived only as a 'page not found' stub). Build 893 /
+table 80, the firmware of the owner's unit, was read whole on 2026-10-19; until then only 9,472
+hand-transcribed bytes existed ([Build 893 Recovery]({{ site.baseurl }}/kn7000-build-893-recovery/)).
 
 ### SX-KN6000 — 7 devices, 40 MB
 
@@ -299,9 +327,9 @@ instruments that agree byte-for-byte are strong evidence against a bad read.
    verifiable.
 3. **Method E** on the sub-CPU flash — pure firmware work, no hardware access needed.
 4. **A dead donor KN6000** — five of its devices also serve the KN6500, the best ratio available.
-5. **Method B′** on the KN7000's four wave ROMs — 64 MB, no hardware work, and verifiable against
-   the firmware's own golden checksums before anyone opens a case; its carrier replaces the
-   firmware, so only on a unit whose build is already preserved.
+5. ~~**Method B′** on the KN7000's four wave ROMs~~ — done on 2026-10-19 without any firmware
+   change (the ROM dumper runs as a style converter), and verified against the firmware's own
+   golden checksums; what remains is getting the six reads into mainline MAME.
 6. **The remaining wave ROMs** (KN5000, KN6xxx, KN2400) — the bulk of the missing data, and the
    only devices with no non-invasive route at all.
 
