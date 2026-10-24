@@ -132,6 +132,13 @@ baseline JPEGs** (built-in demo slideshows, all verified decodable, 160×80 up t
 (`TCMP`, `TPAD`, `JK`, …). Two 4-byte segments hold the ASCII strings `"84\n"`
 (the table version) and a `"ZZZ\n"` placeholder.
 
+In the disassembly (since 2026-10-24, commits `c8d16a271`, `b7f9b8a68`, `5db37967b` and
+`dafa442b3`, merged as `70b363ca5`), `kn7000/src/table.s` spells the directory as offsets to
+84 labelled segments, named by `tools/table_segments.py`. The 57 JPEG segments, and the 102
+pictures of the six picture-group segments, are files in `kn7000/src/table/`. The help texts
+(four language indexes, page lists and the texts as `.ascii`) and the GUI resource tables (366
+bitmap, frame and icon rows and 12 font descriptors) are typed; the rest is `.incbin_range`.
+
 > **Where the image stops is not where the chip stops.** IC16 + IC17 are one
 > 8 MB flash pair spanning `0x48000000`–`0x487FFFFF`, with this table image as the
 > lower half and the program image as the upper half. The table payload ends at
@@ -212,16 +219,23 @@ SetVisible:                        # CPU 0x4842D3DF
     ret     [d2], 0x10
 ```
 
-561 functions of code region 1 and 437 functions of the library are converted
-this way so far (998 in the generator's two sets; `tools/coverage_score.py` counts 999 because
-its regular expression also matches `"TCMP"` quoted in two comment lines inside the `CONVERT`
-block). `tools/coverage_score.py` counts 3.88% of the image's bytes, 161,369 of 4,157,185, as
-real source, measured 2026-10-18 and unchanged at the 2026-10-24 audit; a bulk conversion of the
-rest is in progress and not merged. Among them are the task/event and display/object framework
-clusters, the complete Techni-Chord harmony engine, and the complete control-panel
-serial protocol (the `PanelTransaction`/ISR/state-machine chain that drove the MAME
-panel HLE). Growing the set converts more, always holding the 100% byte-match
-invariant.
+Since 2026-10-24 every function of code region 1 and of the library image is converted this
+way (disassembly commits `47737623a` and `d87382628`, merged as `069d6000b`).
+`tools/coverage_score.py` reports all 3,658 function blocks converted, 670,646 instruction
+lines and no `.byte` escape, and counts 44.58% of the image's bytes, 1,853,232 of 4,157,185,
+as real source (it was 3.88% before, with 998 functions converted by hand-picked sets). What
+still passes through as `.incbin_range` is the data region, file `0x186000`-`0x3B8FD1`, apart
+from the typed display palette. The functions read by hand before the bulk conversion keep
+their notes, among them the task/event and display/object framework clusters, the complete
+Techni-Chord harmony engine and the complete control-panel serial protocol (the
+`PanelTransaction`/ISR/state-machine chain that drove the MAME panel HLE).
+
+The converted source is symbolic. Every function keeps its symbol-file name as a label; a
+function no symbol file names yet is `func_<ADDR>`; every branch target is a label,
+`loc_<ADDR>` unless something names it. A function that can also be reached through a pointer
+starts with a register-save prologue (`movm [regs], (sp)` and/or `add -N, sp`) and is entered
+by `call` right after it, so its label sits on the prologue and `<name>_entry` on the `call`
+entry. Naming the `func_` functions and the `loc_` labels is the next step.
 
 ### A second target: the SP7001 firmware
 
