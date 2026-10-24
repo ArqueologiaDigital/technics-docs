@@ -105,11 +105,11 @@ the chip is read in full.
 
 ## Status of each revision
 
-| Revision | Update image | Decompressed payload                 | Source tree    | In `make all`        |
-|----------|-------------:|-------------------------------------:|----------------|----------------------|
-| v1.40    | 93,124 B     | 196,608 B — **recovered, committed** | no             | no                   |
-| v1.41    | 93,181 B     | 196,608 B                            | no             | no                   |
-| v1.42    | 93,203 B     | 196,608 B                            | `v142/subcpu/` | **yes, both shapes** |
+| Revision | Update image | Decompressed payload                 | Source tree                                    | In `make gate`                                                                |
+|----------|-------------:|-------------------------------------:|------------------------------------------------|-------------------------------------------------------------------------------|
+| v1.40    | 93,124 B     | 196,608 B — **recovered, committed** | no                                             | decompression check only (`scripts/build/verify_subprogram_update_images.py`) |
+| v1.41    | 93,181 B     | 196,608 B                            | `v141/subcpu/`, generated from v1.42 + `EDITS` | **yes, both shapes**                                                          |
+| v1.42    | 93,203 B     | 196,608 B                            | `v142/subcpu/`                                 | **yes, both shapes**                                                          |
 
 ### v1.42 — fully covered
 
@@ -145,31 +145,59 @@ The recovery is self-checking in both directions: recompressing the extracted pa
 that image **byte for byte** (93,124/93,124). The extraction is therefore not an
 interpretation — it is the exact preimage of the shipped file.
 
-There is still no v1.40 source tree, and the payload is not part of any build target. What
-exists is an honest, hash-pinned artifact plus a reversible path back to the original.
+There is still no v1.40 source tree. Since 2026-10-24 `make gate` runs
+`scripts/build/verify_subprogram_update_images.py`, which proves that the tracked v1.40
+update image decompresses to exactly the tracked payload, but nothing builds the payload
+from source. What exists is an honest, hash-pinned artifact plus a reversible path back to
+the original.
 
-### v1.41 — internally consistent, no source tree
+### v1.41 — source-built, as v1.42 plus three edits
 
-Both v1.41 artifacts verify against each other: the compressed image decompresses
-byte-exactly to `original_ROMs/kn5000_subprogram_v141.rom` (196,608/196,608, consuming
-93,181/93,181 input bytes), and recompressing that payload reproduces the image
-byte-for-byte. What is missing is a `v141/subcpu/` source tree, so `compare_roms.py`
-cannot cover either artifact.
+Since 2026-10-24 (disassembly commits `1dbc53326` and `e83a37507`, merged as
+`a4964ef80`), `v141/subcpu/` rebuilds `original_ROMs/kn5000_subprogram_v141.rom` byte for
+byte, and the same build, recompressed with the factory stream's decisions, reproduces
+`kn5000_subprogram_v141_compressed.rom` (93,181 B). `make gate` checks both, as the
+`kn5000_subprogram_v141` and `kn5000_subprogram_v141_compressed` rows of
+`scripts/analysis/assert_byte_identical.py`. Both files were already tracked; no image was
+added to the repository.
+
+The tree is not maintained by hand. `scripts/generators/create_v141_subcpu_source.py`
+copies `v142/subcpu/` and applies its `EDITS` list, and **that list is the whole semantic
+difference between the two revisions**. `make gate` ends with
+`create_v141_subcpu_source.py --check`, which fails when `v141/` has drifted from
+"v142 + `EDITS`" (a comment-only v142 change would otherwise leave both images
+byte-identical and the drift unnoticed).
+
+The raw diff of 124,033 bytes in 2,875 runs is almost all address ripple. The real changes,
+from `notes/v141-subcpu-port/README.md` in the disassembly repository:
+
+| # | v1.42                                                                                    | v1.41                    | effect                                         |
+|---|------------------------------------------------------------------------------------------|--------------------------|------------------------------------------------|
+| 1 | version word at `0x00F000` = 142                                                         | 141                      | none                                           |
+| 2 | `RESET` begins with five stores that clear `DMA0V`, `DMA2V`, `DMAR`, `DMAB` and `INTCLR` | absent                   | every later address `0x17` lower               |
+| 3 | one `0xFF` pad byte (`FP_dcmp_AlignPad`) before the floating-point library               | absent (already even)    | from `FP_dcmp` on, `0x18` lower                |
+| 4 | the zero-initialised RAM (BSS) at `0x03EE76`, `0x66F2` bytes                             | at `0x03EE5E`, same size | every absolute DRAM operand in it `0x18` lower |
+
+Item 4 needs no edit: both trees spell those operands `Payload_Bss_Start+offset`, and
+`Payload_Bss_Start` is a label at the end of the image, so the assembler supplies each
+revision's base. So v1.42 added one thing to the sub-CPU's start-up: before the port and
+timer set-up it clears the two DMA start vectors, the DMA request and burst registers and
+the interrupt-clear register. Nothing else in the code changed. The alignment that found
+the delta is `scripts/analysis/subcpu_v141_v142_alignment.py`. v1.41's labels at their own
+addresses are in `symbols/subcpu_v141_symbols_reference.txt` (5,063 names: every v1.42
+name except `FP_dcmp_AlignPad`, which covers no byte in v1.41).
 
 sha256 of the payload: `04212fa6799e75db64b399242b762ce7377669a0a877984659c78c148453d9fe`.
 
-The proposed route is the one the main-CPU v7/v9/v10 trees already use: start from the
-v142 source and reconcile against the v141 ROM. The raw byte diff looks daunting but is
-not — most of it is address-constant ripple that symbolic assembly absorbs for free:
+The same aligner run on v1.41 against v1.40 finds real code changes as well as a shift
+(-0x34 and -0x86, with length-changing gaps around `0x031103`-`0x03121B` and
+`0x035CC1`-`0x03602C`), so a v1.40 tree should be derived from v1.41 the same way:
 
 | Pair          | Differing bytes | Contiguous runs |
 |---------------|----------------:|----------------:|
 | v1.40 ↔ v1.41 | 56,018          | 2,508           |
 | v1.41 ↔ v1.42 | 124,033         | 2,875           |
 | v1.40 ↔ v1.42 | 124,032         | 2,590           |
-
-v1.40 is much closer to v1.41 than to v1.42, so a future v1.40 tree should be diffed
-against v1.41 rather than against the current target.
 
 ## Why the update-image target matters
 

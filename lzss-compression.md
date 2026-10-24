@@ -593,17 +593,20 @@ bytes.
 
 ## Round-Trip Coverage
 
-| Data | Format | Source of truth in the repo | Build gate |
-|------|--------|------------------------------|------------|
-| 19 demo-song presets | SLIDE4K | `.mid` + `.yaml` per preset | `make verify-demo-presets` |
-| 5 live help databases | SLIDE8K | decompressed `.bin` per language | `make verify-help-databases` |
-| stale German block | SLIDE8K | raw slice of the dump (tail lost) | round-trip checked, not rebuilt |
-| v1.42 update image | SLIDE4K | the source-built v142 payload | `cmp` inside `make all` |
-| v1.40 / v1.41 update images | SLIDE4K | archived images only | not source-built |
+| Data                  | Format  | Source of truth in the repo       | Build gate                                    |
+|-----------------------|---------|-----------------------------------|-----------------------------------------------|
+| 19 demo-song presets  | SLIDE4K | `.mid` + `.yaml` per preset       | `make verify-demo-presets`                    |
+| 5 live help databases | SLIDE8K | decompressed `.bin` per language  | `make verify-help-databases`                  |
+| stale German block    | SLIDE8K | raw slice of the dump (tail lost) | round-trip checked, not rebuilt               |
+| v1.42 update image    | SLIDE4K | the source-built v142 payload     | `cmp` inside `make all`                       |
+| v1.41 update image    | SLIDE4K | the source-built v141 payload     | `cmp` inside `make all`                       |
+| v1.40 update image    | SLIDE4K | the archived image only           | decompression check in `make gate`, not built |
 
-**Still open:** `kn5000_subprogram_v141.rom` has no source tree, and the v1.40
-payload exists only because it was decompressed out
-of its update image and committed for preservation. The help-database *payloads*
+**Still open:** the v1.40 payload has no source tree; it exists only because it was
+decompressed out of its update image and committed for preservation, and `make gate` checks
+that the two agree (`scripts/build/verify_subprogram_update_images.py`). v1.41 has been
+source-built since 2026-10-24, as v1.42 plus three recorded edits; see
+[Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/). The help-database *payloads*
 are likewise still opaque binaries — decoding their pointer-table/string-pool
 record format is future work.
 
@@ -908,4 +911,5 @@ payloads — and the stale German block as a raw slice.
 ## Future Work
 
 - [ ] Decode the help-database payload format (pointer table + string pool at RAM 0x69800) into per-topic sources
-- [ ] Build a source tree for the v1.41 Sub-CPU payload
+- [x] Build a source tree for the v1.41 Sub-CPU payload (`v141/subcpu/`, 2026-10-24)
+- [ ] Build a source tree for the v1.40 Sub-CPU payload, derived from v1.41 the same way

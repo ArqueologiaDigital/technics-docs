@@ -33,9 +33,11 @@ import os
 import re
 import sys
 
-TOPS = ['v10', 'v9', 'v7', 'v142', 'subcpu', 'table_data', 'custom_data',
-        'hdae5000', 'shared', 'wsa1', 'kn7000']
-EXTS = ('.s', '.c', '.h', '.ld', '.inc', '.sym')     # .sym: kn7000/*.sym hold its hand-added names
+TOPS = ['v10', 'v9', 'v7', 'v142', 'v141', 'subcpu', 'table_data', 'custom_data',
+        'hdae5000', 'shared', 'wsa1', 'kn7000',
+        # the MN10300 siblings made with kn7000/tools (disassembly wave 1, 2026-10-24)
+        'kn2400', 'kn6000', 'kn6500', 'hdsx3']
+EXTS = ('.s', '.c', '.h', '.ld', '.inc', '.sym')     # .sym: the MN10300 trees' *.sym hold their names
 NAME = re.compile(r'`([A-Za-z_][A-Za-z0-9_]*)(?:\(\))?`')
 
 
