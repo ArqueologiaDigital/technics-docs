@@ -6,7 +6,7 @@ permalink: /raw-byte-code-elimination/
 
 # Raw Byte Code Elimination
 
-**Status: IN PROGRESS.** All thirteen TLCS-900 images are byte-identical to their physical
+**Status: IN PROGRESS.** All sixteen gated TLCS-900 images are byte-identical to their physical
 dumps, but that is a build-match guarantee, not a disassembly guarantee: a `.byte` run that spells real
 code reassembles to the same bytes as an `.incbin` of those bytes, and passes the gate
 identically either way. Measured code-as-`.byte` remains in the Main CPU, Sub CPU Payload
@@ -283,7 +283,7 @@ Newly disassembled code may reveal previously unidentified jump tables or call t
 
 ### Step 13: Final Verification & Website Sync
 
-1. `make gate-all` — every gated image byte-identical (13 TLCS-900 + 13 KN7000), or the change does not land
+1. `make gate-all` — every gated image byte-identical (16 TLCS-900 + 19 MN10300), or the change does not land
 2. Run `scripts/analysis/sync_docs_labels.py --apply` to update any new labels on the website
 3. Update `rom-reconstruction.md`
 
@@ -302,7 +302,7 @@ Step 12 is iterative and may cycle back through Steps 3-11.
 ## Verification
 
 After each step:
-- `cd technics-roms-disasm && make gate-all` — every gated image (13 TLCS-900 + 13 KN7000), byte-exact or non-zero exit
+- `cd technics-roms-disasm && make gate-all` — every gated image (16 TLCS-900 + 19 MN10300), byte-exact or non-zero exit
 - LLVM tests: `cd llvm-project && build/bin/llvm-lit llvm/test/CodeGen/TLCS900/`
 
 > **Do not accept a percentage in place of the gate.** `compare_roms.py` prints

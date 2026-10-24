@@ -14,8 +14,8 @@ process and the traps that make a green gate untrustworthy if you take a shortcu
 ## The invariant
 
 > ```
-> make gate            # the nine KN5000 images
-> make gate-all        # all 26: 9 KN5000 + 4 SX-WSA1R + 13 KN7000 (make gate-kn7000)
+> make gate            # the twelve KN5000 images
+> make gate-all        # all 35: 12 KN5000 + 4 SX-WSA1R + 15 KN7000 + 4 MN10300 siblings
 > ```
 > **Byte-identical, or the package does not land.**
 

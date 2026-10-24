@@ -8,7 +8,7 @@ permalink: /help-wanted/
 
 This is a community reverse engineering project. Here's how you can contribute:
 
-**Current Progress:** thirteen TLCS-900 ROM images — nine KN5000 and four SX-WSA1R — **rebuild byte-identically** from assembly source, built with a custom LLVM TLCS-900 backend and gated, with the thirteen KN7000 images, by `make gate-all` (all 26: 9 KN5000 + 4 SX-WSA1R + 13 KN7000). Twelve of those images are 12,386,304 distinct bytes (the thirteenth is a compressed re-encoding of one of the others), and 96.34 % of them are code, data whose header states what it is and cites the evidence, or verified filler — the data census's strict grade on 2026-10-06 (95.04 % after the September 25 semantic push; a 2026-10-06 change in how one-line table blocks inherit their header accounts for part of the rise) (see [how much of the data is actually explained]({{ site.baseurl }}/rom-reconstruction/#how-much-of-the-data-is-actually-explained) for what that grade does and does not certify).
+**Current Progress:** sixteen TLCS-900 ROM images — twelve KN5000 and four SX-WSA1R — **rebuild byte-identically** from assembly source, built with a custom LLVM TLCS-900 backend, and nineteen MN10300 images (fifteen KN7000 and one each for the KN2400/KN2600, KN6000, KN6500 and the KN6000-family HD-SX plug-in) with the repository's own MN10300 assembler; `make gate-all` checks all 35. Twelve of the TLCS-900 images are 12,386,304 distinct bytes (the other four are v8, v1.41 and two compressed re-encodings), and 96.80 % of them are code, data whose header states what it is and cites the evidence, or verified filler — the data census's strict grade on 2026-10-24 (see [how much of the data is actually explained]({{ site.baseurl }}/rom-reconstruction/#how-much-of-the-data-is-actually-explained) for what that grade does and does not certify).
 
 Where to look for work: the open technical unknowns are on [Open Questions]({{ site.baseurl }}/questions/), the programme-level plan is on the [Roadmap]({{ site.baseurl }}/roadmap/), and what the emulator does not model yet is on [MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/).
 
@@ -27,10 +27,12 @@ If you own one of these instruments and can dump ROMs, please reach out!
 
 ### ROM Disassembly Improvements
 
-All thirteen TLCS-900 images byte-match, no `LABEL_*` placeholder remains, and the NAKA widget and
+All sixteen TLCS-900 images byte-match, no `LABEL_*` placeholder remains, and the NAKA widget and
 sound data files are typed C structs rather than raw byte arrays. Not every symbol has a
-semantic name yet: v10 still has 638 positional names and the SX-WSA1R 568 unnamed `sub_`
-routines (semantic names: 92.57 % on 2026-10-06).
+semantic name yet: on 2026-10-24 `docs/badges/semantic-score.json` counts 442 positional
+names in v10, and 624, 1,896 and 497 in the SX-WSA1R's `prom_a`, `prom_b` and `prom_c`
+(semantic names: KN5000 96.27 %, SX-WSA1R 83.12 %). The MN10300 trees are further behind:
+most of the KN2400, KN6000 and KN6500 entries are still `func_<ADDR>`.
 
 **Byte-match is not the same as understood, and this is the honest backlog.** A 100 % byte
 match is preserved by construction and says nothing about how much of the build is real source
@@ -60,9 +62,10 @@ rather than `.incbin` passthrough or code spelled as `.byte`. What is genuinely 
   (9,958 sites) since the backend renamed the backwards-named `stb_erp` family on 2026-09-25.
   See
   [LLVM Semantic Instructions]({{ site.baseurl }}/llvm-semantic-instructions/).
-- **Firmware versions with no source tree.** v5, v6 and v8 on the main CPU; v1.40 and v1.41 on
-  the sub-CPU payload; HD-AE5000 v1.10i, v1.15i and v2.01i. v8 differs from v9 by the version byte alone, so it is the cheapest of
-  them by a wide margin.
+- **Firmware versions with no source tree.** v5 and v6 on the main CPU; v1.40 on the sub-CPU
+  payload; HD-AE5000 v1.10i, v1.15i and v2.01i. (v8 and v1.41 became source-built on 2026-10-24:
+  v8 from the v9 sources with a different version byte, v1.41 as v1.42 plus three recorded
+  edits.) v1.40 should be derived from v1.41 the same way.
 - **A C port beyond data.** The C files in the tree are all `__attribute__((packed))` struct
   initializers; **no routine of the reconstruction is expressed as C yet**, although the original
   firmware is mostly C compiled by Toshiba's TLCS-900 compiler ([Original Toolchain]({{ site.baseurl }}/original-toolchain/)).

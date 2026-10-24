@@ -31,7 +31,7 @@ cannot be rebuilt from public sources until the branch is pushed.
 
 ```
 make gate-wsa1     # the four SX-WSA1R images
-make gate-all      # all 26: 9 KN5000 + 4 SX-WSA1R + 13 KN7000 (make gate-kn7000)
+make gate-all      # all 35: 12 KN5000 + 4 SX-WSA1R + 15 KN7000 + 4 MN10300 siblings
 ```
 
 Both rebuild first and then compare bytes, and must print

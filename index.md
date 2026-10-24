@@ -190,43 +190,51 @@ Choose based on your goal:
 
 ### ROM Reconstruction Progress
 
-**Thirteen TLCS-900 ROM images rebuild byte-identically from source** — nine KN5000 and four
-[SX-WSA1R]({{ site.baseurl }}/wsa1-disassembly/), 12,386,304 bytes, gated after every commit by
-`make gate-all` (all 26: 9 KN5000 + 4 SX-WSA1R + 13 KN7000). Built with a custom
+**Sixteen TLCS-900 ROM images rebuild byte-identically from source** — twelve KN5000 and four
+[SX-WSA1R]({{ site.baseurl }}/wsa1-disassembly/), gated after every commit by `make gate-all`
+(all 35: 12 KN5000 + 4 SX-WSA1R + 15 KN7000 + 4 MN10300 siblings, the
+[KN2400]({{ site.baseurl }}/kn2400-disassembly/), [KN6000, KN6500 and HD-SX
+plug-in]({{ site.baseurl }}/kn6000-disassembly/) trees). Twelve of the KN5000 and SX-WSA1R
+images, 12,386,304 bytes, are distinct; the other four are KN5000 v8 (v9's source with one
+byte changed), the sub-CPU v1.41 payload generated from v1.42's source, and the two compressed
+sub-CPU update images. Built with a custom
 [LLVM TLCS-900 backend](https://github.com/felipesanches/llvm-project/tree/tlcs900_backend)
 (the disassembly currently needs `tlcs900_backend` at `a3a81863f87d`, which has not yet been
 pushed to that branch).
 
-| Component                  | Size       | Rebuild        | Verbatim debt                                 |
-|----------------------------|------------|----------------|-----------------------------------------------|
-| Main CPU Program (v10, v9) | 2MB each   | byte-identical | **0**                                         |
-| Main CPU Program (v7)      | 2MB        | byte-identical | 6,591 B                                       |
-| Sub CPU Payload            | 192KB      | byte-identical | **0**                                         |
-| Sub CPU Boot ROM           | 128KB      | byte-identical | **0**                                         |
-| Table Data                 | 2MB        | byte-identical | **0** real (six genuine BMPs the tool counts) |
-| Custom Data                | 1MB        | byte-identical | **0**                                         |
-| HDAE5000 ROM               | 512KB      | byte-identical | **0**                                         |
-| SX-WSA1R `prom_a`–`prom_d` | 512KB each | byte-identical | **0**                                         |
+| Component                      | Size       | Rebuild        | Verbatim debt |
+|--------------------------------|------------|----------------|---------------|
+| Main CPU Program (v10, v9, v8) | 2MB each   | byte-identical | **0**         |
+| Main CPU Program (v7)          | 2MB        | byte-identical | 6,591 B       |
+| Sub CPU Payload (v1.42, v1.41) | 192KB each | byte-identical | **0**         |
+| Sub CPU Boot ROM               | 128KB      | byte-identical | **0**         |
+| Table Data                     | 2MB        | byte-identical | **0**         |
+| Custom Data                    | 1MB        | byte-identical | **0**         |
+| HDAE5000 ROM                   | 512KB      | byte-identical | **0**         |
+| SX-WSA1R `prom_a`–`prom_d`     | 512KB each | byte-identical | **0**         |
 
 *Byte-identical means identical to the dump files we hold. For the sub-CPU boot ROM that
 file is a `BAD_DUMP`: 89% of IC30 was never read and is present in the file as assumed
 `0xFF`. See [Sub-CPU Boot ROM (IC30)]({{ site.baseurl }}/subcpu-boot-rom/).*
 
-*Rebuilding is not the same as understanding. Of the same bytes, **96.34 %** are code, data
-whose header states what it is and cites the evidence, or verified filler — the data
-census's strict grade on 2026-10-06 (95.04 % after the September 25 semantic push, up from
-64.15 %; part of the later rise comes from a 2026-10-06 change in how one-line table blocks
-inherit their header, so the two figures are not strictly comparable). The grade is
-keyword-based, and its hand-audited error sample predates the push and has not been
-redrawn. That covers the twelve distinct images; the thirteenth TLCS-900 image is a compressed
-re-encoding of the sub-CPU payload. Measured by `scripts/analysis/data_range_census.py`; see
+*Rebuilding is not the same as understanding. Of the twelve distinct images' bytes, **96.80 %**
+are code, data whose header states what it is and cites the evidence, or verified filler — the
+data census's strict grade on 2026-10-24 (96.34 % on 2026-10-06; 95.04 % after the September 25
+semantic push, up from 64.15 %; part of the October rise comes from a 2026-10-06 change in how
+one-line table blocks inherit their header, so the figures are not strictly comparable). The
+grade is keyword-based, and its hand-audited error sample predates the push and has not been
+redrawn. Measured by `scripts/analysis/data_range_census.py`; see
 [how much of the data is actually explained]({{ site.baseurl }}/rom-reconstruction/#how-much-of-the-data-is-actually-explained).*
 
 *The disassembly's README also carries a measured **semantic score** (`make semantic-score`):
-95.54 % on 2026-10-06 (KN5000 95.93 %, SX-WSA1R 92.62 %), the mean of four components —
-bytes understood (96.34 %), semantic names (92.57 %), jump tables resolved (100 %, 3,021 of
-3,021) and C fields named (93.25 %, KN5000 only). As the README puts it, byte-match says
-nothing about progress.*
+91.10 % on 2026-10-24 over three models (KN5000 97.00 %, SX-WSA1R 92.65 %, KN7000 65.29 %),
+the mean of up to four components — bytes understood, semantic names, jump tables resolved
+(100 %, 3,031 of 3,031) and C fields named (94.52 %, KN5000 only). The KN7000 joined that day
+with its program, table and Style Convert converters; its bytes component is the share emitted
+as source rather than passthrough, a weaker measure than the census grade, so the pooled score
+fell when it was added. The components per model are on
+[ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#the-semantic-score). As the README
+puts it, byte-match says nothing about progress.*
 
 ### Homebrew Development
 
