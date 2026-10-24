@@ -106,7 +106,7 @@ them as a parallel corpus and cross-reference constantly:
 | MN10300 **execution core** (`mn10300.cpp`, incl. `udf00`/`udf07`, interrupts)          | ✅ **reuse the KN7000 core verbatim**                                                                                                                                                                                                                | none for the ISA; only device wiring                                                                                                                                                                            |
 | MAME driver (`kn7000.cpp`)                                                             | ✅ **done, without forking, and emulated in mainline MAME since mamedev/mame#16250** — `kn6000`/`kn6500` are `SYST()` entries in the shared `kn7000.cpp`, with their own `kn6000_state` upstream (the kn7000_mame overlay still uses `kn7000_state`) | upstream has no panel artwork, and its tone-generator device decodes the registers but outputs silence; the overlay's `kn6000.lay` and placeholder-PCM synthesis are not upstream; see the status updates below |
 | Library at `0x4C000000`                                                                | ❌ **not the KN7000's mechanism**: the KN6000/KN6500 read it without writing it first, and find a copy of the program flash there (what backs the window on the board is not established)                                                            | —                                                                                                                                                                                                               |
-| Byte-exact buildable disassembly + `mn10300_asm.py`                                    | 🟢 transfers                                                                                                                                                                                                                                         | regenerate per ROM                                                                                                                                                                                              |
+| Byte-exact buildable disassembly + `mn10300_asm.py`                                    | ✅ **done 2026-10-24**: `kn6000/` and `kn6500/` in the disassembly repository rebuild both program images byte for byte, about 99% of each code range as instructions ([Disassembly]({{ site.baseurl }}/kn6000-disassembly/))                        | type the data; name the `func_` entries                                                                                                                                                                         |
 | 2,302 functions named from MILK reflection tables                                      | 🟢 **rerun generically per ROM**, then four-way align                                                                                                                                                                                                | —                                                                                                                                                                                                               |
 | Subsystem docs (memory map, boot, panel, test modes)                                   | 🟢 port + diff                                                                                                                                                                                                                                       | model-specific deltas                                                                                                                                                                                           |
 
@@ -140,6 +140,17 @@ recover `CL_*`/`VF_*`/`BD_*` constants. Then **four-way align** names across mod
 **Phase 4 — the four-way diff.** Build a cross-model symbol/behaviour map; use it to
 resolve each model's open questions and to back-fill KN5000/KN7000 gaps. Document the shared framework once, with
 per-model deltas.
+
+## Status update (2026-10-24): byte-exact disassembly trees
+
+The disassembly repository now has `kn6000/`, `kn6500/` and `hdsx3/` (the expansion board's
+`XAPR` plug-in), made with the KN7000 tree's tools and gated by `make gate-all`. Each
+reference image is regenerated from the manufacturer's update rather than committed. Phase 3's
+first half is therefore done: function names from each image's own MILK reflection tables,
+more carried from the KN7000 where the code is identical, and every reached function emitted as
+MN10300 instructions (98.72% of the KN6000's code ranges, 98.96% of the KN6500's). The
+four-way alignment of names across models is the open part. See
+[KN6000 / KN6500 / HD-SX Disassembly]({{ site.baseurl }}/kn6000-disassembly/).
 
 ## Status update (2026-10)
 
