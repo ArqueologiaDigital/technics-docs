@@ -106,7 +106,8 @@ differently:
 | `+0x14`–      | `RET`                          | ten unused slots, all pointing at a `rets` |
 
 Both firmwares compare the signature with a string compare: on the KN7000 it is the library's
-`strncmp` (`LibStrncmp`, `0x4C00203C`).
+`strncmp`, entered past its `movm` prologue at the register-save entry
+`strncmp_entry` (`0x4C00203C`; the export itself is `0x4C00203A`).
 
 ## The export table
 
@@ -197,9 +198,11 @@ resident plug-in's own init (`func_483E8071`) drives the same table the other wa
 `RegisterObjectTable` (`+0xEC`) with the plug-in's 11 class ids and name tables, exactly as the
 KN5000's HD-AE5000 `Boot_Init` registers its titles. The remaining 701 calls dispatch through other
 MILK objects the plug-in is given or creates (view instances, its own objects). It also
-links its own copy of the compiler runtime; seven routines are byte-identical to named firmware
-routines: `LibStrncmp`, `LibDiv32`, `abs` and four soft-float helpers (`LibF64Unpack`,
-`LibF64UnpackedToI32`, `LibI32ToF64`, `LibF64Abs`).
+links its own copy of the compiler runtime; eleven routines are byte-identical to named firmware
+routines: `strncmp`, `memcpy`, `memset`, `strcpy`, `LibDiv32`, `abs` and five soft-float helpers
+(`LibF64Unpack`, `LibF64UnpackedToI32`, `LibI32ToF64`, `LibF64NegTo`, `LibF64Abs`). Four of them
+(`strncmp`, `memcpy`, `memset`, `strcpy`) copy the firmware body from its register-save entry
+(`strncmp_entry` and the like) on, linked without the `movm` prologue.
 
 The load address is the one the loader uses, and the file agrees: 122 of its pointers land on
 function prologues if it is placed at `0x5029B000`, and one if it is placed 16 bytes either side.
