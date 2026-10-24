@@ -6,6 +6,9 @@ and `kn7000.md` against `technics-roms-disasm/notes/repo-audit-2026-10-24/` (HEA
 
 ## Pages to revisit when the 2026-10-24 wave lands
 
+**Done** for the first three rows by the wave-1 sync session (see
+`notes/2026-10-24-wave1-sync-followups.md`); the `rom-dumping-roadmap.md` row is still open.
+
 Every one of these pages says, in one sentence, that a wave of work is in progress on the
 disassembly repository and is not merged. When it lands, update:
 
