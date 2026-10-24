@@ -11,14 +11,19 @@ Goal: rebuild every KN5000 firmware image from disassembled source, byte for byt
 Byte-identity is the project's only acceptance criterion. The gate is
 
 ```
-make gate-all      # thirteen images: 9 KN5000 + 4 SX-WSA1R
+make gate-all      # 26 images: 9 KN5000 + 4 SX-WSA1R + 13 KN7000
 ```
 
 which rebuilds, then runs `scripts/analysis/assert_images_assemble.py` (each root source
 must assemble, asked of the assembler directly) and
 `scripts/analysis/assert_byte_identical.py` over nine KN5000 image pairs and four SX-WSA1R
-pairs, and `assert_toolchain_is_a_prerequisite.py` to prove the assembler is a prerequisite
-of every image rather than a stale object comparing green forever. It **compares bytes and
+pairs; then `make gate-kn7000`, which is `make -C kn7000 verify verify-sp7001 verify-picture
+verify-cnv` and `cmp`s or SHA-1-checks thirteen more images (program 941 and table 84; the
+SP7001 program 942, table 83 and `BASEEXT.XAP`; the IC19 picture ROM; the seven Style Convert
+converters); and finally `assert_toolchain_is_a_prerequisite.py` to prove the assembler is a
+prerequisite of every image rather than a stale object comparing green forever. The count was
+checked against the root and `kn7000/` Makefiles on 2026-10-24; older pages still say
+"thirteen", which was right before the KN7000 gate joined. It **compares bytes and
 exits non-zero on any difference**. A change that fails it is reverted, not explained away.
 
 > ⚠ **`compare_roms.py` is a similarity report, not the gate.** It prints
@@ -44,32 +49,41 @@ Official firmware updates were distributed on floppy disk. All versions are arch
 
 ### Main Board Firmware
 
-| Version | Release Date | Source tree |
-|---------|--------------|-------|
-| v5 | 1997-11-12 | none — earliest available; no dump in the disassembly repository |
-| v6 | 1998-01-16 | none — no dump in the disassembly repository |
-| **v7** | 1998-06-26 | `v7/maincpu/`, byte-identical |
-| v8 | 1998-11-13 | none — differs from v9 by the version byte alone, so this is the cheapest tree still missing |
-| **v9** | 1999-01-26 | `v9/maincpu/`, byte-identical |
-| **v10** | 1999-08-02 | `v10/maincpu/` — the primary disassembly target |
+| Version | Release Date | Source tree                                                                                                                                                         |
+|---------|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| v5      | 1997-11-12   | none — the earliest release held; its dump is in the private romset (MAME BIOS 5), not in the repository                                                            |
+| v6      | 1998-01-16   | none — dump in the private romset (MAME BIOS 4), not in the repository                                                                                              |
+| **v7**  | 1998-06-26   | `v7/maincpu/`, byte-identical                                                                                                                                       |
+| v8      | 1998-11-13   | none yet — dump in the private romset (MAME BIOS 2); it is v9 with one byte changed, the version byte at `0xFFFFE8`, and a build from the v9 sources is in progress |
+| **v9**  | 1999-01-26   | `v9/maincpu/`, byte-identical                                                                                                                                       |
+| **v10** | 1999-08-02   | `v10/maincpu/` — the primary disassembly target                                                                                                                     |
 
 Three of the six main-CPU releases are source-built. v5, v6 and v8 are archived on
 [archive.org](https://archive.org/details/technics-kn5000-system-update-disks) and selectable
-as MAME BIOS options, but no dump of them sits in the disassembly repository and none has a
-source tree, so they are outside the byte gate.
+as MAME BIOS options; their chip dumps are held in the private romset beside the repository,
+but not in the repository itself, and none has a source tree yet, so they are outside the byte
+gate. v8 costs almost nothing: `cmp -l` against v9 prints one line, offset `0x1FFFE8`,
+`0x08` for `0x09` (re-checked 2026-10-24). A v8 build from the v9 sources is part of the wave
+of work in progress on the disassembly repository; it is not merged, and this page will be
+updated when it lands.
 
 The sub-CPU payload has the same shape: `v142/subcpu/` is source-built and gated, while v1.40
-and v1.41 are held as verified artifacts with no source tree — see
-[Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/).
+and v1.41 are tracked in `original_ROMs/` (payload and compressed update image each) but no
+Makefile target builds or checks them and neither has a source tree — see
+[Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/). A v1.41 tree is in the
+same wave of work.
+
+The [Source Tree Inventory]({{ site.baseurl }}/source-tree-inventory/) lists every held image
+of every model with its state in the repository.
 
 ### HD-AE5000 Firmware
 
-| Version | Release Date | Notes                                                                                       |
-|---------|--------------|---------------------------------------------------------------------------------------------|
-| v1.10i  | 1998-07-06   | Initial release                                                                             |
-| v1.15i  | 1998-10-13   |                                                                                             |
-| v2.01i  | 1999-01-15   | Added lyrics display (the installer calls it "v2.0i"; the ROM's own signature reads v2.01i) |
-| v2.06i  | unknown      | The image the source tree rebuilds (`hdae5000/hd-ae5000_v2_06i.s`)                          |
+| Version | Release Date | Notes                                                                                                                                                                                |
+|---------|--------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| v1.10i  | 1998-07-06   | Initial release. Dump in the private romset (MAME BIOS 0), not in the repository                                                                                                     |
+| v1.15i  | 1998-10-13   | Dump in the private romset (MAME BIOS 1), not in the repository; byte-identical to `HKEXTROM.XAP` inside the official `AE5-115.exe` installer and to the unversioned `hd-ae5000.ic4` |
+| v2.01i  | 1999-01-15   | Added lyrics display (the installer calls it "v2.0i"; the ROM's own signature reads v2.01i). Dump in the private romset (MAME BIOS 2), not in the repository                         |
+| v2.06i  | unknown      | The image the source tree rebuilds (`hdae5000/hd-ae5000_v2_06i.s`), MAME BIOS 3                                                                                                      |
 
 ## Verification Sections
 
@@ -700,16 +714,19 @@ Rectangle width is proportional to ROM size.
 
 The original firmware dumps are stored in `original_ROMs/`:
 
-| File | Size | Description |
-|------|------|-------------|
-| `kn5000_v10_program.rom` | 2MB | Main CPU program ROM (also v9, v7) |
-| `kn5000_subprogram_v142.rom` | 192KB | Sub CPU payload (sent by main CPU at boot) |
-| `kn5000_subprogram_v142_compressed.rom` | 93,203B | Same payload as shipped on update disks |
-| `kn5000_subcpu_boot.ic30` | 128KB | Sub CPU boot ROM |
-| `kn5000_table_data_rom_odd.ic1` | 1MB | Table data ROM (odd words) |
-| `kn5000_table_data_rom_even.ic3` | 1MB | Table data ROM (even words) |
-| `kn5000_custom_data.ic19` | 1MB | Custom data flash (user storage) |
-| `hd-ae5000_v2_06i.ic4` | 512KB | HDAE5000 hard disk expansion ROM |
+| File                                                                  | Size           | Description                                                                  |
+|-----------------------------------------------------------------------|----------------|------------------------------------------------------------------------------|
+| `kn5000_v10_program.rom`                                              | 2MB            | Main CPU program ROM (also `kn5000_v9_program.rom`, `kn5000_v7_program.rom`) |
+| `kn5000_subprogram_v142.rom`                                          | 192KB          | Sub CPU payload (sent by main CPU at boot)                                   |
+| `kn5000_subprogram_v142_compressed.rom`                               | 93,203B        | Same payload as shipped on update disks                                      |
+| `kn5000_subprogram_v141.rom`, `kn5000_subprogram_v141_compressed.rom` | 192KB, 93,181B | Sub CPU payload v1.41, both shapes — tracked, built by nothing               |
+| `kn5000_subprogram_v140.rom`, `kn5000_subprogram_v140_compressed.rom` | 192KB, 93,124B | Sub CPU payload v1.40, both shapes — tracked, built by nothing               |
+| `kn5000_subcpu_boot.ic30`                                             | 128KB          | Sub CPU boot ROM                                                             |
+| `kn5000_table_data_rom_odd.ic1`                                       | 1MB            | Table data ROM (odd words)                                                   |
+| `kn5000_table_data_rom_even.ic3`                                      | 1MB            | Table data ROM (even words)                                                  |
+| `kn5000_table_data.rom`                                               | 2MB            | The two halves interleaved; the image the build compares against             |
+| `kn5000_custom_data.ic19`                                             | 1MB            | Custom data flash (user storage)                                             |
+| `hd-ae5000_v2_06i.ic4`                                                | 512KB          | HDAE5000 hard disk expansion ROM                                             |
 
 **ROM interleaving:** the table-data ROM uses 16-bit **word-level** interleaving across two
 physical chips. `kn5000_table_data.rom` is built by alternating 16-bit words from
@@ -836,7 +853,9 @@ distinction moot for preservation purposes.
 
 The same measurement establishes the v10 ↔ v1.42 pairing as fact rather than inference:
 both images come off the same floppy. The v141 → v7/v8 and v140 → v5/v6 pairings that
-MAME's BIOS options assert are **not** measured — only the v10 disc is available here.
+MAME's BIOS options assert are **not** measured — the v10 disc is the only KN5000 system-update
+disc available here (the only other official installer on the machine is the HD-AE5000 v1.15
+one, `AE5-115.exe`, whose `HKEXTROM.XAP` is the v1.15i image).
 
 Reference disassembly files (`.unidasm`) are generated with MAME's `unidasm` tool for analysis.
 
@@ -857,7 +876,7 @@ instructions are encoded natively — no workaround macros needed.
 ```bash
 cd kn5000-roms-disasm
 
-make gate-all                         # the gate: thirteen images, byte-exact or non-zero exit
+make gate-all                         # the gate: 26 images (9 KN5000, 4 WSA1R, 13 KN7000), byte-exact or non-zero exit
 
 # the full similarity report: expect FIFTEEN sections, all 100.00%
 make clean-all && make all && make asl-all && python3 scripts/build/compare_roms.py

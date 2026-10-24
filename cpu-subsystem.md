@@ -348,12 +348,12 @@ See [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/) for full protoc
 
 ### Build System
 
-The project uses **LLVM** with a custom TLCS-900 backend as the authoritative build system for all thirteen gated images:
+The project uses **LLVM** with a custom TLCS-900 backend as the authoritative build system for the thirteen TLCS-900 gated images (the KN7000's thirteen use the repository's own MN10300 assembler):
 
 ```bash
 # Build the nine KN5000 images (from roms-disasm/); make everything also builds the four SX-WSA1R images
 make all
-# Certify all thirteen images byte-identical
+# Certify all 26 gated images byte-identical (13 TLCS-900 + 13 KN7000)
 make gate-all
 
 # Pipeline: llvm-mc → ld.lld → llvm-objcopy → raw binary

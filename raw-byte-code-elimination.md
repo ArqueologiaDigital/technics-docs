@@ -283,7 +283,7 @@ Newly disassembled code may reveal previously unidentified jump tables or call t
 
 ### Step 13: Final Verification & Website Sync
 
-1. `make gate-all` — thirteen images byte-identical, or the change does not land
+1. `make gate-all` — every gated image byte-identical (13 TLCS-900 + 13 KN7000), or the change does not land
 2. Run `scripts/analysis/sync_docs_labels.py --apply` to update any new labels on the website
 3. Update `rom-reconstruction.md`
 
@@ -302,7 +302,7 @@ Step 12 is iterative and may cycle back through Steps 3-11.
 ## Verification
 
 After each step:
-- `cd kn5000-roms-disasm && make gate-all` — thirteen images, byte-exact or non-zero exit
+- `cd technics-roms-disasm && make gate-all` — every gated image (13 TLCS-900 + 13 KN7000), byte-exact or non-zero exit
 - LLVM tests: `cd llvm-project && build/bin/llvm-lit llvm/test/CodeGen/TLCS900/`
 
 > **Do not accept a percentage in place of the gate.** `compare_roms.py` prints

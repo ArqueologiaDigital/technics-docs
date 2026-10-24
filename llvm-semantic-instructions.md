@@ -370,7 +370,7 @@ verification across all thirteen KN5000 and SX-WSA1R images.
 3. **Add decoding case** in `TLCS900Disassembler.cpp` to emit semantic mnemonic
 4. **Build LLVM:** `ninja -C build llc llvm-mc` (from the llvm-project checkout)
 5. **Update all `.s` files** in every tree that uses the mnemonic: the three KN5000 main-CPU versions, the sub-CPU payload and boot ROM, table data, HD-AE5000 and the SX-WSA1R images. The sources are latin-1. Where the new spelling needs a new assembler, the tree and the `TOOLCHAIN_VERSION` pin move in one commit.
-6. **Rebuild ROMs:** `make gate-all` — all thirteen images byte-identical, or the change does not land
+6. **Rebuild ROMs:** `make gate-all` — all thirteen TLCS-900 images byte-identical (the KN7000 half of the gate does not use LLVM), or the change does not land
 7. **Run LLVM tests:** `build/bin/llvm-lit llvm/test/MC/TLCS900/ llvm/test/MC/Disassembler/TLCS900/ llvm/test/CodeGen/TLCS900/`
 
 ## See Also

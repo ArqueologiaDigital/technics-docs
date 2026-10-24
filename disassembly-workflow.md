@@ -15,7 +15,7 @@ process and the traps that make a green gate untrustworthy if you take a shortcu
 
 > ```
 > make gate            # the nine KN5000 images
-> make gate-all        # all thirteen: 9 KN5000 + 4 SX-WSA1R
+> make gate-all        # all 26: 9 KN5000 + 4 SX-WSA1R + 13 KN7000 (make gate-kn7000)
 > ```
 > **Byte-identical, or the package does not land.**
 
