@@ -46,8 +46,9 @@ Panasonic's own update disks (`.SLD` payloads, SLIDE4K LZSS), not from chips. Th
 scripted end to end and never runs the installers: `kn7000/tools/sfx_extract.py` in the disassembly
 repository reads the zip appended to each self-extracting `.exe` with Python's `zipfile`,
 `sld_decompress.py` unpacks the `.SLD`, and `smck_check.py` applies the checksum oracle below. No
-DOSBox or Windows is needed, and the KN6000, KN6500 and KN2400 images regenerate this way with the
-same MD5s as the stored copies (checked in the 2026-10-24 repository audit). (The KN6000/KN6500
+DOSBox or Windows is needed. For the KN6000, KN6500 and KN2400 the extracted `.SLD` files match the
+stored copies' MD5s and the decompressed images pass Panasonic's SMCK block checks (16/16, 15/15
+and 15/15; checked in the 2026-10-24 repository audit). (The KN6000/KN6500
 `IK2`/`IKV2` parts are the program's upper half; their table/font devices are listed in §3.) The
 images validate against **Panasonic's own checksum oracles** — the `SMCK*.INF` files shipped
 alongside them, giving a 32-bit total plus 16-bit sums of every `0x40000` block — with two KN7000
@@ -106,16 +107,16 @@ disassembly repository holds.
 
 ### SX-KN7000 — 7 devices in mainline's list, 80.5 MB; 1 still unread
 
-| device | part           | size   | type     | role                                                                                                                                | read (2026-10-24)                                                                                     |
-|--------|----------------|--------|----------|-------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
-| IC203  | `C3CBQD000002` | 16 MB  | mask ROM | wave, main TG bank Y                                                                                                                | read 2026-10-19 through the tone-generator port, twice, sum as the firmware expects                   |
-| IC204  | `C3CBQD000001` | 16 MB  | mask ROM | wave, main TG bank X                                                                                                                | read 2026-10-19, as above                                                                             |
-| IC207  | `C3CBQD000004` | 16 MB  | mask ROM | wave, sub TG bank Y                                                                                                                 | read 2026-10-19, as above                                                                             |
-| IC208  | `C3CBQD000003` | 16 MB  | mask ROM | wave, sub TG bank X                                                                                                                 | read 2026-10-19, as above                                                                             |
-| IC18   | `C3CBND000046` | 8 MB   | mask ROM | rhythm (later production)                                                                                                           | the CPU-visible 4 MB read 2026-10-19; the other half sits behind jumper JP7                           |
-| IC20   | `C3FBMD000050` | 4 MB   | flash    | rhythm, earlier production — the alternative fitted at IC18's site (a unit carries one or the other, so it is not counted in the 7) | not read (the owner's unit carries IC18)                                                              |
-| IC19   | `C3CBMD000098` | 8 MB   | mask ROM | picture                                                                                                                             | the CPU-visible 2 MB read 2026-10-19 (repeated four times in the window); the rest behind jumper JP10 |
-| IC414  | `C3FBKD000162` | 512 KB | flash    | SD card sub-CPU program                                                                                                             | **not read**                                                                                          |
+| device | part           | size   | type     | role                                                                                                                                | read (2026-10-24)                                                                                                                                       |
+|--------|----------------|--------|----------|-------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+| IC203  | `C3CBQD000002` | 16 MB  | mask ROM | wave, main TG bank Y                                                                                                                | read 2026-10-19 through the tone-generator port, twice, sum as the firmware expects                                                                     |
+| IC204  | `C3CBQD000001` | 16 MB  | mask ROM | wave, main TG bank X                                                                                                                | read 2026-10-19, as above                                                                                                                               |
+| IC207  | `C3CBQD000004` | 16 MB  | mask ROM | wave, sub TG bank Y                                                                                                                 | read 2026-10-19, as above                                                                                                                               |
+| IC208  | `C3CBQD000003` | 16 MB  | mask ROM | wave, sub TG bank X                                                                                                                 | read 2026-10-19, as above                                                                                                                               |
+| IC18   | `C3CBND000046` | 8 MB   | mask ROM | rhythm (later production)                                                                                                           | the CPU-visible 4 MB read 2026-10-19; the other half sits behind jumper JP7                                                                             |
+| IC20   | `C3FBMD000050` | 4 MB   | flash    | rhythm, earlier production — the alternative fitted at IC18's site (a unit carries one or the other, so it is not counted in the 7) | not read (the owner's unit carries IC18)                                                                                                                |
+| IC19   | `C3CBMD000098` | 8 MB   | mask ROM | picture                                                                                                                             | the 2 MB image that fills the CPU-visible half (4 MB, the image twice; seen four times in the 8 MB window) read 2026-10-19; the rest behind jumper JP10 |
+| IC414  | `C3FBKD000162` | 512 KB | flash    | SD card sub-CPU program                                                                                                             | **not read**                                                                                                                                            |
 
 Not a device, but still missing: the lower half of the v1.4 program (update disk 1,
 `kn7-14_1.exe`, which the Wayback Machine archived only as a 'page not found' stub). Build 893 /

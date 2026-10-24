@@ -164,7 +164,8 @@ every step. Disassembly listings are generated with MAME's `unidasm`
 This mirrors the KN5000 approach, whose
 [ROM reconstruction]({{ site.baseurl }}/rom-reconstruction/) rebuilds thirteen TLCS-900 images
 byte-identically from source; `make gate-all` there covers those and the thirteen KN7000 images
-below in one run.
+(`make gate-kn7000`: program 941 and table 84, the SP7001 set, the picture ROM and the seven
+Style Convert converters) in one run.
 
 ### 2,302 functions named by reusing KN5000 knowledge
 
@@ -212,9 +213,11 @@ SetVisible:                        # CPU 0x4842D3DF
 ```
 
 561 functions of code region 1 and 437 functions of the library are converted
-this way so far (`tools/coverage_score.py` counts 999 of 4,201 named functions converted and
-3.88% of the image's bytes, 161,369 of 4,157,185, as real source, measured 2026-10-18 and
-unchanged at the 2026-10-24 audit; a bulk conversion of the rest is in progress and not merged). Among them are the task/event and display/object framework
+this way so far (998 in the generator's two sets; `tools/coverage_score.py` counts 999 because
+its regular expression also matches `"TCMP"` quoted in two comment lines inside the `CONVERT`
+block). `tools/coverage_score.py` counts 3.88% of the image's bytes, 161,369 of 4,157,185, as
+real source, measured 2026-10-18 and unchanged at the 2026-10-24 audit; a bulk conversion of the
+rest is in progress and not merged. Among them are the task/event and display/object framework
 clusters, the complete Techni-Chord harmony engine, and the complete control-panel
 serial protocol (the `PanelTransaction`/ISR/state-machine chain that drove the MAME
 panel HLE). Growing the set converts more, always holding the 100% byte-match
