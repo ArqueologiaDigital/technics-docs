@@ -7,7 +7,10 @@ permalink: /kn7000-work-ram/
 # KN7000 Work RAM Map
 
 The KN7000's main CPU has **4 MB of work RAM at `0x50000000`** (two 16-Mbit DRAMs,
-IC12/IC13 in the service manual; the reset code clears up to `0x50400000`). This page
+IC12/IC13 in the service manual, on chip select CS4; the 4 MB repeat through the whole 64 MB
+window, as the owner's unit showed in 2026-10
+([memory map]({{ site.baseurl }}/kn7000/#memory-map-as-used-by-the-firmware)); the reset code
+clears up to `0x50400000`). This page
 maps it for **PROGRAM 941**, the build this project holds in full, and answers a
 practical question that comes up whenever the firmware handles a picture, a song or a
 setup file read from disk or SD card: *where in RAM does it go?*
@@ -126,6 +129,73 @@ demo 0x502C0000..0x5037FFFF, the SD-SOUND lists (memset 0x89E00), the style-conv
 screens, the file-copy bounce buffer (0x4000-byte chunks), CmpConvLoad (0x25800
 bytes), the debug BITMAP LOAD (0x18000 bytes), the song-page gather buffer, and the
 custom-flash directory edit buffer 0x5037A000..0x5037FFFF.
+
+## Program 893
+
+The owner's instrument runs program 893. The Pinball Fantasies port's RAM inventory
+(2026-10-27, `kn7000/notes/ram-inventory-2026-10-27/` in that repository) read these of its
+addresses from the 893 disassembly. The rest of this page is 941's.
+
+| what                                        | 893                                                       | 941                                          |
+|---------------------------------------------|-----------------------------------------------------------|----------------------------------------------|
+| `.bss`, zeroed at reset                     | `0x50007F40`-`0x5017FFFF` (`0x48407A97`)                  | `0x50007F44`-`0x5017FFFF`                    |
+| the second clear at reset                   | `0x50298000`-`0x503FFFFF` (`0x48407AAE`)                  | the same (`0x4841003E`)                      |
+| `.bss`'s last object, the JPEG blocks, ends | `0x501749C4` (ROM table `0x48737804`)                     | `0x501749E8`                                 |
+| backup of MEM_STYLE_AREA, `0x25800` bytes   | `0x50122E04`-`0x50148603`                                 | `0x50122E28`-`0x50148627`                    |
+| the one routine that uses it                | `func_4847A51F` (copy `0x48437E81`, restore `0x48437E9C`) | `func_4847A6E2` (`0x48437EC3`, `0x48437EDE`) |
+
+Both routines are called from `MainStylCnvFunc`. Each copies MEM_STYLE_AREA (`0x50180000`) to the
+backup, loads, puts the copy back on failure or before installing, and returns: the copy is dead
+outside that one call. In 893 as in 941 the kernel's data is `0x50380000`-`0x50387FFF` and its
+memory pool, which the task stacks come from, `0x50388000`-`0x503BBFFF` (893's configuration
+words at `0x487B8B44`).
+
+## RAM a program of one's own can use
+
+A converter program (a `.CNV`, or an application of the
+[KN7LOAD loader]({{ site.baseurl }}/kn7000-cnv-homebrew/)) runs while the firmware keeps running,
+so it may use only RAM that nothing else writes meanwhile. STYLE CONVERT leaves it
+`0x502BA000`-`0x50379FFF`, less the firmware's mailbox page. The Pinball Fantasies port uses seven
+regions (`src/common/kn7.h`, `ARENA1`-`ARENA7`), and the evidence for each is below:
+
+| region   | range                     | size    | builds   | evidence                                                                                                                                                                                         |
+|----------|---------------------------|---------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ARENA1` | `0x502C4000`-`0x502E7EFF` | 143 KB  | all      | the converter's own area                                                                                                                                                                         |
+| `ARENA2` | `0x5031C000`-`0x50379FFF` | 376 KB  | all      | the converter's own area, above the mailbox page `0x5031B000`-`0x5031BFFF`                                                                                                                       |
+| `ARENA3` | `0x50298000`-`0x502B73FF` | 125 KB  | 893-941  | zeroed at reset and referenced by nothing else in 941 (note 8); program 942 keeps its SD plug-in there                                                                                           |
+| `ARENA4` | `0x503BC000`-`0x503FEFFF` | 268 KB  | all      | the zlib arena's whole pages above the RTOS pool: uncompress and the homepage loaders reset the arena each time they use it                                                                      |
+| `ARENA5` | `0x50123000`-`0x50147FFF` | 148 KB  | 893, 941 | the style memory's backup ([above](#program-893)), made and put back inside one routine of the main task                                                                                         |
+| `ARENA6` | `0x50175000`-`0x5017FFFF` | 44 KB   | 893, 941 | `.bss` above its last object; no code operand or data word in 893 or 941 points there; zeroed at reset                                                                                           |
+| `ARENA7` | `0x4C03DF20`-`0x4C03FFEF` | 8,400 B | 893, 941 | the library SRAM above the library ([KN7000 Firmware]({{ site.baseurl }}/kn7000-firmware/#the-library-at-0x4c000000-is-copied-out-of-this-image)): power-on noise on the unit, nothing writes it |
+
+The port keeps the 3 KB above `ARENA3` (`0x502B7400`-`0x502B7FFF`) for its own copy of the
+firmware's view records. The evidence beyond the code:
+- **In MAME, program 893.** Another World's memory study saw no write in `ARENA3`, `ARENA4` or
+  `0x50175000`-`0x5017FFFF` from boot through a whole converter run (research-scratch
+  `aw-memory-plan/taps893_ranges.out`), and none in `0x50123000`-`0x50148FFF`. The port's test
+  (`tests/mame/pf_test.lua`) watches `ARENA3`-`ARENA7` in both views and counted no write from
+  outside the port's code through a game of Speed Devils
+  (`events-arena5-7-speed-devils-mame.txt`).
+- **On the owner's unit, program 893 (2026-10-27).** Probe PFT18 (`src/probe/ramprobe.c`) kept a
+  pattern in `ARENA3`, `ARENA4`, `ARENA5`, `ARENA6` and `ARENA7` for 120 s while the owner played,
+  then read them back: no word changed in any of them (`pfram-unit-893.txt`). Before the pattern,
+  the library SRAM's top held 2,100 non-zero words (its power-on noise, kept and put back); the
+  other four held zeros.
+
+`ARENA5`-`ARENA7` gave the port's table programs about 200 KB more heap: 267,536 bytes left once a
+table is set up, against 65,600 the run before. In cost, the work RAM fills a cache line in about
+389 ns and the library SRAM in about 295 ns ([CPU clock]({{ site.baseurl }}/kn7000/#cpu-clock-64-mhz-with-caches-measured)).
+
+**Not free**, though the MAME census saw parts of them unwritten:
+- `0x50180000`-`0x50297FFF`, the user memory: COMPOSER styles, songs, pads and the slide-show
+  pool, never cleared.
+- `0x50380000`-`0x503BBFFF`, the kernel's data and pool: its unwritten parts are stack depth or
+  unallocated pool.
+- `0x5037A000`-`0x5037FFFF`, the custom-flash directory edit buffer.
+- IC23 (`0x44000000`), the user's settings and panel memories.
+- The other `.bss` buffers that belong to features that can run in the background, or that a
+  program's own file calls may use: the compressed-file stream buffer, the LZSS encoder trees, the
+  custom-flash sector buffer, the SD playlist database, the favourites.
 
 ## The map: top level
 
@@ -318,7 +388,7 @@ Each gap between referenced bases equals count x stride. The strides come from t
 | 0x50297FFC | 0x50298000  | 0x4     | past the pool end constant; no MAME boot write                                          |
 | 0x50298000 | 0x502B8000  | 0x20000 | only the reset clear touches it in 941; no MAME boot write                              |
 
-"No MAME boot write" covers only a 40 s idle boot. SD, slideshow, demo and install paths were not exercised at runtime.
+"No MAME boot write" covers only a 40 s idle boot. SD, slideshow, demo and install paths were not exercised at runtime. On program 893, `0x50175000`-`0x5017FFFF` and `0x50298000`-`0x502B73FF` held a pattern unchanged through 120 s of play on the owner's unit ([above](#ram-a-program-of-ones-own-can-use)).
 
 ## Open questions
 

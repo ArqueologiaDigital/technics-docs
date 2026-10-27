@@ -51,6 +51,29 @@ firmware calls (the highest is `0x4C03DE26`) lies inside that block, so MAME map
 the two aliases to one RAM and runs the real library code, with no dump and no
 HLE.
 
+That RAM is IC14/IC15, two 1 Mbit x16 fast SRAMs: 256 KB on chip select CS3, repeating every
+256 KB through its 64 MB window ([memory map]({{ site.baseurl }}/kn7000/#memory-map-as-used-by-the-firmware)).
+The boot's copy table entry is `{source, 0x4C000000, flags, source end, 0x4C03FFF0}`, followed by
+3 bytes copied to `0x4C03FFF0`. The library's length differs per build (the Pinball Fantasies
+port's `lib_extent.py` reads it from each image):
+
+| build        | copy table   | source       | library length | free above it, to `0x4C03FFF0` |
+|--------------|--------------|--------------|----------------|--------------------------------|
+| 893 (v1.3)   | `0x487F55BA` | `0x487B76B1` | `0x3DF02`      | 8,430 bytes                    |
+| 929 (v1.4)   | `0x487F6938` | `0x487B8A31` | `0x3DF00`      | 8,432 bytes                    |
+| 935 (v1.5)   | `0x487F6E89` | `0x487B8F6D` | `0x3DF15`      | 8,411 bytes                    |
+| 941 (v1.6)   | `0x487F6EED` | `0x487B8FD1` | `0x3DF15`      | 8,411 bytes                    |
+| 942 (SP7001) | `0x487F8BC7` | `0x487BA785` | `0x3E43B`      | 7,093 bytes                    |
+
+Nothing writes the SRAM above the library. On the owner's unit (program 893) the SURVEY2 dump
+of the [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/) found power-on noise there after a
+whole dumper run: 8,312 of its 8,430 bytes are not zero, with pointer-like words at chance rate.
+In program 893 only two instructions name `0x4C03FFF0`, and both concern the 3 copied bytes: a RAM
+test at `0x4849FF0C` saves, tests and puts back the 8 bytes from `0x4C03FFF0`, and a check at
+`0x4857DE18` tests whether the library RAM's top lies in the work RAM. The library's own variables live
+in work RAM (`.bss` from `0x50007F40` in 893). A program of one's own can use the tail
+([Work RAM Map]({{ site.baseurl }}/kn7000-work-ram/#ram-a-program-of-ones-own-can-use)).
+
 ### Region map
 
 | Range                     | Contents                                                                                                                                                         |

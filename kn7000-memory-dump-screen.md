@@ -259,11 +259,12 @@ overwritten by any code, which is why the legend always starts at
 `Aqua = F0  Yellow = F7  Lime = FF  Fuchsia = XX`; `FFFF` is the disabled
 sentinel, printed as `XX`.)
 
-> **A note for MAME users.** The driver currently maps `0x44000000` as 16 MB of
-> plain RAM with no NVRAM backing, so in emulation your 104 panel memories are
-> lost on every restart and the 256 KB wrap is invisible. On real hardware this
-> region is battery-backed. See
-> [MAME emulation gaps]({{ site.baseurl }}/mame-emulation-gaps/).
+> **A note for MAME users.** Mainline MAME maps `0x44000000` as 16 MB of plain RAM
+> with no NVRAM backing, so there your 104 panel memories are lost on every restart
+> and the 256 KB wrap is invisible. The project's kn7000_mame overlay models IC23 as a
+> 256 KB NVRAM repeating every 256 KB since 2026-10-20; the panel memories survive a
+> session that ends with the machine's POWER OFF input. See
+> [MAME emulation gaps]({{ site.baseurl }}/mame-emulation-gaps/#kn7000-the-overlay-emulator).
 
 ## Can it get data off the instrument?
 
@@ -622,9 +623,10 @@ Two more kinds of window turn up in the firmware. The first is the EXP.CS "SOUND
 RAM" expansion windows, among them `0x56000000` (170 references) and
 `0x57000000` (89): they read empty unless an SY-EW board is fitted, and MAME maps
 them as empty (see [Expansion Bus & Wave-ROM Dump]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/)).
-The second is the `0x4C000000` library/kernel window — which is **not a chip at
-all**: the boot loader copies it into RAM out of the program flash, so it is
-already preserved inside the IC16/IC17 dump.
+The second is the `0x4C000000` library/kernel window — which is **not a ROM**: it
+is the fast SRAM pair IC14/IC15, and the boot loader copies the library into it out of
+the program flash, so its code is already preserved inside the IC16/IC17 dump
+([KN7000 Firmware]({{ site.baseurl }}/kn7000-firmware/#the-library-at-0x4c000000-is-copied-out-of-this-image)).
 
 > **An architectural correction, 2026-08-09.** The firmware's own ROM-test labels
 > say `IC18` = RHYTHM and `IC19` = PICTURE, while older extraction notes assigned
