@@ -203,11 +203,41 @@ cursor is on.
 
 ## LEDs
 
-The panel LEDs are set through small helpers that the main CPU calls and the
-sub-CPUs execute: `SetHoldLed` (`0x48416512`), `SetOtherPartLed` (`0x484164F4`),
-and the part/track indicator sets. Because the LEDs sit under the buttons and are
+The panel LEDs are set through small helpers on the main CPU: `SetHoldLed` (`0x48416512`),
+`SetOtherPartLed` (`0x484164F4`), `SetDialLed` (`0x48416563`), `SetModeLed` (`0x48416590`), and the part/track
+indicator sets (addresses of program 941). Because the LEDs sit under the buttons and are
 driven by the same sub-CPU that scans them, the "SW&LED CHECK" test can verify a
 whole section's matrix in one pass.
+
+### The LED shadow
+
+A helper sends nothing. It calls `SetLedByIndex` with an LED number, which sets or clears one bit
+in a RAM shadow of the panel's LED registers. A flush task compares the shadow, register by
+register, with a copy of what it last sent, and sends a 2-byte `[ADDR][DATA]` frame only for a
+register that differs, then updates the copy (kn7000_mame `notes/panel-serial-protocol.md`, read
+from program 941). There are two banks of 32 registers, each followed by its "last sent" copy, and
+a mode byte chooses the bank: 0 for bank A, any other value for bank B.
+
+| what                                      | 893                         | 941                         |
+|-------------------------------------------|-----------------------------|-----------------------------|
+| bank A / its last-sent copy               | `0x50150A18` / `0x50150A38` | `0x50150A3C` / `0x50150A5C` |
+| bank B / its last-sent copy               | `0x50150A58` / `0x50150A78` | `0x50150A7C` / `0x50150A9C` |
+| the mode byte (getter `PanelModeFlagGet`) | `0x5006BE90` (`0x484AB8F0`) | `0x5006BE94` (`0x484ABAFD`) |
+| `SetLedByIndex`, on                       | `0x484B19BB`                | `0x484B1BCB`                |
+| `SetDialLed`                              | `0x48416521`                | `0x48416563`                |
+
+**The TEMPO/PROGRAM knob's LED** is `SetDialLed`'s, LED number 4. In program 893 it is bit 1 of
+bank A's register 18 (`0x50150A2A`, written by `func_484B0AB3`), which goes to panel address `0x0C`
+and lights `cpr_led97` in MAME, or bit 7 of bank B's register 9 (`0x50150A61`, `func_484B0AD2`);
+`func_484B0AF3` chooses between them by the mode byte. The Pinball Fantasies port finds the two
+writers by a code signature, which matches once in each of programs 893, 935, 941 and 942
+(`notes/session-2026-10-27/dialled_sig.py` in that repository).
+
+**The flush keeps running while a converter program is parked** (request 5), so such a program
+can drive an LED by flipping its bit in the shadow. The Pinball Fantasies port blinks the knob's
+LED that way from its converter entry, every 300 ms, and puts the bit back as the firmware had it
+when it stops; in MAME the firmware's "last sent" byte follows each change, and the LED changed
+31 times in 10 s with the port's menu up (`events-wheel-led-front-mame.txt`).
 
 In MAME these become the device's LED outputs, one bank per panel board. The layout
 lights **44 `cpl_led#` and 57 `cpr_led#`** under the buttons; the device also declares a
@@ -293,6 +323,16 @@ receive FIFO, asserting group `0x10`). The **two sibling channels** at `0x340008
 **asynchronous UART** framing: channel 1 is MIDI port 1 and channel 2 is MIDI port 2.
 That identical `+0x10` channel layout is what pins `0x34000800` down as the panel link.
 
+**ATN and the firmware's bursts.** Program 893 clears the ATN group's request as it starts each
+burst of frames to the panel (the library at `0x4C03DD57` writes 0 to `0x34000168`), and enables
+the group again only when its transmit queue is empty (`0x484AC994`-`0x484AC9D3`). An ATN edge
+raised during a burst is wiped, the panel's reply stays queued, and with a reply pending no other
+ATN comes. The device used to raise ATN 60 µs after it queued a change; in MAME that once lost
+every button after START/STOP, released while the firmware sent the frames for its own lamp. Since
+kn7000_mame `c5392ca` (2026-10-27) the device raises ATN only after the main CPU has sent nothing
+to the panel for 300 µs (the Pinball Fantasies port's `notes/session-2026-10-27/`,
+`panel-trace-stall-mame.txt`).
+
 ### Continuous controls: the volume faders
 
 The four analog volume faders (MAIN, APC/SEQ, MIC, LINE IN), plus the DATA dial and
@@ -331,6 +371,17 @@ growing absolute position drives the tempo to the 300 BPM rail regardless of whi
 the knob turns. (The kn7000_mame overlay reads the adjuster's live field value rather
 than the port, to avoid interpolation wobble injecting mixed-sign steps; mainline MAME
 reads the port.)
+
+**The knob's steps in the receive ring.** Each detent arrives as a 2-byte frame `[0x17, step]` in
+the panel receive ring: in program 893 the ring is `0x5006BDB0` (`0x5C` bytes) with 16-bit read
+and write indexes at `0x5006BDAC` and `0x5006BDAE`; program 941's are 4 bytes higher, as above.
+The firmware's main task decodes each frame and adds the step to the tempo. A converter program
+runs on that same task, so between two of its calls a frame is either decoded already or still
+waiting between the read and write indexes. The Pinball Fantasies port uses the knob as an input
+that way (`src/app/entry.c`, `wheel_scan`): it follows the ring a frame at a time, adds each knob
+frame's step to its own count, and sets the step to 0 while the frame is still waiting, so the
+tempo stays where it was. In MAME six knob frames typed a best score's three letters, and the
+firmware had decoded none of them first (`events-hiscore-wheel-mame.txt`).
 
 When probing the KN7000 in MAME: the musical-notes-over-a-globe image a few seconds
 after launch is the **boot splash**, not the idle demo. The `PMEM` home screen appears
