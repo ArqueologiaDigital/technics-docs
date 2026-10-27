@@ -303,7 +303,7 @@ below come from it. Mainline MAME's `kn7000` has none of the sound work: it is
 | DSP reads of MSGR registers (G4)           | the kernel's reads of MSGR0-7 return what was written; before, the mic reverbs' ring-3 pointer became 0 and a SPORT transfer block was zeroed                                                     | pass 7 (MSGR2 moves; the TCB survives)                 |
 | the 1 kHz tick and the DSP handshake (G20) | the tick is timer 4 as the firmware programs it; the group-0x17 handshake comes once per DSP frame; FLAG3 is high on every other frame                                                            | pass 8 (44.1 kHz, one handshake per frame)             |
 | SPORT DMA registers (G20)                  | DMASTAT, each ring's index and count, and the transmit status read live, at the unit's phase                                                                                                      | pass 6                                                 |
-| CPU timing (G22)                           | 64 MHz, per-instruction cycles, a fetch queue, 4 KB instruction and data caches, per-chip-select bus costs; CHCTR and MEMCTR read back                                                            | pass 9 (99 of 109 tests within 3 %), pass 8            |
+| CPU timing (G22)                           | 64 MHz, per-instruction cycles, a fetch queue, 4 KB instruction and data caches (their timing), per-chip-select bus costs; CHCTR and MEMCTR read back                                             | pass 9 (99 of 109 tests within 3 %), pass 8            |
 | the floppy's last byte (with G22)          | IRQ1 is raised again for a sector's last byte, which MAME's 82077 delivers without a DMA request edge; at the real CPU speed STYLE CONVERT could not load otherwise                               | the unit loads from floppy                             |
 | IC23 (G6)                                  | a 256 KB battery-backed NVRAM repeating every 256 KB; panel memories survive a session that ends with the machine's POWER OFF input                                                               | pass 5 (the 256 KB repeat)                             |
 
@@ -318,6 +318,20 @@ writes (SDRDIV 930, with its IOCTL's CAS latency 2 and tRP 2) is the manual's ow
 [below](#the-effects-dsp-plan-2026-10-21)) would measure the clock. The gate's audio oracle did not
 move, DSPTONE's MAME test passed 10 of 10, and Another World's DSP mode gave the 66 MHz run's event
 log line for line.
+
+**Closed on 2026-10-26 and 2026-10-27**, each against a probe of the Pinball Fantasies port on the
+owner's unit (program 893; [Display Subsystem]({{ site.baseurl }}/kn7000-display-subsystem/#how-the-controller-shows-its-memory),
+[memory map]({{ site.baseurl }}/kn7000/#memory-map-as-used-by-the-firmware)):
+
+| gap                                     | what the overlay does now (kn7000_mame commit)                                                                                         | evidence                              |
+|-----------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------|
+| the LCD's start address and line offset | the controller's view follows them, fetched backwards from the bottom-right word (180-degree SwivelView; `bddb979`, `2c1cdd8`)         | PFT14: the picture upright, scrolling |
+| the LCD's ink layer                     | the 2-bit overlay at `0x140000` − *n* × 8 KB (`38647a4`, `c562a75`)                                                                    | PFT17                                 |
+| the LCD's display memory                | 1280 KB, an S1D13806's: from `0x9CF40000` reads return `0xFFDF` and writes are dropped (`c562a75`)                                     | PFT16, PFT17                          |
+| the LCD's non-display period            | an 888 × 256 dot frame, as `LcdControllerInit` sets it; `REG[03Ah]` bit 7 reads 1 in its 16 non-display lines (`318d44b`)              | the manual (the unit differs: below)  |
+| the LCD's 8 bits a pixel                | `REG[040h]` bits 2-0 = 3 through the 256-entry look-up table, 4 bits a primary (`0678562`)                                             | PFT15                                 |
+| the panel's ATN during a firmware burst | raised only after the CPU has sent nothing to the panel for 300 µs; before, a mid-burst ATN could lose every later button (`c5392ca`)  | program 893's code                    |
+| the library SRAM and the work DRAM      | 256 KB repeating through CS3 and 4 MB through CS4, in both views; before, 16 MB of plain RAM at CS3 and nothing above 4 MB (`4fe2f1f`) | PFT18                                 |
 
 **The "noise" in MAME's KN7000 sound is emulation speed, not wrong audio** (kn7000_mame
 `notes/dsp-noise-2026-10-21/README.md`, 2026-10-21). What MAME computes is clean: a `-wavwrite`
@@ -370,7 +384,17 @@ do not add exactly). How to get closer to 100 % is [below](#running-it-at-full-s
   is not what removes the noise: bypassed, the sound is just as broken below 100 % speed.
 - **The power-on path (G9).** The CPU really starts in IC18's boot code at `0x40000000`, with the
   flash updater; the overlay starts at the program flash. **Interrupt vectors through IVAR (G8)**,
-  **the uncached views at `0x9xxxxxxx` (G7)**, **CS5 mirrors and open-bus reads (G10)**.
+  **CS5 mirrors and open-bus reads (G10)**.
+- **CS5's uncached view (G7).** `0x90000000`-`0x93FFFFFF` is now the work RAM's view, repeating
+  every 4 MB. `0x94000000`-`0x97FFFFFF`, the uncached view of CS5, is still a RAM placeholder, apart
+  from IC21 at `0x96800000`-`0x969FFFFF`.
+- **Cache contents.** The timing model counts hits, misses and write-backs, but every access
+  reaches memory, so a stale or dirty line cannot happen in MAME. A program that loads code
+  without syncing the caches can run in MAME and fail on the unit, as one did on 2026-10-27
+  ([the caches]({{ site.baseurl }}/kn7000-cnv-homebrew/#the-caches)).
+- **`REG[03Ah]` bit 7 on the unit.** The overlay raises it for 16 of 256 lines, as the S1D13506's
+  notes describe. On the unit it read 1 before only 1 of 339 start-address writes, where that would
+  give about 21; what the bit does there is open.
 - **The LCD under load.** The timing model uses pass 9's clean LCD costs. On the unit the LCD is
   slower while the display runs (3-4 times, by Another World's benchmark), so bulk LCD writes are
   still faster in the overlay than on the instrument.
