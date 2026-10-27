@@ -24,7 +24,7 @@ door, in a fixed way:
 
 A new program is a new folder on the card. Nothing on the floppy changes.
 
-> **Status (2026-10-21).**
+> **Status (2026-10-27).**
 > - **The loader** (`KN7LOAD.CNV`, SHA-1 `6b81f382fd29b9bc5a025854af0e20a194e68bec`, unchanged since
 >   2026-10-19) has run on the owner's unit in every pass of the [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/).
 > - **Another World** ran on the unit on 2026-10-20, from the card's root: first slowly, then with
@@ -39,6 +39,14 @@ A new program is a new folder on the card. Nothing on the floppy changes.
 > - **DSPTONE**, a program of our own on the effects DSP, ran on the unit on 2026-10-21: the owner
 >   heard its tone and its sweep, and the reverb came back after STOP
 >   ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#dsptone-iteration-1-a-tone-and-a-sweep)).
+> - **Pinball Fantasies**, a port of the PC game (the Pinball repository, `kn7000/`), is an
+>   application of the loader too. On the owner's unit (program 893, 2026-10-26/27) its tables
+>   played with their sound on the effects DSP and the panel's controls, and its front end (the
+>   game's own slides, menu and music) came up. Since then, in MAME: the TEMPO/PROGRAM wheel types
+>   a best score's letters while its LED blinks, and the sides of the table show the game's logos
+>   and best scores, drawn in the LCD controller's ink layer. It uses RAM outside the converter's
+>   area ([Work RAM Map]({{ site.baseurl }}/kn7000-work-ram/#ram-a-program-of-ones-own-can-use)), and
+>   a failure on the unit changed how a program [syncs the caches](#the-caches).
 
 ## Running a program
 
@@ -136,16 +144,37 @@ reader of its own. RUN then:
    address, the size, the entry point, the CRC-32;
 3. starts it through a small trampoline, copied out of the way first. The trampoline copies the
    program over the menu, zeroes the rest of the area, compares the copy byte for byte, writes the
-   launch block, empties both caches, and returns to the loader. From the next converter call on,
+   launch block, syncs both caches, and returns to the loader. From the next converter call on,
    the loader calls the new program, as if it had loaded it itself.
 
-**The caches** need that step: the CPU's data cache is write-back, and the instruction cache could
-still hold the menu's code at the addresses the new program now occupies. The trampoline empties
-the data cache by reading 64 KB of program flash, one load per 16-byte line, which replaces every
-line and writes the dirty ones back. It empties the instruction cache by running a 32 KB sled of
-`nop`s twice. Only ordinary loads and fetches are used: no cache register is written. MAME's MN10300
-had no caches when the menu was written, so this part rests on reasoning, not a test
-([CPU clock and caches]({{ site.baseurl }}/kn7000/#cpu-clock-64-mhz-with-caches-measured)).
+### The caches
+
+The CPU's data cache is write-back, and the instruction cache can still hold the menu's code at
+the addresses the new program now occupies
+([CPU clock and caches]({{ site.baseurl }}/kn7000/#cpu-clock-64-mhz-with-caches-measured)). So
+after a copy the menu and its trampoline do what program 893's own routines do (its
+instruction-cache routine at `0x48407B..` and its data-cache purge `func_48407C39`), with
+interrupts off for the few microseconds it takes, because while the data cache is off an
+interrupt handler would read RAM that its dirty lines have not reached:
+
+1. **The data cache**, if on: clear bit 1 of CHCTR (`0x20000070`) and wait for bit 3 to clear.
+   Write each line of both ways back by reading the purge window, 128 lines of 16 bytes at
+   `0x28400000` (way 0) and at `0x28401000` (way 1); this step is skipped when bit 6 (write-through)
+   is set, and for one way when bit 12 or 13 (that way locked) is. Set bit 5 to invalidate, then
+   bit 1 again.
+2. **The instruction cache**, if on: clear bit 0, wait for bit 2 to clear, set bit 4 to
+   invalidate, then bit 0 again.
+
+Until 2026-10-27 the trampoline emptied the data cache by reading 64 KB of program flash, one load
+per 16-byte line, and the instruction cache by running a 32 KB sled of `nop`s twice, without
+writing any cache register. The Pinball Fantasies port did the same between its programs, and on
+the owner's unit that failed: as the port's menu came back after a table, the CPU stopped with a
+system-error NMI (NMICR `0004`) at `0x5031C75C`, 0x75C bytes into its sled. A line of the sled had
+stayed in the data cache, and the instruction fetch read what RAM held there before, the table's
+heap. The menu (`cachesync.inc`, technics-roms-disasm `b58b8f696`) and the port now use the
+firmware's sequence. MAME could not have shown the failure: its model times the caches, but every
+access reaches memory
+([MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/#kn7000-the-overlay-emulator)).
 
 **Safety.** The menu and the loader's other applications keep the same rules: no write to IC23
 (the panel memories, `0x44000000` and its uncached view `0x84000000`) or to the user-memory pools
@@ -162,7 +191,9 @@ program of one's own needs to know (measured in MAME on programs 941 and 893):
 - **Where it runs.** The firmware zeroes `0x30000` bytes at `0x502B8000` and reads the file there
   whole. It then calls the first byte with `calls (a0)`, so the program starts with a normal
   function prologue. With the loader in place, an application runs at `0x502BA000`; the RAM it may
-  use is `0x502BA000`-`0x50379FFF`, less the firmware's mailbox page.
+  use is `0x502BA000`-`0x50379FFF`, less the firmware's mailbox page. More RAM outside that area
+  stays unused while a converter runs, on program 893 checked on the unit
+  ([Work RAM Map]({{ site.baseurl }}/kn7000-work-ram/#ram-a-program-of-ones-own-can-use)).
 - **When it runs.** The converter is called on the firmware's **main task**. That task also
   decodes the panel buttons and passes keybed notes to MIDI OUT.
 - **It must return.** A converter that loops forever keeps running, even if it yields to other
@@ -175,12 +206,24 @@ program of one's own needs to know (measured in MAME on programs 941 and 893):
   and after a call that ran long it repaints the whole screen. **Request 1**, "copy four bytes and
   call again", parks the firmware just as well and leaves the screen alone. The ROM dumper parks
   this way.
+- **What request 5 costs.** Program 893 answers request 5 with `ChangeTitle(0x4A)` on every call
+  (`func_48479771`), the new title calls the converter again, and each change repaints the screen:
+  a loop on the main task, through `ScreenProc`'s paint (`DrawWall`, a 150 KB copy of the wallpaper
+  plane) and a copy of the changed areas to the LCD a dot at a time. In MAME the Pinball Fantasies
+  port's game got 35 % of the CPU while that ran (`cpu_split.py`, session notes 2026-10-26). The
+  port points `ScreenProc`'s view record at a copy without the paint (the class table at
+  `0x5011FA88`), rests each converter call for up to 100 ms on `dly_tsk`, and holds the
+  firmware's draw switch `DrawEnable` (`0x5002A018`) at 0 while the game owns the LCD, setting it
+  only while `0x5002A01C` reads 1 (a `DrawWall` under way waits on it). Its game then got 82 %.
 - **A task of its own.** The converter can start a task (`cre_tsk`, then `sta_tsk`, at priority 3,
   the firmware's own priority) and answer request 5 from then on. The task can run a game loop,
   read input and draw. The kernel does not time-slice, so the task must yield each frame with
   `dly_tsk`.
 - **Input.** The panel's switch bitmaps, debounced and held, are in work RAM. Every keybed note
-  goes to the MIDI OUT 1 transmit ring, and MIDI IN 1 bytes arrive in their own ring.
+  goes to the MIDI OUT 1 transmit ring, and MIDI IN 1 bytes arrive in their own ring. The
+  TEMPO/PROGRAM wheel's steps arrive in the panel's receive ring, where a program can take them
+  before the firmware changes the tempo, and the panel LEDs can be set through the firmware's LED
+  shadow ([Control Panel]({{ site.baseurl }}/kn7000-control-panel/#leds)).
 - **Display.** The parked screen does not repaint, so the program draws straight into the LCD frame
   at `0x9CE00000` (640×240, RGB565). Stores there are slow, about 28 CPU cycles each at best
   ([what the LCD costs]({{ site.baseurl }}/kn7000-display-subsystem/#what-the-lcd-costs-the-cpu)).
