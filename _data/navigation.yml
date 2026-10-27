@@ -114,6 +114,8 @@
           url: /kn7000-effects-dsp/
         - title: "KN7FM: FM Synthesizer on the DSP"
           url: /kn7000-fm-synth/
+        - title: "ProTracker on the KN7000"
+          url: /kn7000-protracker/
         - title: DSP Algorithm Catalog
           url: /kn7000-dsp-algorithms/
         - title: Sound GUI Map

@@ -81,7 +81,9 @@ The menu's build (`make card` in `kn7000/tools/kn7menu`) writes everything for t
 
 [KN7FM]({{ site.baseurl }}/kn7000-fm-synth/), a DX7-style FM synthesizer on the effects DSP, is a program for the same
 card but not part of this build: its folder `KN7FM\` comes from its own `make card-dir` (kn5000_homebrew
-`demos/kn7000_fm`). So far it has run in MAME only.
+`demos/kn7000_fm`). So far it has run in MAME only. So has [ProTracker]({{ site.baseurl }}/kn7000-protracker/), the
+Amiga's ProTracker 2.3D (folder `PROTRACK\`, kn5000_homebrew `demos/kn7000_protracker`), which plays modules on the
+effects DSP.
 
 The probes' binaries are the released ones, byte for byte; the build checks each against its
 release's `SHA1SUMS`. The probes still write their result files to the card's root, as they did
