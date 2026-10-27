@@ -140,14 +140,20 @@ directly.
   pixels a line) with an 8x16 font for `0x20`-`0xFF`, and four soft-key captions read
   through the panel.
 
-**The LCD controller is most probably an Epson S1D13506** (an inference, not checked against
-a board photo). `LcdControllerInit` writes 106 registers, every offset an S1D13506 register,
-and it skips exactly that chip's reserved offsets; its values decode by that chip's rules as
-640 x 240 at 16 bits a pixel; the display memory answers at +`0x200000`, where that chip's
-M/R# line puts it; and the firmware uses offsets `0x004`/`0x005` and `0x008`/`0x009` as pin
-directions and pin data for the SD slot's lines and lamps, which are that chip's GPIO
-registers. The source therefore gives the registers that chip's names (`LCDC_LCD_HDISP`,
-`LCDC_BLT_CTRL0`, `LCDC_LUT_DATA`, ...). Two routines nothing calls,
+**The LCD controller is an Epson S1D13806**, the S1D13506 with 1280 KB of display memory inside
+it (measured on the owner's unit, 2026-10-26). `LcdControllerInit`
+writes 106 registers, every offset an S1D13506 register, and it skips exactly that chip's reserved
+offsets; its values decode by that chip's rules as 640 x 240 at 16 bits a pixel; the display
+memory answers at +`0x200000`, where the chip's M/R# line puts it; and the firmware uses offsets
+`0x004`/`0x005` and `0x008`/`0x009` as pin directions and pin data for the SD slot's lines and
+lamps, which are that chip's GPIO registers. The S1D13806 has the same register map, so the source
+gives the registers the S1D13506's names (`LCDC_LCD_HDISP`, `LCDC_BLT_CTRL0`, `LCDC_LUT_DATA`, ...).
+What sets the two apart is the memory. `LcdControllerInit` clears `0x140000` bytes of it, exactly
+1280 KB, and probes of the Pinball Fantasies port on the unit read the rest: PFT16 found its own
+words at display memory `0x07FFF0` and `0x0FFFF0` and `0xFFDF` at `0x17FFF0` and `0x1FFFF0`, and
+PFT17 read `REG[00Ch]` = `0x20`, whose MD[7:6] = 00 would mean 512 KB on an S1D13506. The
+S1D13806's technical manual gives 1280 KB of embedded memory, which needs no MD setting
+([Display Subsystem]({{ site.baseurl }}/kn7000-display-subsystem/#lcd-hardware)). Two routines nothing calls,
 `LcdControllerInitAlt` and `LcdControllerInitOld`, program other register maps; Alt's fit
 the earlier S1D13505, Old's is unidentified. See also
 [Display Subsystem]({{ site.baseurl }}/kn7000-display-subsystem/).

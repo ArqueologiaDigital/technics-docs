@@ -169,18 +169,63 @@ English/German/French/Spanish/Indonesian text plus a Japanese developer entry
 
 ## LCD hardware
 
-The display hardware is one controller and one buffer:
+The display hardware is one controller and the memory inside it:
 
 * **LCD controller — IC104** (`C0HBA0000117`, the colour LCD controller; its
   video output is what
   [Reading ROM out of the screen]({{ site.baseurl }}/kn7000-rom-from-the-screen/)
-  captures).
+  captures). It is an Epson **S1D13806**, the S1D13506 with its display memory inside
+  ([Boot ROM]({{ site.baseurl }}/kn7000-boot-rom/) gives the evidence): registers at
+  `0x9CC00000`, display memory at `0x9CE00000`.
+* **Display memory — 1280 KB**, `0x9CE00000`-`0x9CF3FFFF`. The address space spans 2 MB; above
+  the 1280 KB, reads return `0xFFDF` (probe PFT16 on the owner's unit, 2026-10-26).
 * **Framebuffer — `0x9CE00000`.** The firmware composites the whole display
-  itself into a 640×240 RGB565 image at `0x9CE00000`, which is the buffer the LCD
-  controller scans, and MAME presents that buffer directly (see
+  itself into a 640×240 RGB565 image at the start of display memory, which the
+  controller scans (see
   [the boot splash]({{ site.baseurl }}/kn7000-initial-data/#the-boot-splash-and-the-green-screen)).
   Pictures reach it as 12-bit direct colour from two work-RAM planes
   (`0x500D4080`, `0x500F9880`), not as palette indices.
+
+### How the controller shows its memory
+
+The probes of the Pinball Fantasies port (PFT14-PFT17, on the owner's unit, program 893,
+2026-10-26; `kn7000/notes/session-2026-10-26/` in that repository) and the two Epson manuals
+(S1D13506 Hardware Functional Specification X25B-A-001-12; S1D13806 Series Technical Manual, pages
+14 and 122) give the following.
+
+- **180-degree SwivelView.** The firmware writes `REG[040h]` = `0x15`: 16 bits a pixel, and bit 4,
+  which with `REG[1FCh]` bit 6 clear selects 180-degree SwivelView (S1D13506 Table 8-19). The
+  controller fetches display memory backwards, and the start address (`REG[042h]`-`[044h]`, in
+  words) is the image's bottom-right word: (offset × height) − (offset − width) − 1 = `0x0257FF` for
+  a 640 × 240 frame at a line offset of `0x280` words. IC18's `LcdControllerInit` writes exactly
+  that; the program firmware writes `0x025A7F`, one line further on, and so shows its frame's rows
+  1-240. A start larger by one line offset moves the picture by a line: PFT14's test picture
+  scrolled smoothly on the unit, upright.
+- **8 bits a pixel through the look-up table.** `REG[040h]` bits 2-0 = 3 shows display memory a byte
+  a pixel through a 256-entry look-up table, filled through `REG[1E2h]` (the index) and `REG[1E4h]`
+  (red, green, blue in turn, each in bits 7-4). That is 4 bits a primary, 16 levels. PFT15's colour
+  bars showed on the unit and moved as the table was rewritten.
+- **The ink layer** (`REG[070h]`-`[07Bh]`): a full-screen overlay of 2 bits a dot (colour 0,
+  colour 1, transparent, inverted) at its own address, independent of the start address.
+  `REG[071h]` = *n* places it at `0x140000` − *n* × 8 KB (*n* from 1 to 160, S1D13806 manual). It is
+  not turned by SwivelView: its dots are in the panel's own order. On the unit, *n* = 133 put it at
+  `0x36000`, inside the firmware's frame, and the program menu showed as a pattern of ink dots;
+  *n* = 5 put it at `0x136000`, which the boot clears, and the screen was colour 0.
+- **One window.** The registers have no split screen, no line-compare register and no
+  picture-in-picture window. The start address moves the whole picture; only the ink layer stays
+  in place. The Pinball Fantasies port keeps a table's playfield at display memory `0x50000` and
+  scrolls it with one start-address write, and draws the dot display and the side panels in the
+  ink layer at `0x136000`.
+- **When the start address takes effect.** The controller latches it as a frame begins. Written a
+  byte at a time with a frame starting in between, it shows the picture from a mixed address, a
+  few hundred dots off (seen on the unit as a ghost of the table). `REG[03Ah]` bit 7 is meant to
+  flag the non-display period between frames, but on the unit it read 1 before only 1 of 339
+  start-address writes, where 16 of 256 lines would give about 21. What it signals on this unit is
+  open.
+
+The kn7000_mame overlay models all of this: the start address, line offset and SwivelView, the
+1280 KB, the ink layer, the non-display period and the 8-bit mode with its table
+([MAME Emulation Gaps]({{ site.baseurl }}/mame-emulation-gaps/#kn7000-the-overlay-emulator)).
 
 ### The compositor
 
