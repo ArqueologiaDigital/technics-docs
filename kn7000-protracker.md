@@ -88,5 +88,8 @@ All of this was in MAME, program 893 (the scripts and their results are in `test
   2 s windows: r median 0.66-0.83, at a constant level, with the lag creeping by about 0.45 ms a second. That creep
   is the DSP's frame clock against the kernel's millisecond counter. On the instrument the DSP runs at 44,087 Hz by
   that counter, so the port's pitch is about half a cent off there.
-- **Timing.** INTRO.MOD's positions over 26 s match the song's timeline. 77 % of the replayer's ticks run within 1 ms
-  of when they are due, and none was more than 21 ms late.
+- **Timing.** INTRO.MOD's positions over 26 s match the song's timeline. With the screen busy (the spectrum analyzer,
+  the edit mode), 79 % of the replayer's ticks ran within 1 ms of when they were due and 1.9 % 10 ms or more late; the
+  latest was 19 ms late.
+- **The controls.** The spectrum analyzer, the mute buttons, the edit mode and the keybed's notes, the sample and
+  module buttons and PAGE DOWN all work as the table above says.
