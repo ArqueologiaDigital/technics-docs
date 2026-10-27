@@ -319,19 +319,20 @@ writes (SDRDIV 930, with its IOCTL's CAS latency 2 and tRP 2) is the manual's ow
 move, DSPTONE's MAME test passed 10 of 10, and Another World's DSP mode gave the 66 MHz run's event
 log line for line.
 
-**Closed on 2026-10-26 and 2026-10-27**, each against a probe of the Pinball Fantasies port on the
+**Closed on 2026-10-26 and 2026-10-27**, each against a probe of the Pinball Fantasies port or the ROM survey on the
 owner's unit (program 893; [Display Subsystem]({{ site.baseurl }}/kn7000-display-subsystem/#how-the-controller-shows-its-memory),
 [memory map]({{ site.baseurl }}/kn7000/#memory-map-as-used-by-the-firmware)):
 
-| gap                                     | what the overlay does now (kn7000_mame commit)                                                                                         | evidence                              |
-|-----------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------|
-| the LCD's start address and line offset | the controller's view follows them, fetched backwards from the bottom-right word (180-degree SwivelView; `bddb979`, `2c1cdd8`)         | PFT14: the picture upright, scrolling |
-| the LCD's ink layer                     | the 2-bit overlay at `0x140000` − *n* × 8 KB (`38647a4`, `c562a75`)                                                                    | PFT17                                 |
-| the LCD's display memory                | 1280 KB, an S1D13806's: from `0x9CF40000` reads return `0xFFDF` and writes are dropped (`c562a75`)                                     | PFT16, PFT17                          |
-| the LCD's non-display period            | an 888 × 256 dot frame, as `LcdControllerInit` sets it; `REG[03Ah]` bit 7 reads 1 in its 16 non-display lines (`318d44b`)              | the manual (the unit differs: below)  |
-| the LCD's 8 bits a pixel                | `REG[040h]` bits 2-0 = 3 through the 256-entry look-up table, 4 bits a primary (`0678562`)                                             | PFT15                                 |
-| the panel's ATN during a firmware burst | raised only after the CPU has sent nothing to the panel for 300 µs; before, a mid-burst ATN could lose every later button (`c5392ca`)  | program 893's code                    |
-| the library SRAM and the work DRAM      | 256 KB repeating through CS3 and 4 MB through CS4, in both views; before, 16 MB of plain RAM at CS3 and nothing above 4 MB (`4fe2f1f`) | PFT18                                 |
+| gap                                     | what the overlay does now (kn7000_mame commit)                                                                                                                 | evidence                              |
+|-----------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------|
+| the LCD's start address and line offset | the controller's view follows them, fetched backwards from the bottom-right word (180-degree SwivelView; `bddb979`, `2c1cdd8`)                                 | PFT14: the picture upright, scrolling |
+| the LCD's ink layer                     | the 2-bit overlay at `0x140000` − *n* × 8 KB (`38647a4`, `c562a75`)                                                                                            | PFT17                                 |
+| the LCD's display memory                | 1280 KB, an S1D13806's: from `0x9CF40000` reads return `0xFFDF` and writes are dropped (`c562a75`)                                                             | PFT16, PFT17                          |
+| the LCD's non-display period            | an 888 × 256 dot frame, as `LcdControllerInit` sets it; `REG[03Ah]` bit 7 reads 1 in its 16 non-display lines (`318d44b`)                                      | the manual (the unit differs: below)  |
+| the LCD's 8 bits a pixel                | `REG[040h]` bits 2-0 = 3 through the 256-entry look-up table, 4 bits a primary (`0678562`)                                                                     | PFT15                                 |
+| the panel's ATN during a firmware burst | raised only after the CPU has sent nothing to the panel for 300 µs; before, a mid-burst ATN could lose every later button (`c5392ca`)                          | program 893's code                    |
+| the library SRAM and the work DRAM      | 256 KB repeating through CS3 and 4 MB through CS4, in both views; before, 16 MB of plain RAM at CS3 and nothing above 4 MB (`4fe2f1f`)                         | PFT18                                 |
+| CS5 and the top of CS0 (G7, G10)        | open bus (`0xFF`) but IC21 and IC19 at all their copies, in both views (CS5 ignores A25); the service ROM test's IC19 sum at `0x97800000` is right (`798a164`) | ROM survey passes 4 and 5             |
 
 **The "noise" in MAME's KN7000 sound is emulation speed, not wrong audio** (kn7000_mame
 `notes/dsp-noise-2026-10-21/README.md`, 2026-10-21). What MAME computes is clean: a `-wavwrite`
@@ -383,11 +384,7 @@ do not add exactly). How to get closer to 100 % is [below](#running-it-at-full-s
 - **No switch to bypass the effects DSP (G19).** It is still planned (step S2) for research, but it
   is not what removes the noise: bypassed, the sound is just as broken below 100 % speed.
 - **The power-on path (G9).** The CPU really starts in IC18's boot code at `0x40000000`, with the
-  flash updater; the overlay starts at the program flash. **Interrupt vectors through IVAR (G8)**,
-  **CS5 mirrors and open-bus reads (G10)**.
-- **CS5's uncached view (G7).** `0x90000000`-`0x93FFFFFF` is now the work RAM's view, repeating
-  every 4 MB. `0x94000000`-`0x97FFFFFF`, the uncached view of CS5, is still a RAM placeholder, apart
-  from IC21 at `0x96800000`-`0x969FFFFF`.
+  flash updater; the overlay starts at the program flash. **Interrupt vectors through IVAR (G8)**.
 - **Cache contents.** The timing model counts hits, misses and write-backs, but every access
   reaches memory, so a stale or dirty line cannot happen in MAME. A program that loads code
   without syncing the caches can run in MAME and fail on the unit, as one did on 2026-10-27
