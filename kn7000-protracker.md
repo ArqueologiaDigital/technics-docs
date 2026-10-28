@@ -96,10 +96,13 @@ What pt2-clone did through its own Paula emulation and SDL is done this way on t
   ring before the firmware's main task decodes it, as the Pinball port already did for the TEMPO/PROGRAM wheel. It
   keeps the real state for the program and clears the switches in the frame, so the firmware sees no change. CONTRAST
   stays the firmware's.
+- **The folder's files.** The firmware's file routines open a file by its name but cannot list a folder. So the
+  platform reads the folder off the card with the program menu's FAT16 reader, read-only, over the firmware's raw
+  sector read (`list`, ABI 12). The modules are the folder's `*.MOD` and `MOD.*` files, sorted by name; a long name is
+  listed by its 8.3 alias, which the firmware opens.
 
 What differs from the Amiga: the DSP's mix is mono and has no Paula filters; a voice starts on a whole word (four
-samples); EFx (invert loop) changes only the CPU's copy of a sample. The disk op., saving and the sample editor are
-not part of the port.
+samples); EFx (invert loop) changes only the CPU's copy of a sample. The sample editor is not part of the port.
 
 ## How it was checked
 
