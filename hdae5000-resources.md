@@ -14,18 +14,18 @@ This page collects them. It is a companion to the [HDAE5000 Hard Disk Expansion]
 
 ## Where the tables live
 
-| ROM      | Bytes  | Structure                                                                                                        |
-|----------|-------:|------------------------------------------------------------------------------------------------------------------|
-| 0x29BAFC | 1,252  | Name strings for the 69 registered objects                                                                       |
-| 0x29BFE0 | 202    | Parameter-name strings for the 13 UI classes                                                                     |
-| 0x29C0AA | 6,356  | `HDAE5000_RECORD_TABLE` — 13 class records of 24 bytes, then the 13 class-name strings                           |
-| 0x29D97E | 660    | Record-count word `0x000D`, then 44 `EV_*` / `MT_*` / `*Proc` name strings                                       |
-| 0x29DC12 | 33,050 | The 769 UI object descriptors — typed records `HdaeUiObj_000` …; 13,334 B of class-specific body still undecoded |
-| 0x2A5D2C | 3,160  | `HDAE5000_UiObject_PtrTable` — 790 `.long`                                                                       |
-| 0x2A6984 | 3,160  | `HDAE5000_UiObjectName_PtrTable` — 790 `.long`                                                                   |
-| 0x2A75DC | 3,774  | `HDAE5000_UiObjectName_Pool` — the object name strings                                                           |
-| 0x2A849A | 244    | 15 screen and switch-catch name strings                                                                          |
-| 0x2F94B2 | 3,202  | The initialised `.data` image, copied to RAM 0x23952A at boot                                                    |
+| ROM      | Bytes  | Structure                                                                                                            |
+|----------|-------:|----------------------------------------------------------------------------------------------------------------------|
+| 0x29BAFC | 1,252  | Name strings for the 69 registered objects                                                                           |
+| 0x29BFE0 | 202    | Parameter-name strings for the 13 UI classes                                                                         |
+| 0x29C0AA | 6,356  | `HDAE5000_RECORD_TABLE` — 13 class records of 24 bytes, then the 13 class-name strings                               |
+| 0x29D97E | 660    | Record-count word `0x000D`, then 44 `EV_*` / `MT_*` / `*Proc` name strings                                           |
+| 0x29DC12 | 33,050 | The 769 UI objects, as a tree of class macros, every field named ([menu map]({{ site.baseurl }}/hdae5000-menu-map/)) |
+| 0x2A5D2C | 3,160  | `HDAE5000_UiObject_PtrTable` — 790 `.long`                                                                           |
+| 0x2A6984 | 3,160  | `HDAE5000_UiObjectName_PtrTable` — 790 `.long`                                                                       |
+| 0x2A75DC | 3,774  | `HDAE5000_UiObjectName_Pool` — the object name strings                                                               |
+| 0x2A849A | 244    | 15 screen and switch-catch name strings                                                                              |
+| 0x2F94B2 | 3,202  | The initialised `.data` image, copied to RAM 0x23952A at boot                                                        |
 
 ## The 69-object registry
 
@@ -185,7 +185,7 @@ Structure of the descriptor array at `0x2A5D2C`:
 
 All 20 RAM-descriptor entries are soft-key or tab objects (`HddNamingABC` / `abc` / `Symbol`, `*_SW_EDIT`, `CP_FD_HDSW*`, `*_EXIT`, `*inLyric`).
 
-The name array at `0x2A6984` points into the string pool at `0x2A75DC`. **178 of the 789 objects carry a name**; the other 611 point at an empty string. The pool is stored in *reverse* index order — a layout observation; that the compiler emits literals in reverse order of declaration has not been tested — so `HdaeUiName_789` is first in memory and `HdaeUiName_000` (`HDDMENU`) is last, ending exactly at `0x2A849A` where the screen-name block begins.
+The name array at `0x2A6984` points into the string pool at `0x2A75DC`. **178 of the 789 objects carry a name**; the other 611 point at an empty string. The pool is stored in *reverse* index order — a layout observation; that the compiler emits literals in reverse order of declaration has not been tested — so the source writes the pool, `HDAE5000_UiObjectName_Pool`, as one `ui_name` / `ui_noname` line per object, highest index first: the empty table-end string, then `WriteIn` (object 788), down to `HDDMENU` (object 0) last, ending exactly at `0x2A849A` where the screen-name block begins.
 
 ### Why the names can be trusted
 
@@ -422,25 +422,21 @@ Four pointers inside the block are already resolved to RAM addresses within the 
 
 ### The window state block
 
-The block from `0x2F986A` is kept in the disassembly as annotated 16-bit words rather than invented variables, because no code in this ROM reads it through a named address. Three motifs repeat:
+The block from `0x2F986A` holds the initial values of the RAM variables the UI records point at: every field of type m, n, r or s in every record of both versions points into the RAM copy of this block, and no two fields share a variable. Since 2026-10-29 each variable carries the label `HdaeUiVar_<object>_<field>`, named after the record field that points at it (322 labels in v2.06i, 318 in v2.01i; `scripts/converters/hdae5000_ui_tree.py`). [INFERENCE] What a variable holds is known only from that field's firmware name: no code in this ROM spells one of those RAM addresses.
 
-- `0xFFFF` — the "unset" sentinel used throughout this firmware
-- `0x0001 0x0002 0x0000` triplets — per-window state enumerations
-- 8-byte records `{u16 0x0000; u32 handle; u16 0xFFFF}` whose 32-bit field always lands in `0x006FB0F5`-`0x00709078`
+The `0x0070xxxx` words in the block were once read as 8-byte records `{u16 0x0000; u32 handle; u16 0xFFFF}`. They are 4-byte variables: the initial values of 29 of the 31 `SelectList.str_adr` fields (for example `HdaeUiVar_SEL_DIR_str_adr`), and they are inert. `HDAE5000_SelectListProc` draws only while the list's `en_paradraw` variable is 1, all 31 start at 0, and a screen enables its list and gives it its row strings with `EVT_HDAE_SET_STR_ADR`, which stores into `str_adr` (`notes/data-gui-hdae5000-2026-10-29/probes/str_adr_initial_values.py`). Between v2.01i and v2.06i the values move by 680-684 bytes for 16 lists and stay the same for the other 15. [INFERENCE] They are link-time addresses of another build or memory configuration; no consistent base maps them onto this ROM's labels, its RAM symbols or any HD-AE5000 dump's strings. The source marks each one `; inert: ...`.
 
-Those 32-bit fields look like pointers but are **not** treated as such: nothing in this ROM references them, and the address window they fall in belongs to the main CPU's rhythm ROM. They are recorded as opaque handles patched at run time, which is a deliberately weaker claim than "pointers".
-
-From `0x2F9C4C` (RAM `0x239CC4`) the block is not state at all. It holds the descriptor records of the 20 UI objects whose descriptor lives in RAM (`HDAE5000_WindowGeometry_Init`), in the same format as the ROM pool at `0x29DC12`. There is no fixed stride: the 20 records are 26 to 54 bytes long. The recurring `0x0160` is the high half of each record's `.long` class id. After it come the parent, first-child, next and previous object indices, an attribute word, the box x1, y1, x2, y2, and then the class body. `0x0137` (311) is the right edge that many of these soft keys share. `0x00D2` is object 210 (`CP_FD`), the parent of the `CP_FD_HDSWTO`, `CP_FD_HDSWSEL` and `CP_FD_HDALLSEL` keys. `0x00F2` is the first body word of most class `0160:001F` records, not a coordinate.
+From `0x2F9C4C` (RAM `0x239CC4`) the block is not state at all. It holds the descriptor records of the 20 UI objects whose descriptor lives in RAM (`HDAE5000_WindowGeometry_Init`), in the same format as the ROM pool at `0x29DC12`. The source writes them with the same class macros as the tree, between `ui_ram_records` and `ui_ram_records_end`, and the tree marks each with `ui_ram_object`. There is no fixed stride: the 20 records are 26 to 54 bytes long. The recurring `0x0160` is the high half of each record's `.long` class id. After it come the parent, first-child, next and previous object indices, an attribute word, the box x1, y1, x2, y2, and then the class body. `0x0137` (311) is the right edge that many of these soft keys share. `0x00D2` is object 210 (`CP_FD`), the parent of the `CP_FD_HDSWTO`, `CP_FD_HDSWSEL` and `CP_FD_HDALLSEL` keys. `0x00F2` is the first body word of most class `0160:001F` records, not a coordinate.
 
 ## What is still open
 
-| Item                                                      | Status                                                                                                                                                                                                                                                                       |
-|-----------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| UI object pool, 0x29DC12-0x2A5D2B (33,050 B, 769 records) | **Typed** (Wave 2, `scripts/generators/gen_hdae5000_ui_pool.py`): each record's class id, links, attribute word and box. 13,334 B of class-specific body is still undecoded; the main CPU's class layouts cover it. The five old labels inside it are kept as `.set` aliases |
-| Sixth palette/bitmap pair, 0x2E3064 / 0x2E3464            | Labelled: `HDAE5000_Palette_Button01` / `HDAE5000_Bitmap_Button01`. No code in this ROM reads the palette                                                                                                                                                                    |
-| `HDAE5000_Icon.bin`                                       | 784 bytes, but the icon is 756 (27×27 with a 28-byte stride). The extra 28 bytes are the first bytes of the C program's `.rodata` — literally the ASCII "V2.06i" (`HDAE5000_Str_V206i`)                                                                                      |
-| Gallery renders for Logo / Hands / FilePanel              | `convert_images.py` gives all HD-AE5000 images the boot-splash palette; each bitmap actually has its own palette immediately above it in ROM                                                                                                                                 |
-| `en_paradraw` include boundary                            | Split across two source files at 0x29BFE0                                                                                                                                                                                                                                    |
+| Item                                                      | Status                                                                                                                                                                                                                                                                                                                                      |
+|-----------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| UI object pool, 0x29DC12-0x2A5D2B (33,050 B, 769 records) | **Named** (2026-10-29, `scripts/converters/hdae5000_ui_tree.py`): a tree of class macros, every field named by its firmware name, links computed from the nesting ([menu map]({{ site.baseurl }}/hdae5000-menu-map/)). What each icon looks like (`idICON_*`) is not yet recorded. The five old labels inside it are kept as `.set` aliases |
+| Sixth palette/bitmap pair, 0x2E3064 / 0x2E3464            | Labelled: `HDAE5000_Palette_Button01` / `HDAE5000_Bitmap_Button01`. No code in this ROM reads the palette                                                                                                                                                                                                                                   |
+| `HDAE5000_Icon.bin`                                       | 784 bytes, but the icon is 756 (27×27 with a 28-byte stride). The extra 28 bytes are the first bytes of the C program's `.rodata` — literally the ASCII "V2.06i" (`HDAE5000_Str_V206i`)                                                                                                                                                     |
+| Gallery renders for Logo / Hands / FilePanel              | `convert_images.py` gives all HD-AE5000 images the boot-splash palette; each bitmap actually has its own palette immediately above it in ROM                                                                                                                                                                                                |
+| `en_paradraw` include boundary                            | Split across two source files at 0x29BFE0                                                                                                                                                                                                                                                                                                   |
 
 ## Related Documentation
 
@@ -448,4 +444,5 @@ From `0x2F9C4C` (RAM `0x239CC4`) the block is not state at all. It holds the des
 - [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/) - disk layout, song records, lyric files
 - [HDAE5000 Homebrew Development]({{ site.baseurl }}/hdae5000-homebrew/) - The main CPU's object dispatch system
 - [Image Gallery]({{ site.baseurl }}/image-gallery/#hdae5000-hard-disk-expansion-rom-images) - The extracted bitmaps
+- [HD-AE5000 Menu Map]({{ site.baseurl }}/hdae5000-menu-map/) - The GUI tree as the source writes it, and the 78 screens and dialogs
 - [UI Widget Types]({{ site.baseurl }}/ui-widget-types/) - The main firmware's equivalent widget vocabulary

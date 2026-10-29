@@ -328,6 +328,8 @@
           url: /hdae5000/
         - title: Resources & Object Registry
           url: /hdae5000-resources/
+        - title: HD-AE5000 Menu Map
+          url: /hdae5000-menu-map/
         - title: Disk Interface
           url: /hdae5000-disk-interface/
         - title: Filesystem
@@ -404,6 +406,8 @@
       url: /wsa1/
     - title: Control Panel & Switch Matrix
       url: /wsa1-panel/
+    - title: Menu Map (screens, display lists, key maps)
+      url: /wsa1-menu-map/
     - title: Parameter Records & MIDI
       url: /wsa1-parameters/
     - title: Acoustic Modelling LSI (L7A1429)
