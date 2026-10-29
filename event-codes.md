@@ -248,18 +248,20 @@ the new one with `ApPostEvent`. The other requesters do not cancel first: the
 boot request uses `PostEvent`, and the control-panel chords and the HD-AE5000
 boot request call `ApPostEvent` directly. The requesters are:
 
-- Main CPU: `UI_PostPartChangeEvent` (despite its name, it posts the **mode**
-  request `0x01C00014` with `0x01800000 + A`) and `UI_PostModeChangeEvent`
-  (despite *its* name, it posts the **title** request `0x01C00015` with
-  `0x01A00000 + A`). At boot, `MainTitle_InitGraphicsAndEvents` posts mode
-  `0x01800001` and then title 0xEF with plain `PostEvent`.
+- Main CPU: `UI_ChangeModeByIndex` (the **mode** request `0x01C00014` with
+  `0x01800000 + A`), `UI_ChangeTitleByIndex` (the **title** request
+  `0x01C00015` with `0x01A00000 + A`) and `UI_InterruptTitleByIndex` (the
+  interrupt-title request `0x01C00016` with `0x01A00000 + A`; the SOFT VERSION
+  combo, the file and disk dialogs). Until 2026-10-29 these were named
+  `UI_PostPartChangeEvent`, `UI_PostModeChangeEvent` and `SoundCtrl_SendCommand`.
+  At boot, `MainTitle_InitGraphicsAndEvents` posts mode `0x01800001` and then title 0xEF with plain `PostEvent`.
   `CtrlPanel_PostDisplayEvent` (`0x01C00015`, title 0x00) and
   `CtrlPanel_PostScrollEvent` (`0x01C00016`, title 0xF0) post with
   `ApPostEvent`.
-- HD-AE5000: `HDAE5000_RequestMode` (twin of `UI_PostPartChangeEvent`, used
+- HD-AE5000: `HDAE5000_RequestMode` (twin of `UI_ChangeModeByIndex`, used
   after a song load when JUMP AFTER LOAD is on), `HDAE5000_RequestTitle15` (twin
-  of `UI_PostModeChangeEvent`), `HDAE5000_RequestTitle16` (the same with
-  `0x01C00016`; no caller found), and `HDAE5000_ShowErrorMessageTitle`, all
+  of `UI_ChangeTitleByIndex`), `HDAE5000_RequestTitle16` (the same with
+  `0x01C00016`, twin of `UI_InterruptTitleByIndex`; no caller found), and `HDAE5000_ShowErrorMessageTitle`, all
   through `RootFn_DeleteEvent` and `RootFn_ApPostEvent`. `HDAE5000_Boot_Init`
   posts title 0x7F (`0x01C00016`) through `RootFn_ApPostEvent` alone, when
   `HDAE5000_Check_HD_Present` finds a drive.

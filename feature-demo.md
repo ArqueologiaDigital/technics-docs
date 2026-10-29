@@ -239,7 +239,7 @@ The Feature Demo uses a multi-mode event-driven architecture with separate handl
 The first five are in `demo/demo_routines.s`, `DemoMode_Initialize` and `DemoMode_Main_Operation` in `demo/file_demo_proc.s`, and the last three in `sequencer/sequencer_ui.s` (:3381, :3580, :4021).
 
 Each selection handler (Style/Sound/Rhythm) has a dispatch table and supports three input types:
-- **Encoder / Direction** switch groups (the disassembly's names): request one of the other two demo titles through `UI_PostModeChangeEvent` (0xF99490). Style goes to 0xE2 (TT_DEMOSOUND) or 0xE3 (TT_DEMORHY), sound to 0xE1 (TT_DEMOSTYLE) or 0xE3, and rhythm to 0xE1 or 0xE2. A press is ignored while a part is playing or the countdown is running.
+- **Encoder / Direction** switch groups (the disassembly's names): request one of the other two demo titles through `UI_ChangeTitleByIndex` (0xF99490). Style goes to 0xE2 (TT_DEMOSOUND) or 0xE3 (TT_DEMORHY), sound to 0xE1 (TT_DEMOSTYLE) or 0xE3, and rhythm to 0xE1 or 0xE2. A press is ignored while a part is playing or the countdown is running.
 - **Enter**: Calls shared handler at 0xF86A47
 
 ## Presentations Loaded from Disk

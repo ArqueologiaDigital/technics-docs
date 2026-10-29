@@ -56,7 +56,7 @@ From the home screen, the correct sequence to reach the Feature Presentation:
 2. Press **LEFT 4** (4th soft button from top, mapped to `CPL_SEG9`) -- `0x8D38` transitions `0xE0` to `0xE4` (FEATURE PRESENTATION sub-menu appears)
 3. Press **LEFT 2** (2nd soft button from top, `CPL_SEG10`, "Start the internal DEMO") -- the presentation starts; `0x8D38` stays `0xE4`
 
-`UI_PostModeChangeEvent` does not carry these transitions, despite what this page used to say. It posts the *title* request `0x01C00015` with title id `0x01A00000 + A` to the current target, not to `MainTitleCtrl_ChangeTitle` (see [Event Codes — Mode and Title Requests]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)).
+`UI_ChangeTitleByIndex` (named `UI_PostModeChangeEvent` until 2026-10-29) does not carry these transitions, despite what this page used to say. It posts the *title* request `0x01C00015` with title id `0x01A00000 + A` to the current target, not to `MainTitleCtrl_ChangeTitle` (see [Event Codes — Mode and Title Requests]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016)).
 
 ### MAME Button Mapping Reference
 

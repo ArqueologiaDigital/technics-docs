@@ -139,7 +139,7 @@ Opens the MPVersion screen (`AcWelcomScreenProc` posts `EVT_MP_VERSION` when the
 
 **Buttons:** Four buttons spanning the AUTO PLAY CHORD area on the left panel.
 
-Displays the software version screen showing internal build numbers for all firmware components (main program, sub program, etc.). Implemented via `SoundCtrl_SendCommand`.
+Displays the software version screen showing internal build numbers for all firmware components (main program, sub program, etc.). Implemented via `UI_InterruptTitleByIndex` with `TT_SOFTVER`, which posts `EVT_INTERRUPT_TITLE` (`0x1C00016`): the version screen is shown on top of the current title.
 
 #### Combo 4: Flash Memory Update
 
@@ -184,7 +184,7 @@ After the SubCPU payload is transferred and verified, the firmware calls `SelfTe
 3. Reads 8 bytes of key scan data from address 36196 (the keybed state buffer)
 4. Counts the total number of pressed keys using a population count (`SelfTest_PopCount`)
 5. If exactly **2 keys** are pressed, checks which specific key bits are set (C3 + C4, byte[3] bit 0 + byte[4] bit 4, is matched and does nothing). With any other count it instead tests the SRAM (`Test_SRAM_IC21`) and probes the panel MCUs (`CPanel_ProbePanelMcus`); a failure opens title `TT_TEST1` (`0xF4`) with the `TEST1RAM` or `TEST1CP` view
-6. Posts `UI_PostModeChangeEvent` with the appropriate mode code
+6. Calls `UI_ChangeTitleByIndex` with the appropriate title code
 
 **Mode code dispatch:**
 
@@ -197,7 +197,7 @@ After the SubCPU payload is transferred and verified, the firmware calls `SelfTe
 | byte[4] bit 1 + byte[5] bit 5 | A3 + A4 | `0xF9`    | `0x1A000F9` | `TT_TEST6` (`TEST6FUNC`)      | Test 7: FDC IC               |
 | byte[4] bit 3 + byte[5] bit 7 | B3 + B4 | `0xFC`    | `0x1A000FC` | `TT_EXTAPR` (`TestTitleFunc`) | Test 8: FDD SAVE/LOAD (HAMA) |
 
-`UI_PostModeChangeEvent` posts the title request `0x1C00015` with title id `0x01A00000 + code`. The code is a title number, not a mode (the mode request is `0x1C00014`). `TitleProc` handles the request. See [Event Codes — Mode and Title Requests]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016).
+`UI_ChangeTitleByIndex` (named `UI_PostModeChangeEvent` until 2026-10-29) posts the title request `0x1C00015` with title id `0x01A00000 + code`. The code is a title number, not a mode (the mode request is `0x1C00014`, posted by `UI_ChangeModeByIndex`). `TitleProc` handles the request. See [Event Codes — Mode and Title Requests]({{ site.baseurl }}/event-codes/#mode-and-title-requests-0x01c00014-0x01c00016).
 
 > **Under MAME:** the `0xF002` reply comes from the sub-CPU's own firmware, which sees the keybed only through `kn5000_tonegen_device`'s event FIFO (`push_keybed_event`; `keybed_scan` in `kn5000.cpp` pushes into it every millisecond from machine start). Whether that reply reflects keys held from power-on has not been measured — see the status table above.
 
@@ -493,7 +493,7 @@ These strings are displayed on the diagnostic LCD during hardware validation, pr
 `TT_EXTAPR` is activated through the **keybed service mode system**; `TT_HDDEXT` is not:
 
 **Test 8 (B3 + B4) → TT_EXTAPR (title 0xFC):**
-Holding keys B3 and B4 during power-on causes `SelfTest_FirmwareVersionCheck` to request title `0x01A000FC` through `UI_PostModeChangeEvent` (which, despite its name, posts `EVT_CHANGE_TITLE`, `0x1C00015`). The request opens `TT_EXTAPR`, which `InitializeHama` registers as title `0xFC`: the full HAMA diagnostic screen with FDD SAVE/LOAD test, directory listing, and test-floppy formatting.
+Holding keys B3 and B4 during power-on causes `SelfTest_FirmwareVersionCheck` to request title `0x01A000FC` through `UI_ChangeTitleByIndex` (which posts `EVT_CHANGE_TITLE`, `0x1C00015`). The request opens `TT_EXTAPR`, which `InitializeHama` registers as title `0xFC`: the full HAMA diagnostic screen with FDD SAVE/LOAD test, directory listing, and test-floppy formatting.
 
 **TT_HDDEXT (title 0x7F):**
 The `TT_HDDEXT` title (title id `0x7F`) is the HD-AE5000's hard-disk title, not a keybed test. The firmware ships a pre-built DISK MENU item that points at it (caption "HARD DISK MAIN MENU", which the HD-AE5000 replaces with "HD-AE5000"). The HD-AE5000 re-registers the title with its own view and procedure and, when a hard disk is present, requests it at boot with `EVT_INTERRUPT_TITLE` (see [HDAE5000 Homebrew]({{ site.baseurl }}/hdae5000-homebrew/#disk-menu-slot-registration-workspace0x0e0a0x02c4)). (`RegHamaTitle1_Entry` and `RegHamaTitle2_Entry` do not switch titles: they format a 2DD or 2HD test floppy.)
@@ -504,7 +504,7 @@ Power on while holding B3 + B4
   → Boot sequence runs normally
   → SelfTest_FirmwareVersionCheck reads keybed via SubCPU
   → Detects 2 keys: byte[4] bit 3 + byte[5] bit 7
-  → Posts UI_PostModeChangeEvent(0xFC)
+  → Calls UI_ChangeTitleByIndex(0xFC)
   → Event 0x1C00015 with data 0x1A000FC
   → Title system activates TT_EXTAPR (title 0xFC)
   → TestTitleFunc receives EVT_ACTIVATE_STATE 0x1C00013 ("Title Activate")

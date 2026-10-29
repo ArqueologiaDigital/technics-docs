@@ -139,7 +139,7 @@ boot code is the same code (see [Table data](#table-data-table_data)).
 |------|----------|
 | `ui_widget_defs.s` | Grid box, exit window, title/resource widgets, event dispatch loops, object enumeration; also the hidden hex viewer `DbMemoryDumpProc` |
 | `ui_window_procs.s` | Window procedures: ModeEdit, TitleEdit, StringBox, Label, Bitmap, Icon, Line, Frame, EditSw, TextBox, VwBox, ListBox, RadioBox, TempoBox, GridBox |
-| `ui_control_panel.s` | Control-panel key dispatch, UI task control, slider/scrollbar handlers, GroupBoxProc, `UI_PostModeChangeEvent` |
+| `ui_control_panel.s` | Control-panel key dispatch, UI task control, slider/scrollbar handlers, GroupBoxProc, `UI_ChangeTitleByIndex` |
 | `ui_mode_handlers.s` | UI mode handlers (Pmem, bank editor, filter grid, RVari, effect modes); also the power-on self-test (`MainCPU_self_test_routines`) and the keybed service-mode detection (`SelfTest_FirmwareVersionCheck`) — see [Test Modes]({{ site.baseurl }}/test-modes/) |
 | `ui_playback_modes.s` | Voice parameter handlers, sequencer timer/tempo, part validation, play/song/medley mode dispatch |
 | `drawbar_panel_ui.s` | Drawbar organ slider UI, DSP effect controls, presentation system, demo menu |
