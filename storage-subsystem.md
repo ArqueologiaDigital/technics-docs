@@ -125,18 +125,29 @@ The FDC handles 3.5" floppy disk I/O for data exchange.
 
 ### File Formats
 
-The KN5000 uses these file types on floppy:
+The KN5000 numbers its file types by an index into `FileIO_TypeExtensions` (v10 0xEA0340), and
+`SaveAll_RegionSaveRecs` maps each index to a save handler. Each handler writes a fixed RAM
+region verbatim, so a file's layout is the RAM layout of that region:
 
-| Extension | Type ID | Description                          |
-|-----------|---------|--------------------------------------|
-| .MID      | -       | Standard MIDI File                   |
-| .SQT      | -       | Sequencer (firmware title SEQUENCER) |
-| .STY      | -       | Style Data                           |
-| .PMT      | -       | Panel Memory (PANEL MEMORY)          |
-| .RCM      | -       | Rhythm Custom (RHYTHM CUSTOM)        |
-| .TM       | -       | Sound Memory (SOUND MEMORY)          |
+| Extension | Type ID | Description                                                                         |
+|-----------|---------|-------------------------------------------------------------------------------------|
+| .LSW      | 0       | Current Panel (CURRENT PANEL): the panel work area, two tag/length/value blocks     |
+| .PMT      | 1       | Panel Memory (PANEL MEMORY): 10 bank names, 80 panel blocks of 960 bytes            |
+| .SQT      | 2       | Sequencer (SEQUENCER): 0x800-byte song slots, then the event memory in linked cells |
+| .CMP      | 3       | Composer (COMPOSER): one accompaniment-style bank in the IC19 custom-data format    |
+| .TM       | 4       | Sound Memory (SOUND MEMORY): RAM 0x1E0000, 0x72AA bytes, `"KN5000 SOUND RAM"`       |
+| .MSP      | 5       | in the extension table; on no softlist disk                                         |
+| .RCM      | 6       | Rhythm Custom (RHYTHM CUSTOM): an image of Custom Data Flash sections 0..7          |
+| .MD       | 7       | in the extension table; on no softlist disk                                         |
+| .SQF      | 8       | in the extension table; on no softlist disk                                         |
+| .SEQ      | 9       | in the extension table; on no softlist disk                                         |
+| .BMP      | -       | wallpaper: the instrument's own 320 x 240 x 8 screenshot (`CaptureLcd`)             |
+| .MID      | -       | Standard MIDI File                                                                  |
 
 The titles in capitals are the firmware's own; see [the nine data types]({{ site.baseurl }}/hdae5000-resources/#the-nine-kn5000-data-types-named-by-the-firmware).
+An earlier version of this table listed a `.STY` style file; the KN5000 has no such extension
+(user styles are saved as `.CMP`). The record layout of every kind, and the 14 softlist disks
+rebuilt from typed source, are on [Floppy Disk Files and Formats]({{ site.baseurl }}/floppy-disk-formats/#kn5000-disk-files).
 
 See [FDC Subsystem]({{ site.baseurl }}/fdc-subsystem/) for detailed handler documentation.
 
@@ -207,6 +218,7 @@ None of the 8 update disc types makes the firmware **execute code loaded from fl
 
 - [System Overview]({{ site.baseurl }}/system-overview/) - Overall architecture
 - [FDC Subsystem]({{ site.baseurl }}/fdc-subsystem/) - Floppy handler details
+- [Floppy Disk Files and Formats]({{ site.baseurl }}/floppy-disk-formats/) - what each file type holds, and the softlist disks as source
 - [HDAE5000]({{ site.baseurl }}/hdae5000/) - Hard disk expansion
 - [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/) - ATA protocol
 - [Memory Map]({{ site.baseurl }}/memory-map/) - Address space

@@ -16,6 +16,11 @@ The tools, the blank disks the formatters wrote, and the command recipes that pr
 in the kn7000_mame repository, `tools/floppy-images/`, whose README carries every number quoted
 here.
 
+Since 2026-10-29 every disk of those lists, and of `wsa1_flop`, is also held as typed source in
+the disassembly repository and rebuilt from it byte for byte (`make gate-floppy`, 50 disks).
+What each file on them holds is on
+[Floppy Disk Files and Formats]({{ site.baseurl }}/floppy-disk-formats/).
+
 ## The rule
 
 1. **A dump of a real disk wins.** When one exists, it is the software-list entry.

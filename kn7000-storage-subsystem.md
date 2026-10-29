@@ -55,6 +55,15 @@ extensions `.MID` and `.CST` appear in a type table at `0x2637E4`:
 | Homepage picture (the firmware's "Wallpaper", `FmmWallpaperLoadFunc`) | `.BMP`         | the homepage picture alone: 160 × 100, 2, 16 or 256 colours                        |
 | Custom data                                                           | `.AST`         | the Initial Data / custom-data flash contents, zlib-compressed                     |
 
+On floppy, the KN7000 wraps most of its files in a small container whose magic starts with
+`J` (the KN6000's starts with `I`). `'J KD'` (`.CMP`, `.PMT`, `.MSP`, `.SQT`, `.LSW`) holds
+one or two **LZSS** parts: an 8 KB ring, 3-to-10-byte matches, each reference an absolute ring
+position. `'J K\1'` (`.AST`, `.CST`) holds a u32 inflated size and one **deflate** part from the
+zlib 1.0.4 the program links, and `'JK \0'` (`.HMP`, `.FAV`, `.MD`) is stored. A `.CMP` is the
+`TCMP` style memory saved whole, and each `.AST` inflates to one complete custom-data (IC21)
+image. The byte layouts, and the six `kn7000_flop` disks rebuilt from typed source, are on
+[Floppy Disk Files and Formats]({{ site.baseurl }}/floppy-disk-formats/#kn6000-and-kn7000-disk-files).
+
 FMM entry points are named per type: `FmmSmfLoadTitleFunc` /
 `FmmSmfSaveTitleFunc`, `FmmCstLSTitleFunc`, `FmmComposerLoadFunc`,
 `FmmWallpaperLoadFunc`, `FmmPictureLoadFunc`, `FmmSeqSongNameFunc`,
