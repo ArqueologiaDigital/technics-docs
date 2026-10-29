@@ -208,7 +208,9 @@ addressed by the same numbers — is on its own page,
 `PanelScreen_VtableTable` (`0xF86EC1`), 256 screen objects each a three-method
 Enter/Leave/Button vtable — is decoded, so a button press resolves to a named
 screen and its methods (see
-[the control panel]({{ site.baseurl }}/wsa1-panel/#the-screen-objects-how-a-screen-is-dispatched)).
+[the control panel]({{ site.baseurl }}/wsa1-panel/#the-screen-objects-how-a-screen-is-dispatched)). Since 2026-10-29 the GUI data itself reads as names: the 8,871 display-list records
+and 87 key maps are macros of `wsa1/include/wsa1_gui.inc`, and a generated menu map indexes every
+screen (see [Menu Map]({{ site.baseurl }}/wsa1-menu-map/)).
 And the **disk / block-device command layer** at `0xFE0000`-`0xFE54B6` — the
 stack above the FDC driver, carrying `Disk_ReadSectors`, `Disk_WriteSectors`,
 `Disk_RequestSenseDriveStatus`, `Disk_SetRequestGeometry` and
@@ -669,10 +671,11 @@ so absence from that map is not evidence that a device does not exist.
 
 ## Related
 
-| Page                                                                      | Description                                                         |
-|---------------------------------------------------------------------------|---------------------------------------------------------------------|
-| [SX-WSA1 / SX-WSA1R Overview]({{ site.baseurl }}/wsa1/)                   | The machine, the hardware, the memory maps, the model strap         |
-| [Emulation Status]({{ site.baseurl }}/wsa1-emulation/)                    | The MAME driver the disassembly feeds, and which feeds it back      |
-| [Acoustic Modelling LSI (L7A1429)]({{ site.baseurl }}/wsa1-modeling-lsi/) | What the CPU 2 device drivers in this tree turned out to be driving |
-| [Shared Codebase Map]({{ site.baseurl }}/technics-shared-codebase/)       | Where this machine's code meets the KN5000's and the KN7000's       |
-| [KN5000 ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/)       | The sibling project, and where these practices come from            |
+| Page                                                                      | Description                                                           |
+|---------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| [SX-WSA1 / SX-WSA1R Overview]({{ site.baseurl }}/wsa1/)                   | The machine, the hardware, the memory maps, the model strap           |
+| [Menu Map]({{ site.baseurl }}/wsa1-menu-map/)                             | Display lists, key maps and every screen, from the generated menu map |
+| [Emulation Status]({{ site.baseurl }}/wsa1-emulation/)                    | The MAME driver the disassembly feeds, and which feeds it back        |
+| [Acoustic Modelling LSI (L7A1429)]({{ site.baseurl }}/wsa1-modeling-lsi/) | What the CPU 2 device drivers in this tree turned out to be driving   |
+| [Shared Codebase Map]({{ site.baseurl }}/technics-shared-codebase/)       | Where this machine's code meets the KN5000's and the KN7000's         |
+| [KN5000 ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/)       | The sibling project, and where these practices come from              |

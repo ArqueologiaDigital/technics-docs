@@ -398,6 +398,13 @@ ENTER method names that screen's LEAVE and BUTTON methods for free. Reproduce
 the table and its method offsets with `wsa1/notes/prom_a_naming_wave8_apply.py --screens` and
 `wsa1/notes/prom_a_screen_methods_wave29.py`.
 
+Every screen's key map, what it draws and which key leads to it are now indexed by a generated
+menu map (`wsa1/docs/gui-menu-map.md`, from `wsa1/scripts/analysis/gui_menu_map.py`), and the key
+maps are written as `on_key KEY_<name>, <handler>` lines. See the
+[Menu Map]({{ site.baseurl }}/wsa1-menu-map/) page, which also lists the 32 key codes: codes
+0x11-0x19, unexplained before, are the soft-key columns' and PAGE's second event
+(`KEY_SoftKeyCol1Alt` .. `KEY_SoftKeyCol8Alt`, `KEY_PageAlt`).
+
 ## From a switch to a parameter record
 
 A press reaches the rest of CPU 1 along two routes out of the panel's group queue at RAM

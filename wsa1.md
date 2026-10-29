@@ -600,11 +600,12 @@ Two things it also settles for the KN work:
 
 ## Documentation
 
-| Page | Description |
-|------|-------------|
-| [Control Panel & Switch Matrix]({{ site.baseurl }}/wsa1-panel/) | The rack's 58 switches traced from the CP1/CP2 schematics, with a second witness in the ROM; lamps; the service chords; what the keyboard's panel is not known to be |
-| [Parameter Records & MIDI]({{ site.baseurl }}/wsa1-parameters/) | CPU 1's one parameter-number space: the four-byte record, MIDI-in and panel paths into it, the part and controller numbers, factory defaults and the combination memory |
-| [Acoustic Modelling LSI (L7A1429)]({{ site.baseurl }}/wsa1-modeling-lsi/) | The engine at `0x00104000`: the resonator topology, the nineteen-register map, the filter-cutoff and position units, the write sequencing, and what is still unknown |
-| [Emulation Status]({{ site.baseurl }}/wsa1-emulation/) | The MAME driver, the boot walkthrough, the four TLCS-900 core defects it exposed, and exactly what is and is not modelled |
-| [Disassembly]({{ site.baseurl }}/wsa1-disassembly/) | The byte-exact reassembly project, its gate, its coverage, and the rule the gate cannot enforce |
-| [Shared Codebase Map]({{ site.baseurl }}/technics-shared-codebase/) | Where the WSA1, the KN5000 and the KN7000 firmwares match |
+| Page                                                                      | Description                                                                                                                                                             |
+|---------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [Control Panel & Switch Matrix]({{ site.baseurl }}/wsa1-panel/)           | The rack's 58 switches traced from the CP1/CP2 schematics, with a second witness in the ROM; lamps; the service chords; what the keyboard's panel is not known to be    |
+| [Menu Map]({{ site.baseurl }}/wsa1-menu-map/)                             | How the screens are built (display lists, key maps, screen objects), how the source spells them as macros, and every screen at a glance from the generated menu map     |
+| [Parameter Records & MIDI]({{ site.baseurl }}/wsa1-parameters/)           | CPU 1's one parameter-number space: the four-byte record, MIDI-in and panel paths into it, the part and controller numbers, factory defaults and the combination memory |
+| [Acoustic Modelling LSI (L7A1429)]({{ site.baseurl }}/wsa1-modeling-lsi/) | The engine at `0x00104000`: the resonator topology, the nineteen-register map, the filter-cutoff and position units, the write sequencing, and what is still unknown    |
+| [Emulation Status]({{ site.baseurl }}/wsa1-emulation/)                    | The MAME driver, the boot walkthrough, the four TLCS-900 core defects it exposed, and exactly what is and is not modelled                                               |
+| [Disassembly]({{ site.baseurl }}/wsa1-disassembly/)                       | The byte-exact reassembly project, its gate, its coverage, and the rule the gate cannot enforce                                                                         |
+| [Shared Codebase Map]({{ site.baseurl }}/technics-shared-codebase/)       | Where the WSA1, the KN5000 and the KN7000 firmwares match                                                                                                               |
