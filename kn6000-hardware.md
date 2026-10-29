@@ -36,7 +36,9 @@ framework]({{ site.baseurl }}/technics-shared-codebase/) — not the TLCS-900 KN
 **`IC18` is the physical confirmation of the "custom-data flash defaulted from the
 Initial Data Disk" mechanism** that the KN7000 rhythm-name investigation traced in
 software — the built-in/user rhythm data really does live in a flash IC that the
-`idd*` disk initialises.
+`idd*` disk initialises. Its upper 1,920 KB is the CUSTOM style bank, in the KN7000's IC21
+format ([Custom Style Memory (IC21) & .AST Files]({{ site.baseurl }}/kn7000-custom-style-memory/));
+the factory bank from `idd6000` is rebuilt byte for byte in the disassembly's `kn6000/src/customdata/`.
 
 ## Emulation status (MAME driver)
 

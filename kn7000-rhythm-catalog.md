@@ -24,8 +24,9 @@ structure; **270 subcategories across 11 genres, four styles each (1,080 styles)
 (`tools/kn7000_style_catalog.py` in this repository walks it).
 
 These are not the instrument's built-in rhythms. The user's manual (p. 207) lists
-220 rhythms × 4 variations in 14 rhythm groups, whose names come from a
-different, still-undumped resource; see
+220 rhythms × 4 variations in 14 rhythm groups. 169 of them are stored in the rhythm ROM
+IC18 and the other 51 in the table ROM; see
+[KN7000 Rhythm ROM (IC18)]({{ site.baseurl }}/kn7000-rhythm-rom/) and
 [How the rhythm menu resolves a style name]({{ site.baseurl }}/kn7000-initial-data/#how-the-rhythm-menu-resolves-a-style-name).
 
 ## Rock & Pop (58 subcategories)

@@ -43,17 +43,20 @@ The disk carries four files. Each begins with a Technics tag matching the firmwa
 disk-file dispatch tables (`DiskFileTagTable` `0x48664090`, `DiskFileExtTable`
 `0x48664438`), and installs to one of two destinations:
 
-| File | Destination | Contents |
-|------|-------------|----------|
-| `01CTMINI.AST` | custom **flash** | Custom/Music-Stylist data; the payload is **raw zlib/DEFLATE** (no wrapper) starting at file offset `0x10`. Version byte `0x01` = compressed flag; the u32 at `+4` (`0x1E0000`) is the **decompressed** size. It inflates to the content of the writable **custom flash** (the 2 MB region the idd7000 disk programs — command window `0x96800000`), landing at flash offset `0x20000` (`0x1E0000` B fill it to the 2 MB end). Decoded, it carries the real style/sound names (`Swing And Jive`, `Calypso Dance`, `Jazz Fusion`, …) |
-| `02UMDINI.MD` | battery **SRAM** | user-Memory style references (44 style-IDs) |
-| `03FAVINI.FAV` | battery **SRAM** | Favorites (name + settings) |
-| `04HPGINI.HMP` | battery **SRAM** | Home-Page (hotspots + an embedded BMP) |
+| File           | Destination      | Contents                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+|----------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `01CTMINI.AST` | custom **flash** | the factory **CUSTOM style memory**: 20 slots, each a custom style with its One Touch Settings, pads and user sounds (format: [Custom Style Memory (IC21) & .AST Files]({{ site.baseurl }}/kn7000-custom-style-memory/)). A 16-byte header — tag `"J K"` (KN6000: `"I K"`), `+0x03` = 1, the u32 LE **inflated** size `0x1E0000` at `+0x04`, 8 bytes of stack residue at `+0x08` — then the bank deflated by **zlib 1.0.4**, without the 2-byte zlib header but with the Adler-32 trailer. It inflates to the custom flash from offset `0x20000` to the 2 MB end (the bank at `0x96820000`). Decoded, it carries the real style names (`Swing And Jive`, `Calypso Dance`, `Jazz Fusion`, …) |
+| `02UMDINI.MD`  | battery **SRAM** | user-Memory style references (44 style-IDs)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `03FAVINI.FAV` | battery **SRAM** | Favorites (name + settings)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `04HPGINI.HMP` | battery **SRAM** | Home-Page (hotspots + an embedded BMP)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 Only the `.AST` installs to flash; the rest go to battery-backed SRAM (favorites
 block `0x50083D72`, magic `"KN7000 SDDIR INF"`). The extractor (`extract_idd7000.py`
 in the kn7000_extraction tools, not yet published) parses all four and now **decodes
-the `.AST`** (raw DEFLATE) to a `.flash.bin`.
+the `.AST`** (raw DEFLATE) to a `.flash.bin`. The disassembly repository does the same for the
+`.AST` files with `kn7000/tools/ast_file.py`, and since 2026-10-29 rebuilds the decoded bank of
+every factory `.AST` (`idd7000`, the eight sets of `custom1` / `custom2`, and the KN6000's
+`idd6000`) byte for byte from typed source (`make -C kn7000 verify-customdata`).
 
 **The `.AST` codec is plain zlib.** The firmware links **zlib 1.0.4** — its inflate error
 strings (`unknown compression method`, `invalid window size`, `incorrect header check`,
@@ -61,7 +64,9 @@ strings (`unknown compression method`, `invalid window size`, `incorrect header 
 name table (`8 Beat`, `16 Beat`, `Dance Pop`, … at `0x485CCF2C`). The payload is a *raw*
 DEFLATE stream (no 2-byte zlib header) at file offset `0x10`; inflating it with
 `zlib.decompressobj(-15)` yields exactly `0x1E0000` bytes = the custom-flash region from
-offset `0x20000` to the 2 MB end. (The earlier "Huffman/LZH, not zlib" and "LZSS-variant"
+offset `0x20000` to the 2 MB end. Python's own zlib inflates it but does not deflate it back to
+the same bytes; a Python port of zlib 1.0.4's deflate (`kn7000/tools/zlib10_deflate.py`) does, for
+all ten factory files ([details]({{ site.baseurl }}/kn7000-custom-style-memory/#the-ast-file)). (The earlier "Huffman/LZH, not zlib" and "LZSS-variant"
 readings were wrong — pylzss's 1.1 MB partial was a false positive; the near-uniform byte
 histogram is just well-compressed DEFLATE output.) The decoded image is genuine user data,
 but it is not the source of the "all 8 Beat 1" style-list bug. (An early test that preloaded
@@ -153,18 +158,19 @@ program-ROM chain — all now named in the [disassembly]:
    every style row rendered as "8 Beat 1" regardless of its real style-ID.
 
 So the "all 8 Beat 1" symptom was never the custom-data flash above (that theory — along
-with an earlier "templated at boot" theory — is superseded); it traces to the undumped
-rhythm-data device, which holds the ~4.1 MB resource: IC18, a 64 Mbit mask ROM in later
-production, or IC20, a 32 Mbit flash in earlier production. (IC21 is the custom flash
-above.) The research overlay's mitigation is a **synthetic ROM**
-(`kn7000_rhythms_synthetic.rom`, built by `tools/gen_technics_rhythms.py`, flagged
-`BAD_DUMP`) mapped at the firmware's own last-resort probe window `0x54E00000`: it
-reconstructs the real, intact directory prefix (a truncated copy survives in the dumped
-table ROM at `0x483E828C`) plus 52 real style names recovered from an intact secondary
-catalog, and honestly labels the remaining 168 factory names — which exist only on the
-undumped flash — as self-announcing placeholders (e.g. "BALLAD 04 ?"). The real fix is
-still a hardware dump of that flash. Mainline MAME has no stand-in: it declares the
-rhythm ROM `NO_DUMP`, so the probe finds nothing and the firmware falls back to the
-program-ROM stub.
+with an earlier "templated at boot" theory — is superseded); it traces to the rhythm-data
+device, which holds the ~4.1 MB resource: IC18, a 64 Mbit mask ROM in later production, or IC20,
+a 32 Mbit flash in earlier production. (IC21 is the custom flash above.)
 
-[disassembly]: {{ site.baseurl }}/kn7000-firmware/
+**Resolved by a dump (October 2026).** The CPU-visible 4 MB of IC18 were read from the owner's
+unit with the [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/), and the resource is at
+`0x40010000`, the probe's third window: 169 styles in IC18 plus 51 that the index sends to the
+table ROM make the 220 built-in rhythms. Its format, and the byte-exact source the disassembly
+now rebuilds it from, are on [Rhythm ROM (IC18)]({{ site.baseurl }}/kn7000-rhythm-rom/). The
+`kn7000_mame` overlay now loads the real chip (`c3cbnd000046.ic18`) at `0x40000000`. That
+retired its earlier mitigation, a **synthetic ROM** (`kn7000_rhythms_synthetic.rom`, built by
+`tools/gen_technics_rhythms.py`, flagged `BAD_DUMP`) mapped at the probe's last-resort window
+`0x54E00000`, which rebuilt the directory prefix from the truncated copy in the table ROM at
+`0x483E828C` plus 52 real style names from an intact secondary catalog, and labelled the other
+168 names as placeholders (e.g. "BALLAD 04 ?"). Mainline MAME still declares the rhythm ROM
+`NO_DUMP`, so there the probe finds nothing and the firmware falls back to the program-ROM stub.

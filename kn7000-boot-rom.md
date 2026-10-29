@@ -27,7 +27,8 @@ page follows, are `kn7000/notes/ic18-boot-rom.md`.
     make -C kn7000 verify-ic18        # src/ic18/boot.s -> build/kn7000_ic18_boot.bin, compared with the chip
     make -C kn7000 ic18-src UNIDASM=… # regenerate src/ic18/boot.s (tools/gen_ic18_s.py)
 
-`make gate-kn7000` (and so `make gate-all`) runs `verify-ic18`.
+`make gate-kn7000` (and so `make gate-all`) runs `verify-ic18`, and since 2026-10-29 also
+`verify-ic18-full`, which rebuilds the whole chip ([below](#the-rest-of-ic18-rhythm-data)).
 
 ## Provenance
 
@@ -188,9 +189,15 @@ older link's `.data`), the layout of `LocaleNumericC` / `LocaleMonetaryC`, and w
 ## The rest of IC18: rhythm data
 
 From `0x10000` the chip holds the style data the firmware reads: the `"Technics Rhythms"`
-header at `0x40010000`, which the firmware's probe finds at its third candidate address. The
-16-bit word at `+0x10` is the big-endian word sum of the `0x100000` words from `0x110000`, the
-byte at `+0x2A` is 220, the number of styles, and `"jkr_33.ssf"` at `0x3FFFE8` is the version
-the SP7001 DEBUG TOOLS screen shows as RHYTHM 33 (`ic18_layout.py` recomputes these). No
-byte-exact target covers that part yet: until the style format is typed it would be one
-`.incbin`.
+resource at `0x40010000`, which the firmware's probe finds at its third candidate address. It
+holds a header (signature, a 16-bit sum of the middle 2 MB, five offsets), a 2048-entry style-ID
+index, **169 styles of 20 variations each**, 8 count-in patterns, the leftovers of an older build
+and the version string `"jkr_33.ssf"` at `0x3FFFE8`, which the SP7001 DEBUG TOOLS screen shows as
+RHYTHM 33. Since 2026-10-29 that part is byte-exact too: `kn7000/src/ic18/rhythm.s` and one file
+per style under `kn7000/src/ic18/styles/` type every record and every event, and
+`kn7000/src/ic18/ic18.s` (`boot.s` plus `rhythm.s`) rebuilds all 4 MB:
+
+    make -C kn7000 verify-ic18-full   # src/ic18/ic18.s -> build/kn7000_ic18.bin, compared with the whole chip
+
+`make gate-kn7000` runs it beside `verify-ic18`. The format is on its own page,
+[Rhythm ROM (IC18): the style data]({{ site.baseurl }}/kn7000-rhythm-rom/).

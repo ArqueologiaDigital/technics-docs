@@ -123,8 +123,9 @@ stays byte-exact and Jekyll keeps building, as for KN7000.
 **Phase 1 — extraction & ROM reconstruction.** Decode `IK*.SLD`/`IKV*.SLD`
 (done → 4 flash images); verify the `SMCK*.INF` block checksums (done 2026-08-02);
 run the table-ROM splitter + `table_names.py`/`style_names.py`/`table_bitmaps.py`/`pad_names.py`
-(blocked until IC13/IC14 are dumped); decode `idd6000` (`01ctmini.ast` is raw DEFLATE,
-same as `idd7000`). Publish the sound/style-name lists and image gallery.
+(blocked until IC13/IC14 are dumped); decode `idd6000` (done 2026-10-29: `01ctmini.ast` is the
+custom-data bank deflated by zlib 1.0.4, same as `idd7000`; the disassembly rebuilds the bank and
+the file byte for byte, see [Custom Style Memory]({{ site.baseurl }}/kn7000-custom-style-memory/)). Publish the sound/style-name lists and image gallery.
 
 **Phase 2 — boots in MAME.** ✅ Done in the kn7000_mame overlay (see the status sections
 below); the drivers have been emulated in mainline MAME since mamedev/mame#16250. Find each

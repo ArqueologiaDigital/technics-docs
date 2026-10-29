@@ -74,6 +74,8 @@
           url: /kn7000-firmware/
         - title: "Boot ROM (IC18): reset & update system"
           url: /kn7000-boot-rom/
+        - title: "Rhythm ROM (IC18): the style data"
+          url: /kn7000-rhythm-rom/
         - title: SOFT VERSION Screen
           url: /kn7000-soft-version/
         - title: MEMORY DUMP Screen (hidden hex viewer)
@@ -98,6 +100,8 @@
           url: /kn7000-usb-subsystem/
         - title: User Data & Initial Data Disk
           url: /kn7000-initial-data/
+        - title: "Custom Style Memory (IC21) & .AST Files"
+          url: /kn7000-custom-style-memory/
         - title: Sequencer
           url: /kn7000-sequencer/
         - title: "Slide Shows (.ACT, FEATURE.PRE)"
