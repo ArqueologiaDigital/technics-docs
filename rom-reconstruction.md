@@ -6,24 +6,28 @@ permalink: /rom-reconstruction/
 
 # ROM Reconstruction
 
-Goal: rebuild every KN5000 firmware image from disassembled source, byte for byte.
+Goal: rebuild every KN5000 firmware image from disassembled source, byte for byte. Since
+2026-10-29 the goal covers the data-only dumps too: the waveform ROM IC307, the rhythm ROM
+IC14, the other models' wave, rhythm and custom-data images and the softlist floppies (see
+[Data images rebuilt from typed source](#data-images-rebuilt-from-typed-source-2026-10-29)).
 
 Byte-identity is the project's only acceptance criterion. The gate is
 
 ```
-make gate-all      # 35 images: 12 KN5000 + 4 SX-WSA1R + 15 KN7000 + 4 MN10300 siblings
+make gate-all      # every gated image of every model, and the 50 softlist floppies
 ```
 
-which runs, in order (the counts are the image rows each target checks, as the root
-`Makefile` and the scripts it calls define them at disassembly `2319e9b94`):
+which runs, in order (the image rows each target checks, as the root `Makefile` and the
+scripts it calls define them at disassembly `c6630b0d7`, 2026-10-29):
 
-| target                                          | what it checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-|-------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `make gate`                                     | rebuilds the KN5000 trees, then `scripts/analysis/assert_images_assemble.py` (each root source must assemble, asked of the assembler directly) and `scripts/analysis/assert_byte_identical.py` over 12 image pairs: main CPU v10, v9, v8 and v7; sub-CPU payload v1.42 and v1.41 and their two update images; sub-CPU boot (IC30); table data; custom data (IC19); HD-AE5000 v2.06i. Then the v8 reference's SHA-1, the v1.40/v1.41/v1.42 update images' decompression check (`scripts/build/verify_subprogram_update_images.py`), and `create_v141_subcpu_source.py --check` (the v1.41 tree is still "v1.42 + `EDITS`") |
-| `make gate-wsa1`                                | the four SX-WSA1R images (`prom_a`, `prom_b`, `prom_c`, `prom_d`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `make gate-kn7000`                              | `make -C kn7000 verify verify-sp7001 verify-picture verify-cnv verify-table80 verify-ic18`: program 941 and table 84; the SP7001 program 942, table 83 and `BASEEXT.XAP`; the IC19 picture ROM; the seven Style Convert converters; table build 80; the IC18 boot ROM (15 images)                                                                                                                                                                                                                                                                                                                                         |
-| `make gate-kn2400`                              | the KN2400 program image, and `verify-kn2600`: the KN2600 package's uncompressed `KN24PRG.DAT` equals it byte for byte                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `make gate-kn6000`, `gate-kn6500`, `gate-hdsx3` | one program image each                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| target                                          | what it checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+|-------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `make gate`                                     | rebuilds the KN5000 trees, then `scripts/analysis/assert_images_assemble.py` (each root source must assemble, asked of the assembler directly) and `scripts/analysis/assert_byte_identical.py` over 19 image pairs: main CPU v10, v9, v8, v7, v6 and v5; sub-CPU payload v1.42, v1.41 and v1.40 and their three update images; sub-CPU boot (IC30); table data; custom data (IC19); HD-AE5000 v2.06i and v2.01i; the waveform ROM IC307 and the rhythm ROM IC14. Then the SHA-1 of every uncommitted reference (v8, v6, v5, HD-AE5000 v2.01i, IC307), `verify-rhythm-data-raw` (IC14's raw read, A19/A21 swapped, equals the rebuilt image with the two lines swapped back), the update images' decompression check, the v1.41/v1.40 generators' `--check`, the HD-AE5000 menu map's `--check`, `l2_symbol_reference.py --check` and `gui-check` (the NAKA GUI headers, records and menu map are not stale) |
+| `make gate-wsa1`                                | the four SX-WSA1R images (`prom_a`, `prom_b`, `prom_c`, `prom_d`), then `gui_menu_map.py --check` (`wsa1/docs/gui-menu-map.md` is generated from the sources)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `make gate-kn7000`                              | `make -C kn7000 verify verify-sp7001 verify-picture verify-cnv verify-table80 verify-ic18 verify-ic18-full verify-935 verify-893 verify-wave verify-customdata`: program 941 and table 84; the SP7001 program 942, table 83 and `BASEEXT.XAP`; the IC19 picture ROM; the seven Style Convert converters; table build 80; the IC18 boot ROM and all of IC18 with its rhythm data; program builds 935 and 893; the four wave ROMs (IC203/IC204, IC207/IC208); the nine factory custom-style banks (IC21)                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `make gate-kn2400`                              | the KN2400 program image, and `verify-kn2600`: the KN2600 package's uncompressed `KN24PRG.DAT` equals it byte for byte                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `make gate-kn6000`, `gate-kn6500`, `gate-hdsx3` | one program image each; `gate-kn6000` also `verify-customdata`, the factory custom-style bank `01ctmini.ic18` that the KN6000 and KN6500 share                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `make gate-floppy`                              | `make -C floppy gate`: the 50 softlist diskettes (KN5000 14, SX-WSA1R 9, KN6000 21, KN7000 6), each rebuilt from typed FAT12 source and checked against its recorded SHA-1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 and finally `assert_toolchain_is_a_prerequisite.py`, to prove the assembler is a
 prerequisite of every image rather than a stale object comparing green forever. It
@@ -36,13 +40,13 @@ assembler, `kn7000/tools/kn7asm.py`; how much of each model's images is source i
 > `Similarity: 100.00%`, rounded to two decimals — in a 2,097,152-byte ROM that rounding
 > covers up to 104 differing bytes, and `grep -c "Similarity: 100.00%"` prefix-matches the
 > failing line `Similarity: 100.00%  (N incorrect bytes)` as well. It is useful for locating
-> where a divergence sits, and it is what prints the eighteen verification sections below
-> (twelve LLVM, six legacy ASL). It covers the KN5000 only. It is not an acceptance criterion; see
+> where a divergence sits, and it is what prints the twenty-five verification sections below
+> (nineteen LLVM, six legacy ASL). It covers the KN5000 only. It is not an acceptance criterion; see
 > [Disassembly Workflow]({{ site.baseurl }}/disassembly-workflow/#-never-gate-on-a-percentage).
 >
 > A full similarity run needs `make clean-all && make all && make asl-all` before it, because
 > `make all` builds only the LLVM targets and `compare_roms.py` silently skips a section whose
-> built file is missing — the short form prints twelve sections, all reading `100.00%`, having
+> built file is missing — the short form prints nineteen sections, all reading `100.00%`, having
 > never assembled the mirror.
 
 ## Every model: how much is source
@@ -125,20 +129,27 @@ of every model with its state in the repository.
 
 ### Primary build (LLVM)
 
-| Section                      | Original image                          | Size    | Base     | Top-level source                                         |
-|------------------------------|-----------------------------------------|---------|----------|----------------------------------------------------------|
-| maincpu v10                  | `kn5000_v10_program.rom`                | 2MB     | 0xE00000 | `v10/maincpu/kn5000_v10_program.s`                       |
-| maincpu v9                   | `kn5000_v9_program.rom`                 | 2MB     | 0xE00000 | `v9/maincpu/kn5000_v9_program.s`                         |
-| maincpu v8                   | `kn5000_v8_program.rom` (not committed) | 2MB     | 0xE00000 | `v9/maincpu/kn5000_v9_program.s`, `FW_VERSION_BYTE=0x08` |
-| maincpu v7                   | `kn5000_v7_program.rom`                 | 2MB     | 0xE00000 | `v7/maincpu/kn5000_v7_program.s`                         |
-| subcpu payload v142          | `kn5000_subprogram_v142.rom`            | 192KB   | 0x0400   | `v142/subcpu/kn5000_subprogram_v142.s`                   |
-| **subcpu v142 update image** | `kn5000_subprogram_v142_compressed.rom` | 93,203B | 0x3E0000 | *(compressed from the built payload — see below)*        |
-| subcpu payload v141          | `kn5000_subprogram_v141.rom`            | 192KB   | 0x0400   | `v141/subcpu/kn5000_subprogram_v141.s`                   |
-| **subcpu v141 update image** | `kn5000_subprogram_v141_compressed.rom` | 93,181B | 0x3E0000 | *(compressed from the built payload, as for v142)*       |
-| subcpu boot                  | `kn5000_subcpu_boot.ic30`               | 128KB   | 0xFE0000 | `subcpu/boot/kn5000_subcpu_boot.s`                       |
-| hdae5000                     | `hd-ae5000_v2_06i.ic4`                  | 512KB   | 0x280000 | `hdae5000/hd-ae5000_v2_06i.s`                            |
-| table data                   | `kn5000_table_data.rom`                 | 2MB     | 0x800000 | `table_data/kn5000_table_data.s`                         |
-| custom data                  | `kn5000_custom_data.ic19`               | 1MB     | 0x300000 | `custom_data/kn5000_custom_data.s`                       |
+| Section                      | Original image                                             | Size    | Base                      | Top-level source                                         |
+|------------------------------|------------------------------------------------------------|---------|---------------------------|----------------------------------------------------------|
+| maincpu v10                  | `kn5000_v10_program.rom`                                   | 2MB     | 0xE00000                  | `v10/maincpu/kn5000_v10_program.s`                       |
+| maincpu v9                   | `kn5000_v9_program.rom`                                    | 2MB     | 0xE00000                  | `v9/maincpu/kn5000_v9_program.s`                         |
+| maincpu v8                   | `kn5000_v8_program.rom` (not committed)                    | 2MB     | 0xE00000                  | `v9/maincpu/kn5000_v9_program.s`, `FW_VERSION_BYTE=0x08` |
+| maincpu v7                   | `kn5000_v7_program.rom`                                    | 2MB     | 0xE00000                  | `v7/maincpu/kn5000_v7_program.s`                         |
+| maincpu v6                   | `kn5000_v6_program.rom` (not committed)                    | 2MB     | 0xE00000                  | `v6/maincpu/kn5000_v6_program.s`                         |
+| maincpu v5                   | `kn5000_v5_program.rom` (not committed)                    | 2MB     | 0xE00000                  | `v5/maincpu/kn5000_v5_program.s`                         |
+| subcpu payload v142          | `kn5000_subprogram_v142.rom`                               | 192KB   | 0x0400                    | `v142/subcpu/kn5000_subprogram_v142.s`                   |
+| **subcpu v142 update image** | `kn5000_subprogram_v142_compressed.rom`                    | 93,203B | 0x3E0000                  | *(compressed from the built payload — see below)*        |
+| subcpu payload v141          | `kn5000_subprogram_v141.rom`                               | 192KB   | 0x0400                    | `v141/subcpu/kn5000_subprogram_v141.s`                   |
+| **subcpu v141 update image** | `kn5000_subprogram_v141_compressed.rom`                    | 93,181B | 0x3E0000                  | *(compressed from the built payload, as for v142)*       |
+| subcpu payload v140          | `kn5000_subprogram_v140.rom`                               | 192KB   | 0x0400                    | `v140/subcpu/kn5000_subprogram_v140.s`                   |
+| **subcpu v140 update image** | `kn5000_subprogram_v140_compressed.rom`                    | 93,124B | 0x3E0000                  | *(compressed from the built payload, as for v142)*       |
+| subcpu boot                  | `kn5000_subcpu_boot.ic30`                                  | 128KB   | 0xFE0000                  | `subcpu/boot/kn5000_subcpu_boot.s`                       |
+| hdae5000                     | `hd-ae5000_v2_06i.ic4`                                     | 512KB   | 0x280000                  | `hdae5000/hd-ae5000_v2_06i.s`                            |
+| hdae5000 v2.01i              | `hd-ae5000_v2_01i.ic4` (not committed)                     | 512KB   | 0x280000                  | `hdae5000_v2_01i/hd-ae5000_v2_01i.s`                     |
+| table data                   | `kn5000_table_data.rom`                                    | 2MB     | 0x800000                  | `table_data/kn5000_table_data.s`                         |
+| custom data                  | `kn5000_custom_data.ic19`                                  | 1MB     | 0x300000                  | `custom_data/kn5000_custom_data.s`                       |
+| waveform IC307               | `kn5000_waveform_rom.ic307` (not committed)                | 4MB     | 0x000000 (no CPU address) | `waveform/kn5000_waveform_ic307.s`                       |
+| rhythm data IC14             | `kn5000_rhythm_data_rom.ic14` (not committed; descrambled) | 4MB     | 0x400000                  | `rhythm_data/kn5000_rhythm_data.s`                       |
 
 ### Legacy ASL mirror build
 
@@ -191,10 +202,11 @@ for the v1.40 and v1.41 payloads.
 Two families of compressed data are no longer bincluded as opaque payloads; they are
 rebuilt from checked-in sources and compared against factory slices.
 
-| Target                       | What it rebuilds                                                                          | Check                |
-|------------------------------|-------------------------------------------------------------------------------------------|----------------------|
-| `make verify-demo-presets`   | 19 SLIDE4K demo-song presets, from `.mid` + `.yaml` sidecars                              | 19/19 byte-identical |
-| `make verify-help-databases` | 6 SLIDE8K help databases, recompressed from the checked-in decompressed database binaries | 6/6 byte-identical   |
+| Target                       | What it rebuilds                                                                              | Check                |
+|------------------------------|-----------------------------------------------------------------------------------------------|----------------------|
+| `make verify-demo-presets`   | 19 SLIDE4K demo-song presets, from `.mid` + `.yaml` sidecars                                  | 19/19 byte-identical |
+| `make verify-help-databases` | 6 SLIDE8K help databases, recompressed from the five text listings and the stale German block | 6/6 byte-identical   |
+| `make verify-help-db-text`   | the five live decompressed databases (0x9000 B each), from `help_db_<lang>.txt`               | 5/5 byte-identical   |
 
 **Demo presets.** All 19 presets (entries 0–17 at 0x9C4050–0x9F94CA plus the Feature
 Presentation at 0x8E0000) round-trip from a `.mid` file — the musical content, editable
@@ -209,6 +221,11 @@ Spanish, Indonesian) plus one stale sixth block are SLIDE8K — a previously und
 `SLIDE_Parse_Header` reads the digit in the magic and branches on it, `0x34` (`'4'`) to
 `SLIDE_Decompress_4K_Init` and `0x38` (`'8'`) to `SLIDE_Decompress_8K_Init`. Each database
 decompresses to exactly 0x9000 bytes.
+Since 2026-10-29 the source of each live database is a UTF-8 text listing,
+`table_data/includes/help_databases/help_db_<lang>.txt`, one entry per topic and page;
+`scripts/build/help_db_text.py` builds the 0x9000-byte database from it, and that build
+product is what `compress_slide8k.py` packs. The database layout and the listing format are on
+[LZSS Compression]({{ site.baseurl }}/lzss-compression/#help-database-format).
 `compress_slide8k.py --strict --reference` replays the factory encoder's decisions,
 which is necessary because the final flag bytes carry nonzero unused bits that a plain
 re-encode would not reproduce.
@@ -221,6 +238,93 @@ pointer tables at 0x986000/0x987000 straight over this obsolete block's tail. It
 therefore kept as a byte-exact raw slice of the dump and is *not* rebuilt from source; a
 whole-extent reference slice is still round-trip-verified by `make verify-help-databases`
 to pin the bytes down.
+
+## Data images rebuilt from typed source (2026-10-29)
+
+On 2026-10-29 the owner widened the goal from the program images to every dump that holds only
+data: *"ensure any data block in the source is only left as a generic binclude if there's no
+other better semantic representation for it."* The dumps that had no tree at all got one, and each
+is gated. The plan and the per-lane outcomes are in
+[`notes/data-semantics-2026-10-29/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/notes/data-semantics-2026-10-29/README.md)
+in the disassembly repository.
+
+| image                                                       | source tree                                                                                                            | gate target                                           | what the source is                                                                                                                                        |
+|-------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| KN5000 waveform ROM IC307 (4 MB)                            | [`waveform/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/waveform)                           | `make gate` (`verify-ic307-reference`)                | per page, the directory and the 1,495 parameter records as typed rows; the 1,413 PCM waves as labelled `.incbin`s of the reference, declared opaque (pcm) |
+| KN5000 rhythm ROM IC14 (4 MB, descrambled)                  | [`rhythm_data/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/rhythm_data)                     | `make gate` (`verify-rhythm-data-raw`)                | no `.incbin` at all: 202 style records and 28,400 tracks, event by event; the raw read is checked by swapping A19/A21 back                                |
+| KN7000 wave ROMs IC203/IC204, IC207/IC208 (4 x 16 MB)       | [`kn7000/src/wave/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000/src/wave)             | `make -C kn7000 verify-wave`                          | per 2 MiB page a typed directory and parameter records; the 3,682 recordings opaque PCM; each stream split back into its Y and X chips                    |
+| KN7000 IC18, the whole chip (boot ROM + "Technics Rhythms") | [`kn7000/src/ic18/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000/src/ic18)             | `make -C kn7000 verify-ic18-full`                     | no `.incbin`: `boot.s`, then `rhythm.s` and one file per style under `styles/`, every event on its own line                                               |
+| KN7000 custom-style banks (IC21), nine factory sets         | [`kn7000/src/customdata/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000/src/customdata) | `make -C kn7000 verify-customdata`                    | the directory, slots, styles, pads and sounds typed; 679 small residue items (4,179 B) declared opaque                                                    |
+| KN6000 / KN6500 custom-style bank `01ctmini.ic18`           | [`kn6000/src/customdata/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn6000/src/customdata) | `make -C kn6000 verify-customdata` (in `gate-kn6000`) | the same format as the KN7000's IC21, typed                                                                                                               |
+| The 50 softlist floppies                                    | [`floppy/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/floppy)                               | `make gate-floppy`                                    | boot sector, FATs and directory entries field by field; each file a unit its model's format describer types                                               |
+
+The reference images of all of these stay out of the public repository: the Makefiles copy
+them, git-ignored, from the private romsets (or, for the floppies and the custom-style sets,
+regenerate them from the softlist disks) and refuse a copy whose SHA-1 differs from the one
+they record. A PCM body with no better form than itself is an `.incbin` with skip and count, or
+an `.incbin_range`, of that copy, labelled per item. The format pages are
+[Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/),
+[Rhythm ROM (IC14)]({{ site.baseurl }}/rhythm-rom/) and
+[Floppy Disk Files and Formats]({{ site.baseurl }}/floppy-disk-formats/); the KN7000 ones are
+[KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/) and the pages listed on
+[KN7000 Firmware Images]({{ site.baseurl }}/kn7000-firmware/).
+
+The existing KN5000 trees lost their last generic includes the same day: the HELP databases
+became text listings (below), and the custom-data (IC19) style banks became typed
+`STYLE_SECTION` records. Those banks hold the 30 sections of **one** style, not 30 styles.
+
+### The data-include census
+
+[`scripts/analysis/data_incbin_census.py`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/scripts/analysis/data_incbin_census.py)
+is the instrument for that goal. It reads every git-tracked `.s` / `.inc` of each tree (as bytes),
+sizes every `.incbin` and `.incbin_range` directive, and puts each one in the first class that
+fits:
+
+| class     | meaning                                                                                                                                               |
+|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| generated | the bytes come out of a committed generator from committed source: compiled C under `generated/`, or a line marked `census: generated -- <generator>` |
+| media     | a self-describing file a viewer reads directly (PNG, JPEG, BMP, WAV, MIDI, ...)                                                                       |
+| opaque    | declared `census: opaque -- <kind>: <why>`, with a mandatory reason; kinds are pcm, compressed, code, unknown-dump, personal and fill                 |
+| generic   | anything else: an anonymous binary include. The goal is generic = 0 in every tree                                                                     |
+
+It measures how much data still enters the build as an unexplained blob. It does not measure
+whether a typed field is *named* after what the firmware does with it: a field can be typed and
+still carry an offset name. `--snapshot` writes `docs/coverage/data-incbin-<date>-NN.{txt,json}`
+and `--compare` exits 1 when any tree's generic bytes rose; no snapshot had been committed when
+this page was written. Generic bytes per tree, before the work (disassembly `b58b8f696`) and
+after the twelve lanes that merged on 2026-10-29 (run at `c6630b0d7`):
+
+| tree              | generic bytes before | generic bytes after |
+|-------------------|----------------------|---------------------|
+| kn5000-v10        | 4,928                | 0                   |
+| kn5000-v9         | 4,928                | 0                   |
+| kn5000-v7         | 4,928                | 0                   |
+| kn5000-v6         | 5,130                | 0                   |
+| kn5000-v5         | 4,949                | 0                   |
+| kn5000-tabledata  | 772,289              | 0                   |
+| kn5000-customdata | 639,296              | 0                   |
+| kn7000-table      | 2,560,580            | 0                   |
+| kn7000-b80        | 4,064,860            | 0                   |
+| kn7000-program    | 2,563,794            | 2,563,794           |
+| kn7000-sp7001     | 5,176,151            | 2,646,270           |
+| kn7000-b893       | 2,607,409            | 2,607,409           |
+| kn7000-b935       | 2,602,613            | 2,602,613           |
+| kn2400            | 1,993,350            | 1,993,350           |
+| kn6000            | 2,630,724            | 2,630,724           |
+| kn6500            | 2,140,036            | 2,140,036           |
+| hdsx3             | 533,544              | 533,544             |
+
+Every other tree (the new data trees above, the sub-CPU, boot, HD-AE5000, WSA1R and floppy
+trees) is at generic 0. What remains generic is the KN7000 program builds' data region and the
+MN10300 siblings' data, which the next lanes own. The new trees' bytes are almost all opaque PCM:
+4,170,480 B in IC307 and 66,319,584 B in the KN7000 wave ROMs.
+
+Run it in the disassembly repository with
+
+```
+python3 scripts/analysis/data_incbin_census.py                       # the table
+python3 scripts/analysis/data_incbin_census.py --list generic --tree kn7000-program
+```
 
 ## What the source says each region is
 
@@ -945,12 +1049,12 @@ instructions are encoded natively — no workaround macros needed.
 ```bash
 cd technics-roms-disasm
 
-make gate-all                         # the gate: 35 images (12 KN5000, 4 WSA1R, 15 KN7000, 4 MN10300 siblings), byte-exact or non-zero exit
+make gate-all                         # the gate: every gated image of every model and the 50 floppies, byte-exact or non-zero exit
 
-# the full KN5000 similarity report: expect EIGHTEEN sections, all 100.00%
+# the full KN5000 similarity report: expect TWENTY-FIVE sections, all 100.00%
 make clean-all && make all && make asl-all && python3 scripts/build/compare_roms.py
 
-make all                              # KN5000 LLVM sections only (twelve) + compare
+make all                              # KN5000 LLVM sections only (nineteen) + compare
 python3 scripts/build/compare_roms.py # compare whatever is already built
 make verify-demo-presets              # 19/19
 make verify-help-databases            # 6/6

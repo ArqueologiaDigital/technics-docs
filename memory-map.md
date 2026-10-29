@@ -25,7 +25,7 @@ permalink: /memory-map/
 | `0x200000 - 0x27FFFF` | 512KB | HDAE5000 SRAM (IC5/IC6, only with the board fitted)                                                                                                                                                                                                             |
 | `0x280000`            | 512KB | HDAE5000 ROM                                                                                                                                                                                                                                                    |
 | `0x300000 - 0x3FFFFF` | 1MB   | Custom Data Flash (User Storage) - see [Boot Sequence]({{ site.baseurl }}/boot-sequence/#lzss-preset-data-handling) for 0x3E0000 usage                                                                                                                          |
-| `0x400000 - 0x7FFFFF` | 4MB   | Rhythm Data ROM (IC14)                                                                                                                                                                                                                                          |
+| `0x400000 - 0x7FFFFF` | 4MB   | Rhythm Data ROM (IC14): factory style records and their tracks — see [internal layout](#rhythm-data-rom-ic14-internal-layout) below                                                                                                                             |
 | `0x800000`            | 2MB   | Table Data ROM — see [internal layout](#table-data-rom-internal-layout) below                                                                                                                                                                                   |
 | `0xE00000`            | 2MB   | Program Flash (Main ROM)                                                                                                                                                                                                                                        |
 
@@ -101,6 +101,25 @@ uimisc lane reports (`notes/lanes/wave2-2026-09-25/lane-reports/`), the
 `Boot_InitWorkRAM` in `v7|v9|v10/maincpu/boot/system_handlers.s`. (The v7 file's
 own header block still quotes v10's image-2 values. The code below it uses
 `0xE2C2` / `0x931`.)
+
+## Rhythm Data ROM (IC14) Internal Layout
+
+The 4 MB mask ROM holds the factory accompaniment styles. The main CPU reads it in 64 KB banks
+(`AccVoice_OffsetTable`). The layout below is that of the **descrambled** image: the dump in
+circulation has address lines A19 and A21 exchanged, and undoing the swap is what makes all
+46,056 track pointers in the style records land on a track. `rhythm_data/` in the disassembly
+rebuilds the descrambled image from typed source, and `make gate` also proves that swapping
+the two lines back gives the raw read byte for byte (`verify-rhythm-data-raw`).
+
+| Address range         | Size     | Contents                                                                                           |
+|-----------------------|----------|----------------------------------------------------------------------------------------------------|
+| `0x400000 - 0x464FFF` | 404 KB   | 202 style records, 2 KB each (two 1 KB halves, sections 0-3 and 4-7)                               |
+| `0x465000 - 0x77FFFF` | 3,180 KB | 28,400 one-part tracks, in 64 KB banks 0x06..0x37, each bank padded with 0xFF after its last track |
+| `0x780000 - 0x7FFFFF` | 512 KB   | erased (0xFF)                                                                                      |
+
+A style is selected by (bank, program): `VoiceParam_BankProgramWords` remaps the pair and
+`RhythmROM_BankProgramLocators` (8 banks x 128 programs) gives the record. The record format and
+the track event language are on [Rhythm ROM (IC14)]({{ site.baseurl }}/rhythm-rom/).
 
 ## Table Data ROM Internal Layout
 
@@ -630,6 +649,8 @@ Key routines identified in the boot ROM at 0xFF8000+:
 ## Tone Generator
 
 The tone generator (IC303) has a register window at `0x100000` (address) / `0x100002` (data) and a keybed port at `0x110000`/`0x110002`:
+
+Its PCM comes from the four 4 MB waveform ROMs IC304-IC307, a 16 MB space of its own that no CPU maps. Only IC307 is dumped; its layout (four pages, each a directory, parameter records and waves) and its source tree `waveform/` are on [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/).
 
 **Register window and keybed data/status port:**
 
