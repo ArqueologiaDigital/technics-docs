@@ -34,6 +34,8 @@
       url: /source-tree-inventory/
     - title: Floppy Disk Images (software lists)
       url: /floppy-disk-images/
+    - title: Floppy Disk Files and Formats
+      url: /floppy-disk-formats/
     - title: Help Wanted
       url: /help-wanted/
     - title: Open Questions
@@ -110,6 +112,8 @@
       children:
         - title: Sound Subsystem
           url: /kn7000-sound-subsystem/
+        - title: Wave ROM Format
+          url: /kn7000-wave-rom-format/
         - title: Effects DSP (ADSP-21065L)
           url: /kn7000-effects-dsp/
         - title: "KN7FM: FM Synthesizer on the DSP"

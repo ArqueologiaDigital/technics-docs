@@ -106,6 +106,11 @@ Each one returned exactly the expected checksum of the index that reads it: `0x9
 ports, bits and checksums holds on hardware. Mainline MAME, whose `0x98040000` port read
 IC203/IC204, had the sides swapped; a fix is prepared.
 
+The images from that read are now decoded and rebuilt byte for byte from source by the disassembly
+(`kn7000/src/wave/`, `make -C kn7000 verify-wave`); their layout (16 self-contained pages per tone
+generator, a directory of {record, format, start, copy} entries, segment-and-loop records) is on the
+[Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/) page.
+
 ⚠ The chip names (IC203 for `0x9805`, bit 0 = 0) are still the firmware's own screen labels, not a
 board-level trace. A capture at a known connector (the [Pico tap]({{ site.baseurl }}/kn7000-wave-rom-dump/)
 on the A-side or B-side connectors) would confirm them.
@@ -207,5 +212,6 @@ is unaffected.
 
 - [ROM Dumping Roadmap]({{ site.baseurl }}/rom-dumping-roadmap/) — where these routes sit in the overall plan
 - [KN7000 Sound Subsystem]({{ site.baseurl }}/kn7000-sound-subsystem/)
+- [KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/) — what the dumped chips hold
 - [Tone Generator (IC303)]({{ site.baseurl }}/tone-generator/) — the KN5000 side
 - [Memory Map]({{ site.baseurl }}/memory-map/)

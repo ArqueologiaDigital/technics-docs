@@ -111,14 +111,19 @@ behind its own port. That puts the pair the schematic gives the master TG on the
 the table above gives the sub TG. Which chip select reaches which TG has not been
 checked on the schematic yet.
 
-**The format** (decoded from the dumps, 2026-10-20). Each TG's two ROMs are the even and
-odd 16-bit samples of one stream, low byte first. The stream is 16 pages of 1 Mi words,
-and every page starts with its own directory. A directory entry gives a sample's start,
-its format (16-bit, or 8-bit with a per-segment gain code), its loop and its pitch
-exponent. The firmware never sends an address, a loop or a length. It writes a 20-bit
-**select** to register plane `0x1C`: bits 19:12 name the ROM page, bits 11:0 the
-directory entry. Pages `0x20` and up are the expansion board's. The tone generator reads
-the rest from the ROM.
+**The format** (decoded from the dumps, 2026-10-20; byte-exact source since 2026-10-29). Each
+TG's two ROMs are the even and odd 16-bit samples of one stream, low byte first. The stream is 16
+pages of 1 Mi words, and every page starts with its own directory. A directory entry gives a
+sample's start, its format (16-bit, or 8-bit with a per-segment gain code), its loop granule and
+its pitch exponent; a parameter record per entry lays out its segments and loop. The firmware never
+sends an address, a loop or a length. It writes a 20-bit **select** to register plane `0x1C`: bits
+19:12 name the ROM page, bits 11:0 the directory entry (`TgVoiceRouteFieldSet`,
+`TgElemNoteOnStd`). Pages `0x20` and up are the expansion board's. The tone generator reads the
+rest from the ROM. The disassembly now rebuilds all four chips byte for byte from
+`kn7000/src/wave/main.s` and `sub.s` (`make -C kn7000 verify-wave`, part of `make gate-kn7000`);
+the full format, with per-page counts, is on the
+[Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/) page, which uses the
+firmware's MAIN (`0x98050000`, IC203/IC204) and SUB names.
 
 Wave expansion boards (SY-EW01…04) plug into connectors on the same TG buses
 ([Expansion Bus & Wave-ROM Dump]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/)).

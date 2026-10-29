@@ -160,7 +160,11 @@ In the disassembly (since 2026-10-24, commits `c8d16a271`, `b7f9b8a68`, `5db3796
 84 labelled segments, named by `tools/table_segments.py`. The 57 JPEG segments, and the 102
 pictures of the six picture-group segments, are files in `kn7000/src/table/`. The help texts
 (four language indexes, page lists and the texts as `.ascii`) and the GUI resource tables (366
-bitmap, frame and icon rows and 12 font descriptors) are typed; the rest is `.incbin_range`.
+bitmap, frame and icon rows and 12 font descriptors) are typed. Since 2026-10-29 the rest is
+typed too: the raw pictures are indexed PNG files that the build packs back, the styles and pads
+are event streams one event per line, and the 'TCMP', 'TPAD', 'ZZZJ' and 'JK' (voice archive)
+containers are typed records. The data-incbin census reads no generic bytes left in table 84; see
+[Table ROM: what the data is]({{ site.baseurl }}/kn7000-table-rom/#what-the-data-is-the-source-tree-2026-10-29).
 
 > **Where the image stops is not where the chip stops.** IC16 + IC17 are one
 > 8 MB flash pair spanning `0x48000000`–`0x487FFFFF`, with this table image as the
@@ -193,9 +197,10 @@ every step. Disassembly listings are generated with MAME's `unidasm`
 
 This mirrors the KN5000 approach, whose
 [ROM reconstruction]({{ site.baseurl }}/rom-reconstruction/) rebuilds sixteen TLCS-900 images
-byte-identically from source; `make gate-all` there covers those, the fifteen KN7000 images
-(`make gate-kn7000`: program 941, tables 84 and 80, the IC18 boot ROM, the SP7001 set, the
-picture ROM and the seven Style Convert converters) and the four MN10300 sibling trees in one run.
+byte-identically from source; `make gate-all` there covers those, the KN7000 images
+(`make gate-kn7000`: programs 941, 935 and 893, tables 84 and 80, the IC18 boot ROM and the whole
+IC18 rhythm ROM, the SP7001 set, the picture ROM, the four wave ROMs, the custom-data banks and
+the seven Style Convert converters) and the four MN10300 sibling trees in one run.
 
 ### 2,302 functions named by reusing KN5000 knowledge
 

@@ -6,13 +6,19 @@ permalink: /kn7000-wave-rom-dump/
 
 # Dumping the KN7000 Wave ROMs with a Raspberry Pi Pico
 
-A step‑by‑step, non‑invasive way to dump the four undumped KN7000 PCM wave ROMs
+A step‑by‑step, non‑invasive way to dump the four KN7000 PCM wave ROMs
 (**IC203 / IC204 / IC207 / IC208**, 16 MB each, 64 MB total) — no desoldering, no firmware
 changes, and **verifiable byte‑for‑byte** against checksums baked into the instrument's own firmware.
 
 **Status:** untested on hardware. No capture has been made with this method yet; the pin map comes from
 the service-manual schematic, and the timing and throughput figures are estimates to be confirmed by
 the trial capture described under Notes & troubleshooting.
+
+The four chips have since been read **in software**, through the tone generators' readback port, on
+the owner's instrument (2026-10-19, the [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/)); their
+SHA-1s and their format are on the [Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/) page.
+This tutorial stays as an independent hardware route, and a Pico capture at a known connector would
+still settle which chip each port and select bit reach.
 
 ## Why it works
 
@@ -277,3 +283,4 @@ order‑independent), so wire `WD0→GP0 … WD15→GP15` in order and keep the 
 - [KN7000 Expansion Bus & Wave‑ROM Dump Routes]({{ site.baseurl }}/kn7000-expansion-and-wave-dump/) — why the wave port
   works and the software alternative
 - [ROM Dumping Roadmap]({{ site.baseurl }}/rom-dumping-roadmap/)
+- [KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/) — what the chips hold, and the SHA-1s a dump must match

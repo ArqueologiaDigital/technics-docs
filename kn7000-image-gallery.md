@@ -272,6 +272,14 @@ points to sub-tables of `{width, height, pixel_ptr}` records; the pixel data is
 raw 4/8bpp palette indices. Extract them with `table_bitmaps.py` (in the
 `kn7000_extraction` tools, not yet published).
 
+Since 2026-10-29 the disassembly keeps every one of these, and more, as indexed PNG files whose
+pixel indices are the firmware's own pixel values: the 53 bitmaps, 73 frame pieces and 240 icons
+and the 12 bitmap fonts in
+[`kn7000/src/table/gui/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000/src/table/gui),
+the 14 chord-voicing staves of the TCD screen (1 bpp) in `src/table/tcd/` and the 47 USER HP menu
+panels (2 bpp) in `src/table/user_hp_menu/`. The build packs them back into the firmware's formats
+(see [Table ROM: the raw pictures]({{ site.baseurl }}/kn7000-table-rom/#the-raw-pictures-as-png-files)).
+
 These are rendered in their **true display colours**, using the 256-entry
 `0x00BBGGRR` palette found in the **program ROM at file `0x32573C`** (a 16-colour
 VGA-style base). The 8bpp icons make heavy use of palette index `0xF7` — the
