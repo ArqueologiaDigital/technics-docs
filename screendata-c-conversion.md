@@ -78,7 +78,7 @@ Located in `v10/maincpu/sequencer/accomp_screens/`. Compiled and `.incbin`'d by 
 
 ### NOT in scope: NAKA Widget Tables
 
-~74 screen definitions using a completely different format (hierarchical `.long` pointer chains), with a separate rendering pipeline. They are not ScreenData, but they have been typed C since March 2026 as well: 27 NAKA widget descriptor blocks (plus two lookup tables) in `v10/maincpu/ui_widgets/`, compiled and `.incbin`'d — see [Source Code Map]({{ site.baseurl }}/source-map/#ui_widgets--naka-screen-descriptors).
+~74 screen definitions using a completely different format (hierarchical `.long` pointer chains), with a separate rendering pipeline. They are not ScreenData, but they have been typed C since March 2026 as well: 27 NAKA widget descriptor blocks (plus two lookup tables) in `v10/maincpu/ui_widgets/`, compiled and `.incbin`'d — see [Source Code Map]({{ site.baseurl }}/source-map/#ui_widgets--naka-screen-descriptors). Since 2026-10-29 their records are spelled with the firmware's own class, field and value names (see [UI Framework — Widget records in the C sources]({{ site.baseurl }}/ui-framework/#widget-records-in-the-c-sources) and the [KN5000 Menu Map]({{ site.baseurl }}/kn5000-menu-map/)).
 
 ## Tooling
 

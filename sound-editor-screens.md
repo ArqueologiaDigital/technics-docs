@@ -96,8 +96,16 @@ A separate drum-sound editor family follows: `TT_SEDMENU`, `TT_SEDAMP`, `TT_SEDF
 title per filter type), the KN6000 has one title per section. `TT_SEMENU`, `TT_SEEASY`,
 `TT_SEDIGEFF` and `TT_SECOPY` keep their names across both models.
 
+## In the menu map
+
+The generated [KN5000 Menu Map]({{ site.baseurl }}/kn5000-menu-map/) reaches `TITLE_SEMENU`, the home title of
+`MD_SOUNDEDIT`, but none of the 31 other `TITLE_SE*` pages: no NAKA menu entry and no traced title-index operand opens
+them. The Scoop module's sound-editor screens open them through their own data, not through NAKA
+records.
+
 ## Related pages
 
 - [UI Framework]({{ site.baseurl }}/ui-framework/): titles, main functions and the NAKA object model
+- [KN5000 Menu Map]({{ site.baseurl }}/kn5000-menu-map/): every title and mode, with its menu path
 - [Panel Parameter Keys]({{ site.baseurl }}/panel-parameter-keys/)
 - [KN7000 Sound GUI Map]({{ site.baseurl }}/kn7000-sound-gui-map/)

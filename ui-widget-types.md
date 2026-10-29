@@ -168,9 +168,45 @@ The disassembly uses EQU constants for type bytes and a `naka_header` macro for 
 
 ## C Struct Conversion (Complete)
 
-All 26 NAKA widget data blocks have been converted from raw `.byte` assembly directives to **typed C struct initializers** with named fields, readable string literals, and symbolic pointer references. The conversion uses packed C structs compiled by the LLVM TLCS-900 backend, linked against symbol addresses from the main ELF, producing byte-identical ROM binaries.
+All the NAKA widget data blocks (the 26 `v10/maincpu/ui_widgets/naka_*.c` files and `control_menu_header.c`) have been converted from raw `.byte` assembly directives to **typed C struct initializers** with named fields, readable string literals, and symbolic pointer references. The conversion uses packed C structs compiled by the LLVM TLCS-900 backend, linked against symbol addresses from the main ELF, producing byte-identical ROM binaries.
 
-### Available Struct Types (naka_types.h)
+### Current representation (2026-10-29)
+
+Every widget record is now typed by its **class**, not by the per-type structs below. The generated header
+`naka_classes.h` holds one `NAKA_CLASS_<Class>` id and one `naka_cls_<Class>_t` struct per class, with the
+firmware's own field names, and 3,242 records in 18 C files use them, in all five trees (v10, v9, v7, v6, v5). A
+record reads:
+
+```c
+    .StyleConvert_AcTitleMenu = {
+        .class_ = NAKA_CLASS(AcTitleMenu),
+        .super = OBJ_DiskMenu,
+        .next = OBJ_Cheap_HardDiskMenuView,
+        .rect = NAKA_XYWH(8, 114, 149, 26),
+        .font = idCHARA1, .fontcolor = CL_White, .align = AL_Center,
+        .editsw = ES_Left3,
+        .selected = RAM_StyleConvert_AcTitleMenu_Selected,
+        .str = SELF(StyleConvert_text),
+        .title = TITLE_STYLCNVWAIT,
+    },
+```
+
+The links (`super`, `sub`, `next`, `prev`) are `OBJ_*` constants of a per-table enum indented by tree depth; the
+rectangle is `NAKA_XYWH(x, y, width, height)`; colours, borders, flags, alignment and edit switches use the value
+names of `SupportClass_PropTypeRecords`; fonts, bitmaps and icons their dump names; titles, modes and functions the
+`shared/event_codes.s` names; view ids `NAKA_VIEW_ID(Table, OBJ_x)`; and live-value cells `RAM_<cell>`. Each title's
+screen record starts with a generated `/* ==== SCREEN TITLE_X ... */` header giving its menu path, menu entries and
+EXIT target. The whole model, with the evidence for each name, is on
+[UI Framework — Widget records in the C sources]({{ site.baseurl }}/ui-framework/#widget-records-in-the-c-sources),
+and every screen is listed on the [KN5000 Menu Map]({{ site.baseurl }}/kn5000-menu-map/).
+
+Records that stay in the assembly are one `NAKA_REC_<Class>` macro call each, from the generated `shared/naka_gui.s`
+(86 in v10, 88 in v6 and v5).
+
+### Legacy per-type structs (naka_types.h)
+
+The structs below are still defined in `naka_types.h`, but no C source uses them any more. They are the March 2026
+conversion's view of the records, kept here for its notes.
 
 | Type Code | C Struct | Fixed Size | Trailing String |
 |-----------|----------|------------|-----------------|
@@ -240,13 +276,18 @@ Evidence: handler_table values increment by 2 per consecutive menu item (e.g., `
 
 ### Source Files
 
-| File                                       | Contents                                               |
-|--------------------------------------------|--------------------------------------------------------|
-| `v10/maincpu/ui_widgets/naka_types.h`      | Packed struct definitions and macros                   |
-| `v10/maincpu/ui_widgets/*.c`               | 26 C data files (3 hand-crafted, 23 auto-generated)    |
-| `v10/maincpu/ui_widgets/*_link.ld`         | Linker scripts for extern symbol resolution            |
-| `scripts/converters/naka_struct_decode.py` | Automated conversion tool                              |
-| `scripts/converters/naka_to_c.py`          | Original conversion tool (used for hand-crafted files) |
+| File                                         | Contents                                                                                    |
+|----------------------------------------------|---------------------------------------------------------------------------------------------|
+| `v10/maincpu/ui_widgets/naka_types.h`        | Packed struct definitions and macros; includes the three generated headers below            |
+| `v10/maincpu/ui_widgets/naka_classes.h`      | generated: `NAKA_CLASS_*`, `naka_cls_<Class>_t`, the property value names                   |
+| `v10/maincpu/ui_widgets/naka_ids.h`          | generated: the `shared/event_codes.s` ids as `#define`s                                     |
+| `v10/maincpu/ui_widgets/naka_ram_cells.h`    | generated: `RAM_<cell>` addresses (v10 layout)                                              |
+| `scripts/generators/gen_naka_gui_headers.py` | writes the three headers into all five trees                                                |
+| `scripts/converters/naka_gui_symbolize.py`   | the 2026-10-29 rewrite to firmware names (byte-identical)                                   |
+| `v10/maincpu/ui_widgets/*.c`                 | 26 NAKA C data files plus `control_menu_header.c` (3 hand-crafted, the rest auto-generated) |
+| `v10/maincpu/ui_widgets/*_link.ld`           | Linker scripts for extern symbol resolution                                                 |
+| `scripts/converters/naka_struct_decode.py`   | Automated conversion tool                                                                   |
+| `scripts/converters/naka_to_c.py`            | Original conversion tool (used for hand-crafted files)                                      |
 
 ---
 
@@ -335,4 +376,5 @@ Analysis of the FD test code identified several standard library functions used 
 ## Related Pages
 
 - [UI Framework]({{ site.baseurl }}/ui-framework/) -- Widget system and event handling
+- [KN5000 Menu Map]({{ site.baseurl }}/kn5000-menu-map/) -- Every title and mode, with its menu path
 - [Feature Demo & Presentation System]({{ site.baseurl }}/feature-demo/) -- SSF presentation that uses NAKA widgets

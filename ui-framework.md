@@ -111,7 +111,10 @@ index 0x16S. `ClassProc` computes it with `srl 16; and 0xFFF` and a ×24 index.
 The C side calls the same record `naka_class_t` (members `proc`, `base_class`,
 `record_size`, `props_size`, `name`, `sig`, `props`) in
 `v10/maincpu/ui_widgets/naka_types.h`. The nakarest lane's typed copies use
-`naka_classdef_t`.
+`naka_classdef_t`. In the C sources a class id is written `NAKA_CLASS(<Class>)`, and the
+generated header `naka_classes.h` defines one `NAKA_CLASS_<Class>` constant and one
+`naka_cls_<Class>_t` struct per class (see
+[Widget records in the C sources](#widget-records-in-the-c-sources)).
 
 **Every widget record starts with its class id.** The 4-byte "header"
 `TT 00 60 01` of older notes, read little-endian, is class id `0x016000TT`:
@@ -175,12 +178,11 @@ which prints every class with its fields at their offsets, and with
 `--check-classes`, which asserts the invariants. Both need a built
 `rebuilt_ROMs/kn5000_v10_program.llvm.elf`.
 
-The widget records in the NAKA C blobs are now typed through this model. The
-nakarest lane typed 3,197 of 3,234 records in 14 C files as per-class
-`naka_cls_<Class>_t` structs, using the firmware's field names. The nakabig
-lane's three files are sized and headed by class, but their records are still
-byte/u16/u32 arrays. Generating one C struct per class for every NAKA file is
-open work (`notes/lanes/wave2-2026-09-25/WAVE3-LEADS.md`).
+The widget records in the NAKA C blobs are typed through this model. Since
+2026-10-29 the struct for every class, `naka_cls_<Class>_t`, is generated once
+into `naka_classes.h`, and 3,242 records in 18 C files are typed with it and
+spelled with the firmware's names, in all five trees (v10, v9, v7, v6, v5). See
+[Widget records in the C sources](#widget-records-in-the-c-sources).
 
 The class-name lists below predate this model. They sort the procs by prefix
 and are not the class tree.
@@ -338,10 +340,16 @@ holds the RAM address of a cell of its own. For example, `selected`, `onoff`, `p
 `parent`, `child`, `nowstyle`, `nowsong` and an edit box's `data` (its value) all work this way. Over all the
 in-ROM widgets of v10 there are 1,367 such fields and 1,367 distinct cells; no two widgets share one. The cells
 lie in the work-RAM image that `Boot_InitWorkRAM` copies from ROM `0xEED8C8` to RAM `0x3D524` at boot. The part from
-RAM `0x3DCD4` on is the C file `naka_sequencer_channels.c` in kn5000-roms-disasm, so the image is also where each
+RAM `0x3DCD4` on is the C file `naka_sequencer_channels.c` in technics-roms-disasm, so the image is also where each
 cell's initial value is set. The C source names each cell after its widget and field: `TrAsGrid_SelCol`,
 `SdpartMain_AcLswPartEditBox_2_Value` (the REV. DEPTH box's value cell), `STYLE2_AcMstStyle2GridBox_Nowstyle`
 (`scripts/converters/name_widget_value_cells.py`).
+
+Since 2026-10-29 a widget record names its cell, not its address: `.window = RAM_DiskMenu_Window`. The generated
+header `naka_ram_cells.h` defines every `RAM_<cell>` (v10 layout). It also names the cells outside the C-spelled part
+of the image, after the widget field that keeps its live value there (`<record>_<Field>`, read from the ROM records),
+and the 18 `field_XXXX` members of `naka_sequencer_channels.c` that are such cells now carry the cell's name. No
+widget field in the C sources is spelled as a raw RAM address any more (1,541 before, 0 now, per tree).
 
 #### The property-type protocol (2026-10-06)
 
@@ -363,7 +371,162 @@ Three storage shapes recur, and the labels inside each routine are named after t
 
 `RectY2Proc` stores a rectangle's y2 but edits it as `"height"`: SET stores y1 + height - 1.
 
-The names come from `scripts/renaming/gen_idproc_names.py`, `gen_name_table_idproc_names.py`, `gen_objlist_idproc_names.py` and `gen_point_class_idproc_names.py` in kn5000-roms-disasm. Each asserts the shape it relies on in v10, v9 and v7. The labels these routines had before (`FrameVariant_*`, `DrawHelper_*`, `SliderH_*`, `ShadowBox_*`, `EdgeVariant_*`) were borrowed from unrelated code.
+The property types themselves are the table `SupportClass_PropTypeRecords` (0xEB7690), which `InitializeObjectTable` registers at registry slot 0x260 with 0x37 entries, one per letter `A`..`w`. `ClassProc` selects entry *letter* - 'A' (`sub a, 0x41; add xwa, 0x2600000`). Each entry is {`proc`, `count`, `size`, `values`}: the property-type procedure, the number of named values that `CommonIDProc` walks, the property's size in bytes (`SupportClassProc_OnGetPropSize` reads it at +6), and a pointer to the {name, value} pairs. Those pairs are where the C sources' value names (`CL_White`, `BD_Single2`, `VF_Fixed`, ...) come from. In the C the entries for letters `A`..`s` are a typed array, `naka_prop_type_t SupportClass_PropTypeRecords[51]` in `naka_style_bitmaps.c` (`scripts/converters/retype_prop_type_records.py`).
+
+The names come from `scripts/renaming/gen_idproc_names.py`, `gen_name_table_idproc_names.py`, `gen_objlist_idproc_names.py` and `gen_point_class_idproc_names.py` in technics-roms-disasm. Each asserts the shape it relies on in v10, v9 and v7. The labels these routines had before (`FrameVariant_*`, `DrawHelper_*`, `SliderH_*`, `ShadowBox_*`, `EdgeVariant_*`) were borrowed from unrelated code.
+
+## Widget records in the C sources
+
+Since 2026-10-29 the widget records in the NAKA C sources (`v10/maincpu/ui_widgets/*.c`, and the same files in v9,
+v7, v6 and v5; v8 builds from v9's sources) are written with the firmware's own names, so a screen can be read from
+its source. Each tree compiles those files with clang into `includes/generated/*.bin` and includes the bins with
+`.incbin`; every step is byte-identical, and `make gui-check` is part of `make gate`. Here is the DISK MENU screen,
+from `naka_disk_menu_file_io.c`, cut short:
+
+```c
+    /* ==== SCREEN TITLE_DKMENU "DISK MENU" -- "TT_DKMENU", title id 0x60, function NAKA_APFUNC_DefaultFunction ====
+     * Path: mode MD_DISK
+     * Menu: "STYLE CONVERT" -> TITLE_STYLCNVWAIT
+     * Menu: "HARD DISK MAIN MENU" -> TITLE_HDDEXT
+     * Menu: "LOAD" -> by code, NAKA_MAINFUNC_LoadTtlJgFunc
+     * EXIT -> TITLE_PS */
+    .DiskMenu = {
+        .class_ = NAKA_CLASS(TtlScreen),
+        .super = NAKA_NONE,
+        .sub = OBJ_StyleConvert_AcTitleMenu,
+        .flag = VF_Fixed | VF_Const,
+        .rect = NAKA_XYWH(0, 0, 320, 240),
+        .color = CL_Gray,
+        .border = BD_Single2,
+        .exit = TITLE_PS,
+        .window = RAM_DiskMenu_Window,
+        .title = SELF(DiskMenu_text),
+        .icon = idICON_i147,
+    },
+    .DiskMenu_text = "DISK MENU",
+    .StyleConvert_AcTitleMenu = {
+        .class_ = NAKA_CLASS(AcTitleMenu),
+        .super = OBJ_DiskMenu,
+        .next = OBJ_Cheap_HardDiskMenuView,
+        .rect = NAKA_XYWH(8, 114, 149, 26),
+        .font = idCHARA1, .fontcolor = CL_White, .align = AL_Center,
+        .editsw = ES_Left3,
+        .selected = RAM_StyleConvert_AcTitleMenu_Selected,
+        .str = SELF(StyleConvert_text),
+        .title = TITLE_STYLCNVWAIT,
+    },
+```
+
+Each file also declares its object tree once, before the initializer: one enum per Viewable table, with one `OBJ_*`
+constant per element in index order, indented by depth in the tree:
+
+```c
+#define Toshi_Viewable_NORMAL_SLOT 0x001u
+enum Toshi_Viewable_NORMAL_objects {
+    OBJ_Normal,                          /*  0 TtlScreen "Normal" */
+    OBJ_normal,                          /*  1 NormScreen "normal" */
+      OBJ_normal_AcTempoBox,             /*  2 AcTempoBox */
+      ...
+      OBJ_normal_AcSoundName_2,          /*  6 AcSoundName */
+        OBJ_RIGHT2_StringBox,            /*  7 StringBox */
+```
+
+### How each field is spelled, and the evidence for the name
+
+| what                  | spelled as                                                                                                             | evidence (v10)                                                                                                                                                                                                 |
+|-----------------------|------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| class id              | `NAKA_CLASS(TtlScreen)`; `naka_cls_<Class>_t`                                                                          | `ClassProc` maps id 0x016S_KKKK to entry KKKK of the Class table at slot 0x16S; all 293 classes come from the 9 populated Class tables                                                                         |
+| field names           | the class chain's `propname` strings                                                                                   | the same Class tables                                                                                                                                                                                          |
+| object links          | `.super = OBJ_normal`; an enum per table, indented by depth                                                            | Viewable +4/+6/+8/+10 are element indices of the same table; `naka_gui_model.py --check` asserts each constant's index, that the indentation is the depth `super` gives, and that sub/next/prev agree          |
+| rectangle             | `NAKA_XYWH(x, y, w, h)`                                                                                                | `RectX2Proc` and `RectY2Proc` edit x2 and y2 as "width" and "height": GET answers x2 - x1 + 1, SET stores x1 + width - 1                                                                                       |
+| enumerated properties | `CL_White`, `BD_None`, `VF_Fixed \| VF_Const`, `AL_Center`, `ES_Left3`, `SS_*`, `LM_*`, `FR_*`, `PT_*`, `TR_*`, `IT_*` | the {name, value} pairs of `SupportClass_PropTypeRecords`, selected by the field's propdata letter (see [the property-type protocol](#the-property-type-protocol-2026-10-06))                                  |
+| fonts                 | `idCHARA1` .. `idCHARA5W`                                                                                              | `FontIDProc` reads RAM 0x3EFAC, whose work-RAM image is `FontIDProc_FontNameTable`; the dump prefix is `FontIDProc_DumpPrefix` = "id"                                                                          |
+| bitmaps               | `idTrashIcon` ...                                                                                                      | `BitmapIDProc` reads `BitmapIDProc_PtrTable` (34 entries); prefix "id"                                                                                                                                         |
+| icons                 | `idICON_None`, `idICON_Default`, `idICON_i0` ...                                                                       | `IconIDProc` reads `IconIDProc_NameTable` (177 names); prefix "idICON_". The firmware names most icons only `iNN`                                                                                              |
+| title ids             | `TITLE_*`                                                                                                              | letter `a` is `TitleIDProc`; `RegTitle` / `RegisterTitle` bind each title to its view object; names from `shared/event_codes.s`                                                                                |
+| mode / function ids   | `NAKA_MODE_*`, `NAKA_APFUNC_*`, `NAKA_FUNC_*`, `NAKA_MAINFUNC_*`                                                       | letters `` ` `` `j` `k` (`ModeIDProc`, `ApFuncIDProc`, `MainFuncIDProc`); names from `shared/event_codes.s`                                                                                                    |
+| view object ids       | `NAKA_VIEW_ID(Table, OBJ_x)`                                                                                           | letters `t` and `N` (`WindowIDProc`, `ScreenIDProc`); the id is 0x0SSS_KKKK, and all 113 ids point into a table of the same file                                                                               |
+| live-value cells      | `RAM_<cell>`                                                                                                           | letters `m`..`s` (`pBoolProc` .. `pUlongProc`) hold the address of a DRAM cell in the `Boot_InitWorkRAM` image (see [Where a widget's live values are kept](#where-a-widgets-live-values-are-kept-2026-10-06)) |
+| screen headers        | `/* ==== SCREEN TITLE_X "TEXT" ...` / `/* ==== VIEW ...`                                                               | generated: the title's text, its menu path, its menu entries and where EXIT goes (the screen's `exit` field)                                                                                                   |
+
+Records registered at DRAM addresses are read through the two `Boot_InitWorkRAM` images (ROM 0xEED8C8 to RAM 0x3D524,
+and ROM 0xEEFA66 to RAM 0xE35E). 28 records are of that kind, among them the DISK MENU's "HARD DISK MAIN MENU"
+entry, `Cheap_HardDiskMenuView`.
+
+### Titles and modes opened by code
+
+Three routines in `ui/ui_control_panel.s` post a title or mode change from an index:
+
+| routine                    | posts                                     | old name (before 2026-10-29) |
+|----------------------------|-------------------------------------------|------------------------------|
+| `UI_ChangeTitleByIndex`    | `EVT_CHANGE_TITLE`, `TITLE_PS + A`        | `UI_PostModeChangeEvent`     |
+| `UI_InterruptTitleByIndex` | `EVT_INTERRUPT_TITLE`, `TITLE_PS + A`     | `SoundCtrl_SendCommand`      |
+| `UI_ChangeModeByIndex`     | `EVT_CHANGE_MODE`, `NAKA_MODE_MD_PS + A`  | `UI_PostPartChangeEvent`     |
+
+Each `shared/event_codes.s` ends with a generated block of `TT_X` / `MD_X` index constants, the firmware's own names
+(`scripts/generators/gen_title_mode_index_equs.py`). `scripts/converters/name_title_index_operands.py` walks each
+file's control flow back from every call, including the two stack-spilling forwarders `FileIO_DiskEventDispatch` and
+`FileIO_GetDiskCapacity`, and names the operand: `ldw wa, TT_DKLD`. That names 279 title and 30 mode operands per
+tree; 18 title sites and 1 mode site take the index from memory.
+
+Panel buttons enter modes through `PanelButton_ModeKey` (`audio/audio_control_engine.s`), which maps a mode key's
+lowest set button bit through the `PanelButton_ModeKeyCodes*` maps (`naka_extension_device.c`, one `MD_*` byte per
+button, commented with the MAME driver's port names) and posts `EVT_SW_IN_MODE`. The screen headers and the
+[KN5000 Menu Map]({{ site.baseurl }}/kn5000-menu-map/) start each path at its button:
+`MENU DISK button (mode MD_DISK) > "LOAD" (by LoadTtlJgFunc)`.
+
+### Records outside the C
+
+Records that live in the assembly are written as one keyword-argument macro call each, `NAKA_REC_<Class>`, defined
+in the generated `shared/naka_gui.s` (class ids, value names, `IDX_<label>` element indices and one macro per class;
+`scripts/converters/naka_asm_records.py`). 86 asm records are spelled this way in v10 (88 in v6 and v5). The class-name
+and propdata strings carry labels, `ClassName_<Class>` and `ClassPropdata_<Class>`, and 283 pointers to them per tree
+(281 in v6/v5) are spelled `NAKA_ADDR()` (`scripts/converters/name_class_string_pointers.py`).
+
+### Headers, tools and checks
+
+| file                                         | role                                                                                         |
+|----------------------------------------------|----------------------------------------------------------------------------------------------|
+| `<tree>/maincpu/ui_widgets/naka_classes.h`   | generated: `NAKA_CLASS_*` constants, one typedef per class, the property value names         |
+| `<tree>/maincpu/ui_widgets/naka_ids.h`       | generated: every `shared/event_codes.s` constant as a `#define`                              |
+| `<tree>/maincpu/ui_widgets/naka_ram_cells.h` | generated: `RAM_<cell>` addresses (v10 layout)                                               |
+| `<tree>/maincpu/ui_widgets/naka_types.h`     | includes the three, plus `NAKA_XYWH`, `NAKA_XYXY` and `NAKA_VIEW_ID`                         |
+| `scripts/generators/gen_naka_gui_headers.py` | writes the headers into all five trees (`--check`)                                           |
+| `scripts/converters/naka_gui_symbolize.py`   | the rewrite; recompiles each changed file and refuses any whose bin would change             |
+| `scripts/analysis/naka_gui_model.py`         | the parser and GUI graph (titles, modes, edges); `--check` tests the enums against the links |
+| `scripts/generators/gen_naka_menu_map.py`    | writes `docs/gui/kn5000-menu-map.md` (`--check`)                                             |
+| `scripts/analysis/naka_gui_census.py`        | the readability census (`--rev` for before/after, `--files TREE` per file)                   |
+| `scripts/converters/naka_asm_records.py`     | `shared/naka_gui.s` and the `NAKA_REC_` macro records                                        |
+
+The headers are generated from v10 and copied unchanged into v9, v7, v6 and v5. `make menu-map` regenerates the menu
+map, `make gui-census` prints the census, and `make gui-check` checks the headers, the enums against the links, the
+spelling and SCREEN headers of all five trees, and the menu map.
+
+The census counts, outside comments and strings, what is still spelled as a number (v10;
+`python3 scripts/analysis/naka_gui_census.py`, "before" with `--rev 9dbc03088`):
+
+| measure                                  | before | now   |
+|------------------------------------------|--------|-------|
+| class ids as numbers                     | 3,445  | 0     |
+| object links as numbers                  | 7,940  | 0     |
+| view ids as numbers                      | 113    | 0     |
+| property values with a name, as numbers  | 15,460 | 0     |
+| property values with no name             | 1      | 1     |
+| ROM addresses as numbers                 | 384    | 73    |
+| RAM cells as numbers                     | 1,541  | 0     |
+| `field_XX` members                       | 645    | 525   |
+| records                                  | 3,206  | 3,242 |
+
+What remains: 65 Viewable elements have no typed record (20 straddle two C members, 13 are DRAM records in the asm's
+`WorkRamInit_Image`, 32 asm records sit in blocks the macro rewrite skips); 73 ROM addresses point into string or
+record interiors that have no label yet; 525 `field_XX` members (291 of them in `naka_sequencer_channels.c`) need the
+routines that reach them through a base pointer; one property value, `TEST3.fontcolor = 0x0043`, has no name. The
+lane's notes are
+[`notes/data-semantics-2026-10-29/gui-kn5000/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/notes/data-semantics-2026-10-29/gui-kn5000/README.md).
+
+The whole GUI, every title with its menu path, menu entries, EXIT target and widget tree, is the generated
+[`docs/gui/kn5000-menu-map.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/gui/kn5000-menu-map.md); the [KN5000 Menu Map]({{ site.baseurl }}/kn5000-menu-map/)
+page summarises it.
 
 ## Event System
 
@@ -528,7 +691,8 @@ The firmware has no table of page identifiers. Of the names this page used to li
 (PC connection) and `HDD_UTIL_PAGE` (hard-disk utilities) exist. Both are entries in the HD-AE5000 ROM's own object
 registry and name its routines `HDAE5000_PC_DATA_LINK_PAGE` and `HDAE5000_HDD_UTIL_PAGE`. The main firmware names
 its screens by title (`TT_*` strings such as `TT_NORMAL` or `TT_SQMENU`) and by the view names in its ResName
-tables.
+tables. The [KN5000 Menu Map]({{ site.baseurl }}/kn5000-menu-map/) lists every title and mode, with its menu path
+from the panel.
 
 ## Presentation System (SSF)
 
@@ -573,6 +737,7 @@ See [Feature Demo & Presentation System]({{ site.baseurl }}/feature-demo/) for f
 - [Display Subsystem]({{ site.baseurl }}/display-subsystem/) - Screen rendering
 - [Image Gallery]({{ site.baseurl }}/image-gallery/) - UI graphics
 - [Event Codes]({{ site.baseurl }}/event-codes/) - Complete event code reference
+- [KN5000 Menu Map]({{ site.baseurl }}/kn5000-menu-map/) - Every title and mode, with its menu path
 
 ## ScreenData Bytecode Format
 
