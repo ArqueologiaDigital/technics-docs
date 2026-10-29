@@ -141,7 +141,7 @@ A 0x87 byte links to the next 256-byte block: `AccompSeq_ReadBeatHeader` reads t
 
 ### Style Variation Groups
 
-Styles are organized into variation groups; the factory patterns are read from the Rhythm ROM at 0x400000 (see [Sequencer]({{ site.baseurl }}/sequencer/#pattern-loading-pipeline)). Each style has multiple variations:
+Styles are organized into variation groups; the factory patterns are read from the Rhythm ROM at 0x400000 (see [Sequencer]({{ site.baseurl }}/sequencer/#pattern-loading-pipeline)). The ROM's own format (202 style records of two 1 KB halves, six parts of 19 track slots each, and 28,400 one-part tracks in the `80 FF FF FF FF 87` ... `83 87` event language) is on [Rhythm ROM (IC14)]({{ site.baseurl }}/rhythm-rom/). Each style has multiple variations:
 
 | Variation | Description                                     |
 |-----------|-------------------------------------------------|

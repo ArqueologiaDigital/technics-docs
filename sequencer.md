@@ -434,6 +434,7 @@ ROM address = 0x400000 + RHYTHM_ROM_BASE + ((high & 0xFF) << 16) + low
 
 Where:
 - `RHYTHM_ROM_BASE` is RAM 0x3277, which is 0 once the Rhythm ROM header has validated
+- a zero locator is not "no style": it is offset 0, the first style record (bank 0, program 90); see [Rhythm ROM (IC14)]({{ site.baseurl }}/rhythm-rom/), whose descrambled layout these addresses assume
 - every non-zero locator is a multiple of 0x800; `RhythmROM_LoadPattern` copies 0x400 words (2 KB) from that address into the 2 KB buffer that `AccPat_Dispatch_AllocAndProcess` allocates (`Malloc(0x800)`, pointer at RAM 0x3564)
 - the section index at RAM 0x34D6 (0..29, the 3 × 10 sections) selects, through `RhythmTiming_OffsetTable`, the pointer into `RHYTHM_PATTERN_BUF_A` (0x94800) kept at RAM 0x3560
 

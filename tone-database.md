@@ -377,8 +377,9 @@ four partial blocks mapped directly. They are followed by four SET descriptors o
 
 * **Unread tone-record bytes**, listed [above](#tonevoice-record-layout), and the meaning of
   the four 4-byte entries +0x2B.. (only entries 0-3 have a reader).
-* **Selector class nibble**: classes 4, 5 and 7 match IC307's pages 0, 1 and 3 exactly (198,
-  168 and 57 directory entries), which suggests page = class & 3 and bank = class >> 2. Which
+* **Selector class nibble**: classes 4, 5, 6 and 7 match IC307's pages 0, 1, 2 and 3 exactly
+  (198, 168, 1,072 and 57 directory entries; class 6 reaches page 2's last entry only through the
+  drawbar zone records), which suggests page = class & 3 and bank = class >> 2. Which
   socket holds the other banks cannot be settled until IC304-IC306 are dumped. Also open: why
   `Voice_Init_Type1` adds `(tick & 7)` to the whole selector.
 * **SET descriptor `+0x0E`** and flags bit 3 have no reader in v1.42.

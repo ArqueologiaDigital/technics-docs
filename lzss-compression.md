@@ -167,11 +167,53 @@ and produces — exactly 0x9000 (36,864) bytes.
 **What the payload is.** Each decompressed database starts with a table of
 32-bit little-endian pointers into itself, based at **RAM 0x69800** (the English
 database's first entries are 0x69B22, 0x69E5C, 0x6A1B8, …), followed by the
-help-string pool. Strings are Latin-1 with `~0d` as the newline escape. The
-payload's internal record format has **not** been decoded further: the
-decompressed databases are checked in as binaries
-(`table_data/includes/help_databases/help_db_<lang>.bin`), not yet as text
-sources.
+help-string pool. Strings are Latin-1 with `~0d` as the newline escape. Since
+2026-10-29 the format is decoded and the source is a plain-text listing per
+language ([below](#help-database-format)).
+
+<a id="help-database-format"></a>
+
+#### HELP database format and text source
+
+The on-screen HELP texts are rebuilt from five plain-text listings,
+[`table_data/includes/help_databases/help_db_<lang>.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/table_data/includes/help_databases).
+Each entry is one page (1-4) of one of the 50 help topics, the topics whose
+titles the HELP screen shows (DEMO, AUTO PLAY CHORD, ...). An entry starts with
+`@ topic T page P`, followed by the topic's title as a comment; the line break
+after each `~0d` is not part of the text, and a blank line ends the entry.
+`scripts/build/help_db_text.py build` turns a listing into the 36,864-byte
+(0x9000) database, which is now git-ignored, and `compress_slide8k.py --strict
+--reference` packs it exactly as before. `help_db_text.py verify` (also `make
+verify-help-db-text`) checks each listing against the decompression of the
+factory stream.
+
+| offset | size              | field                                                                                              | evidence                                                                                                                                         |
+|--------|-------------------|----------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| +0x000 | 200 x u32         | absolute RAM pointer (base 0x69800) to the text of slot `50 * (page - 1) + topic`                  | `HelpLang_LoadSlide` / `HelpLang_SetFlashAndLoadSlide` decompress to 0x69800; `HelpStsCheck`, `HelpStsP2Check` and the P3 / P4 handlers index it |
+| +0x320 | to the pool's end | NUL-terminated Latin-1 strings, each starting on an even address, 0x00 pad after an odd-length one | measured (`notes/kn5000-existing-includes-2026-10-29/probes/help_db_layout_probe.py`)                                                            |
+| ...    | to 0x9000         | 0x00                                                                                               | measured                                                                                                                                         |
+
+Measured on all five languages: every empty page points at one shared empty
+string, the pool's first, at 0x69B20; no other string is shared; the pool is in
+topic order (topic 0 pages 1-4, topic 1, ...); the only escape is `~0d`, the
+renderer's newline, and there are no control bytes. Topic `t`'s title is
+`HelpTtlFunc_LookupSlide_PtrTable[(t - 1) mod 50]` (`HelpTtlFunc_LookupSlide`),
+so topic 0 is DEMO and topic 1 AUTO PLAY CHORD.
+
+| language   | non-empty pages | empty slots |
+|------------|-----------------|-------------|
+| English    | 88              | 112         |
+| German     | 89              | 111         |
+| French     | 105             | 95          |
+| Spanish    | 108             | 92          |
+| Indonesian | 98              | 102         |
+
+**[Inference]** The `- 4 * HELP_LANGUAGE` in the HelpSts* handlers only makes
+sense if the widget that sends `EVT_GET_LANGUAGE_PTR` adds `4 * language` back;
+that caller was not traced. The stale German block is not in this format (its
+decoded tail is garbage, below) and stays a committed `.bin`. Source:
+`notes/kn5000-existing-includes-2026-10-29/README.md` in the disassembly
+repository.
 
 **How the firmware gets there.** The help-language load path in the Main CPU ROM
 reads the language number from RAM 0x0340E4, indexes the pointer table at
@@ -596,7 +638,7 @@ bytes.
 | Data                  | Format  | Source of truth in the repo       | Build gate                                    |
 |-----------------------|---------|-----------------------------------|-----------------------------------------------|
 | 19 demo-song presets  | SLIDE4K | `.mid` + `.yaml` per preset       | `make verify-demo-presets`                    |
-| 5 live help databases | SLIDE8K | decompressed `.bin` per language  | `make verify-help-databases`                  |
+| 5 live help databases | SLIDE8K | text listing `.txt` per language  | `make verify-help-databases`                  |
 | stale German block    | SLIDE8K | raw slice of the dump (tail lost) | round-trip checked, not rebuilt               |
 | v1.42 update image    | SLIDE4K | the source-built v142 payload     | `cmp` inside `make all`                       |
 | v1.41 update image    | SLIDE4K | the source-built v141 payload     | `cmp` inside `make all`                       |
@@ -606,9 +648,9 @@ bytes.
 decompressed out of its update image and committed for preservation, and `make gate` checks
 that the two agree (`scripts/build/verify_subprogram_update_images.py`). v1.41 has been
 source-built since 2026-10-24, as v1.42 plus three recorded edits; see
-[Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/). The help-database *payloads*
-are likewise still opaque binaries — decoding their pointer-table/string-pool
-record format is future work.
+[Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/). The help-database payloads
+are no longer opaque: since 2026-10-29 they are built from per-language text
+listings ([HELP database format](#help-database-format)).
 
 ---
 
@@ -889,7 +931,9 @@ that file no longer exists.)*
 ### Help databases (SLIDE8K)
 
 ```
-table_data/includes/help_databases/help_db_<lang>.bin        <- checked-in source
+table_data/includes/help_databases/help_db_<lang>.txt        <- checked-in source
+    ↓ (help_db_text.py build)
+table_data/includes/help_databases/help_db_<lang>.bin        <- generated, git-ignored
     ↓ (compress_slide8k.py --strict --reference)
 table_data/includes/help_databases/help_db_<lang>_compressed.bin  <- in ROM
 ```
@@ -910,6 +954,6 @@ payloads — and the stale German block as a raw slice.
 
 ## Future Work
 
-- [ ] Decode the help-database payload format (pointer table + string pool at RAM 0x69800) into per-topic sources
+- [x] Decode the help-database payload format (pointer table + string pool at RAM 0x69800) into per-topic sources (`help_db_<lang>.txt`, 2026-10-29)
 - [x] Build a source tree for the v1.41 Sub-CPU payload (`v141/subcpu/`, 2026-10-24)
 - [ ] Build a source tree for the v1.40 Sub-CPU payload, derived from v1.41 the same way

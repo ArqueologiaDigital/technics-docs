@@ -220,6 +220,8 @@
           url: /source-map/
         - title: Table Data ROM
           url: /table-data-rom/
+        - title: Rhythm ROM (IC14)
+          url: /rhythm-rom/
         - title: Music Stylist Database
           url: /music-stylist-database/
         - title: Panel Memory Factory Data

@@ -309,14 +309,14 @@ nothing addresses inside the image, the block stays a single labelled `.incbin` 
 
 Structure observed in the image (offsets are image-relative; add 0x9B4000 for ROM):
 
-| image offset | contents                                                                                                                                                                                                                                    |
-|:-------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `+0x0000`    | 96-byte bank header, as in an IC19 style section: the `48 00 4B 00` ("H", "K" in 16-bit characters) magic and a `5A 5A 5A` (`"ZZZ"`) tag at `+0x0B`                                                                                         |
-| `+0x0060`    | style directory in the IC19 layout: 30 records of 0x60 bytes, 16-char name at record +0x40, the style's five chain pointers at +0x00 and +0x04..+0x0A (read this way by `scripts/analysis/style_directory_chains.py` in kn5000-roms-disasm) |
-| `+0x0BA0`    | zero fill to `+0x12FF`                                                                                                                                                                                                                      |
-| `+0x1300`    | style event pool: zero to `+0x13BF`, a 64-byte misaligned pseudo-cell at `+0x13C0`, 234 linked 256-byte cells from `+0x1400` to `+0xFDFF`, and two empty `0x00`-marker blocks at `+0xFE00` / `+0xFF00`                                      |
+| image offset | contents                                                                                                                                                                                                                                                        |
+|:-------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `+0x0000`    | 96-byte bank header, as in an IC19 style section: the `48 00 4B 00` ("H", "K" in 16-bit characters) magic and a `5A 5A 5A` (`"ZZZ"`) tag at `+0x0B`                                                                                                             |
+| `+0x0060`    | section directory in the IC19 layout: 30 `STYLE_SECTION` records of 0x60 bytes, 16-char name at record +0x40, the section's five chain pointers at +0x00 and +0x04..+0x0A (read this way by `scripts/analysis/style_directory_chains.py` in kn5000-roms-disasm) |
+| `+0x0BA0`    | zero fill to `+0x12FF`                                                                                                                                                                                                                                          |
+| `+0x1300`    | style event pool: zero to `+0x13BF`, a 64-byte misaligned pseudo-cell at `+0x13C0`, 234 linked 256-byte cells from `+0x1400` to `+0xFDFF`, and two empty `0x00`-marker blocks at `+0xFE00` / `+0xFF00`                                                          |
 
-The 30 slot names are three factory user styles at four variations each --
+The 30 records are the 30 sections of one style (`STYLE_SECTION` 0..29, see [Custom Data Flash]({{ site.baseurl }}/custom-data-flash/#hk-header-format)), and each name is the name of the pattern that section was taken from. The 30 slot names are three factory user styles' patterns at four variations each --
 ` Pop Samba 1`..` Pop Samba 4`, `GentleSwing 1`..`GentleSwing 4`,
 `German 3/4 1`..`German 3/4 4` -- followed by 18 slots named `    Clear       `.
 

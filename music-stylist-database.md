@@ -365,7 +365,7 @@ Open items on this block:
   `v10/maincpu/ui_widgets/naka_perf_style.c` (`MusicStylist_text`..`LatinWorld_text`,
   `ExploreMusicalStylesWith_str`); the string is `LongStr_Explore_1000_Musical` at
   main-CPU ROM 0xE14C86 in v7, v9 and v10.
-* Help-text wording: `table_data/includes/help_databases/help_db_english.bin`.
+* Help-text wording: `table_data/includes/help_databases/help_db_english.txt` (the text listing the English HELP database is built from; [LZSS Compression]({{ site.baseurl }}/lzss-compression/#help-database-format)).
 * Category counts, pointer-table permutations and the 996/1000 anomaly: recomputed from
   `original_ROMs/kn5000_table_data.rom` for this page.
 * Parameter-block field map (September 2026, lane `tonedb`): the `PARAMETER BLOCK` header
