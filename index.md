@@ -227,12 +227,13 @@ redrawn. Measured by `scripts/analysis/data_range_census.py`; see
 [how much of the data is actually explained]({{ site.baseurl }}/rom-reconstruction/#how-much-of-the-data-is-actually-explained).*
 
 *The disassembly's README also carries a measured **semantic score** (`make semantic-score`):
-91.10 % on 2026-10-24 over three models (KN5000 97.00 %, SX-WSA1R 92.65 %, KN7000 65.29 %),
-the mean of up to four components — bytes understood, semantic names, jump tables resolved
-(100 %, 3,031 of 3,031) and C fields named (94.52 %, KN5000 only). The KN7000 joined that day
-with its program, table and Style Convert converters; its bytes component is the share emitted
-as source rather than passthrough, a weaker measure than the census grade, so the pooled score
-fell when it was added. The components per model are on
+94.07 % on 2026-10-30 over four models (KN5000 97.09 %, SX-WSA1R 92.65 %, KN7000 80.66 %, the
+MN10300 siblings KN2400 / KN6000 / KN6500 / HD-SX 78.98 %; `docs/badges/semantic-score.json` at
+`d91a7e40`), the mean of up to four components — bytes understood, semantic names, jump tables
+resolved (100 %, 3,075 of 3,075) and C fields named (94.86 %, KN5000 only). The MN10300 models'
+bytes component is the share emitted as source rather than passthrough, a weaker measure than the
+census grade, and their names component rates every routine label of the converted code, most of
+them still `func_<hex>`. The components per model are on
 [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#the-semantic-score). As the README
 puts it, byte-match says nothing about progress.*
 

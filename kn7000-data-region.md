@@ -202,34 +202,42 @@ lost inside it (2 / 94). The same walk did most for the siblings
 ## What is left: the census
 
 The instrument is `scripts/analysis/data_incbin_census.py`
-([ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#the-data-include-census)). Its second
+([ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#the-data-include-census)). Its third
 committed snapshot,
-[`docs/coverage/data-incbin-2026-10-30-02.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-02.txt)
-(measured at disassembly `141313939`, the merge of lane generic-zero), reads for the four program
-builds (count / bytes):
+[`docs/coverage/data-incbin-2026-10-30-03.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-03.txt)
+(measured at disassembly `a9b5cf764`, after lanes media-files, code-island and callee-walk merged;
+committed in `d91a7e405`), reads for the four program builds (count / bytes; *from media* is the part
+of *generated* made from a PNG or WAV by a committed converter):
 
-| tree             | generated     | media           | opaque        | generic n | generic bytes |
-|------------------|---------------|-----------------|---------------|-----------|---------------|
-| `kn7000-program` | 87 / 162,942  | 10 / 58,992     | 3459 / 63,917 | 0         | 0             |
-| `kn7000-sp7001`  | 526 / 462,454 | 169 / 1,375,301 | 3482 / 62,187 | 0         | 0             |
-| `kn7000-b935`    | 87 / 162,942  | 10 / 58,992     | 3470 / 64,710 | 0         | 0             |
-| `kn7000-b893`    | 87 / 162,942  | 10 / 58,992     | 3464 / 63,600 | 0         | 0             |
+| tree             | generated     | from media    | media           | opaque        | generic n | generic bytes |
+|------------------|---------------|---------------|-----------------|---------------|-----------|---------------|
+| `kn7000-program` | 88 / 162,974  | 88 / 162,974  | 10 / 58,992     | 3449 / 63,392 | 0         | 0             |
+| `kn7000-sp7001`  | 527 / 462,486 | 527 / 462,486 | 169 / 1,375,301 | 3472 / 61,662 | 0         | 0             |
+| `kn7000-b935`    | 88 / 162,974  | 88 / 162,974  | 10 / 58,992     | 3460 / 64,185 | 0         | 0             |
+| `kn7000-b893`    | 88 / 162,974  | 88 / 162,974  | 10 / 58,992     | 3454 / 63,075 | 0         | 0             |
 
 (`kn7000-sp7001` also holds table build 83, whose media and generated items are most of its first
 two columns.) For comparison: before the work the program tree was 3 generic entries of 2,563,794
 bytes; after lane gui-kn7000 6,294 pieces of 793,436 bytes; after kn7000-data-rest 433 pieces of
 17,416 bytes; in the first snapshot (`data-incbin-2026-10-30-01`, after lane kn7000-final) 177
-pieces of 2,948 bytes; now none. Generic and opaque, first snapshot to second:
+pieces of 2,948 bytes; since the second (`-02`, at `141313939`, lane generic-zero) none. Generic and
+opaque over the three snapshots:
 
-| tree             | generic -01 n / bytes | opaque -01    | generic -02 | opaque -02    |
-|------------------|-----------------------|---------------|-------------|---------------|
-| `kn7000-program` | 177 / 2,948           | 4298 / 82,196 | 0 / 0       | 3459 / 63,917 |
-| `kn7000-sp7001`  | 179 / 3,044           | 4321 / 80,480 | 0 / 0       | 3482 / 62,187 |
-| `kn7000-b935`    | 179 / 3,044           | 4309 / 83,003 | 0 / 0       | 3470 / 64,710 |
-| `kn7000-b893`    | 176 / 2,944           | 4303 / 81,886 | 0 / 0       | 3464 / 63,600 |
+| tree             | generic -01 n / bytes | opaque -01    | generic -02 | opaque -02    | generic -03 | opaque -03    |
+|------------------|-----------------------|---------------|-------------|---------------|-------------|---------------|
+| `kn7000-program` | 177 / 2,948           | 4298 / 82,196 | 0 / 0       | 3459 / 63,917 | 0 / 0       | 3449 / 63,392 |
+| `kn7000-sp7001`  | 179 / 3,044           | 4321 / 80,480 | 0 / 0       | 3482 / 62,187 | 0 / 0       | 3472 / 61,662 |
+| `kn7000-b935`    | 179 / 3,044           | 4309 / 83,003 | 0 / 0       | 3470 / 64,710 | 0 / 0       | 3460 / 64,185 |
+| `kn7000-b893`    | 176 / 2,944           | 4303 / 81,886 | 0 / 0       | 3464 / 63,600 | 0 / 0       | 3454 / 63,075 |
 
-Before lane generic-zero, `gen_data_s.py` typed 2,106,173 of the region's 2,306,001 bytes in build
-941 (91.3%; not re-measured since). The generated column is the bitmaps
+From `-02` to `-03` opaque fell by 10 pieces / 525 bytes in each build: 8 / 507 when the kernel's
+flash tail became code ([above](#the-kernels-flash-tail)) and 2 / 18 when the callee walk typed them
+([above](#blocks-a-routine-is-handed)). The generated entry added in each build is `SjisMissingGlyph`'s
+PNG.
+
+Before lane generic-zero, `gen_data_s.py` typed 2,106,173 of the region's then 2,306,001 bytes in
+build 941 (91.3%); lane callee-walk's `callee_off_on.py` measured 2,125,687 typed bytes with its walk
+on, against 2,125,352 with it off, at disassembly `2a7b45be5`. The generated column is the bitmaps
 (`census: generated -- tools/table_png.py`).
 
 **What the last generic pieces became** (lane generic-zero, disassembly `4653d696b`;

@@ -303,32 +303,35 @@ measured at disassembly `28bad682a` after the last data-semantics lanes merged (
 the "Final state" section of `notes/data-semantics-2026-10-29/README.md`). The second,
 [`docs/coverage/data-incbin-2026-10-30-02.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-02.txt),
 measured at `141313939` after lane generic-zero merged (committed in `347fd0cf0`; the section
-"Generic 0" of the same README), reads **generic 0 in every tree**. Generic bytes per tree,
-before the work (disassembly `b58b8f696`), after the twelve lanes that merged on 2026-10-29 (run
-at `c6630b0d7`), and in the two snapshots:
+"Generic 0" of the same README), reads **generic 0 in every tree**. The third and current,
+[`docs/coverage/data-incbin-2026-10-30-03.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-03.txt),
+measured at `a9b5cf764` after lanes media-files, code-island and callee-walk merged (committed in
+`d91a7e405`), still reads generic 0 everywhere, and adds the *from media* column. Generic bytes per
+tree, before the work (disassembly `b58b8f696`), after the twelve lanes that merged on 2026-10-29
+(run at `c6630b0d7`), and in the three snapshots:
 
-| tree              | generic bytes before | after 2026-10-29 | snapshot 2026-10-30-01 | snapshot 2026-10-30-02 |
-|-------------------|----------------------|------------------|------------------------|------------------------|
-| kn5000-v10        | 4,928                | 0                | 0                      | 0                      |
-| kn5000-v9         | 4,928                | 0                | 0                      | 0                      |
-| kn5000-v7         | 4,928                | 0                | 0                      | 0                      |
-| kn5000-v6         | 5,130                | 0                | 0                      | 0                      |
-| kn5000-v5         | 4,949                | 0                | 0                      | 0                      |
-| kn5000-tabledata  | 772,289              | 0                | 0                      | 0                      |
-| kn5000-customdata | 639,296              | 0                | 0                      | 0                      |
-| kn7000-table      | 2,560,580            | 0                | 0                      | 0                      |
-| kn7000-b80        | 4,064,860            | 0                | 0                      | 0                      |
-| kn7000-program    | 2,563,794            | 2,563,794        | 2,948                  | 0                      |
-| kn7000-sp7001     | 5,176,151            | 2,646,270        | 3,044                  | 0                      |
-| kn7000-b893       | 2,607,409            | 2,607,409        | 2,944                  | 0                      |
-| kn7000-b935       | 2,602,613            | 2,602,613        | 3,044                  | 0                      |
-| kn2400            | 1,993,350            | 1,993,350        | 18,853                 | 0                      |
-| kn6000            | 2,630,724            | 2,630,724        | 18,810                 | 0                      |
-| kn6500            | 2,140,036            | 2,140,036        | 18,930                 | 0                      |
-| hdsx3             | 533,544              | 533,544          | 266                    | 0                      |
+| tree              | generic bytes before | after 2026-10-29 | snapshot 2026-10-30-01 | snapshot 2026-10-30-02 | snapshot 2026-10-30-03 |
+|-------------------|----------------------|------------------|------------------------|------------------------|------------------------|
+| kn5000-v10        | 4,928                | 0                | 0                      | 0                      | 0                      |
+| kn5000-v9         | 4,928                | 0                | 0                      | 0                      | 0                      |
+| kn5000-v7         | 4,928                | 0                | 0                      | 0                      | 0                      |
+| kn5000-v6         | 5,130                | 0                | 0                      | 0                      | 0                      |
+| kn5000-v5         | 4,949                | 0                | 0                      | 0                      | 0                      |
+| kn5000-tabledata  | 772,289              | 0                | 0                      | 0                      | 0                      |
+| kn5000-customdata | 639,296              | 0                | 0                      | 0                      | 0                      |
+| kn7000-table      | 2,560,580            | 0                | 0                      | 0                      | 0                      |
+| kn7000-b80        | 4,064,860            | 0                | 0                      | 0                      | 0                      |
+| kn7000-program    | 2,563,794            | 2,563,794        | 2,948                  | 0                      | 0                      |
+| kn7000-sp7001     | 5,176,151            | 2,646,270        | 3,044                  | 0                      | 0                      |
+| kn7000-b893       | 2,607,409            | 2,607,409        | 2,944                  | 0                      | 0                      |
+| kn7000-b935       | 2,602,613            | 2,602,613        | 3,044                  | 0                      | 0                      |
+| kn2400            | 1,993,350            | 1,993,350        | 18,853                 | 0                      | 0                      |
+| kn6000            | 2,630,724            | 2,630,724        | 18,810                 | 0                      | 0                      |
+| kn6500            | 2,140,036            | 2,140,036        | 18,930                 | 0                      | 0                      |
+| hdsx3             | 533,544              | 533,544          | 266                    | 0                      | 0                      |
 
 Every other tree (the new data trees above, the sub-CPU, boot, HD-AE5000, WSA1R and floppy
-trees) was already at generic 0 in the first snapshot. The eight trees still above 0 there were
+trees) was already at generic 0 in the first snapshot, and still is in the third. The eight trees still above 0 there were
 the MN10300 program images, and each of their generic pieces was read by some instruction. Lane
 generic-zero (disassembly `c04e41079`, `c65a62c5b`, `4653d696b`) took them to 0 in the generators
 (`gen_data_s.py`'s `reader_rows` pass, `gen_image_s.py --rows`), with no new opaque declaration:
@@ -349,18 +352,24 @@ generic-zero (disassembly `c04e41079`, `c65a62c5b`, `4653d696b`) took them to 0 
 
 Opaque fell with it: bytes declared unread turned out to be record parts. The snapshot counts the
 data that no instruction reads as opaque `unknown-dump`, each piece declared with the reader
-search that found nothing (first snapshot to second):
+search that found nothing (the three snapshots):
 
-| tree           | generic -01 n / bytes | opaque -01 n / bytes | generic -02 | opaque -02 n / bytes |
-|----------------|-----------------------|----------------------|-------------|----------------------|
-| kn7000-program | 177 / 2,948           | 4298 / 82,196        | 0 / 0       | 3459 / 63,917        |
-| kn7000-sp7001  | 179 / 3,044           | 4321 / 80,480        | 0 / 0       | 3482 / 62,187        |
-| kn7000-b935    | 179 / 3,044           | 4309 / 83,003        | 0 / 0       | 3470 / 64,710        |
-| kn7000-b893    | 176 / 2,944           | 4303 / 81,886        | 0 / 0       | 3464 / 63,600        |
-| kn6000         | 380 / 18,810          | 3336 / 79,522        | 0 / 0       | 3197 / 70,137        |
-| kn6500         | 386 / 18,930          | 3346 / 83,667        | 0 / 0       | 3213 / 74,371        |
-| kn2400         | 431 / 18,853          | 5048 / 197,205       | 0 / 0       | 5051 / 196,479       |
-| hdsx3          | 40 / 266              | 101 / 3,133          | 0 / 0       | 101 / 3,133          |
+| tree           | generic -01 n / bytes | opaque -01 n / bytes | generic -02 | opaque -02 n / bytes | opaque -03 n / bytes |
+|----------------|-----------------------|----------------------|-------------|----------------------|----------------------|
+| kn7000-program | 177 / 2,948           | 4298 / 82,196        | 0 / 0       | 3459 / 63,917        | 3449 / 63,392        |
+| kn7000-sp7001  | 179 / 3,044           | 4321 / 80,480        | 0 / 0       | 3482 / 62,187        | 3472 / 61,662        |
+| kn7000-b935    | 179 / 3,044           | 4309 / 83,003        | 0 / 0       | 3470 / 64,710        | 3460 / 64,185        |
+| kn7000-b893    | 176 / 2,944           | 4303 / 81,886        | 0 / 0       | 3464 / 63,600        | 3454 / 63,075        |
+| kn6000         | 380 / 18,810          | 3336 / 79,522        | 0 / 0       | 3197 / 70,137        | 2833 / 65,733        |
+| kn6500         | 386 / 18,930          | 3346 / 83,667        | 0 / 0       | 3213 / 74,371        | 2849 / 69,967        |
+| kn2400         | 431 / 18,853          | 5048 / 197,205       | 0 / 0       | 5051 / 196,479       | 5131 / 196,924       |
+| hdsx3          | 40 / 266              | 101 / 3,133          | 0 / 0       | 101 / 3,133          | 98 / 3,103           |
+
+From `-02` to `-03` the KN7000 builds lost 8 opaque pieces / 507 bytes each to the kernel's flash
+tail, which is code, and 2 / 18 to the callee walk; the siblings' falls are the callee walk's, and the
+KN2400's rise (+80 / +445) too: the 12-byte blocks its switch descriptors point at are pieces of
+their own now that the descriptors are records
+([KN2400 / KN2600 Program Data]({{ site.baseurl }}/kn2400-program-data/#blocks-a-routine-is-handed)).
 
 Left open then, and settled on 2026-10-30: the KN7000's `func_487B8E34` (301 B declared
 `unknown-dump`) and `func_4C03B799_Table` ("353 x s16") were the MILK kernel's flash-resident code,
@@ -724,31 +733,41 @@ file.
 Since 2026-10-06 (`c2bf2d04a`) the disassembly README has carried badges for a measured
 *semantic score*, produced by `make semantic-score` (`scripts/analysis/semantic_score.py`).
 It is the mean of the components a model has: four for the KN5000, three for the SX-WSA1R
-(no C), two for the KN7000. Every number behind it, with its commit, is in
-`docs/badges/semantic-score.json`, and the trend is in
+(no C), two for the SX-KN7000 and two for the MN10300 siblings. Every number behind it, with its
+commit, is in `docs/badges/semantic-score.json`, and the trend is in
 `docs/badges/semantic-score-history.csv`. Byte identity is not a component, because every
-image already passes the gate. The KN7000 joined on 2026-10-24 (the script's "rules 3"):
-its program 941, table 84 and the seven Style Convert converters, rated from the sources
-because the MN10300 trees have no ELF, no dispatch census and no C. Its *bytes* component is
-the share emitted as source rather than `.incbin_range` passthrough, which is an upper bound
-on the TLCS-900 definition (a byte spelled as `.byte` counts whether or not its purpose is
-stated). The SP7001 set, the IC19 picture image, table 80, the IC18 boot ROM and the four
-MN10300 siblings are not rated yet. At `cdc6226f` (2026-10-24, after the first wave of
-that day's work was merged):
+image already passes the gate.
 
-| component            | what it counts                                                                                                                     | KN5000                            | SX-WSA1R                        | KN7000                          | all models pooled                 |
-|----------------------|------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------|---------------------------------|---------------------------------|-----------------------------------|
-| bytes understood     | KN5000, SX-WSA1R: the census's strict figure (below); KN7000: the source share (above)                                             | 97.20 % (10,001,313 / 10,289,152) | 94.83 % (1,988,674 / 2,097,152) | 45.76 % (4,103,364 / 8,967,897) | 75.36 % (16,093,351 / 21,354,201) |
-| semantic names       | linked symbols whose name says what the thing is, not an address or a position (KN7000: named routines)                            | 96.27 % (141,380 / 146,853)       | 83.12 % (15,792 / 18,999)       | 84.83 % (3,422 / 4,034)         | 94.53 % (160,594 / 169,886)       |
-| jump tables resolved | jump/call tables whose every entry lands on a labelled instruction, spelled symbolically (the dispatch census in `docs/coverage/`) | 100 % (2,259 / 2,259)             | 100 % (772 / 772)               | —                               | 100 % (3,031 / 3,031)             |
-| C fields named       | C struct members with a meaningful name rather than an index                                                                       | 94.52 % (71,734 / 75,894)         | —                               | —                               | 94.52 % (71,734 / 75,894)         |
-| **score**            | the mean of the components                                                                                                         | **97.00 %**                       | **92.65 %**                     | **65.29 %**                     | **91.10 %**                       |
+The script's rules have changed twice. **Rules 3** (2026-10-24) added the KN7000: program 941,
+table 84 and the seven Style Convert converters, rated from the sources because the MN10300 trees
+have no ELF, no dispatch census and no C. Its *bytes* component is the share emitted as source rather
+than `.incbin_range` passthrough, an upper bound on the TLCS-900 definition (a byte spelled as
+`.byte` or as an instruction counts whether or not its purpose is stated). **Rules 4** (2026-10-24)
+added program 942 (the SP7001 flash) to the KN7000, rated the KN2400, KN6000, KN6500 and HD-SX
+plug-in as a model of their own, *MN10300 siblings*, and rated every routine label of the converted
+code (`func_<hex>` counting as positional) rather than only the banner names, which is why the
+KN7000's names component reads 62.27 % below against 84.83 % under rules 3 (`cdc6226f`). The SP7001 table, `BASEEXT.XAP`, the IC18 boot ROM, table 80
+and the IC19 picture image are not rated yet. At `d91a7e40` (2026-10-30, after lanes media-files,
+code-island and callee-walk; jump tables from `dispatch-census-2026-10-30-03`; committed in
+`ae0b581b9`):
 
-The pooled *bytes* figure mixes the two definitions (the KN7000 is about 42 % of its
-denominator), so compare the per-model columns, not the pooled one. The pooled score fell
-from 96.47 % to 87.26 % when the KN7000 was added, and rose to 91.10 % once the day's
-first wave of work was merged (KN7000 45.67 % to 65.29 %, mostly from the program
-conversion); the change of rules itself moved neither the KN5000 nor the SX-WSA1R score. The first measurement, at `f6458f02` on 2026-10-06, was 75.75 %.
+| component            | what it counts                                                                                                                        | KN5000                            | SX-WSA1R                        | KN7000                            | MN10300 siblings                  | all models pooled                 |
+|----------------------|---------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------|---------------------------------|-----------------------------------|-----------------------------------|-----------------------------------|
+| bytes understood     | KN5000, SX-WSA1R: the census's strict figure (below); KN7000, siblings: the source share (above)                                      | 96.94 % (10,164,382 / 10,485,760) | 94.80 % (1,988,071 / 2,097,152) | 99.05 % (13,037,147 / 13,162,201) | 97.29 % (12,048,166 / 12,383,893) | 97.66 % (37,237,766 / 38,129,006) |
+| semantic names       | linked symbols whose name says what the thing is, not an address or a position (MN10300 models: routine labels of the converted code) | 96.56 % (148,399 / 153,686)       | 83.14 % (15,815 / 19,022)       | 62.27 % (22,985 / 36,910)         | 60.68 % (30,550 / 50,349)         | 83.76 % (217,749 / 259,967)       |
+| jump tables resolved | jump/call tables whose every entry lands on a labelled instruction, spelled symbolically (the dispatch census in `docs/coverage/`)    | 100 % (2,303 / 2,303)             | 100 % (772 / 772)               | —                                 | —                                 | 100 % (3,075 / 3,075)             |
+| C fields named       | C struct members with a meaningful name rather than an index                                                                          | 94.86 % (65,509 / 69,057)         | —                               | —                                 | —                                 | 94.86 % (65,509 / 69,057)         |
+| **score**            | the mean of the components                                                                                                            | **97.09 %**                       | **92.65 %**                     | **80.66 %**                       | **78.98 %**                       | **94.07 %**                       |
+
+The pooled *bytes* figure mixes the two definitions (the MN10300 models are most of its
+denominator), so compare the per-model columns, not the pooled one. The trend, from
+`semantic-score-history.csv`: 75.75 % at the first measurement (`f6458f02`, 2026-10-06); 87.26 % when
+the KN7000 was added (rules 3, `6b7dbde0`) and 91.10 % once that day's first wave was merged
+(`cdc6226f`); 84.10 % under rules 4 (`5615225f`, KN7000 41.07 %, siblings 33.93 %); then, after the
+data-semantics lanes typed the MN10300 data regions, 93.97 % (`a84ab21d`), 94.00 % after lane
+generic-zero (`347fd0cf`) and 94.07 % now (KN7000 80.62 % -> 80.66 %, siblings 78.21 % -> 78.98 %, the
+KN5000 and SX-WSA1R unchanged). The change of rules itself moved neither the KN5000 nor the SX-WSA1R
+score.
 
 ### The grades
 

@@ -230,21 +230,24 @@ pieces. The opaque bytes fell too, KN6000 70,137 -> 65,733, KN6500 74,371 -> 69,
 
 ## What is left: the census
 
-The second committed snapshot of `scripts/analysis/data_incbin_census.py`,
-[`docs/coverage/data-incbin-2026-10-30-02.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-02.txt)
-(measured at disassembly `141313939`, the merge of lane generic-zero; count / bytes):
+The third committed snapshot of `scripts/analysis/data_incbin_census.py`,
+[`docs/coverage/data-incbin-2026-10-30-03.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-03.txt)
+(measured at disassembly `a9b5cf764`, after lanes media-files, code-island and callee-walk merged;
+count / bytes; *from media* is the part of *generated* made from a PNG by a committed converter):
 
-| tree     | generated     | media      | opaque         | generic n | generic bytes |
-|----------|---------------|------------|----------------|-----------|---------------|
-| `kn6000` | 80 / 137,020  | 3 / 28,660 | 3197 / 70,137  | 0         | 0             |
-| `kn6500` | 83 / 137,404  | 3 / 28,660 | 3213 / 74,371  | 0         | 0             |
-| `hdsx3`  | 3 / 309,200   | 0 / 0      | 101 / 3,133    | 0         | 0             |
+| tree     | generated    | from media   | media      | opaque        | generic n | generic bytes | opaque in `-02` |
+|----------|--------------|--------------|------------|---------------|-----------|---------------|-----------------|
+| `kn6000` | 80 / 137,020 | 80 / 137,020 | 3 / 28,660 | 2833 / 65,733 | 0         | 0             | 3197 / 70,137   |
+| `kn6500` | 83 / 137,404 | 83 / 137,404 | 3 / 28,660 | 2849 / 69,967 | 0         | 0             | 3213 / 74,371   |
+| `hdsx3`  | 3 / 309,200  | 3 / 309,200  | 0 / 0      | 98 / 3,103    | 0         | 0             | 101 / 3,133     |
+
+The opaque fall from `-02` is lane callee-walk's ([above](#blocks-a-routine-is-handed)).
 
 Before the work the trees held 2,630,724 (KN6000), 2,140,036 (KN6500) and 533,544 (plug-in) generic
 bytes; after lanes sib-kn6000 and sib-kn2400, 797,489 / 901,823 / 6,623; in the first snapshot
 (`data-incbin-2026-10-30-01`, after lane siblings-final) 18,810 / 18,930 / 266 bytes in 380 / 386 /
-40 pieces, with opaque 3336 / 79,522, 3346 / 83,667 and 101 / 3,133. Lane generic-zero
-(disassembly `c04e41079` for the KN6000 / KN6500, `c65a62c5b` for the plug-in;
+40 pieces, with opaque 3336 / 79,522, 3346 / 83,667 and 101 / 3,133. Lane generic-zero (snapshot `-02`, disassembly `141313939`;
+`c04e41079` for the KN6000 / KN6500, `c65a62c5b` for the plug-in;
 `kn6000/notes/siblings-data-final/README.md`, section "generic-zero") took all three to 0. Every
 generic piece had a reader, so none could stay a binary include or be declared opaque:
 
@@ -268,7 +271,9 @@ generic piece had a reader, so none could stay a binary include or be declared o
   `KernelWaitRelease` ... `KernelInitHook`) and turned the sibling generator's last `.byte` escapes
   into instructions.
 
-What the reader-row pieces are, by tree (`kn7000/notes/data-final-probes/reader_rows_stats.py`):
+What the reader-row pieces were after lane generic-zero, by tree
+(`kn7000/notes/data-final-probes/reader_rows_stats.py`; lane callee-walk's figures since are
+[above](#blocks-a-routine-is-handed)):
 
 | tree     | read at a width (n / bytes) | address only taken (n / bytes) | strings (n) | total n | total bytes |
 |----------|-----------------------------|--------------------------------|-------------|---------|-------------|

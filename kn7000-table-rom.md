@@ -94,14 +94,15 @@ three generic gaps then (46,625 bytes), the SP7001 plug-in's GUI data; since 202
 typed too, widget by widget ([SP7001 Plug-in Screens]({{ site.baseurl }}/kn7000-sp7001-plugin/)).
 The census counts table 83 in the same tree as program 942, whose data region reads generic 0 too
 since lane generic-zero ([Program Data Region]({{ site.baseurl }}/kn7000-data-region/#what-is-left-the-census)).
-From the second committed snapshot, `docs/coverage/data-incbin-2026-10-30-02.txt` (the first,
-`-01`, read 179 generic pieces / 3,044 bytes and opaque 4321 / 80,480 for `kn7000-sp7001`):
+From the third committed snapshot, `docs/coverage/data-incbin-2026-10-30-03.txt` (the first, `-01`,
+read 179 generic pieces / 3,044 bytes and opaque 4321 / 80,480 for `kn7000-sp7001`; the second,
+`-02`, generic 0 and opaque 3482 / 62,187):
 
-| tree          | generated     | media           | opaque        | generic entries | generic bytes |
-|---------------|---------------|-----------------|---------------|-----------------|---------------|
-| kn7000-table  | 439 / 299,512 | 159 / 1,316,309 | 0 / 0         | 0               | 0             |
-| kn7000-sp7001 | 526 / 462,454 | 169 / 1,375,301 | 3482 / 62,187 | 0               | 0             |
-| kn7000-b80    | 2 / 4,064,860 | 0 / 0           | 0 / 0         | 0               | 0             |
+| tree          | generated     | from media    | media           | opaque        | generic entries | generic bytes |
+|---------------|---------------|---------------|-----------------|---------------|-----------------|---------------|
+| kn7000-table  | 439 / 299,512 | 439 / 299,512 | 159 / 1,316,309 | 0 / 0         | 0               | 0             |
+| kn7000-sp7001 | 527 / 462,486 | 527 / 462,486 | 169 / 1,375,301 | 3472 / 61,662 | 0               | 0             |
+| kn7000-b80    | 2 / 4,064,860 | 0 / 0         | 0 / 0           | 0 / 0         | 0               | 0             |
 
 (Count / bytes. Table 80's two entries are generated from table 83's assembled image.)
 

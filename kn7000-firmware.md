@@ -302,7 +302,8 @@ the 8,509 GUI widget records ([Menu Map]({{ site.baseurl }}/kn7000-menu-map/)), 
 the built-in style, panel memories, struct arrays and the resource-id trie
 ([Program Data Region]({{ site.baseurl }}/kn7000-data-region/)). The data-incbin census reads
 no generic bytes left in build 941 since lane generic-zero (snapshot `data-incbin-2026-10-30-02`;
-the 177 pieces of 2,948 bytes in `-01` became records and reader rows). The functions read by hand before the bulk conversion keep
+the 177 pieces of 2,948 bytes in `-01` became records and reader rows), and in the current snapshot,
+`data-incbin-2026-10-30-03`, opaque 3449 / 63,392 B. The functions read by hand before the bulk conversion keep
 their notes, among them the task/event and display/object framework clusters, the complete
 Techni-Chord harmony engine and the complete control-panel serial protocol (the
 `PanelTransaction`/ISR/state-machine chain that drove the MAME panel HLE).
