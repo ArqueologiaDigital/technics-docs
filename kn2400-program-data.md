@@ -191,11 +191,13 @@ or be declared opaque:
   (`tab_u8` ... `tab_u32`), address words as `.long Label` / `Label+N`, under a header naming the
   readers: 3 pieces / 109 bytes read at a known width, 380 / 18,475 whose address the code only
   takes, and 48 strings. Among them are the KN7000's 260-way switch descriptors
-  (`data_48409720`, `data_48409740`, ... 32 bytes each, `{u32, u16, u16, pointer, u16 ...}` and
-  the SysEx the pointer names): u8 rows with `.long data_48409720+20`, since the code reaches
-  them only as `mov data_X, d0` (*[INFERENCE]* by the KN7000's `REC_func_484C01F1_Result`).
-  Others, such as `data_48409F34` and `data_4840D9C4`, are u8 and u32 rows whose address the
-  code loads as a base.
+  (at `0x48409720`, `0x48409740`, ... 32 bytes each, `{u32, u16, u16, pointer, u16 ...}` and
+  the SysEx the pointer names): u8 rows then, since the code reaches them only as `mov data_X, d0`
+  (*[INFERENCE]* by the KN7000's `REC_func_484C01F1_Result`). Others, at `0x48409F34` and
+  `0x4840D9C4`, were u8 and u32 rows whose address the code loads as a base. Since lane callee-walk
+  all of these are records of the switches that select them: `func_5016B726_Result_0`,
+  `func_5016B396_Result_0`, `func_5016B396_Result_23` (all `REC_func_5016B726_Result`, 18 bytes)
+  and `func_50186924_Selected_0` (`REC_func_50186924_Selected`, 44 bytes; [below](#blocks-a-routine-is-handed)).
 
 A reader row kept the **reader's** widths, not the callee's layout, until lane callee-walk
 ([above](#blocks-a-routine-is-handed)); the KN7000 profiles' whole extended walk, tried here, typed

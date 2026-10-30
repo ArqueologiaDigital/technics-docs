@@ -259,8 +259,9 @@ generic piece had a reader, so none could stay a binary include or be declared o
   that land in it (`tab_u8` ... `tab_u32`), address words as `.long Label` / `Label+N`, under a
   header naming the readers (counts below). Most are "address only taken": the code loads the
   piece's address into a register or passes it to a routine. On the KN6000, `data_4C1A04AC` is
-  now 2,240 bytes of u8 rows whose address `func_4C055ED9_L43` loads as a base; `data_4C176EA8`
-  is the 16-colour table of `VwUserBitmapProc` (u32 `0x00BBGGRR` rows); empty strings handed to
+  now 2,240 bytes of u8 rows whose address `func_4C055ED9_L43` loads as a base; the table at
+  `0x4C176EA8` is the 16-colour table of `VwUserBitmapProc` (u32 `0x00BBGGRR` rows; since lane
+  callee-walk `DrawBitmapSPFast16_Impl_entry_Le0_Table`, typed from the routine it is passed to); empty strings handed to
   strcpy are `.asciz ""`. The plug-in's are coordinate words (`0x500014` = x `0x14`, y `0x50`)
   passed to the host's drawing routines through `calls (a2)`, and 10 strings.
 - **The kernel's tail.** The two pieces of the code file outside every range (115 + 586 bytes)

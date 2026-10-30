@@ -258,11 +258,14 @@ since each had a reader. In 941:
   `Label+N`, under a header naming the readers. Four are read at a known width (the tail of
   `func_4841493C_Table`, u32; the 33 bytes before `func_4856E588`'s 16-byte records; ...). The rest
   are pieces whose address the code only takes: the RAM-image tables `data_500077A4` (208 bytes,
-  u8 rows), `data_5000102C` / `data_50001120` (u32 rows, *[INFERENCE]* zlib 1.0.4's `cplext` and
-  `cpdext` by their contents, read by `inflate_trees_dynamic` / `inflate_trees_fixed`), the three
+  u8 rows), two u32 tables at `0x5000102C` / `0x50001120` (*[INFERENCE]* zlib 1.0.4's `cplext` and
+  `cpdext` by their contents; since lane callee-walk `huft_build_Table_3` / `huft_build_Table_4`,
+  typed from the reads of `huft_build`, to which `inflate_trees_dynamic` / `inflate_trees_fixed` pass
+  them), the three
   20-byte records `_tr_init` takes (*[INFERENCE]* zlib's `static_*_desc` by their values), the
-  16-colour tables of `VwUserBitmapProc` / `AcMonImageProc` (`data_4859E484` / `data_485EFF04`,
-  `0x00BBGGRR` rows), `SjisMissingGlyph` (32 bytes; since lane media-files a 16 x 16 one-bit PNG,
+  16-colour tables of `VwUserBitmapProc` / `AcMonImageProc` (`0x00BBGGRR` rows at `0x4859E484` /
+  `0x485EFF04`; since lane callee-walk `DrawBitmapSPFast16_Impl_Table` / `_Table_2`, 16 x u32, from
+  the reads of `DrawBitmapSPFast16_Impl`, to which they are passed), `SjisMissingGlyph` (32 bytes; since lane media-files a 16 x 16 one-bit PNG,
   `media/SjisMissingGlyph.png`, column-major, which `DrawString_Impl` draws for an absent Shift-JIS
   code), and `MainTitleControl`'s MILK id pairs.
 - **Strings**: 32 empty strings (`.asciz ""`) handed to strcpy or named only as an address.
