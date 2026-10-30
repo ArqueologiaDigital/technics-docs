@@ -63,7 +63,7 @@ rather than `.incbin` passthrough or code spelled as `.byte`. What is genuinely 
   See
   [LLVM Semantic Instructions]({{ site.baseurl }}/llvm-semantic-instructions/).
 - **Firmware versions with no source tree.** v5 and v6 on the main CPU; v1.40 on the sub-CPU
-  payload; HD-AE5000 v1.10i, v1.15i and v2.01i. (v8 and v1.41 became source-built on 2026-10-24:
+  payload. (HD-AE5000 v2.01i became source-built on 2026-10-24 and v1.15i / v1.10i on 2026-10-30; v8 and v1.41 became source-built on 2026-10-24:
   v8 from the v9 sources with a different version byte, v1.41 as v1.42 plus three recorded
   edits.) v1.40 should be derived from v1.41 the same way.
 - **A C port beyond data.** The C files in the tree are all `__attribute__((packed))` struct

@@ -202,11 +202,10 @@ lost inside it (2 / 94). The same walk did most for the siblings
 ## What is left: the census
 
 The instrument is `scripts/analysis/data_incbin_census.py`
-([ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#the-data-include-census)). Its third
+([ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#the-data-include-census)). Its fourth
 committed snapshot,
-[`docs/coverage/data-incbin-2026-10-30-03.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-03.txt)
-(measured at disassembly `a9b5cf764`, after lanes media-files, code-island and callee-walk merged;
-committed in `d91a7e405`), reads for the four program builds (count / bytes; *from media* is the part
+[`docs/coverage/data-incbin-2026-10-30-04.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-04.txt)
+(measured at `b84f732aa`, committed in `a25c88274`; its rows for these trees are those of `-03`, measured at `a9b5cf764` after lanes media-files, code-island and callee-walk merged), reads for the four program builds (count / bytes; *from media* is the part
 of *generated* made from a PNG or WAV by a committed converter):
 
 | tree             | generated     | from media    | media           | opaque        | generic n | generic bytes |
@@ -221,16 +220,16 @@ two columns.) For comparison: before the work the program tree was 3 generic ent
 bytes; after lane gui-kn7000 6,294 pieces of 793,436 bytes; after kn7000-data-rest 433 pieces of
 17,416 bytes; in the first snapshot (`data-incbin-2026-10-30-01`, after lane kn7000-final) 177
 pieces of 2,948 bytes; since the second (`-02`, at `141313939`, lane generic-zero) none. Generic and
-opaque over the three snapshots:
+opaque over the snapshots (`-04` = `-03` for these trees):
 
-| tree             | generic -01 n / bytes | opaque -01    | generic -02 | opaque -02    | generic -03 | opaque -03    |
+| tree             | generic -01 n / bytes | opaque -01    | generic -02 | opaque -02    | generic -04 | opaque -04    |
 |------------------|-----------------------|---------------|-------------|---------------|-------------|---------------|
 | `kn7000-program` | 177 / 2,948           | 4298 / 82,196 | 0 / 0       | 3459 / 63,917 | 0 / 0       | 3449 / 63,392 |
 | `kn7000-sp7001`  | 179 / 3,044           | 4321 / 80,480 | 0 / 0       | 3482 / 62,187 | 0 / 0       | 3472 / 61,662 |
 | `kn7000-b935`    | 179 / 3,044           | 4309 / 83,003 | 0 / 0       | 3470 / 64,710 | 0 / 0       | 3460 / 64,185 |
 | `kn7000-b893`    | 176 / 2,944           | 4303 / 81,886 | 0 / 0       | 3464 / 63,600 | 0 / 0       | 3454 / 63,075 |
 
-From `-02` to `-03` opaque fell by 10 pieces / 525 bytes in each build: 8 / 507 when the kernel's
+From `-02` to `-03` (and `-04`) opaque fell by 10 pieces / 525 bytes in each build: 8 / 507 when the kernel's
 flash tail became code ([above](#the-kernels-flash-tail)) and 2 / 18 when the callee walk typed them
 ([above](#blocks-a-routine-is-handed)). The generated entry added in each build is `SjisMissingGlyph`'s
 PNG.

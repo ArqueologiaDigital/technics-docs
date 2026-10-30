@@ -1481,6 +1481,8 @@ Separate update procedure for HD-AE5000 expansion.
 - v2.01i (1999-01-15) - Added lyrics display (the installer says "v2.0i"; the ROM's signature says v2.01i)
 - v2.06i (release date unknown) - the version disassembled here
 
+All four are rebuilt byte for byte from source ([HD-AE5000]({{ site.baseurl }}/hdae5000/#four-byte-exact-source-trees)).
+
 See [System Update Discs]({{ site.baseurl }}/system-update-discs/#update-handlers-by-type) (type 6, HD-AE5000).
 
 ### Homebrew Development

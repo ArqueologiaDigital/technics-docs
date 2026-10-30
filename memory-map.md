@@ -779,6 +779,6 @@ Commands 12, 15 and 19 are empty entries ('nothing').
 | v2.01i  | 1999-01-15   | Added lyrics display (the installer calls it "v2.0i"; the ROM signature reads v2.01i) |
 | v2.06i  | unknown      | The version analysed on this page (`hd-ae5000_v2_06i.ic4`)                            |
 
-v1.10i, v1.15i and v2.01i (in the folder labelled "v2.0i") are archived at [archive.org](https://archive.org/details/technics-kn5000-system-update-disks). v2.06i, the version analysed here, is not in that item.
+v1.10i, v1.15i and v2.01i (in the folder labelled "v2.0i") are archived at [archive.org](https://archive.org/details/technics-kn5000-system-update-disks). v2.06i, the version analysed here, is not in that item. All four have byte-exact source trees; what differs between them is on [HD-AE5000]({{ site.baseurl }}/hdae5000/#four-byte-exact-source-trees).
 
 **Reference:** [keysoftservice.ch/hdae5000-e.htm](https://www.keysoftservice.ch/hdae5000-e.htm)

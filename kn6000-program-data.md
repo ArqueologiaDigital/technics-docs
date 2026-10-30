@@ -230,10 +230,9 @@ pieces. The opaque bytes fell too, KN6000 70,137 -> 65,733, KN6500 74,371 -> 69,
 
 ## What is left: the census
 
-The third committed snapshot of `scripts/analysis/data_incbin_census.py`,
-[`docs/coverage/data-incbin-2026-10-30-03.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-03.txt)
-(measured at disassembly `a9b5cf764`, after lanes media-files, code-island and callee-walk merged;
-count / bytes; *from media* is the part of *generated* made from a PNG by a committed converter):
+The fourth committed snapshot of `scripts/analysis/data_incbin_census.py`,
+[`docs/coverage/data-incbin-2026-10-30-04.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-04.txt)
+(measured at `b84f732aa`, committed in `a25c88274`; its rows for these trees are those of `-03`, measured at `a9b5cf764` after lanes media-files, code-island and callee-walk merged; count / bytes; *from media* is the part of *generated* made from a PNG by a committed converter):
 
 | tree     | generated    | from media   | media      | opaque        | generic n | generic bytes | opaque in `-02` |
 |----------|--------------|--------------|------------|---------------|-----------|---------------|-----------------|

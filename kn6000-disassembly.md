@@ -233,7 +233,7 @@ The `.AST` header carries the tag `"I K"` where the KN7000's carries `"J K"`.
   named from the typed data's labels (`labels.sym`, read by `gen_image_s.py`), except a few that
   fall inside typed items.
 - The data still declared opaque (65,733 / 69,967 / 3,103 bytes in the census snapshot
-  `docs/coverage/data-incbin-2026-10-30-03`, where all three trees read generic 0); see
+  `docs/coverage/data-incbin-2026-10-30-04`, as in `-03`, where all three trees read generic 0); see
   [Program Data & GUI]({{ site.baseurl }}/kn6000-program-data/#what-is-left-the-census).
 - The plug-in's entry vectors, and names for its host calls in place of the table offsets.
 - The table ROMs IC13 / IC14 need dumping before any table tree can exist; see the

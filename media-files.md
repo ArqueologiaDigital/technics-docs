@@ -143,11 +143,12 @@ or C initializers; each is now a PNG that a build step turns back into the bytes
 committed lossless converter in class **generated**, with the converter and the file named in its
 marker (`census: generated -- scripts/build/pcm_wav.py, from waveform/wav/P0_W0000_Sine.wav (16-bit)`).
 A column **from media** counts those entries per tree. In snapshot
-[`docs/coverage/data-incbin-2026-10-30-03.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-03.txt)
-(measured at disassembly `a9b5cf764`) the class *opaque pcm* is empty in every tree; in `-02` it held
+[`docs/coverage/data-incbin-2026-10-30-04.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-04.txt)
+(measured at disassembly `b84f732aa`; for these trees the same as `-03`, measured at `a9b5cf764`
+after this lane merged) the class *opaque pcm* is empty in every tree; in `-02` it held
 5,095 items, 70,490,064 bytes:
 
-| tree               | generated (n / bytes) | of them from media | opaque -02 (n / bytes) | opaque -03 |
+| tree               | generated (n / bytes) | of them from media | opaque -02 (n / bytes) | opaque -04 |
 |--------------------|-----------------------|--------------------|------------------------|------------|
 | `kn5000-waveform`  | 1413 / 4,170,480      | 1413 / 4,170,480   | 1413 / 4,170,480       | 0 / 0      |
 | `kn7000-wave`      | 3682 / 66,319,584     | 3682 / 66,319,584  | 3682 / 66,319,584      | 0 / 0      |

@@ -13,9 +13,14 @@ in the same 78 trees. This page shows how the disassembly writes that table, and
 78 top-level objects. The full per-widget maps are generated files in the disassembly repository:
 
 - [`menu-map-v2_06i.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/notes/data-gui-hdae5000-2026-10-29/menu-map-v2_06i.md): v2.06i, 789 objects;
-- [`menu-map-v2_01i.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/notes/data-gui-hdae5000-2026-10-29/menu-map-v2_01i.md): v2.01i, 786 objects.
+- [`menu-map-v2_01i.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/notes/data-gui-hdae5000-2026-10-29/menu-map-v2_01i.md): v2.01i, 786 objects;
+- [`menu-map-v1_15i.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/notes/data-gui-hdae5000-2026-10-29/menu-map-v1_15i.md): v1.15i, 758 objects (since 2026-10-30);
+- [`menu-map-v1_10i.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/notes/data-gui-hdae5000-2026-10-29/menu-map-v1_10i.md): v1.10i, 755 objects.
 
-Both are written by [`scripts/analysis/hdae5000_menu_map.py`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/scripts/analysis/hdae5000_menu_map.py)
+The v1 GUIs have no lyric box, no floppy lyric selector and no file-selection backdrop, and 10 classes instead of 13
+([HD-AE5000 versions]({{ site.baseurl }}/hdae5000/#four-byte-exact-source-trees)).
+
+All four are written by [`scripts/analysis/hdae5000_menu_map.py`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/scripts/analysis/hdae5000_menu_map.py)
 from the source (`make hdae5000-menu-map`). `make gate` runs it with `--check`, so a map that no
 longer matches the source fails the gate. The lane notes that produced all of this are
 [`notes/data-gui-hdae5000-2026-10-29/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/notes/data-gui-hdae5000-2026-10-29/README.md).
@@ -23,7 +28,7 @@ longer matches the source fails the gate. The lane notes that produced all of th
 ## How the source writes the GUI
 
 Each tree writes its GUI in `<tree>/hdae5000_ui_tree.s`
-([v2.06i](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/hdae5000/hdae5000_ui_tree.s), [v2.01i](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/hdae5000_v2_01i/hdae5000_ui_tree.s)): one
+([v2.06i](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/hdae5000/hdae5000_ui_tree.s), [v2.01i](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/hdae5000_v2_01i/hdae5000_ui_tree.s), [v1.15i](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/hdae5000_v1_15i/hdae5000_ui_tree.s), [v1.10i](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/hdae5000_v1_10i/hdae5000_ui_tree.s)): one
 class-macro line per object, nested with `ui_sub` / `ui_endsub`.
 
 ```

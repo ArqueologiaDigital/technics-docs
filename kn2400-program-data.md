@@ -170,14 +170,14 @@ rows before only by being after an address the code loads.
 
 ## What is left: the census
 
-The third committed snapshot,
-[`docs/coverage/data-incbin-2026-10-30-03.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-03.txt)
-(measured at disassembly `a9b5cf764`, after lanes media-files, code-island and callee-walk merged),
+The fourth committed snapshot,
+[`docs/coverage/data-incbin-2026-10-30-04.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-04.txt)
+(measured at `b84f732aa`, committed in `a25c88274`; its rows for these trees are those of `-03`, measured at `a9b5cf764` after lanes media-files, code-island and callee-walk merged),
 reads for `kn2400` (count / bytes): generated 127 / 134,756 (all of it from PNG files), media 5 /
 43,175, opaque 5131 / 196,924, generic 0 pieces, 0 bytes. Before the work the tree held 1,993,350
 generic bytes; after lane sib-kn2400, 590,773; in the first snapshot (`data-incbin-2026-10-30-01`)
 431 pieces, 18,853 bytes, with opaque 5048 / 197,205; in the second (`-02`, at `141313939`, lane
-generic-zero) 0, with opaque 5051 / 196,479. Opaque rose from `-02` to `-03` by 80 pieces / 445
+generic-zero) 0, with opaque 5051 / 196,479. Opaque rose from `-02` to `-03` (`-04` the same) by 80 pieces / 445
 bytes, for the reason given [above](#blocks-a-routine-is-handed).
 
 Lane generic-zero (disassembly `c65a62c5b`; `kn6000/notes/siblings-data-final/README.md`, section

@@ -195,7 +195,7 @@ Main_P00_W000:	.incbin	"build/wav_pcm/main/Main_P00_W000.pcm", 0, 1024	; census:
 ```
 
 The data-incbin census reads 3,682 generated items (66,319,584 bytes), all of them from media, and
-0 opaque and 0 generic for this tree (snapshot `docs/coverage/data-incbin-2026-10-30-03`; until
+0 opaque and 0 generic for this tree (snapshot `docs/coverage/data-incbin-2026-10-30-04`, as in `-03`; until
 `-02` the recordings were `.incbin_range`s of the reference stream, declared `census: opaque -- pcm`).
 The other 789,280 bytes of the 64 MiB are directories, records, alignment and fill, all typed. For
 this format `kn7asm.py` gained the operators `/`, `<<`, `>>`, `|` and `&`.

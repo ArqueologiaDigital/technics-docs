@@ -94,7 +94,7 @@ three generic gaps then (46,625 bytes), the SP7001 plug-in's GUI data; since 202
 typed too, widget by widget ([SP7001 Plug-in Screens]({{ site.baseurl }}/kn7000-sp7001-plugin/)).
 The census counts table 83 in the same tree as program 942, whose data region reads generic 0 too
 since lane generic-zero ([Program Data Region]({{ site.baseurl }}/kn7000-data-region/#what-is-left-the-census)).
-From the third committed snapshot, `docs/coverage/data-incbin-2026-10-30-03.txt` (the first, `-01`,
+From the fourth committed snapshot, `docs/coverage/data-incbin-2026-10-30-04.txt` (whose rows for these trees are `-03`'s; the first, `-01`,
 read 179 generic pieces / 3,044 bytes and opaque 4321 / 80,480 for `kn7000-sp7001`; the second,
 `-02`, generic 0 and opaque 3482 / 62,187):
 
