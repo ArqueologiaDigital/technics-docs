@@ -29,6 +29,11 @@ Since 2026-10-29 `kn6000/` also rebuilds a second image, the factory **custom-da
 KN6000 / KN6500 custom flash IC18 (`kn6000/src/customdata/`, see
 [below](#the-custom-data-bank-ic18)); `make gate-kn6000` runs `verify verify-customdata`.
 
+Since 2026-10-29 the data half of each image is typed source as well: the MILK widget records of
+every screen (with a generated menu map per image), the Music Stylist, the note-conversion
+tables, the factory panel memories, the sound hash tables and the plug-in's own GUI. That is on
+its own page, [KN6000 / KN6500 Program Data & GUI]({{ site.baseurl }}/kn6000-program-data/).
+
 **What is not here: the table ROMs IC13 / IC14.** Both models keep their built-in style and
 sound tables in two 16 Mbit table-data ROMs (KN6000 `QSIGX3C16008` / `QSIGX3C16007`, KN6500
 `C3FBMD000069` / `C3FBMD000068`). They are undumped, and the update floppies do not carry
@@ -90,8 +95,11 @@ The header word at `+0x04` points at the second `XAPR` (`XaprTrailerSignature`, 
 code, and the KN6000 firmware calls `+0x08`, `+0x0C` and `+0x10` through `calls (aN)` once
 the signature checks out. The ten words from `+0x58` to `+0x7C` all point at `0x80`, a bare
 `rets` (`XaprEmptySlot`). The entry vectors' roles are not worked out yet, so they keep
-`func_<ADDR>` names. The plug-in makes no direct call into the KN6000 firmware: its 2,625
-indirect `calls (aN)` go through pointers it loads at run time, not traced yet.
+`func_<ADDR>` names. The plug-in makes no direct call into the KN6000 firmware. Its indirect
+`calls (aN)` go through the KN6000's own block-0 Function table, which it reads through the
+registry (slot `0x100`): that is how it registers 55 classes and 999 widget records of its own
+([the HD-SX6 plug-in]({{ site.baseurl }}/kn6000-program-data/#the-hd-sx6-plug-in)). The calls
+still spell the function-table offset as a number, not as the routine's name.
 
 ## Names
 
@@ -112,7 +120,10 @@ least 8 of them unmasked, and the match unique on both sides. The other labels f
 KN7000 convention: `func_<ADDR>` for an entry no table names, `<name>_entry` for the
 register-save `call` entry behind a named prologue, `<entry>_L<offset>` for a branch target.
 The site's [Firmware Names & Symbols]({{ site.baseurl }}/kn6000-names/) page covers the
-reflection tables themselves.
+reflection tables themselves. The counts above are those of the 2026-10-24 merge. Since then the
+pairing became start-aligned, the name porter carried more names, and each data tree's
+`src/program/data/functions.sym` gives the code the firmware's own names of the procedures its
+MILK function tables list (551 on the KN6000); the `entries` row below counts all of them.
 
 ## How much of each image is code
 
@@ -123,25 +134,31 @@ code halves of the MILK reflection tables are `.long` rows of names; everything 
 `.incbin_range` from `baserom/`, so data is never spelled as instructions. An instruction
 the encoder spells differently becomes a `.byte` escape with the disassembly beside it.
 
-Each generator run writes `notes/conversion-stats.txt` in its folder; at disassembly
-`2319e9b94`:
+Each generator run writes `notes/conversion-stats.txt` in its folder. As committed at disassembly
+`1a0e9e21f` (2026-10-30, unchanged at `39fc875ef`):
 
 | measure                      | KN6000                    | KN6500                    | `XAPR` plug-in          |
 |------------------------------|---------------------------|---------------------------|-------------------------|
 | image bytes                  | 4,160,049                 | 3,675,793                 | 786,432                 |
 | code-range bytes             | 1,544,130                 | 1,546,180                 | 253,526                 |
-| entries                      | 13,146                    | 13,323                    | 990                     |
-| of which named               | 1,804                     | 1,950                     | 128                     |
-| derived `<name>_entry`       | 553                       | 557                       | 20                      |
-| still `func_<ADDR>`          | 10,789                    | 10,816                    | 842                     |
-| bytes emitted as code        | 1,524,300                 | 1,530,172                 | 252,331                 |
-| share of the code ranges     | 98.72%                    | 98.96%                    | 99.53%                  |
-| share of the image           | 36.64%                    | 41.63%                    | 32.09%                  |
-| instructions                 | 572,295                   | 574,135                   | 88,217                  |
-| `.byte` escapes              | 272                       | 285                       | 12                      |
-| local branch labels          | 43,192                    | 43,667                    | 9,198                   |
-| code-range bytes left binary | 19,825 in 300 pieces      | 16,003 in 303 pieces      | 1,162 in 25 pieces      |
+| entries                      | 13,507                    | 13,562                    | 991                     |
+| of which named               | 2,524                     | 2,547                     | 155                     |
+| derived `<name>_entry`       | 683                       | 688                       | 40                      |
+| still `func_<ADDR>`          | 10,300                    | 10,327                    | 796                     |
+| bytes emitted as code        | 1,530,755                 | 1,532,779                 | 252,331                 |
+| share of the code ranges     | 99.13%                    | 99.13%                    | 99.53%                  |
+| share of the image           | 36.80%                    | 41.70%                    | 32.09%                  |
+| instructions                 | 579,401                   | 580,046                   | 88,617                  |
+| `.byte` escapes              | 75                        | 88                        | 12                      |
+| local branch labels          | 49,526                    | 49,599                    | 9,257                   |
+| unreached code decoded       | 13,356                    | 13,382                    | 1,162                   |
+| code-range bytes left binary | 3 in 1 piece              | 3 in 1 piece              | 0                       |
 | reflection tables as `.long` | 21                        | 22                        | 3                       |
+
+At `2319e9b94` (2026-10-24) 19,825 (KN6000) / 16,003 (KN6500) / 1,162 (plug-in) code-range bytes
+were still binary. `gen_image_s.py --decode-gaps` now decodes code that no traced path reaches,
+run by run. The rest of each image is the data region, typed as described on
+[Program Data & GUI]({{ site.baseurl }}/kn6000-program-data/).
 
 ## The custom-data bank (IC18)
 
@@ -176,10 +193,13 @@ The `.AST` header carries the tag `"I K"` where the KN7000's carries `"J K"`.
 - Names: most entries are still `func_<ADDR>`. Routines that differ slightly from their
   KN7000 versions need another method than exact matching, and names from the KN2400's and
   from each other's reflection tables have not been carried across yet.
-- RAM, I/O and data addresses are still numbers in the sources.
-- The program images' data is untyped `.incbin_range`, apart from the reflection tables' code halves (and,
-  in the plug-in, its header and the two `XAPR` signatures).
-- The plug-in's entry vectors and the targets of its indirect calls.
+- RAM and I/O addresses are still numbers in the sources. Data addresses the code uses are
+  named from the typed data's labels (`labels.sym`, read by `gen_image_s.py`), except a few that
+  fall inside typed items.
+- The data still left generic or opaque (18,810 / 18,930 / 266 bytes generic in the census
+  snapshot `docs/coverage/data-incbin-2026-10-30-01`); see
+  [Program Data & GUI]({{ site.baseurl }}/kn6000-program-data/#what-is-left-the-census).
+- The plug-in's entry vectors, and names for its host calls in place of the table offsets.
 - The table ROMs IC13 / IC14 need dumping before any table tree can exist; see the
   [ROM Dumping Roadmap]({{ site.baseurl }}/rom-dumping-roadmap/).
 

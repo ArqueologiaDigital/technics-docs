@@ -188,6 +188,8 @@
       url: /kn6000-roadmap/
     - title: "Disassembly (KN6000, KN6500, HD-SX plug-in)"
       url: /kn6000-disassembly/
+    - title: "Program Data & GUI (KN6000, KN6500, HD-SX6)"
+      url: /kn6000-program-data/
 
 - title: Technics KN5000
   released: 1997

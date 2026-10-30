@@ -1,0 +1,228 @@
+---
+layout: page
+title: "KN6000 / KN6500 Program Data & GUI"
+permalink: /kn6000-program-data/
+---
+
+# KN6000 / KN6500 / HD-SX6: the program data and the screens
+
+Like the KN7000, the SX-KN6000 and SX-KN6500 draw every screen from MILK widget records: **7,145**
+(KN6000 v7.1) and **7,203** (KN6500 v1.3), instances of 449 / 451 self-describing classes. Besides
+the GUI, the program flash carries the built-in Music Stylist (1,000 / 1,080 setups, each pointing
+at a one-touch setting), the accompaniment's note-conversion tables, the factory panel memories, a
+fallback "Technics Rhythms" style and "Technics Pads" bank, twelve demo songs, thirteen bitmaps,
+and on the KN6000 the built-in sound tables. Since 2026-10-29 the disassembly writes all of it as
+typed source. This page summarises how; the [disassembly trees]({{ site.baseurl }}/kn6000-disassembly/)
+page says how the images are rebuilt.
+
+The images use the KN7000 tree's tools, given a profile, not copied
+(`../kn7000/tools/gen_data_s.py --profile kn6000|kn6500|hdsx3`), so the
+[KN7000 Menu Map]({{ site.baseurl }}/kn7000-menu-map/) and
+[Program Data Region]({{ site.baseurl }}/kn7000-data-region/) pages describe the method. The lane
+notes in the disassembly repository are the reference:
+
+- [`kn6000/notes/data-region.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn6000/notes/data-region.md)
+  (lane sib-kn6000: the GUI, the registry, the first typed structures);
+- [`kn6000/notes/siblings-data-final/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn6000/notes/siblings-data-final/README.md)
+  (lane siblings-final: the reader-typed passes, the Music Stylist, the hash tables);
+- [`kn2400/notes/data-region/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn2400/notes/data-region/README.md)
+  and [`hdsx3/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/hdsx3/README.md)
+  (lane sib-kn2400: the HD-SX6 plug-in).
+
+| model  | data region (file)   | CPU            | RAM-init image (ROM -> RAM)          |
+|--------|----------------------|----------------|--------------------------------------|
+| KN6000 | `0x176037..0x3F47EC` | `0x4C176037..` | `0x4C3ED870 -> 0x50000010`, `0x6F7C` |
+| KN6500 | `0x176839..0x37E44C` | `0x4C176839..` | read from its crt0 the same way      |
+
+Each tree's `src/program/data/` holds `data.s` and `data_NN.s` (the region in address order),
+`gui_classes.inc`, `gui_ids.inc`, `gui_code_ids.inc`, `functions.sym`, `labels.sym`, `code_refs.txt`,
+the rhythm and tone macros, and `media/`. `make data-and-code-src` regenerates the data and the
+code alternately until nothing the code reads changes (2 or 3 rounds); `make verify` keeps the image
+byte-identical.
+
+## The MILK object system: the KN5000's registry
+
+`RegisterObjectTable` (KN6000 v7.1 `0x4C01D198`) copies the 16-byte `{class, proc, u16 count, u16
+pad, table}` record to `0x5024BE58 + 16 * slot`. The tables are grouped by **kind**, as in the
+KN5000's NAKA framework, not by block as on the KN7000:
+
+| slots            | kind                                   | registered by      |
+|------------------|----------------------------------------|--------------------|
+| `0x000 + V`      | Viewable (one per screen group)        | InitializeUserNN   |
+| `0x100 + N`      | Function                               | InitializeUserNN   |
+| `0x120 + N`      | ApFunction                             |                    |
+| `0x140 + N`      | MainFunction                           |                    |
+| `0x160 + N`      | Class                                  |                    |
+| `0x180 + N`      | ResEvent                               |                    |
+| `0x1A0 + N`      | ResMethod                              |                    |
+| `0x1C0`          | SupportClass                           | InitSptClassTable  |
+| `0x1E0`, `0x1F0` | Mode, Title                            | InitModeTitleTable |
+| `0x200 + V`      | ResName, parallel to Viewable V        |                    |
+| `0x300 + N` ...  | the names of the three function tables |                    |
+
+An id is `(slot << 16) | index`, as on the KN7000. Eleven modules register tables
+(`InitializeUser00` .. 18; the others are empty stubs). The class records are the KN7000's and so
+is the aligned field layout, but the type alphabet differs: the older firmware has no `\`, so its
+`]` `^` `_` are the KN7000's `\` `]` `^` (flag, colour, border) and its `m`..`w` the KN7000's
+`l`..`v`. `kn6000/notes/data-region-probes/sigmap.py` pairs the fields of every same-named class of
+KN6000 v7.1 and KN7000 941: 591 pairs, one KN7000 character per KN6000 character. With the
+translation, selfsize and allsize hold for all 449 / 451 classes and every link checks.
+
+The records are written as on the KN7000: one macro per class, links as object names, the tree as
+indentation, X / Y / W / H, `CL_` / `BD_` / `ES_` / `VF_` names from the firmware's own tables,
+`TT_` / `MD_` / `FN_` ids by name. A Viewable table is named `V_<its first root object's ResName>`
+(the KN6000 has no OT blocks). `functions.sym` gives the code the firmware's own name of each
+procedure a MILK Function table lists: 551 names on the KN6000, where `gen_symbols.py` had found
+only 21 of those tables.
+
+## The menu maps
+
+| model  | map                                                                                                                                 | objects | Viewable tables | top-level objects | titles |
+|--------|-------------------------------------------------------------------------------------------------------------------------------------|---------|-----------------|-------------------|--------|
+| KN6000 | [`kn6000/notes/gui-menu-map.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn6000/notes/gui-menu-map.md) | 7145    | 188             | 673               | 241    |
+| KN6500 | [`kn6500/notes/gui-menu-map.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn6500/notes/gui-menu-map.md) | 7203    | 188             | 680               | 241    |
+| HD-SX6 | [`hdsx3/notes/gui-menu-map.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/hdsx3/notes/gui-menu-map.md)   | 999     | 1               | 67                | 3      |
+
+(The figures are each map's own header.) `make -C <tree> gui-map` regenerates a map and
+`make verify-gui-map` checks it; the gates run it.
+
+## What else the program flash holds
+
+| structure                    | KN6000 / KN6500                               | evidence                                                                                                             |
+|------------------------------|-----------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| demo songs (36 zlib streams) | both: 12 songs x record / events / panel bank | the floppy describers type them (song record `0x870` bytes on the KN6000); `.zlib 6` re-compresses byte-exactly      |
+| `TechnicsRhythmsResource`    | `0x4C359AC0` / `0x4C2E5304`                   | IC18's format, one style " 8 Beat 1"; `func_4C0557E9` falls back to it when the table ROM's resource does not check  |
+| bitmap resources (13 / 13)   | both                                          | procedures answering `MT_GetBitmapData` / `Width` / `Height` / `Palette` / `MT_GetBitCount`; indexed PNG             |
+| `ToneRecordDirectory`        | KN6000 `0x4C3E5FD4` (2,475 entries)           | `func_4C07C26A`: record index -> address when no archive is loaded; tone, TABLE-tone and voice records               |
+| `FactoryPanelMemory`         | `0x4C32BE24` / `0x4C2B7668`, 13 banks x 8     | `func_4C03D431` / `func_4C03D5A1` copy it (`0x2D8D0` bytes) and the `.PMT` header to the backup RAM                  |
+| `TechnicsPadsResource`       | `0x4C35FF84` / `0x4C2EB7C8`                   | `TechnicsPadsResourceInit` keeps it and calls `TechnicsPadsResourceParse` when the table flash's copy does not check |
+| JPEG / BMP files             | 3                                             | whole files                                                                                                          |
+
+**The KN6500 does have factory panel memories.** The first notes on these images said the KN6500's
+program flash had no panel banks; that was wrong. `func_4C03D5A1` copies `func_4C03D5A1_Table` (the
+`.PMT` header) and then `0x2D8D0` bytes from `0x4C2B7668` to the backup RAM `0x840007C2` /
+`0x840007D2`, as the KN6000's `func_4C03D431` copies its own. `FactoryPanelMemory`
+(`kn6500_manual.sym`) is now typed: 13 banks x 8 memories, 186,576 bytes (the "Soloist Sounds",
+"PAd", "PZA" ... runs), as `PMR_*` lines ([Panel Memory Records]({{ site.baseurl }}/kn7000-panel-memory/)).
+
+### The Music Stylist setups and their one-touch settings
+
+`StyleRecordTable` is the KN7000's 24-byte `MusicStylistSetup` record, field for field: 1,000 records
+at `0x4C3DF8EC` (KN6000), 1,080 at `0x4C36F724` (KN6500). The KN6000's field readers:
+
+| field            | reader                                                                                          |
+|------------------|-------------------------------------------------------------------------------------------------|
+| `+0 panel`       | `func_4C16B6B5_entry_L43` loads it and calls `func_4C04C476`, which hands it to `func_4C04C58C` |
+| `+4 name`        | `MssNameFunc_L121` (`0x4C1637F8`), strncpy 16                                                   |
+| `+8 genre`       | `func_4C1640C8`: `StyleGenreTable` + genre * 8                                                  |
+| `+10 style`      | `func_4C1640C8`: the genre's style list + style * 8                                             |
+| `+12 setup`      | `func_4C1649B6`, `func_4C164AAC`                                                                |
+| `+14 era`        | `func_4C165A19`, `cmp 0xffff, d1`                                                               |
+| `+16 era_pos`    | `func_4C16619A`: `LibDiv32` by 9, page and row                                                  |
+| `+18 letter`     | `func_4C164F3F`: `StyleAlphabetTable` + letter * 8                                              |
+| `+20 letter_pos` | `func_4C164F3F`, `func_4C1655C7`                                                                |
+
+The `panel` record is the one-touch-setting record that the CUSTOM banks also hold, `0x90` bytes
+here (`func_4C04C552`, KN6500 `func_4C04C6C2`, answers `0x90`). `func_4C04C58C` merges it into
+`0x84000036..` through the same triple tables (`func_4C04B9F8_entry_L4f_Table`) that the CUSTOM
+writer `func_4C04B9F8` uses. Each record is typed with the one-touch macros (`PM_PART` x 3,
+`PM_ENTRIES`, `PM_PART`, `PM_RHYTHM`, `PM_SET77`, `PM_FX`, `PM_SET88`, `PM_SET8C`) and labelled
+`StylePanel_<setup name>_<n>`. `PM_RHYTHM` is the new macro: where a CUSTOM setting has its slot, a
+built-in one has the style's 24-bit rhythm id, low byte first. KN6000 999 records (143,856 bytes),
+KN6500 1,080.
+
+### The note-conversion rules
+
+`NoteConvRules` (KN6000 `0x4C3850BC`, KN6500 `0x4C3108F8`) is 128 x 8 bytes, `{is_melody, alt_chord,
+no_third_adj, no_transpose, table}`. Its reader, `func_4C05805C`, is the KN7000's `func_48436229`
+instruction for instruction: it adds `4 + (type - 1) * 12`, or `4 + (type - 1) * 0x90 + (root - 1) *
+12`, then note % 12, and reads a signed byte. The tables are the KN7000's `NoteConvTable` {name;
+s8 deltas}, 492-byte melody and 4,900-byte chord tables: on the KN6000 21 tables, about 50 KB (the
+"chord tables" of the first notes).
+
+### The built-in sound hash tables (KN6000)
+
+The KN6000 v7.1 holds three multiplicative hash tables of the shape of the table flash's 'JK' voice
+archive, with absolute pointers: a `{u16 mult, u16 nbuckets}` descriptor, the buckets, then chains
+of `{u32 next, key, payload}`. The readers are used when no archive is loaded (when `func_4C07B982`
+answers neither 1 nor 2). Each takes `key * mult % nbuckets` (`func_4C09B1EC`), walks the chain
+comparing `+4` and answers the payload:
+
+| descriptor         | address      | buckets | entries x size | key                                                  | reader          |
+|--------------------|--------------|---------|----------------|------------------------------------------------------|-----------------|
+| `ToneKeyHashDesc`  | `0x4C3E8680` | 1,139   | 1,896 x 20     | `MSB << 16 \| LSB << 8 \| program` (`func_4C09ACF3`) | `func_4C09B08C` |
+| `ShortKeyHashDesc` | `0x4C3E9850` | 1,907   | 2,898 x 12     | u16, `byte << 8 \| byte` (`func_4C09B200`)           | `func_4C09B2AE` |
+| `BankKeyHashDesc`  | `0x4C3EC6A0` | 1,139   | 1,375 x 12     | `MSB << 16 \| LSB << 8 \| program` (`func_4C09BCFA`) | `func_4C09BDB2` |
+
+`kn6000/notes/siblings-data-final-probes/hash_chains.py` checks every key against its bucket (0
+misplaced). These 89,196 bytes were the "past the tone directory" region of the first notes. The
+payloads are byte rows; *[INFERENCE]* the tone-key payload's first u16 is a tone-record index, as in the
+KN7000's 'Tone' hash.
+
+## The HD-SX6 plug-in
+
+The expansion board's `XAPR` plug-in ([which board]({{ site.baseurl }}/kn6000-disassembly/#the-xapr-plug-in-hd-sx3-or-hd-sx6))
+makes no direct call into the keyboard. Every host call is
+
+```
+mov (0x979126B4), aN / mov (0x100C, aN), aN / mov (OFF, aN), aM / calls (aM)
+```
+
+`0x979126B4` holds the registry base and `+0x100C` is the table pointer of slot `0x100`, the
+KN6000's block-0 Function table at `0x4C32923C` (422 entries), so OFF / 4 is the function index:
+`0xEC` `RegisterObjectTable`, `0x278` `RegisterTitle`, `0xA8` DrawBox (77 calls), `0x2D8`
+GetClientBox (55), `0x25C` MainFuncCall (34), `0x108` SendEvent (29), 41 offsets in all
+(`kn2400/notes/data-region-probes/plugin_registry.py`). With them the plug-in registers its own
+tables:
+
+| slot  | kind         | count | table        |
+|-------|--------------|-------|--------------|
+| 0x168 | Class        | 55    | `0x978B0740` |
+| 0x077 | Viewable     | 999   | `0x978B1F44` |
+| 0x277 | ResName      | 999   | `0x978B2EE4` |
+| 0x108 | Function     | 52    | `0x97912378` |
+| 0x128 | ApFunction   | 44    | `0x979118EC` |
+| 0x148 | MainFunction | 7     | `0x97912520` |
+| 0x188 | ResEvent     | 47    | `0x9791211C` |
+| 0x1A8 | ResMethod    | 100   | `0x979121E0` |
+
+and the title `0x77` = `TT_HDDEXT`, whose screen is `HDD_MAIN_MENU`. The tables at `0x9791xxxx` are
+in the plug-in's initialised RAM, copied from `0x978B3E84` (`0x26D8` bytes, `func_97800082`). Its 55
+classes use the NAKA alphabet and derive from KN6000 classes, so the generator builds the KN6000's
+model first. Two link checks fail, both in the plug-in's own data: object 11's `next` is its child
+14, and object 137's `next` is the orphan 138. Its three pictures (`BitmapBg001`, `BitmapBg002`,
+`BitmapDirsel`) are 640 x 240, 8 bits, with a 256-entry `0x00BBGGRR` palette.
+
+## What is left: the census
+
+The first committed snapshot of `scripts/analysis/data_incbin_census.py`,
+[`docs/coverage/data-incbin-2026-10-30-01.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-01.txt)
+(count / bytes):
+
+| tree     | generated     | media      | opaque         | generic n | generic bytes |
+|----------|---------------|------------|----------------|-----------|---------------|
+| `kn6000` | 80 / 137,020  | 3 / 28,660 | 3336 / 79,522  | 380       | 18,810        |
+| `kn6500` | 83 / 137,404  | 3 / 28,660 | 3346 / 83,667  | 386       | 18,930        |
+| `hdsx3`  | 3 / 309,200   | 0 / 0      | 101 / 3,133    | 40        | 266           |
+
+Before the work the trees held 2,630,724 (KN6000), 2,140,036 (KN6500) and 533,544 (plug-in) generic
+bytes; after lanes sib-kn6000 and sib-kn2400, 797,489 / 901,823 / 6,623. Every generic piece is
+read by some instruction but not typed. The largest: on the KN6000, 5,207 bytes at
+`0x4C1A04AC` read through `data_4C1A04AC`, 2,535 bytes of 4-byte groups after it, and about 4,000
+bytes of records between strings (*[INFERENCE]* effect parameter tables); the KN6500 has the same
+three. The plug-in's are *[INFERENCE]* u16 coordinate rows beside the file-browser strings.
+
+Opaque means that the reader search found no load, store, base or call argument in the bytes. The
+biggest on these images: records `03 00 00 00 00 00 00 00 f0 c0 05 ff ff ff 04 ...` (3,927 bytes at
+`0x4C398C2B` / `0x4C3244AF`), the tail of a pointed record kind with small 0..13 values (3,888
+bytes), `{0, pointer}` word pairs whose pointers lead into gaps, and on all four MILK siblings a
+1,525-byte high-entropy block followed by the JPEG zig-zag order (*[INFERENCE]* the JPEG decoder
+library's constant tables).
+
+## Open
+
+- The hash tables' payloads past their first field, and the key of the short-key table.
+- The one-touch bytes the macros keep as hex.
+- The code reaches many tables with computed offsets; their bounds come from the labels the code
+  names, so a table can still be split in two.
+- The plug-in's entry vectors' roles.
