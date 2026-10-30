@@ -21,6 +21,11 @@ made the same way on the same day.
     make kn2400          # from the repository root: assemble the image
     make gate-kn2400     # its byte-identity gate, plus the KN2600 check below
 
+Since 2026-10-29 the data half of the image is typed source too: the 7,322 MILK widget records
+with a generated menu map, the Music Stylist setups, the note-conversion tables, the demo songs
+and the built-in style and pads. That is on
+[KN2400 / KN2600 Program Data & GUI]({{ site.baseurl }}/kn2400-program-data/).
+
 ## The reference image is regenerated, not committed
 
 The image is copyrighted and the repository has a public remote, so `kn2400/baserom/` is
@@ -99,6 +104,12 @@ seven more tables, and those names would be wrong: event-name string tables and 
 `DiskMenu` / `SdCardMenu` menu tables, whose pointers lead into data.
 `kn7000/notes/sibling-symbol-probes/whole_image_pairings.py` produces those figures.
 
+**Corrected 2026-10-29: 90 names.** `gen_symbols.py` had paired 90 procedures of the SDFM
+MainFunctions table (slot `0x213`) 21 entries late, because a name that is not an identifier cut
+the name run short. Pairing reflection tables start-aligned fixed them (disassembly `8037f3750`;
+`kn2400/notes/data-region-probes/fn_table_pairing.py`: 2,283 entries agree, 0 disagree). The count
+in the table above is unchanged; 90 of its names moved to the right addresses.
+
 Every other label is generated with the source (`src/labels.inc`): `func_<ADDR>` for an
 entry no table names, `<name>_entry` for the register-save `call` entry behind a named
 prologue (the KN7000 convention: `call` saves the registers itself, so callers enter after
@@ -119,28 +130,34 @@ needs MAME's `unidasm`):
    disassembly beside it: the compiler's non-minimal `call` / `or` forms and the `udf*`
    coprocessor operations.
 
-The generator writes `kn2400/notes/conversion-stats.txt`; at disassembly `2319e9b94`:
+The generator writes `kn2400/notes/conversion-stats.txt`. As committed at disassembly `45884293c`
+(2026-10-30, unchanged at `39fc875ef`):
 
 | measure                      | value                                                            |
 |------------------------------|------------------------------------------------------------------|
-| image                        | 3,761,619 bytes, of which 1,778,511 in the code ranges           |
-| entries                      | 15,797 (2,765 named, 673 derived `<name>_entry`, 12,359 `func_`) |
-| bytes emitted as code        | 1,759,156: 98.91% of the code ranges, 46.77% of the image        |
-| instructions                 | 657,260, plus 389 `.byte` escapes                                |
-| local branch labels          | 54,871                                                           |
-| code-range bytes left binary | 19,350, in 376 `.incbin_range` pieces                            |
+| image                        | 3,761,619 bytes, of which 1,778,507 in the code ranges           |
+| entries                      | 15,824 (3,014 named, 852 derived `<name>_entry`, 11,958 `func_`) |
+| bytes emitted as code        | 1,759,605: 98.94% of the code ranges, 46.78% of the image        |
+| instructions                 | 664,654, plus 93 `.byte` escapes                                 |
+| unreached code decoded       | 18,862 bytes (`--decode-gaps`), plus 35 bytes of `0xFF` fill     |
+| local branch labels          | 60,820                                                           |
+| code-range bytes left binary | 0                                                                |
 
-Most of the code-range bytes left binary are short stretches no traced path enters, such as
-switch cases reached only through RAM-linked jump tables. The data half of the image is not
-typed yet.
+At `2319e9b94` (2026-10-24) 19,350 code-range bytes in 376 pieces were still binary, mostly short
+stretches no traced path enters, such as switch cases reached only through RAM-linked jump tables.
+`gen_image_s.py --decode-gaps` now decodes them: of those pieces, 324 end in a return or jump, 42
+run into the next function's `add -N, sp`, 7 are fill and 2 stop early
+(`kn2400/notes/data-region-probes/code_gap_classes.py`).
 
 ## Open work
 
-- 12,359 entries are still `func_<ADDR>`. Routines that differ slightly from their KN7000
+- 11,958 entries are still `func_<ADDR>`. Routines that differ slightly from their KN7000
   versions need another naming method than exact matching.
 - Reflection tables whose procedures are in the RAM-linked range: `gen_symbols.py` assumes
   one link base, so it pairs none of them.
-- RAM, I/O and data addresses are still numbers in the source.
+- RAM and I/O addresses are still numbers. Since the data is typed, the code names the data
+  addresses it uses by their labels, but not everywhere: the RAM-linked `func_50173F49` still
+  loads `NoteConvRules` as `mov 0x4854b24c, d3`.
 - The 4 MiB half of the IC12/IC13 flash pair at `0x48000000` has never been read; see
   [Memory layout]({{ site.baseurl }}/kn2400-kn2600/#memory-layout).
 - The routine that copies the RAM-linked code to `0x50120000`.

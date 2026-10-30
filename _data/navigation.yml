@@ -56,6 +56,8 @@
       url: /kn2400-kn2600/
     - title: Disassembly
       url: /kn2400-disassembly/
+    - title: Program Data & GUI
+      url: /kn2400-program-data/
 
 - title: Technics KN7000
   released: 2002
