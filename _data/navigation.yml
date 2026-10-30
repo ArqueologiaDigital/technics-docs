@@ -72,6 +72,8 @@
           url: /kn7000-system-update-discs/
         - title: Firmware Images
           url: /kn7000-firmware/
+        - title: "Menu Map (GUI objects)"
+          url: /kn7000-menu-map/
         - title: "Boot ROM (IC18): reset & update system"
           url: /kn7000-boot-rom/
         - title: "Rhythm ROM (IC18): the style data"

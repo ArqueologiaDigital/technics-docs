@@ -11,7 +11,9 @@ is the panel button, on-screen soft button, or menu item that opens it. This is
 the navigation companion to the [Sound Subsystem]({{ site.baseurl }}/kn7000-sound-subsystem/) and
 [Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/) hardware pages — it maps what the player
 touches to the hardware those pages describe. Screen names and paths are from the
-user's manual (2002).
+user's manual (2002). The firmware's own view of the same screens, every widget of every
+block as the program's data defines it, is the generated
+[KN7000 Menu Map]({{ site.baseurl }}/kn7000-menu-map/) (blocks SOUND, SNDRHY, SOUNDEDIT and EFF).
 
 Two ways in dominate: the **panel buttons** (a SOUND-GROUP or effect button,
 often *press &amp; hold* to open its editor) and the **PROGRAM MENUS** hub (which
