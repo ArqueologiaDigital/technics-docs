@@ -139,6 +139,66 @@ and `code_refs.txt` makes the code generator label it); the effect names and fix
 strings ("  0.1   ", "   10 ms") are string arrays; `{u32 key, code address}` runs are dispatch
 tables, with a MILK-id key spelled by its name.
 
+## Blocks a routine is handed
+
+Much of the program data is never read where it is named: the code loads the block's address and
+passes it to a routine (in `a0` / `a1` for a pointer, `d0` / `d1` for a number, the rest in the
+caller's stack frame at +0x10, +0x14, ...; [calling convention]({{ site.baseurl }}/kn7000-firmware/#calling-convention)),
+and that routine reads the fields. Since lane callee-walk (2026-10-30,
+[`kn7000/notes/callee-walk/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/callee-walk/README.md))
+the data sources follow the address into the routine, and into the routines it hands it on to, and
+write the block as a record of what they read: one macro per (routine, argument),
+`REC_<routine>_Arg<slot>`, whose comment names each field's reader, and a header on each block naming
+the routine, its address, the argument and the call that passes it.
+
+The walk already carried a callee's reads through its register parameters into its callers. Three
+things kept such blocks as rows: arguments past the fourth, which go on the stack, were not followed;
+a callee's read at +6 of its argument came back as a read of the fixed address Block+6, so each field
+became a separate `_Var` / `_Table`; and the siblings' walk lost the address on its way to the call.
+`Reader(callee=True)` (profile key `readers_callee`, on the four KN7000 program builds and the four
+siblings) adds:
+
+| rule                | what it follows                                                                                                                                             |
+|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| stack arguments     | a call records each word of its frame holding a data address or a parameter as argument `spN`; the callee's read of `(N + frame, sp)` is parameter `spN`    |
+| named branch labels | `bne DrawString_DrawNow`: a branch to a named label that no `call` and no routine header names stays inside the function                                    |
+| loop steps          | a parameter pointer stepped (`inc a0`, `add 2, a0`) between a label and a branch back to it is stepped by a loop                                            |
+| jump-table cases    | a label nothing branches to after the function's `jmp (aN)` takes the addresses and parameters the dispatch held (*[INFERENCE]*)                            |
+| layouts             | per (function, parameter): every access relative to it, its own and its callees', to a depth of 4 calls, and the calls that pass a fixed data address in it |
+| siblings only       | frame slots (narrowed), address joins and return sets, the KN7000 extended walk's rules, so a switch that selects a record per case reaches the call        |
+
+`tools/gen_data_s.py` then types a block as such a record when the routine reads at least two of its
+fields (or one past +0), and says why when it does not (`arg_why()`): a library routine (`str*`,
+`mem*`, `*printf`), a routine that only stores the pointer (a timer, a registry, a queue), a byte loop,
+or one field at +0. Two records of a kind a whole number of records apart with free bytes between have
+the records between typed too (*[INFERENCE]*). Fields are offset-named (`f12`, `p8`, `x4`) except where
+`tools/data_struct_names.py` knows their use: the kernel's task-creation blocks are micro-ITRON
+`T_CTSK` records {`exinf`, `tskatr`, `task`, `itskpri`, `stksz`} that `cre_tsk` (`0x4C03D0C8`) hands to
+`func_4C03D154`; before, each field was a separate one-word table. Other examples:
+`REC_func_4C03C7EF_ArgA0` (12 bytes, 10 blocks and one 8-byte variant), `REC_func_48401F32_ArgA0`
+(28 bytes, with one record between two passed ones inferred), `REC_func_4844416A_ArgA0` (read at
++3..+5 after an `add 2, a0`).
+
+Reader rows and records, before and after, measured against disassembly `2a7b45be5`
+(`kn7000/notes/callee-walk-probes/callee_walk_stats.py --reasons`; n / bytes):
+
+| build | address-only rows before | after    | all rows before | after      | callee records | inferred records |
+|-------|--------------------------|----------|-----------------|------------|----------------|------------------|
+| 941   | 50 / 1,037               | 39 / 682 | 86 / 1,358      | 88 / 1,055 | 39 / 535       | 1 / 28           |
+| 942   | 52 / 1,133               | 41 / 778 | 88 / 1,454      | 90 / 1,151 | 44 / 635       | 1 / 28           |
+| 935   | 52 / 1,133               | 41 / 778 | 88 / 1,454      | 90 / 1,151 | 40 / 547       | 1 / 28           |
+| 893   | 49 / 1,033               | 39 / 682 | 85 / 1,354      | 88 / 1,055 | 40 / 547       | 1 / 28           |
+
+The row count rises by 2 or 3 while the bytes fall: 13 empty strings handed to `func_48502E9F` (one of
+a switch's set, now followed) are written `.asciz ""` in place of a variable and a table. With the walk
+on, each build types 333 to 335 more bytes of the data region than with it off
+(`callee_off_on.py --profile P`), and 128 bytes typed only with it off are now string rows. In 941 the
+39 address-only blocks left as rows (682 bytes) stay so because the address reaches no call the walk sees (18 / 400 bytes), the
+routine only stores it (14 / 140), it goes to a library routine (5 / 48), or the routine's reads are
+lost inside it (2 / 94). The same walk did most for the siblings
+([KN6000 / KN6500]({{ site.baseurl }}/kn6000-program-data/#blocks-a-routine-is-handed),
+[KN2400]({{ site.baseurl }}/kn2400-program-data/#blocks-a-routine-is-handed)).
+
 ## What is left: the census
 
 The instrument is `scripts/analysis/data_incbin_census.py`
@@ -201,7 +261,7 @@ since each had a reader. In 941:
 
 A reader row keeps the **reader's** widths, not the callee's layout: for a block whose address is
 only passed on, the walk did not follow the argument into the routine that reads it. (Lane
-callee-walk changed that, 2026-10-30.)
+callee-walk changed that: [Blocks a routine is handed](#blocks-a-routine-is-handed).)
 
 ### The kernel's flash tail
 
@@ -276,9 +336,13 @@ in a branch the linear walk enters with no state.
 - Records whose pointer fields point into their own tail want a "record + inline payload"
   representation. (The KN7000's switch descriptors are records since lane generic-zero; the
   KN2400's twins, reached only as a base, are u8 rows with `.long data_X+20`.)
-- Reader rows keep the reader's widths, not the callee's layout: the walk does not carry an argument
-  into the routine it is passed to. Naming zlib's `cplext` / `cpdext` / `static_*_desc` in the
-  symbol files would need the ported 935 / 893 / 942 symbol files regenerated.
+- Blocks the walk cannot follow stay rows: a pointer a routine stores (`SetApTimer` / `KillApTimer`'s
+  message argument, `RegisterObjectTable`, `PutM3Em`'s queue, zlib's `_tr_init`), which whoever loads
+  it back later reads; library copies (memcpy, strcpy, `LibStrlen`); arrays indexed by a loop counter,
+  which the linear walk takes as a constant (`DrawBitmapSPFast16_Impl`'s palette); and loop-stepped
+  records, whose count the walk does not know. Field names past `T_CTSK`'s need each routine read.
+  Naming zlib's `cplext` / `cpdext` / `static_*_desc` in the symbol files would need the ported
+  935 / 893 / 942 symbol files regenerated.
 - ~~`func_487B8E34` is declared `unknown-dump`~~ and ~~`func_4C03B799_Table` (353 x s16) runs on into
   code~~: both settled by lane code-island ([above](#the-kernels-flash-tail)).
 - `func_487B8FB2`, after `KernelInitHook`: code by its bytes, entered by no traced path

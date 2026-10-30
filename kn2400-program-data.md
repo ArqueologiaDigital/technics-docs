@@ -133,6 +133,41 @@ The block names are the KN7000's, less its APSTCNV, VOCALIST and VDOUT, plus two
 own, SP (`SimplePiano`) and HSS. Three record fields name a title that no `RegisterTitle` call
 registers (ids `0x000F000F` and `0x000F0102`); they stay numbers.
 
+## Blocks a routine is handed
+
+Lane callee-walk (2026-10-30,
+[`kn7000/notes/callee-walk/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/callee-walk/README.md))
+follows a block's address into the routine it is passed to, through register and stack arguments
+([calling convention]({{ site.baseurl }}/kn7000-firmware/#calling-convention)); most of the KN2400's
+address-only pieces are handed over on the stack, or parked in the caller's frame and reloaded just
+before the call. With the frame slots, address joins and return sets it shares with the KN6000
+([KN6000 / KN6500]({{ site.baseurl }}/kn6000-program-data/#blocks-a-routine-is-handed)), its switch
+descriptors are records (`func_5016B726_Result`, 18 bytes) and the blocks the routines read are
+`REC_<routine>_Arg<slot>` records. Measured against disassembly `2a7b45be5`
+(`kn7000/notes/callee-walk-probes/callee_walk_stats.py`; n / bytes):
+
+| measure                     | before        | after         |
+|-----------------------------|---------------|---------------|
+| address-only reader rows    | 380 / 18,475  | 123 / 7,849   |
+| read-at-a-width reader rows | 3 / 109       | 51 / 1,833    |
+| all reader rows             | 431 / 18,853  | 221 / 9,949   |
+| callee records              | -             | 30 / 420      |
+| pointed records             | 2406 / 37,688 | 2700 / 42,535 |
+
+The 51 "read" pieces are switch descriptors the code now reads (at +4, s16) whose records did not fit.
+With the walk on the KN2400 types 8,378 more bytes of its data region (`callee_off_on.py`); 8 bytes
+(`TtSdkeyscl_Table` tails and two table pieces) that reader tables held are rows now. The 123
+address-only blocks left are rows because the routine hands the pointer on or stores it and reads no
+field (42 / 5,789 bytes), it goes to a library routine (31 / 496), a routine stores it in a timer,
+registry or queue (27 / 892), the address reaches no call the walk sees (18 / 504), or the routine's
+reads are lost inside it (5 / 168).
+
+**The opaque count rose** (5,051 / 196,479 -> 5,131 / 196,924: +80 pieces, +445 bytes). The switch
+descriptors had been the heads of 32-byte address-only pieces; now that they are records, the 12-byte
+blocks their `p8` field points at are pieces of their own, which no instruction reads, so they are
+declared opaque ("a typed pointer ... holds their address, but nothing is read through it"). They were
+rows before only by being after an address the code loads.
+
 ## What is left: the census
 
 The second committed snapshot,
@@ -159,9 +194,9 @@ or be declared opaque:
   Others, such as `data_48409F34` and `data_4840D9C4`, are u8 and u32 rows whose address the
   code loads as a base.
 
-A reader row keeps the **reader's** widths, not the callee's layout: the walk does not carry a
-register argument into the routine that reads it (the KN7000 profiles' extended walk, tried here,
-typed 78.1% instead of 82.6% and lost bitmaps, so it was not applied). The opaque bytes fell by 726
+A reader row kept the **reader's** widths, not the callee's layout, until lane callee-walk
+([above](#blocks-a-routine-is-handed)); the KN7000 profiles' whole extended walk, tried here, typed
+78.1% instead of 82.6% and lost bitmaps, so only its slots, joins and return sets were applied. The opaque bytes fell by 726
 while the opaque piece count rose by 3: pieces were split at labels the new records and reader rows
 name (not traced one by one). The largest opaque pieces, which no instruction reads:
 
@@ -178,4 +213,5 @@ name (not traced one by one). The largest opaque pieces, which no instruction re
 - The effect-program blocks' format.
 - Who copies the RAM-linked code to `0x50120000`: `func_4870587E` reads `RamCodeTrailer`, but
   what it does with each record's three words was not traced.
-- The reader rows of address-only pieces: their layout is the callee's.
+- The 123 address-only blocks the callee walk leaves as rows, and the 12-byte blocks the switch
+  descriptors' `p8` points at, which nothing reads.

@@ -314,6 +314,29 @@ starts with a register-save prologue (`movm [regs], (sp)` and/or `add -N, sp`) a
 by `call` right after it, so its label sits on the prologue and `<name>_entry` on the `call`
 entry. Naming the `func_` functions and the `loc_` labels is the next step.
 
+### Calling convention
+
+The compiled code of the SX-KN7000 and of the other MILK models (KN6000, KN6500, KN2400, the HD-SX
+plug-in) passes arguments the same way. Lane callee-walk (2026-10-30,
+[`kn7000/notes/callee-walk/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/callee-walk/README.md))
+established it from the code, so that the data typer could follow a block's address into the routine
+it is passed to:
+
+| what                   | where                                                                                            | evidence (program 941)                                                                                                                                                                                                                   |
+|------------------------|--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| pointer arguments 1, 2 | `a0`, `a1`                                                                                       | `DrawString_entry` (`0x48425398`): `mov a1, (0x3c, sp)` "&pen", `mov a0, (0x38, sp)` "&clip rect", with a frame of 0x30: their homes at +8, +12                                                                                          |
+| number arguments 1, 2  | `d0`, `d1`                                                                                       | `DrawString`: `mov d0, d3` font index, `mov d1, d2` fg colour                                                                                                                                                                            |
+| the rest               | the caller's `(N, sp)`, N = 16, 20, 24 ...                                                       | `DrawString` reads its string at `(0x40, sp)` = the caller's `(0x10, sp)`; `SetApTimer` (`0x48429C95`) its fifth argument at `(0x4c, sp)`, frame 0x34 = the caller's `(0x18, sp)`, which `TestDiskFunc` stores with `mov d0, (0x18, sp)` |
+| the callee's frame     | `movm [regs], (sp)` (4 bytes a register) + `add -K, sp`, or the call's `call F_entry, [regs], K` | `SetApTimer`: `movm [d2,d3,a2,a3]` + `add -0x24, sp` = 0x34, the K of `call SetApTimer_entry, [d2,d3,a2,a3], 0x34`; `DrawString_Impl`'s `add -0x188, sp` after its `_entry` label                                                        |
+
+So a word the caller stores at `(N, sp)`, N >= 16, and a read of `(N + frame, sp)` in the callee before
+it writes there are the same parameter. The words below 16 are the return address and the homes the
+callee spills its own `a0` / `a1` to; taking `(8, sp)` for an argument carried a caller's local into
+the HD-SX3's `func_97834719` (measured, then excluded). Return values come back in `a0` (a pointer)
+or `d0` ([`fread_api`]({{ site.baseurl }}/kn7000-sp7001-homebrew/#reading-files-from-the-sd-card)
+returns its count in `d0`, `fopen_api` its FILE in `a0`). How the data typer uses this is on
+[Program Data Region]({{ site.baseurl }}/kn7000-data-region/#blocks-a-routine-is-handed).
+
 ### A second target: the SP7001 firmware
 
 The same repository rebuilds the SP7001 firmware (program 942, table 83) and its

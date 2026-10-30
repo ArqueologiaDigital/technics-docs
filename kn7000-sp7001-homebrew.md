@@ -106,7 +106,8 @@ The `kn7000/` tree of the [`technics-roms-disasm`](https://github.com/Arqueologi
 | `tools/sd_splice.py` | overwrites a same-size file in place on a FAT SD-card image (`C:\TECHNICS\DATA\BASEEXT.XAP`)                                              |
 
 Contract for an add-on module: its first byte is the hook. It gets control exactly as `XapEntry`
-would (arguments in `d0`, `d1`, `a0`, `a1`); it may set itself up, must leave those registers and
+would (arguments in `d0`, `d1`, `a0`, `a1`, the rest on the caller's stack from `(0x10, sp)`:
+[calling convention]({{ site.baseurl }}/kn7000-firmware/#calling-convention)); it may set itself up, must leave those registers and
 the stack as it found them, then run the two displaced instructions (`movm [a2,a3],(sp)`,
 `add -8,sp`) and `jmp 0x5029B005`. The vendor plug-in is never redistributed: the build adds the
 module to the user's own copy, extracted from the SP7001 update disks.

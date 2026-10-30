@@ -193,6 +193,41 @@ model first. Two link checks fail, both in the plug-in's own data: object 11's `
 14, and object 137's `next` is the orphan 138. Its three pictures (`BitmapBg001`, `BitmapBg002`,
 `BitmapDirsel`) are 640 x 240, 8 bits, with a 256-entry `0x00BBGGRR` palette.
 
+## Blocks a routine is handed
+
+Most reader-row pieces were blocks whose address the code only passes to a routine. Since lane
+callee-walk (2026-10-30,
+[`kn7000/notes/callee-walk/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/callee-walk/README.md))
+the walk follows the address into that routine, through register and stack arguments
+([calling convention]({{ site.baseurl }}/kn7000-firmware/#calling-convention)), and the block is
+written as a record of what the routine reads, `REC_<routine>_Arg<slot>`, with a header naming the
+routine, the argument and the call ([KN7000 Program Data Region]({{ site.baseurl }}/kn7000-data-region/#blocks-a-routine-is-handed)).
+The siblings' walk had more to gain: it kept a register at a join only when every path agreed, had no
+return-value rule, and entered a jump table's cases knowing nothing, so a switch that selects a
+descriptor per case (`mov data_X, a1` / `bra Join`) and returns it reached the call as "unknown". It
+now has the KN7000 extended walk's frame slots (narrowed: a slot gives back only a data address, a
+parameter, or NULL into an address register), address joins and return sets, and so the switches'
+descriptors are records too (`func_4C026B6B_Selected` ...).
+
+Measured against disassembly `2a7b45be5` (`kn7000/notes/callee-walk-probes/callee_walk_stats.py`;
+n / bytes; "pointed" counts every record a pointer leads to, the new switch selections included):
+
+| tree     | address-only rows before | after         | all rows before | after         | callee records | pointed before | pointed after |
+|----------|--------------------------|---------------|-----------------|---------------|----------------|----------------|---------------|
+| `kn6000` | 339 / 17,838             | 151 / 11,022  | 378 / 18,109    | 188 / 11,275  | 31 / 696       | 2571 / 42,931  | 2861 / 50,844 |
+| `kn6500` | 345 / 17,958             | 156 / 11,138  | 384 / 18,229    | 193 / 11,391  | 31 / 696       | 2549 / 42,801  | 2839 / 50,714 |
+| `hdsx3`  | 30 / 228                 | 25 / 177      | 40 / 266        | 34 / 211      | 131 / 1,048    | 17 / 19,340    | 155 / 20,444  |
+
+With the walk on, the KN6000 types 15,951 more bytes of its data region (2,408,017 -> 2,423,968), the
+KN6500 15,953 and the plug-in 89 (`callee_off_on.py --profile P`); 29 bytes per keyboard that a reader
+table or a record head held are reader rows now, because a record the new joins find claims a different
+extent. On the KN6000 the 151 address-only blocks left are kept as rows because the routine only stores
+the pointer (69 / 1,028 bytes), hands it to a library routine (52 / 2,015), the address reaches no call
+the walk sees (24 / 7,839), the routine's reads are lost inside it (4 / 112), it hands the pointer on
+(1 / 20), or the record would overlap another item (1 / 8); the KN6500's split is the same within a few
+pieces. The opaque bytes fell too, KN6000 70,137 -> 65,733, KN6500 74,371 -> 69,967, plug-in 3,133 ->
+3,103: bytes declared unread were records' tails.
+
 ## What is left: the census
 
 The second committed snapshot of `scripts/analysis/data_incbin_census.py`,
@@ -241,9 +276,9 @@ What the reader-row pieces are, by tree (`kn7000/notes/data-final-probes/reader_
 | `kn6500` | 5 / 129                     | 345 / 17,958                   | 34          | 384     | 18,229      |
 | `hdsx3`  | 0 / 0                       | 30 / 228                       | 10          | 40      | 266         |
 
-A reader row keeps the **reader's** widths, not the callee's layout: the walk does not carry a
-register argument into the routine that reads it, so what lies past the read fields is
-*[INFERENCE]* (open).
+A reader row kept the **reader's** widths, not the callee's layout, because the walk did not carry
+an argument into the routine that reads it; lane callee-walk changed that
+([above](#blocks-a-routine-is-handed)), and the rows left say why in their headers.
 
 Opaque means that the reader search found no load, store, base or call argument in the bytes. The
 biggest on these images: records `03 00 00 00 00 00 00 00 f0 c0 05 ff ff ff 04 ...` (3,927 bytes at
@@ -259,7 +294,8 @@ library's constant tables).
 - The code reaches many tables with computed offsets; their bounds come from the labels the code
   names, so a table can still be split in two.
 - The plug-in's entry vectors' roles.
-- The reader rows of address-only pieces keep the reader's widths, not the callee's layout: the
-  walk does not carry a register argument into the routine that reads it. (The KN7000 profiles'
-  extended walk, tried on the KN2400, typed less and was not applied.)
+- Blocks the callee walk cannot follow: a pointer a routine stores (a timer, a registry, a queue),
+  library copies, arrays indexed by a loop counter. The siblings' walk has the KN7000 extended walk's
+  slots, joins and return sets, not its other rules (pointer-from-a-field returns, loop bodies keeping
+  slots, bounds); the whole extended walk, tried on the KN2400, typed less.
 - *[INFERENCE]* What the kernel's hash keys, RAM layout words and u16 parameters mean.

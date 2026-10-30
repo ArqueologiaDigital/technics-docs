@@ -365,10 +365,15 @@ search that found nothing (first snapshot to second):
 Left open then, and settled on 2026-10-30: the KN7000's `func_487B8E34` (301 B declared
 `unknown-dump`) and `func_4C03B799_Table` ("353 x s16") were the MILK kernel's flash-resident code,
 which the generator now emits as code (lane code-island:
-[KN7000 Firmware Images]({{ site.baseurl }}/kn7000-firmware/#the-kernels-flash-tail)). Still left
-open after it: the reader walk did not follow an argument into the callee, so the reader-row blocks
-kept the reader's widths rather than the callee's layout (lane callee-walk, below). The census
-measures binary includes, not names: a reader row is typed by width, not yet by meaning.
+[KN7000 Firmware Images]({{ site.baseurl }}/kn7000-firmware/#the-kernels-flash-tail)). The other
+item left open, that the reader walk did not follow an argument into the callee, so the reader-row
+blocks kept the reader's widths rather than the callee's layout, is lane callee-walk's: the walk now
+follows a block's address into the routine it is passed to, through register and stack arguments,
+and writes the block as a record of what that routine reads (`REC_<routine>_Arg<slot>`). The KN6000's
+address-only reader rows fell from 339 pieces / 17,838 bytes to 151 / 11,022, the KN2400's from 380 /
+18,475 to 123 / 7,849, build 941's from 50 / 1,037 to 39 / 682
+([KN7000 Program Data Region]({{ site.baseurl }}/kn7000-data-region/#blocks-a-routine-is-handed)).
+The census measures binary includes, not names: a reader row is typed by width, not yet by meaning.
 
 What those pieces became, and what is left opaque, model by model, is on
 [KN7000 Program Data Region]({{ site.baseurl }}/kn7000-data-region/#what-is-left-the-census),
