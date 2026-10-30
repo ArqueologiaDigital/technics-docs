@@ -228,7 +228,10 @@ generic piece had a reader, so none could stay a binary include or be declared o
 - **The kernel's tail.** The two pieces of the code file outside every range (115 + 586 bytes)
   are typed: `FirmwareVersionByte`, the kernel's version string, `KernelServiceHash`,
   `KernelRamLayout`, `KernelParams`, and the kernel's two interrupt dispatchers as code (see
-  [KN6000 / KN6500 / HD-SX Disassembly]({{ site.baseurl }}/kn6000-disassembly/)).
+  [KN6000 / KN6500 / HD-SX Disassembly]({{ site.baseurl }}/kn6000-disassembly/)). Lane code-island
+  (2026-10-30) named the kernel routines beside them after the KN7000's flash tail (`KernelInit`,
+  `KernelWaitRelease` ... `KernelInitHook`) and turned the sibling generator's last `.byte` escapes
+  into instructions.
 
 What the reader-row pieces are, by tree (`kn7000/notes/data-final-probes/reader_rows_stats.py`):
 

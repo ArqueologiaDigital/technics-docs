@@ -59,28 +59,47 @@ programs: `sfx_extract.py` reads the ZIP archive appended to each self-extractin
 The KN6000 and KN6500 images have the same layout. The whole image is linked for
 `0x4C000000`, the window the firmware runs its program from:
 
-| KN6000 file offsets   | KN6500 file offsets   | contents                                                                                                                                             |
-|-----------------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `0x000000`-`0x000010` | `0x000000`-`0x000010` | boot header: `_reset` (jmp to `crt0_start`), 5 nops, `_vector_08`, 3 bytes, the last `FirmwareVersionByte` (`0x71` / `0x13`)                         |
-| `0x000010`-`0x000080` | `0x000010`-`0x000080` | erased (`0xFF`)                                                                                                                                      |
-| `0x000080`-`0x176037` | `0x000080`-`0x176839` | code: start-up, the application, the C runtime                                                                                                       |
-| `0x176037`-`0x3F47EC` | `0x176839`-`0x37E44C` | data                                                                                                                                                 |
-| `0x3F47EC`-`0x3F77E7` | `0x37E44C`-`0x381447` | code: the MILK kernel (uITRON services `del_mbx` ... `dly_tsk`)                                                                                      |
-| `0x3F77E7`-`0x3F78B4` | `0x381447`-`0x381514` | typed data: the `MILK MN10300 Ver1.0R1` banner (`Str_MILK_MN10300_Ver1_0R1`), `KernelServiceHash`, `KernelRamLayout`, `KernelParams`                 |
-| `0x3F78B4`-`0x3F7A31` | `0x381514`-`0x381691` | code: `KernelStartStub` and the kernel's interrupt dispatchers `KernelGroup0IntDispatch`, `KernelIntDispatch` (a code range since lane generic-zero) |
+| KN6000 file offsets   | KN6500 file offsets   | contents                                                                                                                                                                |
+|-----------------------|-----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x000000`-`0x000010` | `0x000000`-`0x000010` | boot header: `_reset` (jmp to `crt0_start`), 5 nops, `_vector_08`, 3 bytes, the last `FirmwareVersionByte` (`0x71` / `0x13`)                                            |
+| `0x000010`-`0x000080` | `0x000010`-`0x000080` | erased (`0xFF`)                                                                                                                                                         |
+| `0x000080`-`0x176037` | `0x000080`-`0x176839` | code: start-up, the application, the C runtime                                                                                                                          |
+| `0x176037`-`0x3F47EC` | `0x176839`-`0x37E44C` | data                                                                                                                                                                    |
+| `0x3F47EC`-`0x3F77E7` | `0x37E44C`-`0x381447` | code: the MILK kernel (uITRON services `del_mbx` ... `dly_tsk`), ending in its flash-resident routines `KernelInit` ... `KernelInitHook` (names since lane code-island) |
+| `0x3F77E7`-`0x3F78B4` | `0x381447`-`0x381514` | typed data: the `MILK MN10300 Ver1.0R1` banner (`Str_MILK_MN10300_Ver1_0R1`), `KernelServiceHash`, `KernelRamLayout`, `KernelParams`                                    |
+| `0x3F78B4`-`0x3F7A31` | `0x381514`-`0x381691` | code: `KernelStartStub` and the kernel's interrupt dispatchers `KernelGroup0IntDispatch`, `KernelIntDispatch` (a code range since lane generic-zero)                    |
 
 The code ranges are the ones the sources were generated with (each Makefile's `CODE`). Their
 ends are where the reached code stops: past them, no traced path enters and no named entry lies.
 The two pieces of the code file outside every code range (115 + 586 bytes) were the last
 `.incbin_range`s there; lane generic-zero (disassembly `c04e41079`) typed them through the
 Makefile's `TYPED` and named them in `<model>_manual.sym`, each with the code that reads it:
-`func_4C07B3D7` / `func_4C07B56B` answer `FirmwareVersionByte`; `func_4C3F7632` / `func_4C381292`
-probe `KernelServiceHash` (16 x {u32 key, handler}) by `(key & 0xF) * 8` and `jmp` through `+4`;
+`func_4C07B3D7` / `func_4C07B56B` answer `FirmwareVersionByte`; `KernelWaitRelease` (`0x4C3F7632` /
+`0x4C381292`, formerly `func_4C3F7632` / `func_4C381292`)
+probes `KernelServiceHash` (16 x {u32 key, handler}) by `(key & 0xF) * 8` and `jmp`s through `+4`;
 `func_4C3F61BB` and three more kernel routines read `KernelRamLayout` (6 RAM addresses), `get_tid`
 and two more `KernelParams` (14 u16; KN6000 names). The two dispatchers are reached only through the `jmp KernelIntDispatch` that
-`func_4C000350` writes at `0x90000000`; they are decoded now, with the five `movm` of the `other3`
-register group as `.byte` escapes. *[INFERENCE]* on what the hash keys, the RAM words and the u16
+`func_4C000350` writes at `0x90000000`; they are decoded now. Their five `movm` of the `other3`
+register group were `.byte` escapes until lane code-island taught `gen_image_s.py` movm's `other*`
+registers, the long encodings the linker left (`call T:32`, `mov 0x30:32, d0`) and the `(d32, aN)`
+loads unidasm swaps: the KN6000's 80, the KN6500's 93, the KN2400's 93 and the plug-in's 12
+escaped instructions are instructions now, and no code range holds a `.byte` run. *[INFERENCE]* on what the hash keys, the RAM words and the u16
 parameters mean.
+
+The kernel routines that sit beside these tables are the same code the SX-KN7000 runs from its
+flash, and they take its names (`kn6000_manual.sym`, `kn6500_manual.sym`, `kn2400_manual.sym`,
+section "the MILK kernel's tail routines"; lane code-island,
+[`kn7000/notes/code-island/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/code-island/README.md)):
+
+| model  | `KernelInit` | `KernelWaitRelease` | hooks (`KernelErrorHook`, `KernelErrorHook2`, `KernelWaitAbortHook`) | `KernelStart` | `KernelInitHook` | calls of the hooks |
+|--------|--------------|---------------------|----------------------------------------------------------------------|---------------|------------------|--------------------|
+| KN7000 | `0x487B8B78` | `0x487B8E2F`        | `0x487B8F9B`, `0x487B8F9E`, `0x487B8FA1`                             | `0x487B8FA4`  | `0x487B8FAF`     | 26, 3, 1           |
+| KN6000 | `0x4C3F7383` | `0x4C3F7632`        | `0x4C3F778A`, `0x4C3F778D`, `0x4C3F7790`                             | `0x4C3F7793`  | `0x4C3F779E`     | 27, 2, 2           |
+| KN6500 | `0x4C380FE3` | `0x4C381292`        | `0x4C3813EA`, `0x4C3813ED`, `0x4C3813F0`                             | `0x4C3813F3`  | `0x4C3813FE`     | 27, 2, 2           |
+| KN2400 | `0x48728165` | `0x4872841C`        | `0x48728588`, `0x4872858B`, `0x4872858E`                             | `0x48728591`  | `0x4872859C`     | 25, 3, 1           |
+
+The names are *[INFERENCE]* from what the code does ([Firmware Images]({{ site.baseurl }}/kn7000-firmware/#the-kernels-flash-tail)).
+The routine after `KernelInitHook` (KN6000) is unreached, like the KN7000's `func_487B8FB2`.
 
 ## The XAPR plug-in (HD-SX3 or HD-SX6)
 

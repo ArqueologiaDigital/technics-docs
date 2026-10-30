@@ -52,6 +52,17 @@ Viewable tables, 35 OT blocks, 278 titles and 23 modes; `milk_model --check`: 0 
   record was not traced. (Corrected by lane generic-zero, disassembly `c65a62c5b`: the notes, and
   this page, had said nothing reads it.)
 
+- **The MILK kernel's tables and routines** (lane code-island, 2026-10-30,
+  [`kn7000/notes/code-island/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/code-island/README.md)):
+  the data region holds the three tables the kernel reads, named as on the KN6000 and KN7000 in
+  `kn2400_manual.sym`: `KernelServiceHash` (`0x485E41C4`, 16 x {u32 key, code pointer}),
+  `KernelRamLayout` (`0x485E4244`, 6 RAM addresses) and `KernelParams` (`0x485E425C`, 14 u16). The code
+  that reads them is the KN7000's flash tail, under the same names: `KernelInit` (`0x48728165`),
+  `KernelWaitRelease` (`0x4872841C`), the hooks `KernelErrorHook` / `KernelErrorHook2` /
+  `KernelWaitAbortHook`, `KernelStart` (`0x48728591`) and `KernelInitHook` (`0x4872859C`); names
+  *[INFERENCE]* from what the code does
+  ([KN7000 Firmware Images]({{ site.baseurl }}/kn7000-firmware/#the-kernels-flash-tail)).
+
 ## Typed from its readers (lane siblings-final)
 
 **The Music Stylist.** `StyleRecordTable` (720 records at `0x48571564`) and `StyleRecordTableAlt`

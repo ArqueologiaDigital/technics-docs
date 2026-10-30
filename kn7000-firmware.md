@@ -74,14 +74,58 @@ test at `0x4849FF0C` saves, tests and puts back the 8 bytes from `0x4C03FFF0`, a
 in work RAM (`.bss` from `0x50007F40` in 893). A program of one's own can use the tail
 ([Work RAM Map]({{ site.baseurl }}/kn7000-work-ram/#ram-a-program-of-ones-own-can-use)).
 
+### The kernel's flash tail
+
+A small part of the MILK kernel is not copied: 1,317 bytes right before the library image, run
+from the flash at their flash address. They hold the kernel's version string, its service table,
+the RAM layout and parameter words it reads, and 1,113 bytes of code. Until 2026-10-30 the
+disassembly took that code for data, because it sits between the data region and the copied image;
+`kn7000/tools/gen_program_s.py` now finds it by following every call and jump of the converted
+code that lands in the data region (`TAIL_CODE`, `find_tail_code()`), writes it as
+`src/<build>/program/tail_code.s` and ends the data region where it starts (`tail_code.txt`, read by
+`gen_data_s.py`). Program 941 (lane code-island,
+[`kn7000/notes/code-island/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/code-island/README.md)):
+
+| CPU (941)    | bytes | name                        | what it is                                                                                                                             |
+|--------------|-------|-----------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| `0x487B8AAC` | 24    | `Str_MILK_MN10300_Ver1_0R1` | the kernel's version string and two 0xFF pad bytes                                                                                     |
+| `0x487B8AC4` | 128   | `KernelServiceHash`         | 16 x {u32 key, case address}: `KernelWaitRelease` probes it by `(key & 0xF) * 8` and jumps through `+4`; typed `REC_KernelServiceHash` |
+| `0x487B8B44` | 24    | `KernelRamLayout`           | 6 RAM addresses; +0x14 is `KernelStart`'s stack pointer                                                                                |
+| `0x487B8B5C` | 28    | `KernelParams`              | 14 u16 = 10, 20, 20, 20, 10, 10, 10, 10, 10, 10, 20, 10, 30, 0; read at +0 (`get_tid`), +0x10, +0x12 and +0x16                         |
+| `0x487B8B78` | 695   | `KernelInit`                | `KernelStart`'s `jmp` target: fills the kernel's RAM tables, creates the task `func_4C03B514`, calls `KernelInitHook`                  |
+| `0x487B8E2F` | 364   | `KernelWaitRelease`         | a `movm` + `add -0x10, sp` prologue, then `KernelWaitRelease_entry`; the 11 cases `KernelServiceHash` points at are its labels         |
+| `0x487B8F9B` | 3     | `KernelErrorHook`           | `retf 0, 0`; 26 calls, each before a service returns an error (d0 = function code, d1 = a uITRON error code)                           |
+| `0x487B8F9E` | 3     | `KernelErrorHook2`          | `retf 0, 0`; 3 calls, the same arguments                                                                                               |
+| `0x487B8FA1` | 3     | `KernelWaitAbortHook`       | `retf 0, 0`; `func_4C03B514` calls it with a0 = the task's control block, d0 = -0x55 (E_TMOUT)                                         |
+| `0x487B8FA4` | 11    | `KernelStart`               | `mov (KernelRamLayout+20), a3 / mov a3, sp / jmp KernelInit`; jumped to from the reset code and from `func_4C03DD98`                   |
+| `0x487B8FAF` | 3     | `KernelInitHook`            | `ret 0, 0`, called by `KernelInit`                                                                                                     |
+| `0x487B8FB2` | 31    | `func_487B8FB2`             | no traced path enters it; it decodes as code ending in `rets` (*[INFERENCE]* an interrupt entry written to a vector at run time)       |
+
+The routine names are *[INFERENCE]* from what the code does; the table names are the KN6000's. The
+block sits at the same distance from the library image in every build, so the tail code starts at
+`LIB_FILE_BASE - 0x459`:
+
+| build        | library image (file) | tail code (file)       | `KernelInit` | `KernelWaitRelease` | `KernelStart` |
+|--------------|----------------------|------------------------|--------------|---------------------|---------------|
+| 941 (v1.6)   | `0x3B8FD1`           | `0x3B8B78`..`0x3B8FD1` | `0x487B8B78` | `0x487B8E2F`        | `0x487B8FA4`  |
+| 942 (SP7001) | `0x3BA785`           | `0x3BA32C`..`0x3BA785` | `0x487BA32C` | `0x487BA5E3`        | `0x487BA758`  |
+| 935 (v1.5)   | `0x3B8F6D`           | `0x3B8B14`..`0x3B8F6D` | `0x487B8B14` | `0x487B8DCB`        | `0x487B8F40`  |
+| 893 (v1.3)   | `0x3B76B1`           | `0x3B7258`..`0x3B76B1` | `0x487B7258` | `0x487B750F`        | `0x487B7684`  |
+
+The KN6000, KN6500 and KN2400 keep the same routines, under the same names
+([KN6000 / KN6500 / HD-SX Disassembly]({{ site.baseurl }}/kn6000-disassembly/#the-two-program-images)).
+`func_487B8E34`, which the data region used to declare as 301 opaque bytes, was the address of
+`KernelWaitRelease_entry`; `func_4C03B799_Table`, "353 x s16", is 3 x s16 ([Program Data Region]({{ site.baseurl }}/kn7000-data-region/#the-kernels-flash-tail)).
+
 ### Region map
 
-| Range                     | Contents                                                                                                                                                                                                                                                        |
-|---------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `0x000080` – ~`0x186000`  | Main firmware code (region 1)                                                                                                                                                                                                                                   |
-| ~`0x185DC0` – `0x186208`  | `float64` decibel-ratio table (137 IEEE-754 doubles, e.g. `1.25892544` = 10^0.1)                                                                                                                                                                                |
-| ~`0x186208` – ~`0x3B8000` | Data / resources: multi-language UI text, FAT boot template, flash-chip ID strings, RGB palettes, fonts, GUI resource tables, 8 JPEGs, two Windows `.BMP` images; typed source since 2026-10-29 ([Program Data Region]({{ site.baseurl }}/kn7000-data-region/)) |
-| ~`0x3B8000` – `0x3F6F01`  | Code region 2: the `MILK MN10300` kernel + zlib 1.0.4                                                                                                                                                                                                           |
+| Range                    | Contents                                                                                                                                                                                                                                                                                                                                |
+|--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x000080` – ~`0x186000` | Main firmware code (region 1)                                                                                                                                                                                                                                                                                                           |
+| ~`0x185DC0` – `0x186208` | `float64` decibel-ratio table (137 IEEE-754 doubles, e.g. `1.25892544` = 10^0.1)                                                                                                                                                                                                                                                        |
+| ~`0x186208` – `0x3B8B78` | Data / resources: multi-language UI text, FAT boot template, flash-chip ID strings, RGB palettes, fonts, GUI resource tables, 8 JPEGs, two Windows `.BMP` images; typed source since 2026-10-29 ([Program Data Region]({{ site.baseurl }}/kn7000-data-region/)); it ends in the kernel's flash-resident tables, `0x3B8AAC` – `0x3B8B78` |
+| `0x3B8B78` – `0x3B8FD1`  | The MILK kernel's flash tail: 1,113 bytes of code run from the flash, `KernelInit` .. `func_487B8FB2` ([below](#the-kernels-flash-tail))                                                                                                                                                                                                |
+| `0x3B8FD1` – `0x3F6F01`  | Code region 2: the library image the boot copies to `0x4C000000`, the `MILK MN10300` kernel + zlib 1.0.4 and the C runtime                                                                                                                                                                                                              |
 
 ### Version numbers
 
