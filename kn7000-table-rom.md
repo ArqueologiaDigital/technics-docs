@@ -184,18 +184,18 @@ records configure is still open.
 `src/sp7001/internal_voice_archive.s`). It holds no passthrough. All its pointers are u32 offsets
 from the archive's first byte.
 
-| item                     | count                          | reader                                          |
-|--------------------------|--------------------------------|-------------------------------------------------|
-| header, descriptor       | 0x20 + 0x54 bytes              | `VoiceArchiveScanBoot`                          |
-| hash tables              | 8 tables, 11,357 chain entries | the tone-key and voice lookups                  |
-| tone directory, records  | 1,293 (+ 'Initial')            | `TgPartProgramApply`, `TgNoteOn`                |
-| table tones              | 52 x 0x1A7                     | `TgNoteOnTableTone`                             |
-| voice directory, records | 1,617 (+ default)              | `VoiceRecFetchBanked`, `VoiceSubRecFetch`       |
-| parameter records        | 864 x 0x10                     | `TgVoiceRoutePtrCalc`, `TgPitchZoneFold`        |
-| key maps                 | 7 x 128 (one unreferenced)     | `TgVoiceRoutePtrCalc`                           |
-| zone lists, zone array   | 3,753 + 1,462 zones            | `TgVoiceRoutePtrCalc`, `TgVoiceRouteFieldSet`   |
-| element table            | 87 x 0x23                      | `VoiceElemRecFetch`, `TgVoiceZoneVeloResolve`   |
-| 0x2C8-byte named records | 40                             | not traced (the size of a SOUND EDIT record)    |
+| item                     | count                          | reader                                         |
+|--------------------------|--------------------------------|------------------------------------------------|
+| header, descriptor       | 0x20 + 0x54 bytes              | `VoiceArchiveScanBoot`                         |
+| hash tables              | 8 tables, 11,357 chain entries | the tone-key and voice lookups                 |
+| tone directory, records  | 1,293 (+ 'Initial')            | `TgPartProgramApply`, `TgNoteOn`               |
+| table tones              | 52 x 0x1A7                     | `TgNoteOnTableTone`                            |
+| voice directory, records | 1,617 (+ default)              | `VoiceRecFetchBanked`, `VoiceSubRecFetch`      |
+| parameter records        | 864 x 0x10                     | `TgVoiceRoutePtrCalc`, `TgPitchZoneFold`       |
+| key maps                 | 7 x 128 (one unreferenced)     | `TgVoiceRoutePtrCalc`                          |
+| zone lists, zone array   | 3,753 + 1,462 zones            | `TgVoiceRoutePtrCalc`, `TgVoiceRouteFieldSet`  |
+| element table            | 87 x 0x23                      | `VoiceElemRecFetch`, `TgVoiceZoneVeloResolve`  |
+| 0x2C8-byte named records | 40                             | SOUND EDIT records (`voice_record.inc` macros) |
 
 **How a note reaches a recording**, traced through program 941's library:
 
@@ -218,15 +218,23 @@ from the archive's first byte.
 That gives a static cross-check of the wave ROMs: all 5,215 zones name an existing wave directory
 entry. The generator lists any that does not, and none does.
 
-**What is still to name.** About two thirds of the archive's bytes are rows of `.byte`, with their
-offsets in a comment, inside records whose boundaries, names and roles are known but whose fields
-are not traced: the tone heads beyond a few fields, the 0x7A-byte units, the voice sub-records,
-the element rows and the 0x2C8 records. The census counts 0 generic bytes here, but **those fields
-still need naming**.
+**The fields, named from their readers (2026-10-29).** A tone record (a 0x54-byte head and its
+0x7A-byte units) and the first 0x23C bytes of a SOUND EDIT record are one layout:
+`TgPartAuxRecBuild` copies one onto the other. So the archive no longer has macros of its own: its
+tone heads, units, voice sub-records, elements, its 40 0x2C8 records and its 87-row element table
+are spelled with the shared `SOUND_HEAD`, `SOUND_MOD`, `VOICE_HEAD_TAIL`, `VOICE_SUB` and
+`VOICE_ELEM` of `kn7000/src/include/voice_record.inc`, whose field names come from the `Tg*`
+routines that read them: the pitch, amplitude and filter envelopes, key follow, the velocity and
+key fades, the effect sends, the element reference and the velocity splits. Tables 84, 83 and 80
+rebuild byte-identically. What each field is, and which bytes no traced routine reads, is on
+[Panel Memory Records: the sound records]({{ site.baseurl }}/kn7000-panel-memory/#the-sound-records)
+(lane kn67-field-names, `notes/data-semantics-2026-10-29/kn67-field-names.md` in the disassembly
+repository).
 
 ### Still open
 
-- The 'JK' archive's record fields (the largest item left).
+- The 'JK' archive's fields that no traced routine reads (the 0x7A unit's `+0x04`..`+0x06` and
+  others), and which tone generator each zone's side bit selects.
 - 'ZZZJ': what the 220 records select.
 - The USER HP pictures' true box sizes.
 - A few pad, TPAD and TCMP head bytes that no traced code reads.

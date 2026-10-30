@@ -114,8 +114,16 @@ records of `0x8E` bytes, the tone generator's voice-resource unit (`VoiceRecFetc
 built by library `func_4C02A0C4` (KN6000 `func_4C04B9F8`) from four consecutive PANEL MEMORY
 records of the backup SRAM (KN7000: `0x750`-byte records at `0x84000824 + bank*0x3A90 + 0x10 +
 i*0x750`; KN6000: `0x700`-byte records at `0x840007D2 + bank*0x3810 + 0x10 + i*0x700`). Each field is copied as `source & mask`
-through a table of `{source offset, destination offset, mask}` triples; the macros `PM_PART`,
-`PM_ENTRIES`, `PM_STYLE`, `PM_FX` and `PM_PART_TAIL` name each field by its source offset. Two
+through a table of `{source offset, destination offset, mask}` triples. The macros `PM_PART`,
+`PM_ENTRIES`, `PM_STYLE`, `PM_SET77`, `PM_FX`, `PM_SET88`, `PM_SET8C` and `PM_PART_TAIL` name each
+field after the panel parameter that owns its source byte (since 2026-10-29: the sound triple,
+volume, effect depths, drawbars, the style slot, variation and tempo, `r_octave`, the effect ids,
+TECHNI-CHORD, `pad_bank`, ...); a field whose parameter is known but not its meaning is
+`m<id>`. How the names were found is on
+[Panel Memory Records]({{ site.baseurl }}/kn7000-panel-memory/). The built-in Music Stylist
+setups of the KN6000, KN6500 and KN2400 hold the same record, with `PM_RHYTHM` (the style's
+24-bit rhythm id) in place of `PM_STYLE`'s CUSTOM slot
+([KN6000 Program Data]({{ site.baseurl }}/kn6000-program-data/#the-music-stylist-setups-and-their-one-touch-settings)). Two
 observations show what wrote the factory files: all 80 KN6000 settings have part 3 all `0xFF`
 (the v7.1 writer copies part 3, so an earlier one wrote them), and 82 of the KN7000 settings do
 not hold program 941's part tails at `+0x8F`.
@@ -220,11 +228,14 @@ trees).
 
 ## Open questions
 
-- Most panel-memory fields: the map gives each one's source offset in the PANEL MEMORY record, not
-  what that offset holds.
+- The panel-memory fields still named `m<id>` (parameter known, meaning not) or `p<hex>` / `x<hex>`
+  (no parameter record covers the byte); see
+  [Panel Memory Records]({{ site.baseurl }}/kn7000-panel-memory/#what-is-named).
 - The `0x42`-byte dependency records (five kinds) and the `0x2C8` SOUND EDIT records: none in the
   factory sets, so only their strides are known.
-- The voice record's single fields and the custom-sound block's `0x27`-byte header.
+- The voice record's fields that `voice_record.inc` cannot yet name from a reader (`VOICE_SUB`
+  outside its element reference, the element's `+3` / `+4`), and the custom-sound block's
+  `0x27`-byte header.
 - TCMP variation bytes `+0x01`, `+0x02`, `+0x18`, `+0x19`; the style record's two u16BE at
   `+0x70`; the pad record's setting bytes.
 - A reader of the 24-field part set-up, to confirm the field order.

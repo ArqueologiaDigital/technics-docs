@@ -104,6 +104,8 @@
           url: /kn7000-usb-subsystem/
         - title: User Data & Initial Data Disk
           url: /kn7000-initial-data/
+        - title: "Panel Memory Records (KN6000 / KN7000)"
+          url: /kn7000-panel-memory/
         - title: "Custom Style Memory (IC21) & .AST Files"
           url: /kn7000-custom-style-memory/
         - title: Sequencer

@@ -257,11 +257,21 @@ KN7000 program 941 routine (names and addresses in `kn7000/kn7000_manual.sym`, q
   0x501A5800 + n·0x8E0 (`Rec8E0TablePtr`) and the cells in its song memory of 0x4D8 pages at
   0x501AB9A0 (`SongPageStorePtr`).
 - **Part 2** holds the 256-byte cells: flags, prev, next and 251 data bytes.
-- **Events** follow a measured grammar ([INFERENCE]: no KN6000 or KN7000 song reader has been
-  traced): a tick byte before every event; 0x9n + 4, 0xAn + 6, 0xBn + 3, 0xCn + 3, 0xDn + 1,
-  0xEn + 2, 0x8n + 2; 0xF1 + 5, 0xF2 + 6, 0xF3 + 7; 0x85 / 0x86 + 0; 0x81 beat, 0x82 end. All
-  422 track chains parse to their end. Free cells are opaque: they hold bytes left from earlier
-  songs.
+- **Events** were first typed by a measured grammar: a tick byte before every event; 0x9n + 4,
+  0xAn + 6, 0xBn + 3, 0xCn + 3, 0xDn + 1, 0xEn + 2, 0x8n + 2; 0xF1 + 5, 0xF2 + 6, 0xF3 + 7;
+  0x85 / 0x86 + 0; 0x81 beat, 0x82 end. Since 2026-10-29 `kn_sqt.py` uses the firmware's own
+  per-status length table (KN7000 `0x485B9328`, read by `func_4845BC5B`; the player tick steps
+  each track through it). The table agrees with the measured lengths on every status the 27 disks
+  hold, adds 0x84 (bar), 0x8A (PIC), 0xA2 / 0xA3 and 0xF4, and makes 0xB1-0xBF non-events. The
+  macros' parameters are the event layouts: `sq_cc` {part, cc, value}, `sq_a` {part, flags, id
+  big-endian, value}, `sq_note` {key, velocity, u16 duration}. All 422 track chains parse to
+  their end. Free cells are opaque: they hold bytes left from earlier songs.
+- **The song record's tail is an SRAM image.** The firmware reads a song's parameters at song
+  record `+0x120 + (block - 0x84000000)`, so `+0x120` onward mirrors the backup SRAM from
+  `0x84000000`: `+0x140` is the panel memory, and after it comes block `0x52` (46 bytes on the
+  KN6000, 40 on the KN7000), typed in all 605 song records as `PMR_52_46` / `PMR_52_40`. The
+  field names of the `PMR_*` records are on
+  [Panel Memory Records]({{ site.baseurl }}/kn7000-panel-memory/).
 
 ### Custom-data backups (.AST)
 
