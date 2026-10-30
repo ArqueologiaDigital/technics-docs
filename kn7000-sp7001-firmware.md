@@ -155,6 +155,10 @@ The block at `0x483E8000`–`0x483FB59F` (79,264 bytes) is Key Soft Service's re
 | `0x483EF6C8`–`0x483FB59B` | data: field-name strings, widget tables, messages, the activation keystream, two MILK reflection tables |
 | `0x483FB59C`              | the footer, `XAPR` again                                                                                |
 
+Since 2026-10-30 the data half is typed source too: the plug-in's 10 widget classes, its 479
+widgets on 31 screens and the RAM image they live in, with a generated menu map; see
+[SP7001 Plug-in Screens]({{ site.baseurl }}/kn7000-sp7001-plugin/).
+
 Its reflection tables name 35 routines: the UI screens and widgets `Ap_CE_Main`, `Ap_Ce_StartUp`,
 `Ap_Ce_Fd2Sd` (floppy to SD), `Ap_Ce_JukeBox`, `AcKssScreenMenuProc` and others. The
 [activation gate]({{ site.baseurl }}/kn7000-sp7001-activation/) lives here too: `KssPasswordCheck`
