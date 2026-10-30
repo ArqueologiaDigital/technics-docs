@@ -76,12 +76,12 @@ in work RAM (`.bss` from `0x50007F40` in 893). A program of one's own can use th
 
 ### Region map
 
-| Range                     | Contents                                                                                                                                                         |
-|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `0x000080` – ~`0x186000`  | Main firmware code (region 1)                                                                                                                                    |
-| ~`0x185DC0` – `0x186208`  | `float64` decibel-ratio table (137 IEEE-754 doubles, e.g. `1.25892544` = 10^0.1)                                                                                 |
-| ~`0x186208` – ~`0x3B8000` | Data / resources: multi-language UI text, FAT boot template, flash-chip ID strings, RGB palettes, fonts, GUI resource tables, 9 JPEGs, two Windows `.BMP` images |
-| ~`0x3B8000` – `0x3F6F01`  | Code region 2: the `MILK MN10300` kernel + zlib 1.0.4                                                                                                            |
+| Range                     | Contents                                                                                                                                                                                                                                                        |
+|---------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x000080` – ~`0x186000`  | Main firmware code (region 1)                                                                                                                                                                                                                                   |
+| ~`0x185DC0` – `0x186208`  | `float64` decibel-ratio table (137 IEEE-754 doubles, e.g. `1.25892544` = 10^0.1)                                                                                                                                                                                |
+| ~`0x186208` – ~`0x3B8000` | Data / resources: multi-language UI text, FAT boot template, flash-chip ID strings, RGB palettes, fonts, GUI resource tables, 8 JPEGs, two Windows `.BMP` images; typed source since 2026-10-29 ([Program Data Region]({{ site.baseurl }}/kn7000-data-region/)) |
+| ~`0x3B8000` – `0x3F6F01`  | Code region 2: the `MILK MN10300` kernel + zlib 1.0.4                                                                                                                                                                                                           |
 
 ### Version numbers
 
@@ -134,7 +134,7 @@ for the capture route meant to replace hand photography.
 
 ### Embedded images
 
-9 JPEGs plus two genuine Windows `.BMP` files — a 26×46 1bpp treble-clef icon at
+8 JPEGs (at file `0x19E7FC` and `0x336AD0`..`0x35EB2B`; the files of `kn7000/src/program/data/media/`) plus two genuine Windows `.BMP` files — a 26×46 1bpp treble-clef icon at
 `0x19E704` and a 160×100 8bpp photo at `0x345718`. Unlike the KN5000's
 headerless raw 8bpp bitmaps, the KN7000 uses standard file formats for at least
 part of its artwork, and none of the KN5000 bitmap pixel data is reused.
@@ -251,9 +251,13 @@ Since 2026-10-24 every function of code region 1 and of the library image is con
 way (disassembly commits `47737623a` and `d87382628`, merged as `069d6000b`).
 `tools/coverage_score.py` reports all 3,658 function blocks converted, 670,646 instruction
 lines and no `.byte` escape, and counts 44.58% of the image's bytes, 1,853,232 of 4,157,185,
-as real source (it was 3.88% before, with 998 functions converted by hand-picked sets). What
-still passes through as `.incbin_range` is the data region, file `0x186000`-`0x3B8FD1`, apart
-from the typed display palette. The functions read by hand before the bulk conversion keep
+as real source (it was 3.88% before, with 998 functions converted by hand-picked sets). The
+data region, file `0x186000`-`0x3B8FD1`, was still `.incbin_range` then, apart from the typed
+display palette. Since 2026-10-29 it is typed source too, generated from the code that reads it:
+the 8,509 GUI widget records ([Menu Map]({{ site.baseurl }}/kn7000-menu-map/)), the demo songs,
+the built-in style, panel memories, struct arrays and the resource-id trie
+([Program Data Region]({{ site.baseurl }}/kn7000-data-region/)); 2,948 bytes in 177 pieces stay
+generic in build 941. The functions read by hand before the bulk conversion keep
 their notes, among them the task/event and display/object framework clusters, the complete
 Techni-Chord harmony engine and the complete control-panel serial protocol (the
 `PanelTransaction`/ISR/state-machine chain that drove the MAME panel HLE).
