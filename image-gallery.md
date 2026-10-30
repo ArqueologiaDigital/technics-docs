@@ -169,6 +169,39 @@ These images show keyboard split point notes displayed when configuring the keyb
 | ![Ntedt0d]({{ "/assets/images/gallery/BitmapNtedt0d.png" | relative_url }})   | `BitmapNtedt0d.bin`  | 240x127, 8-bit | Note-edit screen grid                 |
 | ![Ntedt0k]({{ "/assets/images/gallery/BitmapNtedt0k.png" | relative_url }})   | `BitmapNtedt0k.bin`  | 16x127, 8-bit  | Note-edit screen vertical piano ruler |
 
+### Sound Edit Screen Bitmaps (1-bit, column by column)
+
+Drawn by the sound-edit screens' static op 03 through `ColorBlit2_LargeCodeBlock`, 1 bpp stored column by column (bit 7 first). The build makes the ROM bytes from these PNGs (`scripts/build/se_bitmaps.py`).
+
+| Image                                                                                                 | Filename                      | Dimensions   | Description                                                              |
+|-------------------------------------------------------------------------------------------------------|-------------------------------|--------------|--------------------------------------------------------------------------|
+| ![SeBitmap_EnvCurve1]({{ "/assets/images/gallery/SeBitmap_EnvCurve1.png" | relative_url }})           | `SeBitmap_EnvCurve1.png`      | 40x40, 1-bit | Envelope curve 1                                                         |
+| ![SeBitmap_EnvCurve2]({{ "/assets/images/gallery/SeBitmap_EnvCurve2.png" | relative_url }})           | `SeBitmap_EnvCurve2.png`      | 40x40, 1-bit | Envelope curve 2                                                         |
+| ![SeBitmap_EnvCurve3]({{ "/assets/images/gallery/SeBitmap_EnvCurve3.png" | relative_url }})           | `SeBitmap_EnvCurve3.png`      | 40x40, 1-bit | Envelope curve 3                                                         |
+| ![SeBitmap_EnvCurve4]({{ "/assets/images/gallery/SeBitmap_EnvCurve4.png" | relative_url }})           | `SeBitmap_EnvCurve4.png`      | 40x40, 1-bit | Envelope curve 4                                                         |
+| ![SeBitmap_EnvCurve5]({{ "/assets/images/gallery/SeBitmap_EnvCurve5.png" | relative_url }})           | `SeBitmap_EnvCurve5.png`      | 40x40, 1-bit | Envelope curve 5                                                         |
+| ![SeBitmap_EnvCurve6]({{ "/assets/images/gallery/SeBitmap_EnvCurve6.png" | relative_url }})           | `SeBitmap_EnvCurve6.png`      | 40x40, 1-bit | Envelope curve 6                                                         |
+| ![SeBitmap_Pattern24x10_1]({{ "/assets/images/gallery/SeBitmap_Pattern24x10_1.png" | relative_url }}) | `SeBitmap_Pattern24x10_1.png` | 24x10, 1-bit | Pattern 1                                                                |
+| ![SeBitmap_Pattern24x10_2]({{ "/assets/images/gallery/SeBitmap_Pattern24x10_2.png" | relative_url }}) | `SeBitmap_Pattern24x10_2.png` | 24x10, 1-bit | Pattern 2                                                                |
+| ![SeBitmap_Pattern24x10_3]({{ "/assets/images/gallery/SeBitmap_Pattern24x10_3.png" | relative_url }}) | `SeBitmap_Pattern24x10_3.png` | 24x10, 1-bit | Pattern 3                                                                |
+| ![SeBitmap_Pattern24x10_4]({{ "/assets/images/gallery/SeBitmap_Pattern24x10_4.png" | relative_url }}) | `SeBitmap_Pattern24x10_4.png` | 24x10, 1-bit | Pattern 4                                                                |
+| ![SeBitmap_Picture40x40]({{ "/assets/images/gallery/SeBitmap_Picture40x40.png" | relative_url }})     | `SeBitmap_Picture40x40.png`   | 40x40, 1-bit | Picture after the part-selector records (its address is that list's end) |
+| ![SeBitmap_RadioOff]({{ "/assets/images/gallery/SeBitmap_RadioOff.png" | relative_url }})             | `SeBitmap_RadioOff.png`       | 16x12, 1-bit | Radio button, off                                                        |
+| ![SeBitmap_RadioOn]({{ "/assets/images/gallery/SeBitmap_RadioOn.png" | relative_url }})               | `SeBitmap_RadioOn.png`        | 16x12, 1-bit | Radio button, on                                                         |
+
+### Pictures in the GUI's Compiled C
+
+Initializers of the GUI's compiled C sources; `scripts/build/c_bitmaps.py` writes the C values from these PNGs before clang runs.
+
+| Image                                                                                                         | Filename                          | Dimensions   | Description                                                 |
+|---------------------------------------------------------------------------------------------------------------|-----------------------------------|--------------|-------------------------------------------------------------|
+| ![WelcomeGlyph_C]({{ "/assets/images/gallery/WelcomeGlyph_C.png" | relative_url }})                           | `WelcomeGlyph_C.png`              | 16x17, 1-bit | Welcome-screen letter C (rows stored bottom-up)             |
+| ![Bitmap_Digit1]({{ "/assets/images/gallery/Bitmap_Digit1.png" | relative_url }})                             | `Bitmap_Digit1.png`               | 16x17, 1-bit | Technichord digit 1                                         |
+| ![Bitmap_DigitD]({{ "/assets/images/gallery/Bitmap_DigitD.png" | relative_url }})                             | `Bitmap_DigitD.png`               | 16x17, 1-bit | Technichord letter D                                        |
+| ![Bitmap_DigitL]({{ "/assets/images/gallery/Bitmap_DigitL.png" | relative_url }})                             | `Bitmap_DigitL.png`               | 48x17, 1-bit | Technichord letter L, three frames                          |
+| ![Bitmap_DigitR]({{ "/assets/images/gallery/Bitmap_DigitR.png" | relative_url }})                             | `Bitmap_DigitR.png`               | 16x17, 1-bit | Technichord letter R                                        |
+| ![UserBitmapCheck_Bitmap24x24]({{ "/assets/images/gallery/UserBitmapCheck_Bitmap24x24.png" | relative_url }}) | `UserBitmapCheck_Bitmap24x24.png` | 24x24, 8-bit | User-bitmap check mark, drawn by `VwUserBitmap_HandlePaint` |
+
 ---
 
 ## HDAE5000 Hard Disk Expansion ROM Images
@@ -232,7 +265,9 @@ Small icon depicting a hard disk with magnetic head, used in UI elements. Its re
 
 ### STORE Button
 
-*42x15, 8-bit indexed color - ROM offset: 0x63464 (CPU: 0x2E3464)* — not yet extracted as an asset.
+![STORE button]({{ "/assets/images/gallery/HDAE5000_Bitmap_Button01.png" | relative_url }})
+
+*42x15, 8-bit indexed color - ROM offset: 0x63464 (CPU: 0x2E3464)* — `hdae5000/images/HDAE5000_Bitmap_Button01.png`, which the build turns into the ROM bytes.
 
 A raised button reading "STORE", provided by `HDAE5000_BitmapButt01` (0x28B527, registered as `BitmapButt01`) with its own greyscale-ramp palette at `0x2E3064`. The disassembly labels the pair `HDAE5000_Palette_Button01` / `HDAE5000_Bitmap_Button01`. Older labels (`HDAE5000_Path_Strings`, `HDAE5000_UI_Icons`) once cut across it, which is why those "strings" read as runs of `)BBBB…`, `BZZZZ…` and repeated brace characters — those are pixel values (0x29, 0x42, 0x5A, 0x7B), not text.
 
