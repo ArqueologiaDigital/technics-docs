@@ -186,12 +186,52 @@ A directory entry is one line of typed fields with symbolic pointers:
 Main_P00_E003:	.word	(Main_P00_R003 - Main_P00) / 2, PFMT | 18<<4 | GRAN_512, (Main_P00_W003 - Main_P00) / 32, 256-2
 ```
 
-A recording is a labelled `.incbin_range` of the git-ignored reference stream, declared
-`census: opaque -- pcm`, named after the lowest entry that plays it; its comment gives the sample
-count, the format and every entry that plays it. The data-incbin census reads 3,682 opaque PCM
-items (66,319,584 bytes) and 0 generic for this tree; the other 789,280 bytes of the 64 MiB are
-directories, records, alignment and fill, all typed. For this format `kn7asm.py` gained the
-operators `/`, `<<`, `>>`, `|` and `&`.
+A recording is a labelled item named after the lowest entry that plays it; its comment gives the
+sample count, the format and every entry that plays it. Since 2026-10-30 (lane media-files) each one
+is a WAV file, and the source `.incbin`s the raw item that `pcm_wav.py` makes from it:
+
+```
+Main_P00_W000:	.incbin	"build/wav_pcm/main/Main_P00_W000.pcm", 0, 1024	; census: generated -- ../scripts/build/pcm_wav.py, from wav/main/Main_P00_W000_Sine.wav: 512 16-bit samples, entry 000
+```
+
+The data-incbin census reads 3,682 generated items (66,319,584 bytes), all of them from media, and
+0 opaque and 0 generic for this tree (snapshot `docs/coverage/data-incbin-2026-10-30-03`; until
+`-02` the recordings were `.incbin_range`s of the reference stream, declared `census: opaque -- pcm`).
+The other 789,280 bytes of the 64 MiB are directories, records, alignment and fill, all typed. For
+this format `kn7asm.py` gained the operators `/`, `<<`, `>>`, `|` and `&`.
+
+## Encoding and the WAV files
+
+`make -C kn7000 wave-wav` writes every recording as a mono WAV file into `kn7000/wav/main/` and
+`kn7000/wav/sub/` (git-ignored: they are the dump's bytes), from the git-ignored reference streams,
+and never overwrites a WAV that is there; `make -C kn7000 verify-wave` builds the four chips from
+them. The committed manifests `src/wave/main_wav.tsv` and `src/wave/sub_wav.tsv` hold one row per
+recording (offsets, bit depth, rate, file name, unity note, loops, comment), no sample data. How to
+play and edit them, for all models, is on [Media Files]({{ site.baseurl }}/media-files/).
+
+| field       | value                                                        | evidence                                                                                                       |
+|-------------|--------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| 16-bit      | two's complement, little-endian (the stream's words)         | `pcm_encoding_probe.py`: s16le has the fewest full-scale jumps in 2,632 of 2,723; the other 91 tie (silence)   |
+| 8-bit       | two's complement, low byte first, two per word               | the same probe: s8 wins in 925 of 959, the rest tie; byte correlation > 0.5 in 917 of 959 (16-bit: 0 of 2,720) |
+| companding  | none found; samples are written as stored (linear)           | not proven: the 8-bit segments have a gain code that the WAV does not apply                                    |
+| sample rate | 44,100 Hz in the header, **nominal**                         | the rate at which the tone generator steps one source sample per output sample (output 44.1 kHz)               |
+| unity note  | `96 + 12 (log2(44100 / 2093.0045) - (E - 9))`                | the pitch law fitted in emulation (kn7000_mame `notes/g13-waves-2026-10-20`, 478 of 556 voices): an inference  |
+| loops       | `smpl` loop = the record's LOOP_START..LOOP_END segment ends | `wave-roms-probes/loop_probe.py`: 945 of 954 marked loops repeat; end written inclusive (end sample - 1)       |
+
+(The probes are `notes/media-files-probes/pcm_encoding_probe.py` and
+`kn7000/notes/wave-roms-probes/loop_probe.py` in the disassembly repository.)
+
+- The WAV `data` chunk of a 16-bit recording is the stream's bytes unchanged; an 8-bit one's is each
+  byte XOR 0x80, because WAV 8-bit PCM is unsigned. `scripts/build/pcm_wav.py verify` round-trips
+  2,251 of 2,251 (MAIN) and 1,431 of 1,431 (SUB).
+- The `smpl` chunk carries the unity note always and the loop where the record marks one: 837
+  recordings (477 MAIN, 360 SUB, counted from the manifests). 90 loops end past their item (an entry
+  can play into the next recording's bytes); the WAV leaves those out and says so in its comment.
+  `Main_P00_W0AF` has no unity note: its entry's P word reads as E = 47 (see `Main_P00_E0AF` above).
+- The unity note leaves out each zone's tuning, which the firmware folds into the pitch it writes,
+  so it is only near.
+- A recording whose audio the KN5000's IC307 also holds gets the IC307 name too
+  (`Main_P00_W000_Sine.wav`): 1,118 of 3,682, from `src/wave/ic307_names.tsv`.
 
 ## Open questions
 
@@ -205,13 +245,16 @@ operators `/`, `<<`, `>>`, `|` and `&`.
 - **The 8-bit gain law.** `2^(-(code&7)/2)` is a fit; the code's high three bits, and the code on
   `REC_END` words, are unexplained. A line-out recording of an 8-bit sound would settle it.
 - **What plays after the loop.** Many recordings carry data past their loop end: a release segment?
-- **Shared recordings with the KN5000.** An emulation note infers that the KN5000's IC307 is the Y
-  half of such a pair. No 1 MiB page of IC307 equals a page of any of the four KN7000 chips
-  (whole-page comparison, 2026-10-29); recordings shared at other offsets have not been searched
-  for. The KN5000's format is on the [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/)
-  page.
+- ~~**Shared recordings with the KN5000.**~~ Settled on 2026-10-30 (lane media-files): the KN5000's
+  IC307 is the Y half of such a pair. No 1 MiB page of IC307 equals a KN7000 page (whole-page
+  comparison, 2026-10-29), but 1,342 of its 1,413 waves occur verbatim in this tone generator pair's
+  Y chips, 1,162 in IC203 and 180 in IC207, none in an X chip, and its parameter records are the odd
+  words of the KN7000 records that play the same recordings
+  ([Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/#ic307-is-half-of-a-pair)).
 
 ## See also
+
+- [Media Files]({{ site.baseurl }}/media-files/): the WAV files, for every model
 
 - [Sound Subsystem]({{ site.baseurl }}/kn7000-sound-subsystem/#wave-roms-ic203-ic204-ic207-ic208): the
   chips in the signal chain

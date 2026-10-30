@@ -275,7 +275,7 @@ the portamento stage ignores root and base pitch, so anything that computes
 341-486 percussion SETs (reached only from `ToneDB_DrumToneIndexMap`). Censuses:
 `analysis/wave7-probes/probe_set_descriptors.py`.
 
-Still unknown: which wave socket each selector class maps to beyond IC307 (see
+Still unknown: which wave socket each selector class maps to beyond IC307 and its undumped partner (IC307 is the Y half of a word-interleaved pair; see
 [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/)); descriptor `+0x0E` and flags
 bit 3 (the searches made are listed in the source header); which drawbar levels feed the three
 base-9 digits of the drawbar zone records. The same directory layout exists in the SX-WSA1's
@@ -379,8 +379,9 @@ four partial blocks mapped directly. They are followed by four SET descriptors o
   the four 4-byte entries +0x2B.. (only entries 0-3 have a reader).
 * **Selector class nibble**: classes 4, 5, 6 and 7 match IC307's pages 0, 1, 2 and 3 exactly
   (198, 168, 1,072 and 57 directory entries; class 6 reaches page 2's last entry only through the
-  drawbar zone records), which suggests page = class & 3 and bank = class >> 2. Which
-  socket holds the other banks cannot be settled until IC304-IC306 are dumped. Also open: why
+  drawbar zone records), which suggests page = class & 3 and bank = class >> 2. IC307 is the Y half of a
+  word-interleaved pair, so a bank is a pair of chips. Which sockets hold the other bank, and which
+  is IC307's partner, cannot be settled until IC304-IC306 are dumped. Also open: why
   `Voice_Init_Type1` adds `(tick & 7)` to the whole selector.
 * **SET descriptor `+0x0E`** and flags bit 3 have no reader in v1.42.
 * **The third id byte** (`+13`) of each 16-byte catalogue row is unidentified. `+14`/`+15`

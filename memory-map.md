@@ -650,7 +650,7 @@ Key routines identified in the boot ROM at 0xFF8000+:
 
 The tone generator (IC303) has a register window at `0x100000` (address) / `0x100002` (data) and a keybed port at `0x110000`/`0x110002`:
 
-Its PCM comes from the four 4 MB waveform ROMs IC304-IC307, a 16 MB space of its own that no CPU maps. Only IC307 is dumped; its layout (four pages, each a directory, parameter records and waves) and its source tree `waveform/` are on [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/).
+Its PCM comes from the four 4 MB waveform ROMs IC304-IC307, 16 MB of its own that no CPU maps, read as two word-interleaved pairs: IC307 holds every other word of each recording, the Y half of its pair (2026-10-30). Only IC307 is dumped; its layout (four pages, each a directory, parameter records and waves) and its source tree `waveform/` are on [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/).
 
 **Register window and keybed data/status port:**
 

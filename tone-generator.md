@@ -379,7 +379,7 @@ The `kn5000_tonegen_device` (in `kn5000_tonegen.cpp`) implements:
 - Register-indirect interface matching the hardware protocol (address latch at 0x100000, data at 0x100002)
 - 64 voice states with 32 registers each (8 groups × 4 banks, including group 0xA)
 - 13 global configuration registers; voice control state machine (key on/off via group 0 bank 0)
-- Waveform ROM reading from the `waveform` region (IC304-IC307, 16 MB); stereo 48 kHz stream with linear interpolation
+- Waveform ROM reading from the `waveform` region (IC304-IC307, 16 MB, mapped linearly); stereo 48 kHz stream with linear interpolation. IC307 is the Y half of a word-interleaved pair (2026-10-30, [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/#ic307-is-half-of-a-pair)), so the device plays every other word of each recording
 
 ### Sound generation
 
@@ -432,9 +432,10 @@ The `kn5000_tonegen_device` (in `kn5000_tonegen.cpp`) implements:
   "PCM from wave ROM (with sine substitutes)"; the `BAD_DUMP` copy of IC307 in those sockets is heard only with
   `KN5000_UNDUMPED=play`. Still open: which physical socket is bank 0, and why `Voice_Init_Type1` adds `(tick & 7)`
   to the whole selector.
-- **Waveform ROMs IC304-IC306 are NO_DUMP** (only IC307 is dumped). Whether per-waveform root note / tuning
-  / loop points live in IC307's dumped parameter records or elsewhere is being decoded — *not* assumed to
-  be in the undumped ROMs.
+- **Waveform ROMs IC304-IC306 are NO_DUMP** (only IC307 is dumped). IC307 is the Y half of a
+  word-interleaved pair, like the SX-KN7000's wave ROMs: each entry's pitch exponent, 8-bit flag and loop
+  granule (its P word) and half of each parameter record are on the undumped partner chip
+  ([Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/#ic307-is-half-of-a-pair)).
   - **No CPU wave-read port.** IC303's CPU-facing ports (`0x100000`/`0x100002` register+voice-status,
     `0x110000` keybed events) do not let the CPU address a wave-ROM location and read the sample back. The
     service-mode Wave ROM Check is an *acoustic* test (sine playback, listen for distortion), not a

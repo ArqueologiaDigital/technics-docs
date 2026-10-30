@@ -1918,7 +1918,10 @@ The MAME driver includes device classes for the audio chips. The tone generator 
 
 **Tone Generator (`kn5000_tonegen_device`):**
 - Register-indirect config interface (address port + data port)
-- 64-voice PCM wavetable playback at 48kHz from waveform ROMs (IC304-IC307)
+- 64-voice PCM wavetable playback at 48kHz from waveform ROMs (IC304-IC307), which the driver maps as
+  one linear 16 MB region. IC307's contents say the hardware reads them as two word-interleaved pairs
+  instead, IC307 being the Y half of one ([Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/#ic307-is-half-of-a-pair)):
+  what the overlay plays from IC307 is therefore half of each recording (*[INFERENCE]*)
 - Waveform selection from `+0x040` (reg[1]) alone: `bank = bits[15:14]` (1 = IC307, the one
   hardware-rooted dump), `page = bits[13:12]`, `chunk = bits[11:0]` — a plain 0-based index
   into that 1 MB page's own self-delimiting directory
@@ -1957,7 +1960,7 @@ The MAME driver includes device classes for the audio chips. The tone generator 
 ### Key Emulation Challenges
 
 1. **The uPD6383GF's instruction set is only partly decoded (80.8 %)** — this is the actual blocker, not a missing ROM dump. The bytecode the Sub CPU uploads to IC311 is Sub-CPU ROM content and is fully carved (see the [DSP Effect Data Zone]({{ site.baseurl }}/dsp-effect-data-zone/)); what remains unknown is the rest of what the chip's own core does when it executes that upload. IC310 (MN19413) is a separate, undocumented custom ASIC with no public programming information at all.
-2. **Tone generator wavetable ROM — largely solved.** IC307 (one of the four wave ROMs IC304-IC307 that hang off IC303) is a hardware-rooted dump and is already used for 64-voice PCM playback (see "Tone Generator" above and [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/)). IC304-IC306 are undumped: `NO_DUMP` in mainline MAME, while the kn7000_mame overlay fills their banks with a `BAD_DUMP`-flagged copy of IC307 and by default (since 2026-08-06, kn7000_mame `7c53c1b`) mutes voices that select them, so waveform *selection* across banks is not yet faithful even though single-bank playback works.
+2. **Tone generator wavetable ROM — half solved.** IC307 (one of the four wave ROMs IC304-IC307 that hang off IC303) is a hardware-rooted dump and is already used for 64-voice PCM playback, but it holds only every other word of each recording, directory entry and record: it is the Y chip of a word-interleaved pair whose partner is undumped (2026-10-30, [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/#ic307-is-half-of-a-pair)) (see "Tone Generator" above and [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/)). IC304-IC306 are undumped: `NO_DUMP` in mainline MAME, while the kn7000_mame overlay fills their banks with a `BAD_DUMP`-flagged copy of IC307 and by default (since 2026-08-06, kn7000_mame `7c53c1b`) mutes voices that select them, so waveform *selection* across banks is not yet faithful even though single-bank playback works.
 3. **Serial port 1** is the Computer Interface (TO HOST) link, not part of the audio path; see [Serial Port 1 Interface](#serial-port-1-interface). The DAC (IC313) is fed by IC310's serial outputs.
 
 ### What Works Now
@@ -1976,7 +1979,7 @@ The MAME driver includes device classes for the audio chips. The tone generator 
 
 ## Research Needed
 
-- [x] ~~Document waveform ROM format and sample layout~~ -- Complete: IC307 analyzed. 198-entry index table, 186 unique signed 16-bit PCM waveforms, x16 byte offset addressing, key zone parameter records. See [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/)
+- [x] ~~Document waveform ROM format and sample layout~~ -- Complete for IC307: four 1 MB pages of 198, 168, 1,072 and 57 directory entries, 1,413 distinct waves (1,213 16-bit, 200 8-bit), x16 byte offset addressing, parameter records in the SX-KN7000's record format. IC307 is the Y half of a word-interleaved pair, so each of these is half of what the tone generator reads. See [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/)
 - [x] ~~Decode per-algorithm parameter mapping tables at `0x1F22C`/`0x1F09C`~~ — Complete: both are 100-entry pointer arrays indexed by effect number: 0x1F09C points to value records (translator opstreams ending 0x7A) and 0x1F22C to descriptor records (register-cell lists), each table ending in 0xF0
 - [x] ~~Map MainCPU parameter indices to EFF block word positions~~ — Partial: 84 named parameters extracted from MainCPU 0xE324C4. DSP2 master list at 0xE4475C maps 14 SubCPU param indices to UI names. Final register-to-parameter mapping requires runtime bytecode tracing
 - [x] ~~Decode DSP register semantics per channel~~ — Partial: DSP2 112-register map from boot-time analysis (stride-0x10 channel regs at offset 0x_8, control regs 0x00/0x40/0x80, coefficient regs 0xE6/0xE7). The 0x130000 block's channel registers 0x10-0x17 (owning chip not identified; see DSP Channel Register Map) still need semantic mapping.

@@ -228,6 +228,8 @@
           url: /memory-dump-screen/
         - title: ROM Reconstruction
           url: /rom-reconstruction/
+        - title: Media Files (pictures and recordings, all models)
+          url: /media-files/
         - title: Source Code Map
           url: /source-map/
         - title: Table Data ROM

@@ -249,21 +249,21 @@ is gated. The plan and the per-lane outcomes are in
 [`notes/data-semantics-2026-10-29/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/notes/data-semantics-2026-10-29/README.md)
 in the disassembly repository.
 
-| image                                                       | source tree                                                                                                            | gate target                                           | what the source is                                                                                                                                        |
-|-------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| KN5000 waveform ROM IC307 (4 MB)                            | [`waveform/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/waveform)                           | `make gate` (`verify-ic307-reference`)                | per page, the directory and the 1,495 parameter records as typed rows; the 1,413 PCM waves as labelled `.incbin`s of the reference, declared opaque (pcm) |
-| KN5000 rhythm ROM IC14 (4 MB, descrambled)                  | [`rhythm_data/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/rhythm_data)                     | `make gate` (`verify-rhythm-data-raw`)                | no `.incbin` at all: 202 style records and 28,400 tracks, event by event; the raw read is checked by swapping A19/A21 back                                |
-| KN7000 wave ROMs IC203/IC204, IC207/IC208 (4 x 16 MB)       | [`kn7000/src/wave/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000/src/wave)             | `make -C kn7000 verify-wave`                          | per 2 MiB page a typed directory and parameter records; the 3,682 recordings opaque PCM; each stream split back into its Y and X chips                    |
-| KN7000 IC18, the whole chip (boot ROM + "Technics Rhythms") | [`kn7000/src/ic18/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000/src/ic18)             | `make -C kn7000 verify-ic18-full`                     | no `.incbin`: `boot.s`, then `rhythm.s` and one file per style under `styles/`, every event on its own line                                               |
-| KN7000 custom-style banks (IC21), nine factory sets         | [`kn7000/src/customdata/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000/src/customdata) | `make -C kn7000 verify-customdata`                    | the directory, slots, styles, pads and sounds typed; 679 small residue items (4,179 B) declared opaque                                                    |
-| KN6000 / KN6500 custom-style bank `01ctmini.ic18`           | [`kn6000/src/customdata/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn6000/src/customdata) | `make -C kn6000 verify-customdata` (in `gate-kn6000`) | the same format as the KN7000's IC21, typed                                                                                                               |
-| The 50 softlist floppies                                    | [`floppy/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/floppy)                               | `make gate-floppy`                                    | boot sector, FATs and directory entries field by field; each file a unit its model's format describer types                                               |
+| image                                                       | source tree                                                                                                            | gate target                                           | what the source is                                                                                                                               |
+|-------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| KN5000 waveform ROM IC307 (4 MB)                            | [`waveform/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/waveform)                           | `make gate` (`verify-ic307-reference`)                | per page, the directory and the 1,495 parameter records as typed rows; the 1,413 PCM waves built from WAV files (`make waveform-wav`)            |
+| KN5000 rhythm ROM IC14 (4 MB, descrambled)                  | [`rhythm_data/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/rhythm_data)                     | `make gate` (`verify-rhythm-data-raw`)                | no `.incbin` at all: 202 style records and 28,400 tracks, event by event; the raw read is checked by swapping A19/A21 back                       |
+| KN7000 wave ROMs IC203/IC204, IC207/IC208 (4 x 16 MB)       | [`kn7000/src/wave/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000/src/wave)             | `make -C kn7000 verify-wave`                          | per 2 MiB page a typed directory and parameter records; the 3,682 recordings built from WAV files; each stream split back into its Y and X chips |
+| KN7000 IC18, the whole chip (boot ROM + "Technics Rhythms") | [`kn7000/src/ic18/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000/src/ic18)             | `make -C kn7000 verify-ic18-full`                     | no `.incbin`: `boot.s`, then `rhythm.s` and one file per style under `styles/`, every event on its own line                                      |
+| KN7000 custom-style banks (IC21), nine factory sets         | [`kn7000/src/customdata/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn7000/src/customdata) | `make -C kn7000 verify-customdata`                    | the directory, slots, styles, pads and sounds typed; 679 small residue items (4,179 B) declared opaque                                           |
+| KN6000 / KN6500 custom-style bank `01ctmini.ic18`           | [`kn6000/src/customdata/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/kn6000/src/customdata) | `make -C kn6000 verify-customdata` (in `gate-kn6000`) | the same format as the KN7000's IC21, typed                                                                                                      |
+| The 50 softlist floppies                                    | [`floppy/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/floppy)                               | `make gate-floppy`                                    | boot sector, FATs and directory entries field by field; each file a unit its model's format describer types                                      |
 
 The reference images of all of these stay out of the public repository: the Makefiles copy
 them, git-ignored, from the private romsets (or, for the floppies and the custom-style sets,
 regenerate them from the softlist disks) and refuse a copy whose SHA-1 differs from the one
-they record. A PCM body with no better form than itself is an `.incbin` with skip and count, or
-an `.incbin_range`, of that copy, labelled per item. The format pages are
+they record. A PCM body is a WAV file, extracted from that copy when it is missing and read back
+by the build ([Media Files]({{ site.baseurl }}/media-files/)); the WAVs are git-ignored too. The format pages are
 [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/),
 [Rhythm ROM (IC14)]({{ site.baseurl }}/rhythm-rom/) and
 [Floppy Disk Files and Formats]({{ site.baseurl }}/floppy-disk-formats/); the KN7000 ones are
@@ -287,6 +287,12 @@ fits:
 | media     | a self-describing file a viewer reads directly (PNG, JPEG, BMP, WAV, MIDI, ...)                                                                       |
 | opaque    | declared `census: opaque -- <kind>: <why>`, with a mandatory reason; kinds are pcm, compressed, code, unknown-dump, personal and fill                 |
 | generic   | anything else: an anonymous binary include. The goal is generic = 0 in every tree                                                                     |
+
+An include made from a standalone media file through a committed lossless converter (a PNG through
+`se_bitmaps.py`, a WAV through `pcm_wav.py`, ...) is **generated**, its marker naming the converter
+and the file; since 2026-10-30 a column **from media** counts those entries per tree, so the table
+shows how much of *generated* an ordinary viewer or player opens
+([Media Files]({{ site.baseurl }}/media-files/)).
 
 It measures how much data still enters the build as an unexplained blob. It does not measure
 whether a typed field is *named* after what the firmware does with it: a field can be typed and
@@ -367,8 +373,10 @@ What those pieces became, and what is left opaque, model by model, is on
 [KN7000 Program Data Region]({{ site.baseurl }}/kn7000-data-region/#what-is-left-the-census),
 [KN6000 / KN6500 Program Data]({{ site.baseurl }}/kn6000-program-data/#what-is-left-the-census) and
 [KN2400 / KN2600 Program Data]({{ site.baseurl }}/kn2400-program-data/#what-is-left-the-census).
-The large opaque totals elsewhere are wave samples, one labelled item per recording: 4,170,480 B
-of PCM in IC307 and 66,319,584 B in the KN7000 wave ROMs.
+The wave samples, which were the large opaque totals until snapshot `-02` (4,170,480 B of PCM in
+IC307 and 66,319,584 B in the KN7000 wave ROMs, one labelled item per recording), are generated
+from WAV files since lane media-files: the class *opaque pcm* is empty in every tree of snapshot
+`-03` ([Media Files]({{ site.baseurl }}/media-files/#the-census-counts-them-as-generated)).
 
 Run it in the disassembly repository with
 
@@ -1442,8 +1450,11 @@ see [Original Toolchain]({{ site.baseurl }}/original-toolchain/)); see
 [ScreenData C conversion]({{ site.baseurl }}/screendata-c-conversion/) and [UI Widget
 Types]({{ site.baseurl }}/ui-widget-types/).
 
-The IC307 waveform ROM's format is decoded — 16-bit signed PCM at 32 kHz with a 512-entry
-sample table — on [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/).
+The IC307 waveform ROM's format is decoded on [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/):
+four 1 MB pages, each a directory, parameter records and 16-bit or 8-bit PCM, of which IC307 holds
+every other word (the Y half of a word-interleaved pair, 2026-10-30). No sample rate is stored.
+(Earlier revisions of this paragraph said 16-bit PCM at 32 kHz with a 512-entry sample table; none
+of that was right.)
 
 ### Binary include splitting policy
 

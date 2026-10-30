@@ -8,6 +8,8 @@ permalink: /waveform-rom-format/
 
 The KN5000's tone generator (IC303, TC183C230002) reads waveform data from four 32Mbit (4MB) mask ROMs (IC304-IC307). These ROMs contain the PCM sample data used for all wavetable synthesis. This page documents the format of IC307, the only dumped waveform ROM.
 
+> **IC307 is half of a pair (2026-10-30).** IC307 is not a linear wave ROM: it holds every other 16-bit word of each recording, directory entry and parameter record, as the "Y" chip of a word-interleaved pair like the SX-KN7000's wave ROMs. Its undumped partner holds the other half. Earlier revisions of this page, and of the pages that link here, described the chip's words as complete recordings and records; read the layout below as one chip's half. The evidence is in [IC307 is half of a pair](#ic307-is-half-of-a-pair).
+
 ## ROM Inventory
 
 | IC    | Part Number  | Size | MAME Offset | Status                                                                                                       |
@@ -17,7 +19,7 @@ The KN5000's tone generator (IC303, TC183C230002) reads waveform data from four 
 | IC306 | QS6GU3C32374 | 4 MB | 0x800000    | **undumped** — `NO_DUMP` upstream; the overlay driver fills the bank with a `BAD_DUMP`-flagged copy of IC307 |
 | IC307 | QS6GX3C32008 | 4 MB | 0xC00000    | **Dumped** (CRC: 20ff4629) — the one hardware-rooted wave ROM dump                                           |
 
-The four ROMs form a contiguous 16 MB waveform address space, declared as `ROM_REGION16_LE` in the MAME driver (16-bit little-endian word access). IC304-306 are `NO_DUMP` in mainline MAME (mamedev/mame `src/mame/matsushita/kn5000.cpp`). In the `kn7000_mame` overlay driver they are not: since 2026-07-23 it loads a real region there, filled with a copy of the genuine IC307 dump and marked `BAD_DUMP` so MAME's audit/UI flags it as not-genuine. The copy keeps the real paged datapath exercised. Since 2026-08-06 the default PCM rendering mutes every voice that selects IC304-306, the 'with sine substitutes' rendering plays those voices as sines, and the wrong-instrument copy is heard only with `KN5000_UNDUMPED=play`. The placeholder is dropped for the real dumps the moment they exist. See `src/mame/matsushita/kn5000.cpp` (`ROM_REGION16_LE(0x1000000, "waveform", 0)`) in the `kn7000_mame` driver overlay.
+The MAME driver declares the four ROMs as one contiguous 16 MB waveform address space, `ROM_REGION16_LE` (16-bit little-endian word access). IC307's contents say that is not how the hardware reads them: the four chips are two word-interleaved pairs (*[INFERENCE]* from IC307 alone; [below](#ic307-is-half-of-a-pair)), and which socket is IC307's partner is not known. IC304-306 are `NO_DUMP` in mainline MAME (mamedev/mame `src/mame/matsushita/kn5000.cpp`). In the `kn7000_mame` overlay driver they are not: since 2026-07-23 it loads a real region there, filled with a copy of the genuine IC307 dump and marked `BAD_DUMP` so MAME's audit/UI flags it as not-genuine. The copy keeps the real paged datapath exercised. Since 2026-08-06 the default PCM rendering mutes every voice that selects IC304-306, the 'with sine substitutes' rendering plays those voices as sines, and the wrong-instrument copy is heard only with `KN5000_UNDUMPED=play`. The placeholder is dropped for the real dumps the moment they exist. See `src/mame/matsushita/kn5000.cpp` (`ROM_REGION16_LE(0x1000000, "waveform", 0)`) in the `kn7000_mame` driver overlay.
 
 ## IC307 as Source
 
@@ -36,13 +38,15 @@ make rebuilt_ROMs/kn5000_waveform_ic307.llvm.rom   # copies the reference first,
 make gate                                          # includes verify-ic307-reference and the byte gate
 ```
 
-The reference image is not committed. `make` copies `original_ROMs/kn5000_waveform_rom.ic307` (git-ignored) from the private romset (`KN5000_IC307_REF`) and refuses a copy whose SHA-1 is not `4b511bff6625f4655cabd96a263bf548d2ef4bf7`. The 1,413 PCM bodies (4,170,480 B) are `.incbin`s of that copy, each marked `census: opaque -- pcm`; the other 23,824 B are typed source. The data-incbin census row `kn5000-waveform` reads opaque 1,413 / 4,170,480 B, generic 0.
+The reference image is not committed. `make` copies `original_ROMs/kn5000_waveform_rom.ic307` (git-ignored) from the private romset (`KN5000_IC307_REF`) and refuses a copy whose SHA-1 is not `4b511bff6625f4655cabd96a263bf548d2ef4bf7`. The other 23,824 B are typed source.
+
+**The waves are WAV files** (since 2026-10-30, lane media-files; [Media Files]({{ site.baseurl }}/media-files/)). `make waveform-wav` extracts each of the 1,413 PCM bodies (4,170,480 B) from the reference into `waveform/wav/<label>.wav` (git-ignored, never overwritten once there), and the build reads the WAVs back: `scripts/build/pcm_wav.py build` writes each raw item to `waveform/build/pcm/<label>.pcm`, which the page source `.incbin`s with the marker `census: generated -- scripts/build/pcm_wav.py, from waveform/wav/<label>.wav`. A 16-bit wave's WAV `data` chunk is the ROM bytes unchanged; an 8-bit one's is each byte XOR 0x80 (WAV 8-bit PCM is unsigned). The headers say 22,050 Hz, a nominal rate (below), and carry no loop. `waveform/wav_manifest.tsv` (committed, no sample data) lists each wave's offsets, bit depth, file name and comment; `scripts/generators/gen_ic307_wav_manifest.py` writes it and `scripts/converters/respell_ic307_pcm_as_wav.py` respelled the pages. The data-incbin census row `kn5000-waveform` reads generated 1,413 / 4,170,480 B, all of them from media, opaque 0, generic 0 (snapshot `docs/coverage/data-incbin-2026-10-30-03`; it read opaque 1,413 / 4,170,480 B in `-02`).
 
 Every figure below is printed by `notes/waveform-ic307-2026-10-29/probes/ic307_layout.py` in the disassembly repository ([probes](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/notes/waveform-ic307-2026-10-29/probes)); the selector walk by `tonedb_selector_users.py` beside it.
 
 ## IC307 Binary Layout
 
-IC307 (4,194,304 bytes) is **four independent 1 MB pages**, at `0x000000`, `0x100000`, `0x200000` and `0x300000`. Each page has the same three regions (a directory of `{param_ptr, wave_offset}` pairs, variable-length parameter records, then signed 16-bit PCM) and declares its own directory length: entry 0's `param_ptr` is 4 × N. N is 198, 168, 1,072 and 57, so the chip holds 1,495 directory slots and 1,413 distinct wave offsets (`tools/ic307_wave_directory.py` in this repository measures these from the dump). Offsets are relative to the page base, which is why `wave_offset` × 16 reaches exactly 1 MB.
+IC307 (4,194,304 bytes) is **four independent 1 MB pages** (each the Y half of a 2 MB page of the pair's stream, as on the SX-KN7000), at `0x000000`, `0x100000`, `0x200000` and `0x300000`. Each page has the same three regions (a directory of `{param_ptr, wave_offset}` pairs, variable-length parameter records, then signed 16-bit PCM) and declares its own directory length: entry 0's `param_ptr` is 4 × N. N is 198, 168, 1,072 and 57, so the chip holds 1,495 directory slots and 1,413 distinct wave offsets (`tools/ic307_wave_directory.py` in this repository measures these from the dump). Offsets are relative to the page base, which is why `wave_offset` × 16 reaches exactly 1 MB.
 
 | page | file offset | N     | directory     | records       | empty records | zero alignment | PCM             | distinct waves | 0xFF tail |
 |------|-------------|-------|---------------|---------------|---------------|----------------|-----------------|----------------|-----------|
@@ -129,7 +133,7 @@ Record shapes, with K for a key-split word and S for a sequence word:
 | S* K* S*    | 2       |
 | K* S* K* S* | 1       |
 
-**Sequence words (not decoded).** The value is negative in 6,494 of 6,526 words, and 5,957 of them are -1 to -8. `a` and `b` never exceed 5, and differ by at most 1 in 6,128 words (a − b = −1: 2,829; 0: 337; +1: 2,962). A record can hold up to 424 of them (page 0 entry 173). In 30 cases a sequence record repeats the tail of an earlier record of the same page, and its wave starts later in the same audio: page 0 entry 158 is entry 157 without its first 4 words and starts 44 granules later, entry 159 is 157 without 23 words and 296 granules later, and page 2 has 26 more (entries 42-46 inside entry 40, among others). **[Inference]** A sequence record describes the audio from the entry's start in time order, one word per segment of variable length, so an entry can play on past its own item into the next ones (157 through 158's and 159's audio).
+**Sequence words: the KN7000's record words.** Since IC307's records are every other word of a KN7000-format record (p1, p3, p5, ...; [below](#ic307-is-half-of-a-pair)), its words have the KN7000 layout `[flags:2][code:6][value:8]`: a value of 0x80 or more is a segment of (256 − value) granules, flag bit 7 is the KN7000's `LOOP_END` / `REC_END` bit and bit 6 its `LOOP_START` bit, and the 6-bit code is the 8-bit segments' gain ([KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/#parameter-record)). The granule size, and half of each record's words, are on the partner chip, so the segments cannot be laid out from IC307 alone. *[INFERENCE]* The key-split words (a value below 0x80, multiples of 8) are the KN7000's "split list". The 2026-10-29 counts that follow are of the IC307 words as stored. The value is negative in 6,494 of 6,526 words, and 5,957 of them are -1 to -8. `a` and `b` never exceed 5, and differ by at most 1 in 6,128 words (a − b = −1: 2,829; 0: 337; +1: 2,962). A record can hold up to 424 of them (page 0 entry 173). In 30 cases a sequence record repeats the tail of an earlier record of the same page, and its wave starts later in the same audio: page 0 entry 158 is entry 157 without its first 4 words and starts 44 granules later, entry 159 is 157 without 23 words and 296 granules later, and page 2 has 26 more (entries 42-46 inside entry 40, among others). **[Inference]** A sequence record describes the audio from the entry's start in time order, one word per segment of variable length, so an entry can play on past its own item into the next ones (157 through 158's and 159's audio).
 
 **Correction.** Earlier revisions read flags `0x01`-`0x2F` as "per-zone fine tune" with values `0xEA`-`0xFF` as small pitch trims. The values do sit there, but a record of hundreds of such words on a single wave has no zones to tune; that reading is retired.
 
@@ -145,7 +149,7 @@ Key-split values are listed in **descending order**. They are **not** MIDI note 
 
 ### 3. Waveform PCM Data (page 0: 0x1A30 - 0xFFFFF)
 
-**Format:** Signed 16-bit PCM, little-endian. Full 16-bit dynamic range (-32767 to +32767).
+**Format:** two's complement, little-endian words, every other word of each recording. 1,213 of the 1,413 waves are 16-bit recordings, one sample per word; 200 are 8-bit recordings, two signed samples per word, low byte first, so an IC307 item holds the sample pairs (4i, 4i + 1). The format is known for 1,342 waves from the KN7000 recording with the same audio (1,173 16-bit, 169 8-bit; the flag that says so is in the directory's P word, on the partner chip) and inferred for the other 71 from the correlation of a word's two bytes (31 8-bit, 40 16-bit; the rule is calibrated on the matched waves: > 0.5 in 0 of 1,170 16-bit ones and 152 of 169 8-bit ones). Counts: `waveform/wav_manifest.tsv`, `ic307_kn7000_match.py`.
 
 The byte distribution confirms signed PCM encoding:
 - High bytes cluster near 0x00 and 0xFF (values near zero)
@@ -154,7 +158,7 @@ The byte distribution confirms signed PCM encoding:
 
 **Page 0 indexes 186 unique waveforms** (0-185; the whole chip 1,413). A wave's length is taken as the distance to the next distinct wave start, or to the page's 0xFF tail; over the chip that is 32 B to 75,040 B (16 to 37,520 samples). Most are multi-cycle PCM recordings (not single-cycle wavetable entries), confirming the KN5000 uses **PCM sample-based synthesis** rather than traditional single-cycle wavetable synthesis.
 
-**Test sines.** Index 0 (offset 0x01A3 = byte 0x1A30) is a **256-sample sine wave**: peak 32,767, mean deviation 0.26 LSB from `32767 sin(2 pi k / 256)`. **Page 2's first wave is the same sine.** No SET or drawbar record selects either one (`P0_W0000_Sine`, `P2_W0000_Sine`); they are probably test tones.
+**Test sines.** Index 0 (offset 0x01A3 = byte 0x1A30) is a **256-word sine wave**: peak 32,767, mean deviation 0.26 LSB from `32767 sin(2 pi k / 256)`. It is exactly the even samples of the SX-KN7000's 512-sample sine `Main_P00_W000`, so the recording is a 512-sample sine of which IC307 holds half (`pcm_encoding_probe.py`). **Page 2's first wave is the same sine.** No SET or drawbar record selects either one (`P0_W0000_Sine`, `P2_W0000_Sine`); they are probably test tones.
 
 | Waveform | Offset | Samples | Description                                                               |
 |----------|--------|---------|---------------------------------------------------------------------------|
@@ -190,9 +194,26 @@ The SubCPU firmware names a voice's recording in one register, `+0x040` (group 0
 
 On the auxiliary 8-voice pool, `ToneGen_SetupPolyVoice` instead writes `+0x040` from the 12-word table at `0x01217D` (values `0x0000`, `0x2000`, `0x4000`, `0x6000`, then zeros, indexed by note mod 12). It ORs `velocity_volume = (vel^2 / 4) + 63` (range 63-4095) into `+0x080`. Whether that `+0x040` word is a selector or a rate constant is unresolved. Bit 15 of `+0x080` frames the burst: it is set on the second write and cleared on the last.
 
+## IC307 is half of a pair
+
+Lane media-files (2026-10-30) compared IC307 with the SX-KN7000's four wave ROMs, whose format is known ([KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/)): there the Y and X chips of a tone generator are one stream of 16-bit words, word i of Y then word i of X. The probes, in [`notes/media-files-probes/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/notes/media-files-probes) of the disassembly repository (they read the private dumps and print numbers only):
+
+| probe                        | result                                                                                                                                                                                                                                                                                           |
+|------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ic307_kn7000_match.py`      | 1,342 of IC307's 1,413 waves (1,391 of 64 B or more were searched) occur verbatim in a KN7000 Y chip: 1,162 in IC203, 180 in IC207, none in an X chip; 1,339 at a KN7000 recording's first sample, 1,327 over their whole length                                                                 |
+| `pcm_encoding_probe.py`      | IC307's 256-word sine is exactly the even samples of the KN7000's 512-sample `Main_P00_W000`; s16le reads IC307's items with the fewest full-scale jumps in 1,165 of 1,391 (ties 169)                                                                                                            |
+| `ic307_records_vs_kn7000.py` | of 1,495 directory entries, 1,430 have a wave at a KN7000 recording's first sample; 456 records equal the words p1, p3, p5, ... of a partner KN7000 record, 965 head-only records pair with KN7000 records of at most one parameter word, 9 match none; none matches the control p0, p2, p4, ... |
+
+So IC307 is **the Y chip of a word-interleaved pair**: it holds every other word of each recording, of each directory entry and of each record. The KN7000 notes had inferred it (kn7000_mame g13); these probes show it. What follows from it:
+
+- **The directory.** IC307's `{param_ptr, wave_offset}` pair is the A and B words of the KN7000's four-word entry `{A, P, B, Q}`. The P word (pitch exponent, the 8-bit flag, the loop granule) and the Q word are on the partner chip.
+- **The records.** IC307 holds the head and the odd parameter words; the even ones are on the partner (*[INFERENCE]* from the p1, p3, ... match: a record's head is 32-bit aligned, so the words alternate chips from there).
+- **The audio.** An IC307 WAV is the Y half of its recording: a 16-bit one sounds like the recording at half the rate without anti-alias filtering, an 8-bit one holds the sample pairs (4i, 4i + 1). For the 1,327 waves that match whole, the KN7000's X chip holds the other half of what is very probably the same recording; the disassembly does not combine them (a KN7000 dump is not a KN5000 one).
+- **The hardware.** The MAME driver maps IC304-IC307 as one linear 16 MB region; these contents say the four chips are two word-interleaved pairs instead, so the tone generator reads its wave ROMs in pairs (*[INFERENCE]*). Which socket (IC304, IC305 or IC306) is IC307's partner, and what the other pair holds (by the class analysis above, selector classes 0-3), is not known. *[INFERENCE, not tested]* The service manual's Wave ROM Check names the chips in two pairs, C keys → IC304 & IC305 and C# to B → IC306 & IC307 ([Test Modes]({{ site.baseurl }}/test-modes/)), which fits IC306 being IC307's partner; the lane did not use or check this.
+
 ## Sample Rate
 
-The native sample rate of the waveform data is not stored in the ROM, and neither is a root note. Pitch reaches the chip as an absolute log pitch in `+0x400`, and IC303 resamples. The instrument's output rate is **44.1 kHz**, proven from the effects DSP's ROM constants ([Effects DSP]({{ site.baseurl }}/effects-dsp/)). The rate the recordings were made at is still unknown.
+The native sample rate of the waveform data is not stored in the ROM, and neither is a root note. Pitch reaches the chip as an absolute log pitch in `+0x400`, and IC303 resamples. The instrument's output rate is **44.1 kHz**, proven from the effects DSP's ROM constants ([Effects DSP]({{ site.baseurl }}/effects-dsp/)). The rate the recordings were made at is still unknown. The IC307 WAV headers say 22,050 Hz, a nominal figure: half the SX-KN7000's nominal 44,100 Hz (the rate at which its tone generator steps one source sample per output sample), because IC307 holds every other sample.
 
 ## Relationship to Other ROMs
 
@@ -204,16 +225,19 @@ The waveform ROMs are separate from:
 ## Open Questions
 
 - What is the exact base sample rate of the waveform data?
-- Which physical socket holds each selector bank? The class nibble picks a 1 MB page; classes 4, 5, 6 and 7 match IC307's pages 0, 1, 2 and 3 exactly, which implies (by inference) that classes 4-7 are IC307. Which socket holds classes 0-3 cannot be settled until IC304-IC306 are dumped.
-- What do the sequence words encode: the value, the two 3-bit fields, the marker bit, and how one word maps to a stretch of samples?
+- Which socket is IC307's partner (the X half of its pair), and which pair holds selector classes 0-3? The class nibble picks a 1 MB page; classes 4, 5, 6 and 7 match IC307's pages 0, 1, 2 and 3 exactly, which implies (by inference) that classes 4-7 are IC307 and its partner. Neither can be settled until IC304-IC306 are dumped. Until then an IC307 WAV is half of each recording.
+- ~~What do the sequence words encode?~~ They are the KN7000's record words `[flags:2][code:6][value:8]` seen from one chip ([above](#2-parameter-records-0x0318---0x1a2f)); laying the segments out needs the partner's granule size and its half of each record. The 8-bit gain law of the code is fitted in emulation, not derived.
+- The 71 waves with no KN7000 counterpart: their 8-bit or 16-bit format is the byte-correlation inference.
 - Why do page 0 entries 152 and 159, page 1 entries 77, 80, 83 and 85, and 65 page-2 entries have no selector? Possibly older-build leftovers, or users reached only through the RAM user-tone banks (not walked).
 - What waveforms are in IC304-IC306? (The KN5000 has hundreds of sound presets; IC307 alone has 1,413 distinct waves.)
-- Where are loop points? Not in the parameter records, probably: every field there is a single byte, too small to address into a wave of tens of thousands of samples, and `loopprobe.py` (kn7000_mame `tools/kn5000-rom-structure/`) found none. Loops may be implied by the end of a sequence record. The firmware writes no loop registers either, so looping is IC303's own business. Bit 6 of the flag byte is still undecoded.
+- Where are loop points? As on the KN7000, a loop is a run of segments in the parameter record, marked by flag bits 6 (`LOOP_START`) and 7 (`LOOP_END`) on its segment words and counted in the granule the P word gives; the P word and half of the record are on the partner chip, so IC307 alone does not give the loops (the WAVs carry none). The firmware writes no loop registers, so looping is IC303's own business. (Earlier revisions said the records hold no loops; `loopprobe.py`, kn7000_mame `tools/kn5000-rom-structure/`, had looked for loops in IC307's words as complete records.)
 - ~~What is the relationship between the index entries and the sound presets?~~ A tone's partials reach directory entries through the tone database's SET descriptors and zone records, which produce 1,444 (class, entry) selectors ([Tone Database]({{ site.baseurl }}/tone-database/#wave-selection-end-to-end)).
-- Are waveform ROMs shared across Technics keyboard models (KN6000, KN7000)?
+- ~~Are waveform ROMs shared across Technics keyboard models?~~ The recordings are: 1,342 of IC307's 1,413 waves are in the SX-KN7000's wave ROMs (IC203, IC207). Whether the KN6000's are the same is not known (not dumped).
 
 ## Related Pages
 
+- [Media Files]({{ site.baseurl }}/media-files/) -- the WAV files and how to make them
+- [KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/) -- the format IC307 is half of
 - [Tone Generator]({{ site.baseurl }}/tone-generator/) -- Register map and voice parameter structure
 - [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) -- Overall audio architecture
 - [Sound Categories]({{ site.baseurl }}/sound-categories/) -- Voice preset organization

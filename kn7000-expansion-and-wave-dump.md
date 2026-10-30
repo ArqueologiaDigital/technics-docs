@@ -167,7 +167,9 @@ the confirmed *mechanism*.
 
 The KN5000 is architecturally different, and the answer matters because its IC304–IC306 are currently
 undumped (`NO_DUMP` in mainline MAME; the research overlay fills their sockets with **BAD_DUMP copies
-of IC307**) — a real read-out would fix them.
+of IC307**) — a real read-out would fix them. IC307 itself is only half of a pair: 1,342 of its 1,413
+waves occur verbatim in the KN7000's IC203 / IC207 Y chips, and it holds every other word of each
+([Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/#ic307-is-half-of-a-pair)).
 
 - Its tone generator **IC303** (`TC183C230002`) is driven by a **Sub CPU** via a register-indirect
   interface. The CPU-facing ports are a register-address latch / voice-status read (`0x100000`), a

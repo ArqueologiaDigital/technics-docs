@@ -1230,14 +1230,14 @@ Output Jacks (Line, Headphones, Speakers)
 
 ### Hardware Components
 
-| IC        | Function       | Description                                                              |
-|-----------|----------------|--------------------------------------------------------------------------|
-| IC27      | Sub CPU        | TMP94C241F; tone generator control, synthesis engine                     |
-| IC303     | Tone generator | TC183C230002; 64 voices, PCM playback from the waveform ROMs             |
-| IC304-307 | Waveform ROMs  | Four 4 MB mask ROMs of PCM samples; only IC307 is dumped                 |
-| IC311     | DSP1           | uPD6383GF-3BA; digital effects (reverb, chorus, …) on a send/return loop |
-| IC310     | DSP2           | MN19413; mixing and EQ on the main mix                                   |
-| IC313     | DAC            | PCM69AU; digital-to-analog conversion for audio output                   |
+| IC        | Function       | Description                                                                          |
+|-----------|----------------|--------------------------------------------------------------------------------------|
+| IC27      | Sub CPU        | TMP94C241F; tone generator control, synthesis engine                                 |
+| IC303     | Tone generator | TC183C230002; 64 voices, PCM playback from the waveform ROMs                         |
+| IC304-307 | Waveform ROMs  | Four 4 MB mask ROMs of PCM samples, two word-interleaved pairs; only IC307 is dumped |
+| IC311     | DSP1           | uPD6383GF-3BA; digital effects (reverb, chorus, …) on a send/return loop             |
+| IC310     | DSP2           | MN19413; mixing and EQ on the main mix                                               |
+| IC313     | DAC            | PCM69AU; digital-to-analog conversion for audio output                               |
 
 See [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/#architecture) for the full picture.
 
@@ -1255,7 +1255,7 @@ Converts digital audio to analog output. See [Audio Subsystem]({{ site.baseurl }
 
 ### Waveform ROMs (IC304-IC307)
 
-Contain all PCM samples for instrument sounds. See [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/).
+Contain all PCM samples for instrument sounds. IC307, the one dumped, is the Y half of a word-interleaved pair: it holds every other word of each recording. See [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/#ic307-is-half-of-a-pair).
 
 ### Main CPU ↔ Sub CPU Protocol
 
@@ -1265,7 +1265,7 @@ Communication via latches at `0x120000`. See [Sub CPU Command Format]({{ site.ba
 
 **Questions to answer (ANSWERED — see [Tone Generator]({{ site.baseurl }}/tone-generator/)):**
 - Polyphony count: **64 voices**, register-indirect at 0x100000/0x100002
-- Synthesis method: **PCM sample playback** from 16MB waveform ROM (4 chips)
+- Synthesis method: **PCM sample playback** from 16MB waveform ROM (4 chips, read as two word-interleaved pairs)
 - Envelope generators: **Hardware-internal ADSR** — firmware sends pitch/volume/pan, chip handles envelopes
 - LFO capabilities: the mod wheel selects vibrato, tremolo or auto-pan (`Voice_ModWheel_Apply`); see [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/#lfo-and-modulation)
 - Filter: the firmware writes a per-voice TVF (filter cutoff) in several modes through `TVF_Emit_Registers` (0x024444, formerly misnamed Voice_PanReg_WriteDispatch)
