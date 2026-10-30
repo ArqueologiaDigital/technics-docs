@@ -7,8 +7,8 @@ KN2400 program data, and the first committed census snapshot
 New pages: `kn7000-menu-map.md`, `kn7000-data-region.md`, `kn7000-sp7001-plugin.md`,
 `kn7000-panel-memory.md`, `kn6000-program-data.md`, `kn2400-program-data.md`. Left open:
 
-**Errors in the disassembly repository's notes** (the site uses the current source names; the
-notes should be corrected there):
+**Errors in the disassembly repository's notes** (the site uses the current source names). All five were
+corrected in technics-roms-disasm `bf0581312`; kept here as the record of what was reported:
 
 - `kn7000/notes/gui-data-region/README.md`, "Jump and pointer tables into code": the chord-type
   switch of `TechniChordCompute` is called `ptrs_485BC3EC`; the label is now
