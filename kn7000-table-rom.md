@@ -92,14 +92,15 @@ The data-incbin census (`scripts/analysis/data_incbin_census.py`) reads 0 generi
 84 and table 80; it was 447 entries, 2,560,580 bytes, before the 2026-10-29 pass. Table 83 kept
 three generic gaps then (46,625 bytes), the SP7001 plug-in's GUI data; since 2026-10-30 they are
 typed too, widget by widget ([SP7001 Plug-in Screens]({{ site.baseurl }}/kn7000-sp7001-plugin/)).
-The census counts table 83 in the same tree as program 942, so what `kn7000-sp7001` still reads as
-generic is 942's data region ([Program Data Region]({{ site.baseurl }}/kn7000-data-region/#what-is-left-the-census)).
-From the first committed snapshot, `docs/coverage/data-incbin-2026-10-30-01.txt`:
+The census counts table 83 in the same tree as program 942, whose data region reads generic 0 too
+since lane generic-zero ([Program Data Region]({{ site.baseurl }}/kn7000-data-region/#what-is-left-the-census)).
+From the second committed snapshot, `docs/coverage/data-incbin-2026-10-30-02.txt` (the first,
+`-01`, read 179 generic pieces / 3,044 bytes and opaque 4321 / 80,480 for `kn7000-sp7001`):
 
 | tree          | generated     | media           | opaque        | generic entries | generic bytes |
 |---------------|---------------|-----------------|---------------|-----------------|---------------|
 | kn7000-table  | 439 / 299,512 | 159 / 1,316,309 | 0 / 0         | 0               | 0             |
-| kn7000-sp7001 | 526 / 462,454 | 169 / 1,375,301 | 4321 / 80,480 | 179             | 3,044         |
+| kn7000-sp7001 | 526 / 462,454 | 169 / 1,375,301 | 3482 / 62,187 | 0               | 0             |
 | kn7000-b80    | 2 / 4,064,860 | 0 / 0           | 0 / 0         | 0               | 0             |
 
 (Count / bytes. Table 80's two entries are generated from table 83's assembled image.)

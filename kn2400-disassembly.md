@@ -80,9 +80,12 @@ PC-relative encodings are reproduced exactly.
 
 **Open: who copies it there.** The 24 bytes after the last instruction hold, among others,
 `0x487285BE` (the range's flash address), `0x50120000` (its link address) and `0x487965B8`,
-which fits a copy descriptor. No code in the image reads them, and the routine that copies
-the range to RAM has not been found: crt0 copies only `.data` (`0x6E78` bytes from
-`0x485DD334` to `0x50000010`).
+which fits a copy descriptor (`RamCodeTrailer`). `func_4870587E` reads it, byte by byte from
+`RamCodeTrailer+3`, 12 bytes a record (each word assembled little-endian with `asl 8 / 16 / 24`);
+what it does with the three words of each record was not traced, so the routine that copies the
+range to RAM is still not identified: crt0 copies only `.data` (`0x6E78` bytes from
+`0x485DD334` to `0x50000010`). (Corrected 2026-10-30, lane generic-zero, disassembly
+`c65a62c5b`: this paragraph had said no code reads them.)
 
 ## Names
 

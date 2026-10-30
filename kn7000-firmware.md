@@ -256,8 +256,9 @@ data region, file `0x186000`-`0x3B8FD1`, was still `.incbin_range` then, apart f
 display palette. Since 2026-10-29 it is typed source too, generated from the code that reads it:
 the 8,509 GUI widget records ([Menu Map]({{ site.baseurl }}/kn7000-menu-map/)), the demo songs,
 the built-in style, panel memories, struct arrays and the resource-id trie
-([Program Data Region]({{ site.baseurl }}/kn7000-data-region/)); 2,948 bytes in 177 pieces stay
-generic in build 941. The functions read by hand before the bulk conversion keep
+([Program Data Region]({{ site.baseurl }}/kn7000-data-region/)). The data-incbin census reads
+no generic bytes left in build 941 since lane generic-zero (snapshot `data-incbin-2026-10-30-02`;
+the 177 pieces of 2,948 bytes in `-01` became records and reader rows). The functions read by hand before the bulk conversion keep
 their notes, among them the task/event and display/object framework clusters, the complete
 Techni-Chord harmony engine and the complete control-panel serial protocol (the
 `PanelTransaction`/ISR/state-machine chain that drove the MAME panel HLE).

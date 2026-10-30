@@ -294,48 +294,76 @@ still carry an offset name. `--snapshot` writes `docs/coverage/data-incbin-<date
 and `--compare` exits 1 when any tree's generic bytes rose. The first committed snapshot is
 [`docs/coverage/data-incbin-2026-10-30-01.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-01.txt),
 measured at disassembly `28bad682a` after the last data-semantics lanes merged (their summary is
-the "Final state" section of `notes/data-semantics-2026-10-29/README.md`). Generic bytes per tree,
+the "Final state" section of `notes/data-semantics-2026-10-29/README.md`). The second,
+[`docs/coverage/data-incbin-2026-10-30-02.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-02.txt),
+measured at `141313939` after lane generic-zero merged (committed in `347fd0cf0`; the section
+"Generic 0" of the same README), reads **generic 0 in every tree**. Generic bytes per tree,
 before the work (disassembly `b58b8f696`), after the twelve lanes that merged on 2026-10-29 (run
-at `c6630b0d7`), and in that snapshot:
+at `c6630b0d7`), and in the two snapshots:
 
-| tree              | generic bytes before | after 2026-10-29 | snapshot 2026-10-30-01 |
-|-------------------|----------------------|------------------|------------------------|
-| kn5000-v10        | 4,928                | 0                | 0                      |
-| kn5000-v9         | 4,928                | 0                | 0                      |
-| kn5000-v7         | 4,928                | 0                | 0                      |
-| kn5000-v6         | 5,130                | 0                | 0                      |
-| kn5000-v5         | 4,949                | 0                | 0                      |
-| kn5000-tabledata  | 772,289              | 0                | 0                      |
-| kn5000-customdata | 639,296              | 0                | 0                      |
-| kn7000-table      | 2,560,580            | 0                | 0                      |
-| kn7000-b80        | 4,064,860            | 0                | 0                      |
-| kn7000-program    | 2,563,794            | 2,563,794        | 2,948                  |
-| kn7000-sp7001     | 5,176,151            | 2,646,270        | 3,044                  |
-| kn7000-b893       | 2,607,409            | 2,607,409        | 2,944                  |
-| kn7000-b935       | 2,602,613            | 2,602,613        | 3,044                  |
-| kn2400            | 1,993,350            | 1,993,350        | 18,853                 |
-| kn6000            | 2,630,724            | 2,630,724        | 18,810                 |
-| kn6500            | 2,140,036            | 2,140,036        | 18,930                 |
-| hdsx3             | 533,544              | 533,544          | 266                    |
+| tree              | generic bytes before | after 2026-10-29 | snapshot 2026-10-30-01 | snapshot 2026-10-30-02 |
+|-------------------|----------------------|------------------|------------------------|------------------------|
+| kn5000-v10        | 4,928                | 0                | 0                      | 0                      |
+| kn5000-v9         | 4,928                | 0                | 0                      | 0                      |
+| kn5000-v7         | 4,928                | 0                | 0                      | 0                      |
+| kn5000-v6         | 5,130                | 0                | 0                      | 0                      |
+| kn5000-v5         | 4,949                | 0                | 0                      | 0                      |
+| kn5000-tabledata  | 772,289              | 0                | 0                      | 0                      |
+| kn5000-customdata | 639,296              | 0                | 0                      | 0                      |
+| kn7000-table      | 2,560,580            | 0                | 0                      | 0                      |
+| kn7000-b80        | 4,064,860            | 0                | 0                      | 0                      |
+| kn7000-program    | 2,563,794            | 2,563,794        | 2,948                  | 0                      |
+| kn7000-sp7001     | 5,176,151            | 2,646,270        | 3,044                  | 0                      |
+| kn7000-b893       | 2,607,409            | 2,607,409        | 2,944                  | 0                      |
+| kn7000-b935       | 2,602,613            | 2,602,613        | 3,044                  | 0                      |
+| kn2400            | 1,993,350            | 1,993,350        | 18,853                 | 0                      |
+| kn6000            | 2,630,724            | 2,630,724        | 18,810                 | 0                      |
+| kn6500            | 2,140,036            | 2,140,036        | 18,930                 | 0                      |
+| hdsx3             | 533,544              | 533,544          | 266                    | 0                      |
 
 Every other tree (the new data trees above, the sub-CPU, boot, HD-AE5000, WSA1R and floppy
-trees) is at generic 0. The eight trees still above 0 are the MN10300 program images. Each of
-their generic pieces is read by some instruction that no pass turns into a type yet; beside them,
-the snapshot counts the data that no instruction reads as opaque `unknown-dump`, each piece
-declared with the reader search that found nothing:
+trees) was already at generic 0 in the first snapshot. The eight trees still above 0 there were
+the MN10300 program images, and each of their generic pieces was read by some instruction. Lane
+generic-zero (disassembly `c04e41079`, `c65a62c5b`, `4653d696b`) took them to 0 in the generators
+(`gen_data_s.py`'s `reader_rows` pass, `gen_image_s.py --rows`), with no new opaque declaration:
 
-| tree           | generic n | generic bytes | opaque n | opaque bytes |
-|----------------|-----------|---------------|----------|--------------|
-| kn7000-program | 177       | 2,948         | 4298     | 82,196       |
-| kn7000-sp7001  | 179       | 3,044         | 4321     | 80,480       |
-| kn7000-b935    | 179       | 3,044         | 4309     | 83,003       |
-| kn7000-b893    | 176       | 2,944         | 4303     | 81,886       |
-| kn6000         | 380       | 18,810        | 3336     | 79,522       |
-| kn6500         | 386       | 18,930        | 3346     | 83,667       |
-| kn2400         | 431       | 18,853        | 5048     | 197,205      |
-| hdsx3          | 40        | 266           | 101      | 3,133        |
+- the KN7000's 30-byte "switch records" were records whose first bytes an earlier pass had taken
+  for short strings; `record_start()` stops that, and they are typed (`REC_func_484C01F1_Result`,
+  resource-id-trie leaves, the SysEx each points at); the same fix types the KN6000's
+  `func_4C02CA6A_Records_p0` (`func_4C02CBDA_Records_p0` on the KN6500) and the KN2400's
+  `func_5014A95C_Records_p0`;
+- every other piece that some instruction reads is written as rows at the reads' width and
+  signedness (`tab_u8` ... `tab_u32`), address words as `.long Label` / `Label+N`, with a header
+  naming the readers; most are blocks whose address the code only passes to a routine, so the
+  callee decides the layout;
+- the KN6000 / KN6500 code file's two `.incbin_range`s (115 + 586 B) are typed:
+  `FirmwareVersionByte`, the kernel's version string, `KernelServiceHash`, `KernelRamLayout`,
+  `KernelParams`, and its two interrupt dispatchers as code;
+- the KN2400's `RamCodeTrailer` has a reader after all (`func_4870587E`).
 
-What those pieces are, model by model, is on
+Opaque fell with it: bytes declared unread turned out to be record parts. The snapshot counts the
+data that no instruction reads as opaque `unknown-dump`, each piece declared with the reader
+search that found nothing (first snapshot to second):
+
+| tree           | generic -01 n / bytes | opaque -01 n / bytes | generic -02 | opaque -02 n / bytes |
+|----------------|-----------------------|----------------------|-------------|----------------------|
+| kn7000-program | 177 / 2,948           | 4298 / 82,196        | 0 / 0       | 3459 / 63,917        |
+| kn7000-sp7001  | 179 / 3,044           | 4321 / 80,480        | 0 / 0       | 3482 / 62,187        |
+| kn7000-b935    | 179 / 3,044           | 4309 / 83,003        | 0 / 0       | 3470 / 64,710        |
+| kn7000-b893    | 176 / 2,944           | 4303 / 81,886        | 0 / 0       | 3464 / 63,600        |
+| kn6000         | 380 / 18,810          | 3336 / 79,522        | 0 / 0       | 3197 / 70,137        |
+| kn6500         | 386 / 18,930          | 3346 / 83,667        | 0 / 0       | 3213 / 74,371        |
+| kn2400         | 431 / 18,853          | 5048 / 197,205       | 0 / 0       | 5051 / 196,479       |
+| hdsx3          | 40 / 266              | 101 / 3,133          | 0 / 0       | 101 / 3,133          |
+
+Left open: the reader walk does not follow an argument into the callee, so the reader-row blocks
+keep the reader's widths rather than the callee's layout; the KN7000's `func_487B8E34` (301 B of
+interrupt-handler code) is declared `unknown-dump`, where `code` would be the honest kind and
+converting it as code better still; `func_4C03B799_Table` (353 x s16) may run on into the kernel's
+handler code in the KN7000 data region. The census measures binary includes, not names: a reader
+row is typed by width, not yet by meaning.
+
+What those pieces became, and what is left opaque, model by model, is on
 [KN7000 Program Data Region]({{ site.baseurl }}/kn7000-data-region/#what-is-left-the-census),
 [KN6000 / KN6500 Program Data]({{ site.baseurl }}/kn6000-program-data/#what-is-left-the-census) and
 [KN2400 / KN2600 Program Data]({{ site.baseurl }}/kn2400-program-data/#what-is-left-the-census).
@@ -346,7 +374,7 @@ Run it in the disassembly repository with
 
 ```
 python3 scripts/analysis/data_incbin_census.py                       # the table
-python3 scripts/analysis/data_incbin_census.py --list generic --tree kn7000-program
+python3 scripts/analysis/data_incbin_census.py --list opaque --tree kn7000-program
 ```
 
 ## What the source says each region is

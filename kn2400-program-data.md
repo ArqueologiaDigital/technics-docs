@@ -46,7 +46,11 @@ Viewable tables, 35 OT blocks, 278 titles and 23 modes; `milk_model --check`: 0 
 - **Bitmaps**: 45 bitmap resources, PNG in `media/`, besides 3 JPEG and 2 BMP files.
 - **`RamCodeTrailer`** (`0x487965B8`, 27 bytes after the RAM-linked code): 7 bytes, then
   `0x487285BE`, `0x50120000`, `0x00038003`, `0x487965B8`, `0x5018FFF0`. *[INFERENCE]* a copy
-  descriptor; nothing reads it, and the routine that copies the RAM-linked code is still unknown.
+  descriptor. `func_4870587E` reads it, byte by byte from `+3`, 12 bytes a record (`movbu`, each
+  word assembled little-endian with `asl 8 / 16 / 24`); its immediates are spelled
+  `RamCodeTrailer+3` ... and `RamCodeTrailerWords+N`. What it does with the three words of each
+  record was not traced. (Corrected by lane generic-zero, disassembly `c65a62c5b`: the notes, and
+  this page, had said nothing reads it.)
 
 ## Typed from its readers (lane siblings-final)
 
@@ -120,15 +124,35 @@ registers (ids `0x000F000F` and `0x000F0102`); they stay numbers.
 
 ## What is left: the census
 
-The first committed snapshot,
-[`docs/coverage/data-incbin-2026-10-30-01.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-01.txt),
-reads for `kn2400` (count / bytes): generated 127 / 134,756, media 5 / 43,175, opaque 5048 / 197,205,
-generic 431 pieces, 18,853 bytes. Before the work the tree held 1,993,350 generic bytes; after lane
-sib-kn2400, 590,773.
+The second committed snapshot,
+[`docs/coverage/data-incbin-2026-10-30-02.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-02.txt)
+(measured at disassembly `141313939`, the merge of lane generic-zero), reads for `kn2400` (count /
+bytes): generated 127 / 134,756, media 5 / 43,175, opaque 5051 / 196,479, generic 0 pieces, 0 bytes.
+Before the work the tree held 1,993,350 generic bytes; after lane sib-kn2400, 590,773; in the first
+snapshot (`data-incbin-2026-10-30-01`) 431 pieces, 18,853 bytes, with opaque 5048 / 197,205.
 
-The generic pieces are read but not typed; the largest are about 8,500 bytes of *[INFERENCE]*
-parameter / colour tables in the data's first 64 KB (`0x4840B3D4..`, `0x48409F34..`,
-`0x4840D9C4..`). The largest opaque pieces, which no instruction reads:
+Lane generic-zero (disassembly `c65a62c5b`; `kn6000/notes/siblings-data-final/README.md`, section
+"generic-zero") took it to 0. Every generic piece had a reader, so none could stay a binary include
+or be declared opaque:
+
+- `record_start()` stops a record that the walk reads past its first bytes from being taken for a
+  short string, so the `func_5014A95C_Records_p0` records (before: `Str_empty_1261`, `Str_4_33`
+  ...) are typed;
+- the 431 generic pieces are rows at the width and signedness of the reads that land in them
+  (`tab_u8` ... `tab_u32`), address words as `.long Label` / `Label+N`, under a header naming the
+  readers: 3 pieces / 109 bytes read at a known width, 380 / 18,475 whose address the code only
+  takes, and 48 strings. Among them are the KN7000's 260-way switch descriptors
+  (`data_48409720`, `data_48409740`, ... 32 bytes each, `{u32, u16, u16, pointer, u16 ...}` and
+  the SysEx the pointer names): u8 rows with `.long data_48409720+20`, since the code reaches
+  them only as `mov data_X, d0` (*[INFERENCE]* by the KN7000's `REC_func_484C01F1_Result`).
+  Others, such as `data_48409F34` and `data_4840D9C4`, are u8 and u32 rows whose address the
+  code loads as a base.
+
+A reader row keeps the **reader's** widths, not the callee's layout: the walk does not carry a
+register argument into the routine that reads it (the KN7000 profiles' extended walk, tried here,
+typed 78.1% instead of 82.6% and lost bitmaps, so it was not applied). The opaque bytes fell by 726
+while the opaque piece count rose by 3: pieces were split at labels the new records and reader rows
+name (not traced one by one). The largest opaque pieces, which no instruction reads:
 
 | run                      | bytes  | what it is, as far as known                                                                                                                                                          |
 |--------------------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -141,4 +165,6 @@ parameter / colour tables in the data's first 64 KB (`0x4840B3D4..`, `0x48409F34
 
 - *[INFERENCE]* which of the two Music Stylist lists belongs to which model.
 - The effect-program blocks' format.
-- Who copies the RAM-linked code to `0x50120000`.
+- Who copies the RAM-linked code to `0x50120000`: `func_4870587E` reads `RamCodeTrailer`, but
+  what it does with each record's three words was not traced.
+- The reader rows of address-only pieces: their layout is the callee's.

@@ -4,6 +4,9 @@ The sync (commits `63ac628`..`a9316c8`) put the KN7000 program data region and G
 plug-in's screens, the KN6000 / KN7000 panel-memory field names, the KN6000 / KN6500 / HD-SX6 and
 KN2400 program data, and the first committed census snapshot
 (`docs/coverage/data-incbin-2026-10-30-01`) on the site, from technics-roms-disasm `39fc875ef`.
+(Superseded: the generic figures this note was written against, from `data-incbin-2026-10-30-01`,
+are superseded by `docs/coverage/data-incbin-2026-10-30-02` (technics-roms-disasm `347fd0cf0`,
+after lane generic-zero), which reads generic 0 in every tree; the site quotes `-02` since.)
 New pages: `kn7000-menu-map.md`, `kn7000-data-region.md`, `kn7000-sp7001-plugin.md`,
 `kn7000-panel-memory.md`, `kn6000-program-data.md`, `kn2400-program-data.md`. Left open:
 

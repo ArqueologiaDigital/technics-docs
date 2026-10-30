@@ -141,35 +141,67 @@ tables, with a MILK-id key spelled by its name.
 ## What is left: the census
 
 The instrument is `scripts/analysis/data_incbin_census.py`
-([ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#the-data-include-census)). Its first
+([ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#the-data-include-census)). Its second
 committed snapshot,
-[`docs/coverage/data-incbin-2026-10-30-01.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-01.txt)
-(measured at disassembly `28bad682a`), reads for the four program builds (count / bytes):
+[`docs/coverage/data-incbin-2026-10-30-02.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-02.txt)
+(measured at disassembly `141313939`, the merge of lane generic-zero), reads for the four program
+builds (count / bytes):
 
 | tree             | generated     | media           | opaque        | generic n | generic bytes |
 |------------------|---------------|-----------------|---------------|-----------|---------------|
-| `kn7000-program` | 87 / 162,942  | 10 / 58,992     | 4298 / 82,196 | 177       | 2,948         |
-| `kn7000-sp7001`  | 526 / 462,454 | 169 / 1,375,301 | 4321 / 80,480 | 179       | 3,044         |
-| `kn7000-b935`    | 87 / 162,942  | 10 / 58,992     | 4309 / 83,003 | 179       | 3,044         |
-| `kn7000-b893`    | 87 / 162,942  | 10 / 58,992     | 4303 / 81,886 | 176       | 2,944         |
+| `kn7000-program` | 87 / 162,942  | 10 / 58,992     | 3459 / 63,917 | 0         | 0             |
+| `kn7000-sp7001`  | 526 / 462,454 | 169 / 1,375,301 | 3482 / 62,187 | 0         | 0             |
+| `kn7000-b935`    | 87 / 162,942  | 10 / 58,992     | 3470 / 64,710 | 0         | 0             |
+| `kn7000-b893`    | 87 / 162,942  | 10 / 58,992     | 3464 / 63,600 | 0         | 0             |
 
 (`kn7000-sp7001` also holds table build 83, whose media and generated items are most of its first
 two columns.) For comparison: before the work the program tree was 3 generic entries of 2,563,794
 bytes; after lane gui-kn7000 6,294 pieces of 793,436 bytes; after kn7000-data-rest 433 pieces of
-17,416 bytes; now 177 pieces of 2,948 bytes. `gen_data_s.py` types 2,106,173 of the region's
-2,306,001 bytes in build 941 (91.3%). The generated column is the bitmaps
+17,416 bytes; in the first snapshot (`data-incbin-2026-10-30-01`, after lane kn7000-final) 177
+pieces of 2,948 bytes; now none. Generic and opaque, first snapshot to second:
+
+| tree             | generic -01 n / bytes | opaque -01    | generic -02 | opaque -02    |
+|------------------|-----------------------|---------------|-------------|---------------|
+| `kn7000-program` | 177 / 2,948           | 4298 / 82,196 | 0 / 0       | 3459 / 63,917 |
+| `kn7000-sp7001`  | 179 / 3,044           | 4321 / 80,480 | 0 / 0       | 3482 / 62,187 |
+| `kn7000-b935`    | 179 / 3,044           | 4309 / 83,003 | 0 / 0       | 3470 / 64,710 |
+| `kn7000-b893`    | 176 / 2,944           | 4303 / 81,886 | 0 / 0       | 3464 / 63,600 |
+
+Before lane generic-zero, `gen_data_s.py` typed 2,106,173 of the region's 2,306,001 bytes in build
+941 (91.3%; not re-measured since). The generated column is the bitmaps
 (`census: generated -- tools/table_png.py`).
 
-**Generic** means read but not typed: each such piece holds an address some instruction reads,
-loads as a base or passes to a call, and no pass turns it into a type yet. In 941:
+**What the last generic pieces became** (lane generic-zero, disassembly `4653d696b`;
+`kn7000/notes/data-final/README.md`, section "generic-zero"). A generic piece was one that some
+instruction reads, loads as a base or passes to a call, with no pass turning it into a type. By the
+owner's rule none of them could stay a binary include, and none could be declared opaque either,
+since each had a reader. In 941:
 
-- records of the 260-way switch (`func_484C01F1`) whose pointer fields point into their own tail,
-  so their room is less than any size variant's fields (30 bytes each);
-- RAM-image tables read with an index from a RAM pointer (`data_500077A4` and after, 208 bytes;
-  `0x5000102C` / `0x50001120`, 124 / 120 bytes of zeros the code fills);
-- small tables read once through a computed base (the tail of `func_4841493C_Table`, 72 bytes; two
-  64-byte colour tables at `0x4859E484` / `0x485EFF04`; `SjisMissingGlyph`'s 32 bytes);
-- blocks handed to library routines whose layout the callee decides at run time.
+- **The 260-way switch's descriptors** (`func_484C01F1`) and the resource-id trie's leaves are
+  typed records, `REC_func_484C01F1_Result` and trie-leaf records. They had been 30-byte pieces
+  whose first bytes an earlier pass took for short strings. `record_start()` now stops a target from
+  being taken for a string when the walk reads fields past its NUL. Each descriptor's pointer field
+  now names its SysEx (`SysEx_48615730` ...), which is typed as SysEx too. The same fix moved about
+  18 KB out of the opaque declarations: the 14-byte "binary nothing reads" pieces after each
+  mistyped string were the records' tails.
+- **Reader rows**, 87 pieces / 1,390 bytes: each is written as rows at the width and signedness of
+  the reads that land in it (`tab_u8` ... `tab_u32`), its address words as `.long Label` /
+  `Label+N`, under a header naming the readers. Four are read at a known width (the tail of
+  `func_4841493C_Table`, u32; the 33 bytes before `func_4856E588`'s 16-byte records; ...). The rest
+  are pieces whose address the code only takes: the RAM-image tables `data_500077A4` (208 bytes,
+  u8 rows), `data_5000102C` / `data_50001120` (u32 rows, *[INFERENCE]* zlib 1.0.4's `cplext` and
+  `cpdext` by their contents, read by `inflate_trees_dynamic` / `inflate_trees_fixed`), the three
+  20-byte records `_tr_init` takes (*[INFERENCE]* zlib's `static_*_desc` by their values), the
+  16-colour tables of `VwUserBitmapProc` / `AcMonImageProc` (`data_4859E484` / `data_485EFF04`,
+  `0x00BBGGRR` rows), `SjisMissingGlyph` (32 bytes, u8 rows, *[INFERENCE]* a 16 x 16 glyph), and
+  `MainTitleControl`'s MILK id pairs.
+- **Strings**: 32 empty strings (`.asciz ""`) handed to strcpy or named only as an address.
+
+A reader row keeps the **reader's** widths, not the callee's layout: for a block whose address is
+only passed on, the walk does not follow the argument into the routine that reads it, so the
+layout past the read fields is *[INFERENCE]* (open). And one piece of code is still declared
+data: `func_487B8E34`, 301 bytes of interrupt-handler code, is `census: opaque -- unknown-dump`,
+where `code` would be the honest kind and converting it as code better still.
 
 **Opaque** (`census: opaque -- unknown-dump`) means that no load, store, base or call argument of
 the converted code lands in the bytes under the extended walk, and the line says whether a typed
@@ -197,7 +229,14 @@ in a branch the linear walk enters with no state.
   loop iteration.
 - The 4-byte demo-stream events of `func_485831BA_Table`'s three streams are byte rows: the reader
   indexes `+0` of every 4-byte step, the other three bytes' readers were not traced.
-- Records whose pointer fields point into their own tail (the switch descriptors) want a "record +
-  inline payload" representation.
+- Records whose pointer fields point into their own tail want a "record + inline payload"
+  representation. (The KN7000's switch descriptors are records since lane generic-zero; the
+  KN2400's twins, reached only as a base, are u8 rows with `.long data_X+20`.)
+- Reader rows keep the reader's widths, not the callee's layout: the walk does not carry an argument
+  into the routine it is passed to. Naming zlib's `cplext` / `cpdext` / `static_*_desc` in the
+  symbol files would need the ported 935 / 893 / 942 symbol files regenerated.
+- `func_487B8E34` (301 bytes of interrupt-handler code) is declared `unknown-dump`; it should be
+  converted as code.
+- `func_4C03B799_Table` (353 x s16) may run on into the kernel's handler code in the data region.
 - An array's record count, where the readers check no bound, is where its records stop being free
   or another name begins; such counts are inferences, listed in each macro header.

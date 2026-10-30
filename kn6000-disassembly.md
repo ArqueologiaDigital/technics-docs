@@ -59,17 +59,28 @@ programs: `sfx_extract.py` reads the ZIP archive appended to each self-extractin
 The KN6000 and KN6500 images have the same layout. The whole image is linked for
 `0x4C000000`, the window the firmware runs its program from:
 
-| KN6000 file offsets   | KN6500 file offsets   | contents                                                                   |
-|-----------------------|-----------------------|----------------------------------------------------------------------------|
-| `0x000000`-`0x000010` | `0x000000`-`0x000010` | boot header: `_reset` (jmp to `crt0_start`), 5 nops, `_vector_08`, 3 bytes |
-| `0x000010`-`0x000080` | `0x000010`-`0x000080` | erased (`0xFF`)                                                            |
-| `0x000080`-`0x176037` | `0x000080`-`0x176839` | code: start-up, the application, the C runtime                             |
-| `0x176037`-`0x3F47EC` | `0x176839`-`0x37E44C` | data                                                                       |
-| `0x3F47EC`-`0x3F77E7` | `0x37E44C`-`0x381447` | code: the MILK kernel (uITRON services `del_mbx` ... `dly_tsk`)            |
-| `0x3F77E7`-`0x3F7A31` | `0x381447`-`0x381691` | data, including the `MILK MN10300 Ver1.0R1` banner                         |
+| KN6000 file offsets   | KN6500 file offsets   | contents                                                                                                                                             |
+|-----------------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x000000`-`0x000010` | `0x000000`-`0x000010` | boot header: `_reset` (jmp to `crt0_start`), 5 nops, `_vector_08`, 3 bytes, the last `FirmwareVersionByte` (`0x71` / `0x13`)                         |
+| `0x000010`-`0x000080` | `0x000010`-`0x000080` | erased (`0xFF`)                                                                                                                                      |
+| `0x000080`-`0x176037` | `0x000080`-`0x176839` | code: start-up, the application, the C runtime                                                                                                       |
+| `0x176037`-`0x3F47EC` | `0x176839`-`0x37E44C` | data                                                                                                                                                 |
+| `0x3F47EC`-`0x3F77E7` | `0x37E44C`-`0x381447` | code: the MILK kernel (uITRON services `del_mbx` ... `dly_tsk`)                                                                                      |
+| `0x3F77E7`-`0x3F78B4` | `0x381447`-`0x381514` | typed data: the `MILK MN10300 Ver1.0R1` banner (`Str_MILK_MN10300_Ver1_0R1`), `KernelServiceHash`, `KernelRamLayout`, `KernelParams`                 |
+| `0x3F78B4`-`0x3F7A31` | `0x381514`-`0x381691` | code: `KernelStartStub` and the kernel's interrupt dispatchers `KernelGroup0IntDispatch`, `KernelIntDispatch` (a code range since lane generic-zero) |
 
 The code ranges are the ones the sources were generated with (each Makefile's `CODE`). Their
 ends are where the reached code stops: past them, no traced path enters and no named entry lies.
+The two pieces of the code file outside every code range (115 + 586 bytes) were the last
+`.incbin_range`s there; lane generic-zero (disassembly `c04e41079`) typed them through the
+Makefile's `TYPED` and named them in `<model>_manual.sym`, each with the code that reads it:
+`func_4C07B3D7` / `func_4C07B56B` answer `FirmwareVersionByte`; `func_4C3F7632` / `func_4C381292`
+probe `KernelServiceHash` (16 x {u32 key, handler}) by `(key & 0xF) * 8` and `jmp` through `+4`;
+`func_4C3F61BB` and three more kernel routines read `KernelRamLayout` (6 RAM addresses), `get_tid`
+and two more `KernelParams` (14 u16; KN6000 names). The two dispatchers are reached only through the `jmp KernelIntDispatch` that
+`func_4C000350` writes at `0x90000000`; they are decoded now, with the five `movm` of the `other3`
+register group as `.byte` escapes. *[INFERENCE]* on what the hash keys, the RAM words and the u16
+parameters mean.
 
 ## The XAPR plug-in (HD-SX3 or HD-SX6)
 
@@ -135,25 +146,31 @@ code halves of the MILK reflection tables are `.long` rows of names; everything 
 the encoder spells differently becomes a `.byte` escape with the disassembly beside it.
 
 Each generator run writes `notes/conversion-stats.txt` in its folder. As committed at disassembly
-`1a0e9e21f` (2026-10-30, unchanged at `39fc875ef`):
+`c04e41079` (2026-10-30, lane generic-zero; the plug-in's unchanged since `1a0e9e21f`):
 
-| measure                      | KN6000                    | KN6500                    | `XAPR` plug-in          |
-|------------------------------|---------------------------|---------------------------|-------------------------|
-| image bytes                  | 4,160,049                 | 3,675,793                 | 786,432                 |
-| code-range bytes             | 1,544,130                 | 1,546,180                 | 253,526                 |
-| entries                      | 13,507                    | 13,562                    | 991                     |
-| of which named               | 2,524                     | 2,547                     | 155                     |
-| derived `<name>_entry`       | 683                       | 688                       | 40                      |
-| still `func_<ADDR>`          | 10,300                    | 10,327                    | 796                     |
-| bytes emitted as code        | 1,530,755                 | 1,532,779                 | 252,331                 |
-| share of the code ranges     | 99.13%                    | 99.13%                    | 99.53%                  |
-| share of the image           | 36.80%                    | 41.70%                    | 32.09%                  |
-| instructions                 | 579,401                   | 580,046                   | 88,617                  |
-| `.byte` escapes              | 75                        | 88                        | 12                      |
-| local branch labels          | 49,526                    | 49,599                    | 9,257                   |
-| unreached code decoded       | 13,356                    | 13,382                    | 1,162                   |
-| code-range bytes left binary | 3 in 1 piece              | 3 in 1 piece              | 0                       |
-| reflection tables as `.long` | 21                        | 22                        | 3                       |
+| measure                      | KN6000    | KN6500    | `XAPR` plug-in |
+|------------------------------|-----------|-----------|----------------|
+| image bytes                  | 4,160,049 | 3,675,793 | 786,432        |
+| code-range bytes             | 1,544,508 | 1,546,558 | 253,526        |
+| entries                      | 13,523    | 13,578    | 991            |
+| of which named               | 2,527     | 2,550     | 155            |
+| derived `<name>_entry`       | 683       | 688       | 40             |
+| still `func_<ADDR>`          | 10,313    | 10,340    | 796            |
+| bytes emitted as code        | 1,531,131 | 1,533,155 | 252,331        |
+| share of the code ranges     | 99.13%    | 99.13%    | 99.53%         |
+| share of the image           | 36.81%    | 41.71%    | 32.09%         |
+| instructions                 | 579,529   | 580,174   | 88,617         |
+| `.byte` escapes              | 80        | 93        | 12             |
+| local branch labels          | 49,528    | 49,601    | 9,257          |
+| unreached code decoded       | 13,356    | 13,382    | 1,162          |
+| code-range bytes left binary | 0         | 0         | 0              |
+| reflection tables as `.long` | 21        | 22        | 3              |
+
+At `1a0e9e21f` the KN6000 / KN6500 columns read 1,544,130 / 1,546,180 code-range bytes, 13,507 /
+13,562 entries and 3 code-range bytes left binary (1 piece each). Lane generic-zero added the
+dispatchers' 381 bytes as a code range (`--code 0x3f78b4:0x3f7a31` / `0x381514:0x381691`) and
+ended the boot header's code range at `0xd` instead of `0x10`, so its last 3 bytes, the binary
+piece, are typed data now: +378 code-range bytes.
 
 At `2319e9b94` (2026-10-24) 19,825 (KN6000) / 16,003 (KN6500) / 1,162 (plug-in) code-range bytes
 were still binary. `gen_image_s.py --decode-gaps` now decodes code that no traced path reaches,
@@ -196,8 +213,8 @@ The `.AST` header carries the tag `"I K"` where the KN7000's carries `"J K"`.
 - RAM and I/O addresses are still numbers in the sources. Data addresses the code uses are
   named from the typed data's labels (`labels.sym`, read by `gen_image_s.py`), except a few that
   fall inside typed items.
-- The data still left generic or opaque (18,810 / 18,930 / 266 bytes generic in the census
-  snapshot `docs/coverage/data-incbin-2026-10-30-01`); see
+- The data still declared opaque (70,137 / 74,371 / 3,133 bytes in the census snapshot
+  `docs/coverage/data-incbin-2026-10-30-02`, where all three trees read generic 0); see
   [Program Data & GUI]({{ site.baseurl }}/kn6000-program-data/#what-is-left-the-census).
 - The plug-in's entry vectors, and names for its host calls in place of the table offsets.
 - The table ROMs IC13 / IC14 need dumping before any table tree can exist; see the

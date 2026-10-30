@@ -195,22 +195,52 @@ model first. Two link checks fail, both in the plug-in's own data: object 11's `
 
 ## What is left: the census
 
-The first committed snapshot of `scripts/analysis/data_incbin_census.py`,
-[`docs/coverage/data-incbin-2026-10-30-01.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-01.txt)
-(count / bytes):
+The second committed snapshot of `scripts/analysis/data_incbin_census.py`,
+[`docs/coverage/data-incbin-2026-10-30-02.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-02.txt)
+(measured at disassembly `141313939`, the merge of lane generic-zero; count / bytes):
 
 | tree     | generated     | media      | opaque         | generic n | generic bytes |
 |----------|---------------|------------|----------------|-----------|---------------|
-| `kn6000` | 80 / 137,020  | 3 / 28,660 | 3336 / 79,522  | 380       | 18,810        |
-| `kn6500` | 83 / 137,404  | 3 / 28,660 | 3346 / 83,667  | 386       | 18,930        |
-| `hdsx3`  | 3 / 309,200   | 0 / 0      | 101 / 3,133    | 40        | 266           |
+| `kn6000` | 80 / 137,020  | 3 / 28,660 | 3197 / 70,137  | 0         | 0             |
+| `kn6500` | 83 / 137,404  | 3 / 28,660 | 3213 / 74,371  | 0         | 0             |
+| `hdsx3`  | 3 / 309,200   | 0 / 0      | 101 / 3,133    | 0         | 0             |
 
 Before the work the trees held 2,630,724 (KN6000), 2,140,036 (KN6500) and 533,544 (plug-in) generic
-bytes; after lanes sib-kn6000 and sib-kn2400, 797,489 / 901,823 / 6,623. Every generic piece is
-read by some instruction but not typed. The largest: on the KN6000, 5,207 bytes at
-`0x4C1A04AC` read through `data_4C1A04AC`, 2,535 bytes of 4-byte groups after it, and about 4,000
-bytes of records between strings (*[INFERENCE]* effect parameter tables); the KN6500 has the same
-three. The plug-in's are *[INFERENCE]* u16 coordinate rows beside the file-browser strings.
+bytes; after lanes sib-kn6000 and sib-kn2400, 797,489 / 901,823 / 6,623; in the first snapshot
+(`data-incbin-2026-10-30-01`, after lane siblings-final) 18,810 / 18,930 / 266 bytes in 380 / 386 /
+40 pieces, with opaque 3336 / 79,522, 3346 / 83,667 and 101 / 3,133. Lane generic-zero
+(disassembly `c04e41079` for the KN6000 / KN6500, `c65a62c5b` for the plug-in;
+`kn6000/notes/siblings-data-final/README.md`, section "generic-zero") took all three to 0. Every
+generic piece had a reader, so none could stay a binary include or be declared opaque:
+
+- **Records.** `record_start()` stops a record that the walk reads past its first bytes from being
+  taken for a short string; the KN6000's `func_4C02CA6A_Records_p0` records (`func_4C02CBDA_Records_p0`
+  on the KN6500), before a run of guessed strings, are typed records now. The opaque bytes fell
+  with them (79,522 -> 70,137 and 83,667 -> 74,371): bytes declared unread were the records' tails.
+- **Reader rows.** Every other piece is written as rows at the width and signedness of the reads
+  that land in it (`tab_u8` ... `tab_u32`), address words as `.long Label` / `Label+N`, under a
+  header naming the readers (counts below). Most are "address only taken": the code loads the
+  piece's address into a register or passes it to a routine. On the KN6000, `data_4C1A04AC` is
+  now 2,240 bytes of u8 rows whose address `func_4C055ED9_L43` loads as a base; `data_4C176EA8`
+  is the 16-colour table of `VwUserBitmapProc` (u32 `0x00BBGGRR` rows); empty strings handed to
+  strcpy are `.asciz ""`. The plug-in's are coordinate words (`0x500014` = x `0x14`, y `0x50`)
+  passed to the host's drawing routines through `calls (a2)`, and 10 strings.
+- **The kernel's tail.** The two pieces of the code file outside every range (115 + 586 bytes)
+  are typed: `FirmwareVersionByte`, the kernel's version string, `KernelServiceHash`,
+  `KernelRamLayout`, `KernelParams`, and the kernel's two interrupt dispatchers as code (see
+  [KN6000 / KN6500 / HD-SX Disassembly]({{ site.baseurl }}/kn6000-disassembly/)).
+
+What the reader-row pieces are, by tree (`kn7000/notes/data-final-probes/reader_rows_stats.py`):
+
+| tree     | read at a width (n / bytes) | address only taken (n / bytes) | strings (n) | total n | total bytes |
+|----------|-----------------------------|--------------------------------|-------------|---------|-------------|
+| `kn6000` | 5 / 129                     | 339 / 17,838                   | 34          | 378     | 18,109      |
+| `kn6500` | 5 / 129                     | 345 / 17,958                   | 34          | 384     | 18,229      |
+| `hdsx3`  | 0 / 0                       | 30 / 228                       | 10          | 40      | 266         |
+
+A reader row keeps the **reader's** widths, not the callee's layout: the walk does not carry a
+register argument into the routine that reads it, so what lies past the read fields is
+*[INFERENCE]* (open).
 
 Opaque means that the reader search found no load, store, base or call argument in the bytes. The
 biggest on these images: records `03 00 00 00 00 00 00 00 f0 c0 05 ff ff ff 04 ...` (3,927 bytes at
@@ -226,3 +256,7 @@ library's constant tables).
 - The code reaches many tables with computed offsets; their bounds come from the labels the code
   names, so a table can still be split in two.
 - The plug-in's entry vectors' roles.
+- The reader rows of address-only pieces keep the reader's widths, not the callee's layout: the
+  walk does not carry a register argument into the routine that reads it. (The KN7000 profiles'
+  extended walk, tried on the KN2400, typed less and was not applied.)
+- *[INFERENCE]* What the kernel's hash keys, RAM layout words and u16 parameters mean.
