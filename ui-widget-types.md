@@ -327,8 +327,8 @@ The diagnostic screen is part of the **HAMA** (file/disk) subsystem, initialized
    | 1            | `STOP FDD TEST`       | kills the test-loop timer                                                              |
    | 2            | `START FDD TEST LOOP` | one `FDLoadSaveTest` pass (`RunTestCounters_Entry`), then a timer posts switch 2 again |
    | 3            | `DIR`                 | `FDListDirectory`                                                                      |
-   | 4            | `Debug Test`          | `format_FD` with WA = 2, then volume label `TEST_HAMA` (`FDTest_Format2ddAndLabel`)         |
-   | 5            | `Debug Test`          | `format_FD` with WA = 3, then volume label `TESTHAMA2HD` (`FDTest_Format2hdAndLabel`)       |
+   | 4            | `Debug Test`          | `format_FD` with WA = 2, then volume label `TEST_HAMA` (`FDTest_Format2ddAndLabel`)    |
+   | 5            | `Debug Test`          | `format_FD` with WA = 3, then volume label `TESTHAMA2HD` (`FDTest_Format2hdAndLabel`)  |
    | 6            | —                     | lists `A:\HAMA\*.LSW` (`ListDir2_Entry`)                                               |
 
 4. **Dialog widget events.** `FDTestDialogProc` answers `EVT_REQUEST_GRID_DRAW` (`0x1E0008D`) by sending `EVT_GRID_DRAW` for the requested cell, with the text `File Name 20 charact`, to the focus object. Through a word-offset table at `0xE1FF34` (`FDTestDialogProc_CaseTable`) it swallows the index-switch and dial events `0x1C00017`--`0x1C0001D` (`EVT_INDEXSW_UP` … `EVT_RAM_DATA`), returning 0. Every other event also returns 0.

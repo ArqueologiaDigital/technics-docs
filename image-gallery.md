@@ -196,10 +196,10 @@ Initializers of the GUI's compiled C sources. Since 2026-10-31 each initializer 
 | Image                                                                                                         | Filename                          | Dimensions   | Description                                                 |
 |---------------------------------------------------------------------------------------------------------------|-----------------------------------|--------------|-------------------------------------------------------------|
 | ![WelcomeGlyph_C]({{ "/assets/images/gallery/WelcomeGlyph_C.png" | relative_url }})                           | `WelcomeGlyph_C.png`              | 16x17, 1-bit | Welcome-screen letter C (rows stored bottom-up)             |
-| ![Bitmap_Digit1]({{ "/assets/images/gallery/Bitmap_Digit1.png" | relative_url }})                             | `Bitmap_Digit1.png`               | 16x17, 1-bit | Technichord digit 1                                         |
-| ![Bitmap_DigitD]({{ "/assets/images/gallery/Bitmap_DigitD.png" | relative_url }})                             | `Bitmap_DigitD.png`               | 16x17, 1-bit | Technichord letter D                                        |
-| ![Bitmap_DigitL]({{ "/assets/images/gallery/Bitmap_DigitL.png" | relative_url }})                             | `Bitmap_DigitL.png`               | 48x17, 1-bit | Technichord letter L, three frames                          |
-| ![Bitmap_DigitR]({{ "/assets/images/gallery/Bitmap_DigitR.png" | relative_url }})                             | `Bitmap_DigitR.png`               | 16x17, 1-bit | Technichord letter R                                        |
+| ![WelcomeGlyph_I]({{ "/assets/images/gallery/WelcomeGlyph_I.png" | relative_url }})                           | `WelcomeGlyph_I.png`              | 16x17, 1-bit | Welcome-screen letter I (rows stored bottom-up)             |
+| ![WelcomeGlyph_U]({{ "/assets/images/gallery/WelcomeGlyph_U.png" | relative_url }})                           | `WelcomeGlyph_U.png`              | 16x17, 1-bit | Welcome-screen letter U (rows stored bottom-up)             |
+| ![WelcomeGlyph_L]({{ "/assets/images/gallery/WelcomeGlyph_L.png" | relative_url }})                           | `WelcomeGlyph_L.png`              | 48x17, 1-bit | Welcome-screen letters L, N, O (rows stored bottom-up)      |
+| ![WelcomeGlyph_R]({{ "/assets/images/gallery/WelcomeGlyph_R.png" | relative_url }})                           | `WelcomeGlyph_R.png`              | 16x17, 1-bit | Welcome-screen letter R (rows stored bottom-up)             |
 | ![UserBitmapCheck_Bitmap24x24]({{ "/assets/images/gallery/UserBitmapCheck_Bitmap24x24.png" | relative_url }}) | `UserBitmapCheck_Bitmap24x24.png` | 24x24, 8-bit | User-bitmap check mark, drawn by `VwUserBitmap_HandlePaint` |
 
 ---

@@ -200,20 +200,20 @@ and are not the class tree.
 
 ### Primitive Widgets
 
-| Proc            | Description                  |
-|-----------------|------------------------------|
-| `BoxProc`       | Basic rectangular container  |
-| `GroupBoxProc`  | Grouped container with title |
-| `WindowProc`    | Top-level window             |
-| `ScreenProc`    | Full-screen display          |
-| `StringBoxProc` | Text display box             |
-| `TextBoxProc`   | Text content area            |
-| `LabelProc`     | Static text label            |
-| `BitmapProc`    | Image display                |
-| `IconProc`      | Small icon display           |
-| `LineProc`      | Line element                 |
-| `FrameProc`     | Bordered frame               |
-| `EditSwProc`    | Edit switch/toggle           |
+| Proc            | Description                                   |
+|-----------------|-----------------------------------------------|
+| `BoxProc`       | Basic rectangular container                   |
+| `GroupBoxProc`  | Grouped container with title                  |
+| `WindowProc`    | Top-level window                              |
+| `ScreenProc`    | Full-screen display                           |
+| `StringBoxProc` | Text display box                              |
+| `TextBoxProc`   | Text content area                             |
+| `LabelProc`     | Static text label                             |
+| `BitmapProc`    | Image display                                 |
+| `IconProc`      | Small icon display                            |
+| `LineProc`      | Line element                                  |
+| `FrameProc`     | Bordered frame                                |
+| `EditSwProc`    | Label that handles `EVT_SW_IN` (not a toggle) |
 
 ### View Widgets (Vw* prefix)
 
@@ -374,6 +374,64 @@ Three storage shapes recur, and the labels inside each routine are named after t
 The property types themselves are the table `SupportClass_PropTypeRecords` (0xEB7690), which `InitializeObjectTable` registers at registry slot 0x260 with 0x37 entries, one per letter `A`..`w`. `ClassProc` selects entry *letter* - 'A' (`sub a, 0x41; add xwa, 0x2600000`). Each entry is {`proc`, `count`, `size`, `values`}: the property-type procedure, the number of named values that `CommonIDProc` walks, the property's size in bytes (`SupportClassProc_OnGetPropSize` reads it at +6), and a pointer to the {name, value} pairs. Those pairs are where the C sources' value names (`CL_White`, `BD_Single2`, `VF_Fixed`, ...) come from. In the C the entries for letters `A`..`s` are a typed array, `naka_prop_type_t SupportClass_PropTypeRecords[51]` in `naka_style_bitmaps.c` (`scripts/converters/retype_prop_type_records.py`).
 
 The names come from `scripts/renaming/gen_idproc_names.py`, `gen_name_table_idproc_names.py`, `gen_objlist_idproc_names.py` and `gen_point_class_idproc_names.py` in technics-roms-disasm. Each asserts the shape it relies on in v10, v9 and v7. The labels these routines had before (`FrameVariant_*`, `DrawHelper_*`, `SliderH_*`, `ShadowBox_*`, `EdgeVariant_*`) were borrowed from unrelated code.
+
+## How Widgets Paint Themselves
+
+Painting is three events, answered by `ViewableProc` (0xFA5995, the base of every view; `ui/ui_widget_defs.s`)
+unless a class overrides them:
+
+| Event                     | Viewable's answer                                                                                                                                   |
+|---------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| `EVT_PAINT` (0x1C0000B)   | if visible: `EVT_DRAW` to self and `EVT_PAINT` to the first subview; then, visible or not, `EVT_PAINT` to the next sibling (`ViewableProc_OnPaint`) |
+| `EVT_REPAINT` (0x1C0000C) | if visible: `EVT_DRAW` to self and `EVT_PAINT` to the subview, no siblings (`ViewableProc_OnRepaint`)                                               |
+| `EVT_DRAW` (0x1C0000D)    | nothing (`Viewable_ReturnZero`); each visible class draws its own rectangle here                                                                    |
+
+So painting a screen is a depth-first walk of its view tree (self, children, then siblings), and a hidden view
+(`GetVisible`: flag word +12 bit 0 set) hides its subtree; `EVT_REPAINT` redraws one widget and its children after a
+value change. The tree links are the record's +4 super, +6 sub, +8 next and +10 prev words (`GetSuperView`,
+`GetSubView`, `GetNextView`, `GetPrevView`; ViewableProc's `EVT_GET_SUPERVIEW` / `EVT_GET_SUBVIEW` / `EVT_GET_NEXTVIEW` /
+`EVT_GET_PREVVIEW` cases are `Viewable_OnGetSuperView` and its siblings). These helpers were mislabelled before
+2026-10-31: the one that reads +6, the subview, was called View_GetSuperViewInstance.
+
+The `Ps*` value widgets draw in two steps: `EVT_DRAW` paints the box and the marker beside the panel switch that
+operates them (`DrawEditSw`), and `EVT_PARA_DRAW` (0x1C0000F) paints the value text, so a value change redraws
+only the text. Grids add `EVT_SELE_DRAW` for the cursor, and `VwBox` answers `EVT_DRAW_SELECTED`.
+
+What each class's `EVT_DRAW` calls, read from the source of each proc ("base" = the parent class's proc, called
+first; `notes/open4-kn5000-b/display/probes/widget_paint_calls.py` in the disassembly repository lists the
+candidate primitives of every proc):
+
+| class (proc)                                       | base       | draws                                                                                                                                                                                                                                                                                                                                                                                |
+|----------------------------------------------------|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Viewable (`ViewableProc`)                          | -          | nothing                                                                                                                                                                                                                                                                                                                                                                              |
+| Box (`BoxProc`, 0xF99581)                          | Viewable   | `DrawDesignBox` of the rectangle                                                                                                                                                                                                                                                                                                                                                     |
+| VwBox (`VwBoxProc`)                                | Viewable   | `DrawDesignBox(rect, border +24, colour +22)`; `EVT_DRAW_SELECTED` (`VwBox_OnDrawSelected`): `DrawDesignFrame` 2 px inside the client box, colour 0xF2 to select, the box colour to deselect                                                                                                                                                                                         |
+| GroupBox (`GroupBoxProc`)                          | Box        | the box; its last switch case, `GroupBoxProc_OnAllPaint`, re-sends `EVT_PAINT` to the view (the whole group repainted); the rest of GroupBoxProc handles switches, the dial and title events                                                                                                                                                                                         |
+| Screen (`ScreenProc`, 0xF9A69F)                    | GroupBox   | `Screen_Paint`: `DrawWall` (the 320 x 240 wallpaper) only; the wall and its palette are chosen on `EVT_SHOW` (`Screen_Init_SetWall`: `ChangeWall`, `ChangeWallPalette`)                                                                                                                                                                                                              |
+| TtlScreen (`TtlScreenProc`, 0xF9AA6D)              | Screen     | `DrawTitleBar`: icon (`DrawDesignBox` + `DrawIcons`) and title text (`DrawStringCentered` / `DrawStringLeftJustify` / `DrawStringRightJustify`)                                                                                                                                                                                                                                      |
+| Label (`LabelProc`, 0xF9C4B6)                      | Viewable   | `DrawString` at (x1 + 2, y1 + 1), font +26, colour +30 on 0xF7                                                                                                                                                                                                                                                                                                                       |
+| StringBox (`StringBoxProc`, 0xF9C44E)              | Box        | the box, then `DrawStringAlignment` of the string, centred in the client box (`GetClientBox`, `GetBoxCenter`)                                                                                                                                                                                                                                                                        |
+| Line (`LineProc`, 0xF9C723)                        | Viewable   | `DrawLine` (horizontal or vertical by field +24)                                                                                                                                                                                                                                                                                                                                     |
+| Frame (`FrameProc`, 0xF9C7A5)                      | Viewable   | `DrawDesignFrame`: `DrawFrame` repeated, shrinking one pixel per pass, for the frame thickness (style 1 only)                                                                                                                                                                                                                                                                        |
+| Bitmap (`BitmapProc`)                              | Viewable   | `DrawBitmap` of bitmap id +22 at (x1, y1)                                                                                                                                                                                                                                                                                                                                            |
+| VwUserBitmap (`VwUserBitmapProc`)                  | Viewable   | asks the application function for data / width / height (`EVT_GET_BITMAP_*`) and draws with `DrawBitmapSPFast` (fallback `DrawBitmap`)                                                                                                                                                                                                                                               |
+| Icon (`IconProc`)                                  | Viewable   | `DrawDesignBox` (a 28 x 28 frame, style 0xC4, colour 0xF0) and `DrawIcons`                                                                                                                                                                                                                                                                                                           |
+| EditSw (`EditSwProc`, 0xF9C8BE)                    | Label      | the label's text; it handles only `EVT_SW_IN` itself                                                                                                                                                                                                                                                                                                                                 |
+| PsMenuBox (`PsMenuBoxProc`)                        | VwBox      | EVT_DRAW: the box, then `DrawEditSw` (the one-character marker beside the operating switch); `EVT_PARA_DRAW`: the text from `EVT_GET_STRING` with `DrawStringAlignment`                                                                                                                                                                                                              |
+| PsEditBox (`PsEditBoxProc`)                        | VwBox      | as PsMenuBox, with `DrawStringReverse` for the highlighted value                                                                                                                                                                                                                                                                                                                     |
+| PsEditSwBox (`PsEditSwBoxProc`)                    | VwBox      | the box, `DrawEditSw`, `DrawBox` and the button-state painter `ButtonState_PaintProc`                                                                                                                                                                                                                                                                                                |
+| AcTitleMenu (`AcTitleMenuProc`)                    | PsMenuBox  | menu text (`DrawString`, width by `CalcTotalWidth` / `GetCharHeight`) and the entry's icon (`DrawDesignBox` + `DrawIcons`)                                                                                                                                                                                                                                                           |
+| PsGridBox (`PsGridBoxProc`) and every `Ac*GridBox` | VwBox      | EVT_DRAW (`PsGridBox_OnDraw`): the box, then `EVT_PARA_DRAW` to itself (`PsGridBox_OnParaDraw`: cell dividers with `DrawLine`, cell text with `DrawStringAlignment`, the derived class supplying text through `EVT_REQUEST_GRID_DRAW` / `EVT_GET_FIXED_ROW_STR` / `EVT_GET_FIXED_COL_STR`), then `EVT_SELE_DRAW` (`PsGridBox_OnSeleDraw`: `DrawDesignFrame` round the selected cell) |
+| PsMixerControl (`PsMixerControlProc`)              | its parent | the parent's box, then `EVT_REFRESH_PARA_DRAW`: for each control record the per-type painter `PsMixer_CtlTypeProc0..10` (`PsMixer_ControlProcTable`), built from `DrawEditSw`, `PsMixer_DrawFrameBox` / `PsMixer_DrawFrameBoxWithDividers` / `PsMixer_DrawCaptionFrame`, `DrawStringCentered`, `DrawLine`                                                                            |
+| AcMixerVol (`AcMixerVolProc`)                      | VwBox      | `DrawBox`, `DrawBitmapFast`, `DrawStringCentered` / `DrawStringReverse` (`[INFERENCE]` the mixer fader: a bar, the knob bitmap, the value)                                                                                                                                                                                                                                           |
+| AcLswPartPan (`AcLswPartPanProc`)                  | its parent | the pan meter: `DrawBox`, `DrawLine`, `DrawDesignBox`                                                                                                                                                                                                                                                                                                                                |
+| IvDrawbar (`IvDrawbarProc`, 0xF824C4)              | its parent | nothing of its own: `IvDrawbar_OnDraw` calls the parent and sends `EVT_PARA_DRAW`; the `Iv*` classes are invisible controllers that send refresh events to the drawbar widgets                                                                                                                                                                                                       |
+
+No class draws a keyboard picture or a waveform; the level and pan meters are the mixer classes above. The other
+derived classes mostly call their parent (`InheritedProc`) and add one of these primitives.
+
+All drawing goes to the off-screen buffer; `UpdateScreen` copies the changed rectangle to VRAM (see
+[Display Subsystem]({{ site.baseurl }}/display-subsystem/#rendering-pipeline)).
 
 ## Widget records in the C sources
 
