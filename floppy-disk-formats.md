@@ -117,6 +117,25 @@ the RAM layout of its region.** The handlers' `_VRAM` / `_ExtMem` suffixes are o
   `midi_channel` and `status`; tag 0x78 is the style name, 0x44..0x46 the drawbars, 0x48 the
   style number and tempo, and 0x61/0x63..0x66 the five DSP slots' algorithms. The LSW header's
   `"HK"` is the one `FileIO_CheckRegionSignature` tests.
+
+  **Panel records, byte by byte.** Every editable panel setting has a parameter descriptor in the
+  firmware that names the record (its tag), the byte and the bits that hold it
+  ([Panel Parameter Keys]({{ site.baseurl }}/panel-parameter-keys/)), so the floppy sources name each byte
+  after its setting (`floppy/kn5000/panel_fields.py`): a part's sound, bank, volume and mute, sustain bits,
+  DIGITAL EFFECT, DSP effect send, reverb send, pan, key shift, tuning, bend range and its MIDI bits; the
+  style number, bank, APC mode and variation; the panel-memory filter switches; the metronome; and so on.
+  The descriptors correct three older readings: part +3 is VOLUME (bits 6:0) and MUTE (bit 7), +4 bit 6 is
+  DIGITAL EFFECT and bit 3 SUSTAIN (not "reverb on" / "chorus on"), and +7 is REVERB SEND. A DSP effect slot
+  (tags 0x61, 0x63..0x66) holds the effect number and then that effect's parameters in order (DEPTH, LFO
+  SPEED, ...), from the v10 tables `DspFxParamCountTable`, `DSPCfg_LookupAndExtract_PtrTable` and
+  `DspParamName_Table`; a parameter whose range passes 255 takes two bytes, big-endian. Over the 23,487 DSP
+  slot records on the disks that layout decodes every record of 28 of the 44 effects used; the reverbs 18,
+  19 and 21-26, GEQ, ROOM and PEQ+S.DELAY pack two parameters to a word in a way not yet established.
+  Of the 818 macro arguments of the 43 record kinds, 175 are named from a descriptor or the curated studies,
+  33 by the firmware's key only, 23 are DSP slot parameters, 419 are `reserved_<offset>` (zeroed on load, no
+  descriptor, no reference), 43 are bits no descriptor names, and 125 keep `f<offset>` (mostly the companion
+  records 0xC0..0xD7, refreshed from each part's sound by `PanelTlv_ResolvePartCompanions`). Counts and
+  probes: the disassembly's `notes/kn5000-style-2026-10-31/README.md`.
 - **TM sound records.** The 470-byte record is the sub-CPU's 426-byte tone record plus four
   11-byte velocity-split records, named from the sub-CPU reader table. The value ranges come
   from the sound-RAM byte clamp at v10 0xFEEC48, which also settles which fields are signed. The
@@ -127,19 +146,57 @@ the RAM layout of its region.** The handlers' `_VRAM` / `_ExtMem` suffixes are o
 - **SQT slot headers** are the RAM image of the current-song record (0xF180): the track mask and
   assignment, the edit parameters, per-track tail cells and write offsets, the free list, the
   punch-in fields, `event_used_size16`, and the +0xD0 track table, whose first cells are the
-  chain heads of all 132 tracks present on the disks. Absent tracks read 0xFFFF there.
+  chain heads of all 132 tracks present on the disks. Absent tracks read 0xFFFF there. +0x1C is
+  the song password (`FmmPasswordFunc` writes it into all ten slots); fields that nothing reads are
+  `written_only_<off>`, and fields that nothing writes or reads are `stale_<off>`, RAM residue
+  (`notes/kn5000-style-2026-10-31/probes/sqt_field_refs.py`). The songs' structure, in RAM, is on
+  [Sequencer]({{ site.baseurl }}/sequencer/#song-storage).
 - **Style banks** (CMP, RCM sections 0..6) share one bank layout with the custom-data and table
   ROM banks: the header's size words (`used_size16 * 16` is the .CMP size), the
   **30 directory records, which are the 30 STYLE_SECTION records of one style, not 30 styles**,
   and the 64-byte fill-in cell at +0x13C0 that `AccDemo_LoadFillIn` reads. Cell links count
   blocks from block 20 of the bank (bank + 0x1400) in all 82 banks; no other base makes a tenth
-  as many links mutual.
+  as many links mutual. Every field is named: [The Composer style bank](#the-composer-style-bank).
 - **RCM** holds sections 0..6 as style banks and section 7's slot store (owner maps, 40 small
   and 4 large slots, erased on the factory disk). The loader writes it to Custom Data Flash,
   stamping the section number into the style directory on the way
   ([Custom Data Flash]({{ site.baseurl }}/custom-data-flash/)).
 - **BMP** headers are typed field by field; palette and pixels are `.incbin`s of the committed
   `.bmp` in the disk's `media/` folder. **TXT** is one `.ascii` line per line.
+
+### The Composer style bank
+
+A Composer style is one 0x16800-byte image: a 0x60-byte header, 30 section records of 0x60 bytes
+(variations A/B/C 1-4, then intro, fill-in and ending 1-2 of A, B and C), the five COMPOSER CHORD MAPs
+at +0xBA0, a measure-start table at +0xC40, a 64-byte fill-in cell at +0x13C0 and 340 cells of 256 bytes
+from +0x1400. The header holds the Composer password (+0x0E) and the NORMAL / EXPAND mode (+0x10).
+Each section record holds the first cells of its DRUM, BASS and ACCOMP1-3 parts, the time signature,
+the number of measures, the RECORD SETTING (key, major / minor, bass and accompaniment type), a flag
+that keeps the meter changeable until something is recorded, the preset style the section uses, and
+per part the sound, panpot, digital effect on/off, pitch point and upper note limit. The same layout
+is in the IC19 custom-data banks, the .CMP files and each section of an .RCM file.
+
+| offset              | field                                                                                           | read or written by (v10)                                                                       |
+|---------------------|-------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
+| header +0x0E        | `password` (u16)                                                                                | `FmmPasswordFunc` through `SetCurrentSlotIndex`; read by `GetCurrentSlotIndex` (both misnamed) |
+| header +0x10        | `composer_mode`: 0 NORMAL, 1 EXPAND                                                             | `AcCmpMdBoxProc`, `CmpSetP1_TtlDispatch`                                                       |
+| record +0x00..+0x0A | first cells of DRUM, BASS, ACCOMP1-3 (+0x02 unused)                                             | `MapBitFlagsToChannelOffset`                                                                   |
+| record +0x0C        | `time_sig`                                                                                      | `RhythmPatInit_LoadParams`                                                                     |
+| record +0x0D        | `last_measure` (the MEASURE row shows it + 1)                                                   | `RhythmPatInit_LoadParams`, `Tempo_DisplayMeasureRange`                                        |
+| record +0x0E        | `rec_chord`: bits 0-3 key, 4 minor, 5 accomp 7th, 6 bass 7th                                    | `RhythmPatInit_LoadParams`, `RhythmProc_CheckConfigBits`                                       |
+| record +0x0F        | `edit_flags`: bit 7 = MEASURE / TIME SIGNATURE changeable                                       | `DrumVoice_Handler0` / `1` refuse with error 19 when it is clear                               |
+| record +0x10, +0x11 | `style_number`, `style_group`: the preset style (a `PANEL_STYLE` pair)                          | `RhythmVariation_Select_Entry_Data`                                                            |
+| record +0x18 + 8 i  | part i (DRUM, BASS, ACCOMP1-3): sound, bank, pan, digital effect, byte 4, pitch point, high key | `MainCmpSetFunc`, `AccPatch_ChannelBitToIndex`                                                 |
+| record +0x40        | `name`                                                                                          | `Tempo_DisplayMeasureRange`                                                                    |
+| +0xBA0              | `chord_map[5]`, 32 bytes each: one value per variation (0..11 or 0xFF)                          | `CmpNcp_StepSlotInGroup2`; selecting map n sets `PANEL_STYLE` = 0xF0 + n                       |
+| +0xC40              | `measure_start[12][5][8]`: {cell, offset}                                                       | `AccVoice_GetMeasureStartBlock`, `AccPatch_StoreMeasureCursor`                                 |
+
+The other header words and the record bytes not listed have no reader: they are constant in every bank
+or zero, and the code hard-codes the sizes they would give. Part byte 4 is the fifth byte of the part's
+program-change record [INFERENCE: its use is not traced]; bit 7 of the high-key byte is also an inference.
+Both describers, `floppy/kn5000/formats.py` for the floppies and `scripts/build/style_events.py` for the
+custom-data banks, import one module, `scripts/build/style_bank_layout.py`, whose docstring gives the
+evidence for every field (disassembly, `notes/kn5000-style-2026-10-31/README.md`).
 
 ### Events, one per line
 
@@ -174,8 +231,14 @@ blocks (13 LSWs, 344 PMT memories) were written by an older firmware than any du
 [INFERENCE: these files date from 1997-98]. They are typed as far as they follow the list, then
 as tag/length records up to their `FF FF` mark.
 
-**Not typed:** the LSW's 0x800 bytes from RAM 0x1E7800, which nothing has been mapped to
-(63 files), and the body of `ca5000r/03FOLKS2.TM`, a "KN3000 SOUND RAM" image in another
+**The last 2 KB of a .LSW file** are the Sound Arranger memory, RAM 0x1E7800 (`AccStyle_InitVRAM`
+fills it from `AccStyle_RamImage_1E7800`): a 16-byte header and 200 ten-byte records, one per preset
+style, holding the DRUM kit and the BASS and ACCOMP1-3 sounds the player chose for that style (each
+with its DIGITAL EFFECT switch), and a flag that tells the accompaniment to use them instead of the
+style's own sounds. `AccVoiceState_Snapshot` writes a record and `AccTuning_LoadFromROM` reads it back
+when the flag is set. The floppy sources type it with the `sndarg` macro in all 63 files.
+
+**Not typed:** the body of `ca5000r/03FOLKS2.TM`, a "KN3000 SOUND RAM" image in another
 model's layout (opaque, 64 entries, 158,704 bytes in all). BMP pixels are media. Fields with
 neutral names (`f<offset>`, `b_<offset>` and the like) carry a TODO saying what was tried.
 
@@ -204,7 +267,11 @@ the KN6000, `J` the KN7000.
   first, 1 = literal; a reference is `lo, hi` with ring position `lo | (hi >> 3) << 8` (13 bits)
   and length `(hi & 7) + 3`; an 8 KB ring filled with 0 and starting at 0x1FF6; no end marker.
   Okumura's LZSS.C binary-tree encoder with N = 8192 and F = 10 reproduces every stream
-  (`floppy/tools/kd/lzss_j.py`). [INFERENCE] The KN5000's SLIDE8K may be the same coder.
+  (`floppy/tools/kd/lzss_j.py`). It is the KN5000's SLIDE8K coder too: re-encoding the table data's
+  five live SLIDE8K help streams with `lzss_j.encode` makes every one of the factory's decisions, so
+  `scripts/build/compress_slide8k.py` now builds them without a reference stream
+  (`notes/misc-2026-10-31/probes/slide8k_vs_lzss_j.py`). SLIDE4K is the same encoder with N = 4096 and
+  F = 18 (`slide4k_vs_okumura.py`, all 22 streams; see [LZSS Compression]({{ site.baseurl }}/lzss-compression/)).
 
 `kd.py verify` over every file of the 27 KN6000 and KN7000 disks: 397 KD and 15 K1 containers
 re-encode byte-identical, and 122 files are stored.
@@ -283,8 +350,23 @@ build compresses the custom-data images that the typed sources in `kn7000/src/cu
 `kn6000/src/customdata` produce. The header words at +8 / +0xC are never written by the saver;
 they are the old contents of its stack frame (`kn7000/tools/ast_file.py`).
 
-**Opaque leftovers:** KN6000 238 entries (32,861 bytes) and KN7000 90 (11,122 bytes), all free
-song cells and stale bytes.
+**Stale song bytes.** The bytes after a track's 0x82 and the free cells hold events of an earlier
+version of the song, in two orders: the model's own tick-first order and the KN5000's status-first
+order. In 76 of 327 tails the KN5000-order notes occur, equal and in order, among the same track's live
+events (`notes/floppy-leftovers-2026-10-31/probes/sqt_tails2.py`) [INFERENCE: the factory songs were
+converted in place from KN5000 song files]. `kn_sqt.py` types them per event in whichever order parses
+further (macros `k5_note`, `k5_run`, `k5_ev` in `floppy/tools/kn_song.inc`).
+
+| model  | stale bytes | tick-first | KN5000 order | cut events | still opaque              |
+|--------|-------------|------------|--------------|------------|---------------------------|
+| KN6000 | 32,861      | 17,923     | 12,046       | 1,124      | 1,768 (126 declarations)  |
+| KN7000 | 11,122      | 5,541      | 222          | 89         | 5,270 (96 declarations)   |
+
+A note's last byte is its duration in **beats, 0..255** (KN7000 941 `func_48459B49` reads it unsigned),
+so the four notes with 141 or 216 there are held that long. **The KN6000 .TM's last word** is the sound
+records' checksum as RAM held it at save time: `PostTmTransLoad` recomputes it after every load, so no
+load reads the file's word. It matches in 12 of 50 files (`notes/floppy-leftovers-2026-10-31/probes/tm_tail.py`; the earlier "13" was a miscount)
+[INFERENCE: the other 38 were saved after a sound change that did not recompute it].
 
 ## SX-WSA1R disk files
 
@@ -298,7 +380,7 @@ The WSA1R saves RAM windows:
 | .SQF           | the sequencer workspace: ten song records of 0xC00 bytes                                                       |
 | .LSW .SLS      | record blocks: the current combination and further {tag, length} blocks                                        |
 | .SRM .CRM .DRM | three re-maps: names, group names, {number, source} entries                                                    |
-| .MID           | a Standard MIDI File, held as media; the stale tail of its last 1 KB window opaque                             |
+| .MID           | a Standard MIDI File, held as media; the tail of its last 1 KB window is a copy of the window before           |
 
 - **.TM, every byte named.** Technics' Reference Guide publishes the NORMAL SOUND layout
   (713 bytes: GENERAL DATA 217, TONE DATA 4 x 81, MODELING DATA 4 x 43) and the DRUM SOUND layout
@@ -313,25 +395,40 @@ The WSA1R saves RAM windows:
 - **.SEQ** blocks are the prom_b block store's; their events use the KN5000 demo-song grammar
   (bit 7 = status), which parses 443 of 444 chains [INFERENCE].
 
-**Opaque leftovers:** 180 entries (50,503 bytes): stale window and kilobyte tails, free blocks and
-the PC formatter's boot code (these disks were formatted on a PC, not on the instrument).
+**Leftovers.** The WSA1R moves files in kilobytes, so they carry bytes past their data, now typed or
+proven copies (`notes/floppy-leftovers-2026-10-31/probes/wsa1_leftovers.py`, `seq_layout.py`):
+
+- a combination bank's last kilobyte repeats 0x100 bytes of the chunk before (the first 0x100 bytes of
+  combination 112, in all 13 .CMB files): `DiskSave_StreamLinkRamToFile` writes each 0x2C00 chunk 0x400
+  at a time, and the last write carries the window before;
+- an SMF's last window repeats the window before (the window buffer is reused), held as an `.incbin` of
+  the committed .mid;
+- a song file is a whole number of KB and ends with free blocks of its block store;
+- the 128 bytes at sound bank +0x10..+0x8F are the USER 1 / USER 2 sound-group names, read by
+  `UserSoundBank_RemoteGroupNameAddr` and `SoundGroupName_Lookup`;
+- the PC boot sector is one small "This is not a bootable disk" stub on all nine disks, now source
+  (`floppy/tools/pc_boot_stub.s`, 16-bit x86) [INFERENCE: written by the tool that made the images].
+
+What stays opaque is one 250-byte run of 0xDF 0xF7 pairs in `qsdisk/01WORKS_.SEQ` block 838 (180
+entries, 50,503 bytes before this).
 
 ## Open questions
 
 - **KN5000:** what 0xD4 / 0xD5 do in the style player (the argument count is measured, the
-  meaning is not); whether the 13 non-mutual style links and 7 SQT links are leftover edits or a
-  second link convention; whether the two style chains that stop at 0x10 / 0x87 are corruption
-  in the archives; which firmware revision wrote the 43-record panel blocks (a v1-v4 dump would
-  settle it).
-- **KN6000 / KN7000:** the fields of the PANEL MEMORY record (its recall routine is not located);
-  the SOUND EDIT and voice-element fields of the KN6000 .TM; what bit 7 means in the last event of
-  five song tracks; why the KN6000 .TM tail word is the KN5000-style checksum in only 13 of 50
-  files.
-- **WSA1R:** the 8 lines at the start of each sound bank, which `SoundRam_ClearFourBanks` does not
-  write.
-- **Cross-model:** whether 'J KD' is the KN5000's SLIDE8K coder. If so,
-  `scripts/build/compress_slide8k.py` could encode with `lzss_j.encode` instead of replaying
-  reference decisions.
+  meaning is not); which firmware revision wrote the 43-record panel blocks (a v1-v4 dump would
+  settle it); the byte packing of 16 DSP effects' slot records and the 125 panel bytes still named
+  `f<offset>`. Settled on 2026-10-31 (`notes/kn5000-style-2026-10-31/probes/style_links.py`): the
+  13 non-mutual style links and the two chains that stop at 0x10 / 0x87 all lie in stale cell-shaped
+  blocks 12..19, below the cell area, of three .CMP files, where no directory record reaches them; the
+  7 non-mutual SQT links leave orphan cells, on no track chain and not on the free list.
+- **KN6000 / KN7000:** the SOUND EDIT and voice-element fields of the KN6000 .TM; the 1,768 + 5,270
+  stale song bytes that no event order explains; which firmware path changes a KN6000 sound without
+  recomputing the checksum. (The PANEL MEMORY fields are named, on
+  [Panel Memory Records]({{ site.baseurl }}/kn7000-panel-memory/); bit 7 in the last event of five
+  tracks is a duration in beats above 127; the .TM tail word is explained above.)
+- **WSA1R:** block 838's 0xDF 0xF7 run. (The 8 lines at the start of each sound bank, which
+  `SoundRam_ClearFourBanks` does not write, are the USER sound-group names.)
+- **Cross-model:** settled: 'J KD' is the KN5000's SLIDE8K coder (above).
 
 ## Related pages
 

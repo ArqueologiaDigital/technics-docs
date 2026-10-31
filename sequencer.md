@@ -190,6 +190,19 @@ Multiple ring buffer instances exist for different sequencer channels. The core 
 3. If data available, reads MIDI bytes and calls `Seq_ProcessMidiEvent` (0xEF13CD)
 4. `Seq_ProcessMidiEvent` parses the MIDI status byte and dispatches via `sendCOMM` to the Sub CPU
 
+### Ring Buffer Write Dispatch
+
+Events enter the ring buffers via the dispatch table `SeqRingBuf_WriteDispatch_Table` at ROM 0xE00012:
+
+| Slot | Handler                       | Description          |
+|------|-------------------------------|----------------------|
+| 0    | `SeqDMA_MultiWrite_NoteEvent` | Block write          |
+| 1    | `SeqDMA_MultiWrite_SoundEdit` | Block write          |
+| 2    | `SeqDMA_WriteMidi_NoteOn`     | MIDI Note On (0x90)  |
+| 3    | `SeqDMA_MultiWrite_VoiceMap`  | Block write          |
+| 4    | `SeqDMA_MultiWrite_DspSysEx`  | Block write          |
+| 5-7  | `SeqDMA_Nop`                  | No-op (unused slots) |
+
 ## Rhythm ROM
 
 The 4MB Rhythm ROM (0x400000-0x7FFFFF) contains factory preset rhythm patterns, drum kits, and style data.
@@ -309,72 +322,72 @@ The medley system is implemented in `v10/maincpu/file_io/medley.s` (4,702 lines 
 
 ---
 
-## Event Storage Format
+## Song storage
 
-The sequencer stores events in a MIDI-like format with extensions. The `SeqEvent_GetParamLength` routine (0xF3E37B) defines the event record sizes:
+Ten songs live in RAM: their 0x800-byte records at 0xAB000 (`SEQ_SONG_SLOTS`; the current one,
+`SEQ_CURRENT_SONG`, is copied to 0xF180, `SEQ_SONG_RECORD`, and back) and their events in a shared pool of
+1,240 blocks of 256 bytes at 0xB0000 (`SEQ_BLOCK_POOL`, `SEQ_BLOCK_TOTAL`; block n at 0xB0000 + (n - 1) x
+0x100). A block is {flags (bit 7 = used), u16 previous, u16 next (0xFFFF = last)} and 251 event bytes;
+events run on across blocks. A track is a chain of blocks whose first block is in the song record's track
+table. Free blocks form a list through the next link. An .SQT file is these records and blocks
+([Floppy Disk Formats]({{ site.baseurl }}/floppy-disk-formats/#kn5000-disk-files)).
 
-### Event Types and Sizes
+Song-record fields used by the storage code (offsets from 0xF180; the rest of the record, the song's panel
+memory among it, is on the floppy page):
 
-| Status Byte | Size (bytes) | Type             | Description                                                                                                        |
-|-------------|--------------|------------------|--------------------------------------------------------------------------------------------------------------------|
-| 0x90+ch     | 6            | Note On          | Channel note-on with velocity                                                                                      |
-| 0xB0+ch     | 6            | Control Change   | Controller number + value                                                                                          |
-| 0xC0+ch     | 6            | Program Change   | Program number + bank info                                                                                         |
-| 0xA0        | 3            | Aftertouch       | Channel pressure data                                                                                              |
-| 0xD0        | 3            | Channel Pressure | Mono aftertouch                                                                                                    |
-| 0xD1        | 3            | Extended         | Internal event type                                                                                                |
-| 0xD3        | 3            | Extended         | Internal event type                                                                                                |
-| 0x80        | 4            | Note Off         | Note-off (exactly 0x80; 0x81, 0x82, 0x85 and 0x86 are separate internal events below, and 0x83/0x84 return 0xFFFF) |
-| 0xD2        | 4            | Extended         | Internal event type                                                                                                |
-| 0x85        | 2            | Compact          | Short internal event                                                                                               |
-| 0x86        | 2            | Compact          | Short internal event                                                                                               |
-| 0x81        | 1            | Minimal          | Single-byte internal event                                                                                         |
-| 0x82        | 1            | Minimal          | Single-byte internal event                                                                                         |
+| offset | size     | field                                                            | evidence                                     |
+|--------|----------|------------------------------------------------------------------|----------------------------------------------|
+| +0x1E  | u16      | `SEQ_TRACK_MASK`, one bit per track holding data                 | `shared/ram_variables_by_use.s`              |
+| +0x20  | 16 B     | `SEQ_TRACK_ASSIGN` (13 CHORD, 14 APC, 15 CONTROL, 16 RHYTHM ...) | `shared/ram_variables_by_use.s`              |
+| +0x78  | 16 x u16 | each track's tail block (where recording appends)                | `SeqTrack_AdvanceCursor`                     |
+| +0x98  | 16 B     | each track's write offset in its tail block                      | `SeqTrack_AdvanceCursor`                     |
+| +0xAF  | u16      | `SEQ_FREE_LIST_HEAD`                                             | `shared/ram_variables_by_use.s`              |
+| +0xB1  | u16      | `SEQ_FREE_BLOCKS`                                                | `shared/ram_variables_by_use.s`              |
+| +0xD0  | 16 x 3 B | `SEQ_TRACK_TABLE`: {flags (bit 7 = has data), u16 first block}   | `ram_variables_by_use.s`, the softlist disks |
 
-The format is optimized for storage efficiency — common MIDI events (Note On, CC, Program Change) use the standard 6-byte format while internal events use shorter encodings. Status bytes 0x81, 0x82, 0x85 and 0x86 are non-standard extensions used for compact representation of sequencer-internal control events.
+Each track's play cursor is a block number (u16, RAM 0x0C9E + 2(t - 1)) and an offset in it (u8, 5..255,
+0x0CBE + (t - 1)). `SeqTrack_AdvanceCursor` moves a cursor on: within a block it only stores the offset; past
+255 it follows the next link once per 251 bytes; in the track's tail block it refuses to pass the write
+offset. `SeqTrack_ReadByteAndAdvance` reads one byte and steps; it is the reader the event parsers use (49 call
+sites). Both were misnamed `VoiceSlot_*` until 2026-10-31.
 
-### Ring Buffer Write Dispatch
+`SeqTrack_ScanActiveChannels` scans the tracks to find which hold data, and `SeqTrack_AssignFloppyChannels`
+assigns loaded tracks to voice channels after a floppy load.
 
-Events enter the ring buffers via the dispatch table `SeqRingBuf_WriteDispatch_Table` at ROM 0xE00012:
+## Events
 
-| Slot | Handler                       | Description          |
-|------|-------------------------------|----------------------|
-| 0    | `SeqDMA_MultiWrite_NoteEvent` | Block write          |
-| 1    | `SeqDMA_MultiWrite_SoundEdit` | Block write          |
-| 2    | `SeqDMA_WriteMidi_NoteOn`     | MIDI Note On (0x90)  |
-| 3    | `SeqDMA_MultiWrite_VoiceMap`  | Block write          |
-| 4    | `SeqDMA_MultiWrite_DspSysEx`  | Block write          |
-| 5-7  | `SeqDMA_Nop`                  | No-op (unused slots) |
+An event is a status byte and, for events of two bytes or more, the tick within the beat and its data;
+`SeqEvent_GetParamLength` (0xF3E37B) gives each event's total length, status included. Time is 96 ticks per
+beat (`SEQ_BEAT_TICK` 0..95), and a `0x81` event marks each beat, so a position is (beat count, tick): there
+are no delta times. The layouts below are measured on the 14 KN5000 softlist disks (the disassembly's
+`floppy/kn5000/*/files/*.SQT.s`, counted by `notes/open4-kn5000-b/engine/probes/sqt_event_census.py`); the
+meanings cite the player's case in `SeqNoteCh_DispatchEventType` (`sequencer/sequencer_engine.s`) or the
+routine named.
 
-### Playback Processing
+| status | len | layout after the tick                     | meaning                                                                                                                                       | evidence                                                                                                                                    |
+|--------|-----|-------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| 0x81   | 1   | -                                         | beat marker                                                                                                                                   | `SeqPart_ReadEventStream` counts them                                                                                                       |
+| 0x82   | 1   | -                                         | end of track (bytes after it are stale)                                                                                                       | the case clears the part's active bit                                                                                                       |
+| 0x84   | -   | -                                         | skipped by the player (2 occurrences on the disks); `SeqEvent_GetParamLength` returns 0xFFFF                                                  | `SeqPlay_IterateCh_CheckEventType`                                                                                                          |
+| 0x85   | 2   | -                                         | **accompaniment start** in the song                                                                                                           | sets `SEQ_RTMCFG` bit 1 (accompaniment runs with the song); `MIDI_RESET_PLAYBACK_STATE` queues 0x85 when MIDI Start arrives while recording |
+| 0x86   | 2   | -                                         | **accompaniment stop**                                                                                                                        | clears `SEQ_RTMCFG` bit 1                                                                                                                   |
+| 0x80   | 4   | tempo low 7 bits, tempo bit 7 + high      | **tempo change**: tempo = byte2 or bit 0 of byte3 << 7, stored in panel record 0x48 fields 8/9                                                | `SeqNoteCh_HandleTempoEvent` -> `SeqEvt_ApplyTempoEvent`; disks hold 102..127                                                               |
+| 0x9n   | 6   | key, velocity, duration lo7, duration hi7 | note (duration in ticks, 7-bit little-endian)                                                                                                 | sent on as a 5-byte record without the duration (`SeqNote_SetupVoice`)                                                                      |
+| 0xBn   | 6   | panel record, field, value, value         | **panel-parameter change** (n = flag bits); record 0x48 (style) fields 5 / 6 get extra handling                                               | `SeqPlay_IterateCh_CheckControlChange` tests record 0x48 field 5 / 6; `AccPedalConfig_ApplyChannel0` applies it                             |
+| 0xCn   | 6   | panel record, 0, value, value             | **record select**: a part record (0x00-0x19) gets a sound, record 0x48 field 0 on track 16 a rhythm [INFERENCE: value, value = program, bank] | `SeqCh_DispatchMidi_CheckResult` -> `Rhythm_NoteDispatchWrapper`; `AccPedalConfig_ApplyChannelDirect`                                       |
+| 0xD0   | 3   | value                                     | single-value controller, sent as a 4-byte record                                                                                              | `SeqNoteCh_HandleEventD0`                                                                                                                   |
+| 0xD1   | 3   | value                                     | single-value controller (2,170 on the disks, values 19..94)                                                                                   | `SeqNoteCh_HandleEventD1`                                                                                                                   |
+| 0xD2   | 4   | lsb, msb                                  | pitch bend (3,809 on the disks; rest value 0, 64), sent as a 5-byte record                                                                    | `SeqNoteCh_HandleEventD2`                                                                                                                   |
+| 0xD3   | 3   | 0 or 127 (few others)                     | switch-type controller; the player also sets `DEMO_CONTROL_FLAGS` bit 6                                                                       | `SeqNoteCh_HandleEventD3`, `SeqPlay_IterateCh_NotControlChange`                                                                             |
+| 0xA0   | 3   | value                                     | in the length table, absent from the disks                                                                                                    | `SeqEvent_GetParamLength`                                                                                                                   |
 
-`SeqPlay_ProcessTempoVoiceEvent` dispatches incoming events by status:
+[INFERENCE] Which controllers 0xD0, 0xD1 and 0xD3 are: their values fit aftertouch or modulation (0xD1) and a
+pedal (0xD3, 0 / 127). The player forwards them unchanged to the sub-CPU batch (`SeqBuf_WriteMidiEvent` ->
+`Audio_ReinitAndProcessEvents`); which sub-CPU records they become is open (tracker kn5000-a1f).
 
-| Status Range | Handler | Purpose |
-|-------------|---------|---------|
-| 0x90-0x9F | Note processing | Assign voices, set velocity |
-| 0x80-0x8F | Note off | Release voices |
-| 0xB0-0xBF | Control change | Apply CC values |
-| 0xC0-0xCF | Program change | Switch instrument |
-| 0xE0-0xEF | Pitch bend | Apply pitch bend |
+The tempo itself is computed by `SeqTrack_ComputeTempoScaling`.
 
-### Track Organization
-
-The sequencer supports 16 tracks with the following part assignments:
-
-| Track Group | Parts | Purpose |
-|------------|-------|---------|
-| Right 1 | Part 1 | Melody voice 1 |
-| Right 2 | Part 2 | Melody voice 2 |
-| Left | Part 3 | Left hand voice |
-| Part 4-15 | Parts 4-15 | Additional voices |
-| Part 16 | Part 16 | Accompaniment/control |
-
-The `SeqTrack_ScanActiveChannels` routine scans all tracks to determine which have data, and `SeqTrack_AssignFloppyChannels` assigns loaded tracks to voice channels when loading from floppy disk.
-
-### Timing
-
-Events use delta-time encoding relative to the previous event. The timing resolution is handled by `SeqMain_GetTimingValue` (0xEF27B7) and the tempo is computed by `SeqTrack_ComputeTempoScaling`.
+## Playback
 
 ### Note Pool
 
@@ -440,17 +453,12 @@ Where:
 
 #### Chord Detection
 
-The firmware supports multiple chord detection modes, with **5 chord maps** identified in the style data. These likely correspond to:
-
-| Mode | Description |
-|------|-------------|
-| Fingered | Full chord recognition from held notes |
-| Single Finger | Root note + major/minor/7th from minimal input |
-| Full Keyboard | Split keyboard with left-hand chord area |
-| AI Fingered | Intelligent chord detection with voice leading |
-| Pianist | Chord detection across full keyboard range |
-
-Each chord map stores note-to-chord mappings that translate detected chord roots and types into bass and accompaniment note patterns for the 5 channels.
+The chord recognizer, its 41 chord types and the voicing are on
+[Accompaniment Engine]({{ site.baseurl }}/accompaniment-engine/#chord-recognition). The five maps in the style data
+that this page used to read as chord-detection modes (Fingered, Single Finger, ...) are the Composer style's five
+**COMPOSER CHORD MAPs** at style image +0xBA0 (32 bytes each): per map, four values, one per variation (0..11 or 0xFF),
+copied by `CmpNcp_StepSlotInGroup2`; selecting map n sets `PANEL_STYLE` to 0xF0 + n
+([Floppy Disk Formats]({{ site.baseurl }}/floppy-disk-formats/#the-composer-style-bank)).
 
 #### Key RAM Addresses
 
@@ -513,14 +521,14 @@ See [Audio Subsystem - Feature Demo]({{ site.baseurl }}/audio-subsystem/#feature
 
 - [ ] Re-measure the ring-buffer behaviour after the 2026-08-05 /INT0 fix
 - [ ] Trace the path from rhythm ROM data reading to ring buffer writing
-- [ ] Document sequence data structure format
+- [x] ~~Document sequence data structure format~~ — [Song storage](#song-storage) and [Events](#events); open: the sub-CPU records of events 0xD0 / 0xD1 / 0xD3 (kn5000-a1f)
 - [ ] Analyze playback timing engine (Timer7 involvement)
 - [ ] Map recording routines
 - [ ] Decode full pattern data format within the 2 KB rhythm blocks
-- [ ] Map chord detection algorithm (chord maps 1-5)
+- [x] ~~Map chord detection algorithm (chord maps 1-5)~~ — [Accompaniment Engine]({{ site.baseurl }}/accompaniment-engine/#chord-recognition); the chord maps 1-5 are the COMPOSER CHORD MAPs
 - [ ] Identify quantization algorithms
 - [x] ~~Understand style format in Rhythm ROM~~ — 3 groups × 10 sections (30), 5 channels per pattern, rhythms located through `RhythmROM_BankProgramLocators`
-- [x] ~~Document chord recognition~~ — Partial: 5 chord maps identified, chord detection modes documented
+- [x] ~~Document chord recognition~~ — [Accompaniment Engine]({{ site.baseurl }}/accompaniment-engine/#chord-recognition)
 - [x] Document medley playback system
 - [x] Document main loop and dispatcher architecture
 - [x] Document ring buffer pipeline and instances

@@ -8,7 +8,7 @@ permalink: /accompaniment-engine/
 
 ## Overview
 
-The KN5000's accompaniment (auto-accompaniment) system automatically generates musical backing tracks based on the player's chord input on the lower keyboard. The engine plays patterns from built-in styles, transposing and voicing them according to the detected chord. This is one of the largest firmware subsystems, spanning chord detection, pattern sequencing, bass/chord/rhythm generation, variation/fill switching, and real-time MIDI event dispatch.
+The KN5000's accompaniment (auto-accompaniment) system automatically generates musical backing tracks based on the player's chord input on the lower keyboard. The engine plays patterns from built-in styles, transposing and voicing them according to the detected chord. This is one of the largest firmware subsystems, spanning chord recognition, pattern sequencing, bass/chord/rhythm generation, section switching (intro, fill-in, ending, variation), and real-time MIDI event dispatch.
 
 ## Architecture
 
@@ -20,7 +20,7 @@ The KN5000's accompaniment (auto-accompaniment) system automatically generates m
                           │
                           v
 ┌──────────────────────────────────────────────────────┐
-│              CHORD DETECTION (AccChord)               │
+│              CHORD RECOGNITION (Chord_*)              │
 │  Scans held keys, matches chord type + root note     │
 │  Sets dirty flags when chord changes                 │
 └──────────────────────────────────────────────────────┘
@@ -172,16 +172,112 @@ The Program ROM holds the style browser's ten group tables, one per category; ea
 The category column is read from the browser root by `tools/style_browser_groups.py` in this
 repository.
 
-## Chord Detection
+## Chord Recognition
 
-`AccChord_ReadAndStoreKeys` scans the lower keyboard for held notes and determines the current chord:
+The recognizer is the `Chord_*` group of the main CPU (v10 `audio/note_voice_mapping.s`);
+`AccChord_ReadAndStoreKeys` only copies its result (`CHORD_ROOT`, `CHORD_TYPE`, `CHORD_BASS_ROOT`,
+`CHORD_FLAGS`) into the accompaniment state, and `AccChord_CompareAndSetDirty` flags a change.
 
-1. Read pressed keys from the keyboard state
-2. Match against chord recognition patterns (root + quality)
-3. Set dirty flags via `AccChord_CompareAndSetDirty` when the chord changes
-4. Trigger `AccVoice_SetChordChangeFlags` to notify voice assignment
+1. **Trigger.** A change of the held chord keys starts recognition (`Chord_RecognizeNowOrDelay`) at once
+   (`CHORD_FLAGS` bit 6) or after 5 ticks (`CHORD_RECOGNIZE_DELAY`). When keys are released it waits 6 or 22
+   ticks (`CHORD_DECAY_TIMER`), so a chord is not lost while the hand moves.
+2. **Collect.** `Chord_CollectHeldNotes` takes up to four held notes of different pitch class, newest first
+   (`CHORD_NOTES`, `CHORD_NOTE_COUNT`).
+3. **Look up.** `Voice_ComputeNoteBitPosition` turns their intervals above the reference note (the last one
+   collected) into a mask whose low 11 bits index `ChordRecog_IntervalMaskTable` (2,048 two-byte entries at
+   0xEEAE44): chord type 1..41 and the root as a semitone offset above the reference.
+4. **Fall back.** Without a match on all notes, `Voice_LookupNoteAndComputePitch` tries other note subsets
+   (3 notes, then more, then fewer from the top); with none, the last chord (`CHORD_LAST_TYPE`,
+   `CHORD_LAST_ROOT`) stays. On-bass chords (`CHORD_FLAGS` bit 1) keep a separate bass root.
+5. **Voice.** `Chord_ApplyCurrentChord` voices the chord from `Chord_Tables`: the type's note count and four
+   intervals (`ChordTables_TypeNoteCount`, `ChordTables_TypeIntervals`) above the root, sounded between G3 and
+   F#4 (`ChordTables_PitchMask`), and a bass note between A1 and G#2. It posts the chord to the display.
 
-The chord change triggers real-time transposition of the accompaniment pattern to the new chord root.
+`notes/open4-kn5000-b/engine/probes/chord_table_check.py` (disassembly repository) checks all 292 non-zero
+table entries against the voicings. For types 1-30, 40 and 41 (189 entries) the type's notes, moved to the
+root, are the held set exactly (93), a subset of it (34: extra held notes are ignored) or a superset (44: an
+incomplete fingering, such as a 9th chord held without its fifth). The 18 entries whose notes contradict the
+held set are all among the 51 with bit 7 of the offset byte set: approximations that are accepted at once.
+
+The 41 chord types (`ChordTables_TypeIntervals`; the firmware stores no names, the names are the disassembly's):
+
+| type | intervals | name   | type | intervals | name    | type  | intervals | name       |
+|------|-----------|--------|------|-----------|---------|-------|-----------|------------|
+| 1    | 0 4 7     | M      | 15   | 4 7 10 2  | 9       | 29    | 0 4 8 10  | 7(#5)      |
+| 2    | 0 4 7 10  | 7      | 16   | 4 7 10 1  | 7(b9)   | 30    | 0 4 9 10  | 7(13)      |
+| 3    | 0 4 7 11  | M7     | 17   | 4 7 11 2  | M7(9)   | 31-39 | (zero)    | no voicing |
+| 4    | 0 4 8     | aug    | 18   | 4 7 9 2   | 6(9)    | 40    | 0 4 7 2   | add9       |
+| 5    | 0 3 7     | m      | 19   | 0 3 7 9   | m6      | 41    | 0 3 7 2   | madd9      |
+| 6    | 0 3 7 10  | m7     | 20   | 0 3 6     | dim     |       |           |            |
+| 7    | 0 3 6 9   | dim7   | 21   | 3 7 10 2  | m7(9)   |       |           |            |
+| 8    | 0 3 6 10  | m7(b5) | 22   | 3 9 2 7   | m6(9)   |       |           |            |
+| 9    | 0 3 7 11  | mM7    | 23   | 0 5 7     | sus4    |       |           |            |
+| 10   | 0 5 7 10  | 7sus4  | 24   | 4 7 10 3  | 7(#9)   |       |           |            |
+| 11   | 0 4 7 9   | 6      | 25   | 0 4 6 11  | M7(b5)  |       |           |            |
+| 12   | 0 4 8 10  | 7(#5)  | 26   | 0 4 8 11  | M7(#5)  |       |           |            |
+| 13   | 0 4 6     | (b5)   | 27   | 0 3 6 11  | mM7(b5) |       |           |            |
+| 14   | 0 4 6 10  | 7(b5)  | 28   | 0 4 9 10  | 7(13)   |       |           |            |
+
+Types 15-18, 21, 22 and 24 are voiced without the root (four tension notes). Types 31-39 are recognized
+(103 table entries) but their voicing rows are zero; where they get their notes is not traced. Nor is the
+9-bit table `NoteMask9_ClassTable` (512 bytes at 0xEEBE44, read by `ComputeNoteBitPositi_StoreDRAM` and
+`Voice_UpdateNoteBitmap`): which chord mode uses it is open.
+
+The chord then drives the pattern: how the Rhythm-ROM notes are transposed to the root and chord type is not
+traced yet (below).
+
+## Section switching: intro, fill-in, ending
+
+The style-control buttons do not switch the pattern themselves. Each one sets a request bit in the style
+record (panel record 0x48, `PANEL_STYLE`), which is also the button's LED. The bits are named by the
+firmware's own table `DisplayStr_StyleSectionNames`:
+
+| bit of record 0x48 | request       | set by                      |
+|--------------------|---------------|-----------------------------|
+| field 5 bit 1      | SYNCHRO armed | `AccStyleCtl_SynchroButton` |
+| field 5 bit 2      | INTRO 1       | `AccSection_RequestIntro1`  |
+| field 5 bit 3      | COUNT IN      | `AccSection_RequestCountIn` |
+| field 5 bit 4      | ENDING 1      | `AccSection_RequestEnding1` |
+| field 5 bit 5      | ENDING 2      | `AccSection_RequestEnding2` |
+| field 5 bit 6      | FILL IN 1     | `AccSection_RequestFillIn1` |
+| field 5 bit 7      | FILL IN 2     | `AccSection_RequestFillIn2` |
+| field 6 bit 2      | INTRO 2       | `AccSection_RequestIntro2`  |
+| field 7 bits 4-5   | VARIATION 1-4 | `PanelButton_Variation`     |
+
+`AccStyleCtl_DispatchSectionButtons` turns a press into a request. INTRO & ENDING 1/2 give an intro while the
+accompaniment is stopped and an ending while it runs. FILL IN 1/2 give a fill-in while it runs; while it is
+stopped, FILL IN 2 gives a COUNT IN. A second press of a pending request cancels it, and a new request clears
+the requests it excludes. START/STOP (`AccStyleCtl_StartStopButton`) acts at once and is not latched.
+
+Each tick `SeqTick_ReadControlState` copies the request bits into the engine (`ACC_REQ_INTRO`,
+`ACC_REQ_FILLIN`, `ACC_REQ_ENDING`). A newly set bit becomes a pending section
+(`AccSection_LatchIntroRequests`, `AccSection_LatchFillInRequests`, `AccSection_LatchEndingRequests`). It
+takes effect as follows:
+
+- **Fill-in or intro**: at once (`AccSection_SwitchNow`), unless the button was pressed on the last beat of the
+  bar (`AccSection_DeferToBarIfLastBeat`). Then it waits for the bar line, so a fill always plays from the
+  current beat to a bar line.
+- **Ending**: at the next bar line, unless the button was pressed on the first beat
+  (`AccSection_DeferToBarUnlessFirstBeat`). Then it replaces the bar that has just started.
+- **Variation change**: at the bar line.
+
+At the bar line `AccSection_SwitchAtBarLine` picks the handler from `AccSection_BarLineSwitchTable`. An ending
+beats a fill-in, and a fill-in beats an intro. A pending variation is loaded first. With the MUSIC STYLE
+ARRANGER on, FILL IN 1 steps the variation down and FILL IN 2 steps it up, from VARIATION 1 to VARIATION 4.
+
+A section plays on all six lanes (`ACC_LANES_INTRO1` .. `ACC_LANES_ENDING2`, one bit per lane). When its last
+lane reaches the pattern's end marker, `Rhythm_SaveState` clears the request and the LED. After a fill-in or an
+intro the accompaniment returns to the variation. Where the firmware stops it after an ending is not traced yet.
+
+SYNCHRO is record 0x48 field 5 bit 1. When it is armed and nothing records or plays, the accompaniment waits
+(`ACC_TRANSPORT_STATE` 128 / 134) and `INTTR4_SeqAutoStart` starts it at the end of a bar of the accompaniment
+clock.
+
+Sources: v10 `sequencer/accompaniment_engine.s` (`AccStyleCtl_*`, `AccSection_*`), `sequencer/seq_audio_mode.s`
+(`AccSection_Latch*`, `AccSection_DeferToBar*`), `sequencer/smf_event_processor.s` (`SeqTick_ReadControlState`)
+and `sequencer/rhythm_routines.s` (`Rhythm_SaveState`); the routine names come from the disassembly's
+`scripts/renaming/rename_open4_accvar.sed`, whose old `AccPedal_*` names (`AccPedal_SustainOn` and its twins)
+were wrong: none of them touches a pedal. The lane's notes are `notes/open4-kn5000-b/accvar/README.md`.
 
 ## Voice Assignment
 
@@ -315,9 +411,10 @@ The `StyleUI_*` labels define parameter blocks and screen layouts for the style 
 
 ## Research Needed
 
-- [ ] Decode chord recognition algorithm (which chord types are supported, how root is determined)
-- [ ] Map the complete style data format (header, part assignments, note data encoding)
-- [ ] Document the variation/fill-in switching state machine
+- [x] ~~Decode chord recognition algorithm (which chord types are supported, how root is determined)~~ — [Chord Recognition](#chord-recognition); open: the voicing source of types 31-39 and the chord mode that uses `NoteMask9_ClassTable`
+- [ ] Transposition of the Rhythm-ROM pattern notes to the recognized chord (root shift, chord-type note rule; tracker kn5000-3qp). Leads: the lane note writers `AccBuf_WriteNoteEvent`, `AccVoice_WriteNoteEventToBuffer`, `AccPlay_ProcessNoteEvent`; `Note_PitchClassTable` and `ToneGen_PitchClassNoteFormTable` are not transposition tables (they choose the 0x90 / 0x91 event form of the composer's pattern writer)
+- [ ] Map the complete style data format (header, part assignments, note data encoding). The Composer style bank is now named field by field ([Floppy Disk Formats]({{ site.baseurl }}/floppy-disk-formats/#the-composer-style-bank)); the Rhythm-ROM format is on [Rhythm ROM]({{ site.baseurl }}/rhythm-rom/)
+- [x] ~~Document the variation/fill-in switching state machine~~ — [Section switching](#section-switching-intro-fill-in-ending); open: SYNCHRO & BREAK while running and synchro stop (tracker kn5000-rzg), and where the accompaniment stops after an ending
 - [ ] Analyze the bass pattern generation algorithm (how bass notes are derived from chord)
 - [ ] Document style conversion routines (`StylCnv_*`) for loading custom styles
 - [ ] Map the accompaniment pedal interaction (`AccPedal_ScanVoiceSlots`)
