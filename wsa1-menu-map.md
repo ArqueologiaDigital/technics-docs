@@ -10,7 +10,7 @@ The SX-WSA1R has no widget classes and no string table, unlike the KN5000. Every
 320 x 240, 1-bit, three-layer LCD shows is drawn from **display lists**: short byte-coded programs
 run by two interpreters in program ROM B, `DisplayList_Run` (`0xF31A09`) and `DisplayListB_Run`
 (`0xF31AF0`). A record names a graphics service and its operands: a box, a line, a string in one of
-ten fonts, a bitmap, or a live value.
+the [twelve fonts](#the-fonts-twelve-faces-five-of-them-japanese), a bitmap, or a live value.
 
 - The opcode of an interpreter-A record *is* the service number of the CPU's SWI 7 graphics call
   (34 services, `SWI7_ServiceTable` at prom_a `0xF8E9C6`).
@@ -434,6 +434,58 @@ What is still open:
   `StepRecord_ChordSymbolGrid_DL`) have no reader in either image; [INFERENCE] an older build's grid;
 - a few RAM cells with no writer keep neutral names and a TODO;
 - the physical action behind key codes 0x11-0x19.
+
+## The fonts: twelve faces, five of them Japanese
+
+All twelve character generators are in program ROM B, laid end to end from `0xF1B400`
+(`wsa1/prom_b/modules/f1b400_f27bff_fonts.s`). Each is typed from a committed contact sheet,
+`wsa1/prom_b/images/fonts/Font_Svc*.png`, by `wsa1/scripts/build/wsa1_fonts.py`. The cell counts
+are arithmetic: the gap to the next table's base divided by the glyph pitch
+(`wsa1/notes/FINDINGS-fonts.md` §1, re-derived by `notes/font_layout_check.py`).
+
+| face               | base       | cell    | cells | script                             |
+|--------------------|------------|---------|-------|------------------------------------|
+| `Font_Svc06_8x14`  | `0xF1B400` | 8 x 14  | 200   | Latin                              |
+| `Font_Svc07_8x16`  | `0xF1BEF0` | 8 x 16  | 200   | Latin                              |
+| `Font_Svc08_16x16` | `0xF1CB70` | 16 x 16 | 200   | Latin                              |
+| `Font_Svc17_8x8`   | `0xF1E470` | 8 x 8   | 200   | Latin, proportional, 6 px advance  |
+| `Font_Svc1C_16x16` | `0xF1EAB0` | 11 x 16 | 200   | Latin, proportional, 11 px advance |
+| `Font_Svc1D_16x16` | `0xF203B0` | 16 x 16 | 120   | hiragana                           |
+| `Font_Svc16_8x14`  | `0xF212B0` | 8 x 14  | 120   | half-width katakana                |
+| `Font_Svc19_16x16` | `0xF21940` | 16 x 16 | 120   | katakana                           |
+| `Font_Svc1A_16x16` | `0xF22840` | 16 x 16 | 240   | kanji, set A (224 defined)         |
+| `Font_Svc1F_16x16` | `0xF24640` | 16 x 16 | 60    | kanji, set B (43 defined)          |
+| `Font_Svc20_8x10`  | `0xF24DC0` | 8 x 10  | 200   | Latin                              |
+| `Font_Svc21_16x24` | `0xF25590` | 16 x 24 | 128   | Latin                              |
+
+- **The code page is private.** Codes `0x10`-`0x1F` are music and UI symbols (triangles, the
+  note-value ladder), not control codes. Above `0x7E` the Latin faces carry a Western-European
+  block. Their accented letters are the plain letter's bytes with the accent in rows 0-1 (17
+  codes of `Font_Svc06_8x14`, asserted by `font_layout_check.py`). The kana faces have JIS X
+  0201's repertoire but not its code points, and the kanji sets are subsets numbered in a
+  private order.
+- **Settled 2026-10-31** (`wsa1/notes/open4-f-probes/latin_b0_bc.py`, commit `e87c170fd`):
+  `Font_Svc06_8x14`'s `0xB0`-`0xBC` are the Spanish block. Read by byte identity with the face's
+  own ASCII cells where a plain letter exists, they are −1, Á, É, Ñ, á, ó, ú, ñ, í, **ò**, **¡**, ¿, −2. `0xB0` and `0xBC` are
+  single-cell negatives, so a reverse mapping must map the strings "-1" and "-2" onto them.
+  The earlier reading `ì` for `0xB9` was wrong. In the kana faces, half-width `0x15` is the wave
+  dash 〜 and full-width katakana `0x66` is ・, the katakana middle dot (read from the renderings).
+  Kanji set A `0x38` is read **既** by eye. A machine match of the kanji cells against the X11
+  `jiskan16` JIS X 0208 font agrees with the human reading on only about 6 % of cells
+  (`kanji_nearest_jis.py`), so it decides nothing.
+- **The text services' `HL` argument is a row number** (`notes/open4-f-probes/swi7_text_hl.py`).
+  Every character is read as `ld r,(XIY+IZ)` with `IZ = HL x BC`, so `HL` picks row `HL` of a
+  table of `BC`-character strings at `XIY`, in all twelve services. The Latin call sites that
+  pass `HL` other than 0 use it that way, and so does prom_b's `DLB_Handler_StringTable`.
+- **Nothing calls the Japanese services.** A byte-pattern census of `ld a,nn` / `swi 7`
+  (`notes/swi7_call_sites.py`, with a measured false-positive floor) finds call sites for 6 of
+  the 7 Latin text services and 0 of the 5 Japanese ones. No Japanese text was found in the four
+  images. On 2026-10-31 the nine WSA1R floppies of MAME's `wsa1_flop` softlist were searched the
+  same way: no disk scores above its permuted-map null, and no image declares a compressed span
+  (FINDINGS-fonts.md §6.3). The service manual lists no Japanese market area for the SX-WSA1R.
+  [Inference] The Japanese faces ship because the export SX-WSA1R shares its firmware source
+  with the domestic SX-WSA1. The text the kanji order was taken from would need a domestic
+  SX-WSA1 dump (program ROMs or a disk), and none is in the romset.
 
 ## Related
 

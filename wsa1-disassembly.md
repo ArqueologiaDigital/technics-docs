@@ -48,6 +48,38 @@ sixteen TLCS-900 images at once (the nineteen MN10300 images, the KN7000's fifte
 each for the KN2400, KN6000, KN6500 and HD-SX trees, use the repository's own MN10300
 assembler and are gated separately by `make gate-kn7000` and the sibling gates).
 
+## ★ CPU 1's two EPROMs are one link (2026-10-31)
+
+`prom_b` (IC13, `0xF00000-0xF7FFFF`) and `prom_a` (IC12, `0xF80000-0xFFFFFF`) are one
+contiguous program on one chip select with no banking (`wsa1/maincpu/README.md`). Since
+disassembly commit `82cfe8a4e` (join/split phase B3, merged in `37ecc2a2b`) the tree links them
+as one program too: both are still assembled as separate objects, but
+`wsa1/maincpu/maincpu.ld` places them in one ELF (output sections `.prom_b` at `0xF00000`,
+`.prom_a` at `0xF80000`), and the Makefile cuts both EPROM images, and the per-image ELF
+views the tools read, out of that one ELF.
+
+Until then each image carried the other's labels as numbers: 1,809 `.set` lines in prom_b,
+1,811 in prom_a and 10 symbols that `prom_a.ld` defined by number, 3,630 in all. The byte
+gate checked them by value and nothing checked them by name. Now each image lists the labels
+the other one references in `prom_a/exports.syms` / `prom_b/exports.syms`. They are made
+global after assembly (`llvm-objcopy --globalize-symbols`), so a renamed or missing name fails
+the link. `python3 scripts/tools/join_maincpu_link.py --proof 130735749` (in `wsa1/`) checks
+that all 3,630 old equates equal the addresses in the joined ELF: 0 moved (commit message of
+`82cfe8a4e`). `--selftest` checks the link's invariants.
+
+The tool and the sources record two measured constraints:
+
+* **The exports are not `.global` in the source.** llvm-mc leaves a branch to a global label
+  to the linker and relaxes `jr` to `jrl`. Declared in the source, the exports grew prom_a by
+  6 bytes and prom_b by 1, so the link overflowed.
+* **One branch cannot be relocated.** prom_b's last instruction, a `jr z` at `0xF7FFFE`,
+  crosses the chip boundary, and the TLCS-900 backend has no 8-bit PC-relative relocation.
+  It keeps one local equate, and `maincpu.ld` ASSERTs that it equals prom_a's exported label.
+
+Nine prom_b `jrl` / `calr` that spelled a cross-image target as `Label - pc` (left over from
+the separate links) are now plain `Label`. `prom_a.ld` and `prom_b.ld` remain as the record
+of each image's base and the memory-map evidence.
+
 ## ⚠ The rule the gate cannot enforce
 
 **The gate is blind to names, comments and interpretation.** It certifies that

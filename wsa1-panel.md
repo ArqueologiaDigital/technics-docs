@@ -24,20 +24,44 @@ CPU 1's own program ROM, and measurements on the MAME driver.
 ## The wire: serial channel 1, not a dedicated port
 
 The panel talks to CPU 1 over the TMP95C061's **serial channel 1 in I/O-interface
-(synchronous) mode**, plus an attention interrupt and two port bits:
+(synchronous) mode**. It needs no separate attention wire: the panel requests the link on the
+clock wire itself, and CPU 1 reads that wire twice, as P8 bit 5 and, inverted, as INT6.
 
-| line | CPU 1 pin | direction |
-|---|---|---|
-| TXD1 → panel SIN | P8 bit 3 | out |
-| RXD1 ← panel SOUT | P8 bit 4 | in |
-| SCLK1 | P8 bit 5, driven by whoever transmits | — |
-| panel attention / request | **INT6** | in |
-| panel busy | PB bit 4 | in |
+| line                         | CPU 1 pin                              | direction                    |
+|------------------------------|----------------------------------------|------------------------------|
+| TXD1 → panel SIN             | P8 bit 3 (IC1 pin 14)                  | out                          |
+| RXD1 ← panel SOUT            | P8 bit 4                               | in                           |
+| SCLK1 ↔ panel `SCK`          | P8 bit 5 (IC1 pin 16, through R31)     | driven by whoever transmits  |
+| `SCK`, inverted by IC9       | PB bit 4 = **INT6** (IC1 pin 40)       | in: the panel's link request |
 
-⚠ The *pin names* are the databook's. What is **established from the ROM** is
-that the SC1 module owns bits 3 and 5 of `P8CR`/`P8FC`, reads P8 bit 5 and PB
-bit 4 as inputs, and will not transmit unless P8.5 reads HIGH and PB.4 reads LOW
-(`0xF5AB7B`: `bit 5,(P8)` / `bit 4,(PB)`).
+★ **Settled 2026-10-31 from the schematic** (gap N of
+`wsa1/notes/WSA1-EMULATION-DISASM-GAPS.md`; service manual page 19, sheet II-7/II-8). IC1's
+pins 36-42 are INT4 (`HDINT`), INT5 (`FDINT`), PB2 (`FDRST`), PB3 (`FDTC`), INT6, INT7
+(`FDDRQ`) and PB6 (`HDIORDY`). This matches the TMP96C141-family port B order PB4/TI6/INT6,
+PB5/TI7/INT7, which is an inference from the labels, because no TMP95C061 databook is in these
+trees. **Pin 40 is driven by IC9**, a TC7S14F Schmitt inverter. Its input is the panel's `SCK`
+wire (CN3 / CP1 CN1 pin 3, which also reaches IC1 pin 16 through R31 and is pulled up by R40)
+through R22 / C70 / R23. The panel requests the link by holding `SCK` low while CPU 1 has
+SCLK1's pin function off. So the firmware's two "line free" tests read one wire from both
+sides: `SC1_WaitTxDrain` (`0xF5AB7B`: `bit 5,(P8)` / `bit 4,(PB)`) will not transmit unless
+P8.5 reads HIGH and PB.4 (INT6) reads LOW. It is the twin of the KN5000's `CPanel_WaitTXReady`.
+`notes/open4-b-probes/wsa1_sch_open4_crops.py` renders the crops and pixel-tests that pin 40 is
+driven by IC9.
+
+⚠ **Correction to the emulation side.** kn7000_mame's
+`notes/wsa1-probes/wsa1_sch_cpu_ports.sh` and `wsa1.cpp` say "pin 40 INT6 tied to +5D". That was
+two drawn segments on one row read as one line: IC9's output turning up into pin 40, and the
++5D net leaving pin 44 (VCC). The pixel test shows a 98-pixel gap between them. That repository
+is not edited from the disassembly.
+
+The three transmit states are the KN5000 driver's, instruction for instruction (gap R).
+`SC1_State04_StartTx`, `SC1_State0C_TxGap1` and `SC1_State14_TxGap2` are the twins of
+`CPanel_SM_StartTX`, `CPanel_SM_TXDelay1` and `CPanel_SM_TXDelay2`. They differ only in the port
+bits (P8 bits 3/5 where the TMP94C241 has PF bits 4/6) and the request interrupt (INT6 where
+the KN5000 has INTA). Each SC1BUF write in them is a dummy byte used as an 8-bit-time timer
+with the pins deselected. State 0x04 samples `SCK` and abandons the transfer if the panel is
+holding it low (a bus-collision check). State 0x14 also re-arms the request interrupt
+(`INTE67 = 0x85`, as the KN5000 re-arms INTA with `INTEAB = 0x05`).
 
 ### ★ The panel driver is the KN5000's, measured by bytes
 

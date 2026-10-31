@@ -336,6 +336,58 @@ that, `SOUND MODE` prints the sound name: `Piano` on `wsa1r`, `WSA Piano` on
 *(P5 bit 4 is not a candidate for the same treatment: it is the service
 CHECKING DEVICE's switch, and the manual says so in as many words.)*
 
+## ⚠ Which DSP each effect unit programs: the ROM contradicts the emulator's capture (2026-10-31)
+
+An emulator measurement of 2026-09-07 (`wsa1/notes/FINDINGS-dsp-runtime-effect-uploads.md`,
+rig `kn7000_mame/tools/rigs/wsa1_dsp_effect_sweep.lua`) paired the three effect units with the
+three DSPs one to one: unit 2 with IC30, unit 0 with IC6, unit 1 with IC5. It saw program
+memory (I-RAM) loaded only into IC30, once at boot, and no I-RAM upload after any effect change.
+A static reading of prom_c contradicts that pairing and the "firmware-gated" reading built on it.
+Every claim below is an instruction operand or a ROM byte. `wsa1/notes/open4-f-probes/p7_unit_program_paths.py`
+re-checks them (18 checks, exit 1 on drift). The evidence is in the correction sections of that
+note and of `FINDINGS-dsp-group-selector-upload-path.md` (commit `f54c36b59`).
+
+**1. The units are not the three DSPs one to one.** `P7Stream_Run(stream, index, table)` takes its
+destination from byte 5 of the six-byte record at `table + 6*index - 6`. Every per-unit stream
+runs with `index = unit + 1` against `P7Stream_Data_FD4B85`:
+
+| unit | relocation record (b0..b5) | destination | DSP (kn7000_mame `wsa1.cpp` nets) | op-3 body address |
+|------|----------------------------|-------------|-----------------------------------|-------------------|
+| 0    | `00 00 00 00 00 00`        | 0           | IC6 (DSP0CS = P5.4)               | 0x006E            |
+| 1    | `60 80 e0 79 80 00`        | 0           | IC6                               | 0x00E7            |
+| 2    | `00 00 e0 3a 00 01`        | 1           | IC5 (DSP1CS = P5.5)               | 0x00A8            |
+
+So units 0 and 1 share IC6, in disjoint regions. Unit 2 is IC5. **Destination 2, IC30, belongs
+to no unit.** Only index 4 of `P7Stream_Data_FD4B97` reaches it, from the boot loader and the
+group reload's fixed streams. That is why the emulator saw a unit-2 effect change touch neither
+IC30's I-RAM nor its coefficient memory (C-RAM): the firmware sends unit 2's bytes to IC5.
+
+**2. The +12 program bodies have one reader, and it has no gate.** `PoolDir_Records` is an
+operand 15 times in the image. Only one of them adds +12, at `0xFA3AEA` in
+`P7Unit_ReloadOnProgramChange` (formerly `sub_FA3A3C`). That routine runs the +12 stream at
+`0xFA3B9C`, and no branch lies between its entry and the call. For all 56 records the stream is
+one op-3 record with payload `01 00 6e`. The op-3 arm sends command `0x01` through
+`P7Byte_SendCmd`, which has no early return, then the relocated address through `P7Byte_SendArg`
+and the words through `P7Byte_SendData`. `P7Units_ResolveProgramsAndReload` calls it for each
+unit (`0xFA581C` unit 0, `0xFA5773` unit 1, `0xFA58CE` unit 2) whenever the unit's resolved
+record differs from its shadow, that is, on every effect change. **No firmware condition
+stands between an effect change and a command-0x01 body upload to IC6 or IC5.**
+
+**3. The boot loader programs all three DSPs, not only IC30.** `P7Units_BootLoadAndStartTask`
+holds DSPRST and the three DSPnRST2 lines low and then raises DSPRST. It runs three op-3
+command-0x01 streams at address 0x0030 (`P7Stream_FCD2C6` to destination 0, `P7Stream_FCD5E2`
+to destination 1, `P7Stream_FCDA77` to destination 2), and raises DSP0RST2, DSP1RST2 and
+DSP2RST2 afterwards. The emulator capture saw only the third.
+
+**What follows.** What the emulator measured (no I-RAM on IC6 or IC5, at boot or after an effect
+change) disagrees with what the ROM sends, so the emulation is where to look next. Two
+questions are open in the kn7000_mame repository. The first is how its `wsa1.cpp` routes
+destinations 0 and 1. The second is how its `upd6383` device treats a command-0x01 body that
+arrives while the part's /RST2 is high: the per-unit reloads never lower it, and the boot
+uploads run with it low. The second question is device behaviour, and no uPD6383 datasheet is
+in these trees. ⚠ The chip-select nets in the table are the emulator's reading of the
+schematic, not this ROM reading.
+
 ## The keybed scanner works, and the link now carries the note
 
 * **The scanner works.** Press C4 after t = 71 s and prom_c reads `0x5C98` off
