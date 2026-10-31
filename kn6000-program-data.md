@@ -283,7 +283,10 @@ The fourth committed snapshot of `scripts/analysis/data_incbin_census.py`,
 | `kn6500` | 83 / 137,404 | 83 / 137,404 | 3 / 28,660 | 2849 / 69,967 | 0         | 0             | 3213 / 74,371   |
 | `hdsx3`  | 3 / 309,200  | 3 / 309,200  | 0 / 0      | 98 / 3,103    | 0         | 0             | 101 / 3,133     |
 
-The opaque fall from `-02` is lane callee-walk's ([above](#blocks-a-routine-is-handed)).
+The opaque fall from `-02` is lane callee-walk's ([above](#blocks-a-routine-is-handed)). The current
+snapshot, [`docs/coverage/data-incbin-2026-10-31-02.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-31-02.txt) (measured at `6ca33e656`, committed in `c58fe3de7`), reads generic 0 and opaque `kn6000` 2347 / 54,782, `kn6500` 2364 / 59,027
+and `hdsx3` 98 / 2,981, the other columns unchanged: lane mn10300-typer's work
+([above](#pointers-arrays-and-loops-lane-mn10300-typer)).
 
 Before the work the trees held 2,630,724 (KN6000), 2,140,036 (KN6500) and 533,544 (plug-in) generic
 bytes; after lanes sib-kn6000 and sib-kn2400, 797,489 / 901,823 / 6,623; in the first snapshot

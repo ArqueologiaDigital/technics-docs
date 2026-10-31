@@ -215,7 +215,8 @@ committed lossless converter in class **generated**, with the converter and the 
 marker (`census: generated -- scripts/build/pcm_wav.py, from waveform/wav/P0_W0000_Sine.wav (16-bit)`).
 A column **from media** counts those entries per tree; class **media** counts the files read directly.
 Lane media-build's read-only run (`data_incbin_census.py --compare data-incbin-2026-10-30-04.json`,
-media-build README, "Read-only censuses") exits 0 with generic 0 in every tree; what moved:
+media-build README, "Read-only censuses") exits 0 with generic 0 in every tree, and the committed
+snapshot [`docs/coverage/data-incbin-2026-10-31-02.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-31-02.txt) (measured at `6ca33e656`, committed in `c58fe3de7`) reads the same; what moved:
 
 - `wsa1`: generated 0 -> 225 entries, 95,342 B, all from media (the respell above);
 - `kn5000-tabledata`: media 6 -> 0 and from media 336 -> 342 (the six Feature Demo BMPs are now

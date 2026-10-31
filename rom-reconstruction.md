@@ -86,15 +86,15 @@ Official firmware updates were distributed on floppy disk. All versions are arch
 
 | Version | Release Date | Source tree                                                                                                                      |
 |---------|--------------|----------------------------------------------------------------------------------------------------------------------------------|
-| v5      | 1997-11-12   | none — the earliest release held; its dump is in the private romset (MAME BIOS 5), not in the repository                         |
-| v6      | 1998-01-16   | none — dump in the private romset (MAME BIOS 4), not in the repository                                                           |
+| **v5**  | 1997-11-12   | `v5/maincpu/` (ported from v6), byte-identical; the earliest release held; the dump is not committed (MAME BIOS 5)               |
+| **v6**  | 1998-01-16   | `v6/maincpu/` (ported from v7), byte-identical; the dump is not committed (MAME BIOS 4)                                          |
 | **v7**  | 1998-06-26   | `v7/maincpu/`, byte-identical                                                                                                    |
 | **v8**  | 1998-11-13   | built from the `v9/maincpu/` sources with `--defsym FW_VERSION_BYTE=0x08`, byte-identical; the dump is not committed (see below) |
 | **v9**  | 1999-01-26   | `v9/maincpu/`, byte-identical                                                                                                    |
 | **v10** | 1999-08-02   | `v10/maincpu/` — the primary disassembly target                                                                                  |
 
-Four of the six main-CPU releases are source-built. v8 joined them on 2026-10-24
-(disassembly `96de17552`, merged as `79ce44080`). It needs no tree of its own: `cmp -l`
+All six main-CPU releases are source-built; v8, v6 and v5 joined them on 2026-10-24. v8
+(disassembly `96de17552`, merged as `79ce44080`) needs no tree of its own: `cmp -l`
 against v9 prints one line, file offset `0x1FFFE8`, `0x08` for `0x09`, so the Makefile
 assembles `v9/maincpu/kn5000_v9_program.s` again with `llvm-mc --defsym FW_VERSION_BYTE=0x08`
 (the byte is a `.set` in `v9/maincpu/boot/rom_end_structure.s` that defaults to `0x09`).
@@ -103,15 +103,16 @@ from the private romset (`KN5000_V8_REF=`) into the git-ignored `original_ROMs/`
 refuses it unless its SHA-1 is `a10a6f5a35175b74c3cfb42cef3bdf571c2858bb`, and `make gate`
 re-checks that hash. v5 and v6 are archived on
 [archive.org](https://archive.org/details/technics-kn5000-system-update-disks) and selectable
-as MAME BIOS options; their chip dumps are held in the private romset, and neither has a
-source tree yet. How far each is from v7 is measured in
-`notes/kn5000-version-deltas-2026-10-24/` in the disassembly repository.
+as MAME BIOS options; their chip dumps are held in the private romset and copied the same way
+(`KN5000_V6_REF`, `KN5000_V5_REF`). Their trees were generated from v7's and v6's by
+`scripts/converters/port_maincpu_version.py` (`v6/maincpu/README.md`, `v5/maincpu/README.md`). How
+far each is from v7 is measured in `notes/kn5000-version-deltas-2026-10-24/` in the disassembly
+repository.
 
 The sub-CPU payload has the same shape: `v142/subcpu/` and, since 2026-10-24,
 `v141/subcpu/` are source-built and gated, each together with its compressed update image.
 The v1.41 tree is generated from v1.42 plus three recorded edits, the only real changes
-between the two revisions. v1.40 is tracked in `original_ROMs/` (payload and compressed update
-image) and `make gate` proves that the two agree, but no tree builds it. See
+between the two revisions, and `v140/subcpu/` (since 2026-10-24) from v1.41 the same way. See
 [Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/).
 
 The [Source Tree Inventory]({{ site.baseurl }}/source-tree-inventory/) lists every held image
@@ -286,12 +287,12 @@ is the instrument for that goal. It reads every git-tracked `.s` / `.inc` of eac
 sizes every `.incbin` and `.incbin_range` directive, and puts each one in the first class that
 fits:
 
-| class     | meaning                                                                                                                                               |
-|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| generated | the bytes come out of a committed generator from committed source: compiled C under `generated/`, or a line marked `census: generated -- <generator>` |
-| media     | a self-describing file a viewer reads directly (PNG, JPEG, BMP, WAV, MIDI, ...)                                                                       |
-| opaque    | declared `census: opaque -- <kind>: <why>`, with a mandatory reason; kinds are pcm, compressed, code, unknown-dump, personal and fill                 |
-| generic   | anything else: an anonymous binary include. The goal is generic = 0 in every tree                                                                     |
+| class     | meaning                                                                                                                                                     |
+|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| generated | the bytes come out of a committed generator from committed source: compiled C under `generated/`, or a line marked `census: generated -- <generator>`       |
+| media     | a self-describing file a viewer reads directly (PNG, JPEG, BMP, WAV, MIDI, ...)                                                                             |
+| opaque    | declared `census: opaque -- <kind>: <why>`, with a mandatory reason; kinds are pcm, compressed, code, unknown-dump and fill (`personal` removed 2026-10-31) |
+| generic   | anything else: an anonymous binary include. The goal is generic = 0 in every tree                                                                           |
 
 An include made from a standalone media file through a committed lossless converter (a PNG through
 `se_bitmaps.py`, a WAV through `pcm_wav.py`, ...) is **generated**, its marker naming the converter
@@ -314,7 +315,11 @@ measured at `a9b5cf764` after lanes media-files, code-island and callee-walk mer
 `d91a7e405`), still reads generic 0 everywhere, and adds the *from media* column. The fourth and
 current, [`docs/coverage/data-incbin-2026-10-30-04.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-04.txt), measured at `b84f732aa` (committed in `a25c88274`), adds the HD-AE5000 v1.15i
 and v1.10i trees (`kn5000-hdae115`, `kn5000-hdae110`: 8 generated includes each, 4 of them from
-media, 0 opaque, 0 generic) and otherwise repeats `-03`. Generic bytes per tree, before the work
+media, 0 opaque, 0 generic) and otherwise repeats `-03`. Two snapshots of 2026-10-31 follow: `-31-01` (at `d9d06262d`, after lanes
+ic21-own and hdae-ledgers, which add the trees `kn7000-ic21own` and the older KN5000 images) and the
+current [`docs/coverage/data-incbin-2026-10-31-02.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-31-02.txt)
+(measured at `6ca33e656` after lanes media-build, mn10300-formats and mn10300-typer, committed in
+`c58fe3de7`). Both still read generic 0 in every tree. Generic bytes per tree, before the work
 (disassembly `b58b8f696`), after the twelve lanes that merged on 2026-10-29 (run at `c6630b0d7`), and
 in the snapshots (`-04` reads as `-03` for these trees):
 
@@ -360,24 +365,28 @@ generic-zero (disassembly `c04e41079`, `c65a62c5b`, `4653d696b`) took them to 0 
 
 Opaque fell with it: bytes declared unread turned out to be record parts. The snapshot counts the
 data that no instruction reads as opaque `unknown-dump`, each piece declared with the reader
-search that found nothing (the three snapshots):
+search that found nothing (the snapshots):
 
-| tree           | generic -01 n / bytes | opaque -01 n / bytes | generic -02 | opaque -02 n / bytes | opaque -04 n / bytes |
-|----------------|-----------------------|----------------------|-------------|----------------------|----------------------|
-| kn7000-program | 177 / 2,948           | 4298 / 82,196        | 0 / 0       | 3459 / 63,917        | 3449 / 63,392        |
-| kn7000-sp7001  | 179 / 3,044           | 4321 / 80,480        | 0 / 0       | 3482 / 62,187        | 3472 / 61,662        |
-| kn7000-b935    | 179 / 3,044           | 4309 / 83,003        | 0 / 0       | 3470 / 64,710        | 3460 / 64,185        |
-| kn7000-b893    | 176 / 2,944           | 4303 / 81,886        | 0 / 0       | 3464 / 63,600        | 3454 / 63,075        |
-| kn6000         | 380 / 18,810          | 3336 / 79,522        | 0 / 0       | 3197 / 70,137        | 2833 / 65,733        |
-| kn6500         | 386 / 18,930          | 3346 / 83,667        | 0 / 0       | 3213 / 74,371        | 2849 / 69,967        |
-| kn2400         | 431 / 18,853          | 5048 / 197,205       | 0 / 0       | 5051 / 196,479       | 5131 / 196,924       |
-| hdsx3          | 40 / 266              | 101 / 3,133          | 0 / 0       | 101 / 3,133          | 98 / 3,103           |
+| tree           | generic -01 n / bytes | opaque -01 n / bytes | generic -02 | opaque -02 n / bytes | opaque -04 n / bytes | opaque -31-02 n / bytes |
+|----------------|-----------------------|----------------------|-------------|----------------------|----------------------|-------------------------|
+| kn7000-program | 177 / 2,948           | 4298 / 82,196        | 0 / 0       | 3459 / 63,917        | 3449 / 63,392        | 2174 / 45,394           |
+| kn7000-sp7001  | 179 / 3,044           | 4321 / 80,480        | 0 / 0       | 3482 / 62,187        | 3472 / 61,662        | 2196 / 43,654           |
+| kn7000-b935    | 179 / 3,044           | 4309 / 83,003        | 0 / 0       | 3470 / 64,710        | 3460 / 64,185        | 2192 / 46,280           |
+| kn7000-b893    | 176 / 2,944           | 4303 / 81,886        | 0 / 0       | 3464 / 63,600        | 3454 / 63,075        | 2177 / 45,007           |
+| kn6000         | 380 / 18,810          | 3336 / 79,522        | 0 / 0       | 3197 / 70,137        | 2833 / 65,733        | 2347 / 54,782           |
+| kn6500         | 386 / 18,930          | 3346 / 83,667        | 0 / 0       | 3213 / 74,371        | 2849 / 69,967        | 2364 / 59,027           |
+| kn2400         | 431 / 18,853          | 5048 / 197,205       | 0 / 0       | 5051 / 196,479       | 5131 / 196,924       | 3419 / 155,297          |
+| hdsx3          | 40 / 266              | 101 / 3,133          | 0 / 0       | 101 / 3,133          | 98 / 3,103           | 98 / 2,981              |
 
 From `-02` to `-03` (and so `-04`) the KN7000 builds lost 8 opaque pieces / 507 bytes each to the kernel's flash
 tail, which is code, and 2 / 18 to the callee walk; the siblings' falls are the callee walk's, and the
 KN2400's rise (+80 / +445) too: the 12-byte blocks its switch descriptors point at are pieces of
 their own now that the descriptors are records
 ([KN2400 / KN2600 Program Data]({{ site.baseurl }}/kn2400-program-data/#blocks-a-routine-is-handed)).
+From `-04` to `-31-02` opaque fell in every MN10300 tree: lane mn10300-formats typed the KN2400's
+effect descriptors and the KN7000's sound lists, and lane mn10300-typer's array-end rule, loop indexes,
+stepped arrays and record chains typed the rest
+([KN7000 Program Data Region]({{ site.baseurl }}/kn7000-data-region/#pointers-arrays-and-loops-lane-mn10300-typer)).
 
 Left open then, and settled on 2026-10-30: the KN7000's `func_487B8E34` (301 B declared
 `unknown-dump`) and `func_4C03B799_Table` ("353 x s16") were the MILK kernel's flash-resident code,
@@ -399,7 +408,8 @@ What those pieces became, and what is left opaque, model by model, is on
 The wave samples, which were the large opaque totals until snapshot `-02` (4,170,480 B of PCM in
 IC307 and 66,319,584 B in the KN7000 wave ROMs, one labelled item per recording), are generated
 from WAV files since lane media-files: the class *opaque pcm* is empty in every tree of snapshots
-`-03` and `-04` ([Media Files]({{ site.baseurl }}/media-files/#the-census-counts-them-as-generated)).
+`-03` and later; since `-31-02` the SX-WSA1R's bitmaps are generated from media too, 225 entries,
+95,342 B ([Media Files]({{ site.baseurl }}/media-files/#the-census-counts-them-as-generated)).
 
 Run it in the disassembly repository with
 
@@ -755,17 +765,20 @@ added program 942 (the SP7001 flash) to the KN7000, rated the KN2400, KN6000, KN
 plug-in as a model of their own, *MN10300 siblings*, and rated every routine label of the converted
 code (`func_<hex>` counting as positional) rather than only the banner names, which is why the
 KN7000's names component reads 62.27 % below against 84.83 % under rules 3 (`cdc6226f`). The SP7001 table, `BASEEXT.XAP`, the IC18 boot ROM, table 80
-and the IC19 picture image are not rated yet. At `d91a7e40` (2026-10-30, after lanes media-files,
-code-island and callee-walk; jump tables from `dispatch-census-2026-10-30-03`; committed in
-`ae0b581b9`):
+and the IC19 picture image are not rated yet. **Rules 5** (2026-10-31, lane hdae-ledgers,
+disassembly `cf8b62847`) added KN5000 maincpu v8, v6 and v5, sub-CPU v1.40 and the HD-AE5000 v2.01i,
+v1.15i and v1.10i to the KN5000 model, so its denominators grew (bytes 10,485,760 -> 18,546,688). At
+`6ca33e65` (2026-10-31, after lanes media-build, ic21-own, hdae-ledgers, mn10300-formats and
+mn10300-typer; jump tables from `dispatch-census-2026-10-31-01`, whose rows `-02` repeats; committed in
+`c58fe3de7`):
 
 | component            | what it counts                                                                                                                        | KN5000                            | SX-WSA1R                        | KN7000                            | MN10300 siblings                  | all models pooled                 |
 |----------------------|---------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------|---------------------------------|-----------------------------------|-----------------------------------|-----------------------------------|
-| bytes understood     | KN5000, SX-WSA1R: the census's strict figure (below); KN7000, siblings: the source share (above)                                      | 96.94 % (10,164,382 / 10,485,760) | 94.80 % (1,988,071 / 2,097,152) | 99.05 % (13,037,147 / 13,162,201) | 97.29 % (12,048,166 / 12,383,893) | 97.66 % (37,237,766 / 38,129,006) |
-| semantic names       | linked symbols whose name says what the thing is, not an address or a position (MN10300 models: routine labels of the converted code) | 96.56 % (148,399 / 153,686)       | 83.14 % (15,815 / 19,022)       | 62.27 % (22,985 / 36,910)         | 60.68 % (30,550 / 50,349)         | 83.76 % (217,749 / 259,967)       |
-| jump tables resolved | jump/call tables whose every entry lands on a labelled instruction, spelled symbolically (the dispatch census in `docs/coverage/`)    | 100 % (2,303 / 2,303)             | 100 % (772 / 772)               | —                                 | —                                 | 100 % (3,075 / 3,075)             |
-| C fields named       | C struct members with a meaningful name rather than an index                                                                          | 94.86 % (65,509 / 69,057)         | —                               | —                                 | —                                 | 94.86 % (65,509 / 69,057)         |
-| **score**            | the mean of the components                                                                                                            | **97.09 %**                       | **92.65 %**                     | **80.66 %**                       | **78.98 %**                       | **94.07 %**                       |
+| bytes understood     | KN5000, SX-WSA1R: the census's strict figure (below); KN7000, siblings: the source share (above)                                      | 96.07 % (17,817,177 / 18,546,688) | 94.80 % (1,988,071 / 2,097,152) | 99.32 % (13,073,153 / 13,162,201) | 97.80 % (12,111,806 / 12,383,893) | 97.40 % (44,990,207 / 46,189,934) |
+| semantic names       | linked symbols whose name says what the thing is, not an address or a position (MN10300 models: routine labels of the converted code) | 96.37 % (298,778 / 310,032)       | 83.14 % (15,815 / 19,022)       | 64.64 % (25,652 / 39,687)         | 61.81 % (32,904 / 53,237)         | 88.43 % (373,149 / 421,978)       |
+| jump tables resolved | jump/call tables whose every entry lands on a labelled instruction, spelled symbolically (the dispatch census in `docs/coverage/`)    | 100 % (4,664 / 4,664)             | 100 % (772 / 772)               | —                                 | —                                 | 100 % (5,436 / 5,436)             |
+| C fields named       | C struct members with a meaningful name rather than an index                                                                          | 94.85 % (109,115 / 115,041)       | —                               | —                                 | —                                 | 94.85 % (109,115 / 115,041)       |
+| **score**            | the mean of the components                                                                                                            | **96.82 %**                       | **92.65 %**                     | **81.98 %**                       | **79.80 %**                       | **95.17 %**                       |
 
 The pooled *bytes* figure mixes the two definitions (the MN10300 models are most of its
 denominator), so compare the per-model columns, not the pooled one. The trend, from
@@ -773,9 +786,10 @@ denominator), so compare the per-model columns, not the pooled one. The trend, f
 the KN7000 was added (rules 3, `6b7dbde0`) and 91.10 % once that day's first wave was merged
 (`cdc6226f`); 84.10 % under rules 4 (`5615225f`, KN7000 41.07 %, siblings 33.93 %); then, after the
 data-semantics lanes typed the MN10300 data regions, 93.97 % (`a84ab21d`), 94.00 % after lane
-generic-zero (`347fd0cf`) and 94.07 % now (KN7000 80.62 % -> 80.66 %, siblings 78.21 % -> 78.98 %, the
-KN5000 and SX-WSA1R unchanged). The change of rules itself moved neither the KN5000 nor the SX-WSA1R
-score.
+generic-zero (`347fd0cf`) and 94.07 % at `d91a7e40`. Rules 5 read 95.12 % at `d9d06262` (KN5000
+97.09 % -> 96.82 %, from the added images: bytes 96.94 % at `d91a7e40` against 96.07 % now, names 96.56 % against 96.37 %), and 95.17 % now: the
+mn10300-formats and mn10300-typer lanes moved the KN7000 80.66 % -> 81.98 % and the siblings 78.98 % ->
+79.80 %, the KN5000 and SX-WSA1R unchanged.
 
 ### The grades
 

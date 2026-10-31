@@ -242,7 +242,10 @@ reads for `kn2400` (count / bytes): generated 127 / 134,756 (all of it from PNG 
 generic bytes; after lane sib-kn2400, 590,773; in the first snapshot (`data-incbin-2026-10-30-01`)
 431 pieces, 18,853 bytes, with opaque 5048 / 197,205; in the second (`-02`, at `141313939`, lane
 generic-zero) 0, with opaque 5051 / 196,479. Opaque rose from `-02` to `-03` (`-04` the same) by 80 pieces / 445
-bytes, for the reason given [above](#blocks-a-routine-is-handed).
+bytes, for the reason given [above](#blocks-a-routine-is-handed). The current snapshot,
+[`docs/coverage/data-incbin-2026-10-31-02.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-31-02.txt) (measured at `6ca33e656`, committed in `c58fe3de7`), reads generic 0 and opaque 3419 / 155,297, the other columns unchanged: 5131 / 196,924
+-> 4448 / 172,071 is the effect descriptors ([above](#the-dsp-effect-descriptors-lane-mn10300-formats)),
+the rest lane mn10300-typer's ([above](#pointers-arrays-and-loops-lane-mn10300-typer)).
 
 Lane generic-zero (disassembly `c65a62c5b`; `kn6000/notes/siblings-data-final/README.md`, section
 "generic-zero") took it to 0. Every generic piece had a reader, so none could stay a binary include

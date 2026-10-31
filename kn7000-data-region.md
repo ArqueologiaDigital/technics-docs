@@ -383,6 +383,12 @@ flash tail became code ([above](#the-kernels-flash-tail)) and 2 / 18 when the ca
 ([above](#blocks-a-routine-is-handed)). The generated entry added in each build is `SjisMissingGlyph`'s
 PNG.
 
+The current snapshot, [`docs/coverage/data-incbin-2026-10-31-02.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-31-02.txt) (measured at `6ca33e656`, committed in `c58fe3de7`), after lanes mn10300-formats and mn10300-typer, reads
+generic 0 and opaque (count / bytes) `kn7000-program` 2174 / 45,394, `kn7000-sp7001` 2196 / 43,654,
+`kn7000-b935` 2192 / 46,280 and `kn7000-b893` 2177 / 45,007; the generated and media columns are those
+of `-04`. The fall from `-04` (about 1,275 pieces and 18,000 bytes per build) is the typer's
+([above](#pointers-arrays-and-loops-lane-mn10300-typer)) and the drum-kit sound list's 165 bytes.
+
 Before lane generic-zero, `gen_data_s.py` typed 2,106,173 of the region's then 2,306,001 bytes in
 build 941 (91.3%); lane callee-walk's `callee_off_on.py` measured 2,125,687 typed bytes with its walk
 on, against 2,125,352 with it off, at disassembly `2a7b45be5`. The generated column is the bitmaps

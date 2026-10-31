@@ -1549,7 +1549,7 @@ OFFSET_TABLE:
 
 ### Jump Table Statistics
 
-Every jump table in the KN5000 images is resolved: the disassembly's semantic score counts 2,259 of 2,259 KN5000 jump tables resolved (3,031 of 3,031 with the SX-WSA1R's 772, where 11 tables are accepted as declared stale copies), from the dispatch census `docs/coverage/dispatch-census-2026-10-24-02` (committed in `cdc6226ff`; `make dispatch-census`). [Dispatch Tables]({{ site.baseurl }}/dispatch-tables/) lists the main-CPU dispatch sites.
+Every jump table in the KN5000 images is resolved: the disassembly's semantic score counts 4,664 of 4,664 KN5000 jump tables resolved over all sixteen KN5000 images (5,436 of 5,436 with the SX-WSA1R's 772, where 11 tables are accepted as declared stale copies), from `docs/badges/semantic-score.json` at `6ca33e65` and the dispatch census `docs/coverage/dispatch-census-2026-10-31-02` (committed in `c58fe3de7`; `make dispatch-census`). [Dispatch Tables]({{ site.baseurl }}/dispatch-tables/) lists the main-CPU dispatch sites.
 
 **High-use indirect call tables (analyzed):**
 - 0xE9F11C (13 uses) - `PsMixer_ControlProcTable`: 11 code addresses, the mixer's control-type procedures `PsMixer_CtlTypeProc0`..`10`, called by `PsMixer_ControlHelper` with the paint message (September 2026; it was called EVENT_HANDLER_DISPATCH_TABLE)

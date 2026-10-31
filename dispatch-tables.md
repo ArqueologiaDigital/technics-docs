@@ -10,19 +10,28 @@ This page catalogs all indirect call/jump dispatch tables found in the KN5000 RO
 
 ## Current state: the dispatch-table census
 
-Since 2026-10-05 the disassembly measures this with its dispatch-table census (`scripts/analysis/dispatch_table_census/`, run by `make dispatch-census`; snapshots in `docs/coverage/`). The latest committed snapshot, `dispatch-census-2026-10-24-02` (committed in disassembly commit `cdc6226ff`), finds no unused table in any KN5000 image; its KN5000 rows are the same as in `dispatch-census-2026-10-06-31`. Main CPU v8 and sub-CPU v1.41 have no rows of their own, because they are built from the v9 and v1.42 sources. Every entry of every framed jump or call table lands on a labelled instruction and is spelled symbolically:
+Since 2026-10-05 the disassembly measures this with its dispatch-table census (`scripts/analysis/dispatch_table_census/`, run by `make dispatch-census`; snapshots in `docs/coverage/`). The latest committed snapshot, [`dispatch-census-2026-10-31-02`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/dispatch-census-2026-10-31-02.txt) (measured at disassembly `6ca33e656`, committed in `c58fe3de7`), finds no unused table in any KN5000 image. Since 2026-10-31 (`-01`, lane hdae-ledgers) it measures every gated KN5000 image: main CPU v8, v6 and v5, sub-CPU v1.41 and v1.40 and the HD-AE5000 v2.01i, v1.15i and v1.10i have rows of their own. Every entry of every framed jump or call table lands on a labelled instruction and is spelled symbolically, and no table is declared stale:
 
 | Image                 | Framed tables | Used |
 |-----------------------|---------------|------|
 | Main CPU v10          | 684           | 684  |
 | Main CPU v9           | 684           | 684  |
+| Main CPU v8           | 684           | 684  |
 | Main CPU v7           | 681           | 681  |
+| Main CPU v6           | 685           | 685  |
+| Main CPU v5           | 685           | 685  |
 | Sub-CPU payload v1.42 | 44            | 44   |
+| Sub-CPU payload v1.41 | 44            | 44   |
+| Sub-CPU payload v1.40 | 44            | 44   |
 | Sub-CPU boot ROM      | 2             | 2    |
 | Table data            | 13            | 13   |
-| HD-AE5000             | 68            | 68   |
+| Custom data           | 0             | 0    |
+| HD-AE5000 v2.06i      | 68            | 68   |
+| HD-AE5000 v2.01i      | 66            | 66   |
+| HD-AE5000 v1.15i      | 57            | 57   |
+| HD-AE5000 v1.10i      | 57            | 57   |
 
-No `jp t, (xR+rr)` site is left whose offset table the census cannot read. A zero means none that the census detects. This is the 'jump tables resolved' component of the disassembly README's semantic score: 2,259 of 2,259 for the KN5000, a figure that also counts 83 unframed pointer runs.
+No `jp t, (xR+rr)` site is left whose offset table the census cannot read (D-unres 0), and no unframed pointer run is unused (U-NOT 0). A zero means none that the census detects. v6 and v5 showed five code-pointer tables spelled as numbers when they were added; `scripts/tools/port_symbolize_pointers.py` fixed them, and v5's Yoko language-check procedures, which the v6 -> v5 port had named one procedure late, carry their own names now (`scripts/renaming/rename_v5_langcheck_shift.sed`, disassembly `3783cef9c`: the ApFunction table at `Yoko_ApFunctionTable_127` and its name table say which is which). This is the 'jump tables resolved' component of the disassembly README's semantic score: 4,664 of 4,664 for the KN5000 (`docs/badges/semantic-score.json`, rules 5), a figure that also counts the unframed pointer runs.
 
 ## March 2026 sprint: 1,583 / 1,583 dispatch sites labelled
 
