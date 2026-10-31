@@ -1458,16 +1458,16 @@ See [FDC Subsystem]({{ site.baseurl }}/fdc-subsystem/).
 
 LCD messages during update (extracted as 1-bit bitmaps):
 
-| Bitmap | Message | Stage |
-|--------|---------|-------|
-| `Bitmap_1bit_Flash_Memory_Update.bin` | Flash Memory Update | Start |
-| `Bitmap_1bit_Please_Wait.bin` | Please Wait | Processing |
-| `Bitmap_1bit_Now_Erasing.bin` | Now Erasing | Erase phase |
-| `Bitmap_1bit_FD_to_Flash_Memory.bin` | FD to Flash Memory | Write phase |
-| `Bitmap_1bit_Completed.bin` | Completed | Success |
-| `Bitmap_1bit_Turn_On_AGAIN.bin` | Turn On AGAIN | Restart needed |
-| `Bitmap_1bit_Illegal_Disk.bin` | Illegal Disk | Error |
-| `Bitmap_1bit_Change_FD_2_of_2.bin` | Change FD 2 of 2 | Multi-disk |
+| Bitmap                                | Message             | Stage          |
+|---------------------------------------|---------------------|----------------|
+| `Bitmap_1bit_Flash_Memory_Update.png` | Flash Memory Update | Start          |
+| `Bitmap_1bit_Please_Wait.png`         | Please Wait         | Processing     |
+| `Bitmap_1bit_Now_Erasing.png`         | Now Erasing         | Erase phase    |
+| `Bitmap_1bit_FD_to_Flash_Memory.png`  | FD to Flash Memory  | Write phase    |
+| `Bitmap_1bit_Completed.png`           | Completed           | Success        |
+| `Bitmap_1bit_Turn_On_AGAIN.png`       | Turn On AGAIN       | Restart needed |
+| `Bitmap_1bit_Illegal_Disk.png`        | Illegal Disk        | Error          |
+| `Bitmap_1bit_Change_FD_2_of_2.png`    | Change FD 2 of 2    | Multi-disk     |
 
 See [Firmware Update Display]({{ site.baseurl }}/firmware-update-display/#state-machine).
 

@@ -83,20 +83,20 @@ which decodes each BMP with its own palette.
 
 ## Main CPU ROM Images
 
-These images were extracted from raw bitmap data in the main CPU ROM and converted to PNG.
+These images were extracted from raw bitmap data in the main CPU ROM. The PNGs are committed in `v10/maincpu/images/` (and the other revisions'), and the build writes the ROM's bytes from them ([Media Files]({{ site.baseurl }}/media-files/)).
 
 ### Status Messages (1-bit bitmaps, 224x22 pixels)
 
-| Image | Filename | Purpose |
-|-------|----------|---------|
-| ![Flash Memory Update]({{ "/assets/images/gallery/Bitmap_1bit_Flash_Memory_Update.png" | relative_url }}) | `Bitmap_1bit_Flash_Memory_Update.bin` | Flash Memory Update message |
-| ![Now Erasing]({{ "/assets/images/gallery/Bitmap_1bit_Now_Erasing.png" | relative_url }}) | `Bitmap_1bit_Now_Erasing.bin` | Now Erasing message |
-| ![FD to Flash Memory]({{ "/assets/images/gallery/Bitmap_1bit_FD_to_Flash_Memory.png" | relative_url }}) | `Bitmap_1bit_FD_to_Flash_Memory.bin` | FD to Flash Memory message |
-| ![Completed]({{ "/assets/images/gallery/Bitmap_1bit_Completed.png" | relative_url }}) | `Bitmap_1bit_Completed.bin` | Completed message |
-| ![Please Wait]({{ "/assets/images/gallery/Bitmap_1bit_Please_Wait.png" | relative_url }}) | `Bitmap_1bit_Please_Wait.bin` | Please Wait message |
-| ![Change FD 2 of 2]({{ "/assets/images/gallery/Bitmap_1bit_Change_FD_2_of_2.png" | relative_url }}) | `Bitmap_1bit_Change_FD_2_of_2.bin` | Change FD 2 of 2 message |
-| ![Illegal Disk]({{ "/assets/images/gallery/Bitmap_1bit_Illegal_Disk.png" | relative_url }}) | `Bitmap_1bit_Illegal_Disk.bin` | Illegal Disk error |
-| ![Turn On AGAIN]({{ "/assets/images/gallery/Bitmap_1bit_Turn_On_AGAIN.png" | relative_url }}) | `Bitmap_1bit_Turn_On_AGAIN.bin` | Turn On AGAIN instruction |
+| Image                                                                                                     | Filename                              | Purpose                     |
+|-----------------------------------------------------------------------------------------------------------|---------------------------------------|-----------------------------|
+| ![Flash Memory Update]({{ "/assets/images/gallery/Bitmap_1bit_Flash_Memory_Update.png" | relative_url }}) | `Bitmap_1bit_Flash_Memory_Update.png` | Flash Memory Update message |
+| ![Now Erasing]({{ "/assets/images/gallery/Bitmap_1bit_Now_Erasing.png" | relative_url }})                 | `Bitmap_1bit_Now_Erasing.png`         | Now Erasing message         |
+| ![FD to Flash Memory]({{ "/assets/images/gallery/Bitmap_1bit_FD_to_Flash_Memory.png" | relative_url }})   | `Bitmap_1bit_FD_to_Flash_Memory.png`  | FD to Flash Memory message  |
+| ![Completed]({{ "/assets/images/gallery/Bitmap_1bit_Completed.png" | relative_url }})                     | `Bitmap_1bit_Completed.png`           | Completed message           |
+| ![Please Wait]({{ "/assets/images/gallery/Bitmap_1bit_Please_Wait.png" | relative_url }})                 | `Bitmap_1bit_Please_Wait.png`         | Please Wait message         |
+| ![Change FD 2 of 2]({{ "/assets/images/gallery/Bitmap_1bit_Change_FD_2_of_2.png" | relative_url }})       | `Bitmap_1bit_Change_FD_2_of_2.png`    | Change FD 2 of 2 message    |
+| ![Illegal Disk]({{ "/assets/images/gallery/Bitmap_1bit_Illegal_Disk.png" | relative_url }})               | `Bitmap_1bit_Illegal_Disk.png`        | Illegal Disk error          |
+| ![Turn On AGAIN]({{ "/assets/images/gallery/Bitmap_1bit_Turn_On_AGAIN.png" | relative_url }})             | `Bitmap_1bit_Turn_On_AGAIN.png`       | Turn On AGAIN instruction   |
 
 ### Logos
 
