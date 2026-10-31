@@ -322,53 +322,63 @@ names). The page-named ones are in each tree's `shared/ram_variables.s`.
 
 ### Encoder Raw Input Storage
 
-| Address  | Variable                       | Description                   |
-|----------|--------------------------------|-------------------------------|
-| `0x8ECA` | `ENCODER_RAW_EXPRESSION_PEDAL` | Raw modulation wheel input    |
-| `0x8ECC` | `ENCODER_RAW_AFTERTOUCH`       | Raw volume slider input       |
-| `0x8ED4` | `ENCODER_RAW_PITCHBEND`        | Raw breath controller input   |
-| `0x8ED6` | `ENCODER_RAW_MODULATION`       | Raw foot controller input     |
-| `0x8ED8` | `ENCODER_RAW_MAIN_VOLUME`      | Raw expression pedal input    |
-| `0x8EDA` | `ENCODER_BEND_RANGE`           | Breath controller mode/enable |
-| `0x8EDC` | `ENCODER_AFTERTOUCH_CURVE`     | Volume mode configuration     |
-| `0x8EDE` | `ENCODER_AFTERTOUCH_THRESHOLD` | Encoder range limit value     |
+Which control each variable belongs to was read from the schematics and the events the handlers post (tracker
+item kn5000-3c7, 2026-10-31; see [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/#analog-controller--encoder-format)).
 
-### MIDI Controller Values
+| Address  | Variable                       | Description                                                       |
+|----------|--------------------------------|-------------------------------------------------------------------|
+| `0x8ECA` | `ENCODER_RAW_EXPRESSION_PEDAL` | ~ADREG04 high byte (CPU AN0, expression pedal)                    |
+| `0x8ECC` | `ENCODER_RAW_AFTERTOUCH`       | ADREG15 high byte (CPU AN1, after touch)                          |
+| `0x8ED4` | `ENCODER_RAW_PITCHBEND`        | ~raw byte of CPL frame 0xD1 (AD1, pitch bend wheel)               |
+| `0x8ED6` | `ENCODER_RAW_MODULATION`       | raw byte of CPL frame 0xD2 (AD2, modulation wheel)                |
+| `0x8ED8` | `ENCODER_RAW_MAIN_VOLUME`      | ~raw byte of CPL frame 0xD3 (AD3, MAIN VOLUME)                    |
+| `0x8EDA` | `ENCODER_BEND_RANGE`           | record 0x93 byte +4 bits 0-3: 0 = bend off while recording, 1..12 |
+| `0x8EDC` | `ENCODER_AFTERTOUCH_CURVE`     | record 0x93 byte +5, AFTER TOUCH curve (1..10)                    |
+| `0x8EDE` | `ENCODER_AFTERTOUCH_THRESHOLD` | record 0x93 byte +6 bits 0-6, AFTER TOUCH threshold               |
 
-| Address  | Variable                          | Description                               |
-|----------|-----------------------------------|-------------------------------------------|
-| `0x8EE0` | `ANALOG_EXPRESSION_PEDAL_PENDING` | Modulation value with change flag (bit 7) |
-| `0x8EE2` | `ANALOG_MAIN_VOLUME_PENDING`      | Expression value with change flag (bit 7) |
-| `0x8EE4` | `ANALOG_EXPRESSION_PEDAL_VALUE`   | Current modulation wheel value (CC#1)     |
-| `0x8EE6` | `ANALOG_MAIN_VOLUME_VALUE`        | Current expression value (CC#0)           |
-| `0x8EE8` | `ANALOG_PITCHBEND_VALUE`          | Breath controller value (CC#2)            |
-| `0x8EEA` | `ANALOG_MODULATION_VALUE`         | Foot controller value (CC#4)              |
-| `0x8EF4` | `ANALOG_AFTERTOUCH_VALUE`         | Volume controller value (CC#7)            |
+### Analog Controller Values
 
-### Encoder State
+| Address  | Variable                          | Description                                            |
+|----------|-----------------------------------|--------------------------------------------------------|
+| `0x8EE0` | `ANALOG_EXPRESSION_PEDAL_PENDING` | last expression-pedal value sent, bit 7 = send pending |
+| `0x8EE2` | `ANALOG_MAIN_VOLUME_PENDING`      | last MAIN VOLUME value sent, bit 7 = send pending      |
+| `0x8EE4` | `ANALOG_EXPRESSION_PEDAL_VALUE`   | expression pedal (CPU AN0), 0..127                     |
+| `0x8EE6` | `ANALOG_MAIN_VOLUME_VALUE`        | MAIN VOLUME (CPL AD3, ID 27), 0..127                   |
+| `0x8EE8` | `ANALOG_PITCHBEND_VALUE`          | pitch bend wheel (CPL AD1, ID 25), 0..255, centre 0x80 |
+| `0x8EEA` | `ANALOG_MODULATION_VALUE`         | modulation wheel (CPL AD2, ID 26), 0..127              |
+| `0x8EF4` | `ANALOG_AFTERTOUCH_VALUE`         | after touch (CPU AN1), 0..127                          |
 
-| Address  | Variable             | Description                              |
-|----------|----------------------|------------------------------------------|
-| `0x8EFC` | `ADC_AN0_LAST_VALUE` | Previous encoder 0 reading (for delta)   |
-| `0x8EFE` | `ADC_AN1_LAST_VALUE` | Previous encoder 1 reading (for delta)   |
-| `0x8F04` | `ADC_AN0_STATUS`     | Encoder 0 status flags (bit 3 = changed) |
-| `0x8F06` | `ADC_AN1_STATUS`     | Encoder 1 status flags (bit 3 = changed) |
-| `0x8F10` | `ADC_AN0_OUTPUT`     | Encoder 0 output buffer (2 bytes)        |
-| `0x8F16` | `ADC_AN1_OUTPUT`     | Encoder 1 output buffer (2 bytes)        |
-| `0x8F18` | `CPANEL_LED_IMAGE`   | Base of encoder state structure          |
+None of these is a MIDI controller number; they are sent as panel records (0xB0-0xB4).
+
+### Main-CPU A/D State and LED Image
+
+| Address  | Variable                | Description                                                                   |
+|----------|-------------------------|-------------------------------------------------------------------------------|
+| `0x8EFC` | `ADC_AN0_LAST_VALUE`    | last accepted ADREG04 high byte (expression pedal)                            |
+| `0x8EFE` | `ADC_AN1_LAST_VALUE`    | last accepted ADREG15 high byte (after touch)                                 |
+| `0x8F04` | `ADC_AN0_STATUS`        | AN0 debounce state: bits 0-1 count, bit 2 pending, bit 3 accepted             |
+| `0x8F06` | `ADC_AN1_STATUS`        | AN1 debounce state, as `ADC_AN0_STATUS`                                       |
+| `0x8F10` | `ADC_AN0_OUTPUT`        | expression-pedal value + flags (bit 7 of +1 = queue event 26)                 |
+| `0x8F16` | `ADC_AN1_OUTPUT`        | after-touch value + flags (bit 7 of +1 = queue event 27)                      |
+| `0x8F18` | `CPANEL_LED_IMAGE`      | 16 B: wanted pattern of LED rows 0..14 (`Protocol_values_for_LED_rows` order) |
+| `0x8F28` | `CPANEL_LED_IMAGE_SENT` | 16 B: LED rows as last sent (`CPanel_LED_FlushImage`)                         |
+
+`CPANEL_LED_IMAGE` was named ENCODER_STATE_BASE until 2026-10-31: it is not encoder state.  The ~50
+`SndParam_SetResBit*` / `ExtData_VoiceParam_DispatchBytecode_Mode*` handlers set and clear its bits, and
+`CPanel_LED_FlushImage` sends what differs from the copy (v7 0x8E7C, v6/v5 0x8E58).
 
 ### Encoder Lookup Tables (ROM)
 
-| Address    | Variable                            | Description                        |
-|------------|-------------------------------------|------------------------------------|
-| `0xEDA13C` | `ENCODER_LUT_EXPRESSION_PEDAL`      | Modulation wheel value lookup      |
-| `0xEDA1BC` | `ENCODER_LUT_AFTERTOUCH`            | Volume slider value lookup         |
-| `0xEDA2BC` | `ENCODER_LUT_AFTERTOUCH_CURVE_MULT` | Breath controller index lookup     |
-| `0xEDA2D2` | `ENCODER_LUT_PITCHBEND`             | Breath controller value lookup     |
-| `0xEDA3D2` | `ENCODER_LUT_BEND_RANGE_MULT`       | Breath controller multiplier table |
-| `0xEDA3EA` | `ENCODER_LUT_BEND_RANGE_OFFSET`     | Breath controller offset table     |
-| `0xEDA402` | `ENCODER_LUT_MODULATION`            | Foot controller value lookup       |
-| `0xEDA482` | `ENCODER_LUT_MAIN_VOLUME`           | Expression pedal value lookup      |
+| Address    | Variable                            | Description                                              |
+|------------|-------------------------------------|----------------------------------------------------------|
+| `0xEDA13C` | `ENCODER_LUT_EXPRESSION_PEDAL`      | expression pedal curve (128 B)                           |
+| `0xEDA1BC` | `ENCODER_LUT_AFTERTOUCH`            | after-touch curve (256 B)                                |
+| `0xEDA2BC` | `ENCODER_LUT_AFTERTOUCH_CURVE_MULT` | after-touch curve multipliers (11 entries)               |
+| `0xEDA2D2` | `ENCODER_LUT_PITCHBEND`             | pitch bend curve (256 B, centre dead band)               |
+| `0xEDA3D2` | `ENCODER_LUT_BEND_RANGE_MULT`       | bend-range rescale multipliers, round(256 (k+1) / 12)    |
+| `0xEDA3EA` | `ENCODER_LUT_BEND_RANGE_OFFSET`     | bend-range rescale offsets, 64 x MULT[k]                 |
+| `0xEDA402` | `ENCODER_LUT_MODULATION`            | modulation wheel curve (128 B)                           |
+| `0xEDA482` | `ENCODER_LUT_MAIN_VOLUME`           | MAIN VOLUME curve (linear)                               |
 
 ## Sequencer/Medley Memory
 
@@ -435,36 +445,40 @@ The sub CPU (tone generator controller) has its own memory map, documented from 
 
 ### Sub CPU SFR Addresses (Confirmed from Boot ROM)
 
-| Address | Register | Description                                                                                           |
-|---------|----------|-------------------------------------------------------------------------------------------------------|
-| `0x07`  | P1FC     | Port 1 Function Control                                                                               |
-| `0x0B`  | P2FC     | Port 2 Function Control                                                                               |
-| `0x0F`  | P3FC     | Port 3 Function Control                                                                               |
-| `0x1C`  | P7       | Port 7 Data                                                                                           |
-| `0x1E`  | P7CR     | Port 7 Control                                                                                        |
-| `0x1F`  | P7FC     | Port 7 Function Control                                                                               |
-| `0x20`  | P8       | Port 8 Data                                                                                           |
-| `0x22`  | P8CR     | Port 8 Control                                                                                        |
-| `0x23`  | P8FC     | Port 8 Function Control                                                                               |
-| `0x28`  | PA       | Port A Data                                                                                           |
-| `0x2B`  | PAFC     | Port A Function Control                                                                               |
-| `0x2C`  | PB       | Port B Data                                                                                           |
-| `0x2F`  | PBFC     | Port B Function Control                                                                               |
-| `0x30`  | PC       | Port C Data                                                                                           |
-| `0x34`  | PD       | Port D Data, the inter-CPU handshake: bit 0=sub ready, bit 1=completion, bit 2=gate, bit 4=main ready |
-| `0x36`  | PDCR     | Port D Control                                                                                        |
-| `0x38`  | PE       | Port E Data                                                                                           |
-| `0x3A`  | PECR     | Port E Control                                                                                        |
-| `0x3C`  | PF       | Port F Data                                                                                           |
-| `0x3E`  | PFCR     | Port F Control                                                                                        |
-| `0x40`  | PG       | Port G Data (the boot ROM tests bit 0 to choose its CS3 block settings, `MAMR3` and `B3CSH`)          |
-| `0x44`  | PH       | Port H Data (bit 0: DSP ready in; bits 1, 2: DSP1 and DSP2 resets)                                    |
-| `0x68`  | PZ       | Port Z Data (DSP1 command/data byte port)                                                             |
-| `0x80`  | T8RUN    | 8-bit Timer Run Control                                                                               |
-| `0x81`  | TRDC     | Timer Register Double-buffer Control                                                                  |
-| `0x82`  | T02FFCR  | Timer 0/2 Flip-Flop Control                                                                           |
-| `0x84`  | T01MOD   | Timer 0/1 Mode (not watchdog - real WD at 0x110)                                                      |
-| `0x102` | DMA2V    | Micro-DMA channel 2 start vector                                                                      |
+| Address | Register | Description                                                                                                                                                               |
+|---------|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x07`  | P1FC     | Port 1 Function Control                                                                                                                                                   |
+| `0x0B`  | P2FC     | Port 2 Function Control                                                                                                                                                   |
+| `0x0F`  | P3FC     | Port 3 Function Control                                                                                                                                                   |
+| `0x1C`  | P7       | Port 7 Data                                                                                                                                                               |
+| `0x1E`  | P7CR     | Port 7 Control                                                                                                                                                            |
+| `0x1F`  | P7FC     | Port 7 Function Control                                                                                                                                                   |
+| `0x20`  | P8       | Port 8 Data                                                                                                                                                               |
+| `0x22`  | P8CR     | Port 8 Control                                                                                                                                                            |
+| `0x23`  | P8FC     | Port 8 Function Control                                                                                                                                                   |
+| `0x28`  | PA       | Port A Data                                                                                                                                                               |
+| `0x2B`  | PAFC     | Port A Function Control                                                                                                                                                   |
+| `0x2C`  | PB       | Port B Data                                                                                                                                                               |
+| `0x2F`  | PBFC     | Port B Function Control                                                                                                                                                   |
+| `0x30`  | PC       | Port C Data                                                                                                                                                               |
+| `0x34`  | PD       | Port D Data, the inter-CPU handshake on the sub CPU: bit 0=sub ready, bit 1=completion, bit 2=gate, bit 4=main ready (main CPU: bit 0 = FDCRST, bit 6 = FD.I/O, see note) |
+| `0x36`  | PDCR     | Port D Control                                                                                                                                                            |
+| `0x38`  | PE       | Port E Data                                                                                                                                                               |
+| `0x3A`  | PECR     | Port E Control                                                                                                                                                            |
+| `0x3C`  | PF       | Port F Data                                                                                                                                                               |
+| `0x3E`  | PFCR     | Port F Control                                                                                                                                                            |
+| `0x40`  | PG       | Port G Data (the boot ROM tests bit 0 to choose its CS3 block settings, `MAMR3` and `B3CSH`)                                                                              |
+| `0x44`  | PH       | Port H Data (bit 0: DSP ready in; bits 1, 2: DSP1 and DSP2 resets)                                                                                                        |
+| `0x68`  | PZ       | Port Z Data (DSP1 command/data byte port)                                                                                                                                 |
+| `0x80`  | T8RUN    | 8-bit Timer Run Control                                                                                                                                                   |
+| `0x81`  | TRDC     | Timer Register Double-buffer Control                                                                                                                                      |
+| `0x82`  | T02FFCR  | Timer 0/2 Flip-Flop Control                                                                                                                                               |
+| `0x84`  | T01MOD   | Timer 0/1 Mode (not watchdog - real WD at 0x110)                                                                                                                          |
+| `0x102` | DMA2V    | Micro-DMA channel 2 start vector                                                                                                                                          |
+
+On the **main CPU** Port D is wired differently: bit 0 is FDCRST (the floppy controller's hardware reset,
+pulsed for 10 ticks by `FDC_PulseResetLine`) and bit 6 is FD.I/O (disk change); INT4 is FDCINT and INT5 FDCDRQ
+(service manual p. 32, CPU SECTION (A); see [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/#io-ports)).
 
 ### Payload Image Extents
 

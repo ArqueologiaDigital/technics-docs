@@ -58,16 +58,21 @@ the whole record; a first byte of `0xF0` is the end-of-table sentinel).
 
 Settled translator-opcode semantics (measured; `kn7000_mame/tools/kn5000_dsp_params.py`):
 
-| op | semantics |
-|----|-----------|
-| `0x21` | lerp `0x000000..0x666666` = 0..0.8 full scale -> cell `0x90` (universal tail level) |
-| `0x62` | CURVE_D volume law, 1.00 dB per UI step |
-| `0x63` | A/B/C curve select -> cell `0x06` (second tail level) |
-| `0x68` | ms x 44100 / 1000 -> DRAM word count (delay times; the 44.1 kHz rate is hard-coded) |
-| `0x69` | value / 180 -> degrees (PHASE / PAN family) |
-| `0x6D` | descriptor `+8` pair (compressor attack/release smoother coefficients) |
-| `0x70` | parametric-EQ biquad coefficient + state block (5 bands) |
-| `0x72` | compressor THRESHOLD (`0x04`) / RATIO (`0x0D`) cells |
+| op     | semantics                                                                                  |
+|--------|--------------------------------------------------------------------------------------------|
+| `0x21` | lerp `0x000000..0x666666` = 0..0.8 full scale -> cell `0x90` (universal tail level)        |
+| `0x62` | CURVE_D volume law, 1.00 dB per UI step                                                    |
+| `0x63` | A/B/C curve select -> cell `0x06` (second tail level)                                      |
+| `0x67` | ms x 44100 / 1000 + base -> DRAM word count (delay times; the 44.1 kHz rate is hard-coded) |
+| `0x68` | value / 180 -> degrees (PHASE / PAN family)                                                |
+| `0x6D` | descriptor `+8` pair (compressor attack/release smoother coefficients)                     |
+| `0x70` | parametric-EQ biquad coefficient + state block (5 bands)                                   |
+| `0x72` | compressor THRESHOLD (`0x04`) / RATIO (`0x0D`) cells                                       |
+
+The delay-time and degrees rows were one opcode high until 2026-10-31.  The sub-CPU dispatch
+(`DSP_Translator_CaseOffsets`, index = opcode - 0x61) gives index 6 = `DSP_Op_0x67_InterpFPScale` and index 7 =
+`DSP_Op_0x68_InterpDiv0xB4` (tracker item kn5000-nl6, disassembly `notes/open4-kn5000-b/naming/README.md`, lead
+23).  The rows for 0x21, 0x62, 0x63 and 0x70 agree with the dispatch; 0x6D and 0x72 were not re-checked.
 
 The UI value range is 0..99 (lerp divisor `0x63`); the 100-entry curve tables
 CURVE_A/B/C/D sit at `0x012483`/`0x012613`/`0x0127A3`/`0x012B33`. Those names are the

@@ -155,17 +155,18 @@ extension slot and the flash devices. What each bit does is established from the
 firmware's own reads and from the direction registers the boot code programs; the SFR
 addresses are `PD = 0x34`, `PE = 0x38`, `PG = 0x40`, `PZ = 0x68`.
 
-| Port bit  | Direction | Function                                                                                                    |
-|-----------|-----------|-------------------------------------------------------------------------------------------------------------|
-| PD.6      | input     | floppy disk-change (`Check_for_Floppy_Disk_Change`) — ⚠ also read into the pedal parameter block, see below |
-| PE.0      | input     | extension board present. **0 = an HD-AE5000 is fitted**, 1 = the slot is empty                              |
-| PE.4      | input     | MICSNS — latched every main loop; a change sends an 8-byte packet on the computer-interface port            |
-| PE.5      | input     | control-panel INTA. The panel routines proceed only while it reads low                                      |
-| PG.2      | input     | foot switch FS1                                                                                             |
-| PG.3      | input     | foot switch FS2                                                                                             |
-| PG.4–PG.7 | input     | foot controllers FC1–FC4                                                                                    |
-| PZ.7–PZ.4 | input     | COM SELECT rotary switch — MIDI / MAC / PC1 / PC2                                                           |
-| P7.5      | input     | flash ready/busy, polled before every flash command                                                         |
+| Port bit  | Direction | Function                                                                                                                                   |
+|-----------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| PD.0      | output    | FDCRST, the floppy controller's hardware reset (IC5 pin 12; pulsed for 10 ticks by `FDC_PulseResetLine`)                                   |
+| PD.6      | input     | floppy disk-change (`Check_for_Floppy_Disk_Change`) — ⚠ also read into the pedal parameter block, see below                                |
+| PE.0      | input     | extension board present. **0 = an HD-AE5000 is fitted**, 1 = the slot is empty                                                             |
+| PE.4      | input     | MICSNS -- latched every main loop; a change is sent to the sub CPU as global sub-command 0x08 of command 0x2C (sub-CPU `DSP_Set_MicSense`) |
+| PE.5      | input     | control-panel INTA. The panel routines proceed only while it reads low                                                                     |
+| PG.2      | input     | foot switch FS1                                                                                                                            |
+| PG.3      | input     | foot switch FS2                                                                                                                            |
+| PG.4–PG.7 | input     | foot controllers FC1–FC4                                                                                                                   |
+| PZ.7–PZ.4 | input     | COM SELECT rotary switch — MIDI / MAC / PC1 / PC2                                                                                          |
+| P7.5      | input     | flash ready/busy, polled before every flash command                                                                                        |
 
 **Port G is the pedal port, and its pins are active low.** `PanelInput_ScanPedalPorts`
 (`v10/maincpu/audio/audio_control_engine.s:2093`, reached from `PanelInput_Poll`)
@@ -203,6 +204,12 @@ and, three instructions after the two Port G reads above, into the pedal paramet
 `0x8EBE`. The schematic settles the *pin* — net FD.I/O, IC5 pin 17, with a 4.7 kΩ pull-up —
 but not its meaning: "disk change" is a routine name supplied by an earlier analysis pass,
 not ground truth. Either PD.6 is dual-purpose or one of the two readings is wrong.
+
+**PD.0 is FDCRST.** The CPU SECTION (A) diagram (service manual p. 32) wires IC5 pin 12 PD0 to the sheet label
+FDCRST, pin 13 INT4 to FDCINT, pin 14 INT5 to FDCDRQ and pin 17 PD6 to FD.I/O (read by eye from the scan;
+disassembly `notes/kn5000-a-2026-10-31/probes/sm_pd0_net.py` renders the crops).  So the 10-tick pulse of
+`FDC_PulseResetLine` (the main CPU's routine and table data's boot-driver twin) is the floppy controller's
+hardware reset.
 
 ## Sub CPU
 

@@ -24,6 +24,17 @@ The service manual puts **SW101 "ENCODER SWITCH" (QSRGT002AA)** on the **CPL** (
 panel board, wired to the ROTA/ROTB quadrature inputs of that board's `M37471M2196S` MCU. The
 panel MCU counts detents and reports them; the main CPU never sees the quadrature.
 
+From the CPL sheet (service manual II-35, PDF page 45; tracker item kn5000-xhi), SW101 has three pins:
+
+| SW101 pin | to                                                                                                  |
+|-----------|-----------------------------------------------------------------------------------------------------|
+| A         | ground (common)                                                                                     |
+| B         | R11 4.7 kΩ pull-up to +5D; R13 47 kΩ series to IC1 pin 30 `ROTA`; C7 0.001 µF from pin 30 to ground |
+| C         | R12 4.7 kΩ pull-up to +5D; R14 47 kΩ series to IC1 pin 31 `ROTB`; C8 0.001 µF from pin 31 to ground |
+
+Each phase is pulled up by 4.7 kΩ and low-pass filtered by 47 kΩ and 1 nF (τ = 47 µs) before the MCU pin; the
+MCU does the quadrature decoding and reports detents as `[0xD7, count]`.
+
 ## Wire Format
 
 The panel sends a two-byte frame:
@@ -121,11 +132,11 @@ absolute 8-bit ADC values; ID 31 carries the data wheel's signed detent count:
 
 | Index | Header | Handler                          | Controller                                      |
 |-------|--------|----------------------------------|-------------------------------------------------|
-| 2     | 0x12   | `Encoder_ProcessExpressionPedal` | Modulation wheel                                |
-| 5     | 0x15   | `Encoder_ProcessAfterTouch`      | Volume slider                                   |
-| 25    | 0xD1   | `Encoder_ProcessPitchBend`       | Breath controller                               |
-| 26    | 0xD2   | `Encoder_ProcessModulation`      | Foot controller                                 |
-| 27    | 0xD3   | `Encoder_ProcessMainVolume`      | Expression pedal                                |
+| 2     | --     | `Encoder_ProcessExpressionPedal` | expression pedal (main CPU AN0, not a frame)    |
+| 5     | --     | `Encoder_ProcessAfterTouch`      | after-touch sensor (main CPU AN1, not a frame)  |
+| 25    | 0xD1   | `Encoder_ProcessPitchBend`       | pitch bend wheel                                |
+| 26    | 0xD2   | `Encoder_ProcessModulation`      | modulation wheel                                |
+| 27    | 0xD3   | `Encoder_ProcessMainVolume`      | MAIN VOLUME slider                              |
 | 31    | 0xD7   | `Encoder_PassthroughIdentity`    | TEMPO/PROGRAM data wheel (count passed through) |
 
 Entry 31 is the data wheel's: `Encoder_PassthroughIdentity` returns the count unchanged, and

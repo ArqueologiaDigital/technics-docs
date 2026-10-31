@@ -515,8 +515,8 @@ The welcome screen's letters are **in the program ROM** (the nakarest lane, Sept
 op table. There are two step tables: table A (186 steps) is used when `Get_Region_Code`
 returns 2, table B (191 steps) otherwise. The ops draw seven 16×17 1-bpp glyphs (C, I, L, N,
 O, R, U; rows stored bottom-up, drawn by `DrawBitmapSP2_Impl`) one letter at a time. Table A
-spells **IN COLOR**, table B **IN COLOUR**. The glyphs sit under older labels that predate this
-reading (`WelcomeGlyph_I` is the I, `WelcomeGlyph_U` the U). The Technics logo (312×45,
+spells **IN COLOR**, table B **IN COLOUR**. The glyphs are labelled by their letters
+(`WelcomeGlyph_I`, `WelcomeGlyph_U`, ...; formerly Bitmap_Digit1 / Bitmap_DigitD). The Technics logo (312×45,
 `Bitmap_Technics_Logo`) and the KN-5000 logo (199×36, `Bitmap_KN5000_Logo`) are ROM bitmaps
 too. Source: the welcome-script headers in `v10/maincpu/ui_widgets/technichord_string_data.s`
 and `welcome_step_t` in `naka_technichord_strings.c`. This page used to say the assets were
@@ -1206,18 +1206,35 @@ After payload loading, the `MICRODMA_CH0_HANDLER` at 0x020F1F processes commands
 
 ## Timing Considerations
 
-### Boot Time Estimates
+### Boot timeline (measured in MAME)
 
-| Phase         | Duration   | Notes                                                                                                                         |
-|---------------|------------|-------------------------------------------------------------------------------------------------------------------------------|
-| Hardware init | ~1ms       | SFR configuration                                                                                                             |
-| Memory test   | ~10ms      | RAM pattern test (diagnostic strap only; skipped in a normal boot)                                                            |
-| ROM checksum  | ~5ms       | 4KB verification (diagnostic strap only; skipped in a normal boot)                                                            |
-| Tone gen init | ~1ms       | 4 channel setup                                                                                                               |
-| Payload load  | ~100ms     | 512 KB through the latch: 5 × 64 KB tone database, then the 192 KB executable                                                 |
-| **Total**     | **~100ms** | To payload execution in a normal boot. With the strap, `INIT_MEMORY_TEST` ends in an endless loop and never loads the payload |
+Measured 2026-10-31 in the kn7000_mame overlay's `kn5000` driver (v10 program, sub-CPU v1.42), cold boot, by
+the Lua tap `notes/open4-kn5000-b/hwaudio/probes/boot_timeline_tap.lua` in technics-roms-disasm (run with
+`probes/run_boot_timeline.sh`, output `probes/boot_timeline.txt`; four runs gave identical times; tracker item
+kn5000-mhj).  Emulated time, not yet checked on an instrument.
 
-These durations are unmeasured estimates.
+| t (s) | CPU  | milestone                                              |
+|-------|------|--------------------------------------------------------|
+| 0.000 | main | `RESET_HANDLER`                                        |
+| 0.600 | main | `SubCPU_Send_Payload` (tone database, 5 x 64 KB)       |
+| 2.065 | main | payload image at 0x3E0000 found, decompressed (1.02 s) |
+| 3.086 | main | executable transfer (192 KB)                           |
+| 3.961 | sub  | `PAYLOAD_ENTRY`                                        |
+| 3.968 | sub  | `Audio_System_Init`                                    |
+| 4.865 | main | `SubCPU_Payload_Verify`, then `ScreenGroup_Dispatch`   |
+| 5.505 | main | `InitializeGraphics`                                   |
+| 7.693 | main | `MainLoop`                                             |
+| 7.749 | main | `AcWelcomScreenProc`                                   |
+
+The latch transfers run at about 220 KB/s; the main CPU then waits a fixed 0x100000-iteration loop (0.90 s)
+before subsystem init.  An instrument without an updated payload image at 0x3E0000 skips the decompression, so
+it would reach the main loop about 1 s sooner.  The romset used carries the compressed v1.42 payload at
+0x3E0000, as an instrument that has had a type-7 update does.  The times are as right as MAME's TMP94C241
+timing, which is not validated against a real instrument.
+
+Panel LEDs: nothing is lit by the main CPU until the first `CPanel_LED_FlushImage` pass after the main screen
+state is built (about 7.75 s emulated in MAME; see
+[Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/#power-on-led-sequence)).
 
 ### DMA Transfer Rates
 
@@ -1506,6 +1523,10 @@ Available PPORT commands include file transfers, HD formatting, and PC communica
 ---
 
 ## Complete Boot Timeline
+
+The order of events below holds; its times are old estimates and are off by a factor of about 40. Measured in
+MAME, the sub CPU enters its payload at 3.96 s and the main loop starts at 7.69 s (see
+[Boot timeline (measured in MAME)](#boot-timeline-measured-in-mame)).
 
 ```
 Time    Event

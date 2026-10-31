@@ -133,20 +133,20 @@ dispatch index) and `FDC_TARGET_TRACK` (0x8A36, the cylinder `FDC_CmdSeek` seeks
 
 ## Routine Addresses
 
-| Address  | Name                  | Description                                 |
-|----------|-----------------------|---------------------------------------------|
-| 0xF96BBF | FDC_INIT              | Basic FDC initialization                    |
-| 0xF96BD0 | FDC_CONFIG_VERIFY     | Controller and drive (re)initialization     |
-| 0xF96D95 | FDC_CMD_DISPATCH_SUB  | Command handler subroutine                  |
-| 0xF97696 | FDC_CmdSeek           | Seek to the target cylinder (FDC command 2) |
-| 0xF976E4 | FDC_CMD_EXEC          | Command execution handler                   |
-| 0xF97835 | FDC_SECTOR_XFER       | Sector/data transfer handler                |
-| 0xF97984 | FDC_MODE_CONFIG       | Mode configuration (Handler 5)              |
-| 0xF97C21 | FDC_CMD_ENABLE        | Command enable setup                        |
-| 0xF97C4B | FDC_CMD_DISABLE       | Command disable                             |
-| 0xF97C54 | FDC_STATUS_COPY       | Copy cached status                          |
-| 0xF97C5B | FDC_OUTPUT_CTRL       | Output control                              |
-| 0xF97C7C | FDC_INTERRUPT_HANDLER | Main interrupt handler                      |
+| Address  | Name                    | Description                                                     |
+|----------|-------------------------|-----------------------------------------------------------------|
+| 0xF96BBF | FDC_INIT                | Basic FDC initialization                                        |
+| 0xF96BD0 | FDC_CONFIG_VERIFY       | Controller and drive (re)initialization                         |
+| 0xF96D95 | FDC_CMD_DISPATCH_SUB    | Command handler subroutine                                      |
+| 0xF97696 | FDC_CmdSeek             | Seek to the target cylinder (FDC command 2)                     |
+| 0xF976E4 | FDC_CMD_EXEC            | Command execution handler                                       |
+| 0xF97835 | FDC_SECTOR_XFER         | Sector/data transfer handler                                    |
+| 0xF97984 | FDC_MODE_CONFIG         | Mode configuration (Handler 5)                                  |
+| 0xF97C21 | FDC_CMD_ENABLE          | Command enable setup                                            |
+| 0xF97C4B | FDC_CMD_DISABLE         | Command disable                                                 |
+| 0xF97C54 | FDC_STATUS_COPY         | Copy cached status                                              |
+| 0xF97C5B | FDC_OUTPUT_CTRL         | Output control                                                  |
+| 0xF97C7C | FDC_CmdSenseDriveStatus | Command 11, sense drive status (formerly FDC_INTERRUPT_HANDLER) |
 
 ## Helper Routine Addresses
 
@@ -352,7 +352,7 @@ FDC_MODE_CONFIG:            ; F97984
     CALR FDC_PRE_OP_CHECK
     CP (8A24h), 0
     JRL NZ, FDC_MC_EXIT     ; 0xF97A3C
-    CALR FDC_INTERRUPT_HANDLER
+    CALR FDC_INTERRUPT_HANDLER   ; now FDC_CmdSenseDriveStatus
     CP (8A24h), 0
     JRL NZ, FDC_MC_EXIT
     CALR FDC_CmdRecalibrate      ; formerly FDC_SeekRecalibrate
@@ -462,9 +462,12 @@ FDC_OC_DISABLE:             ; F97C76
     RET
 ```
 
-### FDC_INTERRUPT_HANDLER (0xF97C7C) - Main Interrupt Handler
+### FDC_CmdSenseDriveStatus (0xF97C7C) - Command 11, SENSE DRIVE STATUS
 
-Checks status and dispatches to appropriate handlers.
+Formerly named FDC_INTERRUPT_HANDLER, which it is not (no `ei` / `di`, no interrupt vector).  It sends the
+uPD72068's SENSE DRIVE STATUS command (byte 0x04), reads ST3 and maps bits 7 / 5 / 6 to error codes 0x32 / 0x31 /
+0x2F; it is named after its table-data boot-driver twin (disassembly `scripts/renaming/rename_fdc_sense_drive_status.sed`).
+The listing below is the older ASL-era reading, with its old local names.
 
 ```asm
 FDC_INTERRUPT_HANDLER:      ; F97C7C
@@ -556,22 +559,23 @@ The runtime driver's routine names were assigned before the command numbering wa
 and several of them describe the wrong thing. The bootloader twin (which *is* organised
 by command) settles them:
 
-| Runtime name                                            | Actually                                           | Bootloader twin           |
-|---------------------------------------------------------|----------------------------------------------------|---------------------------|
-| `FDC_CmdSeek` (0xF97696), formerly `FDC_STATUS_HANDLER` | the **SEEK** handler — the old name was a misnomer | `FDC_CmdSeek`             |
-| `FDC_CMD_EXEC` (0xF976E4)                               | read sectors                                       | `FDC_CmdReadSectors`      |
-| `FDC_SECTOR_XFER` (0xF97835)                            | write sectors                                      | `FDC_CmdWriteSectors`     |
-| `FDC_MODE_CONFIG` (0xF97984)                            | format                                             | `FDC_CmdFormat`           |
-| `FDC_CMD_ENABLE` (0xF97C21)                             | motor on                                           | `FDC_CmdMotorOn`          |
-| `FDC_CMD_DISABLE` (0xF97C4B)                            | motor off                                          | `FDC_CmdMotorOff`         |
-| `FDC_STATUS_COPY` (0xF97C54)                            | get last error                                     | `FDC_CmdGetLastError`     |
-| `FDC_OUTPUT_CTRL` (0xF97C5B)                            | set disk-changed                                   | `FDC_CmdSetDiskChanged`   |
-| `FDC_CMD_DISPATCH_SUB` (0xF96D95)                       | controller reset                                   | `FDC_CmdControllerReset`  |
-| `FDC_CmdSenseDriveStatus` (0xF97C7C)                    | sense drive status                                 | `FDC_CmdSenseDriveStatus` |
+| Runtime name                                                         | Actually                                                                      | Bootloader twin           |
+|----------------------------------------------------------------------|-------------------------------------------------------------------------------|---------------------------|
+| `FDC_CmdSeek` (0xF97696), formerly `FDC_STATUS_HANDLER`              | the **SEEK** handler — the old name was a misnomer                            | `FDC_CmdSeek`             |
+| `FDC_CMD_EXEC` (0xF976E4)                                            | read sectors                                                                  | `FDC_CmdReadSectors`      |
+| `FDC_SECTOR_XFER` (0xF97835)                                         | write sectors                                                                 | `FDC_CmdWriteSectors`     |
+| `FDC_MODE_CONFIG` (0xF97984)                                         | format                                                                        | `FDC_CmdFormat`           |
+| `FDC_CMD_ENABLE` (0xF97C21)                                          | motor on                                                                      | `FDC_CmdMotorOn`          |
+| `FDC_CMD_DISABLE` (0xF97C4B)                                         | motor off                                                                     | `FDC_CmdMotorOff`         |
+| `FDC_STATUS_COPY` (0xF97C54)                                         | get last error                                                                | `FDC_CmdGetLastError`     |
+| `FDC_OUTPUT_CTRL` (0xF97C5B)                                         | set disk-changed                                                              | `FDC_CmdSetDiskChanged`   |
+| `FDC_CMD_DISPATCH_SUB` (0xF96D95)                                    | controller reset                                                              | `FDC_CmdControllerReset`  |
+| `FDC_CmdSenseDriveStatus` (0xF97C7C), formerly FDC_INTERRUPT_HANDLER | sense drive status (uPD72068 command byte 0x04) — the old name was a misnomer | `FDC_CmdSenseDriveStatus` |
 
 The maincpu source still carries the old names for all of these except the seek handler,
 which was renamed `FDC_CmdSeek` on 2026-08-21 (and `FDC_SeekRecalibrate`, now
-`FDC_CmdRecalibrate`); renaming the rest repo-wide is an open follow-up.
+`FDC_CmdRecalibrate`), and command 11, renamed `FDC_CmdSenseDriveStatus` on 2026-10-31 in both
+images; renaming the rest repo-wide is an open follow-up.
 
 ---
 
@@ -732,32 +736,32 @@ register it is selected on is always 0 at that point, so the `NZ` arm never runs
 `FDC_ProbeDiskFormat` itself has **no caller**: an exhaustive search of the table_data
 and maincpu ROMs for both address forms found no reference. It is retained factory or
 diagnostic code; the shipped update path drives `FDC_Request` directly. The same is true
-of the neighbouring `FDC_PulseResetLine` (ROM 0x9FEB2B), whose Port D bit 0 line is not yet
-identified. `Boot_CheckDiskPresent` (ROM 0x9FEC63) *is* live — it is the boot-time twin
+of the neighbouring `FDC_PulseResetLine` (ROM 0x9FEB2B), which pulses FDCRST (Port D bit 0, the floppy
+controller's hardware reset; service manual p. 32) for 10 ticks. `Boot_CheckDiskPresent` (ROM 0x9FEC63) *is* live — it is the boot-time twin
 of `Check_for_Floppy_Disk_Change` and reads the same active-low Port D bit 6.
 
 ## Code References
 
-| Symbol                         | Address    | Purpose                                                                                                      |
-|--------------------------------|------------|--------------------------------------------------------------------------------------------------------------|
-| `SOME_DELAY`                   | `0xF97612` | Millisecond-scale timing delay (polls SYSTEM_TIMESTAMP)                                                      |
-| `FDC_INIT`                     | `0xF96BBF` | Software reset (aux 36h); invalidates the track cache (0x8B04 = 0xFF)                                        |
-| `FDC_CONFIG_VERIFY`            | `0xF96BD0` | Controller and drive (re)initialization (reset, SPECIFY, media setup, recalibrate)                           |
-| `FDC_CMD_DISPATCH_SUB`         | `0xF96D95` | Primary command handler subroutine                                                                           |
-| `FDC_CmdSeek`                  | `0xF97696` | Seek to the target cylinder (FDC command 2)                                                                  |
-| `FDC_CMD_EXEC`                 | `0xF976E4` | Command execution with detection/validation                                                                  |
-| `FDC_SECTOR_XFER`              | `0xF97835` | Sector/data transfer handler                                                                                 |
-| `FDC_MODE_CONFIG`              | `0xF97984` | Mode configuration (modes 0-5)                                                                               |
-| `FDC_CMD_ENABLE`               | `0xF97C21` | Enable FDC command interface                                                                                 |
-| `FDC_CMD_DISABLE`              | `0xF97C4B` | Disable FDC command interface                                                                                |
-| `FDC_STATUS_COPY`              | `0xF97C54` | Copy cached status register                                                                                  |
-| `FDC_OUTPUT_CTRL`              | `0xF97C5B` | FDC output enable/disable control                                                                            |
-| `FDC_CmdSenseDriveStatus`      | `0xF97C7C` | Main FDC interrupt handler                                                                                   |
-| `FDC_ByteTransfer_PIO`         | `0xF97DEE` | PIO fallback byte transfer (see the '+2 quirk' above)                                                        |
-| `FDC_ReadSectors`              | `0xEF42CC` | Read sectors from floppy disc (update path, command 3)                                                       |
-| `FDC_WriteSectors`             | `0xEF441B` | Write sectors to floppy disc                                                                                 |
-| `Check_for_Floppy_Disk_Change` | `0xF98001` | Detect disc insertion/removal (Port D bit 6)                                                                 |
-| `FDC_InitRecalibrate`          | `0xEF4241` | Re-initialize the drive (command 0, media code 0xD3, ending in a recalibrate); `FDC_ReadSectors`' retry path |
+| Symbol                         | Address    | Purpose                                                                                                                    |
+|--------------------------------|------------|----------------------------------------------------------------------------------------------------------------------------|
+| `SOME_DELAY`                   | `0xF97612` | Millisecond-scale timing delay (polls SYSTEM_TIMESTAMP)                                                                    |
+| `FDC_INIT`                     | `0xF96BBF` | Software reset (aux 36h); invalidates the track cache (0x8B04 = 0xFF)                                                      |
+| `FDC_CONFIG_VERIFY`            | `0xF96BD0` | Controller and drive (re)initialization (reset, SPECIFY, media setup, recalibrate)                                         |
+| `FDC_CMD_DISPATCH_SUB`         | `0xF96D95` | Primary command handler subroutine                                                                                         |
+| `FDC_CmdSeek`                  | `0xF97696` | Seek to the target cylinder (FDC command 2)                                                                                |
+| `FDC_CMD_EXEC`                 | `0xF976E4` | Command execution with detection/validation                                                                                |
+| `FDC_SECTOR_XFER`              | `0xF97835` | Sector/data transfer handler                                                                                               |
+| `FDC_MODE_CONFIG`              | `0xF97984` | Mode configuration (modes 0-5)                                                                                             |
+| `FDC_CMD_ENABLE`               | `0xF97C21` | Enable FDC command interface                                                                                               |
+| `FDC_CMD_DISABLE`              | `0xF97C4B` | Disable FDC command interface                                                                                              |
+| `FDC_STATUS_COPY`              | `0xF97C54` | Copy cached status register                                                                                                |
+| `FDC_OUTPUT_CTRL`              | `0xF97C5B` | FDC output enable/disable control                                                                                          |
+| `FDC_CmdSenseDriveStatus`      | `0xF97C7C` | Command 11, SENSE DRIVE STATUS: ST3 bits 7 / 5 / 6 -> errors 0x32 / 0x31 / 0x2F (no `ei` / `di`; not an interrupt handler) |
+| `FDC_ByteTransfer_PIO`         | `0xF97DEE` | PIO fallback byte transfer (see the '+2 quirk' above)                                                                      |
+| `FDC_ReadSectors`              | `0xEF42CC` | Read sectors from floppy disc (update path, command 3)                                                                     |
+| `FDC_WriteSectors`             | `0xEF441B` | Write sectors to floppy disc                                                                                               |
+| `Check_for_Floppy_Disk_Change` | `0xF98001` | Detect disc insertion/removal (Port D bit 6)                                                                               |
+| `FDC_InitRecalibrate`          | `0xEF4241` | Re-initialize the drive (command 0, media code 0xD3, ending in a recalibrate); `FDC_ReadSectors`' retry path               |
 
 ## MAME Emulation Status
 

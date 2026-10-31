@@ -67,20 +67,40 @@ Detailed hardware documentation extracted from the service manual schematics.
 
 ### CPL Board (Control Panel Left)
 
-| Pin/Signal | Function |
-|------------|----------|
-| `SIN` | Serial data input (from main CPU) |
-| `SOUT` | Serial data output (to main CPU) |
-| `CLK` | Serial clock |
-| `CNTR1` | Control/chip select |
-| `CMD0-CMD4` | Command lines |
-| `SW0-SW7` | Switch matrix inputs |
-| `SEG00-SEG10` | LED segment outputs |
-| `ROTA`, `ROTB` | Rotary encoder inputs |
-| `AD0-AD3` | A/D converter inputs |
-| `BEND` | Pitch bend wheel (analog) |
-| `MOD0`, `MOD1` | Modulation inputs (analog) |
-| `MAIN VOLUME` | Master volume (analog) |
+| Pin/Signal                   | Function                                                                          |
+|------------------------------|-----------------------------------------------------------------------------------|
+| `SIN`                        | Serial data input (from main CPU)                                                 |
+| `SOUT`                       | Serial data output (to main CPU)                                                  |
+| `CLK`                        | Serial clock                                                                      |
+| `CNTR1`                      | Control/chip select                                                               |
+| `CMD0-CMD4`                  | Command lines                                                                     |
+| `SW0-SW7`                    | Switch matrix inputs                                                              |
+| `SEG00-SEG10`                | LED segment outputs                                                               |
+| `AD0` (pin 11)               | grounded, unused                                                                  |
+| `AD1` (pin 12)               | `BEND`, pitch bend wheel VR2 50 kΩ (B) on the HB board (CN3 pin 2), 1 kΩ + 0.1 µF |
+| `AD2` (pin 13)               | `MOD`, modulation wheel VR1 10 kΩ on the HB board (CN3 pin 4), 1 kΩ + 0.1 µF      |
+| `AD3` (pin 14)               | `MAIN VOLUME`, VR1 20 kΩ (B) on the CPL board, 1 kΩ + 0.1 µF                      |
+| `ROTA`, `ROTB` (pins 30, 31) | SW101 TEMPO/PROGRAM encoder, see below                                            |
+
+Read from the CPL sheet (service manual II-35, PDF page 45) and the HB sheet (II-26, PDF page 40), tracker items
+kn5000-3c7 and kn5000-xhi (disassembly notes `notes/open4-kn5000-b/cpanel/README.md`).  The same sheet gives
+X1 4 MHz; serial SIN pin 5, SOUT pin 4, CLK pin 3, CNTR1 pin 29.  The main connector CN1 carries +36V, +5D,
+DATA, SCK, CPRST, VCON; CN2 passes DATA/SCK/CPRST/+5D on to the CPR board.  Which encoder ID each A/D channel
+reports as is on [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/#analog-controller--encoder-format).
+
+#### Data-wheel encoder (SW101)
+
+One encoder, SW101 TEMPO/PROGRAM (part QSRGT002AA, "ENCODER SWITCH"), three pins:
+
+| SW101 pin | to                                                                                                  |
+|-----------|-----------------------------------------------------------------------------------------------------|
+| A         | ground (common)                                                                                     |
+| B         | R11 4.7 kΩ pull-up to +5D; R13 47 kΩ series to IC1 pin 30 `ROTA`; C7 0.001 µF from pin 30 to ground |
+| C         | R12 4.7 kΩ pull-up to +5D; R14 47 kΩ series to IC1 pin 31 `ROTB`; C8 0.001 µF from pin 31 to ground |
+
+Each phase is an RC low-pass of 47 kΩ x 1 nF = 47 µs time constant, which debounces the switch contacts.  The
+MCU counts detents and reports a signed count in frame `[0xD7, count]`; the main CPU never sees the quadrature
+(see [Data Wheel]({{ site.baseurl }}/data-wheel-investigation/)).
 
 ### CPR Board (Control Panel Right)
 
@@ -111,6 +131,9 @@ Detailed hardware documentation extracted from the service manual schematics.
 - Multiple serial channels
 - DMA controller
 - Timers
+- Analog inputs: AN0 (pin 150) = `EXP`, expression-pedal jack (R71 100 Ω, C79 0.1 µF); AN1 (pin 151) = `AFT`,
+  after-touch sensor (MA110 clamp diodes D1/D2, R18 1 kΩ, C80/C16 0.1 µF).  Sheet II-11.  They are read by
+  `AnalogIn_PollCpuAdc` (see [Control Panel Protocol]({{ site.baseurl }}/control-panel-protocol/#main-cpu-ad-expression-pedal-and-after-touch)).
 
 ### Sub CPU (Tone Generator Controller)
 
@@ -212,6 +235,65 @@ This is **not** the same as byte-level interleaving (`even[0], odd[0], even[1], 
 The tone generator IC303 handles polyphonic synthesis with 64 voice channels, while IC311 (DSP1) provides digital effects (reverb, chorus, delay, distortion) and IC310 (DSP2) handles mixing and EQ. The SubCPU controls all three via dedicated interfaces.
 
 See [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/) for detailed protocol documentation.
+
+#### DAC: IC313, Burr-Brown PCM69AU
+
+The main mix is converted by **IC313, a PCM69AU** (18-bit stereo), on Tone Generator Section (B)
+(service manual p. II-18).  Not IC310, which is the MN19413 DSP2 that feeds it (tracker item kn5000-xel;
+disassembly notes `notes/open4-kn5000-b/hwaudio/README.md`, which also has the full pin table).
+
+| signal       | from                       | to IC313       |
+|--------------|----------------------------|----------------|
+| serial data  | IC310 `SDO1`, R326 470 ohm | DA-L (pin 17)  |
+| word clock   | `LRCK`, IC303 pin 208      | WDCK (pin 16)  |
+| system clock | `DACCK`, from section (A)  | SYSCK (pin 15) |
+| bit clock    | `BCK`, IC303 pin 207       | BCK (pin 14)   |
+
+DA-R (pin 13) is grounded: both channels share the one data line, selected by LRCK ([INFERENCE] from the
+wiring; the PCM69A datasheet was not consulted for the mode a grounded DA-R selects).  The three clocks are
+generated by the tone generator IC303 and shared with IC310 and IC311 (which IC303 pin drives `DACCK` was not
+followed; [INFERENCE] `MCKOUT`, pin 42); the sample rate is 44.1 kHz
+([Effects DSP]({{ site.baseurl }}/effects-dsp/#board-facts-verified-on-the-kn5000-by-felipe)).
+
+The outputs are currents: LOUT (pin 4) and ROUT (pin 7) feed the inverting inputs of the dual op-amp
+**IC314 (M5218AFP, ±15 V)**, wired as current-to-voltage converters (6.8 kΩ ∥ 680 pF feedback, a first-order
+roll-off at 34.4 kHz) with the DAC's VCOML/VCOMR as reference.  Their outputs, `LOUT` and `ROUT`, go to the FAJ
+board on CN9; see [Audio Output Path](#audio-output-path).
+
+IC303's crystal X301 is printed 36.8688 MHz on the schematic; the replacement parts list's part QSXG1I3386A is
+33.8688 MHz (768 x 44.1 kHz), see [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/#clock-and-output-rate).
+
+#### Audio Output Path
+
+The main mix leaves the DAC (IC313, above) as two currents, converted to voltages by IC314 on the main board
+and sent to the **FAJ board** as `LOUT` / `ROUT` (main CN9, with ±15 V and `MICIN`); tracker item kn5000-jy9.
+
+| stage             | parts (FAJ board unless noted) | notes                                                                  |
+|-------------------|--------------------------------|------------------------------------------------------------------------|
+| I/V converter     | IC314 M5218AFP (main board)    | 6.8 kΩ parallel 680 pF, roll-off 34.4 kHz                              |
+| mixing amp        | IC4A/B M5218AL                 | DAC in at 10 kΩ (gain -3.3), second input at 15 kΩ                     |
+| "low pass filter" | IC7A/B                         | per the manual's label                                                 |
+| equaliser         | IC8, IC10, IC11, IC12          | four filter sections per channel                                       |
+| output summers    | IC14A/B                        | to the SWA board as LIN / RIN                                          |
+| speaker amp       | SWA board                      | switching amplifier: integrator, comparator, gate drive, MOSFET bridge |
+| headphone amp     | IC5, IC6 + Q5-Q8               | to the PHONES jack on the HB board                                     |
+| microphone amp    | IC13 + Q9                      | MIC jack -> `MICIN` -> IC310 on the main board                         |
+
+**Speakers.**  The SWA board drives three channels: left and right (Q32 SLA5007, 60 µH output filters) and a
+bass channel that sums L and R through its own low-pass filter (IC3) into a MOSFET pair (Q33 2SJ425 / Q34
+2SK1188).  [INFERENCE, strong] It is a switching (class-D) amplifier: each channel is drawn as integrator ->
+comparator -> gate drive -> power drive, with power MOSFETs and 60 µH output inductors.  The specification gives
+66 W (18 W x 2 mid/high, 30 W bass) into 12 cm x 2 (4 ohm), 6.5 cm x 2 (8 ohm, through capacitors) and one
+14 cm (3 ohm) bass speaker.
+
+**Muting.**  A `MUTE` line from the main board, and the PHONES jack's switch (`HPS`), drive muting transistors
+on the FAJ and SWA boards ([INFERENCE] plugging headphones in mutes the speakers).
+
+**Jacks.**  PHONES (HB board), LINE OUT R/R+L and L, AUX IN R/R+L and L, MIC.  AUX IN is summed into both the
+speaker and the headphone paths.  [INFERENCE] The LINE OUT and AUX IN nets were followed on the scan, not
+continuity-checked.  Levels are not given in the service manual.
+
+Source: service manual pp. II-24 to II-28 (FAJ/ACP/JACK/HB and SWA sheets).
 
 ### Peripherals
 

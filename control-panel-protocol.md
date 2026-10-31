@@ -27,7 +27,7 @@ The KN5000 control panel uses two dedicated Mitsubishi M37471M2196S microcontrol
 - **Button scanning** - Matrix scanning of all front panel buttons
 - **LED control** - Multiplexed driving of status LEDs
 - **Rotary encoders** - Data wheel, pitch bend, and modulation wheels
-- **Analog inputs** - Volume sliders and continuous controllers
+- **Analog inputs** - the pitch bend and modulation wheels and the MAIN VOLUME slider (CPL board)
 
 ### Why HLE is Needed
 
@@ -184,6 +184,35 @@ LED commands are 2-byte pairs (row select + pattern) queued in `CPANEL_LED_TX_BU
 | `0xC4` | CPL | FILL IN 1-2, INTRO&ENDING 1-2, SPLIT POINT (L/C/R), TEMPO/PROGRAM |
 | `0xC8` | CPL | OTHER PARTS/TR |
 
+##### Power-on LED sequence
+
+The main CPU has no lamp test and no all-LEDs-off command.  `CPanel_LED_FlushImage` sends a row (`Set_LEDs`:
+2-byte frame `{Protocol_values_for_LED_rows[r], pattern}` through `LED_WriteToPanel` and
+`CPanel_LedQueue_PushByte`) only when `CPANEL_LED_IMAGE[r]` differs from `CPANEL_LED_IMAGE_SENT[r]`.
+`Boot_InitWorkRAM` zeroes both images (0x400-0xE35C).  So after power-on, only rows with at least one lit LED are
+ever sent.  What the panel MCUs show before the first frame is decided by their undumped mask ROMs.
+
+Measured in MAME (tracker item kn5000-bq4; disassembly `notes/open4-kn5000-b/cpanel/probes/led_boot_tap.lua`, a
+write tap on `CPANEL_LED_IMAGE_SENT`; logs `probes/led_boot_tap.cold.log` and `.second.log`, identical;
+kn7000_mame build of 2026-10-31, romset `technics_romsets/kn5000`, cold start, which opens "ALL INITIAL
+SETTING"):
+
+| emulated time | row (protocol byte) | pattern | LEDs lit                                 |
+|---------------|---------------------|---------|------------------------------------------|
+| 7.754 s       | 2 (`0xC2`)          | `0x01`  | STANDARD ROCK                            |
+| 7.754 s       | 3 (`0xC3`)          | `0x01`  | VARIATION 1                              |
+| 7.754 s       | 6 (`0x00`)          | `0x08`  | DIGITAL REVERB                           |
+| 7.754 s       | 7 (`0x01`)          | `0x01`  | PIANO                                    |
+| 7.754 s       | 10 (`0x04`)         | `0x44`  | PART SELECT: RIGHT 1, CONDUCTOR: RIGHT 1 |
+| 7.920 s       | 6 (`0x00`)          | `0x09`  | + SUSTAIN                                |
+| 12.868 s      | 5 (`0xC8`)          | `0x01`  | OTHER PARTS/TR                           |
+
+Before 7.75 s the panels receive only the init commands (`1F DA`, `1F 1A`, `1D 00`, `DD 03`, `1E 80`) and polls.
+The times are MAME's, with the sub-CPU boot ROM a `BAD_DUMP`, and are not real-hardware measurements.  The LED
+states are the firmware's factory defaults.  `CPanel_SendFramePolled` (0xFC4021, formerly misnamed
+CPanel_InitLEDBuffer) sends one 2-byte frame on SC1 without the interrupt state machine; nothing calls it in v10
+or v7 (its address occurs nowhere in the ROM images, `probes/ref_scan.py`).
+
 ### Response Packet Format
 
 Responses from control panel MCUs are processed by `CPanel_RX_ParseNext` at address `0xFC492B`.
@@ -200,16 +229,16 @@ Byte 0: [ X | X | Type2 | Type1 | Type0 | X | X | X ]
 
 #### Packet Type Handlers
 
-| Type | Bits 5-3 | Handler                     | Address  | Purpose                                                    |
-|------|----------|-----------------------------|----------|------------------------------------------------------------|
-| 0    | `000`    | `CPanel_RX_ButtonPacket`    | 0xFC4985 | Button state (left panel)                                  |
-| 1    | `001`    | `CPanel_RX_ButtonPacket`    | 0xFC4985 | Button state (right panel)                                 |
-| 2    | `010`    | `CPanel_RX_EncoderPacket`   | 0xFC49E0 | Analog value / data-wheel count (dispatched by encoder ID) |
-| 3    | `011`    | `CPanel_RX_SyncPacket`      | 0xFC4B10 | Sync/ACK                                                   |
-| 4    | `100`    | `CPanel_RX_SyncPacket`      | 0xFC4B10 | Sync/ACK                                                   |
-| 5    | `101`    | `CPanel_RX_SyncPacket`      | 0xFC4B10 | Sync/ACK                                                   |
-| 6    | `110`    | `CPanel_RX_MultiBytePacket` | 0xFC4A40 | Multi-byte data                                            |
-| 7    | `111`    | `CPanel_RX_MultiBytePacket` | 0xFC4A40 | Multi-byte data                                            |
+| Type | Bits 5-3 | Handler                     | Address  | Purpose                                                                                            |
+|------|----------|-----------------------------|----------|----------------------------------------------------------------------------------------------------|
+| 0    | `000`    | `CPanel_RX_ButtonPacket`    | 0xFC4985 | Button state (left panel)                                                                          |
+| 1    | `001`    | `CPanel_RX_ButtonPacket`    | 0xFC4985 | Button state (right panel)                                                                         |
+| 2    | `010`    | `CPanel_RX_EncoderPacket`   | 0xFC49E0 | Analog value / data-wheel count (dispatched by encoder ID)                                         |
+| 3    | `011`    | `CPanel_RX_SyncPacket`      | 0xFC4B10 | Sync/ACK                                                                                           |
+| 4    | `100`    | `CPanel_RX_SyncPacket`      | 0xFC4B10 | Sync/ACK                                                                                           |
+| 5    | `101`    | `CPanel_RX_SyncPacket`      | 0xFC4B10 | Sync/ACK                                                                                           |
+| 6    | `110`    | `CPanel_RX_MultiBytePacket` | 0xFC4A40 | Run of 1-16 segment or controller states ([format](#multi-byte-packet-purpose-types-6-7-resolved)) |
+| 7    | `111`    | `CPanel_RX_MultiBytePacket` | 0xFC4A40 | Run of 9-16 states (as type 6)                                                                     |
 
 ### Button State Packet Format (Types 0, 1)
 
@@ -270,23 +299,27 @@ The encoder dispatch routine `CPanel_EncoderDispatch` (0xFC6C5F):
 
 **Known Encoder IDs:**
 
-| ID                 | Handler                          | Output Variable                 | Physical Control (from the event it posts; see [Analog controllers](#analog-controller--encoder-format)) |
-|--------------------|----------------------------------|---------------------------------|----------------------------------------------------------------------------------------------------------|
-| 2                  | `Encoder_ProcessExpressionPedal` | `ANALOG_EXPRESSION_PEDAL_VALUE` | main-CPU A/D channel 0 (`ADREG04`), not a panel frame: CC 1 or CC 11 by panel parameter 0x2880           |
-| 5                  | `Encoder_ProcessAfterTouch`      | `ANALOG_AFTERTOUCH_VALUE`       | main-CPU A/D channel 1 (`ADREG15`), not a panel frame: channel pressure (aftertouch)                     |
-| 25                 | `Encoder_ProcessPitchBend`       | `ANALOG_PITCHBEND_VALUE`        | pitch-bend wheel (header `0xD1`; posts event 0xB1, sent as MIDI pitch bend)                              |
-| 26                 | `Encoder_ProcessModulation`      | `ANALOG_MODULATION_VALUE`       | modulation wheel (header `0xD2`; posts event 0xB2, sent as CC 1)                                         |
-| 27                 | `Encoder_ProcessMainVolume`      | `ANALOG_MAIN_VOLUME_VALUE`      | header `0xD3`; posts event 0xB0 with controller 0 (control not established)                              |
-| 31                 | `Encoder_PassthroughIdentity`    | Direct passthrough              | TEMPO/PROGRAM data wheel (header `0xD7`)                                                                 |
-| 0-1,3-4,6-24,28-30 | `Encoder_ReturnDefaultConstant`  | Returns 1                       | Unused                                                                                                   |
+| ID     | Handler                          | Control                  | Source                       |
+|--------|----------------------------------|--------------------------|------------------------------|
+| 2      | `Encoder_ProcessExpressionPedal` | expression pedal         | main CPU AN0 (not a frame)   |
+| 5      | `Encoder_ProcessAfterTouch`      | after-touch sensor       | main CPU AN1 (not a frame)   |
+| 25     | `Encoder_ProcessPitchBend`       | pitch bend wheel         | CPL frame `0xD1` (AD1, BEND) |
+| 26     | `Encoder_ProcessModulation`      | modulation wheel         | CPL frame `0xD2` (AD2, MOD)  |
+| 27     | `Encoder_ProcessMainVolume`      | MAIN VOLUME slider       | CPL frame `0xD3` (AD3, VR1)  |
+| 31     | `Encoder_PassthroughIdentity`    | TEMPO/PROGRAM data wheel | CPL frame `0xD7`             |
+| others | `Encoder_ReturnDefaultConstant`  | none (returns 1)         |                              |
 
-The handler and variable names are the disassembly's current labels; they predate the reading of the posted
-events and still say breath, foot, volume and expression (tracker item `kn5000-3c7` renames them).
+IDs 2 and 5 are never sent by a panel.  The main CPU's own A/D poller (`AnalogIn_PollCpuAdc`) calls the table
+with them.  The controls were identified from the schematics (CPL board sheet II-35, CPU SECTION (A) sheet
+II-11) and from the panel records each handler's event posts (tracker item kn5000-3c7, disassembly notes
+`notes/open4-kn5000-b/cpanel/README.md`).  [INFERENCE] The ID = 24 + AD channel mapping of the CPL frames
+(AD1 -> 25, AD2 -> 26, AD3 -> 27) rests on the three handlers agreeing with the three wired inputs; the panel
+MCU's mask ROM is not dumped, so the firmware cannot show it directly.
 
 **Encoder Processing:**
 - Raw input values are inverted (`CPL A`) and stored in `ENCODER_RAW_*` variables
 - Values are divided by 2 (`SRL 1, A`) and used as lookup table indices
-- Lookup tables at `ENCODER_LUT_*` convert raw values to MIDI CC range (0-127)
+- Lookup tables at `ENCODER_LUT_*` convert raw values to 0-127 (they are not MIDI controller numbers)
 - Change detection compares with previous value before storing
 
 ### Timing Requirements
@@ -363,11 +396,11 @@ Without filtering, these produce 2 INTA sessions per ghost toggle, flooding the 
 
 A segment change becomes a 3-byte record `{event index, new state, changed bits}` in a queue at RAM `0x8E94`
 (count at `0x8EC4`). The event index is the one above: 0-10 = left-panel segments 0-10,
-11-21 = right-panel segments 0-10, 22-24 = left-panel headers `0xD1`, `0xD2`, `0xD3` (Type 2 frames of encoder IDs 25-27, processed by `Encoder_ProcessPitchBend`, `Encoder_ProcessModulation`, `Encoder_ProcessMainVolume`: the pitch-bend wheel, the modulation wheel and a third control, by the events they post), 25 = header `0xD7`, the TEMPO/PROGRAM data wheel (records
+11-21 = right-panel segments 0-10, 22-24 = left-panel headers `0xD1`, `0xD2`, `0xD3`: the pitch bend wheel, the modulation wheel and the MAIN VOLUME slider (encoder IDs 25-27), 25 = header `0xD7`, the TEMPO/PROGRAM data wheel (records
 `{0x19, ±delta, 0xFF}`: MAME's panel device has sent the `[0xD7, count]` frame that produces these records since
 [mamedev/mame#15919](https://github.com/mamedev/mame/pull/15919)), 26 = the
-main CPU's A/D channel 0 and 27 = its A/D channel 1 (`ADC_AN0_OUTPUT` / `ADC_AN1_OUTPUT`, queued by `PanelInput_QueueCpuAdcChanges`;
-channel 0 posts CC 1 or CC 11, channel 1 channel pressure, see [Analog controllers](#analog-controller--encoder-format)),
+expression pedal and 27 = the after-touch sensor (main CPU AN0 / AN1, `ADC_AN0_OUTPUT` / `ADC_AN1_OUTPUT`, queued by
+`PanelInput_QueueCpuAdcChanges`; see [Analog controllers](#analog-controller--encoder-format)),
 28 = foot switches FS1/FS2 (PG.2-3), 29 = foot controllers FC1-FC4 (PG.4-7), 30 = PD.6 (the pedal records of
 `PanelInput_ScanPedalPorts`; see [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/)). For each record, `PanelButton_DispatchChange` walks one **action list**, chosen by the event
 index from `PanelButton_ActionLists` (ROM `0xED9C1E`), or from `PanelButton_HelpModeActionLists`
@@ -500,12 +533,12 @@ typed in `ui_widgets/naka_extension_device.c` (`panel_button_action_t`, `PanelAc
 | 21    | CPR 10  | MENU: CONTROL (`0x08`)                                                                                                   | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
 | 21    | CPR 10  | MENU: MIDI (`0x10`)                                                                                                      | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
 | 21    | CPR 10  | MENU: DISK (`0x20`)                                                                                                      | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
-| 22    | --      | pitch-bend wheel (header 0xD1, ID 25): the byte as LSB/MSB, event 0xB1 = MIDI pitch bend (`0xFF`)                        | `0xB1`, `0x00` | `PanelAction_PitchBend`               |
-| 23    | --      | modulation wheel (header 0xD2, ID 26): event 0xB2 = CC 1 (`0x7F`)                                                        | `0xB2`, `0x00` | `PanelAction_Modulation`              |
-| 24    | --      | -- (`0x7F`)                                                                                                              | `0xB0`, `0x00` | `PanelEvent_Post`                     |
+| 22    | --      | pitch bend wheel (CPL `0xD1`) (`0xFF`)                                                                                   | `0xB1`, `0x00` | `PanelAction_PitchBend`               |
+| 23    | --      | modulation wheel (CPL `0xD2`) (`0x7F`)                                                                                   | `0xB2`, `0x00` | `PanelAction_Modulation`              |
+| 24    | --      | MAIN VOLUME (CPL `0xD3`) (`0x7F`)                                                                                        | `0xB0`, `0x00` | `PanelEvent_Post`                     |
 | 25    | --      | TEMPO/PROGRAM data wheel (header 0xD7; records {0x19, delta, 0xFF}, mamedev/mame#15919) (`0xFF`)                         | `0xA9`, `0x21` | `PanelAction_PostUnlessDemo`          |
-| 26    | --      | A/D channel 0 (ENCODER_0): CC 1 or, with 0x2880 = 183, event 0xB3 = CC 11 (`0x7F`)                                       | `0xB0`, `0x01` | `PanelAction_ExpressionPedal`         |
-| 27    | --      | A/D channel 1 (ENCODER_1): event 0xB4 = channel pressure (`0x7F`)                                                        | `0xB4`, `0x00` | `PanelAction_AfterTouch`              |
+| 26    | --      | expression pedal (CPU AN0) (`0x7F`)                                                                                      | `0xB0`, `0x01` | `PanelAction_ExpressionPedal`         |
+| 27    | --      | after touch (CPU AN1) (`0x7F`)                                                                                           | `0xB4`, `0x00` | `PanelAction_AfterTouch`              |
 | 28    | --      | foot switch FS1 (PG.2) (`0x01`)                                                                                          | `0xA9`, `0x32` | `PanelAction_FootSwitch1`             |
 | 28    | --      | foot switch FS2 (PG.3) (`0x02`)                                                                                          | `0xA9`, `0x33` | `PanelAction_FootSwitch2`             |
 | 29    | --      | foot controller FC1 (PG.4) (`0x01`)                                                                                      | `0xA9`, `0x34` | `PanelAction_FootController1`         |
@@ -513,6 +546,13 @@ typed in `ui_widgets/naka_extension_device.c` (`panel_button_action_t`, `PanelAc
 | 29    | --      | FC3 (PG.6) (`0x04`)                                                                                                      | `0xA9`, `0x36` | `PanelAction_FootController3`         |
 | 29    | --      | FC4 (PG.7) (`0x08`)                                                                                                      | `0xA9`, `0x37` | `PanelAction_FootController4`         |
 | 30    | --      | PD.6 (`0x01`)                                                                                                            | `0xA8`, `0x41` | `PanelEvent_Post`                     |
+
+The tags of 22-27 are panel records: `0xB1` pitch bend, `0xB2` modulation, `0xB3` part expression, `0xB4`
+channel pressure, `0xB0` byte +1 TOTAL EXPRESSION, byte +0 (inferred) master volume (see
+[Panel Parameter Keys]({{ site.baseurl }}/panel-parameter-keys/)).  `PanelAction_PitchBend` spreads the byte over
+a 14-bit bend (LSB `(b & 1) << 6`, MSB `b >> 1`).  `PanelAction_ExpressionPedal` follows the FOOT CONTROLLERS
+assignment of the EXPRESSION PEDAL (key `0x2880`): 182 TOTAL EXPRESSION posts `{0xB0, 1}`, 183 retags to
+`{0xB3, 0}`.  `PanelAction_AfterTouch` posts only while AFTER TOUCH is on (key `0x104`).
 
 The `arg` of the LCD buttons is the sound editor's switch number (see [UI Framework]({{ site.baseurl }}/ui-framework/)):
 0-7 the bottom columns, 8-12 the side rows. The `PanelButton_PairDown` side (DOWN n, LEFT n, PAGE DOWN,
@@ -907,19 +947,19 @@ void kn5000_cpanel_device::update_leds(int index, uint8_t pattern)
 
 ### Analog Controller / Encoder Format
 
-The left panel's analog controllers (encoder IDs 25-27) send **absolute 8-bit ADC values** via Type 2 packets — NOT signed deltas. The MCU samples analog inputs and sends the raw position value; the main CPU compares with the previous stored value to detect changes. Two more analog inputs are the main CPU's own A/D channels 0 and 1 (`ADREG04`, `ADREG15`), which never travel over the panel link: `AnalogIn_PollCpuAdc` feeds them through the handlers of IDs 2 and 5 (see [MIDI Parameter Delta Processing](#midi-parameter-delta-processing)).
+The three analog controls of the CPL board (pitch bend, modulation, MAIN VOLUME) send **absolute 8-bit A/D values** in Type 2 frames — NOT signed deltas. The expression pedal and the after-touch sensor are read by the main CPU's own A/D converter, not by a panel: `AnalogIn_PollCpuAdc` feeds `ADREG04` (AN0) and `ADREG15` (AN1) through the handlers of IDs 2 and 5 (see [Main-CPU A/D: expression pedal and after touch](#main-cpu-ad-expression-pedal-and-after-touch)). The main CPU compares each value with the previous stored value to detect changes.
 
-**What each one is, from the event it posts (2026-10-31).** The handler names in the source (`Encoder_ProcessPitchBend`, `Encoder_ProcessModulation`, `Encoder_ProcessMainVolume`, `Encoder_ProcessExpressionPedal`, `Encoder_ProcessAfterTouch`, and the `MIDI_CC_*_VALUE` variables) are older guesses. The events their records post, followed to the MIDI-out builders, say what the controls are:
+**What each one is (2026-10-31, tracker item kn5000-3c7).** The controls were read from the schematics (CPL board, sheet II-35; HB board, sheet II-26; CPU SECTION (A), sheet II-11) and confirmed by the events their records post, followed to the MIDI-out builders (disassembly notes `notes/open4-kn5000-b/cpanel/README.md`; the handler and variable names were renamed after this reading):
 
 | input                     | record | action (`PanelButton_ActionLists`)                                                   | event tag                                                     | MIDI out (handler of `MidiDispatchCC_HandlerTable`)                                                                                                       | control                       |
 |---------------------------|--------|--------------------------------------------------------------------------------------|---------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------|
-| ID 25, header `0xD1`      | 22     | `PanelAction_PitchBend`: byte b as LSB `(b & 1) << 6`, MSB `b >> 1` (0xFF = 127/127) | 0xB1                                                          | `MidiCC_ChannelDispatch_CtrlFlags`: status `0xE0` \| channel, LSB, MSB, to `MidiTx_PartTargets_PitchBend`                                                 | pitch-bend wheel              |
+| ID 25, header `0xD1`      | 22     | `PanelAction_PitchBend`: byte b as LSB `(b & 1) << 6`, MSB `b >> 1` (0xFF = 127/127) | 0xB1                                                          | `MidiCC_ChannelDispatch_CtrlFlags`: status `0xE0` \| channel, LSB, MSB, to `MidiTx_PartTargets_PitchBend`                                                 | pitch bend wheel              |
 | ID 26, header `0xD2`      | 23     | `PanelAction_Modulation`                                                             | 0xB2                                                          | `MidiCC_ChannelDispatch_Ctrl1`: CC 1, to `MidiTx_PartTargets_CC1_Modulation`                                                                              | modulation wheel              |
-| ID 27, header `0xD3`      | 24     | `PanelEvent_Post`                                                                    | 0xB0, controller 0                                            | `ExtData_Voice_CompareAndDispatch_Helper`: status 0xB0, controller 0 (it also re-flags `ANALOG_MAIN_VOLUME_PENDING`)                                      | not established               |
-| A/D channel 0 (`ADREG04`) | 26     | `PanelAction_ExpressionPedal`                                                        | 0xB0, controller 1; or 0xB3 when panel parameter 0x2880 = 183 | CC 1 (`MidiCh_ConfigVoiceAndParts`), or CC 11 (`MidiCC_ChannelDispatch_Ctrl3`, `MidiTx_PartTargets_CC11_Expression`); nothing unless 0x2880 is 182 or 183 | an assignable pedal input     |
-| A/D channel 1 (`ADREG15`) | 27     | `PanelAction_AfterTouch`, only when panel parameter 0x104 is set                     | 0xB4                                                          | `MidiCC_ChannelDispatch_CtrlFlags2`: status `0xD0` \| channel, to `MidiTx_PartTargets_ChannelPressure`                                                    | aftertouch (channel pressure) |
+| ID 27, header `0xD3`      | 24     | `PanelEvent_Post`                                                                    | 0xB0, controller 0                                            | `ExtData_Voice_CompareAndDispatch_Helper`: status 0xB0, controller 0 (it also re-flags `ANALOG_MAIN_VOLUME_PENDING`)                                      | MAIN VOLUME slider            |
+| A/D channel 0 (`ADREG04`) | 26     | `PanelAction_ExpressionPedal`                                                        | 0xB0, controller 1; or 0xB3 when panel parameter 0x2880 = 183 | CC 1 (`MidiCh_ConfigVoiceAndParts`), or CC 11 (`MidiCC_ChannelDispatch_Ctrl3`, `MidiTx_PartTargets_CC11_Expression`); nothing unless 0x2880 is 182 or 183 | expression pedal (`EXP`)      |
+| A/D channel 1 (`ADREG15`) | 27     | `PanelAction_AfterTouch`, only when panel parameter 0x104 is set                     | 0xB4                                                          | `MidiCC_ChannelDispatch_CtrlFlags2`: status `0xD0` \| channel, to `MidiTx_PartTargets_ChannelPressure`                                                    | after touch (`AFT`)           |
 
-The event tag is the first byte of the panel event; `Audio_MainPeriodicUpdate` hands each queued event to `SoundProgram_DispatchTable[tag]`, whose 0xB1 / 0xB2 / 0xB3 / 0xB4 handlers pass the tag on as the status of `MIDI_DispatchCC`. The service manual's names for the two A/D inputs (EXP and AFT, as read by the open-items register lane) agree with the last two rows; that reading of the schematic was not re-checked here.
+The event tag is the first byte of the panel event; `Audio_MainPeriodicUpdate` hands each queued event to `SoundProgram_DispatchTable[tag]`, whose 0xB1 / 0xB2 / 0xB3 / 0xB4 handlers pass the tag on as the status of `MIDI_DispatchCC`. The two main-CPU A/D inputs are wired on the CPU SECTION (A) sheet: `EXP` -> R71 -> pin 150 AN0, `AFT` -> MA110 clamp, R18 -> pin 151 AN1. [INFERENCE] Record 0xB0 byte +0 is the master volume: no panel-parameter key for it was found (byte +1 is TOTAL EXPRESSION, +3 the fade level).
 
 **Type 2 Packet Format (2 bytes):**
 
@@ -937,33 +977,40 @@ encoder_id = (byte0 & 0x07) | ((byte0 & 0xC0) >> 3)  // 5-bit ID, range 0-31
 
 **Active Encoder IDs and Handlers:**
 
-| ID                 | Handler                          | Controller                             | Processing                          | MIDI out                 | Output Variable                          |
-|--------------------|----------------------------------|----------------------------------------|-------------------------------------|--------------------------|------------------------------------------|
-| 2                  | `Encoder_ProcessExpressionPedal` | A/D channel 0 (assignable pedal input) | Invert, /2, 128-entry LUT           | CC 1 or CC 11            | `ANALOG_EXPRESSION_PEDAL_VALUE` (0x8EE4) |
-| 5                  | `Encoder_ProcessAfterTouch`      | A/D channel 1 (aftertouch)             | /2, 128-entry LUT, clamp+scale      | channel pressure         | `ANALOG_AFTERTOUCH_VALUE` (0x8EF4)       |
-| 25                 | `Encoder_ProcessPitchBend`       | Pitch-bend wheel                       | Invert, LUT, mode-dependent scaling | pitch bend               | `ANALOG_PITCHBEND_VALUE` (0x8EE8)        |
-| 26                 | `Encoder_ProcessModulation`      | Modulation wheel                       | /2, 128-entry LUT                   | CC 1                     | `ANALOG_MODULATION_VALUE` (0x8EEA)       |
-| 27                 | `Encoder_ProcessMainVolume`      | not established                        | Invert, /2, 128-entry LUT           | event 0xB0, controller 0 | `ANALOG_MAIN_VOLUME_VALUE` (0x8EE6)      |
-| 31                 | `Encoder_PassthroughIdentity`    | TEMPO/PROGRAM data wheel               | No processing (signed detent count) | N/A                      | Direct return                            |
-| 0-1,3-4,6-24,28-30 | `Encoder_ReturnDefaultConstant`  | Unused                                 | Returns 1                           | N/A                      | N/A                                      |
+| ID  | Handler                          | Control          | Processing                                                                                    | Output variable                 |
+|-----|----------------------------------|------------------|-----------------------------------------------------------------------------------------------|---------------------------------|
+| 2   | `Encoder_ProcessExpressionPedal` | expression pedal | invert, /2, `ENCODER_LUT_EXPRESSION_PEDAL` (128 B)                                            | `ANALOG_EXPRESSION_PEDAL_VALUE` |
+| 5   | `Encoder_ProcessAfterTouch`      | after touch      | `ENCODER_LUT_AFTERTOUCH` (256 B), then threshold and curve (record 0x93 +5/+6)                | `ANALOG_AFTERTOUCH_VALUE`       |
+| 25  | `Encoder_ProcessPitchBend`       | pitch bend       | invert, `ENCODER_LUT_PITCHBEND` (256 B, centre dead band); bend-range rescale while recording | `ANALOG_PITCHBEND_VALUE`        |
+| 26  | `Encoder_ProcessModulation`      | modulation wheel | /2, `ENCODER_LUT_MODULATION` (128 B)                                                          | `ANALOG_MODULATION_VALUE`       |
+| 27  | `Encoder_ProcessMainVolume`      | MAIN VOLUME      | invert, /2, `ENCODER_LUT_MAIN_VOLUME` (linear), never suppresses a repeat                     | `ANALOG_MAIN_VOLUME_VALUE`      |
+| 31  | `Encoder_PassthroughIdentity`    | data wheel       | none (signed detent count)                                                                    | --                              |
+
+None of these values is a MIDI controller number inside the firmware.
+
+- **Pitch bend.** `ENCODER_LUT_PITCHBEND` has a plateau of 0x80 over raw 0x77..0x89: a centre dead band. While a part records (`CMP_RECORD_PART` bits 0-3) or `(0x7f0b)` is set, `Encoder_ProcessPitchBend` rescales to `64 + (v/2 - 64) * n/12` with `n = ENCODER_BEND_RANGE` (record 0x93 byte +4 bits 0-3, set by `Encoder_OnTouchSensitivityChange`); `ENCODER_LUT_BEND_RANGE_MULT[k] = round(256 (k+1) / 12)` and `ENCODER_LUT_BEND_RANGE_OFFSET[k] = 64 * MULT[k]`, 12 entries; `n = 0` sends nothing. [INFERENCE] It is a bend range in semitones, 1..12: the 12 steps of n/12 fit that and nothing else found; no screen that edits record 0x93 byte +4 was traced.
+- **After touch.** `Encoder_AfterTouch_ApplyThresholdCurve` computes `(max(v, T) - T) * 256 / 236 * M[C] / 20`, clamped to 127, with `T = ENCODER_AFTERTOUCH_THRESHOLD` (record 0x93 byte +6 bits 0-6, `SndParam_AfterTouch_Threshold`) and `C = ENCODER_AFTERTOUCH_CURVE` (byte +5, `SndParam_AfterTouch_Curve`, range 1..10) indexing the 11-entry `ENCODER_LUT_AFTERTOUCH_CURVE_MULT`.
 
 **Value Processing Pipeline (typical):**
 1. Raw 8-bit value from MCU ADC (0-255)
 2. Optional invert (`cpl a` = 255-value) for IDs 2, 25 and 27
 3. Divide by 2 (`srl a, 1`) → 0-127 index
-4. 128-entry ROM lookup table → MIDI CC value (0-127)
+4. ROM lookup table (`ENCODER_LUT_*`) → 0-127
 5. Compare with previously stored value; if unchanged, return 0xFFFF (no event)
 6. Store new value, set "pending change" flag (bit 7 of `*_PENDING` variable)
 
 **Lookup Tables (ROM at 0xEDAxxxh):**
 
-| Table                          | Address  | Size      | Controller        |
-|--------------------------------|----------|-----------|-------------------|
-| `ENCODER_LUT_EXPRESSION_PEDAL` | 0xEDA13C | 128 bytes | Modulation wheel  |
-| `ENCODER_LUT_AFTERTOUCH`       | 0xEDA1BC | 128 bytes | Volume slider     |
-| `ENCODER_LUT_PITCHBEND`        | 0xEDA2D2 | varies    | Breath controller |
-| `ENCODER_LUT_MODULATION`       | 0xEDA402 | 128 bytes | Foot controller   |
-| `ENCODER_LUT_MAIN_VOLUME`      | 0xEDA482 | 128 bytes | Expression pedal  |
+| Table                               | Address  | Control                              |
+|-------------------------------------|----------|--------------------------------------|
+| `ENCODER_LUT_EXPRESSION_PEDAL`      | 0xEDA13C | expression pedal (128 B)             |
+| `ENCODER_LUT_AFTERTOUCH`            | 0xEDA1BC | after touch (256 B)                  |
+| `ENCODER_LUT_AFTERTOUCH_CURVE_MULT` | 0xEDA2BC | after-touch curve multipliers (11)   |
+| `ENCODER_LUT_PITCHBEND`             | 0xEDA2D2 | pitch bend (256 B)                   |
+| `ENCODER_LUT_BEND_RANGE_MULT`       | 0xEDA3D2 | bend-range rescale multipliers (12)  |
+| `ENCODER_LUT_BEND_RANGE_OFFSET`     | 0xEDA3EA | bend-range rescale offsets (12)      |
+| `ENCODER_LUT_MODULATION`            | 0xEDA402 | modulation wheel (128 B)             |
+| `ENCODER_LUT_MAIN_VOLUME`           | 0xEDA482 | MAIN VOLUME (linear)                 |
 
 **HLE Implementation:**
 ```cpp
@@ -976,6 +1023,8 @@ void kn5000_cpanel_device::process_analog_input(int encoder_id, uint8_t adc_valu
     send_response(response, 2);
 }
 ```
+
+For the CPL controls, `response[0]` is `0xD1` / `0xD2` / `0xD3` (IDs 25 / 26 / 27).
 
 ### Data Wheel (Jog Dial)
 
@@ -1082,18 +1131,18 @@ The firmware has two separate polling loops:
 2. **Steady-state mode** (`CPanel_InterruptPoll_MainLoop`, lines 1060-1177): sends `E0 13` periodically, updates LEDs, handles INTA packets. There is no encoder poll here — the wheel pushes its `[0xD7, count]` frames over INTA like any other panel change.
 
 
-### MIDI Parameter Delta Processing
+### Main-CPU A/D: expression pedal and after touch
 
-The main loop calls `AnalogIn_PollCpuAdc` (0xFC6ED1) every iteration (when input processing is enabled) to detect changes in the main CPU's A/D results ADREG04 and ADREG15 (A/D channel 0, the assignable pedal input, and channel 1, aftertouch; see [Analog controllers](#analog-controller--encoder-format)) and re-route them through the encoder value processing pipeline.
+The main loop calls `AnalogIn_PollCpuAdc` (0xFC6ED1) every iteration (when input processing is enabled) to detect changes in the main CPU's A/D results ADREG04 and ADREG15 and re-route them through the encoder value processing pipeline. Channel 0 is AN0 = expression pedal (ID 2), channel 1 is AN1 = after touch (ID 5), from the CPU SECTION (A) sheet: `EXP` -> R71 -> pin 150 AN0, `AFT` -> MA110 clamp, R18 -> pin 151 AN1 (see [Analog controllers](#analog-controller--encoder-format)). `AnalogIn_PollExpressionPedal` and `AnalogIn_PollAfterTouch` are the two per-channel halves.
 
 **Two-channel processing:**
 
 | Channel | Status Register           | Output Buffer             | Previous Value                | Encoder ID   | Controller               |
 |---------|---------------------------|---------------------------|-------------------------------|--------------|--------------------------|
-| 0       | `ADC_AN0_STATUS` (0x8F04) | `ADC_AN0_OUTPUT` (0x8F10) | `ADC_AN0_LAST_VALUE` (0x8EFC) | 2 (Modwheel) | CC 1 / CC 11 pedal input |
-| 1       | `ADC_AN1_STATUS` (0x8F06) | `ADC_AN1_OUTPUT` (0x8F16) | `ADC_AN1_LAST_VALUE` (0x8EFE) | 5 (Volume)   | aftertouch               |
+| 0       | `ADC_AN0_STATUS` (0x8F04) | `ADC_AN0_OUTPUT` (0x8F10) | `ADC_AN0_LAST_VALUE` (0x8EFC) | 2            | expression pedal         |
+| 1       | `ADC_AN1_STATUS` (0x8F06) | `ADC_AN1_OUTPUT` (0x8F16) | `ADC_AN1_LAST_VALUE` (0x8EFE) | 5            | after touch              |
 
-Each channel reads its current A/D result via `AnalogIn_ReadAdcHigh`, computes the delta against the previously stored value, applies debounce filtering through `AnalogIn_DebounceChange`, and if the delta is confirmed valid, re-dispatches through `CPanel_EncoderDispatch` to apply lookup table conversion. The result is stored in the output buffer with bit 7 of the flags byte set to indicate a value change.
+Each channel reads its current A/D result via `AnalogIn_ReadAdcHigh`, computes the delta against the previously stored value, applies debounce filtering through `AnalogIn_DebounceChange`, and if the delta is confirmed valid, re-dispatches through `CPanel_EncoderDispatch` to apply lookup table conversion. The result is stored in the output buffer with bit 7 of the flags byte set to indicate a value change; `PanelInput_QueueCpuAdcChanges` turns that into records `{26 or 27, value, 0x7F}`.
 
 **`AnalogIn_DebounceChange` — Noise/Debounce Filter (0xFC6F86):**
 
@@ -1123,17 +1172,19 @@ Returns, in L, the high byte of one of the main CPU's four A/D conversion result
 
 ### MIDI Controller Output
 
-Encoder and analog input values are converted to MIDI Control Change messages and stored in RAM variables before being sent to the sound engine:
+The analog values reach the sound engine as panel records, not as MIDI controller numbers (2026-10-31, kn5000-3c7):
 
-**Controller Mapping:**
+| Variable                        | Control          | Sent as                                   | Sender                                    |
+|---------------------------------|------------------|-------------------------------------------|-------------------------------------------|
+| `ANALOG_PITCHBEND_VALUE`        | pitch bend       | record `0xB1` (14-bit)                    | `Audio_SendPitchBendToParts`              |
+| `ANALOG_MODULATION_VALUE`       | modulation       | record `0xB2`                             | `Audio_SendModulationToParts`             |
+| `ANALOG_EXPRESSION_PEDAL_VALUE` | expression pedal | record `0xB0` +1, or `0xB3` per part      | `Audio_SendExpressionToParts`             |
+| `ANALOG_AFTERTOUCH_VALUE`       | after touch      | record `0xB4` (parts with AFTER TOUCH on) | `Audio_SendAfterTouchToParts`             |
+| `ANALOG_MAIN_VOLUME_VALUE`      | MAIN VOLUME      | record `0xB0` +0                          | `ExtData_Voice_CompareAndDispatch_Helper` |
 
-| Variable                        | MIDI CC# | Controller Name              |
-|---------------------------------|----------|------------------------------|
-| `ANALOG_MAIN_VOLUME_VALUE`      | 0        | Bank Select MSB / Expression |
-| `ANALOG_EXPRESSION_PEDAL_VALUE` | 1        | Modulation Wheel             |
-| `ANALOG_PITCHBEND_VALUE`        | 2        | Breath Controller            |
-| `ANALOG_MODULATION_VALUE`       | 4        | Foot Controller              |
-| `ANALOG_AFTERTOUCH_VALUE`       | 7        | Volume (estimated)           |
+`Audio_SendExpressionToParts` sends tag 179 only when `PANEL_FOOT_CONTROLLERS+2` = 183 and the part's `_PartExp`
+bit (part +4 bit 5) is set; `Audio_SendAfterTouchToParts` writes tag 180 only for parts whose `_AfterTouch` bit
+(part +12 bit 4) is set.
 
 **Change Detection:**
 
@@ -1159,45 +1210,46 @@ stores of status + first data byte); v7 0x9C lower.
 
 ### Control Panel RAM Variables
 
-| Address | Name                                 | Size     | Description                               |
-|---------|--------------------------------------|----------|-------------------------------------------|
-| 0x8D8A  | `CPANEL_STATE_MACHINE_INDEX`         | byte     | Current serial state machine index (0-10) |
-| 0x8D8B  | `CPANEL_PACKET_BYTE_COUNT`           | byte     | Byte count for multi-byte packets         |
-| 0x8D8C  | `CPANEL_TX_RX_FLAGS`                 | byte     | Flags: bits 0,1,2,4,6,7 used              |
-| 0x8D8E  | `PFCR_VALUE`                         | byte     | Shadow of Port F Control Register         |
-| 0x8D8F  | `PFFC_VALUE`                         | byte     | Shadow of Port F Function Control         |
-| 0x8D92  | `CPANEL_PROTOCOL_FLAGS`              | byte     | Flags: bits 0,1,2,3,6,7 used              |
-| 0x8D93  | `CPANEL_PANEL_DETECT_FLAGS`          | byte     | Communication test results                |
-| 0x8D94  | `CPANEL_RX_PACKET_BYTE_1`            | byte     | First byte of received packet             |
-| 0x8D95  | `CPANEL_RX_PACKET_BYTE_2`            | byte     | Second byte of received packet            |
-| 0x8D96  | `CPANEL_LAST_EVENT_VALUE`            | byte     | Changed button bits (XOR result)          |
-| 0x8D97  | `CPANEL_COUNTER_DOWN_FROM_200`       | byte     | Ready check timeout counter               |
-| 0x8D98  | `CPANEL_COUNTER_UP_TO_20`            | byte     | General counter                           |
-| 0x8D9A  | `CPANEL_COUNTER_UP_TO_42`            | byte     | Main loop iteration counter               |
-| 0x8D9B  | `TIMESTAMP_FOR_DELAY`                | word     | Timestamp for delay routines              |
-| 0x8D9D  | `CPANEL_RX_READ_PTR`                 | word     | Backup of RX buffer position              |
-| 0x8D9F  | `CPANEL_RX_WRITE_PTR`                | word     | Current RX buffer write position          |
-| 0x8DA1  | `CPANEL_RX_RING_BUFFER`              | 92 bytes | Circular RX buffer                        |
-| 0x8DFD  | `CPANEL_LED_READ_PTR`                | word     | LED TX buffer read pointer                |
-| 0x8DFF  | `CPANEL_LED_WRITE_PTR`               | word     | LED TX buffer write pointer               |
-| 0x8E01  | `CPANEL_LED_TX_BUFFER`               | 60 bytes | LED state TX buffer                       |
-| 0x8E4A  | `STATE_OF_CPANEL_BUTTONS`            | 16 bytes | Button state (right panel)                |
-| 0x8E5A  | `STATE_OF_CPANEL_BUTTONS_LEFT`       | 16 bytes | Button state (left panel)                 |
-| 0x8EE0  | `ANALOG_EXPRESSION_PEDAL_PENDING`    | byte     | Modulation value with change flag (bit 7) |
-| 0x8EE2  | `ANALOG_MAIN_VOLUME_PENDING`         | byte     | Expression value with change flag (bit 7) |
-| 0x8EE4  | `ANALOG_EXPRESSION_PEDAL_VALUE`      | byte     | Current modulation wheel value (CC#1)     |
-| 0x8EE6  | `ANALOG_MAIN_VOLUME_VALUE`           | byte     | Current expression value (CC#0)           |
-| 0x8EE8  | `ANALOG_PITCHBEND_VALUE`             | byte     | Breath controller value (CC#2?)           |
-| 0x8EEA  | `ANALOG_MODULATION_VALUE`            | byte     | Foot controller value (CC#4?)             |
-| 0x8EF4  | `ANALOG_AFTERTOUCH_VALUE`            | byte     | Volume controller value                   |
-| 0x8EFC  | `ADC_AN0_LAST_VALUE`                 | byte     | Previous encoder 0 reading                |
-| 0x8EFE  | `ADC_AN1_LAST_VALUE`                 | byte     | Previous encoder 1 reading                |
-| 0x8F04  | `ADC_AN0_STATUS`                     | byte     | Encoder 0 flags (bit 3 = changed)         |
-| 0x8F06  | `ADC_AN1_STATUS`                     | byte     | Encoder 1 flags (bit 3 = changed)         |
-| 0x8F10  | `ADC_AN0_OUTPUT`                     | 2 bytes  | Encoder 0 output (value + flags)          |
-| 0x8F16  | `ADC_AN1_OUTPUT`                     | 2 bytes  | Encoder 1 output (value + flags)          |
-| 0x8F18  | `CPANEL_LED_IMAGE`                   | struct   | Base of encoder state structure           |
-| 0x8F38  | `CPANEL_LEDS__ROW_AND_PATTERN_BYTES` | word     | Current LED row/pattern                   |
+| Address | Name                                 | Size     | Description                                                             |
+|---------|--------------------------------------|----------|-------------------------------------------------------------------------|
+| 0x8D8A  | `CPANEL_STATE_MACHINE_INDEX`         | byte     | Current serial state machine index (0-10)                               |
+| 0x8D8B  | `CPANEL_PACKET_BYTE_COUNT`           | byte     | Byte count for multi-byte packets                                       |
+| 0x8D8C  | `CPANEL_TX_RX_FLAGS`                 | byte     | Flags: bits 0,1,2,4,6,7 used                                            |
+| 0x8D8E  | `PFCR_VALUE`                         | byte     | Shadow of Port F Control Register                                       |
+| 0x8D8F  | `PFFC_VALUE`                         | byte     | Shadow of Port F Function Control                                       |
+| 0x8D92  | `CPANEL_PROTOCOL_FLAGS`              | byte     | Flags: bits 0,1,2,3,6,7 used                                            |
+| 0x8D93  | `CPANEL_PANEL_DETECT_FLAGS`          | byte     | Communication test results                                              |
+| 0x8D94  | `CPANEL_RX_PACKET_BYTE_1`            | byte     | First byte of received packet                                           |
+| 0x8D95  | `CPANEL_RX_PACKET_BYTE_2`            | byte     | Second byte of received packet                                          |
+| 0x8D96  | `CPANEL_LAST_EVENT_VALUE`            | byte     | Changed button bits (XOR result)                                        |
+| 0x8D97  | `CPANEL_COUNTER_DOWN_FROM_200`       | byte     | Ready check timeout counter                                             |
+| 0x8D98  | `CPANEL_COUNTER_UP_TO_20`            | byte     | General counter                                                         |
+| 0x8D9A  | `CPANEL_COUNTER_UP_TO_42`            | byte     | Main loop iteration counter                                             |
+| 0x8D9B  | `TIMESTAMP_FOR_DELAY`                | word     | Timestamp for delay routines                                            |
+| 0x8D9D  | `CPANEL_RX_READ_PTR`                 | word     | Backup of RX buffer position                                            |
+| 0x8D9F  | `CPANEL_RX_WRITE_PTR`                | word     | Current RX buffer write position                                        |
+| 0x8DA1  | `CPANEL_RX_RING_BUFFER`              | 92 bytes | Circular RX buffer                                                      |
+| 0x8DFD  | `CPANEL_LED_READ_PTR`                | word     | LED TX buffer read pointer                                              |
+| 0x8DFF  | `CPANEL_LED_WRITE_PTR`               | word     | LED TX buffer write pointer                                             |
+| 0x8E01  | `CPANEL_LED_TX_BUFFER`               | 60 bytes | LED state TX buffer                                                     |
+| 0x8E4A  | `STATE_OF_CPANEL_BUTTONS`            | 16 bytes | Button state (right panel)                                              |
+| 0x8E5A  | `STATE_OF_CPANEL_BUTTONS_LEFT`       | 16 bytes | Button state (left panel)                                               |
+| 0x8EE0  | `ANALOG_EXPRESSION_PEDAL_PENDING`    | byte     | Last expression-pedal value sent, bit 7 = send pending                  |
+| 0x8EE2  | `ANALOG_MAIN_VOLUME_PENDING`         | byte     | Last MAIN VOLUME value sent, bit 7 = send pending                       |
+| 0x8EE4  | `ANALOG_EXPRESSION_PEDAL_VALUE`      | byte     | Expression pedal (CPU AN0), 0..127                                      |
+| 0x8EE6  | `ANALOG_MAIN_VOLUME_VALUE`           | byte     | MAIN VOLUME (CPL AD3, ID 27), 0..127                                    |
+| 0x8EE8  | `ANALOG_PITCHBEND_VALUE`             | byte     | Pitch bend wheel (CPL AD1, ID 25), 0..255, centre 0x80                  |
+| 0x8EEA  | `ANALOG_MODULATION_VALUE`            | byte     | Modulation wheel (CPL AD2, ID 26), 0..127                               |
+| 0x8EF4  | `ANALOG_AFTERTOUCH_VALUE`            | byte     | After touch (CPU AN1), 0..127                                           |
+| 0x8EFC  | `ADC_AN0_LAST_VALUE`                 | byte     | Last accepted ADREG04 high byte (expression pedal)                      |
+| 0x8EFE  | `ADC_AN1_LAST_VALUE`                 | byte     | Last accepted ADREG15 high byte (after touch)                           |
+| 0x8F04  | `ADC_AN0_STATUS`                     | byte     | AN0 debounce state (bit 3 = accepted)                                   |
+| 0x8F06  | `ADC_AN1_STATUS`                     | byte     | AN1 debounce state (bit 3 = accepted)                                   |
+| 0x8F10  | `ADC_AN0_OUTPUT`                     | 2 bytes  | Expression-pedal value + flags (bit 7 of +1 = queue event 26)           |
+| 0x8F16  | `ADC_AN1_OUTPUT`                     | 2 bytes  | After-touch value + flags (bit 7 of +1 = queue event 27)                |
+| 0x8F18  | `CPANEL_LED_IMAGE`                   | 16 bytes | Wanted pattern of LED rows 0..14 (`Protocol_values_for_LED_rows` order) |
+| 0x8F28  | `CPANEL_LED_IMAGE_SENT`              | 16 bytes | LED rows as last sent (`CPanel_LED_FlushImage`)                         |
+| 0x8F38  | `CPANEL_LEDS__ROW_AND_PATTERN_BYTES` | word     | Current LED row/pattern                                                 |
 
 ### Circular Buffer Parameters
 
@@ -1215,21 +1267,23 @@ stores of status + first data byte); v7 0x9C lower.
 |-----|----------------------------------------------------------------------------------------------------------|
 | 0   | RX in progress (set by `INTA_HANDLER`, cleared when the last reply byte arrives)                         |
 | 1   | TX in progress (set by `CPanel_SendCommand`, `CPanel_SM_TXComplete` and `CPanel_InterruptPoll_MainLoop`) |
-| 2   | Set by `CPanel_RX_ProcessWithFlag`, cleared by `CPanel_RX_Process`; no reader found                      |
-| 4   | Extended mode (never set?)                                                                               |
-| 6   | Initialized                                                                                              |
-| 7   | Reserved                                                                                                 |
+| 2   | Set by `CPanel_RX_ProcessWithFlag`, cleared by `CPanel_RX_Process`; never read                           |
+| 4   | Never set.  `CPanel_RX_MultiBytePacket` would drop unchanged segments when it is set: dead code          |
+| 6-7 | 2-bit counter (`add 0x40`); bit 6 set by `CPanel_InitHardware`                                           |
 
 #### CPANEL_PROTOCOL_FLAGS (0x8D92)
 
-| Bit | Usage |
-|-----|-------|
-| 0 | RX buffer has space / ready |
-| 1 | TX collision detected |
-| 2 | Unknown |
-| 3 | Sync packet received |
-| 6 | Interrupt pending |
-| 7 | Ready to send |
+| Bit        | Usage                                                                                              |
+|------------|----------------------------------------------------------------------------------------------------|
+| 0          | RX ring full: `CPanel_SM_RXByteN` does not advance the write pointer (read in `CPanel_SM_RXByteN`) |
+| 1, 3, 6, 7 | Written (TX start, sync frame, INTA count-down, idle) and never read                               |
+| 2          | Written only by unreachable code after `CPanel_SM_Idle`; never set at run time                     |
+
+`CPanel_SM_RXByte1` sets bit 0 when fewer than 3 bytes of the ring are free and clears it otherwise; the init
+and reset paths set it until the next frame header recomputes it.  The bit-2 writer is the unlabelled code right
+after `CPanel_SM_Idle`'s `jrl` (0xFC47F1 in v10): no source label sits there and no copy of the address is in the
+ROM (disassembly `notes/open4-kn5000-b/cpanel/probes/ref_scan.py`; the flag accesses were listed by
+`probes/flag_access_scan.py`; tracker item kn5000-9ye).
 
 #### CPANEL_PANEL_DETECT_FLAGS (0x8D93)
 
@@ -1242,12 +1296,12 @@ stores of status + first data byte); v7 0x9C lower.
 
 ### Initialization Routines
 
-| Address  | Name                      | Description                                     |
-|----------|---------------------------|-------------------------------------------------|
-| 0xFC3EF5 | `CPanel_InitHardware`     | Main initialization sequence                    |
-| 0xFC3FA9 | `CPanel_SendInitSequence` | Send init commands (1F 1A, 1D 00, DD 03, 1E 80) |
-| 0xFC4021 | `CPanel_SendFramePolled`  | Configure serial port, init LED array           |
-| 0xFC42FB | `CPanel_InitButtonState`  | Initialize button state arrays                  |
+| Address  | Name                      | Description                                                                      |
+|----------|---------------------------|----------------------------------------------------------------------------------|
+| 0xFC3EF5 | `CPanel_InitHardware`     | Main initialization sequence                                                     |
+| 0xFC3FA9 | `CPanel_SendInitSequence` | Send init commands (1F 1A, 1D 00, DD 03, 1E 80)                                  |
+| 0xFC4021 | `CPanel_SendFramePolled`  | Sends WA as one 2-byte frame on SC1 with polled timing (no caller in this build) |
+| 0xFC42FB | `CPanel_InitButtonState`  | Initialize button state arrays                                                   |
 
 ### Command Send/Receive
 
@@ -1346,12 +1400,31 @@ See also: [Serial Firmware Compatibility]({{ site.baseurl }}/serial-firmware-com
 
 The LED handler uses bits 4-5 of the first byte to dispatch to one of 4 handlers via `CPanel_LED_PacketHandlers` (0xFC4B85): types 0-2 copy a 2-byte {row, pattern} pair; type 3 copies the header byte plus `(byte & 0x0F) + 2` more, `(byte & 0x0F) + 3` bytes in all (see "LED Packet Handlers" below).
 
-### Multi-byte Packet Purpose (Types 6, 7)
+### Multi-byte Packet Purpose (Types 6, 7) (RESOLVED)
 
-The `CPanel_RX_MultiBytePacket` handler has complex decoding logic:
-- Calculates byte count from `(byte0 & 0x0F) + 1`
-- Uses bit 4 for mode selection
-- Purpose and expected data format unknown
+**Type 6/7 frame** (`CPanel_RX_MultiBytePacket`, sized by `CPanel_SM_RXByte1`; tracker item kn5000-9ye, 2026-10-31):
+
+| byte       | bits | meaning                                                                                  |
+|------------|------|------------------------------------------------------------------------------------------|
+| H0         | 7:6  | panel select, as in a button frame (00 right, 11 left)                                   |
+| H0         | 5:4  | `11` (type 6 or 7)                                                                       |
+| H0         | 3:0  | N - 1: N = 1..16 data bytes.  Bit 3 is also the low type bit, so type 7 = a run of 9..16 |
+| H1         | 4:0  | first segment (bit 4 clear) or first controller id (bit 4 set); bits 7:5 ignored         |
+| D0..D(N-1) | 7:0  | state of segment / id H1 + i                                                             |
+
+`CPanel_SM_RXByte1` expects `(H0 & 0x0F) + 3` bytes when `(H0 & 0x3F) >= 0x30`, otherwise 2.  The parser waits
+until all N + 2 bytes are in the ring.  It writes one 3-byte record per data byte:
+`{(H0 & 0xC0) | (H1 + i), value, changed}`.
+
+- Segment bytes are exchanged into `STATE_OF_CPANEL_BUTTONS` (0x8E4A + segment, + 0x10 for the left panel), with
+  `changed = old ^ new`: the same as `CPanel_RX_ButtonPacket` does for a single segment.
+- Controller bytes go through `CPanel_EncoderDispatch`, with `changed = 0xFF`.  There is no record when the
+  handler returns 0xFFFF.
+
+So one type 6/7 frame can carry up to 16 segments of one panel.  [INFERENCE] This is the reply format of the
+`2B 00` / `EB 00` start-up requests, which ask for every segment at once; no capture of a real panel exists to
+confirm it.  `CPANEL_TX_RX_FLAGS` bit 4, which would make the parser drop unchanged segments, is never set (see
+[Flag Definitions](#flag-definitions)), so every segment of a multi-segment frame is queued, changed or not.
 
 ### ~~Button-to-Segment Mapping~~ (RESOLVED)
 
@@ -1377,14 +1450,14 @@ LED of their own hold `{0x0E, 0x0F}`, which is row 14, the four START/STOP beat 
 ### Encoder Physical Mapping (RESOLVED)
 
 Six encoder IDs have dedicated handlers (the five analog IDs carry **absolute 8-bit ADC values**; ID 31 carries the data wheel's signed detent count):
-- **ID 2**: main-CPU A/D channel 0, an assignable pedal input (CC 1 or CC 11) → `ANALOG_EXPRESSION_PEDAL_VALUE` (inverted, /2, 128-entry LUT)
-- **ID 5**: main-CPU A/D channel 1, aftertouch (channel pressure) → `ANALOG_AFTERTOUCH_VALUE` (/2, LUT, clamp+scale)
+- **ID 2**: expression pedal, main-CPU A/D channel 0 (AN0, `EXP`; posts TOTAL EXPRESSION or part expression by key 0x2880) → `ANALOG_EXPRESSION_PEDAL_VALUE` (inverted, /2, 128-entry LUT)
+- **ID 5**: after-touch sensor, main-CPU A/D channel 1 (AN1, `AFT`; channel pressure) → `ANALOG_AFTERTOUCH_VALUE` (256-entry LUT, threshold and curve)
 - **ID 25**: pitch-bend wheel (event 0xB1, MIDI pitch bend) → `ANALOG_PITCHBEND_VALUE` (inverted, mode-dependent scaling)
 - **ID 26**: modulation wheel (event 0xB2, CC 1) → `ANALOG_MODULATION_VALUE` (/2, LUT)
-- **ID 27**: not established (event 0xB0, controller 0) → `ANALOG_MAIN_VOLUME_VALUE` (inverted, /2, LUT)
+- **ID 27**: MAIN VOLUME slider, CPL AD3 (event 0xB0, record byte +0) → `ANALOG_MAIN_VOLUME_VALUE` (inverted, /2, LUT)
 - **ID 31**: TEMPO/PROGRAM data wheel (header `0xD7`), signed detent count passed through unchanged
 
-Physical assignments from the events each record posts (see [Analog controllers](#analog-controller--encoder-format), corrected 2026-10-31; the earlier breath / foot / expression / volume reading was the handlers' names). Remaining IDs (0-1, 3-4, 6-24, 28-30) return 1 (unused).
+Physical assignments from the schematics and from the events each record posts (see [Analog controllers](#analog-controller--encoder-format), corrected 2026-10-31, tracker item kn5000-3c7; the earlier breath / foot / expression / volume reading came from the handlers' old names, since renamed). Remaining IDs (0-1, 3-4, 6-24, 28-30) return 1 (unused).
 
 **Data wheel (jog dial)**: ROTA/ROTB quadrature on the CPL MCU. The panel reports `[0xD7, signed detent count]`, a Type 2 frame with encoder ID 31 (`Encoder_PassthroughIdentity`, which passes the count through). The count becomes record 0x19 and then `EVT_DIAL` (0x1C0001F); see [Data Wheel]({{ site.baseurl }}/data-wheel-investigation/).
 
