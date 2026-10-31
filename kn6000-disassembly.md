@@ -153,7 +153,7 @@ The site's [Firmware Names & Symbols]({{ site.baseurl }}/kn6000-names/) page cov
 reflection tables themselves. The counts above were taken 2026-10-31 at technics-roms-disasm `f4045a81c`, as each file's rows that
 start with `0x` (`command grep -c '^0x' <folder>/<file>`). Each data tree's
 `src/program/data/functions.sym` gives the code the firmware's own names of the procedures its
-MILK function tables list (551 on the KN6000); the `entries` row below counts all of them.
+MILK function tables list (555 on the KN6000 at `f4045a81c`); the `entries` row below counts all of them.
 
 ## How much of each image is code
 
