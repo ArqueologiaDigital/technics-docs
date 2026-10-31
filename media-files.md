@@ -6,50 +6,94 @@ permalink: /media-files/
 
 # Pictures and recordings as ordinary files
 
-Every picture in the disassembly is a PNG, JPEG or BMP file, and every wave-ROM recording is a WAV
-file, which the build turns back into the ROM's bytes. You can open them in any image viewer or sound
-program, edit them, and rebuild. (Three SX-WSA1R ranges stay byte rows until their picture geometry is
-established; see [What is not a file](#what-is-not-a-file).)
+Every picture in the disassembly is a PNG, JPEG or BMP file, every wave-ROM recording is a WAV file,
+and every MIDI stream is a `.mid` file. They are **committed**, and the build turns them back into the
+ROM's bytes, so you can open them in any image viewer or sound program, edit them, and rebuild. Nothing
+the build derives from them is committed: the bytes it writes go into git-ignored files next to the
+sources or under `build/`. The owner's decision of 2026-10-31: *"Images and wav files must be commited
+and the conversion must happen as a build step."*
 
-This page covers all the models in the tree. The reference is lane media-files of 2026-10-30 in the
-disassembly repository:
-[`notes/media-files-2026-10-30/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/notes/media-files-2026-10-30/README.md),
-with its probes in
+This page covers all the models in the tree. The references are two lanes in the disassembly
+repository: media-files of 2026-10-30, which turned the last byte rows into files
+([`notes/media-files-2026-10-30/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/notes/media-files-2026-10-30/README.md)),
+and media-build of 2026-10-31, which committed the WAVs and the floppy media and made every conversion
+a make rule
+([`notes/media-build-2026-10-31/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/notes/media-build-2026-10-31/README.md)).
+The probes are in
 [`notes/media-files-probes/`](https://github.com/ArqueologiaDigital/technics-roms-disasm/tree/main/notes/media-files-probes).
-Every image still rebuilds byte-identical: `make gate`, `make gate-wsa1 gate-floppy` and
-`make gate-kn7000 gate-kn6000 gate-kn6500 gate-kn2400 gate-hdsx3` all pass (the gates table of that
-README).
+The repository's own rule is the CLAUDE.md section "Media Files Are Committed; Conversion Is a Build Step".
 
 ## Where the files are
 
-**Pictures** are committed:
-
-| model     | folders                                                                                                                                               |
-|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| KN5000    | `v10/maincpu/images/` (and the `images/` of `v9`, `v7`, `v6`, `v5`), `table_data/images/`, `hdae5000/images/`                                         |
-| SX-KN7000 | `kn7000/src/table/`, `kn7000/src/picture/`, `kn7000/src/program/data/media/` (and each other build's `program/data/media/`), `kn7000/src/ic18/media/` |
-| SX-WSA1R  | `wsa1/prom_*/images/`                                                                                                                                 |
+| kind       | model     | folders                                                                                                                                                      |
+|------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| pictures   | KN5000    | `v10/maincpu/images/` (and the `images/` of `v9`, `v7`, `v6`, `v5`), `table_data/images/`, `hdae5000*/images/`                                               |
+| pictures   | SX-KN7000 | `kn7000/src/table/`, `kn7000/src/picture/`, `kn7000/src/program/data/media/` (and each other build's `program/data/media/`), `kn7000/src/ic18/media/`        |
+| pictures   | siblings  | `kn2400/`, `kn6000/`, `kn6500/`, `hdsx3/` `src/program/data/media/`                                                                                          |
+| pictures   | SX-WSA1R  | `wsa1/prom_a/images/`, `wsa1/prom_b/images/` (with `fonts/`)                                                                                                 |
+| recordings | KN5000    | `waveform/wav/` (IC307, 1,413 files)                                                                                                                         |
+| recordings | SX-KN7000 | `kn7000/wav/main/`, `kn7000/wav/sub/` (3,682 files)                                                                                                          |
+| MIDI       | KN5000    | `table_data/includes/demo_presets/midi/` (the demo songs)                                                                                                    |
+| disk files | all       | `floppy/<model>/<disk>/media/`: the softlist floppies' BMP, JPEG and MIDI files, 131 files, 5,062,376 B (KN5000 29, SX-WSA1R 16, KN6000 85, SX-KN7000 1)     |
 
 Indexed PNGs store the ROM's palette indices, so a pixel's value is the ROM's byte. One-bit pictures
 are one-bit PNGs. The KN5000's 8-bit pictures carry the main palette, `Palette_8bit_RGBA.bin`; the
-palettes themselves are not counted as pictures.
+palettes are data, not pictures, and stay tracked as they are. The WAVs are about 72 MB
+(72,121,566 bytes of PCM, measured 2026-10-30); with the floppy media they are almost all of the
+71.6 MB (zlib-compressed) that lane media-build added to the repository (its section "Repository size").
 
-**Recordings** are not committed: they are the dumps' own bytes, and the repository is public.
-`make waveform-wav` (KN5000 IC307) and `make -C kn7000 wave-wav` (SX-KN7000) write them from your copy
-of the ROM images into `waveform/wav/` and `kn7000/wav/main/`, `kn7000/wav/sub/` (both git-ignored),
-about 72 MB for 5,095 files (72,121,566 bytes, measured 2026-10-30). `make` extracts any WAV that is
-missing and never overwrites one that is there, so an edited WAV survives; the build then reads the
-WAVs, not the reference image.
+## How the build uses them
 
-```
-make waveform-wav                                   # KN5000: extract the missing WAVs into waveform/wav/
-make -C kn7000 wave-wav                             # SX-KN7000: extract into kn7000/wav/{main,sub}/
-make rebuilt_ROMs/kn5000_waveform_ic307.llvm.rom    # builds IC307 from the WAVs (extracts them first if absent)
-make -C kn7000 verify-wave                          # the same for the four KN7000 wave chips
-```
+Each converter output is a real make target that depends on its media file, so an edited PNG or WAV
+rebuilds it. The outputs stay at the paths the sources already `.incbin`, now git-ignored, so no
+`.incbin` line changed (the build graph of the media-build README has every row):
 
-The reverse direction is checked too: with `waveform/wav/` and `kn7000/wav/` deleted, `make gate` and
-`make gate-kn7000` regenerate them from the references and the images come out byte-identical again.
+| media                                                      | converter                                                            | git-ignored output                                          |
+|------------------------------------------------------------|----------------------------------------------------------------------|-------------------------------------------------------------|
+| KN5000 `images/*.png`, `Wallpaper_*.png`, the STORE button | `scripts/build/indexed_images.py`, `mono_images.py`, `se_bitmaps.py` | the `.bin` beside each PNG (142, `kn5000_image_outputs.py`) |
+| the NAKA GUI C's pictures (39 per revision)                | `scripts/build/c_bitmaps.py build TREE`                              | `v*/maincpu/includes/generated/pictures/*.inc`              |
+| Feature Demo `FTBMP0?.png` + `ftbmp_headers.json`          | `scripts/build/ftbmp_images.py build`                                | `table_data/images/FTBMP0?.BMP`                             |
+| table data UI bitmaps, icons, fonts                        | `ui_bitmaps_images.py`, `icon_images.py`, `font_images.py`           | `table_data/includes/generated/*.bin` (274)                 |
+| HD-AE5000 pictures and palette listings                    | `scripts/build/hdae5000_images.py build`                             | `hdae5000*/includes/generated/HDAE5000_*.bin` (14)          |
+| KN5000 demo songs (`.mid` + sidecars)                      | `midi_to_preset.py`, `compress_lzss.py`                              | `table_data/includes/demo_presets/*_compressed.bin`         |
+| `waveform/wav/*.wav`                                       | `scripts/build/pcm_wav.py build`                                     | `waveform/build/pcm/*.pcm`                                  |
+| `kn7000/wav/{main,sub}/*.wav`                              | `scripts/build/pcm_wav.py build`                                     | `kn7000/build/wav_pcm/{main,sub}/*.pcm`                     |
+| SX-KN7000 and sibling PNGs                                 | `kn7000/tools/table_png.py build`                                    | `build/table_png/`, `build/bitmaps/`, `build/ic18_png/`     |
+| SX-WSA1R bitmaps and font faces                            | `wsa1_bitmaps.py`, `wsa1_fonts.py build`                             | the `.bin` beside each PNG (222)                            |
+| floppy BMP / JPEG / MIDI, KN7000 JPEG / BMP                | none: read directly                                                  | -                                                           |
+
+- **No converter reads a reference image.** `pcm_wav.py build` has no `--ref` option any more: it reads
+  the committed manifest and the WAVs, and a missing WAV is an error that says to restore it from git.
+  `icon_images.py` and `font_images.py` take their counts and kern widths from the committed blob size and
+  `table_data/fonts.s`; `table_png.py build` reads the format from each PNG's tEXt chunk. A reference is
+  needed only for the final byte compare and for the maintenance targets that re-extract media from a
+  dump: `make waveform-wav`, `make -C kn7000 wave-wav`, `make -C floppy media-<model>`,
+  `make -C wsa1 images-export`, and the `*-src` generators.
+- **The floppy media come first.** A disk unit's `.incbin` of a `.bmp`, `.jpg` or `.mid` name finds the
+  committed copy in `floppy/<model>/<disk>/media/`, which precedes `build/<model>/<disk>/` on the include
+  path; `tools/fat12_media.py check` runs in every `gate-<model>`.
+- **To add a picture**: put the PNG beside the source, teach the converter its geometry, make the source
+  `.incbin` the converter's output with `census: generated -- <tool>, from <file>`, and never `git add`
+  the output.
+
+## The clean-checkout proof
+
+`notes/media-build-2026-10-31/clean_checkout_proof.sh` runs the whole chain on a fresh clone. Its run of
+2026-10-31 is committed beside it (`clean_checkout_proof-2026-10-31.txt`) and printed
+`PASS: clean checkout of open2/media-build`:
+
+| phase | what it does                                                                                                                         | result                                                             |
+|-------|--------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------|
+| A     | builds every converter output with every romset, dump and mirror path (`PROJECTS_ROOT`, `UNIDASM` ...) pointed at an empty directory | 7,033 outputs built; no reference image present                    |
+| B     | `make gate gate-wsa1 gate-floppy gate-kn7000 gate-kn6000 gate-kn6500 gate-kn2400 gate-hdsx3`, `make -C kn7000 symbols-check`         | all exit 0; every rebuilt ROM byte-identical                       |
+| C     | `git status --porcelain`                                                                                                             | empty                                                              |
+| D     | deletes every converter output, makes every tracked file read-only, runs the same gates                                              | all exit 0; the 7,033 outputs rebuilt SHA-256-identical to phase A |
+| E     | deletes the 93 extracted copies of committed floppy media from `floppy/build/` and rebuilds the disks                                | 4 models reproduced byte for byte                                  |
+
+So a clean checkout builds every media conversion from the committed media alone, and no converter writes
+a tracked file. The SHA-256 list of the 7,033 outputs is committed as `converter_outputs.sha256.gz` (the
+list hashes to `81927db84c5734446474fc68a6b8b0d50411c0bdc83c958e68a9bb12fbc09b89`); 6,616 of them equal
+a build of the tree before the change.
 
 ## The WAV files
 
@@ -117,7 +161,7 @@ audio, 31 by a byte-correlation rule calibrated on those (*[INFERENCE]*). For th
 whole, the KN7000's X chip holds the other half of what is very probably the same recording; the
 disassembly does not combine them, because a KN7000 dump is not a KN5000 one.
 
-## The pictures converted in this lane
+## The pictures converted on 2026-10-30
 
 Most pictures were PNG, JPEG or BMP files already. The inventory found these still spelled as byte rows
 or C initializers; each is now a PNG that a build step turns back into the bytes:
@@ -131,53 +175,83 @@ or C initializers; each is now a PNG that a build step turns back into the bytes
 | NAKA GUI C pictures, 39 x 5 KN5000 trees         | the 8-bpp bitmaps, `UserBitmapCheck_Bitmap24x24` and the welcome screen's 16 x 17 letters (`WelcomeGlyph_C`, `Bitmap_Digit1` ...) | `scripts/build/c_bitmaps.py`         |
 | `OldBuild_ValueGlyph_Bitmaps`, SX-WSA1R          | four value glyphs, byte-identical to the live ones; now listed with PNGs                                                          | `wsa1/scripts/build/wsa1_bitmaps.py` |
 
-- `c_bitmaps.py build` writes every NAKA GUI initializer's values from its PNG before clang runs (and
-  redraws the letters' ASCII-art comments); an unchanged PNG leaves the C file byte-identical.
-  `c_bitmaps.py verify` checks 195 of 195 pictures: PNG = C = the built bytes at the label. For v10
-  the PNG is the same file the table data uses; v9, v7, v6 and v5 got their own 39 each.
+- The NAKA GUI C no longer holds the pixels. Since 2026-10-31 each of the 195 initializer bodies in the
+  25 `v*/maincpu/ui_widgets/naka_*.c` files is one `#include` of a git-ignored
+  `../includes/generated/pictures/<name>.inc`, which `c_bitmaps.py build TREE` writes from the PNG. The C
+  keeps its struct declarations and the header comment above each picture; about 82,000 lines of pixel
+  rows left it. The 25 compiled objects equal those of a build before the change (`cmp`).
+  `c_bitmaps.py verify` checks PNG = `.inc` = the built bytes at each label. For v10 the PNG is the same
+  file the table data uses; v9, v7, v6 and v5 got their own 39 each.
 - `se_bitmaps.py verify` and `indexed_images.py verify` check 65 of 65 round trips.
+
+## SX-WSA1R: the ranges that had no rectangle
+
+On 2026-10-30 `wsa1_bitmaps.py` refused three SX-WSA1R ranges because their picture geometry was not
+established. The code that draws them settled two of them (media-build README, "WSA1R: the refused ranges"):
+
+- **`Bitmap_DrawbarA` (prom_b `0xF54808`) and `Bitmap_DrawbarB` (`0xF54AC3`), 699 B each, are 24 x 233
+  pictures.** `Drawbar_DrawColumn` builds a blit record on its stack and issues it three times through
+  `Blit_FromStackRecord`, moving one byte (8 pixels) right and 233 bytes down the source each time. That
+  is `LCD_Svc_03_BlitColumns`' column-major layout, three columns of 233 rows. The screen shows a 123-row
+  window of it, starting at the row offset the drawbar's value selects (`0x7B` + the largest offset
+  `0x6E` = `0xE9` = 233). The PNG shows a drawbar shaft numbered 8 down to 1 above its handle, then the
+  110 blank rows the window never reaches at offset 0. DrawbarA serves the integer footages, DrawbarB the
+  fractional ones.
+- **prom_a `0xFC48E4`-`0xFC52F7` beyond the eight widgets is not a picture.** From `0xFC4BA7` on, the
+  module `prom_a/modules/fc4000_fc53ff_digital_effect_screen_data.s` already typed it as the SOUND EDIT
+  COPY page's display lists, rectangles and names, each named by its prom_b reader (`SoundEditCopy_Paint`
+  and friends). The refusal was stale.
+- The third entry ("no fifth cell at `0xF17AE0`") is not a picture and stays as the one refused note.
+
+The SX-WSA1R's bitmaps were `.byte` rows that `wsa1_bitmaps.py check` compared with their PNGs. They are
+now `.incbin "images/<name>.bin", skip, count` lines: 210 bitmap ranges and 12 font faces became 225
+include lines (three are split by an inner label or comment). `wsa1_bitmaps.py verify` reports 210 images,
+47,838 B, 0 failures.
 
 ## The census counts them as generated
 
 `scripts/analysis/data_incbin_census.py` keeps an include made from a standalone media file through a
 committed lossless converter in class **generated**, with the converter and the file named in its
 marker (`census: generated -- scripts/build/pcm_wav.py, from waveform/wav/P0_W0000_Sine.wav (16-bit)`).
-A column **from media** counts those entries per tree. In snapshot
-[`docs/coverage/data-incbin-2026-10-30-04.txt`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/coverage/data-incbin-2026-10-30-04.txt)
-(measured at disassembly `b84f732aa`; for these trees the same as `-03`, measured at `a9b5cf764`
-after this lane merged) the class *opaque pcm* is empty in every tree; in `-02` it held
-5,095 items, 70,490,064 bytes:
+A column **from media** counts those entries per tree; class **media** counts the files read directly.
+Lane media-build's read-only run (`data_incbin_census.py --compare data-incbin-2026-10-30-04.json`,
+media-build README, "Read-only censuses") exits 0 with generic 0 in every tree; what moved:
 
-| tree               | generated (n / bytes) | of them from media | opaque -02 (n / bytes) | opaque -04 |
-|--------------------|-----------------------|--------------------|------------------------|------------|
-| `kn5000-waveform`  | 1413 / 4,170,480      | 1413 / 4,170,480   | 1413 / 4,170,480       | 0 / 0      |
-| `kn7000-wave`      | 3682 / 66,319,584     | 3682 / 66,319,584  | 3682 / 66,319,584      | 0 / 0      |
-| `kn5000-tabledata` | 344 / 985,431         | 336 / 831,920      | 0 / 0                  | 0 / 0      |
-| `kn5000-v10`       | 10114 / 872,070       | 21 / 6,496         | 0 / 0                  | 0 / 0      |
-| `kn5000-hdae5000`  | 11 / 313,706          | 6 / 308,586        | 0 / 0                  | 0 / 0      |
-| `kn7000-ic18`      | 1 / 3,584             | 1 / 3,584          | 0 / 0                  | 0 / 0      |
+- `wsa1`: generated 0 -> 225 entries, 95,342 B, all from media (the respell above);
+- `kn5000-tabledata`: media 6 -> 0 and from media 336 -> 342 (the six Feature Demo BMPs are now
+  generated from their PNGs);
+- the new `kn7000-ic21own` tree counts its home-page BMP as media.
 
-The NAKA GUI C's pictures still count as compiled C there, not as "from media", although their C is
-now written from the PNGs.
+The class *opaque pcm* has been empty in every tree since snapshot `data-incbin-2026-10-30-03`; in `-02`
+it held 5,095 items, 70,490,064 bytes (`kn5000-waveform` 1,413 / 4,170,480 and `kn7000-wave`
+3,682 / 66,319,584, now all generated from media). The NAKA GUI C's pictures still count as compiled C,
+not as "from media", although their pixels are now written from the PNGs.
 
 ## The inventory
 
 `python3 notes/media-files-probes/media_inventory.py` lists every picture, PCM recording and MIDI
-stream of every census tree and the file behind each. At the end of the lane (2026-10-30, every tree
-built) it exits 0: **8,122 items backed by a standalone file, 0 not**. *Backed* means the build reads
-the item from that file, directly (JPEG, BMP, MID) or through a committed converter (PNG, WAV), or holds
-rows that a converter checks against the file in the gate (the SX-WSA1R's `wsa1_bitmaps.py` /
-`wsa1_fonts.py check`, and the KN5000 NAKA GUI C).
+stream of every census tree and the file behind each. On 2026-10-31, after lane media-build, every tree
+built, it exits 0 (media-build README, section "Inventory"):
 
-Not committed, by design: the WAVs, and the floppies' BMP / JPEG / MID files, which the floppy framework
-extracts from the git-ignored disk images. Every other backing file is committed.
+- **8,136 items backed by a committed media file**: 630 read directly (JPEG, BMP, MID), 7,506 converted at
+  build time (PNG, WAV); **0 not backed**;
+- **0 untracked media files** that the build reads;
+- **0 tracked files** that a converter derives from media.
 
-### What is not a file
+The probe fails the other way too: with one WAV untracked and one SX-WSA1R `.bin` force-added, it reported
+1 untracked media file and 1 tracked derived output and exited 1. (On 2026-10-30, before the change, it counted 8,122 items.)
 
-- **SX-WSA1R, left as rows by `wsa1_bitmaps.py`'s own choice** (it refuses to guess a geometry): prom_a
-  `0xFC48E4`-`0xFC52F7` beyond its eight 90-byte widgets (1,860 B), prom_b `Bitmap_DrawbarA` /
-  `Bitmap_DrawbarB` (699 B each: three 233-byte slices, drawn as 123-row windows at an offset the caller
-  computes), and no fifth cell at `0xF17AE0`. A PNG needs a rectangle; these have none yet.
+### What is left
+
+- **Tracked renders that are not converter outputs.** `table_data/images/icons/` (191 colour-mapped PNGs
+  that `scripts/analysis/extract_icons.py` writes from the ROM) duplicates `table_data/images/icons_png/`,
+  which the build reads; a few raw blobs (`table_data/includes/icon_pixel_data.bin` and others) still hold
+  pixels the PNGs now hold. No ROM build reads them for those pictures. Removing them is the owner's call.
+- **Tracked build state that is not a media conversion**: the `v7`, `v6`, `v5` `*.bin.patched` stamps of
+  the C-divergence patcher, and the MN10300 trees' `src/constants.inc`, which `gen_constants.py` rewrites
+  with the same content from the reference.
+- One-shot generators that wrote pixel rows into sources (the SX-WSA1R widget pages) would undo the
+  respell if re-run as they are.
 - The probe's limit: a picture under a label that names no picture class, held as typed rows, is not
   seen.
 
@@ -195,5 +269,6 @@ extracts from the git-ignored disk images. Every other backing file is committed
 
 - [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/): KN5000 IC307
 - [KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/): the four SX-KN7000 wave chips
+- [Floppy Disk Files and Formats]({{ site.baseurl }}/floppy-disk-formats/): the disk images and their media
 - [Image Gallery]({{ site.baseurl }}/image-gallery/) and [KN7000 Image Gallery]({{ site.baseurl }}/kn7000-image-gallery/)
 - [ROM Reconstruction]({{ site.baseurl }}/rom-reconstruction/#the-data-include-census): the data-include census

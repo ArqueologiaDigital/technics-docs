@@ -36,8 +36,8 @@ with their own 256-entry palettes. Since 2026-10-24 (disassembly `4eb218937`) th
 longer kept as verbatim blobs: each is built from a palette-indexed PNG,
 `table_data/images/FTBMPnn.png`, plus `table_data/images/ftbmp_headers.json`, which holds
 every BMP header field. `scripts/build/ftbmp_images.py build` writes the BMPs and the build
-checks the round trip byte for byte (the `.BMP` files stay in git as a build cache that
-`ftbmp_images.py build` regenerates and `ftbmp_images.py verify` checks). That removed the last 318,468 bytes of verbatim debt from
+checks the round trip byte for byte (since 2026-10-31 the `.BMP` files are git-ignored build
+outputs, which `ftbmp_images.py verify` checks). That removed the last 318,468 bytes of verbatim debt from
 table data. The renders below come from `scripts/build/convert_images.py` (`make gallery`),
 which decodes each BMP with its own palette.
 
@@ -191,7 +191,7 @@ Drawn by the sound-edit screens' static op 03 through `ColorBlit2_LargeCodeBlock
 
 ### Pictures in the GUI's Compiled C
 
-Initializers of the GUI's compiled C sources; `scripts/build/c_bitmaps.py` writes the C values from these PNGs before clang runs.
+Initializers of the GUI's compiled C sources. Since 2026-10-31 each initializer `#include`s a git-ignored `includes/generated/pictures/<name>.inc` that `scripts/build/c_bitmaps.py build` writes from these PNGs; the C holds no pixel rows.
 
 | Image                                                                                                         | Filename                          | Dimensions   | Description                                                 |
 |---------------------------------------------------------------------------------------------------------------|-----------------------------------|--------------|-------------------------------------------------------------|
@@ -261,7 +261,7 @@ The file-selection panel background: three sunken list wells over a blue stone f
 
 Small icon depicting a hard disk with magnetic head, used in UI elements. Its resource descriptor (`0x280395`, registered under the firmware's own name `BitmapHdd_icon`) answers 27 for both width and height, and the last byte of each of the 27 rows is 0x00 — a pad column.
 
-> **Extraction caveat.** `hdae5000/images/HDAE5000_Icon.bin` in the disassembly repo is still 784 bytes (28×28): its last 28 bytes are the start of the C program's `.rodata` (`HDAE5000_Str_V206i` at `0x2E1C82`, the ASCII "V2.06i"). The build does not use it. It emits the 756-byte icon from `images/HDAE5000_Icon.png`, and `convert_images.py` decodes 27×27 with a 28-byte stride (the render above was regenerated with it on 2026-10-24; the script still warns about the file's 784-byte size).
+> **Extraction caveat (resolved).** The old extraction `hdae5000/images/HDAE5000_Icon.bin` was 784 bytes (28×28): its last 28 bytes were the start of the C program's `.rodata` (`HDAE5000_Str_V206i` at `0x2E1C82`, the ASCII "V2.06i"). Nothing read it, and it was deleted on 2026-10-31 with the other four HD-AE5000 extractions. The build emits the 756-byte icon from `images/HDAE5000_Icon.png` (`hdae5000_images.py build`), and `convert_images.py` decodes 27×27 with a 28-byte stride.
 
 ### STORE Button
 
@@ -388,9 +388,13 @@ The Table Data ROM's section-directory and factory-bank images and its eight upd
 
 ## Converting New Images
 
-When new images are extracted as `.bin` files:
+Every picture is a committed PNG (or JPEG / BMP) in the disassembly, and the `.bin` the source
+`.incbin`s is a git-ignored file the build writes from it ([Media Files]({{ site.baseurl }}/media-files/)).
+When a new picture is added:
 
-1. Add metadata to `convert_images.py` in the ROM disassembly repo
+1. Add metadata to `convert_images.py` in the ROM disassembly repo (named after the build's `.bin`;
+   the gallery renders it from the PNG through the build's converter when the `.bin` is not built), or
+   list it in `STANDALONE_PNGS` when the PNG is shown as it is
 2. Run `make gallery` to convert and copy to this site
 3. Update this page with the new images
 4. Commit both repositories together

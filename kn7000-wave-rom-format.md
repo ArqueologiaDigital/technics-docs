@@ -202,10 +202,11 @@ this format `kn7asm.py` gained the operators `/`, `<<`, `>>`, `|` and `&`.
 
 ## Encoding and the WAV files
 
-`make -C kn7000 wave-wav` writes every recording as a mono WAV file into `kn7000/wav/main/` and
-`kn7000/wav/sub/` (git-ignored: they are the dump's bytes), from the git-ignored reference streams,
-and never overwrites a WAV that is there; `make -C kn7000 verify-wave` builds the four chips from
-them. The committed manifests `src/wave/main_wav.tsv` and `src/wave/sub_wav.tsv` hold one row per
+Every recording is a committed mono WAV file in `kn7000/wav/main/` and `kn7000/wav/sub/` (since
+2026-10-31; until then they were git-ignored extractions), and `make -C kn7000 verify-wave` builds the
+four chips from them: `pcm_wav.py build` writes `kn7000/build/wav_pcm/{main,sub}/*.pcm`, reading no
+reference. `make -C kn7000 wave-wav` is the maintenance target that re-extracts a missing WAV from the
+reference streams. The committed manifests `src/wave/main_wav.tsv` and `src/wave/sub_wav.tsv` hold one row per
 recording (offsets, bit depth, rate, file name, unity note, loops, comment), no sample data. How to
 play and edit them, for all models, is on [Media Files]({{ site.baseurl }}/media-files/).
 

@@ -823,6 +823,10 @@ The load routine at `0x28f8e0` shifts each RGB component right by 4 bits before 
 ### Current Progress
 
 **Already extracted:**
+*(Superseded 2026-10-31: every picture is now a committed PNG, JPEG or BMP, and the `.bin` files
+beside them are git-ignored build outputs; see [Media Files]({{ site.baseurl }}/media-files/). The list
+below is the earlier state.)*
+
 - `v10/maincpu/images/` - 44 `.bin` files with 42 PNG renders (1-bit bitmaps, UI elements, logos)
 - `table_data/images/` - the 6 feature-demo BMPs, two wallpapers (`Wallpaper_0/1`, PNG beside `.bin`), and 465 PNGs under `icons/`, `icons_png/`, `ui_bitmaps/` and `fonts/`
 - `hdae5000/images/` - 5 images (logo, hands, file panel, splash screen, icon) as `.bin` with PNG renders, plus 2 raw palettes and 5 palette listings

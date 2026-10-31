@@ -70,9 +70,11 @@ The committed trees are exactly what `make src-<model>` writes; to change one, c
 generator, a describer or a macro and regenerate. The reference images are copied, git-ignored,
 out of the softlist zips into `<model>/baserom/`, with their SHA-1 checked against
 `<model>/disks.mk`. `floppy/tools/sha1_gate.py` exits 1 on any mismatch and prints the first
-differing offset. Bulk bytes never enter git: a payload with no better form is an `.incbin` of
-the git-ignored reference, declared to the census as media (pictures, MIDI files) or opaque
-(stale bytes). Unit names spell every character outside `[A-Za-z0-9_-]` as `xHH`, so
+differing offset. A payload with no better form is an `.incbin` of the git-ignored reference, declared to the
+census as opaque (stale bytes). Pictures and MIDI files are the exception (since 2026-10-31): the
+disks' 131 BMP, JPEG and MIDI files are committed in `<model>/<disk>/media/`, which comes before
+`build/<model>/<disk>/` on the include path, so a disk unit reads the committed file
+(`tools/fat12_media.py check`, in every `gate-<model>`; [Media Files]({{ site.baseurl }}/media-files/)). Unit names spell every character outside `[A-Za-z0-9_-]` as `xHH`, so
 `06(DEMO).TM` becomes `06x28DEMOx29.TM`.
 
 Census rows after the 2026-10-29 passes (`scripts/analysis/data_incbin_census.py`): every floppy
@@ -136,8 +138,8 @@ the RAM layout of its region.** The handlers' `_VRAM` / `_ExtMem` suffixes are o
   and 4 large slots, erased on the factory disk). The loader writes it to Custom Data Flash,
   stamping the section number into the style directory on the way
   ([Custom Data Flash]({{ site.baseurl }}/custom-data-flash/)).
-- **BMP** headers are typed field by field; palette and pixels are `.incbin`s of the extracted
-  `.bmp`. **TXT** is one `.ascii` line per line.
+- **BMP** headers are typed field by field; palette and pixels are `.incbin`s of the committed
+  `.bmp` in the disk's `media/` folder. **TXT** is one `.ascii` line per line.
 
 ### Events, one per line
 

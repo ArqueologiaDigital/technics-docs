@@ -124,8 +124,8 @@ rest from the ROM. The disassembly now rebuilds all four chips byte for byte fro
 the full format, with per-page counts, is on the
 [Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/) page, which uses the
 firmware's MAIN (`0x98050000`, IC203/IC204) and SUB names. Since 2026-10-30 each of the 3,682
-recordings is a WAV file that the build reads back (`make -C kn7000 wave-wav`;
-[Media Files]({{ site.baseurl }}/media-files/)). 1,342 of the KN5000's 1,413 IC307 waves occur
+recordings is a WAV file that the build reads back, committed since 2026-10-31 in
+`kn7000/wav/` ([Media Files]({{ site.baseurl }}/media-files/)). 1,342 of the KN5000's 1,413 IC307 waves occur
 verbatim in IC203 and IC207, the Y chips: IC307 is the Y half of the same kind of pair
 ([Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/#ic307-is-half-of-a-pair)).
 
