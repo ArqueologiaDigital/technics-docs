@@ -102,8 +102,8 @@ These images were extracted from raw bitmap data in the main CPU ROM. The PNGs a
 
 | Image                                                                                  | Filename                 | Dimensions                    | Description         |
 |----------------------------------------------------------------------------------------|--------------------------|-------------------------------|---------------------|
-| ![Technics Logo]({{ "/assets/images/gallery/BitmapTechnicsLogo.png" | relative_url }}) | `BitmapTechnicsLogo.bin` | 312x45, 8-bit                 | Technics brand logo |
-| ![KN5000 Logo]({{ "/assets/images/gallery/BitmapKN5000Logo.png" | relative_url }})     | `BitmapKN5000Logo.bin`   | 199x36 (200-byte rows), 8-bit | KN5000 model logo   |
+| ![Technics Logo]({{ "/assets/images/gallery/BitmapTechnicsLogo.png" | relative_url }}) | `BitmapTechnicsLogo.png` | 312x45, 8-bit                 | Technics brand logo |
+| ![KN5000 Logo]({{ "/assets/images/gallery/BitmapKN5000Logo.png" | relative_url }})     | `BitmapKN5000Logo.png`   | 199x36 (200-byte rows), 8-bit | KN5000 model logo   |
 
 ### Split Point Indicators (58x52 pixels, 8-bit)
 
@@ -127,47 +127,47 @@ These images show keyboard split point notes displayed when configuring the keyb
 
 ### Drawbar Sliders (22x222 pixels, 8-bit)
 
-| Image | Filename | Description |
-|-------|----------|-------------|
-| ![Drawbar 1]({{ "/assets/images/gallery/BitmapDrawbarNumberedSlider_1.png" | relative_url }}) | `BitmapDrawbarNumberedSlider_1.bin` | Drawbar slider 1 |
-| ![Drawbar 2]({{ "/assets/images/gallery/BitmapDrawbarNumberedSlider_2.png" | relative_url }}) | `BitmapDrawbarNumberedSlider_2.bin` | Drawbar slider 2 |
-| ![Drawbar 3]({{ "/assets/images/gallery/BitmapDrawbarNumberedSlider_3.png" | relative_url }}) | `BitmapDrawbarNumberedSlider_3.bin` | Drawbar slider 3 |
+| Image                                                                                         | Filename                            | Description      |
+|-----------------------------------------------------------------------------------------------|-------------------------------------|------------------|
+| ![Drawbar 1]({{ "/assets/images/gallery/BitmapDrawbarNumberedSlider_1.png" | relative_url }}) | `BitmapDrawbarNumberedSlider_1.png` | Drawbar slider 1 |
+| ![Drawbar 2]({{ "/assets/images/gallery/BitmapDrawbarNumberedSlider_2.png" | relative_url }}) | `BitmapDrawbarNumberedSlider_2.png` | Drawbar slider 2 |
+| ![Drawbar 3]({{ "/assets/images/gallery/BitmapDrawbarNumberedSlider_3.png" | relative_url }}) | `BitmapDrawbarNumberedSlider_3.png` | Drawbar slider 3 |
 
 ### MIDI Connection Diagrams (296x108 pixels, 8-bit)
 
-| Image | Filename | Description |
-|-------|----------|-------------|
-| ![MIDI 1]({{ "/assets/images/gallery/BitmapMIDIConnections_1.png" | relative_url }}) | `BitmapMIDIConnections_1.bin` | MIDI connections diagram 1 |
-| ![MIDI 2]({{ "/assets/images/gallery/BitmapMIDIConnections_2.png" | relative_url }}) | `BitmapMIDIConnections_2.bin` | MIDI connections diagram 2 |
-| ![MIDI 3]({{ "/assets/images/gallery/BitmapMIDIConnections_3.png" | relative_url }}) | `BitmapMIDIConnections_3.bin` | MIDI connections diagram 3 |
+| Image                                                                                | Filename                      | Description                |
+|--------------------------------------------------------------------------------------|-------------------------------|----------------------------|
+| ![MIDI 1]({{ "/assets/images/gallery/BitmapMIDIConnections_1.png" | relative_url }}) | `BitmapMIDIConnections_1.png` | MIDI connections diagram 1 |
+| ![MIDI 2]({{ "/assets/images/gallery/BitmapMIDIConnections_2.png" | relative_url }}) | `BitmapMIDIConnections_2.png` | MIDI connections diagram 2 |
+| ![MIDI 3]({{ "/assets/images/gallery/BitmapMIDIConnections_3.png" | relative_url }}) | `BitmapMIDIConnections_3.png` | MIDI connections diagram 3 |
 
 ### UI Elements
 
-| Image | Filename | Dimensions | Description |
-|-------|----------|------------|-------------|
-| ![Worm]({{ "/assets/images/gallery/BitmapWormWearingHat.png" | relative_url }}) | `BitmapWormWearingHat.bin` | 24x24, 8-bit | Easter egg - worm wearing hat |
-| ![Arrows]({{ "/assets/images/gallery/BitmapSomeArrows.png" | relative_url }}) | `BitmapSomeArrows.bin` | 294x6, 8-bit | Arrow icons strip |
+| Image                                                                           | Filename                   | Dimensions   | Description                   |
+|---------------------------------------------------------------------------------|----------------------------|--------------|-------------------------------|
+| ![Worm]({{ "/assets/images/gallery/BitmapWormWearingHat.png" | relative_url }}) | `BitmapWormWearingHat.png` | 24x24, 8-bit | Easter egg - worm wearing hat |
+| ![Arrows]({{ "/assets/images/gallery/BitmapSomeArrows.png" | relative_url }})   | `BitmapSomeArrows.png`     | 294x6, 8-bit | Arrow icons strip             |
 
 ### Transition Effects
 
 | Image                                                                                       | Filename                   | Dimensions                    | Description             |
 |---------------------------------------------------------------------------------------------|----------------------------|-------------------------------|-------------------------|
-| ![Fade In Picture]({{ "/assets/images/gallery/BitmapFadeInPicture.png" | relative_url }})   | `BitmapFadeInPicture.bin`  | 112x25, 8-bit                 | Fade in picture effect  |
-| ![Fade Out Picture]({{ "/assets/images/gallery/BitmapFadeOutPicture.png" | relative_url }}) | `BitmapFadeOutPicture.bin` | 113x25 (114-byte rows), 8-bit | Fade out picture effect |
-| ![Fade In Text]({{ "/assets/images/gallery/BitmapFadeInText.png" | relative_url }})         | `BitmapFadeInText.bin`     | 80x18, 8-bit                  | Fade in text effect     |
-| ![Fade Out Text]({{ "/assets/images/gallery/BitmapFadeOutText.png" | relative_url }})       | `BitmapFadeOutText.bin`    | 108x20, 8-bit                 | Fade out text effect    |
+| ![Fade In Picture]({{ "/assets/images/gallery/BitmapFadeInPicture.png" | relative_url }})   | `BitmapFadeInPicture.png`  | 112x25, 8-bit                 | Fade in picture effect  |
+| ![Fade Out Picture]({{ "/assets/images/gallery/BitmapFadeOutPicture.png" | relative_url }}) | `BitmapFadeOutPicture.png` | 113x25 (114-byte rows), 8-bit | Fade out picture effect |
+| ![Fade In Text]({{ "/assets/images/gallery/BitmapFadeInText.png" | relative_url }})         | `BitmapFadeInText.png`     | 80x18, 8-bit                  | Fade in text effect     |
+| ![Fade Out Text]({{ "/assets/images/gallery/BitmapFadeOutText.png" | relative_url }})       | `BitmapFadeOutText.png`    | 108x20, 8-bit                 | Fade out text effect    |
 
 ### Accompaniment & Edit Graphics
 
 | Image                                                                         | Filename             | Dimensions     | Description                           |
 |-------------------------------------------------------------------------------|----------------------|----------------|---------------------------------------|
-| ![Accger16]({{ "/assets/images/gallery/BitmapAccger16.png" | relative_url }}) | `BitmapAccger16.bin` | 120x95, 8-bit  | Accordion picture (German)            |
-| ![Accita16]({{ "/assets/images/gallery/BitmapAccita16.png" | relative_url }}) | `BitmapAccita16.bin` | 120x95, 8-bit  | Accordion picture (Italian)           |
-| ![Bmphk]({{ "/assets/images/gallery/BitmapBmphk.png" | relative_url }})       | `BitmapBmphk.bin`    | 100x120, 8-bit | The KN5000 itself on teal             |
-| ![Dredt0d]({{ "/assets/images/gallery/BitmapDredt0d.png" | relative_url }})   | `BitmapDredt0d.bin`  | 168x119, 8-bit | Drum-edit screen grid                 |
-| ![Dredt0k]({{ "/assets/images/gallery/BitmapDredt0k.png" | relative_url }})   | `BitmapDredt0k.bin`  | 88x119, 8-bit  | Drum-edit screen instrument rows      |
-| ![Ntedt0d]({{ "/assets/images/gallery/BitmapNtedt0d.png" | relative_url }})   | `BitmapNtedt0d.bin`  | 240x127, 8-bit | Note-edit screen grid                 |
-| ![Ntedt0k]({{ "/assets/images/gallery/BitmapNtedt0k.png" | relative_url }})   | `BitmapNtedt0k.bin`  | 16x127, 8-bit  | Note-edit screen vertical piano ruler |
+| ![Accger16]({{ "/assets/images/gallery/BitmapAccger16.png" | relative_url }}) | `BitmapAccger16.png` | 120x95, 8-bit  | Accordion picture (German)            |
+| ![Accita16]({{ "/assets/images/gallery/BitmapAccita16.png" | relative_url }}) | `BitmapAccita16.png` | 120x95, 8-bit  | Accordion picture (Italian)           |
+| ![Bmphk]({{ "/assets/images/gallery/BitmapBmphk.png" | relative_url }})       | `BitmapBmphk.png`    | 100x120, 8-bit | The KN5000 itself on teal             |
+| ![Dredt0d]({{ "/assets/images/gallery/BitmapDredt0d.png" | relative_url }})   | `BitmapDredt0d.png`  | 168x119, 8-bit | Drum-edit screen grid                 |
+| ![Dredt0k]({{ "/assets/images/gallery/BitmapDredt0k.png" | relative_url }})   | `BitmapDredt0k.png`  | 88x119, 8-bit  | Drum-edit screen instrument rows      |
+| ![Ntedt0d]({{ "/assets/images/gallery/BitmapNtedt0d.png" | relative_url }})   | `BitmapNtedt0d.png`  | 240x127, 8-bit | Note-edit screen grid                 |
+| ![Ntedt0k]({{ "/assets/images/gallery/BitmapNtedt0k.png" | relative_url }})   | `BitmapNtedt0k.png`  | 16x127, 8-bit  | Note-edit screen vertical piano ruler |
 
 ### Sound Edit Screen Bitmaps (1-bit, column by column)
 
@@ -243,7 +243,7 @@ The "HD-AE5000" wordmark embossed over a photograph of a bare hard-disk mechanis
 
 *320x240, 8-bit indexed color - ROM offset: 0x3b98e (CPU: 0x2BB98E)*
 
-The same drive-mechanism photograph as the logo image, **without** the wordmark — the second frame of the title sequence. The old caption was wrong: there are no hands in this picture. The filename `HDAE5000_Hands.bin` is kept for continuity with the extraction tooling.
+The same drive-mechanism photograph as the logo image, **without** the wordmark — the second frame of the title sequence. The old caption was wrong: there are no hands in this picture. The filename `HDAE5000_Hands.png` is kept for continuity with the extraction tooling.
 
 ### File Selection Panel
 
