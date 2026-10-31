@@ -121,11 +121,19 @@ block (words 54-58: current cylinders, heads, sectors per track, capacity):
 
 **Song record (76 bytes)**:
 
-| Offset | Size | Contents |
-|--------|------|----------|
-| +0 | 26 | name, space-padded (blank = 26 spaces) |
-| +26 | 10 | zeroed by a format |
-| +36 | 10 × 4 | first-cluster slots, `0xFFFFFFFF` = empty |
+| Offset | Size   | Contents                                                           |
+|--------|--------|--------------------------------------------------------------------|
+| +0     | 26     | name, space-padded (blank = 26 spaces)                             |
+| +26    | 10 × 1 | part-present flags, part *k* at +26 + *k*: 1 = saved, 0 = deleted  |
+| +36    | 10 × 4 | first-cluster slots, part *k* at +36 + 4*k*; `0xFFFFFFFF` = absent |
+
+Parts: 0 LSW, 1 PMT, 2 SQT, 3 CMP, 4 TM, 5 MSP, 6 RCM, 7 MD, 8 TLX.  Each `HDAE5000_SaveSong_<part>` stores the
+chain's first cluster in its slot and 1 in its flag; each `HDAE5000_DeleteSongPart_<part>` frees the chain and
+stores `0xFFFFFFFF` and 0 (for example `HDAE5000_SaveSong_Lsw` uses slot +36 and flag +26, `HDAE5000_LoadSong_Rcm`
+reads slot +60 = 36 + 4 × 6, `HDAE5000_LoadSong_Md` slot +64).  The tenth flag (+35) and slot (+72) are written
+only by a format (`HDAE5000_HD_InitTables`): spare.  The v1.x firmware has eight parts (no TLX) and leaves the
+ninth spare as well; [inference] the tenth was reserved the same way.  `HDAE5000_HD_GetSongInfo` hands all ten
+flags to the PC link (service 13).
 
 Nine part types have their own `HDAE5000_SaveSong_*`, `HDAE5000_LoadSong_*` and
 `HDAE5000_DeleteSongPart_*` routines: LSW, PMT, SQT, CMP, TM, MSP, RCM, MD and
@@ -138,10 +146,21 @@ imported from floppy, using the 8-byte records `{string, offset, length}` at ROM
 `{.long HDAE5000_PartSig_<part>; .short offset, length}` records; CMP's string
 is at `0x2F8E8C`, the bytes `48 00 4B`.)
 
-**FLS record (144 bytes)**: a 16-byte name, then four 32-byte arrays indexed
-by item: the directory + 1 (+16), the song + 1 (+48), and two more bytes per
-item (+80, +112) whose meaning is not established. An item is set when both
-its directory and song bytes are non-zero (`HDAE5000_FlsItem_IsSet`).
+**FLS record (144 bytes)**: a 16-byte name, then four 32-byte arrays indexed by item: the directory + 1 (+16),
+the song + 1 (+48), **AS** "auto start" (+80) and **AL** "auto load" (+112).  An item is set when its directory
+and song bytes are non-zero (`HDAE5000_FlsItem_IsSet`).  Edit switches 6 and 7 of the FLS edit page
+(`HDAE5000_FlsEditScreen_OnSwIn`) set AS and AL (`HDAE5000_FlsItem_SetAutoStart` / `HDAE5000_FlsItem_SetAutoLoad`);
+the lists (`HDAE5000_FlsScreen_Refresh`) mark them with `*`.  Loading an AS item presses the sequencer start
+(`HamaFn_SwbtWr(0x48, 5, 1)` after `HDAE5000_LoadSongWithUi`).  Loading an AL item arms a chain
+(`HDAE5000_RAM_FlsAutoLoadPending`, with the FLS and item in `HDAE5000_RAM_FlsChainFls` /
+`HDAE5000_RAM_FlsChainItem`): when bit 2 of the main CPU's `sqsrtc` falls (the sequencer stopped),
+`HDAE5000_Frame_Handler_Status` sees `HDAE5000_Fls_GetAutoLoadPending` return 1 and the FLS load page gets
+`EVT_HDAE_SEQ_STOP`; it arms an application timer of 0x53 ticks (`RootFn_SetApTimer`) that delivers
+`EVT_HDAE_AFTER_LOAD`, which loads the next item, wrapping to item 0 of the next FLS after item 31 and to FLS 0
+after FLS 119.  The owner's manual ("SELECT FILE LOAD SCRIPT (FLS)") describes AS and AL as a load/play chain
+with "2 second's to interrupt the play/load chain with the PANIC button"; [inference] the 0x53-tick timer is
+those two seconds.  The four chain bytes are at 0x22AD96 / 98 / 9A / 9B in v2.x and 0x22AD4E / 50 / 52 / 53 in
+v1.x.
 
 **The developers' names for the blocks.** The PC-link services that move these
 blocks carry the developers' own names, taken from the banners of a compiled-out
@@ -157,11 +176,15 @@ debug trace (`HDAE5000_DebugTrace`, now a lone `ret`):
   `HDAE5000_PPORT_Svc09_ReadFlsBlockFromHd`,
   `HDAE5000_PPORT_Svc12_WriteFlsBlockToHd`.
 
-The same trace formats lines such as `"FGB wid : %d"` for service 4, which ties
-"FGB" to block 0 and "FEB" to block 1. The PC-link commands 03-06 ("Read FSB
-from HD" … "Writing FSB to HD") use "FSB". The service names suggest "file
-system block", i.e. block 1, but nobody has traced which blocks those commands
-move.
+The same trace formats lines such as `"FGB wid : %d"` for service 4: "FGB" (block 0) and "FEB" (block 1) are
+the per-block names of the services' debug trace.
+
+**"FSB" is the whole table set.** PC-link command 03 runs service 7, which is `HDAE5000_HD_LoadTables` (all 323
+sectors; services 8 and 9 are the same call); 04 runs services 4, 5 and 6 and sends blocks 0, 1 and 2 after a
+reply that carries their three descriptors (`HDAE5000_PPORT_SendBlock`); 05 receives them the same way
+(`HDAE5000_PPORT_RecvBlock`); and 06 runs service 10, `HDAE5000_HD_StoreTables` (11 and 12 are the same call).
+HD-TechManager5000 stores the blocks on the PC as `Dirblk.dat`, `Fileblk.dat` and `Flsblk.dat`
+([HD-TechManager5000]({{ site.baseurl }}/hdae5000-techmanager/#the-software)).
 
 ### Files are cluster chains
 
@@ -362,20 +385,92 @@ from 1. The handlers call 30 PC-link services
 The names of services 1-25 come from the `"---[ <FunctionName> ]---"` banners
 of the compiled-out debug trace.
 
-### PPORT transfer packet (older reading, not re-verified)
+### PC-link packets
 
-The hdae lane marked the descriptive lines inside the command handlers as
-"predate this name and are not re-verified". The packet layout below comes from
-those lines:
+Traced per command on 2026-10-31 (disassembly `notes/open4-kn5000-b/hdae/README.md`, "kn5000-t8n";
+`notes/open4-kn5000-b/hdae/probes/pport_packet_map.py` lists, per handler, the services, packet offsets and
+transfers).  This replaces an older reading of the packet taken from comments that predated the handler names.
 
-```
-Offset  Size  Contents
-------  ----  --------
-0x00    1     flags byte 1 (bitmask for regions 0-5, 7)
-0x01    1     flags byte 2 (bitmask for region 8)
-0x02-0x2B  42  header/padding
-0x2C    36    9 region descriptors (32-bit sector address each)
-```
+Everything moves in 256-byte packets (`HDAE5000_RAM_PportPacket`, `HDAE5000_PPORT_RecvPacket` /
+`HDAE5000_PPORT_SendPacket`), each followed by the 32-bit byte sum, little-endian, and `HDAE5000_PPORT_EndBlock`;
+the packet is repeated while EndBlock reports a retry.  Bulk data moves in blocks of any length with the same sum
+and end handshake (`HDAE5000_PPORT_SendBlock` / `HDAE5000_PPORT_RecvBlock`).
+
+**Request (PC to HD-AE5000).**  Byte 0 is the command, 1-20 (`HDAE5000_PPORT_CommandLoop` rejects only values
+above 20: a 0 would jump through the long before `HDAE5000_PPORT_CommandTable`).  The rest depends on the command:
+
+| Command                | Request bytes                                                                                 |
+|------------------------|-----------------------------------------------------------------------------------------------|
+| 01                     | +1 / +2 = the PC program's version major / minor                                              |
+| 07, 08, 09, 11, 14, 16 | +1 directory, +2 song, +3 / +4 part mask low / high (`HDAE5000_PPORT_LatchPacketArgs`)        |
+| 10                     | +1 / +2 part mask low / high, +3.. eight u32 part sizes: LSW, PMT, SQT, CMP, TM, MSP, MD, TLX |
+| 11                     | (also) +5 the 26-byte song name                                                               |
+| 13                     | +1..+4 as 07; +5 u32 sector count; +9 the 26-byte song name                                   |
+| 20                     | +2 u32 byte count                                                                             |
+| 02-06, 12, 15, 17-19   | nothing beyond byte 0                                                                         |
+
+The part mask uses the song-part numbering above: bits 0-7 of the low byte = parts 0-7, bit 0 of the high byte =
+part 8 (TLX).
+
+**Reply (HD-AE5000 to PC).**  A reply packet is cleared (`HDAE5000_PPORT_ClearPacket`), filled with a byte range
+of the info block `HDAE5000_RAM_PportInfoBlock` copied to the same offsets (`HDAE5000_PPORT_CopyInfoToPacket`), and
+byte 255 is set to 0xFF on failure (`HDAE5000_PPORT_FlagPacketError`; ppkn50.dll reads it at 0x100121BF and returns
+-5).  The info block:
+
+| Offset | Size  | Contents                                                                                                            | Filled by  |
+|--------|-------|---------------------------------------------------------------------------------------------------------------------|------------|
+| +0x00  | 2     | the song's part mask                                                                                                | service 13 |
+| +0x02  | 26    | song name                                                                                                           | service 13 |
+| +0x1C  | 16    | directory name                                                                                                      | service 13 |
+| +0x2C  | 8     | block 0 (directory names): u32 address, u16 record width, u16 count                                                 | service 4  |
+| +0x34  | 8     | block 1 (song records), same layout                                                                                 | service 5  |
+| +0x3C  | 10    | block 2 (FLS records), same plus u16 items per record                                                               | service 6  |
+| +0x46  | 9 × 9 | part records {u32 address, u32 size, u8 present}: LSW area A, LSW area B, PMT, SQT, CMP, TM, MSP, RCM, MD           | service 13 |
+| +0x97  | 30    | drive model                                                                                                         | service 3  |
+| +0xB5  | 4     | cylinders                                                                                                           | service 3  |
+| +0xB9  | 2     | heads                                                                                                               | service 3  |
+| +0xBB  | 2     | sectors per track                                                                                                   | service 3  |
+| +0xBD  | 2     | 512 (bytes per sector)                                                                                              | service 3  |
+| +0xBF  | 9     | the TLX part record                                                                                                 | service 13 |
+| +0xC8  | 2     | file-format version major / minor (`HDAE5000_RAM_FileFormat_VersionMajor` / `HDAE5000_RAM_FileFormat_VersionMinor`) | service 3  |
+| +0xCA  | -     | free work area (service 19 returns its address)                                                                     | -          |
+
+The part records come from the main CPU (`HamaFn_GetResouceInfo` resources 0-3 and 5-9), with the sizes of SQT,
+CMP and MSP from `HamaFn_SeqSavePre` (added), `HamaFn_cmp_sv_mae` and `HamaFn_msp_sv_mae`, 0x72AA for TM and
+0xAD000 for RCM; the present bytes are the song record's flags +26..+34 (LSW area B's is always 0).
+
+Per command (handler names without the HDAE5000_PPORT_ prefix; service 26, the status record, runs first in
+every handler and is left out of the column):
+
+| Command    | Handler                | Services      | Reply / transfers                                                                                                                                                                              |
+|------------|------------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 01         | Cmd01_SendInfosAboutHd | 3             | info +0x97..+0xC9 (geometry, file-format version); failure when request +1 differs from the version major ("Error Wrong Dll Ver")                                                              |
+| 02         | Cmd02_ExitPport        | 1, 18         | no reply; writes 0x00FF at info +0, then service 18 posts `EVT_CHANGE_MODE` `NAKA_MODE_MD_NORMAL` (back to play)                                                                               |
+| 03         | Cmd03_ReadFsbFromHd    | 7             | status only (`HDAE5000_HD_LoadTables`)                                                                                                                                                         |
+| 04         | Cmd04_SendFsbToPc      | 4, 5, 6       | info +0x2C..+0x45, then blocks 0, 1, 2 to the PC                                                                                                                                               |
+| 05         | Cmd05_RcvFsbFromPc     | 4, 5, 6       | info +0x2C..+0x45, then blocks 0, 1, 2 from the PC                                                                                                                                             |
+| 06         | Cmd06_WriteFsbToHd     | 10            | status only (`HDAE5000_HD_StoreTables`)                                                                                                                                                        |
+| 07         | Cmd07_LoadHdToMemory   | 13, 14        | info +0x00..+0xC7, then (mask non-zero) service 14 loads the parts into the keyboard's memory and a status packet follows                                                                      |
+| 08         | Cmd08_SendDataToPc     | 13, 14        | info +0x00..+0x2B with the mask (RCM bit 6 cleared); then load as 07, info +0x00..+0xC7, and one block per mask bit from the part's memory (LSW: areas A and B)                                |
+| 09         | Cmd09_SendFilesToPc    | 13, 24, 25    | info +0x00..+0x2B, mask in +0/+1, nine u32 part sizes from +0x2C; then each part streamed from the disk (`HDAE5000_PPORT_SendRegionToPc`)                                                      |
+| 10         | Cmd10_RcvDataFromPc    | 1, 20, 16     | receives each masked part into fixed main-CPU RAM: PMT 0x1ED350, SQT 0x0AB000, CMP 0x094800, TM 0x1E0000, MSP 0x1E8800, MD 0x3D3000, TLX the lyric buffer, LSW `HDAE5000_PPORT_RecvCustomData` |
+| 11         | Cmd11_SaveMemoryToHd   | 1, 15         | mask and name into the info block, service 15 saves the song from memory to disk; status                                                                                                       |
+| 12, 15, 19 | Cmd12/15/19_Nothing    | -             | status record only, no reply                                                                                                                                                                   |
+| 13         | Cmd13_RcvDataFromPc    | 1, 21, 23, 22 | writes the PC's sectors straight to a new chain (WriteOpenHD / WriteFileHD per 512-byte sector / WriteCloseHD), one status byte per step (`HDAE5000_PPORT_SendByte`)                           |
+| 14         | Cmd14_SendInfosToPc    | 13            | the reply of 09 without the data                                                                                                                                                               |
+| 16         | Cmd16_DeleteFiles      | 13, 27        | info +0x00..+0xC7 with the masked mask; service 27 deletes those parts; status                                                                                                                 |
+| 17         | Cmd17_FormatHd         | 17            | status only                                                                                                                                                                                    |
+| 18         | Cmd18_SwitchHdMotorOff | 2             | status only                                                                                                                                                                                    |
+| 20         | Cmd20_SendXapFileFlash | 29, 28, 30    | see [PC-link flash]({{ site.baseurl }}/hdae5000/#pc-link-flash-command-20-v2x-only); no reply packet                                                                                           |
+
+Two things the code does that a PC implementation must copy: in command 07 the masked high byte is stored in reply
+byte 0, not 1 (`ld (xix), w` in `HDAE5000_PPORT_Cmd07_LoadHdToMemory`; command 08 stores it in byte 1); and
+commands 07, 08 and 16 AND the requested mask with the song's own mask, so asking for a part the song lacks is not
+an error.
+
+The older reading this page carried (two flag bytes, then nine "region descriptors" from +0x2C) was the reply of
+commands 09 / 14: bytes 0 and 1 are the mask, and the nine longs from +0x2C are part **sizes** (LSW, PMT, SQT,
+CMP, TM, MSP, RCM, MD, TLX), not sector addresses.
 
 ## Routines That Were Misnamed
 
@@ -410,10 +505,9 @@ they work on the lyric buffer and SMF variable-length quantities.
 
 ## Open Questions
 
-- Which of the ten first-cluster slots of a song record belongs to which part
-  (nine part types are known), and what the 10 bytes at +26 hold.
-- What the FLS item bytes at +80 and +112 mean.
-- Whether "FSB" names the whole table set; see [Open Questions]({{ site.baseurl }}/questions/).
+The song-record slots, the FLS bytes +80 / +112 and the meaning of "FSB" were answered on
+2026-10-31 (above).  Still open:
+
 - The lyric-player details listed under [Lyric Files](#lyric-files-tlx).
 
 ## Related Pages

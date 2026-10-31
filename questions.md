@@ -57,8 +57,8 @@ Things we don't know yet and need to investigate.
 ### HDAE5000 Hard Disk Expansion
 - [x] What is the command interface via PPI at `0x160000`? **i8255 PPI for PC parallel port (LPT) communication** — used by HD-TechManager5000 Windows software for backup/restore. See [HDAE5000]({{ site.baseurl }}/hdae5000/) and [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/)
 - [x] How does it communicate file data to the keyboard? **IDE/ATA at 0x130010-0x130020** (CHS addressing, PIO mode, 4 ATA commands: Read Sectors, Write Sectors, Identify Device, Standby Immediate (0x94)). See [HDAE5000 Disk Interface]({{ site.baseurl }}/hdae5000-disk-interface/)
-- [ ] Which of a song record's ten first-cluster slots holds which part (nine part types are known), and what are the FLS item bytes at +80/+112? ([HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/#open-questions))
-- [ ] Is "FSB" (PC-link commands 03-06) the whole table set or only the song-record block?
+- [x] Which of a song record's ten first-cluster slots holds which part, and what are the FLS item bytes at +80/+112? **Answered 2026-10-31 (kn5000-44c):** see the song-record table and the FLS record (AS at +80, AL at +112) on [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/#the-tables-sectors-3908-4230).
+- [x] Is "FSB" (PC-link commands 03-06) the whole table set or only the song-record block? **The whole table set** (kn5000-44c): see [HDAE5000 Filesystem]({{ site.baseurl }}/hdae5000-filesystem/#the-tables-sectors-3908-4230).
 - [ ] Lyric player: the byte at `0x230882`, meta type `0x7E` beyond its chord case, the tempo and measure lyric objects, and the meaning of the main-CPU variables `sqbtof` / `sq_beadt` / `sqsrtc`.
 - [ ] The 13,334 bytes of class-specific body in the HD-AE5000's 769 UI object records: the main-CPU class layouts should decode them (record #0 already reads as a `TtlScreen`).
 - [ ] Does the main CPU read the STORE button's palette (`HDAE5000_Palette_Button01`) at the bitmap pointer − 0x400?

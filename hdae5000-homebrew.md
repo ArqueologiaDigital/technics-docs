@@ -649,6 +649,11 @@ The counts of tables 2 and 3 are read at run time from the `.data` image
 RAM `0x239870`). Tables 0x7F and 0x37F replace the
 empty tables `InitializeHama` registers at the same indices.
 
+The method ids of table 3 (`0x01EA000n`) are private to the module: no main-CPU code uses one.  The
+HD-AE5000's own screens send them to its objects (the SEL_DIR screen's MT_SelectOK / OK2 / SAVE arms, for
+example).  Source: the disassembly's `notes/kn5000-a-2026-10-31/README.md`, which corrected those comments in
+all four HD-AE5000 trees.
+
 The final call is **`RegisterTitle`** (`workspace[0x0E0A][0x0270]`):
 title 0x7F, `XBC = 0x014A0000` (entry 0 of the module's MainFunction table),
 `XDE = 0x007F01EE` (UI object `IV_HDDMENU`, the title's view), name `"TT_HDDEXT"`

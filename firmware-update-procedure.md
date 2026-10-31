@@ -52,6 +52,8 @@ The procedure is the same as above, with an HD-AE5000 update disc (type 6, `HD-A
 
 If the HD-AE5000 board is not installed, a type-6 disc writes nothing and shows no message; the keyboard then stops and must be switched off.
 
+The HD-AE5000 v2.x firmware also has a PC-link flash command (command 20, `HDAE5000_PPORT_Cmd20_SendXapFileFlash`). It cannot be used with the firmware and PC software that survive: it calls a flasher at SRAM 0x23FEB0 that nothing in the ROMs puts there, it checks neither a version nor the data, and HD-TechManager5000 v1.40 never sends it. The type-6 floppy is the working update path. See [HD-AE5000: PC-link flash]({{ site.baseurl }}/hdae5000/#pc-link-flash-command-20-v2x-only).
+
 ### 2-Disc Updates (Legacy)
 
 For older uncompressed updates using two floppy discs:
