@@ -127,14 +127,15 @@ folder is the owner's decision. See also
 
 The header word at `+0x04` points at the second `XAPR` (`XaprTrailerSignature`, at
 `0xB655C`); no code in the image refers to it. The words from `+0x08` to `+0x54` point at
-code, and the KN6000 firmware calls `+0x08`, `+0x0C` and `+0x10` through `calls (aN)` once
-the signature checks out. The ten words from `+0x58` to `+0x7C` all point at `0x80`, a bare
-`rets` (`XaprEmptySlot`). The entry vectors' roles are not worked out yet, so they keep
-`func_<ADDR>` names. The plug-in makes no direct call into the KN6000 firmware. Its indirect
-`calls (aN)` go through the KN6000's own block-0 Function table, which it reads through the
-registry (slot `0x100`): that is how it registers 55 classes and 999 widget records of its own
-([the HD-SX6 plug-in]({{ site.baseurl }}/kn6000-program-data/#the-hd-sx6-plug-in)). The calls
-still spell the function-table offset as a number, not as the routine's name.
+code: the 20 entry vectors, which the KN6000 and the KN6500 all call, each through a stub that tests
+`XaprBoardDetect`'s result (start-up, an idle call, two interrupt handlers, a parameter hook, and a whole
+file system the host's file layer forwards to while the hard disk is in use; named by lane mn10300-rest
+in `hdsx3_manual.sym`, table on [Program Data & GUI]({{ site.baseurl }}/kn6000-program-data/#the-hd-sx6-plug-in)).
+The ten words from `+0x58` to `+0x7C` all point at `0x80`, a bare `rets` (`XaprEmptySlot`). The plug-in
+makes no direct call into the KN6000 firmware. Its indirect `calls (aN)` go through the KN6000's own
+block-0 Function table, which it reads through the registry (slot `0x100`; 183 calls go through slot
+`0x107`, block 7): that is how it registers 55 classes and 999 widget records of its own. Since lane
+mn10300-rest every host call in the source carries the routine's name (`gen_image_s.py --host-calls`).
 
 ## Names
 
@@ -237,10 +238,12 @@ The `.AST` header carries the tag `"I K"` where the KN7000's carries `"J K"`.
 - RAM and I/O addresses are still numbers in the sources. Data addresses the code uses are
   named from the typed data's labels (`labels.sym`, read by `gen_image_s.py`), except a few that
   fall inside typed items.
-- The data still declared opaque (65,733 / 69,967 / 3,103 bytes in the census snapshot
-  `docs/coverage/data-incbin-2026-10-30-04`, as in `-03`, where all three trees read generic 0); see
+- The data still declared opaque (54,782 / 59,027 / 2,981 bytes in the census snapshot
+  `docs/coverage/data-incbin-2026-10-31-02`, where all three trees read generic 0; 39,985 / 44,212 / 594
+  after lane mn10300-rest, measured by its `typer_stats.text_stats`); see
   [Program Data & GUI]({{ site.baseurl }}/kn6000-program-data/#what-is-left-the-census).
-- The plug-in's entry vectors, and names for its host calls in place of the table offsets.
+- ~~The plug-in's entry vectors, and names for its host calls in place of the table offsets~~: done by
+  lane mn10300-rest.
 - The table ROMs IC13 / IC14 need dumping before any table tree can exist; see the
   [ROM Dumping Roadmap]({{ site.baseurl }}/rom-dumping-roadmap/).
 

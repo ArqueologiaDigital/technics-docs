@@ -104,14 +104,28 @@ gap ([`kn7000/notes/mn10300-formats/README.md`](https://github.com/ArqueologiaDi
 pointers); `FxCategoryGet` maps the effect code to one of 15 categories whose jump tables decide how
 the index is found. Each field is named by the routine that reads it:
 
-| record           | fields                                                                                                                                                                                                                                                                                                            |
-|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `FX_DESC`, 16 B  | `count` records at `params` (right before the descriptor); `nparams` (`FxDescNParamsGet`); `mode` (`FxDescModeGet`; `SndUnitDbGroupQuery` searches the parameters for 1 and 2); `pnum9` / `pnum10` / `pnum11`, a parameter number or -1 (`FxDescPnum9Get` ...); `send_param` (`FxDescSendParamGet`); 3 zero bytes |
-| `FX_PARAM`, 36 B | the name, NUL-padded to 20 bytes; `number`, `min`, `max` (`FxParamNumberGet`, `FxParamMinGet`, `FxParamMaxGet`); `band` and `sub` (`FxParamBandGet`, `FxParamSubGet`); `variant` (`FxParamVariantGet`); `x29` (`FxParamX29Get`); 2 zero bytes; `values`, the value texts (`FxParamValuesGet`)                     |
+| record           | fields                                                                                                                                                                                                                                                                                                                               |
+|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `FX_DESC`, 16 B  | `count` records at `params` (right before the descriptor); `nparams` (`FxDescNParamsGet`); `connection` (`FxDescConnectionGet`); `speed_param`, `tempo_param`, `drive_param`, each a parameter number or -1 (`FxDescSpeedParamGet`, `FxDescTempoParamGet`, `FxDescDriveParamGet`); `send_param` (`FxDescSendParamGet`); 3 zero bytes |
+| `FX_PARAM`, 36 B | the name, NUL-padded to 20 bytes; `number`, `min`, `max` (`FxParamNumberGet`, `FxParamMinGet`, `FxParamMaxGet`); `band` and `sub` (`FxParamBandGet`, `FxParamSubGet`); `variant` (`FxParamVariantGet`); `depth_link` (searched by `FxParamNextDepthLinked`); 2 zero bytes; `values`, the value texts (`FxParamValuesGet`)            |
 
 - `send_param` is the REVERB SEND parameter's number ("106 of 106" in the lane's count) and -1 in the
-  reverbs; `pnum9` is the number of a *SPEED* parameter in 91 of 106 descriptors (the roles of `pnum9` ..
-  `pnum11` were not traced).
+  reverbs.
+- The four fields that were `mode`, `pnum9`, `pnum10` and `pnum11`, and FX_PARAM's `x29`, were named by
+  lane mn10300-rest from their readers ([`kn7000/notes/mn10300-rest/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-rest/README.md),
+  section 1; probe `kn2400_fx_pnums.py`):
+  - `connection` (+8): `FxConnectionGet` maps it to the unit's connection message (kind 9), and
+    `SndUnitDbGroupQuery` and `FxDepthApply` act for 1 and 2. It is 0 for reverbs, choruses and gates, 1
+    for depth effects, 2 for rotary / amp / wah / pitch, 3 for Dry/Wet (*[INFERENCE]* a connection type);
+  - `speed_param` (+9): `FxSpeedNudge` (`0x4863B51E`, which nothing calls) moves that parameter by
+    (value - 0x40) within its min / max: LFO SPEED, SLOW LFO SPEED or PEDAL, in the 27 descriptors that
+    set it;
+  - `tempo_param` (+10): `FxParamValueGet` answers GetM3Em id 4 (TEMPO) for that parameter instead of its
+    stored value: the two "TEMPO" effects;
+  - `drive_param` (+11): an effect of the same type is reloaded with its parameters kept (kind 5) only
+    when it is -1; it is the DRIVE of the 9 rotary / amp twins;
+  - `depth_link` (FX_PARAM +0x1D): 0 when the parameter follows the depth control; `FxDepthApply` scales
+    every such parameter by the control / 0x50, clamps it and posts it.
 - `band` / `sub` are 0..4 / 0..2 in the EQ's band parameters: frequency, Q, gain.
 - `variant` is 0 and 1 for two alternative records of one number ("DEPTH" / "DEPTH (V)", "SPEED FAST" /
   "SLOW"), 0xFF for a record always shown.
@@ -119,6 +133,49 @@ the index is found. Each field is named by the routine that reads it:
 `gen_data_s.py`'s `fx_descriptors()` pass (profile key `fx_descriptors`, the KN2400 only) writes them
 one line a record. The KN7000's `SndUnitDbGroupQuery` / `SndRec*` routines are the same family, but the
 KN7000's records are not this layout.
+
+## The effect DSP's programs, scripts and maps (lane mn10300-rest)
+
+The SX-KN2400 downloads a program into its effect DSP for each effect type. The "20 KB of
+`7c aa aa 7d 55 55 ...` streams" were one family, `0x48533EAC..0x48541618` (55,148 bytes): for each of the
+208 DSP types a **program stream**, a **parameter script** and an **address map**, plus the six units' idle
+programs, the boot and clear streams and three coefficient waves
+([`kn7000/notes/mn10300-rest/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-rest/README.md),
+section 1; probe `kn2400_fx_streams.py`). Nothing loads from them directly: four pointer tables are their
+only readers, which is why the reader search had called them opaque.
+
+| table                    | reader                                                        | blocks |
+|--------------------------|---------------------------------------------------------------|--------|
+| `FxTypeProgramTable`     | `FxDspProgramLoad` (`0x50189F4E`)                             | 103    |
+| `FxUnitIdleProgramTable` | `FxDspProgramLoad` (type 0)                                   | 6      |
+| `FxTypeScriptTable`      | `FxDspParamApply` (`0x5018A267`)                              | 89     |
+| `FxTypeMapTable`         | `FxDspParamApply`                                             | 85     |
+| boot / clear / waves     | `FxDspBoot`, `FxDspClearRun`, `FxDspQueueFlush`               | 9      |
+| orphans (nothing points) | parsed as the kind they parse as (*[INFERENCE]* older copies) | 22     |
+
+- **Program streams** (`FxDspStreamExec`): records of a kind byte and a 12-bit length counting the whole
+  record. 0xFB raw bytes (sent after a 12-byte command), 0xFC 4-byte program words (word i to step
+  `FxUnitProgramBase[unit]` + i, `FxDspStepWrite`; 6,785 words), 0xFD / 0xF7 big-endian u24 coefficients
+  from an address (0xFD as one burst, `FxDspBurstWrite`; 0xF7 each after register 0xFF = its address),
+  0xFE {u16 register, u24 value} pairs (`FxDspIndirectWrite`), 0xFF the end. The `7c aa aa 7d 55 55 ...`
+  bytes are 19 0xF7 records at coefficient 0x8D, 33 values each, a curve from 0x800000 to 0x7FFFFF.
+- **The chip's interface.** The DSP sits behind the halfword registers at `0x98050000 + 2 x reg`
+  (`FxSerialRegWrite`), busy on bit 2 of `0x98070000`; its chip select, reset and strobe are bits 4, 2 and
+  1 of the write-only latch `0x98000000` (`Latch98000000Set` / `Latch98000000Clear`).
+- **Parameter scripts** (`FxParamScriptRun`, `FxScriptGroupFind`, `FxParamEntryExec`): one group per
+  parameter number, {u16 big-endian length, entries {kind, index into the kind's map group, operands},
+  0x7A}, 0xFF after the last group. They turn the panel value v into coefficients: kinds 0x64 / 0x66 /
+  0x21 take {u24 lo, u24 hi} and give lo + (hi - lo) x v / 99 (0x21 doubled), 0x67 an offset plus v
+  milliseconds in samples, 0x68 x v / 180, and 0x79 bypasses the unit and runs `FxDspClearStream`. Eight
+  groups of types 96..99 (no descriptor, no name) and the map of type 127 do not tile; they stay bytes
+  (*[INFERENCE]* never reached).
+- **Address maps** (`FxMapAddrFind`): groups {u16 BE length, kind, u16 BE DSP addresses}, 0xFF after the
+  last: the DSP addresses each script entry writes.
+
+`gen_data_s.py`'s `fx_streams()` pass (profile key `fx_streams`) writes them one macro a record (`FXP_*`,
+`FXS_*`, `FXM_*` in `src/include/data_tables.inc`), labelled `FxProgram_<type>`, `FxScript_<type>`,
+`FxMap_<type>` and `FxUnitIdleProgram<unit>`, each header naming the types and their effect names. The type
+is the `FxDescTable` index, which the effect presets (`FxPresetTable`) hold at +0x12 (`FxDescIndexGet`).
 
 **zlib's tables and field names.** Lane mn10300-formats named zlib 1.0.4's 19 data tables, found by
 their contents, in this tree's manual symbol file too (`cplens`, `cplext`, `static_l_desc`,
@@ -247,13 +304,23 @@ bytes, for the reason given [above](#blocks-a-routine-is-handed). The current sn
 -> 4448 / 172,071 is the effect descriptors ([above](#the-dsp-effect-descriptors-lane-mn10300-formats)),
 the rest lane mn10300-typer's ([above](#pointers-arrays-and-loops-lane-mn10300-typer)).
 
+Lane mn10300-rest (2026-10-31) then took the opaque pieces from 3,419 / 155,297 to 2,885 / 61,226
+(measured on its branch's committed sources by `typer_stats.text_stats`, the table "Measurements" of
+[`kn7000/notes/mn10300-rest/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-rest/README.md);
+no census snapshot holds that figure yet): the effect DSP's streams (55,111 bytes,
+[above](#the-effect-dsps-programs-scripts-and-maps-lane-mn10300-rest)), the C library's powers of ten
+(`Pow10Table` at `0x485288D8`, 309 doubles that `PfDoubleToDecimal` reads), the alphabetical sound lists
+of both strap sets, and the parameter-id trie (`ResourceIdTrie`, walked by `ResourceIdFind`, the
+KN7000's design). The over-long record array that had run from the trie's 16-entry root over what follows
+it is gone.
+
 Lane generic-zero (disassembly `c65a62c5b`; `kn6000/notes/siblings-data-final/README.md`, section
 "generic-zero") took it to 0. Every generic piece had a reader, so none could stay a binary include
 or be declared opaque:
 
 - `record_start()` stops a record that the walk reads past its first bytes from being taken for a
   short string, so the `func_5014A95C_Records_p0` records (before: `Str_empty_1261`, `Str_4_33`
-  ...) are typed;
+  ...; the parameter-id trie's leaves, under `ResourceIdTrie` since lane mn10300-rest) are typed;
 - the 431 generic pieces are rows at the width and signedness of the reads that land in them
   (`tab_u8` ... `tab_u32`), address words as `.long Label` / `Label+N`, under a header naming the
   readers: 3 pieces / 109 bytes read at a known width, 380 / 18,475 whose address the code only
@@ -272,21 +339,28 @@ A reader row kept the **reader's** widths, not the callee's layout, until lane c
 while the opaque piece count rose by 3: pieces were split at labels the new records and reader rows
 name (not traced one by one). The largest opaque pieces, which no instruction reads:
 
-| run                      | bytes  | what it is, as far as known                                                                                                                                                          |
-|--------------------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `0x4853C5BE..0x48541488` | 20,065 | `7c aa aa 7d 55 55 7e aa aa 7f ...` command streams with names, and more at `0x48537CDC..` / `0x48539DD5..`: *[INFERENCE]* effect-DSP programs, not the KN7000's SHARC record format |
-| `0x48430000..0x4843FFFF` | 44,299 | 1,089 small pieces between effect names; since lane mn10300-formats typed as the DSP-effect descriptors ([above](#the-dsp-effect-descriptors-lane-mn10300-formats))                  |
-| `0x4853AF63..0x4853C5AA` | 5,703  | high-entropy bytes                                                                                                                                                                   |
-| `0x484FE008..`           | 5,147  | 8-byte rows of a count and up to 4 notes, *[INFERENCE]* chord voicings (the KN6500 has them too)                                                                                     |
+| run                      | bytes  | what it is, as far as known                                                                                                                                                                               |
+|--------------------------|--------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x4853C5BE..0x48541488` | 20,065 | `7c aa aa 7d 55 55 7e aa aa 7f ...` command streams; since lane mn10300-rest typed as the effect DSP's programs, scripts and maps ([above](#the-effect-dsps-programs-scripts-and-maps-lane-mn10300-rest)) |
+| `0x48430000..0x4843FFFF` | 44,299 | 1,089 small pieces between effect names; since lane mn10300-formats typed as the DSP-effect descriptors ([above](#the-dsp-effect-descriptors-lane-mn10300-formats))                                       |
+| `0x4853AF63..0x4853C5AA` | 5,703  | high-entropy bytes, inside the effect-DSP family `0x48533EAC..0x48541618` that lane mn10300-rest typed                                                                                                    |
+| `0x484FE008..`           | 5,147  | 8-byte rows of a count and up to 4 notes, *[INFERENCE]* chord voicings (the KN6500 has them too)                                                                                                          |
 
 ## Open
 
 - ~~Which of the two Music Stylist lists belongs to which model~~: settled by the model strap
-  ([above](#typed-from-its-readers-lane-siblings-final)). Other strap-chosen tables
-  (`func_487019FB_entry_Lf_Table` / `func_487019FB_entry_L29_Table`, `func_4865F898_Table` /
-  `func_4865F898_Table_2`, `func_5015A8CC_entry_L21_Table`) hold things not traced.
-- The 20 KB of `7c aa aa 7d 55 55 ...` streams at `0x4853C5BE..` (*[INFERENCE]* effect-DSP programs),
-  which nothing reads.
+  ([above](#typed-from-its-readers-lane-siblings-final)). Of the other strap-chosen tables, lane
+  mn10300-rest named two: `SoundAlphaListTable` / `SoundAlphaListTableKN2400` are the alphabetical sound
+  lists that `SoundAlphaListGet` picks (the KN2400's when `KnprModelGet` answers 1), and
+  `func_5015A8CC_entry_L21_Table` is the KN2600's parameter-group lists. `func_4865F898_Table` /
+  `func_4865F898_Table_2` are still not traced.
+- ~~The 20 KB of `7c aa aa 7d 55 55 ...` streams~~: the effect DSP's programs
+  ([above](#the-effect-dsps-programs-scripts-and-maps-lane-mn10300-rest)).
+- The groups whose reader lane mn10300-rest found but which no generator pass types yet (KN2400 bytes:
+  FX presets 18,434, style / setup lists 7,694, chord voicings 5,147, 128 x 64 code / chord maps 4,426,
+  terminator-ended lists 4,189, widget variables in the initialised RAM image 3,876, fixed-count tables
+  896), and what stays opaque and why: the chord-name tables (no word of the image points into them) and
+  the coefficient curves at `0x4840DAF8` (no holder). The list is section 7 of the lane's README.
 - Who copies the RAM-linked code to `0x50120000`: `func_4870587E` reads `RamCodeTrailer`, but
   what it does with each record's three words was not traced.
 - The 123 address-only blocks the callee walk leaves as rows, and the 12-byte blocks the switch

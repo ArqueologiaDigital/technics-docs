@@ -145,7 +145,7 @@ s8 deltas}, 492-byte melody and 4,900-byte chord tables: on the KN6000 21 tables
 The KN6000 v7.1 holds three multiplicative hash tables of the shape of the table flash's 'JK' voice
 archive, with absolute pointers: a `{u16 mult, u16 nbuckets}` descriptor, the buckets, then chains
 of `{u32 next, key, payload}`. The readers are used when no archive is loaded (when `func_4C07B982`
-answers neither 1 nor 2). Each takes `key * mult % nbuckets` (`func_4C09B1EC`), walks the chain
+answers neither 1 nor 2). Each takes `key * mult % nbuckets` (`ToneKeyHashIndex`), walks the chain
 comparing `+4` and answers the payload:
 
 | descriptor         | address      | buckets | entries x size | key                                                         | lookup           |
@@ -161,17 +161,38 @@ misplaced). These 89,196 bytes were the "past the tone directory" region of the 
 which payload bytes carry values, and the routines that read them (named in `kn6000_manual.sym`) say
 what they are; the bytes nobody reads are 0 in every entry, the macros' trailing `.space`:
 
-| payload macro       | fields, from their readers                                                                                                                                                                                                                                         |
-|---------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `TONE_KEY_PAYLOAD`  | +0 u16 `tone` (`SoundToneIndexGet`), +2 `icon` (`SoundIconGet`; `MainGetSoundName` answers it for `MT_GetSoundIcon`), +3 / +4 `swgroup01` / `swgroup23`, +5..+8 `swno0`..`swno3` (`SoundSwNoGet`: the panel switch {group, number} for the reference's state 0..3) |
-| `SHORT_KEY_PAYLOAD` | the bank `msb`, `lsb` and `program` the switch selects (`SoundSwNoBankGet` copies +0 / +1 / +2 to its three outputs)                                                                                                                                               |
-| `BANK_KEY_PAYLOAD`  | the u16 `index` `SoundBankIndexGet` answers                                                                                                                                                                                                                        |
+| payload macro       | fields, from their readers                                                                                                                                                                                                                                                                             |
+|---------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `TONE_KEY_PAYLOAD`  | +0 u16 `tone` (`SoundToneIndexGet`), +2 `icon` (`SoundIconGet`; `MainGetSoundName` answers it for `MT_GetSoundIcon`), +3 / +4 `panel_group` / `explorer_group`, +5..+8 `panel_no_dsp`, `panel_no`, `explorer_no_dsp`, `explorer_no` (`SoundSwNoGet`: the switch {group, number} for state 0..3, below) |
+| `SHORT_KEY_PAYLOAD` | the bank `msb`, `lsb` and `program` the switch selects (`SoundSwNoBankGet` copies +0 / +1 / +2 to its three outputs)                                                                                                                                                                                   |
+| `BANK_KEY_PAYLOAD`  | the u16 `index` `SoundBankIndexGet` answers                                                                                                                                                                                                                                                            |
 
 So `ToneKeyHash` maps a sound to its icon, tone and panel button, and `ShortKeyHash` maps a button back
-to its sound. `swgroup01` takes 0..15 and `swno0` / `swno1` 0..39 (the panel's sound groups),
-`swgroup23` 0..31 and `swno2` / `swno3` 0..127 (bank-and-program style numbers) *[INFERENCE on what
-the two pairs of states are]*. The KN7000's 'Tone' hash has the same 12-byte payload; its readers were
-not traced.
+to its sound.
+
+**The four switch states** (lane mn10300-rest, 2026-10-31,
+[`kn7000/notes/mn10300-rest/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-rest/README.md),
+section 2; probe `kn6000_swno_states.py`). Every sound has four switch positions: on the panel's SOUND
+GROUP buttons and in the SOUND EXPLORER's 32 categories, each twice, once for a part that has a DSP
+effect unit and once for one that has none. `SoundSwNoGet` reads the state and answers the payload
+bytes below; for states 2 / 3 it then adds 2 x the archive source `ToneKeyFind` found. The inverse,
+`SoundSwNoBankGet`, makes the `ShortKeyHash` key group from the group + 0 (state 0), + 0x10 (1), + 0x40
+(2) or + 0x60 (3); `SoundGroupNames` gives key groups 0x00..0x0F the panel SOUND GROUP buttons and
+0x40..0x7F the 32 SOUND EXPLORER categories. The even state is the one for a part with a DSP unit:
+`PartHasDspUnit` compares the DSP units' parts (GetM3EmVal `0xB050` .. `0xB010`) with the part, and
+`MainGetSoundName` adds 1 when there is none.
+
+| state | payload bytes                             | meaning                  |
+|-------|-------------------------------------------|--------------------------|
+| 0     | +3 `panel_group`, +5 `panel_no_dsp`       | panel switch, DSP unit   |
+| 1     | +3 `panel_group`, +6 `panel_no`           | panel switch             |
+| 2     | +4 `explorer_group`, +7 `explorer_no_dsp` | SOUND EXPLORER, DSP unit |
+| 3     | +4 `explorer_group`, +8 `explorer_no`     | SOUND EXPLORER           |
+
+The round trip `ShortKeyHash` -> sound -> `ToneKeyHash` agrees for all 2,898 entries. *[INFERENCE]* Bank
+MSBs 0x28..0x2F are the variants that need a DSP unit (state 0 holds 11 such switches where state 1
+holds the 0x20 ones). The KN7000 has the same routines and tables
+([KN7000 Program Data Region]({{ site.baseurl }}/kn7000-data-region/#the-tone-hash-and-the-switch-key-hash-lane-mn10300-rest)).
 
 ### zlib's tables and field names (lane mn10300-formats)
 
@@ -210,11 +231,32 @@ tables:
 | 0x1A8 | ResMethod    | 100   | `0x979121E0` |
 
 and the title `0x77` = `TT_HDDEXT`, whose screen is `HDD_MAIN_MENU`. The tables at `0x9791xxxx` are
-in the plug-in's initialised RAM, copied from `0x978B3E84` (`0x26D8` bytes, `func_97800082`). Its 55
+in the plug-in's initialised RAM, copied from `0x978B3E84` (`0x26D8` bytes, `XaprRamInit`). Its 55
 classes use the NAKA alphabet and derive from KN6000 classes, so the generator builds the KN6000's
 model first. Two link checks fail, both in the plug-in's own data: object 11's `next` is its child
 14, and object 137's `next` is the orphan 138. Its three pictures (`BitmapBg001`, `BitmapBg002`,
 `BitmapDirsel`) are 640 x 240, 8 bits, with a 256-entry `0x00BBGGRR` palette.
+
+**Its entry points** (lane mn10300-rest, section 5 of its README; probe `hdsx3_entry_vectors.py`; names
+in `hdsx3_manual.sym`, the host's side in `kn6000_manual.sym` / `kn6500_manual.sym`). The plug-in's header
+exports 20 entry vectors (+0x08 .. +0x54), and the KN6000 and the KN6500 call all of them, each through a
+stub that tests `XaprBoardDetect`'s result. `XaprBoardDetect` accepts the board only when the word header
++0x04 points at also reads "XAPR" (`XaprTrailerSignature`).
+
+| header         | vector                                       | when the host calls it                                                                                                                           |
+|----------------|----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| +0x08          | `XaprEntryInit`                              | once at boot, with the registry base                                                                                                             |
+| +0x0C          | `XaprEntryIdle`                              | at the end of every pass of the main task loop                                                                                                   |
+| +0x10, +0x14   | `XaprEntryIsrGroup24`, `XaprEntryIsrGroup27` | from the host's interrupt handlers `XaprIsrGroup24` / `XaprIsrGroup27` (interrupt groups 0x18 and 0x1B)                                          |
+| +0x18          | `XaprEntryM3Hook`                            | the PutM3Em hook of message group 0x70                                                                                                           |
+| +0x1C .. +0x54 | `XaprExtDiskFreeSpace` .. `XaprExtFileTell`  | the host's file layer, while its ExtMode flag is set: free space, names, error, open, close, remove, getc, putc, read, write, seek, rewind, tell |
+
+So the KN6000's own file layer forwards to a whole file system in the plug-in while the hard disk is in
+use. **Its calls into the host** (probe `hdsx3_indirect_calls.py`): all 2,630 indirect calls are resolved,
+2,444 through registry slot 0x100 (block 0), 183 through slot 0x107 (block 7) and 3 through a tag table;
+every host call in `hdsx3/src/program.s` now carries the routine's name (`gen_image_s.py --host-calls`).
+`milk_model.py` used to read slot-0x107 calls as block-0 routines; it now follows the slot-0x100 chain
+only (the 11 registrations are unchanged). No other pointer is built at run time.
 
 ## Blocks a routine is handed
 
@@ -288,6 +330,17 @@ snapshot, [`docs/coverage/data-incbin-2026-10-31-02.txt`](https://github.com/Arq
 and `hdsx3` 98 / 2,981, the other columns unchanged: lane mn10300-typer's work
 ([above](#pointers-arrays-and-loops-lane-mn10300-typer)).
 
+Lane mn10300-rest (2026-10-31) then took the opaque pieces to `kn6000` 2,175 / 39,985, `kn6500`
+2,189 / 44,212 and `hdsx3` 95 / 594 (measured on its branch's committed sources by
+`typer_stats.text_stats`, table "Measurements" of
+[`kn7000/notes/mn10300-rest/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-rest/README.md);
+no census snapshot holds those figures yet). The new passes type the C library's table of powers of ten
+(`Pow10Table`, 309 doubles: KN6000 `0x4C326F54`, KN6500 `0x4C2B276C`, plug-in `0x978AFD98`), the EUC-JP
+strings of the language tables, and the parameter-id trie (`ResourceIdTrie`, walked by `ResourceIdFind`;
+[Panel Memory Records]({{ site.baseurl }}/kn7000-panel-memory/#every-setting-has-a-parameter-id)). The
+over-long record array that had run from the trie's 16-entry root over what follows it is gone (962 bytes
+typed before and not after on the KN6000).
+
 Before the work the trees held 2,630,724 (KN6000), 2,140,036 (KN6500) and 533,544 (plug-in) generic
 bytes; after lanes sib-kn6000 and sib-kn2400, 797,489 / 901,823 / 6,623; in the first snapshot
 (`data-incbin-2026-10-30-01`, after lane siblings-final) 18,810 / 18,930 / 266 bytes in 380 / 386 /
@@ -298,7 +351,7 @@ generic piece had a reader, so none could stay a binary include or be declared o
 
 - **Records.** `record_start()` stops a record that the walk reads past its first bytes from being
   taken for a short string; the KN6000's `func_4C02CA6A_Records_p0` records (`func_4C02CBDA_Records_p0`
-  on the KN6500), before a run of guessed strings, are typed records now. The opaque bytes fell
+  on the KN6500; the parameter-id trie's leaves, under `ResourceIdTrie` since lane mn10300-rest), before a run of guessed strings, are typed records now. The opaque bytes fell
   with them (79,522 -> 70,137 and 83,667 -> 74,371): bytes declared unread were the records' tails.
 - **Reader rows.** Every other piece is written as rows at the width and signedness of the reads
   that land in it (`tab_u8` ... `tab_u32`), address words as `.long Label` / `Label+N`, under a
@@ -334,19 +387,23 @@ an argument into the routine that reads it; lane callee-walk changed that
 Opaque means that the reader search found no load, store, base or call argument in the bytes. The
 biggest on these images: records `03 00 00 00 00 00 00 00 f0 c0 05 ff ff ff 04 ...` (3,927 bytes at
 `0x4C398C2B` / `0x4C3244AF`), the tail of a pointed record kind with small 0..13 values (3,888
-bytes), `{0, pointer}` word pairs whose pointers lead into gaps, and on all four MILK siblings a
-1,525-byte high-entropy block followed by the JPEG zig-zag order (*[INFERENCE]* the JPEG decoder
-library's constant tables).
+bytes), and `{0, pointer}` word pairs whose pointers lead into gaps. The 1,525-byte "high-entropy" block
+the MILK siblings share, which is followed by the JPEG zig-zag order and was read here as the JPEG
+decoder's tables, is part of the C library's powers of ten (`Pow10Table`, typed by lane mn10300-rest).
 
 ## Open
 
 - ~~The hash tables' payloads past their first field, and the key of the short-key table~~: read from
-  their readers ([above](#the-built-in-sound-hash-tables-kn6000)); what the two pairs of switch states
-  mean is still *[INFERENCE]*.
+  their readers ([above](#the-built-in-sound-hash-tables-kn6000)); the four switch states were read by
+  lane mn10300-rest.
 - The one-touch bytes the macros keep as hex.
 - The code reaches many tables with computed offsets; their bounds come from the labels the code
   names, so a table can still be split in two.
-- The plug-in's entry vectors' roles.
+- ~~The plug-in's entry vectors' roles~~: [above](#the-hd-sx6-plug-in) (lane mn10300-rest).
+- The groups whose reader lane mn10300-rest found but which no generator pass types yet (KN6000 /
+  KN6500 bytes: terminator-ended lists 8,857, 128 x 64 code / chord maps 5,352, fixed-count tables past
+  their typed part 5,244, style / setup lists 4,624 / 5,056, chord voicings 3,486 / 5,142, widget
+  variables in the initialised RAM image 2,950 / 2,948): section 7 of the lane's README.
 - Blocks the callee walk cannot follow: a pointer a routine stores (a timer, a registry, a queue),
   library copies. (Arrays indexed by a loop counter are followed since lane mn10300-typer.) The siblings' walk has the KN7000 extended walk's
   slots, joins and return sets, not its other rules (pointer-from-a-field returns, loop bodies keeping

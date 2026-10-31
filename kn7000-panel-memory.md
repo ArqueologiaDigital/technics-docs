@@ -43,8 +43,9 @@ cell) is on [MEMORY DUMP Screen]({{ site.baseurl }}/kn7000-memory-dump-screen/).
 ## Every setting has a parameter id
 
 Every live parameter is read and written through a 24-bit id. `GetM3Em` / `PutM3Em` look the id up
-in `ResourceIdTrie` (KN7000 `0x4858B424`, walked by lib `func_4C01BB1A`; KN6000 `0x4C1935DC`,
-`func_4C02CA6A_Records`, walked by `func_4C02CA6A`). A leaf is
+in `ResourceIdTrie` (KN7000 `0x4858B424`, walked by lib `func_4C01BB1A`; KN6000 `0x4C1935DC` and
+KN2400 `0x48404E70`, each walked by its `ResourceIdFind`, named and typed by lane mn10300-rest: a root of
+16 entries `{u32 target, u8 inner, u8 count, u16 0}`, taken by the id's nibbles from bit 20 down). A leaf is
 `{u32 id, u16 type, u16 kind, u16 min, u16 max, u8 block, u8 offset, u8 mask, u8 shift}`. For type
 0, `func_4C015602` dispatches on `kind` and reads through `func_4C01F153(block, offset, mask)`;
 writes go through `func_4C01F200`, which then calls `func_4C01F8F4`, the accompaniment-entry
@@ -180,8 +181,33 @@ AMD flash (16 KB, 8 KB, 8 KB, 32 KB, then 64 KB sectors), so each block starts a
 
 **The settings image at `0x96804000`** (0xAA4 bytes). The table's help text says what it is: "User
 MIDI Settings, Help language, and Rhythm Custom etc. are not affected by Initial Setting"
-(`HelpTextEn41_0`). `func_4C024247` copies the whole image to RAM `0x500D2B14`; `func_4C024000`
-programs it back, and `func_4C024030(n)` re-reads one section. At boot `func_4C023EC9` compares the
+(`HelpTextEn41_0`). `func_4C024247` copies the whole image to RAM `0x500D2B14`; `func_4C024030(n)`
+re-reads one section n and `func_4C024000(n)` programs it back. Both jump through a table of 23 cases
+(`func_4C024030_Table`, `func_4C024000_Table`); the RAM and flash address of every case, read from the
+image by the probe `section_map.py` (lane ic21-rest, 2026-10-31, which corrected an earlier order of
+the sections):
+
+| n      | offset             | size         | what                             | written back by                     |
+|--------|--------------------|--------------|----------------------------------|-------------------------------------|
+| 0      | `+0x000`           | 0x10         | `.MD` header                     |                                     |
+| 1      | `+0x010`           | 0xC0         | parameter-id list                |                                     |
+| 2..4   | `+0x0D0` ...       | 0x90 each    | USER MIDI SETTING 1..3           | `func_484C4144`                     |
+| 5      | `+0xA70`           | 2            | language                         | LangSetFlashFunc, LangSetFlashFunc2 |
+| 6      | `+0xA72`           | 0xC          | the six display times            | MainTimeFlashFunc, MainSysControl   |
+| 7      | `+0xA7E`           | 4            | jump_insert, file_priority       | SetupFlashFunc                      |
+| 8      | `+0xA82`           | 8            | para_load1..4                    | MainFlashFunc                       |
+| 9      | `+0xA8A`           | 8            | wall_home1..4                    | MainWallSetFlashFunc                |
+| 10     | `+0xA92`           | 2            | contrast                         | FN_TtContrast (`func_4854E5C6`)     |
+| 11, 12 | `+0xA94`, `+0xA96` | 2 each       | r_a94, r_a96                     | nothing                             |
+| 13, 14 | `+0x280`           | 0x750, 0x7F0 | the CUSTOM PANEL, short or whole | `func_4C021F7F`, `func_4C021FD9`    |
+| 15     | `+0xA98`           | 2            | data_protect                     | MainDtPrtFlashFunc                  |
+| 16     | `+0x000`           | 0x280        | the `.MD` part whole             | `func_484C44FC`                     |
+| 17     | `+0xA9A`           | 2            | cus_mem_mode                     | CustomPanelFlashFunc                |
+| 18     | `+0xA9C`           | 2            | acc_reverb_mask                  | nothing                             |
+| 19     | `+0xA9E`           | 2            | rsp_select                       | TestVideoOutFunc                    |
+| 20, 21 |                    |              | none (the case only returns)     |                                     |
+| 22     | `+0xAA0`           | 4            | panel_sw1, panel_sw2             | SdcSetupFlashFunc                   |
+ At boot `func_4C023EC9` compares the
 image's first 3 bytes with `"JK "` and, when they differ, rebuilds the image from ROM and programs it:
 the `.MD` part from `Str_JK_6` and its blocks, the CUSTOM PANEL from `Str_empty_1431` (0x7F0 bytes),
 the 26 halfwords from `func_4C023EC9_Table` and `func_4C023F9B_Table`. It then resets the home page
@@ -198,30 +224,79 @@ way by their own `JK` signatures.
   (`HelpTextEn35_0`): the live panel state `0x84000020`, stored or recalled by `func_4C021903`, in the
   PANEL MEMORY format of this page, every record spelled with its `PMR_*` macro. It is 0x750 bytes
   (43 tag / length records ended by FF FF), or 0x7F0 with a second list of 7 records (tags 0x52, 0x50,
-  0x51, 0x60, 0x61, 0x62, 0x68) when `cus_mem_mode` (`+0xA9A`, `CusMemModeBoxProc`) is non-zero.
-  *[INFERENCE]* That is the help text's choice "whether to load all panel settings or to load panel
-  memory parameters".
+  0x51, 0x60, 0x61, 0x62, 0x68) when `cus_mem_mode` (`+0xA9A`) is non-zero. The CUSTOM PANEL MODE
+  screen offers "PANEL MEMORY" and "ALL PANEL", in that order, and `CusMemModeBoxProc` frames the box
+  `cus_mem_mode` indexes: 0 = PANEL MEMORY, 1 = ALL PANEL (`HelpTextEn35_1`'s choice "whether to load
+  all panel settings or to load panel memory parameters"). This unit has 1. The second list is the
+  panel state that no panel memory holds, which ALL PANEL adds: tag 0x52 the current PANEL MEMORY
+  number, the DSP unit numbers and the MONO 1 / 2 output parts; tag 0x50 the tone-generator mode
+  (`AcTGModeSelProc`); tag 0x51 the touch sensitivity (`TchSensGridCheck`); tags 0x60-0x62 and 0x68,
+  whose bytes no parameter record covers.
 - **System settings** (`+0xA70`, `USR_SETUP`): 26 halfwords, RAM `0x500D3584`..`0x500D35B7`, each named
   after the routines that read its RAM copy (language: `CheckLanguage`, `AcLanguageTextProc`; data
-  protect: `DataProtectGridCheck`). Three fields have no named reader.
+  protect: `DataProtectGridCheck`); `user_settings.inc` gives every field with its reader. Named by lane
+  ic21-rest:
+  - **the six display times** (`+0xA72`..`+0xA7D`): the DISPLAY TIME OUT screen; `DispTimeSetGridCheck`
+    maps rows 2..7 of its grid to them in the order of the row captions: SAVE REMINDER, 'COMPLETED'
+    MESSAGE, ARE YOU SURE?, ERROR MESSAGE, SOUND/RHYTHM SELECT, EASY SETTING;
+  - **`contrast`** (`+0xA92`): the LCD contrast. FN_TtContrast re-reads section 10 and hands the value to
+    `func_484ABAA9`, which clamps it to 3..100 and sends panel-CPU command 0x1C with
+    `func_484ABAA9_Table[value]`. This unit has 59, the default 50;
+  - **`acc_reverb_mask`** (`+0xA9C`): one bit per accompaniment part, bits 0-7 = ACCOMP1-5, BASS, DRUMS1,
+    DRUMS2 (part tags 0x13-0x1A). `func_4C027803`, the CC91 (reverb depth) case of the part-CC table
+    `func_4C024DD8_Records_4`, sends a part's CC91 value only when its bit is set, else 0. The default
+    is 0xFF and nothing writes the field;
+  - **`r_a94`, `r_a96`** (`+0xA94`, `+0xA96`): no routine of programs 893, 935 or 941 names their RAM
+    address except the section code itself, and nothing writes their sections back. They stay at the
+    boot defaults, 0 and 1.
 
 **The flash test** at `0x96806000`. `func_4849FCF2`, one step of the ROM test (`MainRomTestFunc`),
 programs a buffer of `0x5A5AA5A5` there in 0x80-byte chunks, 0x2000 bytes in its long form (0x320
 otherwise), and reads it back; nothing erases it afterwards. The 0x2000 bytes on this chip say the
-long form of the test ran on this unit. The source spells them as 64 `FLASH_TEST_CHUNK`s.
+long form of the test ran on this unit. The source spells them as 64 `FLASH_TEST_CHUNK`s. The long form
+is the TEST MENU's page 1, ROM DEVICE TEST ("PROGRAM ROM: IC16", "RHYTHM ROM: IC18 (IC20)", "CUSTOM
+FLASH: IC21"): `func_4849FC1A` answers 1 only when the test state buffer (RAM `0x5006BA20`) holds title
+0xFC (`TT_TESTMENU`) at `+0x1F9` and `func_4849FBE4_Table[page]` = 1 at `+0x1F8`. Run from the `stest1`-`stest7`
+screens (titles 0xF4-0xFA), the test writes the short 0x320 bytes (lane ic21-rest).
 
 **FAVORITES** at `0x96810000` (0x198 bytes): `FAV_HEADER` (`"JK "` and a u32 stamp), then four banks
 (`FAV_BANK`) of a 16-character name, a u32 and ten `{u32 kind, u32 value}` items (`FAV_ITEM`), which
-`AcFavoriteProc` dispatches by kind through `AcFavoriteProc_Table`. **HOME PAGE** at `0x96811000`
-(0x4442 bytes, the whole `.HMP` file, as `HmpBlobGet` returns it): the 0x18C-byte record
-(`HP_HEADER` with the home-page type, 0..5, then 64 parts of 6 bytes, `HP_PART`) and the BMP.
+`AcFavoriteProc` dispatches by kind through `AcFavoriteProc_Table`. The u32 at bank `+0x10` is the
+NUL that ends the name, padded to a word. What each kind's handler draws and recalls (lane ic21-rest;
+the source spells the kinds with the `FAVK_*` names of `user_settings.inc`):
+
+| kind             | handler         | name              | the item                                                                                                              |
+|------------------|-----------------|-------------------|-----------------------------------------------------------------------------------------------------------------------|
+| 0, 1, and 10..15 | `func_4849D4D4` | `FAVK_NONE`       | nothing: an empty box                                                                                                 |
+| 2                | `func_4849D575` | `FAVK_SETTING`    | "FAVORITES SETTING": opens the FAVORITES SETTING page; value 0. Every bank ends with it                               |
+| 3                | `func_4849D6A8` | `FAVK_SOUND`      | a sound `{program, bank LSB, bank MSB}`, put to parameter 0xC00000 of the selected part                               |
+| 4                | `func_4849DAAF` | `FAVK_RHYTHM`     | a rhythm: its id, put to parameter 0xC000                                                                             |
+| 5                | `func_4849DCF9` | `FAVK_STYLIST`    | a MUSIC STYLIST setup: below 0x438 one of `StyleRecordTable`'s 1,080, above it the user's                             |
+| 6                | `func_4849DE62` | `FAVK_MENU`       | a menu page: an index into `func_4849DE62_Table` (114 records: "SOUND MENU", "SOUND PART SETTING", "MIXER" ...)       |
+| 7                | `func_4849E0E0` | `FAVK_PANIC`      | "PANIC": parameter 0x600004 := 0; value 0                                                                             |
+| 8                | `func_4849E193` | `FAVK_MUTE_KEYS`  | "MUTE KEYS : ON / OFF": toggles parameter 0x600005; value 0                                                           |
+| 9                | `func_4849E303` | `FAVK_SOUND_MODE` | the sound mode: parameter 8 := value; 0 "NX SOUND ON", 2 "GM LEVEL2 ON"                                               |
+
+**HOME PAGE** at `0x96811000` (0x4442 bytes, the whole `.HMP` file, as `HmpBlobGet` returns it): the
+0x18C-byte record and the BMP. `HP_HEADER` holds the home-page type, which `AcHpTypeEditProc` keeps in
+0..5 and uses to index `TtNormal_Records`: 0 DEFAULT, 1 DEFAULT WITH PICTURE, 2-4 PRESET 1-3, 5 USER,
+the record's own parts. Then come 64 parts of 6 bytes (`HP_PART`, `{u16 kind, s16 x, s16 y}`). The kind
+indexes `TtNormal_Table`, 49 part kinds named by the strings of `Text_TITLE_BAR_NORM` (title bars,
+balance, combinations, sounds, rhythm, tempo, chord, split point, pads, panel memory, picture, song,
+favorites bank, effects, foot switch and controller ...; `HPK_*`); kind 0x31 (`HPK_NONE`) is an unused
+part. x and y are the part's grid cell, and y = -1 is the row above the grid: every preset layout and
+the factory record put their TITLE BAR part there.
+
+At boot FAVORITES is compared with the ROM template `func_4849EDEB_Table` (the signature, then the u32
+stamp) and rewritten from it when either differs.
 
 **This unit's chip.** Its MIDI settings and favorites are the factory ones byte for byte (`02UMDINI.MD`
 and `03FAVINI.FAV` of the Initial Data Disk, and the defaults in program 893), and so is its home-page
 picture (`Bmp_48743E5C`, which the source includes as a committed BMP). Its custom panel (1,935 of
-2,032 bytes equal the default) and its home-page layout (type 0 with three parts, where the factory
-file has type 5 and twelve) are his own. Its 20 custom styles are styles of the KN5000, loaded into
-the KN7000 ([Custom Style Memory]({{ site.baseurl }}/kn7000-custom-style-memory/#a-real-units-bank-the-owners-ic21)).
+2,032 bytes equal the default) and its home-page layout (type 0 with three parts: TITLE BAR NORM at
+(0, -1), RIGHT COMBI 1 at (8, 0) and BALANCE NORM 1 at (0, 4), where the factory file has type 5 and
+twelve) are his own. Its 20 custom styles are styles of the KN5000 that came through a KN6000 CUSTOM
+file ([Custom Style Memory]({{ site.baseurl }}/kn7000-custom-style-memory/#a-real-units-bank-the-owners-ic21)).
 
 **Corrected 2026-10-31.** The first analysis of this read (2026-10-19) took `0x04280`-`0x04ABF` for
 "2 KB more MIDI-setting records". It is the CUSTOM PANEL and the system settings, and the used part ends
@@ -234,7 +309,7 @@ at `0x04AA3`.
 - The song record's `+0x07`..`+0xCF` and `+0x100`..`+0x11F`; the track directory's low flag bits.
 - The `0x7A` unit's untraced bytes; the tone generators' side bits.
 - The KN6000's extra foot-controller functions in tag `0x48`.
-- IC21 (lane ic21-own): the CUSTOM PANEL's second list (tags 0x50-0x68, the 0xA0 bytes `cus_mem_mode`
-  adds); the system settings `s35a6`, `s35a8`, `s35aa` and `s35b0`, which have no named reader; the
-  FAVORITES kinds 2 and 4-9 and the u32 at bank `+0x10`; the home-page part kinds, and x / y = 0xFFFF on
-  a used part; when the long form of the flash test runs.
+- IC21: every open question of lane ic21-own was answered by lane ic21-rest (2026-10-31; the table in
+  [`kn7000/notes/ic21-own/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/ic21-own/README.md#open-questions)).
+  Still open: the bytes of tags 0x60-0x62 and 0x68 in the CUSTOM PANEL's second list, and the two
+  unread system fields `r_a94` / `r_a96`.

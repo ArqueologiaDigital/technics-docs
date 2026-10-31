@@ -348,6 +348,96 @@ lost inside it (2 / 94). The same walk did most for the siblings
 ([KN6000 / KN6500]({{ site.baseurl }}/kn6000-program-data/#blocks-a-routine-is-handed),
 [KN2400]({{ site.baseurl }}/kn2400-program-data/#blocks-a-routine-is-handed)).
 
+## The last open items (lane mn10300-rest)
+
+Lane mn10300-rest (2026-10-31, [`kn7000/notes/mn10300-rest/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-rest/README.md),
+probes in `kn7000/notes/mn10300-rest-probes/`) took the open items of the MN10300 trees' notes. Every rule
+it added to the generator is a switch (`gen_data_s.FEATURES`, environment variable `GEN_DATA_S_OFF`), so
+`rest_stats.py` measures each one against main. Its KN2400 and KN6000 findings are on their pages
+([the effect DSP]({{ site.baseurl }}/kn2400-program-data/#the-effect-dsps-programs-scripts-and-maps-lane-mn10300-rest),
+[the switch states]({{ site.baseurl }}/kn6000-program-data/#the-built-in-sound-hash-tables-kn6000),
+[the HD-SX6 plug-in's entry points]({{ site.baseurl }}/kn6000-program-data/#the-hd-sx6-plug-in)).
+
+### The 'Tone' hash and the switch-key hash (lane mn10300-rest)
+
+The KN7000 reads the table flash's 'Tone' hash with the KN6000's routines, over four archive sources
+(probe `kn7000_tone_hash_readers.py`): `ToneKeyFind`, `SoundSwNoGet` (payload +3 .. +8, the four switch
+states), `SoundIconGet` (+2), `SoundToneIndexGet` (+0), `ShortKeyLookup`, `SoundSwNoBankGet` (state 1's
+offset is 0x12, because the KN7000 has 18 panel groups), `SoundGroupNameGet`, `SoundGroupSizeGet` and
+`PartHasDspUnit`: 31 names in `kn7000_manual.sym`, ported to 942, 935 and 893. In the archive's source
+(`tools/gen_table_voices.py`) the payload is `jk_tone_key`; the table called "Dir1" is the switch-key
+hash (u16 key = key group << 8 | number, payload {MSB, LSB, program}: `JkSwKey*`), and JkGroupTable (the generator's old name) is
+`JkGroupSizes`. The generator's "entry +14" zone pointers were payload bytes +6..+9 read as an offset;
+they labelled nothing and are gone. The round trip agrees for all 3,323 entries.
+
+**The tone generators' side bits** (probe `tg_side_bits.py`): 0x400 is the MAIN tone generator at
+`0x98050000` (wave ROMs IC203 / IC204), 0x800 the SUB one at `0x98040000` (IC207 / IC208). The chain is
+`TgVoiceSideSelect` -> `TgElemRequestFlags` (bits 0x08 / 0x10) -> `TgVoiceNodePick` (`TgNodeScanSideA`
+keeps the slots below 0x40) -> `TgVoiceRegWrite` (slots below 0x40 to `0x98050000`). All 5,215 zones name an
+existing wave entry on that side (with the sides swapped 2,120 do not), so each zone's comment now names
+only that side's recording.
+
+### Loops, memory slots and field names
+
+- **Top-tested loops** (`top_tested`): a loop `L: cmp End, aN` / exit / ... / `add s, aN` / `bra L` now bounds
+  its array as the bottom-tested ones do. It adds no bound in the images: the compiler writes its pointer
+  loops bottom-tested, and no top-tested `cmp <data label>, aN` with a branch back exists in the four trees'
+  code. The top-tested loops the opaque search found compare a loaded field with a terminator.
+- **Memory slots** (`fld_slots`): a pointer loaded from a typed field and stored to a memory slot, the only
+  thing ever stored there, is that field's pointer again where the slot is loaded back: 131 such slots in
+  941; they type no new byte, because their targets are typed already.
+- **What stays out of reach** is a run-time dispatch, not a limit of the walk: `SetApTimer`'s message field
+  is read only by `ApTimer`, which hands it to `ProcCall`, and `ProcCall` calls the procedure a task
+  registered in the RAM table `0x5011FAAC` when its window registered itself.
+- **Field names.** `tools/data_field_uses.py` now follows the loaded register from the access's own place,
+  follows a value parked in the frame to its reloads, goes on at an unconditional branch's target, reads a
+  compare before a backward branch as a search key, and names a field whose readers still disagree by the
+  uses of all of them. A field compared only with 640 / 639 is `x`, with 240 / 239 `y`. Record fields still
+  named only by their offset although a reader touches them (`field_names_census.py`):
+
+| tree       | before | after |
+|------------|--------|-------|
+| kn7000-941 | 630    | 256   |
+| kn7000-942 | 633    | 258   |
+| kn7000-935 | 639    | 263   |
+| kn7000-893 | 638    | 263   |
+| kn6000     | 683    | 264   |
+| kn6500     | 685    | 263   |
+| kn2400     | 637    | 208   |
+| hdsx3      | 43     | 37    |
+
+  What stays offset-named in 941: values whose only use is a store, an arithmetic combination or a return
+  (156), uses that name nothing (73), and fields read through `memcpy` / `strcpy` (12).
+
+### The opaque blocks
+
+Four probes grouped every `census: opaque -- unknown-dump` piece and searched each group's readers
+beyond the linear walk. New passes type the C library's powers of ten (`Pow10Table`, 309 doubles that
+`PfDoubleToDecimal` reads; 941 `0x486D06DC`, 942 `0x486D1700`, 935 `0x486BCEFC`, 893 `0x486BB6A4`), which
+were the "high-entropy" bytes; the EUC-JP strings of the language tables (`AcLanguageTextProc`); the
+siblings' parameter-id tries; and the KN7000 builds' own "Technics Pads" copy. Opaque bytes, before and
+after (`typer_stats.text_stats` on the lane's committed sources, its table "Measurements"; no census
+snapshot holds these figures yet):
+
+| tree   | opaque before (n / bytes) | after          |
+|--------|---------------------------|----------------|
+| 941    | 2,174 / 45,394            | 2,073 / 33,741 |
+| 942    | 2,196 / 43,654            | 2,094 / 31,158 |
+| 935    | 2,192 / 46,280            | 2,090 / 34,612 |
+| 893    | 2,177 / 45,007            | 2,076 / 33,339 |
+| kn6000 | 2,347 / 54,782            | 2,175 / 39,985 |
+| kn6500 | 2,364 / 59,027            | 2,189 / 44,212 |
+| kn2400 | 3,419 / 155,297           | 2,885 / 61,226 |
+| hdsx3  | 98 / 2,981                | 95 / 594       |
+
+That is 173,555 bytes over the eight trees. The groups with a traced reader that no generator pass types
+yet are the next lane's list (941 bytes): terminator-ended lists of 12 / 13-byte records 7,516, 128 x 64
+code / chord maps 5,352, chord voicings and inversions 5,008, fixed-count tables past their typed part
+4,663 (`ChordRecogTable2`, the 32-slot hash tables, `HpFlashWriteDefaults` ...), widget variables in the
+initialised RAM image 3,526, style / setup lists 638. What stays opaque, and why, is listed in the README:
+alignment padding and record tails no reader reaches, the IvCustomizeBase record's x / y (no routine reads them), the reflection tables'
+second halves, the flash sector tables' unread words.
+
 ## What is left: the census
 
 The instrument is `scripts/analysis/data_incbin_census.py`
@@ -483,7 +573,7 @@ piece or up to 64 bytes before it. The biggest in 941:
 | piece                                       | bytes | holders | what the bytes look like                                                                 |
 |---------------------------------------------|-------|---------|------------------------------------------------------------------------------------------|
 | `0x48730AB3`                                | 2,101 | 0       | 7-byte groups `xx 90 xx xx xx 00 00`; no word points in or just before it                |
-| `0x486D0A8F`                                | 1,525 | 0       | high-entropy bytes (*[INFERENCE]* a compressed or scrambled blob)                        |
+| `0x486D0A8F`                                | 1,525 | 0       | high-entropy bytes; since lane mn10300-rest part of `Pow10Table`, the powers of ten      |
 | `0x486CFC43`                                | 641   | 17      | held by the tone generator's tables, read through no instruction the walk follows        |
 | `0x48715746`                                | 458   | 0       | more of `func_48412A17`'s 128-byte records' tails, past its index bound                  |
 | `0x48733632` / `0x48733428`                 | 774   | 0       | after `ChordRecogTable2`: *[INFERENCE]* chord-recognition rows read from a computed base |
@@ -498,8 +588,8 @@ in a branch the linear walk enters with no state.
 
 - ~~Recursive structures besides the resource-id trie are typed one level deep~~: lane
   mn10300-typer's `deep_records` types every record of a chain a loop walks (the voice directory's
-  hash buckets). Top-tested pointer loops (`L: cmp End, aN; bcc out; ...; add s, aN; bra L`) still do
-  not bound their arrays.
+  hash buckets). ~~Top-tested pointer loops do not bound their arrays~~: they do since lane
+  mn10300-rest, and none occurs in the images ([above](#loops-memory-slots-and-field-names)).
 - ~~The 4-byte demo-stream events of the table's three streams are byte rows~~: they are no demo
   streams but the alphabetical sound lists, typed since lane mn10300-formats
   ([above](#the-alphabetical-sound-lists)).

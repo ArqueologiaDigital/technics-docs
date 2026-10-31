@@ -250,28 +250,50 @@ slots, by directory order:
 | 8    | 80's Disco       | 8        | 18   | Euro Jazz        | 17       |
 | 9    | Up Tempo Bigband | 9        | 19   | Gentle Jazz      | 18       |
 
-What differs from the factory banks ([`kn7000/notes/ic21-own/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/ic21-own/README.md)):
+What differs from the factory banks ([`kn7000/notes/ic21-own/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/ic21-own/README.md);
+rewritten by lane ic21-rest on 2026-10-31, which replaced lane ic21-own's inferences about moved blocks
+and a different one-touch writer in program 893):
 
 - **Only 969 of its 3,472 used 256-byte chunks (27.9%) occur in any of the nine factory banks**, and
   none of its used 64 KB sectors equals one of theirs.
-- **Two records were written for other blocks.** The `+0xA4` of slot 13 says block 22 and that of slot 4
-  says blocks 26-27, while the directory has them at 19 and 20-21; free blocks 22 and 26-27 hold residue
-  that repeats those records. *[INFERENCE]* The slots were first saved at 22 and 26, then moved without
-  `+0xA4` being rewritten. `CSTREC_PLACE` is therefore now spelled from the record's own `+0xA4` / `+0xA5`,
-  not from the directory (the factory banks regenerate unchanged).
-- **None of its 80 ONE TOUCH SETTINGs holds program 941's part tails at `+0x8F`**; the generator spells
-  those 13 bytes as plain bytes. The unit runs program 893 (*[INFERENCE]* 893's one-touch writer differs
-  there).
-- **Residue**: no complete stale record; 117,903 bytes are copies of typed records, 35,260 whole event
-  streams, 32,210 event runs, and 2,256 bytes in 191 entries stay opaque.
-- **The styles are KN5000 styles.** Of the bank's 340 name fields, 208 are KN5000 program names (116
-  distinct) and 127 are standard KN7000 names every custom set carries (18 distinct); none is a name of
-  the nine factory sets. Four are KN5000 names respelled (`Jazz At 3.00am` for the KN5000's
-  `Jazz At 3:00am`, `3/4 Played By 4`, `Disco - Techni`, `Sentimntal Solo`), and one, **`Metallic Dance`**,
-  matches no image in the repository. So someone loaded KN5000 styles into this unit; no other name of
-  anyone's own typing was found. (The 2026-10-19 analysis had said "no user-typed names"; a plain
-  text-run search finds 39 KN5000 and 17 KN7000 names, the structure-aware count above is the
-  corrected one.)
+- **The bank was loaded from a KN6000 file.** The KN7000 loads the KN6000's CUSTOM files (`.AST`,
+  `.CST`) and converts them: `AstLoadHandler` / `LoadCst` run `func_48485B52` on each slot of a file
+  with the KN6000 signature. It copies each 0x90-byte KN6000 ONE TOUCH SETTING over the 0xA0-byte
+  default `func_48485B52_Block`, keeps the header's `+0xA4` / `+0xA5`, and installs the bigger record in
+  newly allocated blocks. All 80 settings of this bank have that shape (FF FF at `+0x8E`, the default's
+  tail at `+0x90`; probe `ots_origin.py`), so none holds program 941's part tails at `+0x8F`. Programs
+  893 and 941 have the same one-touch writer, and it was never used here. The source spells these
+  settings `PM_KN6000_END` + `PM_CONVERT_TAIL`.
+- **The KN6000 records survive.** Free blocks 22 (Swing Orchestra), 24-25 (Modern Samba) and 26-27 (Hip
+  Hop) hold three complete records in the KN6000 layout, typed as `Stale22`, `Stale24` and `Stale26`. Two
+  are the originals of slots 13 and 4, whose converted records still say block 22 and blocks 26-27 at
+  `+0xA4` while the directory has them at 19 and 20-21. That is why `CSTREC_PLACE` is spelled from the
+  record's own `+0xA4` / `+0xA5`, not from the directory (the factory banks regenerate unchanged).
+  Modern Samba is in no slot. Block 23 is erased.
+- **Residue**, typed as in the factory banks: 46,927 bytes are copies of typed records, 1,625 the
+  donors' lines with other values, 40 a pad record's head, 23,989 streams and 14,313 event bytes. None
+  stays opaque (`data_incbin_census.py`, 2026-10-31: tree `kn7000-ic21own`, 0 opaque).
+- **The styles are KN5000 styles** (of KN5000 programs v5-v10).
+
+**Where the names come from.** Each slot's four ONE TOUCH SETTING names are the titles of the KN5000's
+four MUSIC DATABASE records of that style, in the KN5000 table's order. The KN5000 table-data ROM holds
+its 1,000 records as text (category, style, title, tempo), e.g. "Dance Pop / Straight Dance / Metalic
+Dance / 121". 75 of the 80 names are those titles as they are; five are spelled differently (probe
+`name_origin.py`):
+
+| slot | style           | here              | KN5000 title       |
+|------|-----------------|-------------------|--------------------|
+| 5    | Straight Dance  | `Metallic Dance`  | `Metalic Dance`    |
+| 7    | Glory Disco     | `Disco - Techni`  | `Disco-Techni`     |
+| 14   | 40's Dance Band | `Sentimntal Solo` | `Sentimental Solo` |
+| 14   | 40's Dance Band | `Harry J.& Co`    | `Harry J.& Co.`    |
+| 15   | Slow Jazz 3/4   | `3/4 Played By 4` | `3/4 Played by 4`  |
+
+The style name `Jazz At 3.00am` is the KN5000's `Jazz At 3:00am`. All names are centred in their
+16-character fields, as in the factory custom1 / custom2 banks. `name_search.py` searched every dump,
+softlist floppy, Club Arena installer, CD-ROM and leaflet the project holds, with their containers
+opened: the respelled forms occur only in the owner's own reads. So the bank's author typed the KN5000
+names into a KN6000 CUSTOM file by hand. *[INFERENCE]* Who did, and with what, no image says.
 
 ## Open questions
 
@@ -288,7 +310,5 @@ What differs from the factory banks ([`kn7000/notes/ic21-own/README.md`](https:/
 - A reader of the 24-field part set-up, to confirm the field order.
 - Where the factory sets were made: the residue matches across sets, so one tool built them in
   sequence, reusing its buffer.
-- The owner's bank: whether `Metallic Dance` and the four respelled KN5000 names were typed on the unit
-  or written by a converter (the Style Convert Disk and the KN5000 `.SST` / `.SEQ` files were not
-  searched with the fields' structure); where program 893's one-touch writer differs from 941's at
-  `+0x8F`.
+- The owner's bank (BLOCKED, no image): who typed the respelled KN5000 names into the KN6000 CUSTOM
+  file, and with what.
