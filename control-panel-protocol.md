@@ -547,6 +547,15 @@ typed in `ui_widgets/naka_extension_device.c` (`panel_button_action_t`, `PanelAc
 | 29    | --      | FC4 (PG.7) (`0x08`)                                                                                                      | `0xA9`, `0x37` | `PanelAction_FootController4`         |
 | 30    | --      | PD.6 (`0x01`)                                                                                                            | `0xA8`, `0x41` | `PanelEvent_Post`                     |
 
+**Held switches.**  `SwbtB3_OnPanelEvent` keeps two masks of the `0xA9` switch groups: bit N of `PANEL_SW_HELD_UP`
+(0x02749A) is set while group N's UP switch is held, bit N of `PANEL_SW_HELD_DOWN` (0x02749E) while its DOWN switch
+is.  Pressing the second half of a group posts `EVT_SW_BOTH`.  Their AND, `PANEL_SW_HELD_BOTH` (0x0274A2), picks
+four combinations: 0x1100 (LEFT 1 + RIGHT 1 with LEFT 5 + RIGHT 5) saves an LCD screenshot (`CaptureLcd`) on a
+debug build (version byte 0xFF); 0xA1 opens the software-version screen (`TITLE_SOFTVER`); 0x91 returns to
+`TITLE_PS`; 0x89 posts `EVT_SHOW` to object 7.  All three masks are cleared on every mode or title change
+(disassembly `notes/open4-kn5000-b/display/README.md`, kn5000-nmg; these words were once read as a screen
+transition counter, timer and type, see [Display Subsystem]({{ site.baseurl }}/display-subsystem/)).
+
 The tags of 22-27 are panel records: `0xB1` pitch bend, `0xB2` modulation, `0xB3` part expression, `0xB4`
 channel pressure, `0xB0` byte +1 TOTAL EXPRESSION, byte +0 (inferred) master volume (see
 [Panel Parameter Keys]({{ site.baseurl }}/panel-parameter-keys/)).  `PanelAction_PitchBend` spreads the byte over
