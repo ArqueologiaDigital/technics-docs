@@ -1285,14 +1285,7 @@ See [Effects DSP]({{ site.baseurl }}/effects-dsp/).
 
 ### Audio Output Path
 
-From DAC to physical jacks.
-
-**Outputs:**
-- Line Out (L/R)
-- Headphone jack
-- Internal speakers (if present)
-
-See [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/).
+From the DAC to the jacks and speakers: traced from the schematic in [Hardware Architecture]({{ site.baseurl }}/hardware-architecture/#audio-output-path) (kn5000-jy9). The digital side is on [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/).
 
 ### MIDI Implementation
 
