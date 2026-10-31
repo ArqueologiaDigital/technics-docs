@@ -234,6 +234,27 @@ This difference is cosmetic and does not affect functionality.
 
 ---
 
+## Reading an update disc
+
+`scripts/analysis/parse_update_disc.py IMAGE.img` (disassembly repository) shows a disc the way the
+firmware sees it: the type `Detect_Disk_Type` (0xEF42FE) returns for logical sector 33, the payload
+each handler reads from logical sector 36 (never by file name), and, for a type-7 disc, both SLIDE4K
+streams decoded with the firmware's stop rule, the firmware version byte at 0xFFFFE8 and the release
+each image matches (by SHA-1: program v5-v10, sub-CPU v1.40-v1.42 raw and compressed, HD-AE5000
+v1.10i-v2.06i). `--extract DIR` writes the files and the decompressed images. The disc carries no
+checksum and the firmware checks none; the SHA-1 table is the tool's own identification.
+
+On the v10 disc it reports type 7, program v10 (version byte 0x0A), and a second stream at disc-image
+offset 0xF03A9 that is the sub-CPU v1.42 update image byte for byte; `HKMSPRG.SLD` is exactly the two
+streams (965,545 + 93,203 = 1,058,748 bytes). A synthetic type-6 disc (the probe
+`notes/open4-kn5000-b/tools/probes/make_synthetic_type6.py`) reads back as HD-AE5000 v2.06i, and the
+14 software-list floppies all read as type 0xFF (not an update disc). Only the v10 disc was available;
+the v5-v9 discs were not run (`notes/open4-kn5000-b/tools/README.md`, section 3, 2026-10-31).
+
+**Not chased:** stream 2 is 93,203 bytes, but the type-7 handler writes 0x20000 bytes
+(`LZSS_Decompress_ToFlash` adds 0x20000 to its size variable), so the write runs past the stream into
+whatever follows it on the disc.
+
 ## Creating Update Discs
 
 The [technics-anotherworld](https://github.com/felipesanches/technics-anotherworld) homebrew repository includes a tool for creating update discs, `tools/make_update_disc.py`:

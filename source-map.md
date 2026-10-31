@@ -330,13 +330,13 @@ Screen layouts and parameter blocks for the style-editing modes, as typed C
 `.incbin`'d from `ui_widgets/style_ui_params.s`. See
 [ScreenData C Conversion]({{ site.baseurl }}/screendata-c-conversion/).
 
-| File | Contents |
-|------|----------|
-| `main.c` | Style UI main screen layout |
-| `ctlonly.c` (+ `ctlonly_link.ld`) | CTL-only screen (control parameters) |
-| `yesctl.c` | Yes/No confirmation + CTL value screen |
-| `meascursor.c` | Measure-cursor screen |
-| `paramblock/{common, extended, medium, short, value, bal, meas, alta, altb, altc, altd, alte}.c` | The twelve parameter blocks; `altd` is the "Are You Sure?" confirmation dialog |
+| File                                                                                             | Contents                                                                                                                                                                                          |
+|--------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `main.c`                                                                                         | Style UI main screen layout                                                                                                                                                                       |
+| `ctlonly.c` (+ `ctlonly_link.ld`)                                                                | CTL-only screen (control parameters); its 36 handler words reach no image: every tree spells `Scoop_StaticOpHandlerTable` as `.long` lines (`notes/kn5000-ports-2026-10-31/README.md`, section 2) |
+| `yesctl.c`                                                                                       | Yes/No confirmation + CTL value screen                                                                                                                                                            |
+| `meascursor.c`                                                                                   | Measure-cursor screen                                                                                                                                                                             |
+| `paramblock/{common, extended, medium, short, value, bal, meas, alta, altb, altc, altd, alte}.c` | The twelve parameter blocks; `altd` is the "Are You Sure?" confirmation dialog                                                                                                                    |
 
 ### `includes/`
 

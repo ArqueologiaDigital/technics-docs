@@ -271,6 +271,29 @@ when the steps happen and what changes on the live screens.
   `EVT_LSW_DATA {0xB80A, n}` and becomes `EVT_ACTION(n)`: run `<ACT NO=n>`. The `<ACT>` parser
   (0xF858D5) accepts `NO=n` or `PAN=Ln / C / Rn` for this. ACTs 9, 10, 11 (ftdemo46–48) and 20
   (the second Drawbar) are never cued by the factory song.
+
+  **The cue sheet.** The 23 cues of the factory song, with the beat (the count of `0x81` beat
+  markers on track 14) and the ACT each one runs (kn5000-roms-disasm
+  `notes/feature-presentation-cues-2026-10-18.md`, collected in `notes/open4-kn5000-b/tools/README.md`
+  section 1):
+
+  | beat | tick | ACT | shows    | beat | tick | ACT | shows     |
+  |------|------|-----|----------|------|------|-----|-----------|
+  | 0    | 0x05 | 1   | ftdemo01 | 78   | 0x00 | 16  | Accordion |
+  | 22   | 0x40 | 2   | ftdemo04 | 82   | 0x00 | 17  | Accordion |
+  | 41   | 0x30 | 3   | ftdemo05 | 88   | 0x00 | 18  | ftdemo10  |
+  | 48   | 0x00 | 4   | ftdemo41 | 94   | 0x00 | 19  | Drawbar   |
+  | 49   | 0x00 | 5   | ftdemo42 | 123  | 0x00 | 21  | ftdemo20  |
+  | 50   | 0x00 | 6   | ftdemo43 | 133  | 0x00 | 22  | ftdemo21  |
+  | 52   | 0x00 | 7   | ftdemo44 | 138  | 0x00 | 23  | ftdemo22  |
+  | 53   | 0x00 | 8   | ftdemo45 | 142  | 0x00 | 24  | ftdemo23  |
+  | 55   | 0x00 | 12  | ftdemo06 | 143  | 0x00 | 25  | Sdmixer   |
+  | 61   | 0x00 | 13  | ftdemo07 | 150  | 0x00 | 26  | ftdemo24  |
+  | 67   | 0x00 | 14  | ftdemo08 | 156  | 0x00 | 27  | ftdemo25  |
+  | 73   | 0x00 | 15  | ftdemo09 |      |      |     |           |
+
+  There is no slide timer: each slide stays until the song reaches the next cue, and nothing in
+  the cue path waits for the player. Rendered slides: see [Slide renders](#slide-renders).
 - **The drawbars move because the song sets them.** Track 0 (RIGHT1) writes RIGHT1's drawbar
   record (0x44, the nine footages) at beat 104, ten beats after ACT 19 shows `Drawbar`. While the
   presentation (title 0xE4) is up, every panel-setting change is broadcast, so the shown screen
@@ -281,6 +304,16 @@ when the steps happen and what changes on the live screens.
   play back (and record), so a song cannot set arbitrary parameters.
 - **`SHOW OBJ` searches every named view object** (`FDemoText_GetInstanceID` 0xF8526E, classes
   255 down to 0), not only the `ftdemo` slot and the three live screens.
+
+**Start and end.** Starting the presentation sets the demo entry to 19
+(`MainPreControl_OnStartPresentation`, 0xF86672) and calls `Demo_SelectEntry_ProcessSongList`;
+the song starts through the demo countdown (`Demo_SelectEntry_TimerTick`). When the song stops and
+the demo's auto-play flag (bit 3 of `DEMO_CONTROL_FLAGS`) is set, `Demo_SelectEntry_AfterSongLoad`
+(0xF86C5F) clamps the song index back to the presentation's entry on title 0xE4 and restarts the
+countdown, so the code reads as a loop until the player leaves the screen. **[Inference]** Whether
+bit 3 is set during the presentation was not traced, nothing was verified on hardware, and the
+2026-08 MAME overlay build stopped after one pass (see [Demo Timer Behavior in
+MAME](#demo-timer-behavior-in-mame)).
 
 **A user-made presentation** is possible in principle (established from the code, not built):
 real-time recording stores panel changes per track type, and a track assigned to PART15 records
@@ -309,9 +342,53 @@ When `AcPresentationControlProc` processes a `<SHOW OBJ="ftdemo01">` action, the
 
 4. **Reads the BMP data** directly from the Table Data ROM using the pointer.
 
-5. **Renders to VRAM** (0x1A0000–0x1DFFFF, 256KB) via `VwUserBitmapByNameProc` / `DrawBitmapFile`. The 8-bit BMP palette is loaded to the hardware palette register; pixel data is DMA-copied to the display.
+5. **Renders to VRAM** (0x1A0000–0x1DFFFF, 256KB) via `VwUserBitmapByNameProc` / `DrawBitmapFile`. The BMP's palette is not loaded as it is: the colours are ranked by use and only 192 of them reach the hardware palette (see [How a slide picture is drawn](#how-a-slide-picture-is-drawn)).
 
 The entire pipeline is **ROM-resident** — no disk I/O occurs for the Feature Demo. The `"FTBMP01"` filename in the `VwUserBitmapByName` element is a logical key, not a filesystem path.
+
+
+## Slide renders
+
+`scripts/generators/render_ftdemo_slides.py` (disassembly repository) draws each ACT of the
+presentation to a 320 x 240 PNG from the GUI records of the v10 source: the wallpaper and title bar
+every screen paints, the labels in the ROM's own fonts, the English captions, and the six FTBMP
+pictures with the firmware's own colour handling. It reads only tracked files. The images below
+were made with `python3 scripts/generators/render_ftdemo_slides.py --scale 2 OUT/` at disassembly
+615249d66.
+
+**Limits.** The three live screens (Accordion, Drawbar, Sdmixer) are custom widget classes whose
+painting is not modelled: their widgets appear as dotted outlines with the class name, and so do
+the five transport icons of ACT 24. Borders other than plain lines are approximations. The screens
+without a picture show the system palette's entries 0x20-0xDF; on the keyboard they show whatever
+the last palette change left there, normally the wallpaper's (**[inference]**). No hardware
+screenshots were available to compare pixel by pixel. To change a slide, edit its record in
+`v10/maincpu/ui_widgets/naka_perf_style.c` (the build regenerates the bytes) and render again.
+
+### How a slide picture is drawn
+
+`DrawBitmapFile_Impl` (0xFAC6F3) does not load the BMP's palette as it is. It tiles the picture
+into a 320 x 240 buffer (`Gfx_DecodeImageToBuffer`, 0xFAED27), counts how often each colour is used
+(in 16-bit counters, which wrap), sorts the palette most used first, folds colours past the 192nd
+onto their nearest neighbour by squared RGB distance, and loads the 192 survivors into palette
+entries 0x20-0xDF (`ChangePalette_Impl`, 0xFAF2F3, palette 3). Entries 0x00-0x1F and 0xE0-0xFF keep
+the UI colours, so text and frames keep their colours over a picture.
+
+| ACT | object   | render                                                                                 | ACT | object    | render                                                                                   |
+|-----|----------|----------------------------------------------------------------------------------------|-----|-----------|------------------------------------------------------------------------------------------|
+| 1   | ftdemo01 | ![ACT 1, ftdemo01]({{ site.baseurl }}/assets/images/ftdemo-slides/act01_ftdemo01.png)  | 15  | ftdemo09  | ![ACT 15, ftdemo09]({{ site.baseurl }}/assets/images/ftdemo-slides/act15_ftdemo09.png)   |
+| 2   | ftdemo04 | ![ACT 2, ftdemo04]({{ site.baseurl }}/assets/images/ftdemo-slides/act02_ftdemo04.png)  | 16  | Accordion | ![ACT 16, Accordion]({{ site.baseurl }}/assets/images/ftdemo-slides/act16_Accordion.png) |
+| 3   | ftdemo05 | ![ACT 3, ftdemo05]({{ site.baseurl }}/assets/images/ftdemo-slides/act03_ftdemo05.png)  | 17  | Accordion | ![ACT 17, Accordion]({{ site.baseurl }}/assets/images/ftdemo-slides/act17_Accordion.png) |
+| 4   | ftdemo41 | ![ACT 4, ftdemo41]({{ site.baseurl }}/assets/images/ftdemo-slides/act04_ftdemo41.png)  | 18  | ftdemo10  | ![ACT 18, ftdemo10]({{ site.baseurl }}/assets/images/ftdemo-slides/act18_ftdemo10.png)   |
+| 5   | ftdemo42 | ![ACT 5, ftdemo42]({{ site.baseurl }}/assets/images/ftdemo-slides/act05_ftdemo42.png)  | 19  | Drawbar   | ![ACT 19, Drawbar]({{ site.baseurl }}/assets/images/ftdemo-slides/act19_Drawbar.png)     |
+| 6   | ftdemo43 | ![ACT 6, ftdemo43]({{ site.baseurl }}/assets/images/ftdemo-slides/act06_ftdemo43.png)  | 20  | Drawbar   | ![ACT 20, Drawbar]({{ site.baseurl }}/assets/images/ftdemo-slides/act20_Drawbar.png)     |
+| 7   | ftdemo44 | ![ACT 7, ftdemo44]({{ site.baseurl }}/assets/images/ftdemo-slides/act07_ftdemo44.png)  | 21  | ftdemo20  | ![ACT 21, ftdemo20]({{ site.baseurl }}/assets/images/ftdemo-slides/act21_ftdemo20.png)   |
+| 8   | ftdemo45 | ![ACT 8, ftdemo45]({{ site.baseurl }}/assets/images/ftdemo-slides/act08_ftdemo45.png)  | 22  | ftdemo21  | ![ACT 22, ftdemo21]({{ site.baseurl }}/assets/images/ftdemo-slides/act22_ftdemo21.png)   |
+| 9   | ftdemo46 | ![ACT 9, ftdemo46]({{ site.baseurl }}/assets/images/ftdemo-slides/act09_ftdemo46.png)  | 23  | ftdemo22  | ![ACT 23, ftdemo22]({{ site.baseurl }}/assets/images/ftdemo-slides/act23_ftdemo22.png)   |
+| 10  | ftdemo47 | ![ACT 10, ftdemo47]({{ site.baseurl }}/assets/images/ftdemo-slides/act10_ftdemo47.png) | 24  | ftdemo23  | ![ACT 24, ftdemo23]({{ site.baseurl }}/assets/images/ftdemo-slides/act24_ftdemo23.png)   |
+| 11  | ftdemo48 | ![ACT 11, ftdemo48]({{ site.baseurl }}/assets/images/ftdemo-slides/act11_ftdemo48.png) | 25  | Sdmixer   | ![ACT 25, Sdmixer]({{ site.baseurl }}/assets/images/ftdemo-slides/act25_Sdmixer.png)     |
+| 12  | ftdemo06 | ![ACT 12, ftdemo06]({{ site.baseurl }}/assets/images/ftdemo-slides/act12_ftdemo06.png) | 26  | ftdemo24  | ![ACT 26, ftdemo24]({{ site.baseurl }}/assets/images/ftdemo-slides/act26_ftdemo24.png)   |
+| 13  | ftdemo07 | ![ACT 13, ftdemo07]({{ site.baseurl }}/assets/images/ftdemo-slides/act13_ftdemo07.png) | 27  | ftdemo25  | ![ACT 27, ftdemo25]({{ site.baseurl }}/assets/images/ftdemo-slides/act27_ftdemo25.png)   |
+| 14  | ftdemo08 | ![ACT 14, ftdemo08]({{ site.baseurl }}/assets/images/ftdemo-slides/act14_ftdemo08.png) |     |           |                                                                                          |
 
 ---
 

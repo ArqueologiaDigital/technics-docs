@@ -182,8 +182,9 @@ titles the HELP screen shows (DEMO, AUTO PLAY CHORD, ...). An entry starts with
 `@ topic T page P`, followed by the topic's title as a comment; the line break
 after each `~0d` is not part of the text, and a blank line ends the entry.
 `scripts/build/help_db_text.py build` turns a listing into the 36,864-byte
-(0x9000) database, which is now git-ignored, and `compress_slide8k.py --strict
---reference` packs it exactly as before. `help_db_text.py verify` (also `make
+(0x9000) database, which is now git-ignored, and `compress_slide8k.py --pad BYTE`
+packs it with the factory encoder (see [The factory encoder](#the-factory-encoder)), reading
+no reference stream. `help_db_text.py verify` (also `make
 verify-help-db-text`) checks each listing against the decompression of the
 factory stream.
 
@@ -499,8 +500,8 @@ So ring positions **0x0000-0x1FF5 are zero** and the write position starts at
 **0x1FF6**, wrapping modulo 0x2000. (SLIDE4K: 0x1000-byte ring, zero-filled to
 0x0FED, write position 0x0FEE — `system_handlers.s:7022-7033`.) A valid encoder
 must never emit a match reading ring[0x1FF6-0x1FFF] before the corresponding
-output bytes have been written; `compress_slide8k.py` enforces exactly that
-(`find_longest_match`, lines 195-243).
+output bytes have been written; the greedy coder kept in `compress_slide8k.py`
+(`compress_slide8k_greedy`, `find_longest_match`) enforces exactly that.
 
 ### Flag Bytes
 
@@ -541,6 +542,37 @@ factory blocks do — all produce exactly 0x9000 bytes.
 
 There is no end-of-stream marker, and the trailing bits of the last flag byte
 are never examined.
+
+### The factory encoder
+
+The factory SLIDE8K streams were made by Haruhiko Okumura's LZSS.C with N = 8192 and F = 10:
+`floppy/tools/kd/lzss_j.py`'s `encode()` (written for the SX-KN7000's 'J KD' files, which use the same coder)
+re-encodes each decoded help database into exactly the factory stream, decision for decision.
+Measured by `notes/misc-2026-10-31/probes/slide8k_vs_lzss_j.py` in the disassembly repository
+(`notes/misc-2026-10-31/README.md`, item N-64f1f64d):
+
+| stream       | factory stream | read by the decoder | `encode()` | decisions                                  |
+|--------------|----------------|---------------------|------------|--------------------------------------------|
+| english      | 13,471 B       | 13,470 B            | 13,470 B   | all 7,366 the same, every byte the same    |
+| german       | 13,717 B       | 13,716 B            | 13,716 B   | all 7,539 the same                         |
+| french       | 14,631 B       | 14,630 B            | 14,630 B   | all 8,120 the same                         |
+| spanish      | 14,819 B       | 14,818 B            | 14,818 B   | all 8,148 the same                         |
+| indonesian   | 13,767 B       | 13,766 B            | 13,766 B   | all 7,589 the same                         |
+| german_stale | 16,111 B       | 16,110 B            | 9,402 B    | the 5,339 up to output 0x55E0 the same     |
+
+The one byte each live stream has past what the decoder reads is an alignment pad (0x20, 0x7F,
+0xCF, 0xCD, 0xCE); the build appends it with `--pad`, the values recorded in the Makefile
+(`HELP_DB_PAD_<lang>`). The orphaned german_stale stream parts from the encoder at output 0x55E0,
+exactly where [its block was cut](#the-orphaned-block-at-0x983b3a); encoding only its first 0x55E0
+bytes gives its 5,339 decisions exactly. It is not a ROM input and is still replayed from its
+reference for verification.
+
+**SLIDE4K is the same encoder with N = 4096 and F = 18:** re-parameterised, `encode()` makes the
+factory decisions for all 19 demo presets and the three sub-CPU update images (v1.40, v1.41,
+v1.42) (`notes/misc-2026-10-31/probes/slide4k_vs_okumura.py`). The SLIDE4K build
+(`scripts/build/compress_lzss.py`) does not use it yet: two preset slices carry bytes past their
+stream (preset 17: a 3,357-byte stream in a 19,314-byte slice; preset 18: 27,881 in 27,956) and
+those tails would need a source of their own first.
 
 ### Reference Decoder
 

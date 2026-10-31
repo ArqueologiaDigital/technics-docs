@@ -54,17 +54,17 @@ assembler, `kn7000/tools/kn7asm.py`; how much of each model's images is source i
 
 A green gate says nothing about how much of an image is real source rather than a
 passed-through blob, so that is measured separately, per model, with the commands below
-(run at disassembly `2319e9b94`, 2026-10-24):
+(run at disassembly `2319e9b94`, 2026-10-24; the KN5000 row re-run at `130735749`, 2026-10-31):
 
-| model                         | how much of the image is source                                                                                                                                 | command (in the disassembly repository)                       |
-|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
-| KN5000                        | 99.9% of its 8 measured images (10,289,152 B); every image 100% except main CPU v7 (99.7%, a 6,591 B blob). v8 is v9's source; v1.41 is not measured on its own | `python3 scripts/analysis/kn5000_source_coverage.py`          |
-| SX-WSA1R                      | 100%: no `.incbin` left; 78.0% substantive, the rest verified filler emitted as `.fill`                                                                         | `cd wsa1 && python3 scripts/analysis/source_coverage.py`      |
-| KN7000                        | 44.58% of program 941 (1,853,232 of 4,157,185 B): all 3,658 function blocks are instructions; the 2.3 MB data region still enters as `.incbin_range`            | `cd kn7000 && python3 tools/coverage_score.py`                |
-| KN2400 / KN2600               | 98.91% of the code ranges emitted as instructions (46.77% of the image)                                                                                         | `kn2400/notes/conversion-stats.txt`, written by the generator |
-| KN6000                        | 98.72% of the code ranges (36.64% of the image)                                                                                                                 | `kn6000/notes/conversion-stats.txt`                           |
-| KN6500                        | 98.96% of the code ranges (41.63% of the image)                                                                                                                 | `kn6500/notes/conversion-stats.txt`                           |
-| HD-SX3 (most probably HD-SX6) | 99.53% of the code ranges (32.09% of the image)                                                                                                                 | `hdsx3/notes/conversion-stats.txt`                            |
+| model                         | how much of the image is source                                                                                                                                                                                                                                             | command (in the disassembly repository)                       |
+|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+| KN5000                        | 99.8% of its 13 measured images (16,056,320 B); 11 at 100% (v7 and table data reached 0 B verbatim on 2026-10-24); the ported v6 (99.3%, 13,756 B) and v5 (99.2%, 15,910 B) carry their `TODO(port)` rows. v8 is v9's source; v1.41 and v1.40 are not measured on their own | `python3 scripts/analysis/kn5000_source_coverage.py`          |
+| SX-WSA1R                      | 100%: no `.incbin` left; 78.0% substantive, the rest verified filler emitted as `.fill`                                                                                                                                                                                     | `cd wsa1 && python3 scripts/analysis/source_coverage.py`      |
+| KN7000                        | 44.58% of program 941 (1,853,232 of 4,157,185 B): all 3,658 function blocks are instructions; the 2.3 MB data region still enters as `.incbin_range`                                                                                                                        | `cd kn7000 && python3 tools/coverage_score.py`                |
+| KN2400 / KN2600               | 98.91% of the code ranges emitted as instructions (46.77% of the image)                                                                                                                                                                                                     | `kn2400/notes/conversion-stats.txt`, written by the generator |
+| KN6000                        | 98.72% of the code ranges (36.64% of the image)                                                                                                                                                                                                                             | `kn6000/notes/conversion-stats.txt`                           |
+| KN6500                        | 98.96% of the code ranges (41.63% of the image)                                                                                                                                                                                                                             | `kn6500/notes/conversion-stats.txt`                           |
+| HD-SX3 (most probably HD-SX6) | 99.53% of the code ranges (32.09% of the image)                                                                                                                                                                                                                             | `hdsx3/notes/conversion-stats.txt`                            |
 
 The MN10300 rows measure something weaker than the TLCS-900 ones. `kn5000_source_coverage.py`
 counts only verbatim blobs as debt, so typed data counts as source; the MN10300 generators
@@ -73,6 +73,19 @@ images are not typed yet. The MN10300 trees are described on
 [KN7000 Firmware Images]({{ site.baseurl }}/kn7000-firmware/),
 [KN2400 / KN2600 Disassembly]({{ site.baseurl }}/kn2400-disassembly/) and
 [KN6000 / KN6500 / HD-SX Disassembly]({{ site.baseurl }}/kn6000-disassembly/).
+
+## The open-items register
+
+Everything still open in the disassembly repository is collected in one generated file,
+`notes/open-items/REGISTER.md`, written by `python3 notes/open-items/collect_open_items.py --write`
+(set up 2026-10-31). It gathers four sources: items under the "Open" / "Left open" / "TODO" headings
+of the notes and per-tree READMEs (and the repo-root "Known Disputed Interpretations" table), the
+tracker issues in `.beads/issues.jsonl` that are not closed, the `; TODO` and `TODO(port)` markers in
+the sources (counted per tree and grouped), and the `census: opaque` declarations of the data census.
+Each item gets a stable id and is joined with its triage row in `notes/open-items/triage.json`:
+RESOLVED, ACTIONABLE or BLOCKED, with the area, the plan, the blocker and the owning lane. The
+register's own summary table gives the counts; read them there, at the commit you are looking at,
+rather than from this page.
 
 ## Firmware Version History
 
@@ -704,6 +717,16 @@ with them. That is their debt:
 *(2026-10-31, disassembly `130735749`, from the command above; v7 fell to 0 B at `d89e64558`
 on 2026-10-24. The v6 and v5 rows fall as their `TODO(port)` rows are decoded; re-run rather
 than quoting this table.)*
+
+Of those figures, 3,403 B (v6) and 4,284 B (v5) are `TODO(port)` rows and 10,353 B / 11,626 B
+are raw bytes of the C-divergence files (lane kn5000-ports, disassembly
+`notes/kn5000-ports-2026-10-31/README.md` section 5, measured with the same script; that lane
+lowered them from 16,502 B / 19,310 B by writing rows as `.long Label`, `.asciz` and
+`aligned_string` with `scripts/converters/port_todo_typed.py`). What is left needs the NAKA record
+macros taught the v6 / v5 widget layouts, and per-version C (or typed slices) where v6 / v5 data
+differ from v7's C. The same lane moved the names the port had carried onto the wrong
+procedure back where the firmware's own name and pointer tables put them
+(`scripts/tools/port_fix_label_shifts.py`); the name changed at 595 addresses in v6 and 633 in v5.
 
 **Table data reached zero on 2026-10-24.** Until then the tool counted 318,468 B against it:
 the six `FTBMP01-06.BMP` feature-demo slide images, genuine uncompressed 8bpp Windows BMPs

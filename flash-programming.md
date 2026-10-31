@@ -29,13 +29,13 @@ No routine sends flash commands at `0xE00000`; which physical pair answers at `0
 
 ### Standard 16-bit Commands
 
-| Operation | Address 1 | Data 1 | Address 2 | Data 2 | Address 3 | Data 3 |
-|-----------|-----------|--------|-----------|--------|-----------|--------|
-| Unlock | base+0x5555 | 0xAA | base+0x2AAA | 0x55 | - | - |
-| Software Reset | base+0x5555 | 0xAA | base+0x2AAA | 0x55 | base+0x5555 | 0xF0 |
-| Read ID | base+0x5555 | 0xAA | base+0x2AAA | 0x55 | base+0x5555 | 0x90 |
-| Program Byte | base+0x5555 | 0xAA | base+0x2AAA | 0x55 | base+0x5555 | 0xA0 |
-| Chip Erase | See below | | | | | |
+| Operation      | Address 1                                                                                                                               | Data 1 | Address 2   | Data 2 | Address 3   | Data 3 |
+|----------------|-----------------------------------------------------------------------------------------------------------------------------------------|--------|-------------|--------|-------------|--------|
+| Unlock         | base+0x5555                                                                                                                             | 0xAA   | base+0x2AAA | 0x55   | -           | -      |
+| Software Reset | base+0x5555                                                                                                                             | 0xAA   | base+0x2AAA | 0x55   | base+0x5555 | 0xF0   |
+| Read ID        | base+0x5555                                                                                                                             | 0xAA   | base+0x2AAA | 0x55   | base+0x5555 | 0x90   |
+| Program Byte   | base+0x5555                                                                                                                             | 0xAA   | base+0x2AAA | 0x55   | base+0x5555 | 0xA0   |
+| Chip Erase     | See [below](#chip-erase-sequence-6-bytes) and [Flash_ChipErase](#flash_chiperase-0xef387a-and-flash_erasesectorwithbankselect-0xef3929) |        |             |        |             |        |
 
 ### Chip Erase Sequence (6 bytes)
 1. base+0x5555 = 0xAA
@@ -176,6 +176,48 @@ Located in `v10/maincpu/boot/system_handlers.s`.
 
 **Sequence:** Same as Flash_ChipErase_32bit in boot ROM
 
+### Flash_ChipErase (0xEF387A) and Flash_EraseSectorWithBankSelect (0xEF3929)
+
+Traced in `v10/maincpu/boot/system_handlers.s` (the same routines are in v9 and v7;
+kn5000-roms-disasm `notes/open4-kn5000-b/tools/README.md`, section 4).
+
+The 16-bit flash chips (Custom Data Flash IC19 at 0x300000 when A = 1, otherwise the HD-AE5000
+flash at 0x280000) are erased with the AMD/JEDEC sequence: `AA` to base+0xAAAA, `55` to
+base+0x5554, `80` to base+0xAAAA, `AA`, `55`, then `10` to base+0xAAAA for a chip erase or `30` to
+the sector address for a sector erase. The sector is `address & 0xFF0000`. Interrupts run at level 6
+during the sequence (`ei 6`, back to `ei 0` after). On region-4 units (`Get_Region_Code` 0xEF0865
+returns 4) IC19 is two chips: the chip erase goes to 0x300000 and again to 0x380000, and sectors
+from 0x380000 use the second chip's command base (base + 0x80000).
+
+The boot-block sub-sectors are added by more `30` writes right after the first, with no new
+unlock, chosen by the device id that `Flash_InitAllBanks` (0xEF3B05) stores at start-up (RAM
+0x205E0 for IC19, 0x205E2 for the HD-AE5000 chip):
+
+| case                               | sector erased        | extra `30` writes                                                       | decided in                                        |
+|------------------------------------|----------------------|-------------------------------------------------------------------------|---------------------------------------------------|
+| IC19, id 0x2258 (bottom boot)      | 0x300000             | +0x4000, +0x6000, +0x8000                                               | `cpw (0x205e0), 8792`                             |
+| IC19, other id (top boot)          | 0x3F0000             | +0xF8000, +0xFA000, +0xFC000; if XBC = 0x3FFFFF also +0xE0000           | `Flash_EraseSector_TopSector` (0xEF3A3E)          |
+| IC19, region 4                     | 0x370000 or 0x3F0000 | chip base +0x78000, +0x7A000, +0x7C000; if XBC = 0x3FFFFF also +0x60000 | `Flash_EraseSector_BootBlock_HighBank` (0xEF39D6) |
+| HD-AE5000, id 0x22AB (bottom boot) | 0x280000             | +0x4000, +0x6000, +0x8000                                               | `cpw (0x205e2), 8875`                             |
+| HD-AE5000, other id (top boot)     | 0x2F0000             | +0x78000, +0x7A000, +0x7C000                                            | `Flash_EraseSector_Bank2Check` (0xEF3A82)         |
+
+0x2258 and 0x22AB are the AMD device ids of the Am29F800B and Am29F400B bottom-boot parts (from the
+datasheets; the part numbers on the boards were not checked). No caller passing XBC = 0x3FFFFF was
+found: the type-7 handler passes 0x3E0000 and 0x3F0000.
+
+**No verification and no timeout.** Neither routine reads anything back. Completion is the chips'
+ready line, port 7 bit 5 (`Flash_CheckReady`, 0xEF3AE1); `Flash_WaitUntilReady` (0xEF3AED, chip
+erase and wait), `Flash_EraseSectorAndWrite` (0xEF3BFC) and `FlashWrite` (0xEF3C3C) poll it with
+no time limit. The type-7 updater (`HANDLE_UPDATE_FILE_TYPE_ID_007h`, 0xEF47FA) erases 0x3E0000 and
+0x3F0000 back to back without waiting between them; how the chip treats the second unlock sequence
+while the first erase is starting was not determined (**[inference]** from the datasheet: an AMD
+part ignores or rejects commands other than `30` / `B0` inside the sector-erase window).
+
+**Callers.** Chip erase: `Flash_WaitUntilReady`, for update types 5 (IC19) and 6 (HD-AE5000).
+Sector erase: the type-7 handler, `Flash_EraseSectorAndWrite` (the splash-screen save,
+`Flash_SaveSplashScreen`) and `FlashWrite` (custom-data saves from the file, tone-generator and
+MIDI code).
+
 ### HDAE5000_Detect (0xEF3D0E)
 
 **Purpose:** Read the flash IDs of the 32-bit pair at `0x800000` -- the program ROM's twin of `Flash_ReadID_32bit`. Despite its name it does not look for the HD-AE5000 board.
@@ -305,7 +347,7 @@ Same logic, but against the program ROM's own copy of the strings at `0xE00038`â
 1. **Boot-time check:** If PANEL MEMORY 1-4 are held at power-on, a floppy disk is present and the version byte at 0xFFFFE8 reads 0xFF, enter update mode
 2. **Disk detection:** Read header and identify update type
 3. **Validation:** Verify disk signature and flash hardware
-4. **Erase:** Display "Now Erasing!!" and erase target flash
+4. **Erase:** Display "Now Erasing!!" and erase target flash: a chip erase of IC19 (type 5) or the HD-AE5000 chip (type 6), and for type 7 the two sector erases of 0x3E0000 and 0x3F0000 (see [Flash_ChipErase](#flash_chiperase-0xef387a-and-flash_erasesectorwithbankselect-0xef3929)); the `0x800000` pair is erased whole by `TableDataFlash_ChipErase`
 5. **Program:** Read sectors from floppy and program flash
 6. **Complete:** Display "Completed!" and "Turn On AGAIN!!"
 
