@@ -533,20 +533,20 @@ below. These are the offsets read out of `kn5000_v10_program.rom`, and they agre
 The index is the **command number** of the request — the same numbering the bootloader
 driver uses, which is how the "Command" column below is known:
 
-| Cmd | Offset | Address  | Handler                     | Body                                       | Command meaning    |
-|-----|--------|----------|-----------------------------|--------------------------------------------|--------------------|
-| 0   | 0      | 0xF97D8D | `FDC_HANDLER_DISPATCH_BASE` | `FDC_InitSequence_Full`                    | initialize         |
-| 1   | 5      | 0xF97D92 | `FDC_HANDLER_01`            | `FDC_CMD_ENABLE` + `FDC_CmdRecalibrate`    | recalibrate        |
-| 2   | 13     | 0xF97D9A | `FDC_HANDLER_02`            | `FDC_CMD_ENABLE` + `FDC_CmdSeek`           | **seek**           |
-| 3   | 21     | 0xF97DA2 | `FDC_HANDLER_03`            | `FDC_CMD_ENABLE` + `FDC_CMD_EXEC`          | **read sectors**   |
-| 4   | 29     | 0xF97DAA | `FDC_HANDLER_04`            | `FDC_CMD_ENABLE` + `FDC_SECTOR_XFER`       | **write sectors**  |
-| 5   | 37     | 0xF97DB2 | `FDC_HANDLER_05`            | `FDC_CMD_ENABLE` + `FDC_MODE_CONFIG`       | **format**         |
-| 6   | 45     | 0xF97DBA | `FDC_HANDLER_06`            | `FDC_CMD_ENABLE` only                      | motor on           |
-| 7   | 50     | 0xF97DBF | `FDC_HANDLER_07`            | `FDC_CMD_DISABLE`                          | motor off          |
-| 8   | 55     | 0xF97DC4 | `FDC_HANDLER_08`            | `FDC_STATUS_COPY`                          | get last error     |
-| 9   | 60     | 0xF97DC9 | `FDC_HANDLER_09`            | `FDC_OUTPUT_CTRL`                          | set disk-changed   |
-| 10  | 65     | 0xF97DCE | `FDC_HANDLER_10`            | `FDC_CMD_DISPATCH_SUB`                     | controller reset   |
-| 11  | 70     | 0xF97DD3 | `FDC_HANDLER_11`            | `FDC_CMD_ENABLE` + `FDC_INTERRUPT_HANDLER` | sense drive status |
+| Cmd | Offset | Address  | Handler                     | Body                                         | Command meaning    |
+|-----|--------|----------|-----------------------------|----------------------------------------------|--------------------|
+| 0   | 0      | 0xF97D8D | `FDC_HANDLER_DISPATCH_BASE` | `FDC_InitSequence_Full`                      | initialize         |
+| 1   | 5      | 0xF97D92 | `FDC_HANDLER_01`            | `FDC_CMD_ENABLE` + `FDC_CmdRecalibrate`      | recalibrate        |
+| 2   | 13     | 0xF97D9A | `FDC_HANDLER_02`            | `FDC_CMD_ENABLE` + `FDC_CmdSeek`             | **seek**           |
+| 3   | 21     | 0xF97DA2 | `FDC_HANDLER_03`            | `FDC_CMD_ENABLE` + `FDC_CMD_EXEC`            | **read sectors**   |
+| 4   | 29     | 0xF97DAA | `FDC_HANDLER_04`            | `FDC_CMD_ENABLE` + `FDC_SECTOR_XFER`         | **write sectors**  |
+| 5   | 37     | 0xF97DB2 | `FDC_HANDLER_05`            | `FDC_CMD_ENABLE` + `FDC_MODE_CONFIG`         | **format**         |
+| 6   | 45     | 0xF97DBA | `FDC_HANDLER_06`            | `FDC_CMD_ENABLE` only                        | motor on           |
+| 7   | 50     | 0xF97DBF | `FDC_HANDLER_07`            | `FDC_CMD_DISABLE`                            | motor off          |
+| 8   | 55     | 0xF97DC4 | `FDC_HANDLER_08`            | `FDC_STATUS_COPY`                            | get last error     |
+| 9   | 60     | 0xF97DC9 | `FDC_HANDLER_09`            | `FDC_OUTPUT_CTRL`                            | set disk-changed   |
+| 10  | 65     | 0xF97DCE | `FDC_HANDLER_10`            | `FDC_CMD_DISPATCH_SUB`                       | controller reset   |
+| 11  | 70     | 0xF97DD3 | `FDC_HANDLER_11`            | `FDC_CMD_ENABLE` + `FDC_CmdSenseDriveStatus` | sense drive status |
 
 All handlers end by jumping to `FDC_Handler_ExitStatus`, which sets the status flag and returns.
 
@@ -567,7 +567,7 @@ by command) settles them:
 | `FDC_STATUS_COPY` (0xF97C54)                            | get last error                                     | `FDC_CmdGetLastError`     |
 | `FDC_OUTPUT_CTRL` (0xF97C5B)                            | set disk-changed                                   | `FDC_CmdSetDiskChanged`   |
 | `FDC_CMD_DISPATCH_SUB` (0xF96D95)                       | controller reset                                   | `FDC_CmdControllerReset`  |
-| `FDC_INTERRUPT_HANDLER` (0xF97C7C)                      | sense drive status                                 | `FDC_CmdSenseDriveStatus` |
+| `FDC_CmdSenseDriveStatus` (0xF97C7C)                    | sense drive status                                 | `FDC_CmdSenseDriveStatus` |
 
 The maincpu source still carries the old names for all of these except the seek handler,
 which was renamed `FDC_CmdSeek` on 2026-08-21 (and `FDC_SeekRecalibrate`, now
@@ -656,20 +656,20 @@ error 0xFF.
 
 ### Commands
 
-| Cmd | Handler (boot addr)                  | Runtime twin            |
-|-----|--------------------------------------|-------------------------|
-| 0   | `FDC_CmdInitialize` (0xFFE2BD)       | `FDC_InitSequence_Full` |
-| 1   | `FDC_CmdRecalibrate` (0xFFE2D6)      | `FDC_CmdRecalibrate`    |
-| 2   | `FDC_CmdSeek` (0xFFE31A)             | `FDC_CmdSeek`           |
-| 3   | `FDC_CmdReadSectors` (0xFFE368)      | `FDC_CMD_EXEC`          |
-| 4   | `FDC_CmdWriteSectors` (0xFFE4AA)     | `FDC_SECTOR_XFER`       |
-| 5   | `FDC_CmdFormat` (0xFFE5FE)           | `FDC_MODE_CONFIG`       |
-| 6   | `FDC_CmdMotorOn` (0xFFE89B)          | `FDC_CMD_ENABLE`        |
-| 7   | `FDC_CmdMotorOff` (0xFFE8C5)         | `FDC_CMD_DISABLE`       |
-| 8   | `FDC_CmdGetLastError` (0xFFE8CE)     | `FDC_STATUS_COPY`       |
-| 9   | `FDC_CmdSetDiskChanged` (0xFFE8D5)   | `FDC_OUTPUT_CTRL`       |
-| 10  | `FDC_CmdControllerReset` (0xFFDA6A)  | `FDC_CMD_DISPATCH_SUB`  |
-| 11  | `FDC_CmdSenseDriveStatus` (0xFFE8F6) | `FDC_INTERRUPT_HANDLER` |
+| Cmd | Handler (boot addr)                  | Runtime twin              |
+|-----|--------------------------------------|---------------------------|
+| 0   | `FDC_CmdInitialize` (0xFFE2BD)       | `FDC_InitSequence_Full`   |
+| 1   | `FDC_CmdRecalibrate` (0xFFE2D6)      | `FDC_CmdRecalibrate`      |
+| 2   | `FDC_CmdSeek` (0xFFE31A)             | `FDC_CmdSeek`             |
+| 3   | `FDC_CmdReadSectors` (0xFFE368)      | `FDC_CMD_EXEC`            |
+| 4   | `FDC_CmdWriteSectors` (0xFFE4AA)     | `FDC_SECTOR_XFER`         |
+| 5   | `FDC_CmdFormat` (0xFFE5FE)           | `FDC_MODE_CONFIG`         |
+| 6   | `FDC_CmdMotorOn` (0xFFE89B)          | `FDC_CMD_ENABLE`          |
+| 7   | `FDC_CmdMotorOff` (0xFFE8C5)         | `FDC_CMD_DISABLE`         |
+| 8   | `FDC_CmdGetLastError` (0xFFE8CE)     | `FDC_STATUS_COPY`         |
+| 9   | `FDC_CmdSetDiskChanged` (0xFFE8D5)   | `FDC_OUTPUT_CTRL`         |
+| 10  | `FDC_CmdControllerReset` (0xFFDA6A)  | `FDC_CMD_DISPATCH_SUB`    |
+| 11  | `FDC_CmdSenseDriveStatus` (0xFFE8F6) | `FDC_CmdSenseDriveStatus` |
 
 `FDC_CmdInitialize` does a display refresh and a TC pulse, clears the disk-changed and
 media-removed flags, enables INT4/INTTC3, strobes a software reset and then runs
@@ -732,7 +732,7 @@ register it is selected on is always 0 at that point, so the `NZ` arm never runs
 `FDC_ProbeDiskFormat` itself has **no caller**: an exhaustive search of the table_data
 and maincpu ROMs for both address forms found no reference. It is retained factory or
 diagnostic code; the shipped update path drives `FDC_Request` directly. The same is true
-of the neighbouring `Boot_PulsePD0` (ROM 0x9FEB2B), whose Port D bit 0 line is not yet
+of the neighbouring `FDC_PulseResetLine` (ROM 0x9FEB2B), whose Port D bit 0 line is not yet
 identified. `Boot_CheckDiskPresent` (ROM 0x9FEC63) *is* live — it is the boot-time twin
 of `Check_for_Floppy_Disk_Change` and reads the same active-low Port D bit 6.
 
@@ -752,7 +752,7 @@ of `Check_for_Floppy_Disk_Change` and reads the same active-low Port D bit 6.
 | `FDC_CMD_DISABLE`              | `0xF97C4B` | Disable FDC command interface                                                                                |
 | `FDC_STATUS_COPY`              | `0xF97C54` | Copy cached status register                                                                                  |
 | `FDC_OUTPUT_CTRL`              | `0xF97C5B` | FDC output enable/disable control                                                                            |
-| `FDC_INTERRUPT_HANDLER`        | `0xF97C7C` | Main FDC interrupt handler                                                                                   |
+| `FDC_CmdSenseDriveStatus`      | `0xF97C7C` | Main FDC interrupt handler                                                                                   |
 | `FDC_ByteTransfer_PIO`         | `0xF97DEE` | PIO fallback byte transfer (see the '+2 quirk' above)                                                        |
 | `FDC_ReadSectors`              | `0xEF42CC` | Read sectors from floppy disc (update path, command 3)                                                       |
 | `FDC_WriteSectors`             | `0xEF441B` | Write sectors to floppy disc                                                                                 |
@@ -783,7 +783,7 @@ of `Check_for_Floppy_Disk_Change` and reads the same active-low Port D bit 6.
 
 The firmware reads Port D bit 6 as a **level**, low while a disk is in the drive.
 `GetMediaType` reports "no disk" when it reads 1, without touching the drive, and
-`Reset_Floppy_Disk_Controller` skips its seek sweep on 1 (`Check_for_Floppy_Disk_Change`, at
+`FDC_PulseResetLine` skips its seek sweep on 1 (`Check_for_Floppy_Disk_Change`, at
 0xF98001, only reads the bit). Until 2026-10-18 the overlay fed it from MAME's
 `floppy_image_device::dskchg_r()`, inverted. That is a disk-change latch, which only a head step
 clears, and the firmware never steps while the line says "no disk". A disk present at power-on

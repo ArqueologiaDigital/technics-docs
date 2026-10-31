@@ -166,14 +166,14 @@ disassembly does not combine them, because a KN7000 dump is not a KN5000 one.
 Most pictures were PNG, JPEG or BMP files already. The inventory found these still spelled as byte rows
 or C initializers; each is now a PNG that a build step turns back into the bytes:
 
-| item                                             | format (evidence)                                                                                                                 | converter                            |
-|--------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|--------------------------------------|
-| `SeBitmap_*` x 13, KN5000 v10 v9 v7 v6 v5        | 1 bpp, column-major, bit 7 leftmost; drawn by static op 03 via `ColorBlit2_LargeCodeBlock`                                        | `scripts/build/se_bitmaps.py`        |
-| `HDAE5000_Bitmap_Button01`, both HD-AE5000s      | 42 x 15, 8 bpp, no row pad; `HDAE5000_BitmapButt01` answers `EVT_GET_BITMAP_DATA` / `_WIDTH` / `_HEIGHT` with it                  | `scripts/build/indexed_images.py`    |
-| `FontGlyphs8x16`, KN7000 IC18 boot ROM           | 224 glyphs from 0x20, 16 bytes each, MSB leftmost; `FontTable` points at it                                                       | `kn7000/tools/table_png.py`          |
-| `SjisMissingGlyph`, KN7000 941 / 942 / 935 / 893 | 16 x 16, 1 bpp, column-major; `DrawString_Impl` (941 `0x48425467`) draws it for an absent Shift-JIS code                          | `kn7000/tools/table_png.py`          |
-| NAKA GUI C pictures, 39 x 5 KN5000 trees         | the 8-bpp bitmaps, `UserBitmapCheck_Bitmap24x24` and the welcome screen's 16 x 17 letters (`WelcomeGlyph_C`, `Bitmap_Digit1` ...) | `scripts/build/c_bitmaps.py`         |
-| `OldBuild_ValueGlyph_Bitmaps`, SX-WSA1R          | four value glyphs, byte-identical to the live ones; now listed with PNGs                                                          | `wsa1/scripts/build/wsa1_bitmaps.py` |
+| item                                             | format (evidence)                                                                                                                  | converter                            |
+|--------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------|
+| `SeBitmap_*` x 13, KN5000 v10 v9 v7 v6 v5        | 1 bpp, column-major, bit 7 leftmost; drawn by static op 03 via `ColorBlit2_LargeCodeBlock`                                         | `scripts/build/se_bitmaps.py`        |
+| `HDAE5000_Bitmap_Button01`, both HD-AE5000s      | 42 x 15, 8 bpp, no row pad; `HDAE5000_BitmapButt01` answers `EVT_GET_BITMAP_DATA` / `_WIDTH` / `_HEIGHT` with it                   | `scripts/build/indexed_images.py`    |
+| `FontGlyphs8x16`, KN7000 IC18 boot ROM           | 224 glyphs from 0x20, 16 bytes each, MSB leftmost; `FontTable` points at it                                                        | `kn7000/tools/table_png.py`          |
+| `SjisMissingGlyph`, KN7000 941 / 942 / 935 / 893 | 16 x 16, 1 bpp, column-major; `DrawString_Impl` (941 `0x48425467`) draws it for an absent Shift-JIS code                           | `kn7000/tools/table_png.py`          |
+| NAKA GUI C pictures, 39 x 5 KN5000 trees         | the 8-bpp bitmaps, `UserBitmapCheck_Bitmap24x24` and the welcome screen's 16 x 17 letters (`WelcomeGlyph_C`, `WelcomeGlyph_I` ...) | `scripts/build/c_bitmaps.py`         |
+| `OldBuild_ValueGlyph_Bitmaps`, SX-WSA1R          | four value glyphs, byte-identical to the live ones; now listed with PNGs                                                           | `wsa1/scripts/build/wsa1_bitmaps.py` |
 
 - The NAKA GUI C no longer holds the pixels. Since 2026-10-31 each of the 195 initializer bodies in the
   25 `v*/maincpu/ui_widgets/naka_*.c` files is one `#include` of a git-ignored

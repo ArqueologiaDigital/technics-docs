@@ -115,7 +115,7 @@ Parameter diff scan (606 bytes)
 | Bank 1 | `0xEE7786` (`SwbtBank1_ListenerTable`) | 1309 bytes | 192 code slots (0x00-0xBF) + listener lists |
 | Bank 2 | `0xEE7CA7` (`Naka_RenderMode_A_Table`) | 2573 bytes | 192 code slots + listener lists             |
 
-What most event codes mean is an open question in the disassembly; only 0x61 and 0x63-0x66 are tied to DSP blocks. Bank 1's lists name only six callbacks (panel-tag and MIDI-mode handlers, a demo-text and a bitmap probe). Bank 2's are mostly UI-state and display handlers (`UIState_KeyScan_Dispatch`, `UIState_ProcessKeyEvent`, `BitMapOut_ByteData_RenderB`, …) plus `EffEdit_DSPConfigBlock` and `DSPCfg_ProcessInput`. Both banks are processed sequentially by `SwbtWr_ReinitBothBanks`.
+What most event codes mean is an open question in the disassembly; only 0x61 and 0x63-0x66 are tied to DSP blocks. Bank 1's lists name only six callbacks (panel-tag and MIDI-mode handlers, a demo-text and a bitmap probe). Bank 2's are mostly UI-state and display handlers (`UIState_KeyScan_Dispatch`, `UIState_ProcessKeyEvent`, `BitMapOut_ByteData_RenderB`, …) plus `EffEdit_DSPConfigBlock` and `Fade_ParamListener`. Both banks are processed sequentially by `SwbtWr_ReinitBothBanks`.
 
 ### Callback Body
 

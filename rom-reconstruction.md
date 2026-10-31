@@ -1251,11 +1251,11 @@ at 25.96 % — so each version also has its own.
 **Subsystem entry points (main CPU):**
 
 - **FDC** — `storage/fdc_routines.s`: `FDC_COMMAND_DISPATCHER`, per-command handlers,
-  `Reset_Floppy_Disk_Controller`, `Check_for_Floppy_Disk_Change`;
+  `FDC_PulseResetLine`, `Check_for_Floppy_Disk_Change`;
   `fdc_constants.s` holds the 0x110000-base I/O addresses, uPD765-compatible command
   codes and status-bit definitions.
 - **MIDI / encoders** — `midi/midi_encoder_routines.s`: `CPanel_EncoderDispatch`,
-  `Encoder_ProcessModwheel` / `Volume` / `Breath` / `Foot` / `Expression`.
+  `Encoder_ProcessExpressionPedal` / `Volume` / `Breath` / `Foot` / `Expression`.
 - **Control panel** — `ui/cpanel_routines.s`: serial state machine (`CPanel_SM_*`),
   packet processors (`CPanel_RX_*`), LED control, buffer management.
 - **SysEx** — `midi/sysex_routines.s`: `ExcSendFunc`, `ExcPmemFunc`, `ExcSmemFunc`,

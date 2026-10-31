@@ -130,7 +130,7 @@ This range is unused: no `sendCOMM` caller passes handler 1 (the Main CPU uses 0
 
 ### 0x80-0x9F: Serial Port 1 TX (`Serial1_DataTransmit_Loop`)
 
-**Purpose:** Transmits payload bytes via Serial Channel 1 (SC1), the Sub CPU's computer-interface (TO HOST) port (see [Tone Generator]({{ site.baseurl }}/tone-generator/#serial-port-1-sa-interface)). The Main CPU sends it MIDI-out data for that port (`MidiOut_FlushBuffer`, `MIDI_BroadcastControlChange`, `MidiSysEx_SendParamViaCOMM` and its siblings) and the port-type byte `0xF5` (MAC, PC1) or `0xF4` (PC2) from `CompIface_SendActiveSensing`.
+**Purpose:** Transmits payload bytes via Serial Channel 1 (SC1), the Sub CPU's computer-interface (TO HOST) port (see [Tone Generator]({{ site.baseurl }}/tone-generator/#serial-port-1-sa-interface)). The Main CPU sends it MIDI-out data for that port (`MidiOut_FlushBuffer`, `MIDI_BroadcastControlChange`, `MidiSysEx_SendParamViaCOMM` and its siblings) and the port-type byte `0xF5` (MAC, PC1) or `0xF4` (PC2) from `CompIface_SendPortTypeByte`.
 
 **Algorithm:**
 1. For each byte in the payload:

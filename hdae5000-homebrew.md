@@ -831,7 +831,7 @@ CALL Display_ResetDirtyFlags
 CALL Display_UpdateDirtyRegions
 ```
 
-Note the polarity. `JRL Z` jumps when bit 3 is **clear**, so this update runs only while bit 3 is **set**. The same `BIT 3` / `JR Z` pattern holds at the other seven sites, among them `SysEx_ControllerBitCheck` at 0xEFAA40 and the `AccPedal_Sustain_CheckPlay` / `AccPedal_Distribute_CheckRecord` tests at 0xF59C11 / 0xF59D65. All of them belong to the sequencer's step-record and accompaniment code, and `SqStep_RestoreOnLeave` clears the bit when the step-record screen is left.
+Note the polarity. `JRL Z` jumps when bit 3 is **clear**, so this update runs only while bit 3 is **set**. The same `BIT 3` / `JR Z` pattern holds at the other seven sites, among them `SysEx_ControllerBitCheck` at 0xEFAA40 and the `AccStyleCtl_StartStop_CheckPlay` / `AccStyleCtl_SectionButtons_CheckRecord` tests at 0xF59C11 / 0xF59D65. All of them belong to the sequencer's step-record and accompaniment code, and `SqStep_RestoreOnLeave` clears the bit when the step-record screen is left.
 
 The dispatch indexes the step-record display mode at `0x0D65`.
 

@@ -206,29 +206,29 @@ The following dispatch sites were labeled with semantic names:
 | `Equalizer_DispatchB` | sequencer_ui.s | Equalizer dispatch B |
 
 ### Batch 5: Voice, MIDI & Sound (21 sites)
-| Label | File | Description |
-|-------|------|-------------|
-| `VoiceEvent_Dispatch` | note_voice_mapping.s | 14-entry voice event handler (table 0xEE8F06) |
-| `SeqPerformance_EventDispatch` | note_voice_mapping.s | 6-entry sequence performance dispatch |
-| `UIParam_CallbackReturn` | note_voice_mapping.s | UI parameter callback return |
-| `MidiSysMsg_Dispatch` | note_voice_mapping.s | 15-entry MIDI system message dispatch |
-| `SndParam_TypeDispatch` | note_voice_mapping.s | 6-entry sound parameter type dispatch |
-| `SndParam_OffsetDispatch` | note_voice_mapping.s | 6-entry sound parameter offset dispatch |
-| `HdaeRom_DataDispatch` | note_voice_mapping.s | 6-entry HDAE5000 data dispatch |
-| `HdaeRom_AltDispatch` | note_voice_mapping.s | 6-entry HDAE5000 alt dispatch |
-| `ToneGen_ParamWriteDispatch` | voice_midi_buf.s | ToneGen param write dispatch table |
-| `WallHomeEdit_EventDispatch` | voice_midi_buf.s | Wall home edit event dispatch |
-| `WallMenuEdit_EventDispatch` | voice_midi_buf.s | Wall menu edit event dispatch |
-| `WallOthEdit_EventDispatch` | voice_midi_buf.s | Wall other edit event dispatch |
-| `MainSysCtrl_DispatchTable` | voice_midi_buf.s | Main system control dispatch |
-| `CntIniFunc_EventDispatch` | voice_midi_buf.s | CntIniFunc event dispatch |
-| `DspConfig_EventDispatch` | dsp_config_sysex.s | DSP config event dispatch |
-| `WndEvt_EventCodeDispatch` | voice_synth.s | Window event code dispatch |
-| `MidiChan_ParamDispatch` | midi_voice_routing.s | MIDI channel parameter dispatch |
-| `SeqData_FieldDispatch` | midi_voice_routing.s | Sequence data field dispatch |
-| `SysEx_SendDispatch` | midi_voice_routing.s | SysEx send dispatch |
-| `TitleProc_EventDispatch` | ui_widget_defs.s | Title proc event dispatch |
-| `SeqEvent_Dispatch` ... (3 more) | sequencer_engine.s | Sequencer engine dispatches |
+| Label                            | File                 | Description                                   |
+|----------------------------------|----------------------|-----------------------------------------------|
+| `VoiceEvent_Dispatch`            | note_voice_mapping.s | 14-entry voice event handler (table 0xEE8F06) |
+| `SeqPerformance_EventDispatch`   | note_voice_mapping.s | 6-entry sequence performance dispatch         |
+| `UIParam_CallbackReturn`         | note_voice_mapping.s | UI parameter callback return                  |
+| `MidiSysMsg_Dispatch`            | note_voice_mapping.s | 15-entry MIDI system message dispatch         |
+| `SndParam_TypeDispatch`          | note_voice_mapping.s | 6-entry sound parameter type dispatch         |
+| `SndParam_OffsetDispatch`        | note_voice_mapping.s | 6-entry sound parameter offset dispatch       |
+| `SoundRam_ConvertSounds_Kn1500`  | note_voice_mapping.s | 6-entry KN1500 sound-RAM conversion dispatch  |
+| `SoundRam_ConvertUserKit_Kn3000` | note_voice_mapping.s | 6-entry KN3000 user-kit conversion dispatch   |
+| `ToneGen_ParamWriteDispatch`     | voice_midi_buf.s     | ToneGen param write dispatch table            |
+| `WallHomeEdit_EventDispatch`     | voice_midi_buf.s     | Wall home edit event dispatch                 |
+| `WallMenuEdit_EventDispatch`     | voice_midi_buf.s     | Wall menu edit event dispatch                 |
+| `WallOthEdit_EventDispatch`      | voice_midi_buf.s     | Wall other edit event dispatch                |
+| `MainSysCtrl_DispatchTable`      | voice_midi_buf.s     | Main system control dispatch                  |
+| `CntIniFunc_EventDispatch`       | voice_midi_buf.s     | CntIniFunc event dispatch                     |
+| `DspConfig_EventDispatch`        | dsp_config_sysex.s   | DSP config event dispatch                     |
+| `WndEvt_EventCodeDispatch`       | voice_synth.s        | Window event code dispatch                    |
+| `MidiChan_ParamDispatch`         | midi_voice_routing.s | MIDI channel parameter dispatch               |
+| `SeqData_FieldDispatch`          | midi_voice_routing.s | Sequence data field dispatch                  |
+| `SysEx_SendDispatch`             | midi_voice_routing.s | SysEx send dispatch                           |
+| `TitleProc_EventDispatch`        | ui_widget_defs.s     | Title proc event dispatch                     |
+| `SeqEvent_Dispatch` ... (3 more) | sequencer_engine.s   | Sequencer engine dispatches                   |
 
 ### Phase 2: Handler Targets (~397 labels)
 
@@ -267,17 +267,17 @@ Except in rows 21 and 25–27, file names and line numbers in this section and i
 
 ### Main CPU — Sequencer & Timing
 
-| #   | Label                          | File                   | Line  | Table Base | Index Source   | Entries | Type          |
-|-----|--------------------------------|------------------------|-------|------------|----------------|---------|---------------|
-| 1   | `SeqStep_TimerDispatchA`       | seq_step_routines.s    | 2516  | 0xE44F00   | DRAM[8956]     | ~23     | jp (xhl)      |
-| 2   | `SeqStep_TimerDispatchB`       | seq_step_routines.s    | 2524  | 0xE44F5C   | DRAM[8956]     | ~23     | jp (xhl)      |
-| 3   | `SeqStep_TimerDispatchC`       | seq_step_routines.s    | 2532  | 0xE44FB8   | DRAM[8956]     | ~23     | jp (xhl)      |
-| 4   | `AccPlayMode_Dispatch_Execute` | accompaniment_engine.s | 8061  | 0xF5ADF9   | flags in reg l | ~32     | call (xhl)    |
-| 5   | `AccFlags_Dispatch`            | accompaniment_engine.s | 5356  | 0xF59517   | reg w & 0xF    | ~16     | jp (xhl)      |
-| 6   | `DrumSlot_ClampAndLookup`      | accompaniment_engine.s | 22127 | 0xF64D75   | reg hl         | var     | call (xhl)    |
-| 7   | `NoteEditSy_HandleUpScroll`    | sequencer_engine.s     | 22430 | 0xE44A6A   | xde (<=0xE)    | 15      | jp t, (xR+rr) |
-| 8   | `NoteEditSy_HandleDownScroll`  | sequencer_engine.s     | 22491 | 0xE44A52   | xde (<=0xB)    | 12      | jp t, (xR+rr) |
-| 9   | `DspItem0_TypeChangeHandler`   | sequencer_ui.s         | 13583 | 0xE34D92   | xde (<=0x8)    | 9       | jp t, (xR+rr) |
+| #   | Label                                 | File                   | Line  | Table Base | Index Source   | Entries | Type          |
+|-----|---------------------------------------|------------------------|-------|------------|----------------|---------|---------------|
+| 1   | `SeqStep_TimerDispatchA`              | seq_step_routines.s    | 2516  | 0xE44F00   | DRAM[8956]     | ~23     | jp (xhl)      |
+| 2   | `SeqStep_TimerDispatchB`              | seq_step_routines.s    | 2524  | 0xE44F5C   | DRAM[8956]     | ~23     | jp (xhl)      |
+| 3   | `SeqStep_TimerDispatchC`              | seq_step_routines.s    | 2532  | 0xE44FB8   | DRAM[8956]     | ~23     | jp (xhl)      |
+| 4   | `AccPlayMode_Dispatch_Execute`        | accompaniment_engine.s | 8061  | 0xF5ADF9   | flags in reg l | ~32     | call (xhl)    |
+| 5   | `AccSection_SwitchAtBarLine_Dispatch` | accompaniment_engine.s | 5356  | 0xF59517   | reg w & 0xF    | ~16     | jp (xhl)      |
+| 6   | `DrumSlot_ClampAndLookup`             | accompaniment_engine.s | 22127 | 0xF64D75   | reg hl         | var     | call (xhl)    |
+| 7   | `NoteEditSy_HandleUpScroll`           | sequencer_engine.s     | 22430 | 0xE44A6A   | xde (<=0xE)    | 15      | jp t, (xR+rr) |
+| 8   | `NoteEditSy_HandleDownScroll`         | sequencer_engine.s     | 22491 | 0xE44A52   | xde (<=0xB)    | 12      | jp t, (xR+rr) |
+| 9   | `DspItem0_TypeChangeHandler`          | sequencer_ui.s         | 13583 | 0xE34D92   | xde (<=0x8)    | 9       | jp t, (xR+rr) |
 
 ### Main CPU — UI & Control Panel
 
@@ -323,10 +323,10 @@ binary include — see
 
 ### Main CPU — Factory test (HAMA)
 
-| #   | Label                         | File                     | Line | Table Base | Index Source | Entries | Type          |
-|-----|-------------------------------|--------------------------|------|------------|--------------|---------|---------------|
-| 26  | `TitleFunc_LifecycleDispatch` | factory_test/test_init.s | 178  | 0xE1FDFE   | xwa (<=0x7)  | 8       | jp t, (xR+rr) |
-| 27  | `GetResouceInfo`              | kn5000_v10_program.s     | 1697 | 0xE1FFD2   | wa (<=0x9)   | 10      | jp t, (xR+rr) |
+| #   | Label                          | File                     | Line | Table Base | Index Source | Entries | Type          |
+|-----|--------------------------------|--------------------------|------|------------|--------------|---------|---------------|
+| 26  | `TestTitleFunc_SwitchDispatch` | factory_test/test_init.s | 178  | 0xE1FDFE   | xwa (<=0x7)  | 8       | jp t, (xR+rr) |
+| 27  | `GetResouceInfo`               | kn5000_v10_program.s     | 1697 | 0xE1FFD2   | wa (<=0x9)   | 10      | jp t, (xR+rr) |
 
 ### HDAE5000
 

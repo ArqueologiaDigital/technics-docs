@@ -516,7 +516,7 @@ op table. There are two step tables: table A (186 steps) is used when `Get_Regio
 returns 2, table B (191 steps) otherwise. The ops draw seven 16×17 1-bpp glyphs (C, I, L, N,
 O, R, U; rows stored bottom-up, drawn by `DrawBitmapSP2_Impl`) one letter at a time. Table A
 spells **IN COLOR**, table B **IN COLOUR**. The glyphs sit under older labels that predate this
-reading (`Bitmap_Digit1` is the I, `Bitmap_DigitD` the U). The Technics logo (312×45,
+reading (`WelcomeGlyph_I` is the I, `WelcomeGlyph_U` the U). The Technics logo (312×45,
 `Bitmap_Technics_Logo`) and the KN-5000 logo (199×36, `Bitmap_KN5000_Logo`) are ROM bitmaps
 too. Source: the welcome-script headers in `v10/maincpu/ui_widgets/technichord_string_data.s`
 and `welcome_step_t` in `naka_technichord_strings.c`. This page used to say the assets were
@@ -557,7 +557,7 @@ During boot, the firmware validates the battery-backed SRAM at 0x1E0000-0x1FFFFF
 1. Reads 0x24B8 little-endian 16-bit words from 0x1E0010
 2. Computes a one's complement checksum
 3. Compares against the stored checksum at offset 0x72A8
-4. Before the checksum, compares the 16-byte header at 0x1E0000 with "KN5000 SOUND RAM" only (the "KN3000 SOUND RAM" and "KN1500 SOUND RAM" identifiers are recognised by a different routine, `SendPartDataBlock_InitVal4`, which the sound-RAM data handlers use; this boot check does not)
+4. Before the checksum, compares the 16-byte header at 0x1E0000 with "KN5000 SOUND RAM" only (the "KN3000 SOUND RAM" and "KN1500 SOUND RAM" identifiers are recognised by a different routine, `SoundRam_IdentifyImage`, which the sound-RAM data handlers use; this boot check does not)
 
 If both checks pass, the routine (`SendPartDataBlock_ClearByte4`) bulk-transfers the 0x72AA-byte image at 0x1E0000 to sub-CPU 0x7800; if either fails, it sends the sub CPU a 0xFF/0xFF packet instead and shows no message (`v10/maincpu/audio/note_voice_mapping.s:26502-26532`). The **"ERROR in back-up SRAM"** screen (view `TEST1RAM`) comes from a different check: the boot self-test `SelfTest_SramAndRom` posts it only when the 0x5A/0xA5 write test `Test_SRAM_IC21` fails (`v10/maincpu/ui/ui_mode_handlers.s:1657-1679`). The factory defaults are embedded in Program ROM at offset 0x0A0150 (0x72A6 bytes, starting with "KN5000 SOUND RAM" header).
 
@@ -1387,7 +1387,7 @@ After initialization, the main CPU calls the frame handler periodically:
    `sqbtof` / `sq_beadt` addresses fetched at boot and post it to the box
    (event `0x01CA0004`, `EV_TICKS`) when it changes
 2. When bit 2 of the main CPU's `sqsrtc` byte falls to 0 and
-   `HDAE5000_Get_Status_Byte` returns 1, either post the file-load events (if
+   `HDAE5000_Fls_GetAutoLoadPending` returns 1, either post the file-load events (if
    the HD title 0x7F is current, `GetTitleNow` = `0x01A0007F`) or request title
    0x7F (`HDAE5000_RequestTitle15`)
 3. Jump to the PC-link handler (`HDAE5000_PPORT_ServicePending`)

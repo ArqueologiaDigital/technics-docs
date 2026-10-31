@@ -39,7 +39,7 @@ F0 50 87 <param>
 | `0x10` | Panel button press (specific modes)                                        | Rhythm-mode byte (bits 7-4 = 1 → word table 0x00F6F3 index 1 → 0x041360)    |
 | `0x68` | Sound initialization                                                       | Rhythm-mode byte (bits 7-4 = 6, bit 3 set)                                  |
 
-The `0x08` value is the most common; it is sent after operations that change the rhythm/sound configuration (sequencer start/stop, drum kit selection, tempo changes, accompaniment mode switching). `MIDI_SendSysExFromW` (`0xEF6085`) is a second entry point that copies W into A; its callers, all in `display/scoop_display.s`, pass `0x62`, `0x68`, `0x72` and `0x76`, and one passes a byte of `SysInit_BytecodeBlock` with bit 1 set.
+The `0x08` value is the most common; it is sent after operations that change the rhythm/sound configuration (sequencer start/stop, drum kit selection, tempo changes, accompaniment mode switching). `MIDI_SendSysExFromW` (`0xEF6085`) is a second entry point that copies W into A; its callers, all in `display/scoop_display.s`, pass `0x62`, `0x68`, `0x72` and `0x76`, and one passes a byte of `SqStep_ButtonRhythmModeBytes` with bit 1 set.
 
 ### Implementation
 

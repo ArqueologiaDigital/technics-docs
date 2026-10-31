@@ -82,8 +82,8 @@ and `wzs87e`, so only a reader that skipped the remap could select them. The loc
 byte-identical in v5, v6, v7, v8, v9 and v10 (`probes/locator_selection_probe.py`). (Earlier documentation counted
 201 records, from the non-zero locators alone.)
 
-**The names the panel shows.** `AccStyle_VelocityTableMain` (`0xE4935F`, `[program 128][bank 8]` of u16) is
-misnamed: it maps each (program, bank) to the panel's (rhythm group, number). `AccStyle_LookupVelocityTable` reads it,
+**The names the panel shows.** `AccStyle_PanelRhythmTable` (`0xE4935F`, `[program 128][bank 8]` of u16) is
+misnamed: it maps each (program, bank) to the panel's (rhythm group, number). `AccStyle_LookupPanelRhythm` reads it,
 and `RhythmROM_PatternDisp_Handle90` and `SndParam_ResolveVoiceEntry` pass the result to `AccVoice_DispatchEntry`.
 For groups 0..13 that reaches `AccVoice_ComputedCopy`, which copies `AccVoice_RomRecords13[group * 20 + number]`;
 `MainGetRhyGrpName` takes the group name from `AccVoice_RomRecords16[group]`. So every record has a panel name:
@@ -133,12 +133,12 @@ code path joining them was traced.
 Every track in slots 0..15 and 17 is exactly one bar of the half's time signature (2,424 of 2,424 per slot); slots
 16 and 18 hold 1 to 8 bars (`probes/slot_bars_probe.py`).
 
-| slots  | selected by                                                                                         | reading                                        |
-|--------|-----------------------------------------------------------------------------------------------------|------------------------------------------------|
-| 0..7   | the section map: pick p -> slot p (`AccPart_LookupBoundVoiceParam`)                                 | the sections' bars                             |
-| 8..11  | no reader traced                                                                                    | open                                           |
-| 12..15 | `AccVoice_ComputeParamAddr`, by section slot and a pedal-direction bit                              | [inference] fill-ins                           |
-| 16..18 | `AccVoice_SelectPartOffset`, `AccVoice_Reset_SelectMode`, `AccVoice_ThirdLayer_SelectMode`          | [inference] 16 / 18 intro / ending, 17 one bar |
+| slots  | selected by                                                                                          | reading                                        |
+|--------|------------------------------------------------------------------------------------------------------|------------------------------------------------|
+| 0..7   | the section map: pick p -> slot p (`AccPart_LookupBoundVoiceParam`)                                  | the sections' bars                             |
+| 8..11  | no reader traced                                                                                     | open                                           |
+| 12..15 | `AccVoice_ComputeParamAddr`, by section slot and a pedal-direction bit                               | [inference] fill-ins                           |
+| 16..18 | `AccVoice_SelectPartOffset`, `AccSection_StartIntro_SelectMode`, `AccSection_StartEnding_SelectMode` | [inference] 16 / 18 intro / ending, 17 one bar |
 
 Tracks are shared: 46,056 slot references name 28,400 tracks, and every track is referenced
 (`probes/track_grammar_probe.py`). Track labels are `Trk_<id>_<N|V>_<part>_S<slot>`, after the first slot that
@@ -185,7 +185,7 @@ The generator refused to write if a single byte was unexplained. The `.s` files 
 3. Slots 8..11: no reader traced.
 4. `part_sound` bytes +4..+6 are copied to RAM with the rest; their consumer is not traced.
 5. `8beats` and `6beats`: leftovers, or selected by a path that skips `VoiceParam_BankProgramWords`?
-6. `AccStyle_VelocityTableMain` / `AccStyle_LookupVelocityTable` (and the siblings `AccStyle_VelocityTableExt` / `AccStyle_VelocityTableHigh`) need names
+6. `AccStyle_PanelRhythmTable` / `AccStyle_LookupPanelRhythm` (and the siblings `AccStyle_PanelRhythmTable_Ext` / `AccStyle_PanelRhythmTable_High`) need names
    that say they map (program, bank) to the panel's (rhythm group, number).
 
 ## Related pages

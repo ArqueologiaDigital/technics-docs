@@ -215,19 +215,19 @@ The `MIDI_Dispatch` routine parses MIDI-like status bytes and routes to handlers
 
 The `Voice_CtrlChange` handler supports these controllers:
 
-| CC#       | Handler                                                                       | Parameter                                                                                                  |
-|-----------|-------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
-| 0x01      | `Voice_CC_ModWheel`                                                           | Modulation Wheel                                                                                           |
-| 0x07      | `Voice_CC_Volume`                                                             | Main Volume                                                                                                |
-| 0x0A      | `Voice_CC_Pan`                                                                | Pan/Balance                                                                                                |
-| 0x0B      | `Voice_CC_Expression`                                                         | Expression                                                                                                 |
-| 0x40      | `Voice_CC_Sustain`                                                            | Sustain Pedal                                                                                              |
-| 0x5B      | `Voice_CC_ReverbSend`                                                         | Reverb send (part parameter 0x05B)                                                                         |
-| 0x5D      | `Voice_CC_DspEffectSend`                                                      | DSP-effect send (part parameter 0x05D)                                                                     |
-| 0x5E      | `Voice_CC_Portamento`                                                         | Portamento                                                                                                 |
-| 0x91      | `Voice_CC_91` → `Voice_CC_SetReverbDepth`                                     | Reverb depth (label; see Proprietary Control Changes)                                                      |
-| 0x95      | `Voice_CC_GlidePedal` → `Voice_CC_SetGlidePedal`                              | Glide pedal on/off (part parameter 0x603)                                                                  |
-| 0x97-0x9D | `Voice_CC_SustainLength`, `Voice_CC_9B`, `Voice_CC_KeyScaling`, `Voice_CC_9D` | Sustain length (0x97), key scaling (0x9C); 0x9B and 0x9D not established (see Proprietary Control Changes) |
+| CC#       | Handler                                                                                           | Parameter                                                                                                  |
+|-----------|---------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| 0x01      | `Voice_CC_ModWheel`                                                                               | Modulation Wheel                                                                                           |
+| 0x07      | `Voice_CC_Volume`                                                                                 | Main Volume                                                                                                |
+| 0x0A      | `Voice_CC_Pan`                                                                                    | Pan/Balance                                                                                                |
+| 0x0B      | `Voice_CC_Expression`                                                                             | Expression                                                                                                 |
+| 0x40      | `Voice_CC_Sustain`                                                                                | Sustain Pedal                                                                                              |
+| 0x5B      | `Voice_CC_ReverbSend`                                                                             | Reverb send (part parameter 0x05B)                                                                         |
+| 0x5D      | `Voice_CC_DspEffectSend`                                                                          | DSP-effect send (part parameter 0x05D)                                                                     |
+| 0x5E      | `Voice_CC_Portamento`                                                                             | Portamento                                                                                                 |
+| 0x91      | `Voice_CC_VelSwitchConfig` → `Voice_CC_SetVelSwitchConfig`                                        | Reverb depth (label; see Proprietary Control Changes)                                                      |
+| 0x95      | `Voice_CC_GlidePedal` → `Voice_CC_SetGlidePedal`                                                  | Glide pedal on/off (part parameter 0x603)                                                                  |
+| 0x97-0x9D | `Voice_CC_SustainLength`, `Voice_CC_GateRoutingMode`, `Voice_CC_KeyScaling`, `Voice_CC_TgPanMode` | Sustain length (0x97), key scaling (0x9C); 0x9B and 0x9D not established (see Proprietary Control Changes) |
 
 ## DSP Configuration
 
@@ -1114,14 +1114,14 @@ Filter behavior is fixed per voice preset — no real-time filter sweeps are imp
 
 ### Proprietary Control Changes (0x91-0x9D)
 
-| CC   | Handler                     | Channel Offset                             | Function                                                                                                             |
-|------|-----------------------------|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| 0x91 | `Voice_CC_SetReverbDepth`   | +0x11                                      | raw byte; tested bitwise by `Voice_Env_ApplyVelocity_Type0`                                                          |
-| 0x95 | `Voice_CC_SetGlidePedal`    | +0x04 bit 2                                | flag                                                                                                                 |
-| 0x97 | `Voice_CC_SetSustainLength` | +0x12                                      | raw byte                                                                                                             |
-| 0x9B | `Voice_CC_SetDelayDepth`    | +0x1F                                      | raw byte; its nibbles select gate routing                                                                            |
-| 0x9C | `Voice_CC_SetKeyScaling`    | -0x04 (`Part_PresentWord`, 0x04136A) bit 8 | flag                                                                                                                 |
-| 0x9D | `Voice_CC_SetDelayFeedback` | +0x20                                      | raw byte; 1 / 2 force TG reg 0x180 to 0x00 / 0x7F, otherwise the tone default (the overlay HLE renders 0x180 as pan) |
+| CC   | Handler                       | Channel Offset                             | Function                                                                                                             |
+|------|-------------------------------|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| 0x91 | `Voice_CC_SetVelSwitchConfig` | +0x11                                      | raw byte; tested bitwise by `Voice_Env_ApplyVelocity_Type0`                                                          |
+| 0x95 | `Voice_CC_SetGlidePedal`      | +0x04 bit 2                                | flag                                                                                                                 |
+| 0x97 | `Voice_CC_SetSustainLength`   | +0x12                                      | raw byte                                                                                                             |
+| 0x9B | `Voice_CC_SetGateRoutingMode` | +0x1F                                      | raw byte; its nibbles select gate routing                                                                            |
+| 0x9C | `Voice_CC_SetKeyScaling`      | -0x04 (`Part_PresentWord`, 0x04136A) bit 8 | flag                                                                                                                 |
+| 0x9D | `Voice_CC_SetTgPanMode`       | +0x20                                      | raw byte; 1 / 2 force TG reg 0x180 to 0x00 / 0x7F, otherwise the tone default (the overlay HLE renders 0x180 as pan) |
 
 Offsets are relative to 0x04136E + channel × 0x11F. These handlers store the controller value as is; only CC 7 and CC 11 go through the lookup table at 0x011D16. The labels (reverb/chorus/delay) are inherited and the meanings are not established.
 
@@ -1328,20 +1328,20 @@ Causes considered at the time (superseded by the /INT0 fix above):
 
 ### Main CPU (`v10/maincpu/kn5000_v10_program.s`)
 
-| Routine | Address | Description |
-|---------|---------|-------------|
-| `Audio_Lock_Acquire` | 0xEF1FEE | Kernel semaphore P (wait); the audio path uses semaphore 7 |
-| `Audio_Lock_Release` | 0xEF1F0F | Kernel semaphore V (release); byte twin of the sub CPU's `TaskSem_Release` |
-| `Audio_DMA_Transfer` | 0xEF341B | Core DMA transfer |
-| `SubCPU_Init_DMA_Channels` (was `Audio_InitDMAChannels`) | 0xEF329E | Initialize DMA channels |
-| `sendCOMM` | 0xEF32F4 | Send command/audio data to Sub CPU (chunks 32-byte blocks) |
-| `InterCPU_Send_Data_Block` | 0xEF3345 | Send 1-32 byte packet via inter-CPU latch |
-| `Audio_CheckSubsystemReady` | 0xFDDE6F | Check if audio subsystem is ready for commands |
-| `Audio_CheckInitStatus` | 0xFDF08A | Verify audio init state (checks 0xF19E) |
-| `Voice_InitializeAll` | 0xFE0E75 | Initialize all 16 voices (26 params each) |
-| `Audio_ConfigureDSP` | 0xFDBD52 | Configure DSP hardware and state |
-| `DemoMode_Initialize` | 0xF869E3 | Feature Demo first-time initialization |
-| `DemoMode_Main_Operation` | 0xF8696F | Feature Demo normal playback handler |
+| Routine                                                  | Address  | Description                                                                |
+|----------------------------------------------------------|----------|----------------------------------------------------------------------------|
+| `Audio_Lock_Acquire`                                     | 0xEF1FEE | Kernel semaphore P (wait); the audio path uses semaphore 7                 |
+| `Audio_Lock_Release`                                     | 0xEF1F0F | Kernel semaphore V (release); byte twin of the sub CPU's `TaskSem_Release` |
+| `Audio_DMA_Transfer`                                     | 0xEF341B | Core DMA transfer                                                          |
+| `SubCPU_Init_DMA_Channels` (was `Audio_InitDMAChannels`) | 0xEF329E | Initialize DMA channels                                                    |
+| `sendCOMM`                                               | 0xEF32F4 | Send command/audio data to Sub CPU (chunks 32-byte blocks)                 |
+| `InterCPU_Send_Data_Block`                               | 0xEF3345 | Send 1-32 byte packet via inter-CPU latch                                  |
+| `Audio_CheckSubsystemReady`                              | 0xFDDE6F | Check if audio subsystem is ready for commands                             |
+| `Audio_CheckInitStatus`                                  | 0xFDF08A | Verify audio init state (checks 0xF19E)                                    |
+| `Voice_InitializeAll`                                    | 0xFE0E75 | Initialize all 16 voices (26 params each)                                  |
+| `Fade_Cancel`                                            | 0xFDBD52 | Cancel any FADE IN / OUT and restore the level (configures no DSP)         |
+| `DemoMode_Initialize`                                    | 0xF869E3 | Feature Demo first-time initialization                                     |
+| `DemoMode_Main_Operation`                                | 0xF8696F | Feature Demo normal playback handler                                       |
 
 ### Sub CPU (`v142/subcpu/kn5000_subprogram_v142.s`)
 

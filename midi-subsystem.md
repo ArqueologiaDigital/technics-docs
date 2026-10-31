@@ -123,14 +123,14 @@ The `Voice_CtrlChange` routine dispatches to specific handlers based on CC numbe
 
 Offsets are from the part record at `0x041368 + part × 0x11F`.
 
-| CC#  | Handler                  | Parameter          | Voice Offset | Notes                                                        |
-|------|--------------------------|--------------------|--------------|--------------------------------------------------------------|
-| 0x91 | `Voice_CC_91`            | Reverb depth       | +0x17        | `Voice_CC_SetReverbDepth`, raw byte                          |
-| 0x95 | `Voice_CC_GlidePedal`    | Glide pedal on/off | +0x0A bit 2  | `Voice_CC_SetGlidePedal` (part parameter 0x603)              |
-| 0x97 | `Voice_CC_SustainLength` | Sustain length     | +0x18        | `Voice_CC_SetSustainLength`, raw byte (part parameter 0x600) |
-| 0x9B | `Voice_CC_9B`            | Delay depth        | +0x25        | `Voice_CC_SetDelayDepth`, raw byte                           |
-| 0x9C | `Voice_CC_KeyScaling`    | Key scaling on/off | +0x02 bit 8  | `Voice_CC_SetKeyScaling` (part parameter 0x602)              |
-| 0x9D | `Voice_CC_9D`            | Delay feedback     | +0x26        | `Voice_CC_SetDelayFeedback`, raw byte                        |
+| CC#  | Handler                    | Parameter          | Voice Offset | Notes                                                        |
+|------|----------------------------|--------------------|--------------|--------------------------------------------------------------|
+| 0x91 | `Voice_CC_VelSwitchConfig` | Reverb depth       | +0x17        | `Voice_CC_SetVelSwitchConfig`, raw byte                      |
+| 0x95 | `Voice_CC_GlidePedal`      | Glide pedal on/off | +0x0A bit 2  | `Voice_CC_SetGlidePedal` (part parameter 0x603)              |
+| 0x97 | `Voice_CC_SustainLength`   | Sustain length     | +0x18        | `Voice_CC_SetSustainLength`, raw byte (part parameter 0x600) |
+| 0x9B | `Voice_CC_GateRoutingMode` | Delay depth        | +0x25        | `Voice_CC_SetGateRoutingMode`, raw byte                      |
+| 0x9C | `Voice_CC_KeyScaling`      | Key scaling on/off | +0x02 bit 8  | `Voice_CC_SetKeyScaling` (part parameter 0x602)              |
+| 0x9D | `Voice_CC_TgPanMode`       | Delay feedback     | +0x26        | `Voice_CC_SetTgPanMode`, raw byte                            |
 
 ### CC Handler Structure
 
@@ -319,4 +319,4 @@ The accompaniment engine has its own MIDI filter system:
 - [x] ~~Analyze MIDI routing logic in Main CPU~~ — Complete: see [MIDI Serial I/O]({{ site.baseurl }}/midi-serial-io/)
 - [x] ~~Document Technics SysEx message format~~ — Complete: see [SysEx Messages]({{ site.baseurl }}/sysex-messages/)
 - [x] ~~Document MIDI filter and channel assignment settings~~ — Complete: 26 voice channels, voice data tables (0xEDB264, 0xEDAE64, 0xEE8EB8-0xEE8F70), channel lookup functions, multi-layer voice system (0-4 layers per channel), style-record special-casing (tag 0x48), Sub CPU filter tables, accompaniment MIDI filtering
-- [x] ~~Map remaining proprietary CC handlers (0x97, 0x9B-0x9D)~~ — Complete: CC91 = reverb depth, CC95 = glide pedal on/off, CC97 = sustain length, CC9B = delay depth, CC9C = key scaling on/off, CC9D = delay feedback (handlers `Voice_CC_91`, `Voice_CC_GlidePedal`, `Voice_CC_SustainLength`, `Voice_CC_9B`, `Voice_CC_KeyScaling`, `Voice_CC_9D` in the sub-CPU payload; see the Proprietary Controllers table above. An earlier reading here called 0x95 / 0x97 / 0x9C chorus on/off, chorus depth and delay on/off; the setters they call, `Voice_CC_SetGlidePedal`, `Voice_CC_SetSustainLength` and `Voice_CC_SetKeyScaling`, show otherwise)
+- [x] ~~Map remaining proprietary CC handlers (0x97, 0x9B-0x9D)~~ — Complete: CC91 = reverb depth, CC95 = glide pedal on/off, CC97 = sustain length, CC9B = delay depth, CC9C = key scaling on/off, CC9D = delay feedback (handlers `Voice_CC_VelSwitchConfig`, `Voice_CC_GlidePedal`, `Voice_CC_SustainLength`, `Voice_CC_GateRoutingMode`, `Voice_CC_KeyScaling`, `Voice_CC_TgPanMode` in the sub-CPU payload; see the Proprietary Controllers table above. An earlier reading here called 0x95 / 0x97 / 0x9C chorus on/off, chorus depth and delay on/off; the setters they call, `Voice_CC_SetGlidePedal`, `Voice_CC_SetSustainLength` and `Voice_CC_SetKeyScaling`, show otherwise)

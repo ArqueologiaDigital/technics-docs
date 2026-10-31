@@ -1692,20 +1692,20 @@ UI_SUBSTATE_TABLE:
 
 The FDC handler dispatch table (`FDC_CommandEntry_CopyParams_CaseTable` at 0xEA98CA) calls these routines, all now disassembled:
 
-| Routine                 | Address  | Status       | Called By             |
-|-------------------------|----------|--------------|-----------------------|
-| `FDC_CmdSeek`           | 0xF97696 | Disassembled | FDC_HANDLER_02        |
-| `FDC_CMD_EXEC`          | 0xF976E4 | Disassembled | FDC_HANDLER_03        |
-| `FDC_SECTOR_XFER`       | 0xF97835 | Disassembled | FDC_HANDLER_04        |
-| `FDC_CMD_ENABLE`        | 0xF97C21 | Disassembled | Multiple handlers     |
-| `FDC_INTERRUPT_HANDLER` | 0xF97C7C | Disassembled | FDC_HANDLER_11        |
-| `FDC_INIT`              | 0xF96BBF | Disassembled | FDC_InitSequence_Full |
-| `FDC_CONFIG_VERIFY`     | 0xF96BD0 | Disassembled | FDC_InitSequence_Full |
-| `FDC_MODE_CONFIG`       | 0xF97984 | Disassembled | FDC_HANDLER_05        |
-| `FDC_CMD_DISABLE`       | 0xF97C4B | Disassembled | FDC_HANDLER_07        |
-| `FDC_STATUS_COPY`       | 0xF97C54 | Disassembled | FDC_HANDLER_08        |
-| `FDC_OUTPUT_CTRL`       | 0xF97C5B | Disassembled | FDC_HANDLER_09        |
-| `FDC_CMD_DISPATCH_SUB`  | 0xF96D95 | Disassembled | FDC_HANDLER_10        |
+| Routine                   | Address  | Status       | Called By             |
+|---------------------------|----------|--------------|-----------------------|
+| `FDC_CmdSeek`             | 0xF97696 | Disassembled | FDC_HANDLER_02        |
+| `FDC_CMD_EXEC`            | 0xF976E4 | Disassembled | FDC_HANDLER_03        |
+| `FDC_SECTOR_XFER`         | 0xF97835 | Disassembled | FDC_HANDLER_04        |
+| `FDC_CMD_ENABLE`          | 0xF97C21 | Disassembled | Multiple handlers     |
+| `FDC_CmdSenseDriveStatus` | 0xF97C7C | Disassembled | FDC_HANDLER_11        |
+| `FDC_INIT`                | 0xF96BBF | Disassembled | FDC_InitSequence_Full |
+| `FDC_CONFIG_VERIFY`       | 0xF96BD0 | Disassembled | FDC_InitSequence_Full |
+| `FDC_MODE_CONFIG`         | 0xF97984 | Disassembled | FDC_HANDLER_05        |
+| `FDC_CMD_DISABLE`         | 0xF97C4B | Disassembled | FDC_HANDLER_07        |
+| `FDC_STATUS_COPY`         | 0xF97C54 | Disassembled | FDC_HANDLER_08        |
+| `FDC_OUTPUT_CTRL`         | 0xF97C5B | Disassembled | FDC_HANDLER_09        |
+| `FDC_CMD_DISPATCH_SUB`    | 0xF96D95 | Disassembled | FDC_HANDLER_10        |
 
 All of them are code in `v10/maincpu/storage/fdc_routines.s`, which holds no `.byte` lines. See [FDC Subsystem]({{ site.baseurl }}/fdc-subsystem/).
 

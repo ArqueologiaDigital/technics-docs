@@ -300,7 +300,7 @@ Blue textured pattern with subtle "Technics" watermark.
 
 ### Name getters in `file_io/wallpaper.s`
 
-The routines in that source file are not wallpaper code, despite their "WP_" prefix. They return item names for the disk SINGLE LOAD lists, and their callers are in `file_io/single_load.s`. For example, `WP_GetConfigName` (0xF8EDD2) returns Panel Memory bank name *n* (RAM `0x1ED360 + 16*n`), `WP_GetNameByOffset` (0xF8EE00) the name of Panel Memory record *n* (`0x1ED402 + 960*n`), and `WP_GetBankMemName` (0xF8EE65) a Composer style name (RAM `0x948A0`) or a section name from `WP_SectionNameTable`.
+The routines in that source file are not wallpaper code, despite their "WP_" prefix. They return item names for the disk SINGLE LOAD lists, and their callers are in `file_io/single_load.s`. For example, `SingleLoad_GetFileBankName` (0xF8EDD2) returns Panel Memory bank name *n* (RAM `0x1ED360 + 16*n`), `SingleLoad_GetFileMemoryName` (0xF8EE00) the name of Panel Memory record *n* (`0x1ED402 + 960*n`), and `SingleLoad_GetComposerSectionName` (0xF8EE65) a Composer style name (RAM `0x948A0`) or a section name from `SingleLoad_StyleSectionNames`.
 
 ---
 

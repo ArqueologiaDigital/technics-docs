@@ -25,7 +25,7 @@ the panel memory EXPAND MODE FILTER, the panel LEDs each key drives, and the MID
 ## The descriptor
 
 A key is registered at boot with an 18-byte **descriptor**. `SndParam_RegisterAllWidgets`
-walks 972 pointers (`SndParam_RegisterLoop_Data`, v10 `0xEE01A0`) and hashes each
+walks 972 pointers (`SndParam_Registry`, v10 `0xEE01A0`) and hashes each
 descriptor's key into an 8-byte-slot table in RAM at `0x34100`. Every later access
 re-hashes the key, finds the descriptor and reads the field it names:
 
@@ -40,11 +40,11 @@ re-hashes the key, finds the descriptor and reads the field it names:
 | +0x09  | `shift`             | low nibble = shift count of the field inside the byte             |
 | +0x0A  | `xor_value`         | XORed with the value                                              |
 | +0x0B  | `aux_index`         | index of a second descriptor used as a map or bias, `0xFF` = none |
-| +0x0C  | `read_accessor`     | selector into `SndParam_RO_Dispatch_Data`                         |
-| +0x0D  | `register_accessor` | selector into `SndParam_DispatchCallback_Data`                    |
-| +0x0E  | `lookup2_accessor`  | selector into `SndParam_Lkp2_Dispatch_Data`                       |
-| +0x0F  | `codec`             | encoder `n` / decoder `n+3` in `SndParam_RW_ProcessResult_Data`   |
-| +0x10  | `write_accessor`    | selector into `SndParam_DispatchTypeDE5_Data`                     |
+| +0x0C  | `read_accessor`     | selector into `SndParam_ReadHandlers`                             |
+| +0x0D  | `register_accessor` | selector into `SndParam_RegisterHandlers`                         |
+| +0x0E  | `lookup2_accessor`  | selector into `SndParam_Register2Handlers`                        |
+| +0x0F  | `codec`             | encoder `n` / decoder `n+3` in `SndParam_EncodeHandlers`          |
+| +0x10  | `write_accessor`    | selector into `SndParam_WriteHandlers`                            |
 | +0x11  | `unknown_0x11`      | no reader found; `0xFF` in almost every descriptor                |
 
 `bank_index` selects the record's RAM address from `SndParam_BlockRamPtrs` (v10

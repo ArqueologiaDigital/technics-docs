@@ -119,14 +119,14 @@ Type 2 packets are dispatched by `CPanel_EncoderDispatch` (`midi_encoder_routine
 a jump table at ROM `0xEDA0BC`, indexed by the encoder ID in the header. The analog IDs carry
 absolute 8-bit ADC values; ID 31 carries the data wheel's signed detent count:
 
-| Index | Header | Handler                       | Controller                                      |
-|-------|--------|-------------------------------|-------------------------------------------------|
-| 2     | 0x12   | `Encoder_ProcessModwheel`     | Modulation wheel                                |
-| 5     | 0x15   | `Encoder_ProcessVolume`       | Volume slider                                   |
-| 25    | 0xD1   | `Encoder_ProcessBreath`       | Breath controller                               |
-| 26    | 0xD2   | `Encoder_ProcessFoot`         | Foot controller                                 |
-| 27    | 0xD3   | `Encoder_ProcessExpression`   | Expression pedal                                |
-| 31    | 0xD7   | `Encoder_PassthroughIdentity` | TEMPO/PROGRAM data wheel (count passed through) |
+| Index | Header | Handler                          | Controller                                      |
+|-------|--------|----------------------------------|-------------------------------------------------|
+| 2     | 0x12   | `Encoder_ProcessExpressionPedal` | Modulation wheel                                |
+| 5     | 0x15   | `Encoder_ProcessAfterTouch`      | Volume slider                                   |
+| 25    | 0xD1   | `Encoder_ProcessPitchBend`       | Breath controller                               |
+| 26    | 0xD2   | `Encoder_ProcessModulation`      | Foot controller                                 |
+| 27    | 0xD3   | `Encoder_ProcessMainVolume`      | Expression pedal                                |
+| 31    | 0xD7   | `Encoder_PassthroughIdentity`    | TEMPO/PROGRAM data wheel (count passed through) |
 
 Entry 31 is the data wheel's: `Encoder_PassthroughIdentity` returns the count unchanged, and
 `CPanel_RX_EncoderPacket` queues `{0xD7, count, 0xFF}`. Every other ID returns a constant 1.

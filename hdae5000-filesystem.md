@@ -358,7 +358,7 @@ The routines this page used to list for commands 03-06 (0x2959F6, 0x295D3C,
 0x29605A, 0x296294) are the handlers of commands **08-11**. The 12-entry
 table at `0x2953E2` holds entries 6-17 of the 20, and the old notes numbered it
 from 1. The handlers call 30 PC-link services
-(`HDAE5000_PPORT_Svc01_GetInfoBlockPointer` … `HDAE5000_PPORT_Svc30_MainHook053C`).
+(`HDAE5000_PPORT_Svc01_GetInfoBlockPointer` … `HDAE5000_PPORT_Svc30_WakeUpMainTask`).
 The names of services 1-25 come from the `"---[ <FunctionName> ]---"` banners
 of the compiled-out debug trace.
 

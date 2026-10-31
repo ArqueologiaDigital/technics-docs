@@ -316,8 +316,8 @@ When a HAMA title is current, `TestTitleFunc` handles two events.
 | 1   | STOP FDD TEST: kill the test-loop timer                                                                        |
 | 2   | START FDD TEST LOOP: one pass of `RunTestCounters_Entry` (which calls `FDLoadSaveTest`), then re-arm the timer |
 | 3   | DIR: `FDListDirectory`                                                                                         |
-| 4   | Format a 2DD disk and label it `TEST_HAMA` (`RegHamaTitle1_Entry`)                                             |
-| 5   | Format a 2HD disk and label it `TESTHAMA2HD` (`RegHamaTitle2_Entry`)                                           |
+| 4   | Format a 2DD disk and label it `TEST_HAMA` (`FDTest_Format2ddAndLabel`)                                        |
+| 5   | Format a 2HD disk and label it `TESTHAMA2HD` (`FDTest_Format2hdAndLabel`)                                      |
 | 6   | List `A:\HAMA\*.LSW` (`ListDir2_Entry`)                                                                        |
 
 **Event `0x1C00013` (`EVT_ACTIVATE_STATE`) — title phases 2–7:** each phase only prints a debug line ("Title new", "Title old", "Title Inactivate", "Title Activate", "INTERUPT", "INTERUPT RETURN").
@@ -496,7 +496,7 @@ These strings are displayed on the diagnostic LCD during hardware validation, pr
 Holding keys B3 and B4 during power-on causes `SelfTest_FirmwareVersionCheck` to request title `0x01A000FC` through `UI_ChangeTitleByIndex` (which posts `EVT_CHANGE_TITLE`, `0x1C00015`). The request opens `TT_EXTAPR`, which `InitializeHama` registers as title `0xFC`: the full HAMA diagnostic screen with FDD SAVE/LOAD test, directory listing, and test-floppy formatting.
 
 **TT_HDDEXT (title 0x7F):**
-The `TT_HDDEXT` title (title id `0x7F`) is the HD-AE5000's hard-disk title, not a keybed test. The firmware ships a pre-built DISK MENU item that points at it (caption "HARD DISK MAIN MENU", which the HD-AE5000 replaces with "HD-AE5000"). The HD-AE5000 re-registers the title with its own view and procedure and, when a hard disk is present, requests it at boot with `EVT_INTERRUPT_TITLE` (see [HDAE5000 Homebrew]({{ site.baseurl }}/hdae5000-homebrew/#disk-menu-slot-registration-workspace0x0e0a0x02c4)). (`RegHamaTitle1_Entry` and `RegHamaTitle2_Entry` do not switch titles: they format a 2DD or 2HD test floppy.)
+The `TT_HDDEXT` title (title id `0x7F`) is the HD-AE5000's hard-disk title, not a keybed test. The firmware ships a pre-built DISK MENU item that points at it (caption "HARD DISK MAIN MENU", which the HD-AE5000 replaces with "HD-AE5000"). The HD-AE5000 re-registers the title with its own view and procedure and, when a hard disk is present, requests it at boot with `EVT_INTERRUPT_TITLE` (see [HDAE5000 Homebrew]({{ site.baseurl }}/hdae5000-homebrew/#disk-menu-slot-registration-workspace0x0e0a0x02c4)). (`FDTest_Format2ddAndLabel` and `FDTest_Format2hdAndLabel` do not switch titles: they format a 2DD or 2HD test floppy.)
 
 **Complete activation chain:**
 ```

@@ -674,10 +674,10 @@ The firmware maintains a separate **icon descriptor table** at `0x938000` (in Ta
 
 ### Progress Bar Widgets
 
-| Function            | Address  | Description                                                 |
-|---------------------|----------|-------------------------------------------------------------|
-| `DrawProgressRectH` | 0xF96180 | Horizontal progress bar (3 modes: center, left, right fill) |
-| `DrawProgressRectV` | 0xF9635E | Vertical progress bar (3 modes: center, top, bottom fill)   |
+| Function               | Address  | Description                                                 |
+|------------------------|----------|-------------------------------------------------------------|
+| `Arrow_DrawHorizontal` | 0xF96180 | Horizontal progress bar (3 modes: center, left, right fill) |
+| `Arrow_DrawVertical`   | 0xF9635E | Vertical progress bar (3 modes: center, top, bottom fill)   |
 
 ### Widget Event Handlers
 
@@ -932,8 +932,8 @@ The display is one of the most complete subsystems in MAME emulation. The MN8930
 | `PaletteBankRotate`         | `0xFAF346` | Fade via palette bank rotation  |
 | `AcFadeSetGridBoxProc`      | `0xF75229` | Fade-setting grid-box procedure |
 | `MainTitleCtrl_ChangeTitle` | `0xF9936D` | Full-screen mode transition     |
-| `DrawProgressRectH`         | `0xF96180` | Horizontal progress bar         |
-| `DrawProgressRectV`         | `0xF9635E` | Vertical progress bar           |
+| `Arrow_DrawHorizontal`      | `0xF96180` | Horizontal progress bar         |
+| `Arrow_DrawVertical`        | `0xF9635E` | Vertical progress bar           |
 
 ## How to Contribute
 

@@ -184,7 +184,7 @@ top-level map as recorded in `table_data/kn5000_table_data.s`; see
 | `0x9FCC2A - 0x9FD8A4` | Flash-update main, bitmap/display helpers, VGA register I/O                                                                    |
 | `0x9FD8A5 - 0x9FEA9C` | FDC command-layer driver (uPD72068 at IC208) — a compact port of the maincpu FDC driver                                        |
 | `0x9FEA9D - 0x9FEB2A` | `BootTimer_InterruptHandler` (0x9FEA9D) and `Handler_INT4` (0x9FEAB2)                                                          |
-| `0x9FEB2B - 0x9FEC6D` | Floppy disk-format probe (`Boot_PulsePD0`, `FDC_ProbeDiskFormat`)                                                              |
+| `0x9FEB2B - 0x9FEC6D` | Floppy disk-format probe (`FDC_PulseResetLine`, `FDC_ProbeDiskFormat`)                                                         |
 | `0x9FEC6E - 0x9FF228` | Boot-time CP-serial driver, polling/setup half                                                                                 |
 | `0x9FF229 - 0x9FF2F1` | Boot-time CP-serial ISRs (three handlers + two `.long` dispatch tables)                                                        |
 | `0x9FF2F2 - 0x9FFB2E` | Boot-time CP-serial state handlers and packet codecs                                                                           |
@@ -275,7 +275,7 @@ DMA source (DMAS), destination (DMAD), count (DMAC), and mode (DMAM) registers a
 ## Control Panel Memory
 
 The addresses in this section are **v10 / v9**. In **v7** the whole panel, encoder and MIDI-CC block
-sits `0x9C` lower (`CPANEL_TX_RX_FLAGS` is `0x8CF0`, `MIDI_CC_MODWHEEL_VALUE` `0x8E48`); the low
+sits `0x9C` lower (`CPANEL_TX_RX_FLAGS` is `0x8CF0`, `ANALOG_EXPRESSION_PEDAL_VALUE` `0x8E48`); the low
 variables (`REGION_CODE_VAR` `0x408`, `SYSTEM_TIMESTAMP` `0x409`, `MSP_SETTINGS` `0xC9A`) do not move.
 Since 2026-10-03 the code uses these names in every maincpu tree (`ld (CPANEL_TX_RX_FLAGS:16), a`),
 each tree's constants carrying its own values -- v7's derived from the same instructions in the same
@@ -322,53 +322,53 @@ names). The page-named ones are in each tree's `shared/ram_variables.s`.
 
 ### Encoder Raw Input Storage
 
-| Address  | Variable                 | Description                   |
-|----------|--------------------------|-------------------------------|
-| `0x8ECA` | `ENCODER_RAW_MODWHEEL`   | Raw modulation wheel input    |
-| `0x8ECC` | `ENCODER_RAW_VOLUME`     | Raw volume slider input       |
-| `0x8ED4` | `ENCODER_RAW_BREATH`     | Raw breath controller input   |
-| `0x8ED6` | `ENCODER_RAW_FOOT`       | Raw foot controller input     |
-| `0x8ED8` | `ENCODER_RAW_EXPRESSION` | Raw expression pedal input    |
-| `0x8EDA` | `ENCODER_BREATH_MODE`    | Breath controller mode/enable |
-| `0x8EDC` | `ENCODER_VOLUME_MODE`    | Volume mode configuration     |
-| `0x8EDE` | `ENCODER_RANGE_LIMIT`    | Encoder range limit value     |
+| Address  | Variable                       | Description                   |
+|----------|--------------------------------|-------------------------------|
+| `0x8ECA` | `ENCODER_RAW_EXPRESSION_PEDAL` | Raw modulation wheel input    |
+| `0x8ECC` | `ENCODER_RAW_AFTERTOUCH`       | Raw volume slider input       |
+| `0x8ED4` | `ENCODER_RAW_PITCHBEND`        | Raw breath controller input   |
+| `0x8ED6` | `ENCODER_RAW_MODULATION`       | Raw foot controller input     |
+| `0x8ED8` | `ENCODER_RAW_MAIN_VOLUME`      | Raw expression pedal input    |
+| `0x8EDA` | `ENCODER_BEND_RANGE`           | Breath controller mode/enable |
+| `0x8EDC` | `ENCODER_AFTERTOUCH_CURVE`     | Volume mode configuration     |
+| `0x8EDE` | `ENCODER_AFTERTOUCH_THRESHOLD` | Encoder range limit value     |
 
 ### MIDI Controller Values
 
-| Address  | Variable                     | Description                               |
-|----------|------------------------------|-------------------------------------------|
-| `0x8EE0` | `MIDI_CC_MODWHEEL_PENDING`   | Modulation value with change flag (bit 7) |
-| `0x8EE2` | `MIDI_CC_EXPRESSION_PENDING` | Expression value with change flag (bit 7) |
-| `0x8EE4` | `MIDI_CC_MODWHEEL_VALUE`     | Current modulation wheel value (CC#1)     |
-| `0x8EE6` | `MIDI_CC_EXPRESSION_VALUE`   | Current expression value (CC#0)           |
-| `0x8EE8` | `MIDI_CC_BREATH_VALUE`       | Breath controller value (CC#2)            |
-| `0x8EEA` | `MIDI_CC_FOOT_VALUE`         | Foot controller value (CC#4)              |
-| `0x8EF4` | `MIDI_CC_VOLUME_VALUE`       | Volume controller value (CC#7)            |
+| Address  | Variable                          | Description                               |
+|----------|-----------------------------------|-------------------------------------------|
+| `0x8EE0` | `ANALOG_EXPRESSION_PEDAL_PENDING` | Modulation value with change flag (bit 7) |
+| `0x8EE2` | `ANALOG_MAIN_VOLUME_PENDING`      | Expression value with change flag (bit 7) |
+| `0x8EE4` | `ANALOG_EXPRESSION_PEDAL_VALUE`   | Current modulation wheel value (CC#1)     |
+| `0x8EE6` | `ANALOG_MAIN_VOLUME_VALUE`        | Current expression value (CC#0)           |
+| `0x8EE8` | `ANALOG_PITCHBEND_VALUE`          | Breath controller value (CC#2)            |
+| `0x8EEA` | `ANALOG_MODULATION_VALUE`         | Foot controller value (CC#4)              |
+| `0x8EF4` | `ANALOG_AFTERTOUCH_VALUE`         | Volume controller value (CC#7)            |
 
 ### Encoder State
 
-| Address  | Variable               | Description                              |
-|----------|------------------------|------------------------------------------|
-| `0x8EFC` | `ENCODER_0_LAST_VALUE` | Previous encoder 0 reading (for delta)   |
-| `0x8EFE` | `ENCODER_1_LAST_VALUE` | Previous encoder 1 reading (for delta)   |
-| `0x8F04` | `ENCODER_0_STATUS`     | Encoder 0 status flags (bit 3 = changed) |
-| `0x8F06` | `ENCODER_1_STATUS`     | Encoder 1 status flags (bit 3 = changed) |
-| `0x8F10` | `ENCODER_0_OUTPUT`     | Encoder 0 output buffer (2 bytes)        |
-| `0x8F16` | `ENCODER_1_OUTPUT`     | Encoder 1 output buffer (2 bytes)        |
-| `0x8F18` | `ENCODER_STATE_BASE`   | Base of encoder state structure          |
+| Address  | Variable             | Description                              |
+|----------|----------------------|------------------------------------------|
+| `0x8EFC` | `ADC_AN0_LAST_VALUE` | Previous encoder 0 reading (for delta)   |
+| `0x8EFE` | `ADC_AN1_LAST_VALUE` | Previous encoder 1 reading (for delta)   |
+| `0x8F04` | `ADC_AN0_STATUS`     | Encoder 0 status flags (bit 3 = changed) |
+| `0x8F06` | `ADC_AN1_STATUS`     | Encoder 1 status flags (bit 3 = changed) |
+| `0x8F10` | `ADC_AN0_OUTPUT`     | Encoder 0 output buffer (2 bytes)        |
+| `0x8F16` | `ADC_AN1_OUTPUT`     | Encoder 1 output buffer (2 bytes)        |
+| `0x8F18` | `CPANEL_LED_IMAGE`   | Base of encoder state structure          |
 
 ### Encoder Lookup Tables (ROM)
 
-| Address    | Variable                    | Description                        |
-|------------|-----------------------------|------------------------------------|
-| `0xEDA13C` | `ENCODER_LUT_MODWHEEL`      | Modulation wheel value lookup      |
-| `0xEDA1BC` | `ENCODER_LUT_VOLUME`        | Volume slider value lookup         |
-| `0xEDA2BC` | `ENCODER_LUT_BREATH_INDEX`  | Breath controller index lookup     |
-| `0xEDA2D2` | `ENCODER_LUT_BREATH_VALUE`  | Breath controller value lookup     |
-| `0xEDA3D2` | `ENCODER_LUT_BREATH_MULT`   | Breath controller multiplier table |
-| `0xEDA3EA` | `ENCODER_LUT_BREATH_OFFSET` | Breath controller offset table     |
-| `0xEDA402` | `ENCODER_LUT_FOOT`          | Foot controller value lookup       |
-| `0xEDA482` | `ENCODER_LUT_EXPRESSION`    | Expression pedal value lookup      |
+| Address    | Variable                            | Description                        |
+|------------|-------------------------------------|------------------------------------|
+| `0xEDA13C` | `ENCODER_LUT_EXPRESSION_PEDAL`      | Modulation wheel value lookup      |
+| `0xEDA1BC` | `ENCODER_LUT_AFTERTOUCH`            | Volume slider value lookup         |
+| `0xEDA2BC` | `ENCODER_LUT_AFTERTOUCH_CURVE_MULT` | Breath controller index lookup     |
+| `0xEDA2D2` | `ENCODER_LUT_PITCHBEND`             | Breath controller value lookup     |
+| `0xEDA3D2` | `ENCODER_LUT_BEND_RANGE_MULT`       | Breath controller multiplier table |
+| `0xEDA3EA` | `ENCODER_LUT_BEND_RANGE_OFFSET`     | Breath controller offset table     |
+| `0xEDA402` | `ENCODER_LUT_MODULATION`            | Foot controller value lookup       |
+| `0xEDA482` | `ENCODER_LUT_MAIN_VOLUME`           | Expression pedal value lookup      |
 
 ## Sequencer/Medley Memory
 

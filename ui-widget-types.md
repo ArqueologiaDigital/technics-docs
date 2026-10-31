@@ -91,20 +91,20 @@ Widget dispatch is by class procedure:
 
 `ViewableProc` at `0xFA5995` is the primary event handler registered via the `RegObjTabl` macro in `InitializeNaka`. It dispatches on 32-bit event IDs (not on the 8-bit widget type byte):
 
-| Event ID    | Firmware method (constant)                | Handler label          |
-|-------------|-------------------------------------------|------------------------|
-| `0x1E00052` | MT_SetEditSwRect (`EVT_SET_EDIT_SW_RECT`) | `Viewable_GetBoundsY`  |
-| `0x1E0004F` | MT_SetMenuRect (`EVT_SET_MENU_RECT`)      | `Viewable_GetBoundsX`  |
-| `0x1E000B5` | MT_SearchLink (`EVT_SEARCH_LINK`)         | `Viewable_MatchClass`  |
-| `0x1E00024` | MT_SearchClass (`EVT_SEARCH_CLASS`)       | `Viewable_Dispatch`    |
-| `0x1E0009C` | MT_SetVisible (`EVT_SET_VISIBLE`)         | `Viewable_SetVisible`  |
-| `0x1E00039` | MT_GetPrevview (`EVT_GET_PREVVIEW`)       | `Viewable_GetClass`    |
-| `0x1E00038` | MT_GetNextview (`EVT_GET_NEXTVIEW`)       | `Viewable_GetChild`    |
-| `0x1E00037` | MT_GetSubview (`EVT_GET_SUBVIEW`)         | `Viewable_GetOwner`    |
-| `0x1E00036` | MT_GetSuperview (`EVT_GET_SUPERVIEW`)     | `Viewable_GetParent`   |
-| `0x1E0000F` | MT_GetInstance (`EVT_GET_INSTANCE`)       | `Viewable_GetInstance` |
+| Event ID    | Firmware method (constant)                | Handler label             |
+|-------------|-------------------------------------------|---------------------------|
+| `0x1E00052` | MT_SetEditSwRect (`EVT_SET_EDIT_SW_RECT`) | `Viewable_GetBoundsY`     |
+| `0x1E0004F` | MT_SetMenuRect (`EVT_SET_MENU_RECT`)      | `Viewable_GetBoundsX`     |
+| `0x1E000B5` | MT_SearchLink (`EVT_SEARCH_LINK`)         | `Viewable_MatchClass`     |
+| `0x1E00024` | MT_SearchClass (`EVT_SEARCH_CLASS`)       | `Viewable_Dispatch`       |
+| `0x1E0009C` | MT_SetVisible (`EVT_SET_VISIBLE`)         | `Viewable_SetVisible`     |
+| `0x1E00039` | MT_GetPrevview (`EVT_GET_PREVVIEW`)       | `Viewable_OnGetPrevView`  |
+| `0x1E00038` | MT_GetNextview (`EVT_GET_NEXTVIEW`)       | `Viewable_OnGetNextView`  |
+| `0x1E00037` | MT_GetSubview (`EVT_GET_SUBVIEW`)         | `Viewable_OnGetSubView`   |
+| `0x1E00036` | MT_GetSuperview (`EVT_GET_SUPERVIEW`)     | `Viewable_OnGetSuperView` |
+| `0x1E0000F` | MT_GetInstance (`EVT_GET_INSTANCE`)       | `Viewable_GetInstance`    |
 
-These are firmware methods (the `0x01E0` `MT_*` space), not lifecycle events, and they are only the first ten tests. `ViewableProc` also handles `EVT_SET_NAME`, `EVT_GET_NAME`, `EVT_DELIVERY_EVENT`, `EVT_SHOW`, `EVT_HIDE` and `EVT_GET_CLASS_SP`, and dispatches `EVT_PAINT` (`0x1C0000B`) through `0x1C00011` through `ViewableProc_CaseTable` (`ViewableProc_OnPaint`, `ViewableProc_OnRepaint`, ...). Several handler labels predate the method names and do not describe the handler (`Viewable_GetClass` answers MT_GetPrevview).
+These are firmware methods (the `0x01E0` `MT_*` space), not lifecycle events, and they are only the first ten tests. `ViewableProc` also handles `EVT_SET_NAME`, `EVT_GET_NAME`, `EVT_DELIVERY_EVENT`, `EVT_SHOW`, `EVT_HIDE` and `EVT_GET_CLASS_SP`, and dispatches `EVT_PAINT` (`0x1C0000B`) through `0x1C00011` through `ViewableProc_CaseTable` (`ViewableProc_OnPaint`, `ViewableProc_OnRepaint`, ...). Several handler labels predate the method names and do not describe the handler (`Viewable_OnGetPrevView` answers MT_GetPrevview).
 
 ### Not part of widget dispatch: `SeMenu_SetObjectFlags`
 
@@ -293,7 +293,7 @@ Evidence: handler_table values increment by 2 per consecutive menu item (e.g., `
 
 ## FD SAVE/LOAD TEST — Diagnostic Screen
 
-The FD SAVE/LOAD TEST is a factory diagnostic screen that exercises the floppy disk I/O subsystem. It is the only user of class 0x16, `PsNumEditBox` (`NAKA_TYPE_DIAGLIST` in the sources), and provides a complete example of the Title-based screen activation system.
+The FD SAVE/LOAD TEST is a factory diagnostic screen that exercises the floppy disk I/O subsystem. It is the only user of class 0x16, `PsNumEditBox` (`NAKA_TYPE_PsNumEditBox` in the sources), and provides a complete example of the Title-based screen activation system.
 
 ### Activation Path
 
@@ -308,7 +308,7 @@ The diagnostic screen is part of the **HAMA** (file/disk) subsystem, initialized
 
    Both titles share the same lifecycle callback, `TestTitleFunc` at `0xF1E39A` (pointer stored at `0xE1FD2C` in `fd_test_data.s`), and the same view, `NAKA_VIEW_FDD_TEST` (`0x00FC0000`, entry 0 of Viewable table 0xFC). The Viewable table `InitializeHama` registers at 0x7F is empty.
 
-2. **Title activation.** The 0xFC title (`TT_EXTAPR`) is the service manual's Test 8: holding B3 + B4 at power-on makes `SelfTest_FirmwareVersionCheck` request title `0x01A000FC` (see [Test Modes]({{ site.baseurl }}/test-modes/#test-8-floppy-disk-saveload-test-b3--b4)). Title 0x7F is the HD-AE5000's hard-disk title: the DISK MENU's "HARD DISK MAIN MENU" item points at it, and the HD-AE5000 re-registers it with its own view and requests it at boot with `EVT_INTERRUPT_TITLE`, depending on `HDAE5000_Check_HD_Present`'s result (see [HDAE5000 Homebrew]({{ site.baseurl }}/hdae5000-homebrew/#disk-menu-slot-registration-workspace0x0e0a0x02c4)). The title system sends `EVT_ACTIVATE_STATE` (`0x1C00013`) to `TestTitleFunc`, and phases 2-7 each print one line through `FDTest_PrintDiag` (`TestTitleFunc_CaseTable`, `0xE1FE0E`):
+2. **Title activation.** The 0xFC title (`TT_EXTAPR`) is the service manual's Test 8: holding B3 + B4 at power-on makes `SelfTest_FirmwareVersionCheck` request title `0x01A000FC` (see [Test Modes]({{ site.baseurl }}/test-modes/#test-8-floppy-disk-saveload-test-b3--b4)). Title 0x7F is the HD-AE5000's hard-disk title: the DISK MENU's "HARD DISK MAIN MENU" item points at it, and the HD-AE5000 re-registers it with its own view and requests it at boot with `EVT_INTERRUPT_TITLE`, depending on `HDAE5000_Check_HD_Present`'s result (see [HDAE5000 Homebrew]({{ site.baseurl }}/hdae5000-homebrew/#disk-menu-slot-registration-workspace0x0e0a0x02c4)). The title system sends `EVT_ACTIVATE_STATE` (`0x1C00013`) to `TestTitleFunc`, and phases 2-7 each print one line through `FDTest_PrintDiag` (`TestTitleFunc_StateCaseTable`, `0xE1FE0E`):
 
    | Event       | Parameter (xde) | Prints                  |
    |-------------|-----------------|-------------------------|
@@ -319,7 +319,7 @@ The diagnostic screen is part of the **HAMA** (file/disk) subsystem, initialized
    | `0x1C00013` | 6               | `Title INTERUPT`        |
    | `0x1C00013` | 7               | `Title INTERUPT RETURN` |
 
-3. **User actions.** Panel switches arrive as `EVT_SW_IN` (`0x1C00007`, parameter = switch number), dispatched through `TitleFunc_LifecycleDispatch_CaseTable` (`0xE1FDFE`):
+3. **User actions.** Panel switches arrive as `EVT_SW_IN` (`0x1C00007`, parameter = switch number), dispatched through `TestTitleFunc_SwitchCaseTable` (`0xE1FDFE`):
 
    | Switch (xde) | Prints                | Action                                                                                 |
    |--------------|-----------------------|----------------------------------------------------------------------------------------|
@@ -327,8 +327,8 @@ The diagnostic screen is part of the **HAMA** (file/disk) subsystem, initialized
    | 1            | `STOP FDD TEST`       | kills the test-loop timer                                                              |
    | 2            | `START FDD TEST LOOP` | one `FDLoadSaveTest` pass (`RunTestCounters_Entry`), then a timer posts switch 2 again |
    | 3            | `DIR`                 | `FDListDirectory`                                                                      |
-   | 4            | `Debug Test`          | `format_FD` with WA = 2, then volume label `TEST_HAMA` (`RegHamaTitle1_Entry`)         |
-   | 5            | `Debug Test`          | `format_FD` with WA = 3, then volume label `TESTHAMA2HD` (`RegHamaTitle2_Entry`)       |
+   | 4            | `Debug Test`          | `format_FD` with WA = 2, then volume label `TEST_HAMA` (`FDTest_Format2ddAndLabel`)         |
+   | 5            | `Debug Test`          | `format_FD` with WA = 3, then volume label `TESTHAMA2HD` (`FDTest_Format2hdAndLabel`)       |
    | 6            | —                     | lists `A:\HAMA\*.LSW` (`ListDir2_Entry`)                                               |
 
 4. **Dialog widget events.** `FDTestDialogProc` answers `EVT_REQUEST_GRID_DRAW` (`0x1E0008D`) by sending `EVT_GRID_DRAW` for the requested cell, with the text `File Name 20 charact`, to the focus object. Through a word-offset table at `0xE1FF34` (`FDTestDialogProc_CaseTable`) it swallows the index-switch and dial events `0x1C00017`--`0x1C0001D` (`EVT_INDEXSW_UP` … `EVT_RAM_DATA`), returning 0. Every other event also returns 0.

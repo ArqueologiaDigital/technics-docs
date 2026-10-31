@@ -45,8 +45,8 @@ This page documents the protocol used by the KN5000 Main CPU to send sound param
 ## Concrete trace: Reverb Depth (CC#91)
 
 **Sub CPU side (already decoded):**
-- `Voice_CC_91` loads channel from `(xiz+1)`, value from `(xiz+3)`
-- Calls `Voice_CC_SetReverbDepth`: computes `wa × 0x11F`, points to `0x04137F` (= base 0x041300 + offset 0x7F)
+- `Voice_CC_VelSwitchConfig` loads channel from `(xiz+1)`, value from `(xiz+3)`
+- Calls `Voice_CC_SetVelSwitchConfig`: computes `wa × 0x11F`, points to `0x04137F` (= base 0x041300 + offset 0x7F)
 - Stores reverb depth in the per-voice parameter structure
 
 **For comparison, other CC handlers at nearby offsets:**
@@ -94,7 +94,7 @@ All reference the same parameter table at **0xE952AA** (per-channel config) and 
 
 ### Phase 1: Proof of concept — Reverb Depth end-to-end trace
 
-Fully trace a reverb-depth edit end to end, from the LswReverb widget to Sub CPU `Voice_CC_91` and the field at 0x04137F (part record +0x17). The Sub CPU half is traced below. The Main CPU half is not: LswReverb's handling of event `0x1E00042` (`EVT_GET_LSW_STRING`) only formats the displayed value with `Sprintf_Locked` (formerly `Audio_SendCommand`), and how an edit reaches `sendCOMM` has not been traced.
+Fully trace a reverb-depth edit end to end, from the LswReverb widget to Sub CPU `Voice_CC_VelSwitchConfig` and the field at 0x04137F (part record +0x17). The Sub CPU half is traced below. The Main CPU half is not: LswReverb's handling of event `0x1E00042` (`EVT_GET_LSW_STRING`) only formats the displayed value with `Sprintf_Locked` (formerly `Audio_SendCommand`), and how an edit reaches `sendCOMM` has not been traced.
 
 **Status:** Sub CPU half complete; the Main CPU half (widget edit → sendCOMM) is not traced
 
