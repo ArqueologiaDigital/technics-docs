@@ -208,6 +208,86 @@ its regeneration):
 What stays offset-named: fields read in more than one place of a function with different uses, values
 stored to the frame and used later, and values whose only use is arithmetic.
 
+## Pointers, arrays and loops (lane mn10300-typer)
+
+Lane mn10300-typer (2026-10-31, [`kn7000/notes/mn10300-typer/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-typer/README.md)) took the typer's open items: text typed as pointers,
+the array-end rule, and four extensions of the reader walk. The machinery is in `kn7000/tools/`
+(`gen_data_s.py`, `data_structs.py`, `data_readers.py`, `gen_program_s.py` and the new
+`mn10300_insn_len.py`) and applies to every MN10300 tree. Each rule is a key of `gen_data_s.FEATURES`,
+on by default; `GEN_DATA_S_OFF` turns rules off, which is how the lane's `typer_stats.py` measures each
+one against the generator as it was:
+
+| rule           | what it does                                                                                                                                |
+|----------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `ptr_starts`   | a 32-bit word is a pointer into code only when it is the first byte of an instruction; otherwise it is text or a number, as the readers say |
+| `array_end`    | a pointer loop proven to stop at an address (`cmp End, aN` and a branch back) ends the array it walks                                       |
+| `mem_ptrs`     | data addresses stored to a memory slot (a RAM global, a data word, a field of a record) and loaded back elsewhere                           |
+| `loop_index`   | a constant in a data register a loop writes is the loop's induction variable at its head; a pointer plus a scaled index keeps the scale     |
+| `step_arrays`  | a block a routine steps through (or indexes) by s >= 2 is an array of s-byte records                                                        |
+| `deep_records` | a loop that walks records through their own field types every record of the chain; blocks the code copies whole are typed copies            |
+
+**Pointers only at instruction starts.** Uppercase text often reads as a code address: `"><SH"` =
+`0x48533C3E` in the feature demo's XML script (`REC_StartFeatureDemo_Table_p0`), `"RIGH"` of
+MidiPmemOutLGrid's "RIGHT 1", `"PUSH"` of "PUSH EXIT BUTTON". `tools/mn10300_insn_len.py` ports the
+KN7000 MAME driver's instruction-length decoder and decodes forward from the anchors the converted code
+gives (its function headers, `func_<ADDR>` and `*_entry` names, branch labels), and
+`gen_data_s.code_ptr_ok()` asks it of every code value before it is taken for an address. Checked
+against what kn7asm assembles, byte by byte (`insn_starts_check.py`):
+
+| tree          | instruction bytes | agree     | disagree | undecided (before the first anchor) |
+|---------------|-------------------|-----------|----------|-------------------------------------|
+| kn7000-941    | 1,850,485         | 1,850,470 | 0        | 15                                  |
+| kn7000-sp7001 | 1,853,070         | 1,853,055 | 0        | 15                                  |
+| kn7000-b935   | 1,850,421         | 1,850,408 | 0        | 13                                  |
+| kn7000-b893   | 1,845,605         | 1,845,592 | 0        | 13                                  |
+| kn6000        | 1,544,492         | 1,544,474 | 0        | 18                                  |
+| kn6500        | 1,546,542         | 1,546,524 | 0        | 18                                  |
+| kn2400        | 1,778,472         | 1,778,452 | 0        | 20                                  |
+| hdsx3         | 253,526           | 253,524   | 0        | 2                                   |
+
+The feature demo's record is now two fields and one 1,256-byte text field; "RIGHT 1", "PUSH EXIT
+BUTTON", "BRIGHTNESS", "SLIDESHOW" (and the KN2400's "MD_HSS", "TT_HELP" ...) are strings again.
+
+**The array-end rule.** At `cmp End, aN` followed by a branch back, taken while aN < End, with aN
+holding the array's base at the loop head and base + s at the compare, the array ends at End; the
+table header cites the compare. Only bottom-tested loops count. 40 bounds in build 941, 16 tables
+shortened: `MainMmmControl_Table` is 256 entries, not 260 (its +1024 / +1028 are `MainMmmControl`'s
+two variables), and the code that named the bytes after a shortened table now names their own tables:
+`movhu (func_4850DF34_Table+20), d0` became `movhu (FE_CmpMDelFstMeas_Table), d0`, one of the `FE_*`
+menu fields' min / max pairs the table had swallowed.
+
+**The walk.** (a) `mem_ptrs` follows a pointer stored to a memory slot and loaded back; it found 5
+slots in 941 and types no new byte in the KN7000 builds. (b) `loop_index` treats a loop's counter as an
+index rather than its first value, and counts a loop that compares its counter with a constant
+(`DrawBitmapSPFast16_Impl`'s palette index runs 0x20..0x2F). (c) `step_arrays` types a block a routine
+is handed and steps through as an array of records (`DrawBitmapSPFast4_ArgSp24_*`, a palette of 4-byte
+records); the count is the loop's when it is proven, else the block's extent *[INFERENCE]*. (d)
+`deep_records` follows a loop that walks a chain through a field: the voice directory's five hash
+tables (`VoiceDirRemapFind`, `VoiceDirClassFind`, `VoiceDirIndexFind`, `VoiceDirRefFind`,
+`VoiceDirPartRefFind`: `a2 = Table[hash]; while (a2) { ...; a2 = *a2 }`) go from 2,118 records (the
+bucket heads) to 3,351 in build 941; and `copied_blocks()` now runs for the siblings too.
+
+**Figures** (`typer_stats.py`: the generator with every rule off, which reproduces the committed
+sources before the lane byte for byte, against every rule on; `code_in_data.py` for P, the
+mid-instruction `.long` count; measured against main `868b201f0`; n / bytes):
+
+| tree       | typed before | typed after | change  | reader rows before | after       | opaque before   | opaque after    | P before | P after |
+|------------|--------------|-------------|---------|--------------------|-------------|-----------------|-----------------|----------|---------|
+| kn7000-941 | 2,125,911    | 2,143,981   | +18,070 | 85 / 995           | 78 / 905    | 3,448 / 63,227  | 2,174 / 45,394  | 3        | 0       |
+| kn7000-942 | 2,132,336    | 2,150,400   | +18,064 | 87 / 1,091         | 81 / 1,013  | 3,471 / 61,497  | 2,196 / 43,654  | 3        | 0       |
+| kn7000-935 | 2,126,637    | 2,144,574   | +17,937 | 87 / 1,091         | 84 / 1,049  | 3,459 / 64,020  | 2,193 / 46,280  | 1        | 0       |
+| kn7000-893 | 2,126,357    | 2,144,470   | +18,113 | 85 / 995           | 79 / 917    | 3,453 / 62,910  | 2,177 / 45,007  | 2        | 0       |
+| kn6000     | 2,424,027    | 2,436,905   | +12,878 | 185 / 11,215       | 142 / 9,370 | 2,833 / 65,733  | 2,347 / 54,782  | 0        | 0       |
+| kn6500     | 1,935,342    | 1,948,203   | +12,861 | 190 / 11,331       | 147 / 9,486 | 2,849 / 69,967  | 2,364 / 59,027  | 0        | 0       |
+| kn2400     | 1,670,358    | 1,688,962   | +18,604 | 218 / 9,889        | 184 / 8,255 | 4,448 / 172,071 | 3,419 / 155,297 | 1        | 0       |
+| hdsx3      | 481,868      | 482,118     | +250    | 34 / 211           | 34 / 211    | 98 / 3,103      | 98 / 2,981      | 0        | 0       |
+
+Of the rules alone on 941, `deep_records` types the most (+11,924 bytes) and `loop_index` next
+(+5,959); they overlap. No tree loses typed coverage; a few bytes per tree that an over-long table or
+record held before (6 to 87) are now rows, fill or opaque pieces, for instance the `0xFFFFFFFF` after
+`func_484161BE_Table` (the loop stops before it) and `func_48440E4D_Records`, 3 "User Bank" records,
+not 6.
+
 ## Blocks a routine is handed
 
 Much of the program data is never read where it is named: the code loads the block's address and
@@ -384,8 +464,9 @@ run in its code any more. Its probe,
 `kn7000/notes/code-island-probes/code_in_data.py`, lists every branch target, code-named label,
 fall-through and code pointer that lands on bytes a tree emits as data: after the lane, none in any
 MN10300 tree except struct fields that hold text which reads as a code address
-(`REC_StartFeatureDemo_Table_p0`'s `p28`, the `"><SH"` of the feature demo's XML script) and the
-KN2400's `ptrs_48501B38`, two words typed as pointers by value (open, below).
+(`REC_StartFeatureDemo_Table_p0`'s `p28`, the `"><SH"` of the feature demo's XML script) and two
+words of the KN2400 typed as pointers by value. Since lane mn10300-typer none at all: its P column
+(mid-instruction `.long`s) is 0 in every tree ([above](#pointers-arrays-and-loops-lane-mn10300-typer)).
 
 **Opaque** (`census: opaque -- unknown-dump`) means that no load, store, base or call argument of
 the converted code lands in the bytes under the extended walk, and the line says whether a typed
@@ -409,8 +490,10 @@ in a branch the linear walk enters with no state.
 
 ## Open
 
-- Recursive structures besides the resource-id trie are typed one level deep: the walk sees one
-  loop iteration.
+- ~~Recursive structures besides the resource-id trie are typed one level deep~~: lane
+  mn10300-typer's `deep_records` types every record of a chain a loop walks (the voice directory's
+  hash buckets). Top-tested pointer loops (`L: cmp End, aN; bcc out; ...; add s, aN; bra L`) still do
+  not bound their arrays.
 - ~~The 4-byte demo-stream events of the table's three streams are byte rows~~: they are no demo
   streams but the alphabetical sound lists, typed since lane mn10300-formats
   ([above](#the-alphabetical-sound-lists)).
@@ -419,19 +502,20 @@ in a branch the linear walk enters with no state.
   KN2400's twins, reached only as a base, are u8 rows with `.long data_X+20`.)
 - Blocks the walk cannot follow stay rows: a pointer a routine stores (`SetApTimer` / `KillApTimer`'s
   message argument, `RegisterObjectTable`, `PutM3Em`'s queue, zlib's `_tr_init`), which whoever loads
-  it back later reads; library copies (memcpy, strcpy, `LibStrlen`); arrays indexed by a loop counter,
-  which the linear walk takes as a constant (`DrawBitmapSPFast16_Impl`'s palette); and loop-stepped
-  records, whose count the walk does not know. Field names past `T_CTSK`'s need each routine read.
+  it back later reads; library copies (memcpy, strcpy, `LibStrlen`). Since lane mn10300-typer the walk
+  follows a pointer stored to memory and loaded back (`mem_ptrs`, though it finds few such slots: most
+  stored pointers are computed, and `SetApTimer`'s message is read through a function pointer), arrays
+  indexed by a loop counter (`loop_index`) and loop-stepped records (`step_arrays`). Field names past `T_CTSK`'s need each routine read.
   (~~Naming zlib's tables in the symbol files~~: done by lane mn10300-formats, ported to 935 / 893 /
   942, [above](#zlibs-tables).)
 - ~~`func_487B8E34` is declared `unknown-dump`~~ and ~~`func_4C03B799_Table` (353 x s16) runs on into
   code~~: both settled by lane code-island ([above](#the-kernels-flash-tail)).
-- `func_487B8FB2`, after `KernelInitHook`: code by its bytes, entered by no traced path
-  (*[INFERENCE]* an interrupt entry written to a vector at run time).
-- Struct fields typed as pointers whose words are text (`REC_StartFeatureDemo_Table_p0`'s `p28`,
-  `loc_48474952` "RIGH", `loc_48535550`): the struct typer should take a field inside a run of text
-  for text.
-- Pointer-walk bounds: an address the code compares a stepped pointer with (`cmp Addr, aN`) should end
-  the array. A trial on 941 ended `MainMmmControl_Table` at 256 entries instead of 260; not kept.
+- ~~`func_487B8FB2`, after `KernelInitHook`, entered by no traced path~~: `KernelTickIsrDefault`,
+  the kernel configuration's default tick handler, which the application replaces
+  ([Firmware Images]({{ site.baseurl }}/kn7000-firmware/#the-kernels-flash-tail)).
+- ~~Struct fields typed as pointers whose words are text~~ and ~~pointer-walk bounds~~: both settled
+  by lane mn10300-typer (`ptr_starts`, `array_end`; `MainMmmControl_Table` is 256 entries).
+- Field names left offset-named by the field-use walk (`f0`, `p8`, `x2`): see
+  [Field names from their use](#field-names-from-their-use).
 - An array's record count, where the readers check no bound, is where its records stop being free
   or another name begins; such counts are inferences, listed in each macro header.

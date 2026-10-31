@@ -212,6 +212,26 @@ blocks their `p8` field points at are pieces of their own, which no instruction 
 declared opaque ("a typed pointer ... holds their address, but nothing is read through it"). They were
 rows before only by being after an address the code loads.
 
+## Pointers, arrays and loops (lane mn10300-typer)
+
+Lane mn10300-typer (2026-10-31, [`kn7000/notes/mn10300-typer/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-typer/README.md)) changed the shared typer for every MN10300 tree: a
+32-bit field is a pointer into code only where it lands on the first byte of an instruction (a length
+decoder, `kn7000/tools/mn10300_insn_len.py`, walks the code from its known entry points; 0 disagreements
+with the assembler in any tree), a pointer loop proven to stop at an address ends the array it walks, a
+loop's counter is an index, a block a routine steps through is an array of records, and a chain a loop
+walks is typed record by record. The rules and the KN7000's figures are on
+[KN7000 Program Data Region]({{ site.baseurl }}/kn7000-data-region/#pointers-arrays-and-loops-lane-mn10300-typer).
+Here (`typer_stats.py`, all rules off against all on, the same inputs; n / bytes):
+
+| tree   | typed before | typed after | change  | reader rows before | after       | opaque before   | opaque after    |
+|--------|--------------|-------------|---------|--------------------|-------------|-----------------|-----------------|
+| kn2400 | 1,670,358    | 1,688,962   | +18,604 | 218 / 9,889        | 184 / 8,255 | 4,448 / 172,071 | 3,419 / 155,297 |
+The second word of the pointer run at `0x48501B38` (once `ptrs_48501B38`), text typed as a pointer, is text again, so `code_in_data.py` finds no
+mid-instruction pointer in the KN2400 any more (1 before). `copied_blocks()` now runs for the siblings:
+the 12-byte blocks the switch descriptors' `p8` leads to (`memcpy(.., 12)`) are typed copies. The
+doc-quality census rose here (routines without a header 21,233 -> 21,242, `loc_` locals 4,967 -> 4,975):
+newly typed records' pointer fields name code addresses no label had (a table of handlers), and a
+pointed-to label counts as a routine.
 ## What is left: the census
 
 The fourth committed snapshot,

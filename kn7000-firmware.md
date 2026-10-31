@@ -99,7 +99,22 @@ code that lands in the data region (`TAIL_CODE`, `find_tail_code()`), writes it 
 | `0x487B8FA1` | 3     | `KernelWaitAbortHook`       | `retf 0, 0`; `func_4C03B514` calls it with a0 = the task's control block, d0 = -0x55 (E_TMOUT)                                         |
 | `0x487B8FA4` | 11    | `KernelStart`               | `mov (KernelRamLayout+20), a3 / mov a3, sp / jmp KernelInit`; jumped to from the reset code and from `func_4C03DD98`                   |
 | `0x487B8FAF` | 3     | `KernelInitHook`            | `ret 0, 0`, called by `KernelInit`                                                                                                     |
-| `0x487B8FB2` | 31    | `func_487B8FB2`             | no traced path enters it; it decodes as code ending in `rets` (*[INFERENCE]* an interrupt entry written to a vector at run time)       |
+| `0x487B8FB2` | 31    | `KernelTickIsrDefault`      | the kernel's default system-tick interrupt handler, which nothing enters: the application installs its own (below)                     |
+
+**`KernelTickIsrDefault`** (lane mn10300-typer, 2026-10-31, [`kn7000/notes/mn10300-typer/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-typer/README.md), section 4; was
+`func_487B8FB2`). It clears bits 4..7 of G6ICR `0x34000118`, acknowledging interrupt group 6, calls
+the kernel's wake-up of the task `(0x50380000)` points at (E_OBJ when it is dormant, E_QOVR at 0x7FFF
+queued wake-ups) and returns with `rets`: the interrupt-handler shape. `LibIrqScheduler` (lib
+`0x4C03DE26`) reads the accepted group from `0x34000200`, finds the request in GxICR, maps it through
+the RAM table `0x50380A6C` to an index and calls the handler from the RAM table `0x50380B64` with
+`calls (a2)`. KernelInit fills that table with the default `loc_4C03DEE9`, and the def_int service
+`func_4C03DB21` installs a handler from a packet {attribute, handler, level, ICR address}. The only
+def_int of G6ICR is the application start-up's (`func_48447F33`, which KernelInit calls): interrupt 1,
+handler `KernelTickHandler` (lib `0x4C02BB05`, the 1 kHz tick), level 6. No word of the program, table
+or IC18 image holds `0x487B8FB2`, no instruction names it and no branch reaches it, so it is the kernel
+configuration's default tick handler, which the application replaced *[INFERENCE]*. All four models
+have it right after `KernelInitHook` and install their own tick handler the same way
+([KN6000 / KN6500 / HD-SX Disassembly]({{ site.baseurl }}/kn6000-disassembly/#the-two-program-images)).
 
 The routine names are *[INFERENCE]* from what the code does; the table names are the KN6000's. The
 block sits at the same distance from the library image in every build, so the tail code starts at
@@ -124,7 +139,7 @@ The KN6000, KN6500 and KN2400 keep the same routines, under the same names
 | `0x000080` – ~`0x186000` | Main firmware code (region 1)                                                                                                                                                                                                                                                                                                           |
 | ~`0x185DC0` – `0x186208` | `float64` decibel-ratio table (137 IEEE-754 doubles, e.g. `1.25892544` = 10^0.1)                                                                                                                                                                                                                                                        |
 | ~`0x186208` – `0x3B8B78` | Data / resources: multi-language UI text, FAT boot template, flash-chip ID strings, RGB palettes, fonts, GUI resource tables, 8 JPEGs, two Windows `.BMP` images; typed source since 2026-10-29 ([Program Data Region]({{ site.baseurl }}/kn7000-data-region/)); it ends in the kernel's flash-resident tables, `0x3B8AAC` – `0x3B8B78` |
-| `0x3B8B78` – `0x3B8FD1`  | The MILK kernel's flash tail: 1,113 bytes of code run from the flash, `KernelInit` .. `func_487B8FB2` ([below](#the-kernels-flash-tail))                                                                                                                                                                                                |
+| `0x3B8B78` – `0x3B8FD1`  | The MILK kernel's flash tail: 1,113 bytes of code run from the flash, `KernelInit` .. `KernelTickIsrDefault` ([below](#the-kernels-flash-tail))                                                                                                                                                                                         |
 | `0x3B8FD1` – `0x3F6F01`  | Code region 2: the library image the boot copies to `0x4C000000`, the `MILK MN10300` kernel + zlib 1.0.4 and the C runtime                                                                                                                                                                                                              |
 
 ### Version numbers

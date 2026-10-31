@@ -251,6 +251,26 @@ the walk sees (24 / 7,839), the routine's reads are lost inside it (4 / 112), it
 pieces. The opaque bytes fell too, KN6000 70,137 -> 65,733, KN6500 74,371 -> 69,967, plug-in 3,133 ->
 3,103: bytes declared unread were records' tails.
 
+## Pointers, arrays and loops (lane mn10300-typer)
+
+Lane mn10300-typer (2026-10-31, [`kn7000/notes/mn10300-typer/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-typer/README.md)) changed the shared typer for every MN10300 tree: a
+32-bit field is a pointer into code only where it lands on the first byte of an instruction (a length
+decoder, `kn7000/tools/mn10300_insn_len.py`, walks the code from its known entry points; 0 disagreements
+with the assembler in any tree), a pointer loop proven to stop at an address ends the array it walks, a
+loop's counter is an index, a block a routine steps through is an array of records, and a chain a loop
+walks is typed record by record. The rules and the KN7000's figures are on
+[KN7000 Program Data Region]({{ site.baseurl }}/kn7000-data-region/#pointers-arrays-and-loops-lane-mn10300-typer).
+Here (`typer_stats.py`, all rules off against all on, the same inputs; n / bytes):
+
+| tree   | typed before | typed after | change  | reader rows before | after       | opaque before   | opaque after    |
+|--------|--------------|-------------|---------|--------------------|-------------|-----------------|-----------------|
+| kn6000 | 2,424,027    | 2,436,905   | +12,878 | 185 / 11,215       | 142 / 9,370 | 2,833 / 65,733  | 2,347 / 54,782  |
+| kn6500 | 1,935,342    | 1,948,203   | +12,861 | 190 / 11,331       | 147 / 9,486 | 2,849 / 69,967  | 2,364 / 59,027  |
+| hdsx3  | 481,868      | 482,118     | +250    | 34 / 211           | 34 / 211    | 98 / 3,103      | 98 / 2,981      |
+A few bytes that an over-long table held before (32 on the KN6000, 35 on the KN6500, 6 on the HD-SX3)
+are now rows or fill: the `0xFFFFFFFF` terminators after some tables, whose loop stops before them. The kernel's routine after `KernelInitHook` is `KernelTickIsrDefault`
+([KN6000 Disassembly]({{ site.baseurl }}/kn6000-disassembly/#the-two-program-images)); since it is a
+function now, its call names an entry, one more routine without a header in the doc-quality census.
 ## What is left: the census
 
 The fourth committed snapshot of `scripts/analysis/data_incbin_census.py`,
@@ -325,7 +345,7 @@ library's constant tables).
   names, so a table can still be split in two.
 - The plug-in's entry vectors' roles.
 - Blocks the callee walk cannot follow: a pointer a routine stores (a timer, a registry, a queue),
-  library copies, arrays indexed by a loop counter. The siblings' walk has the KN7000 extended walk's
+  library copies. (Arrays indexed by a loop counter are followed since lane mn10300-typer.) The siblings' walk has the KN7000 extended walk's
   slots, joins and return sets, not its other rules (pointer-from-a-field returns, loop bodies keeping
   slots, bounds); the whole extended walk, tried on the KN2400, typed less.
 - *[INFERENCE]* What the kernel's hash keys, RAM layout words and u16 parameters mean.

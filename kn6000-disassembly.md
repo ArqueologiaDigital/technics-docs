@@ -99,7 +99,12 @@ section "the MILK kernel's tail routines"; lane code-island,
 | KN2400 | `0x48728165` | `0x4872841C`        | `0x48728588`, `0x4872858B`, `0x4872858E`                             | `0x48728591`  | `0x4872859C`     | 25, 3, 1           |
 
 The names are *[INFERENCE]* from what the code does ([Firmware Images]({{ site.baseurl }}/kn7000-firmware/#the-kernels-flash-tail)).
-The routine after `KernelInitHook` (KN6000) is unreached, like the KN7000's `func_487B8FB2`.
+The routine after `KernelInitHook` is `KernelTickIsrDefault` in every model (KN7000 `0x487B8FB2`,
+KN6000 `0x4C3F77A1`, KN6500 `0x4C381401`, KN2400 `0x4872859F`): the kernel's default system-tick
+interrupt handler, which nothing enters, because each application installs its own tick handler for
+interrupt 1 / G6ICR (KN6000 `0x4C171C06`, KN6500 `0x4C172408`, KN2400 `0x5018B5FD`) through the def_int
+service (lane mn10300-typer, *[INFERENCE]* that it is the configuration's default;
+[Firmware Images]({{ site.baseurl }}/kn7000-firmware/#the-kernels-flash-tail)).
 
 ## The XAPR plug-in (HD-SX3 or HD-SX6)
 
