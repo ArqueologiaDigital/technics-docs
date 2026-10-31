@@ -8,18 +8,18 @@ permalink: /waveform-rom-format/
 
 The KN5000's tone generator (IC303, TC183C230002) reads waveform data from four 32Mbit (4MB) mask ROMs (IC304-IC307). These ROMs contain the PCM sample data used for all wavetable synthesis. This page documents the format of IC307, the only dumped waveform ROM.
 
-> **IC307 is half of a pair (2026-10-30).** IC307 is not a linear wave ROM: it holds every other 16-bit word of each recording, directory entry and parameter record, as the "Y" chip of a word-interleaved pair like the SX-KN7000's wave ROMs. Its undumped partner holds the other half. Earlier revisions of this page, and of the pages that link here, described the chip's words as complete recordings and records; read the layout below as one chip's half. The evidence is in [IC307 is half of a pair](#ic307-is-half-of-a-pair).
+> **IC307 is half of a pair (2026-10-30).** IC307 is not a linear wave ROM: it holds every other 16-bit word of each recording, directory entry and parameter record, as the "Y" chip of a word-interleaved pair like the SX-KN7000's wave ROMs. Its undumped partner, IC306 ([below](#ic307s-partner-is-ic306)), holds the other half. Earlier revisions of this page, and of the pages that link here, described the chip's words as complete recordings and records; read the layout below as one chip's half. The evidence is in [IC307 is half of a pair](#ic307-is-half-of-a-pair).
 
 ## ROM Inventory
 
 | IC    | Part Number  | Size | MAME Offset | Status                                                                                                       |
 |-------|--------------|------|-------------|--------------------------------------------------------------------------------------------------------------|
-| IC304 | QS6GU3C32375 | 4 MB | 0x000000    | **undumped** — `NO_DUMP` upstream; the overlay driver fills the bank with a `BAD_DUMP`-flagged copy of IC307 |
-| IC305 | QS6GT3C33A01 | 4 MB | 0x400000    | **undumped** — `NO_DUMP` upstream; the overlay driver fills the bank with a `BAD_DUMP`-flagged copy of IC307 |
-| IC306 | QS6GU3C32374 | 4 MB | 0x800000    | **undumped** — `NO_DUMP` upstream; the overlay driver fills the bank with a `BAD_DUMP`-flagged copy of IC307 |
-| IC307 | QS6GX3C32008 | 4 MB | 0xC00000    | **Dumped** (CRC: 20ff4629) — the one hardware-rooted wave ROM dump                                           |
+| IC304 | QSIGU3C32375 | 4 MB | 0x000000    | **undumped** — `NO_DUMP` upstream; the overlay driver fills the bank with a `BAD_DUMP`-flagged copy of IC307 |
+| IC305 | QSIGU3C32374 | 4 MB | 0x400000    | **undumped** — `NO_DUMP` upstream; the overlay driver fills the bank with a `BAD_DUMP`-flagged copy of IC307 |
+| IC306 | QSIGT3C32A01 | 4 MB | 0x800000    | **undumped** — `NO_DUMP` upstream; the overlay driver fills the bank with a `BAD_DUMP`-flagged copy of IC307 |
+| IC307 | QSIGX3C32008 | 4 MB | 0xC00000    | **Dumped** (CRC: 20ff4629) — the one hardware-rooted wave ROM dump                                           |
 
-The MAME driver declares the four ROMs as one contiguous 16 MB waveform address space, `ROM_REGION16_LE` (16-bit little-endian word access). IC307's contents say that is not how the hardware reads them: the four chips are two word-interleaved pairs (*[INFERENCE]* from IC307 alone; [below](#ic307-is-half-of-a-pair)), and which socket is IC307's partner is not known. IC304-306 are `NO_DUMP` in mainline MAME (mamedev/mame `src/mame/matsushita/kn5000.cpp`). In the `kn7000_mame` overlay driver they are not: since 2026-07-23 it loads a real region there, filled with a copy of the genuine IC307 dump and marked `BAD_DUMP` so MAME's audit/UI flags it as not-genuine. The copy keeps the real paged datapath exercised. Since 2026-08-06 the default PCM rendering mutes every voice that selects IC304-306, the 'with sine substitutes' rendering plays those voices as sines, and the wrong-instrument copy is heard only with `KN5000_UNDUMPED=play`. The placeholder is dropped for the real dumps the moment they exist. See `src/mame/matsushita/kn5000.cpp` (`ROM_REGION16_LE(0x1000000, "waveform", 0)`) in the `kn7000_mame` driver overlay.
+The MAME driver declares the four ROMs as one contiguous 16 MB waveform address space, `ROM_REGION16_LE` (16-bit little-endian word access). IC307's contents say that is not how the hardware reads them: the four chips are two word-interleaved pairs (*[INFERENCE]* from IC307 alone; [below](#ic307-is-half-of-a-pair)), and IC307's partner is IC306 ([below](#ic307s-partner-is-ic306)). Part numbers as the service manual reads them (disassembly `notes/sound-2026-10-31/README.md`, section 3; earlier revisions of this table had IC305's and IC306's numbers exchanged and spelled the prefix `QS6G`). IC304-306 are `NO_DUMP` in mainline MAME (mamedev/mame `src/mame/matsushita/kn5000.cpp`). In the `kn7000_mame` overlay driver they are not: since 2026-07-23 it loads a real region there, filled with a copy of the genuine IC307 dump and marked `BAD_DUMP` so MAME's audit/UI flags it as not-genuine. The copy keeps the real paged datapath exercised. Since 2026-08-06 the default PCM rendering mutes every voice that selects IC304-306, the 'with sine substitutes' rendering plays those voices as sines, and the wrong-instrument copy is heard only with `KN5000_UNDUMPED=play`. The placeholder is dropped for the real dumps the moment they exist. See `src/mame/matsushita/kn5000.cpp` (`ROM_REGION16_LE(0x1000000, "waveform", 0)`) in the `kn7000_mame` driver overlay.
 
 ## IC307 as Source
 
@@ -209,11 +209,29 @@ So IC307 is **the Y chip of a word-interleaved pair**: it holds every other word
 - **The directory.** IC307's `{param_ptr, wave_offset}` pair is the A and B words of the KN7000's four-word entry `{A, P, B, Q}`. The P word (pitch exponent, the 8-bit flag, the loop granule) and the Q word are on the partner chip.
 - **The records.** IC307 holds the head and the odd parameter words; the even ones are on the partner (*[INFERENCE]* from the p1, p3, ... match: a record's head is 32-bit aligned, so the words alternate chips from there).
 - **The audio.** An IC307 WAV is the Y half of its recording: a 16-bit one sounds like the recording at half the rate without anti-alias filtering, an 8-bit one holds the sample pairs (4i, 4i + 1). For the 1,327 waves that match whole, the KN7000's X chip holds the other half of what is very probably the same recording; the disassembly does not combine them (a KN7000 dump is not a KN5000 one).
-- **The hardware.** The MAME driver maps IC304-IC307 as one linear 16 MB region; these contents say the four chips are two word-interleaved pairs instead, so the tone generator reads its wave ROMs in pairs (*[INFERENCE]*). Which socket (IC304, IC305 or IC306) is IC307's partner, and what the other pair holds (by the class analysis above, selector classes 0-3), is not known. *[INFERENCE, not tested]* The service manual's Wave ROM Check names the chips in two pairs, C keys → IC304 & IC305 and C# to B → IC306 & IC307 ([Test Modes]({{ site.baseurl }}/test-modes/)), which fits IC306 being IC307's partner; the lane did not use or check this.
+- **The hardware.** The MAME driver maps IC304-IC307 as one linear 16 MB region; these contents say the four chips are two word-interleaved pairs instead, so the tone generator reads its wave ROMs in pairs (*[INFERENCE]*). The partner is IC306; the other pair, IC304 + IC305, holds selector classes 0-3 (next section).
+
+## IC307's partner is IC306
+
+The service manual's Wave ROM check (page I-20) groups the chips as IC304/305 and IC306/307. The tone
+generator section (II-15/16) shows why. IC303 has two wave address buses: ADY, with IC304 and IC306, and
+ADX, with IC305 and IC307. All four chips share one 16-bit data bus, and IC303 enables one chip on each bus
+at a time (NOEY0 for IC304, NOEY1 for IC306, NOEX0 for IC305, NOEX1 for IC307; NOEY2/3 and NOEX2/3 are
+open). Each set of two is a word-interleaved pair with its own address per half. Read as
+`class = select << 2 | page`, selector classes 4-7 are set 1 (IC306 + IC307) and classes 0-3 set 0
+(IC304 + IC305); no firmware routine distinguishes the chips, IC303 decodes the selector. IC307 holds the
+even words: on the KN5000 it is the chip on the **X** bus, although the KN7000-derived notes call it "the Y
+chip" (read "Y chip" as "the even-word chip"). Until IC306 is dumped, every IC307 recording is half a
+recording, and the directory's pitch, format and loop word are missing.
+
+Source: disassembly `notes/sound-2026-10-31/README.md`, section 3; the service-manual crops are cut by
+`notes/sound-probes/sm_crops.sh` (the scan has no text layer, so the wiring is read by eye).
 
 ## Sample Rate
 
-The native sample rate of the waveform data is not stored in the ROM, and neither is a root note. Pitch reaches the chip as an absolute log pitch in `+0x400`, and IC303 resamples. The instrument's output rate is **44.1 kHz**, proven from the effects DSP's ROM constants ([Effects DSP]({{ site.baseurl }}/effects-dsp/)). The rate the recordings were made at is still unknown. The IC307 WAV headers say 22,050 Hz, a nominal figure: half the SX-KN7000's nominal 44,100 Hz (the rate at which its tone generator steps one source sample per output sample), because IC307 holds every other sample.
+The native sample rate of the waveform data is not stored in the ROM, and neither is a root note. Pitch reaches the chip as an absolute log pitch in `+0x400`, and IC303 resamples. The instrument's output rate is **44.1 kHz**, proven from the effects DSP's ROM constants ([Effects DSP]({{ site.baseurl }}/effects-dsp/)). **IC303's clock** fits: its crystal X301 is a 33.8688 MHz part (QSXG1I3386A in the parts list; the schematic prints 36.8688 MHz), which is 768 x 44.1 kHz (*[INFERENCE]* from the ratio; see [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/#clock-and-output-rate)).
+
+**Real rates (2026-10-31).** 1,339 of IC307's 1,413 WAV files now carry a real sample rate and root key in their header. Each is half the rate of the SX-KN7000 recording whose even words they hold, at the same root ([KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/#sample-rates)); for the 8-bit items, which hold sample pairs (4i, 4i + 1), that rate is an average. The KN5000's own table data gives 355 of the 390 comparable selectors exactly the KN7000's pitch correction for the same recording (`notes/sound-probes/kn5000_kn7000_correction.py`); the 35 others are 33 drum-kit selectors (class 5, mostly SET records without a correction) and 2 of page 0. The other 74 items keep 22,050 Hz, nominal (half the KN7000's nominal 44,100 Hz): their pitch exponent, and so their octave, is in the P word on the undumped IC306. The rates are written by `kn7000/tools/wave_root_rates.py` and `scripts/build/pcm_wav.py retag` into `waveform/wav_manifest.tsv` and the WAV headers; the samples are unchanged, so the WAVs still rebuild IC307 byte for byte (disassembly `notes/sound-2026-10-31/README.md`, section 1).
 
 ## Relationship to Other ROMs
 
@@ -224,10 +242,10 @@ The waveform ROMs are separate from:
 
 ## Open Questions
 
-- What is the exact base sample rate of the waveform data?
-- Which socket is IC307's partner (the X half of its pair), and which pair holds selector classes 0-3? The class nibble picks a 1 MB page; classes 4, 5, 6 and 7 match IC307's pages 0, 1, 2 and 3 exactly, which implies (by inference) that classes 4-7 are IC307 and its partner. Neither can be settled until IC304-IC306 are dumped. Until then an IC307 WAV is half of each recording.
+- ~~What is the exact base sample rate of the waveform data?~~ No rate is stored; 1,339 recordings now carry the read rate at their root key ([Sample Rate](#sample-rate)); the other 74 wait for IC306.
+- ~~Which socket is IC307's partner, and which pair holds selector classes 0-3?~~ IC306, from the service manual's wiring; classes 0-3 are IC304 + IC305 ([above](#ic307s-partner-is-ic306)). The contents of both wait for dumps of IC304-IC306; until then an IC307 WAV is half of each recording.
 - ~~What do the sequence words encode?~~ They are the KN7000's record words `[flags:2][code:6][value:8]` seen from one chip ([above](#2-parameter-records-0x0318---0x1a2f)); laying the segments out needs the partner's granule size and its half of each record. The 8-bit gain law of the code is fitted in emulation, not derived.
-- The 71 waves with no KN7000 counterpart: their 8-bit or 16-bit format is the byte-correlation inference.
+- The 71 waves with no KN7000 counterpart: their 8-bit or 16-bit format is the byte-correlation inference (31 8-bit, 40 16-bit). The format flag is in the directory P word on IC306, so this is blocked on a dump of IC306 (disassembly `notes/misc-2026-10-31/README.md`, N-94797258).
 - Why do page 0 entries 152 and 159, page 1 entries 77, 80, 83 and 85, and 65 page-2 entries have no selector? Possibly older-build leftovers, or users reached only through the RAM user-tone banks (not walked).
 - What waveforms are in IC304-IC306? (The KN5000 has hundreds of sound presets; IC307 alone has 1,413 distinct waves.)
 - Where are loop points? As on the KN7000, a loop is a run of segments in the parameter record, marked by flag bits 6 (`LOOP_START`) and 7 (`LOOP_END`) on its segment words and counted in the granule the P word gives; the P word and half of the record are on the partner chip, so IC307 alone does not give the loops (the WAVs carry none). The firmware writes no loop registers, so looping is IC303's own business. (Earlier revisions said the records hold no loops; `loopprobe.py`, kn7000_mame `tools/kn5000-rom-structure/`, had looked for loops in IC307's words as complete records.)

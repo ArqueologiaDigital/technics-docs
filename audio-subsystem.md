@@ -145,7 +145,20 @@ Write sequence:
   (0x130002) ← register data byte
 ```
 
-Initialization writes test pattern 0x5A5A5A5A to all 4 channels, then sets initial config value 0x101001F with 0x20 channel spacing.
+**What the firmware writes (measured in MAME, 2026-10-31).** Only two routines ever touch this
+block, the boot ROM's `INIT_TONE_GEN` and the payload's byte-identical `DSP_Init_Channels`, each once
+per boot; nothing reads it. Both mean to write the pattern 0x5A5A5A5A into the eight registers of each
+channel, but pass their arguments in the wrong registers for the write routine, so each writes a single
+register group four times with bytes from SFR addresses 0-10 (boot ROM: 0x50-0x57; payload: 0x10-0x17).
+Their second loop works: it writes 0x01 to register 0x1F, 0x3F, 0x5F and 0x7F.
+`DSP_WriteAllChannelRegs` is never called. So the registers carry no firmware meaning; what they do
+in hardware depends on the chip that decodes the block, still unidentified (it needs the sub CPU's
+chip-select setup, in the unread part of IC30, or a continuity check on a board).
+
+The measurement is a Lua tap on every access to sub-CPU 0x130000-0x130003 over a cold boot: 144 writes,
+0 reads in 22.8 s of emulated time (disassembly `notes/open4-kn5000-b/hwaudio/probes/subcpu_130000_write_tap.lua`,
+run by `run_subcpu_130000_tap.sh`, output `subcpu_130000_writes.txt`; notes
+`notes/open4-kn5000-b/hwaudio/README.md`, section "kn5000-1oy").
 
 ## Sub CPU Audio Processing
 
@@ -225,9 +238,9 @@ The `Voice_CtrlChange` handler supports these controllers:
 | 0x5B      | `Voice_CC_ReverbSend`                                                                             | Reverb send (part parameter 0x05B)                                                                         |
 | 0x5D      | `Voice_CC_DspEffectSend`                                                                          | DSP-effect send (part parameter 0x05D)                                                                     |
 | 0x5E      | `Voice_CC_Portamento`                                                                             | Portamento                                                                                                 |
-| 0x91      | `Voice_CC_VelSwitchConfig` → `Voice_CC_SetVelSwitchConfig`                                        | Reverb depth (label; see Proprietary Control Changes)                                                      |
+| 0x91      | `Voice_CC_VelSwitchConfig` → `Voice_CC_SetVelSwitchConfig`                                        | Per-part velocity-switch configuration (see Proprietary Control Changes)                                   |
 | 0x95      | `Voice_CC_GlidePedal` → `Voice_CC_SetGlidePedal`                                                  | Glide pedal on/off (part parameter 0x603)                                                                  |
-| 0x97-0x9D | `Voice_CC_SustainLength`, `Voice_CC_GateRoutingMode`, `Voice_CC_KeyScaling`, `Voice_CC_TgPanMode` | Sustain length (0x97), key scaling (0x9C); 0x9B and 0x9D not established (see Proprietary Control Changes) |
+| 0x97-0x9D | `Voice_CC_SustainLength`, `Voice_CC_GateRoutingMode`, `Voice_CC_KeyScaling`, `Voice_CC_TgPanMode` | Sustain length (0x97), gate-routing override (0x9B), key scaling (0x9C), TG pan override (0x9D)            |
 
 ## DSP Configuration
 
@@ -1023,7 +1036,48 @@ The KN5000 implements a **hardware wavetable synthesis** architecture: the Sub C
 
 **Channel address formula:** `0x04136E + (channel_number × 0x11F)`
 
-The firmware implements **dynamic voice allocation**: any of the 26 MIDI channels can be assigned to any of the 64 hardware voices on demand. A Note On with nonzero velocity goes to `Voice_SetVelocity` (which picks 2 or 4 tone-generator channels according to the part mode) and then `Voice_SetPitch` (for part mode 0x40 only: parks the voice silent, writes its register block and then the key-on word). Velocity 0 goes to `Voice_Allocate` (0x02CCAD; despite its name it builds a match packet and walks the 64-entry voice table), `Voice_ParamInit` and `Voice_NoteOff`.
+The firmware implements **dynamic voice allocation**: any of the 26 MIDI channels can be assigned to any of the 64 hardware voices on demand. The note-on path is under [Note-On Processing Pipeline](#note-on-processing-pipeline); the allocator itself follows.
+
+#### Voice allocation
+
+The 64 tone-generator voices are allocated by `Voice_Allocate_Nodes` in the sub CPU. Each voice has a
+39-byte node at sub-CPU DRAM 0x148D + v x 0x27; nodes live in **pools**: 18 records of 30 bytes at
+0x112D (+0 quota, +1 count, +2 seven list heads, one per *class*). Each of the 27 parts points to one
+pool (`Voice_Part_PoolPtr_ModeA` / `Voice_Part_PoolPtr_ModeB`); pool 16 holds stolen voices and pool 17 (part 26) is the
+free list. A node's class is its state: 0-2 sounding (by layer class), 3-5 released, 6 decayed or free.
+(The "16 voice slots at 0x4A4C" of earlier readings is the [held-key map](#held-key-map), not the allocator.)
+
+For each layer of a note, `Voice_LayerClassTable` gives a search list. A free voice is taken first;
+otherwise the first non-empty class in the list, decayed before released before sounding, stolen voices
+before the part's own:
+
+| layer class | takes, in order                           |
+|-------------|-------------------------------------------|
+| 0           | decayed, released, sounding class 2, 1, 0 |
+| 1           | decayed, released, sounding class 2, 1    |
+| 2+          | decayed, released, sounding class 2       |
+
+When nothing qualifies the layer is dropped silently (slot = 0xFF). When the pool's count reaches its
+quota, the pool's lowest-ranked voice (`Voice_StealPoolOrder`: decayed, released, then sounding) is moved
+to pool 16 and flagged, so the next allocation anywhere takes it first.
+
+| mode (system sub-command 0x09) | quotas of pools 0-15              |
+|--------------------------------|-----------------------------------|
+| A (boot default)               | 32, 16, 4, 12                     |
+| B                              | 12, 6, 6, 4, 4, 4, 4, 4, 2 x 7, 6 |
+
+Both quota rows sum to 64 (`Voice_Pool_Quota_ModeA` / `Voice_Pool_Quota_ModeB`, copied into the pool records by
+`Voice_Reset_Engine`, which `Voice_SetPolyphonyMode` calls). *[INFERENCE]* Mode A is the keyboard's own
+allocation (four pools for the panel's part groups), mode B a 16-part multi-timbral one; which main-CPU
+code sends sub-command 0x09 has not been traced.
+
+Voices come back through `Voice_Manager_PollBank`, which reads one bank of 16 TG activity bits every
+other tick and returns to the free list each voice that went silent and is not held; a released voice
+whose envelope falls below half is demoted to class 6. Sustained notes are held (flag bit 7) until
+`Voice_Clear_HoldBit` runs on pedal-up.
+
+Source: disassembly `notes/open4-kn5000-b/engine/README.md`, section "kn5000-rlb" (the node fields, the
+search lists and the per-part pool bindings in full), and the headers of these routines in `v142/subcpu/`.
 
 ### Voice Parameter Structure (287 bytes per MIDI channel)
 
@@ -1114,16 +1168,16 @@ Filter behavior is fixed per voice preset — no real-time filter sweeps are imp
 
 ### Proprietary Control Changes (0x91-0x9D)
 
-| CC   | Handler                       | Channel Offset                             | Function                                                                                                             |
-|------|-------------------------------|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| 0x91 | `Voice_CC_SetVelSwitchConfig` | +0x11                                      | raw byte; tested bitwise by `Voice_Env_ApplyVelocity_Type0`                                                          |
-| 0x95 | `Voice_CC_SetGlidePedal`      | +0x04 bit 2                                | flag                                                                                                                 |
-| 0x97 | `Voice_CC_SetSustainLength`   | +0x12                                      | raw byte                                                                                                             |
-| 0x9B | `Voice_CC_SetGateRoutingMode` | +0x1F                                      | raw byte; its nibbles select gate routing                                                                            |
-| 0x9C | `Voice_CC_SetKeyScaling`      | -0x04 (`Part_PresentWord`, 0x04136A) bit 8 | flag                                                                                                                 |
-| 0x9D | `Voice_CC_SetTgPanMode`       | +0x20                                      | raw byte; 1 / 2 force TG reg 0x180 to 0x00 / 0x7F, otherwise the tone default (the overlay HLE renders 0x180 as pan) |
+| CC   | Handler                       | Channel Offset                             | Function                                                                                                                                                                                                                     |
+|------|-------------------------------|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0x91 | `Voice_CC_SetVelSwitchConfig` | +0x11                                      | per-part velocity-switch configuration, twin of the global byte 0x04134B; read by `Voice_Env_ApplyVelocity_Type0` / `_Type2`; sent by `SwbtB2_Code9A_Listener` for parts 0-2                                                 |
+| 0x95 | `Voice_CC_SetGlidePedal`      | +0x04 bit 2                                | flag                                                                                                                                                                                                                         |
+| 0x97 | `Voice_CC_SetSustainLength`   | +0x12                                      | raw byte                                                                                                                                                                                                                     |
+| 0x9B | `Voice_CC_SetGateRoutingMode` | +0x1F                                      | gate-word routing override, read by `Voice_Apply_GateRouting`: low nibble 0 / 1 / 2 forces bits 11:9 of the gate word to 7 / leaves them / forces 1; high nibble 0x00 / 0x10 / 0x20 the same for bits 14:12; no sender found |
+| 0x9C | `Voice_CC_SetKeyScaling`      | -0x04 (`Part_PresentWord`, 0x04136A) bit 8 | flag                                                                                                                                                                                                                         |
+| 0x9D | `Voice_CC_SetTgPanMode`       | +0x20                                      | TG register 0x180 (pan) override: 1 / 2 force its low 7 bits to 0x00 / 0x7F, otherwise the voice's own value; no sender found                                                                                                |
 
-Offsets are relative to 0x04136E + channel × 0x11F. These handlers store the controller value as is; only CC 7 and CC 11 go through the lookup table at 0x011D16. The labels (reverb/chorus/delay) are inherited and the meanings are not established.
+Offsets are relative to 0x04136E + channel × 0x11F. These handlers store the controller value as is; only CC 7 and CC 11 go through the lookup table at 0x011D16. The meanings come from the readers of each part byte (2026-10-31; the earlier reverb / chorus / delay labels had no reader behind them). Controllers above 0x7F cannot arrive on MIDI IN, and a search of every `MIDI_SendControlChange` call in the v10 main CPU found no sender of 0x9B or 0x9D, so those two stay at their reset values (1 and 0) unless code the search missed sends them; that is a search result, not a proof. Source: disassembly `notes/open4-kn5000-b/midi/README.md`, section "kn5000-5ck".
 
 ## Tone Generator
 
@@ -1994,7 +2048,7 @@ The MAME driver includes device classes for the audio chips. The tone generator 
 - [x] ~~Document waveform ROM format and sample layout~~ -- Complete for IC307: four 1 MB pages of 198, 168, 1,072 and 57 directory entries, 1,413 distinct waves (1,213 16-bit, 200 8-bit), x16 byte offset addressing, parameter records in the SX-KN7000's record format. IC307 is the Y half of a word-interleaved pair, so each of these is half of what the tone generator reads. See [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/)
 - [x] ~~Decode per-algorithm parameter mapping tables at `0x1F22C`/`0x1F09C`~~ — Complete: both are 100-entry pointer arrays indexed by effect number: 0x1F09C points to value records (translator opstreams ending 0x7A) and 0x1F22C to descriptor records (register-cell lists), each table ending in 0xF0
 - [x] ~~Map MainCPU parameter indices to EFF block word positions~~ — Partial: 84 named parameters extracted from MainCPU 0xE324C4. DSP2 master list at 0xE4475C maps 14 SubCPU param indices to UI names. Final register-to-parameter mapping requires runtime bytecode tracing
-- [x] ~~Decode DSP register semantics per channel~~ — Partial: DSP2 112-register map from boot-time analysis (stride-0x10 channel regs at offset 0x_8, control regs 0x00/0x40/0x80, coefficient regs 0xE6/0xE7). The 0x130000 block's channel registers 0x10-0x17 (owning chip not identified; see DSP Channel Register Map) still need semantic mapping.
+- [x] ~~Decode DSP register semantics per channel~~ — Partial: DSP2 112-register map from boot-time analysis (stride-0x10 channel regs at offset 0x_8, control regs 0x00/0x40/0x80, coefficient regs 0xE6/0xE7). The 0x130000 block's channel registers 0x10-0x17 (owning chip not identified; see DSP Channel Register Map) were later traced: firmware use fully mapped (written once at boot, never read); owning chip unidentified (IC30 redump or board continuity).
 - [ ] Document remaining inter-CPU command types (beyond 0x2D and 0xE1/E2/E3)
 - [x] ~~Investigate why song engine never writes MIDI events to ring buffer~~ — resolved by the 2026-08-05 /INT0 fix (kn7000_mame 3fd44f3)
 - [x] ~~Determine what sets the startup flag at 0x0251D8~~ — it is the presentation-loaded flag (EVT_EXIST/INIT/EXIT_PRESENTATION): `Seq_InitializeAndStart` sets it to 1 (fdemotext_routines.s:2921) and the MT_InitPresentation method clears it (file_demo_proc.s:159). The zero reading above is from the pre-2026-08-05 session.
@@ -2010,7 +2064,7 @@ The MAME driver includes device classes for the audio chips. The tone generator 
 - [x] ~~Trace inter-CPU command 0x2D protocol~~ — Complete: 4-layer protocol fully documented
 - [x] ~~Map effect type indices to DSP register configurations~~ — Partial: translation chain traced through `DSP_WriteParameter` → `DSP_ParameterWriteEngine`, and the per-effect tables at 0x1F09C/0x1F22C are decoded (see the 0x1F22C/0x1F09C item above)
 - [x] ~~Determine if DSP microcode is loaded from ROM~~ — **Yes.** The Sub CPU uploads IC311 and IC310 microcode from its own ROM through the bytecode interpreter (see [DSP Firmware / Microcode Loading](#dsp-firmware--microcode-loading) above)
-- [x] ~~Map remaining proprietary CC handlers (0x97-0x9D)~~ — Storage traced (see Proprietary Control Changes); meanings open
+- [x] ~~Map remaining proprietary CC handlers (0x97-0x9D)~~ — 0x91 = per-part velocity-switch configuration, 0x95 = glide pedal, 0x97 = sustain length, 0x9B = gate routing override, 0x9C = key scaling, 0x9D = TG pan override (2026-10-31; see Proprietary Control Changes)
 - [x] ~~Decode tone generator register semantics~~ — Partial: voice control state machine, key-on/off flags, volume/level groups, latched parameter updates documented; pitch/envelope/filter register mapping still needs work
 - [x] ~~Document synthesis architecture~~ — Complete: 64-voice wavetable, 26 MIDI channels, dynamic voice allocation, hardware ADSR, LFO modes, proprietary CCs
 - [ ] Reverse-engineer DSP register semantics by runtime bytecode tracing — static analysis decoded all table structures (6 ROM tables, 59 distinct coefficient streams, 100 algorithm entries) and the descriptor records at 0x1F22C list the register cells each parameter writes; what those cells do inside the DSP programs is still open

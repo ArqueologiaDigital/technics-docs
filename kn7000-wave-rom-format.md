@@ -210,14 +210,14 @@ reference streams. The committed manifests `src/wave/main_wav.tsv` and `src/wave
 recording (offsets, bit depth, rate, file name, unity note, loops, comment), no sample data. How to
 play and edit them, for all models, is on [Media Files]({{ site.baseurl }}/media-files/).
 
-| field       | value                                                        | evidence                                                                                                       |
-|-------------|--------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
-| 16-bit      | two's complement, little-endian (the stream's words)         | `pcm_encoding_probe.py`: s16le has the fewest full-scale jumps in 2,632 of 2,723; the other 91 tie (silence)   |
-| 8-bit       | two's complement, low byte first, two per word               | the same probe: s8 wins in 925 of 959, the rest tie; byte correlation > 0.5 in 917 of 959 (16-bit: 0 of 2,720) |
-| companding  | none found; samples are written as stored (linear)           | not proven: the 8-bit segments have a gain code that the WAV does not apply                                    |
-| sample rate | 44,100 Hz in the header, **nominal**                         | the rate at which the tone generator steps one source sample per output sample (output 44.1 kHz)               |
-| unity note  | `96 + 12 (log2(44100 / 2093.0045) - (E - 9))`                | the pitch law fitted in emulation (kn7000_mame `notes/g13-waves-2026-10-20`, 478 of 556 voices): an inference  |
-| loops       | `smpl` loop = the record's LOOP_START..LOOP_END segment ends | `wave-roms-probes/loop_probe.py`: 945 of 954 marked loops repeat; end written inclusive (end sample - 1)       |
+| field       | value                                                        | evidence                                                                                                                |
+|-------------|--------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| 16-bit      | two's complement, little-endian (the stream's words)         | `pcm_encoding_probe.py`: s16le has the fewest full-scale jumps in 2,632 of 2,723; the other 91 tie (silence)            |
+| 8-bit       | two's complement, low byte first, two per word               | the same probe: s8 wins in 925 of 959, the rest tie; byte correlation > 0.5 in 917 of 959 (16-bit: 0 of 2,720)          |
+| companding  | none found; samples are written as stored (linear)           | not proven: the 8-bit segments have a gain code that the WAV does not apply                                             |
+| sample rate | the read rate at the recording's root key (since 2026-10-31) | derived from the pitch law and the tone database's key maps ([Sample rates](#sample-rates)); the octave is an inference |
+| unity note  | the root key plus the rounding, `12 log2(rate / rate_hz)`    | the pitch law fitted in emulation (kn7000_mame `notes/g13-waves-2026-10-20`, 478 of 556 voices): an inference           |
+| loops       | `smpl` loop = the record's LOOP_START..LOOP_END segment ends | `wave-roms-probes/loop_probe.py`: 945 of 954 marked loops repeat; end written inclusive (end sample - 1)                |
 
 (The probes are `notes/media-files-probes/pcm_encoding_probe.py` and
 `kn7000/notes/wave-roms-probes/loop_probe.py` in the disassembly repository.)
@@ -229,10 +229,49 @@ play and edit them, for all models, is on [Media Files]({{ site.baseurl }}/media
   recordings (477 MAIN, 360 SUB, counted from the manifests). 90 loops end past their item (an entry
   can play into the next recording's bytes); the WAV leaves those out and says so in its comment.
   `Main_P00_W0AF` has no unity note: its entry's P word reads as E = 47 (see `Main_P00_E0AF` above).
-- The unity note leaves out each zone's tuning, which the firmware folds into the pitch it writes,
-  so it is only near.
+- The unity note includes the zone correction of the keys that select the recording (see below);
+  a recording selected with differing corrections (30 of 2,662) uses the one most keys use.
 - A recording whose audio the KN5000's IC307 also holds gets the IC307 name too
   (`Main_P00_W000_Sine.wav`): 1,118 of 3,682, from `src/wave/ic307_names.tsv`.
+
+### Sample rates
+
+No rate is stored, and the firmware never sends one. Each recording's WAV header now carries the tone
+generator's read rate at a root key:
+
+    rate(n) = 440 x 2^((n - 69)/12 + E - 9 + corr/3072)
+
+E is the entry's pitch exponent (P bits 11:4) and corr the zone correction the firmware adds
+(`TgPitchNoteResolve`; the pitch itself is computed by `TgPitchInitCalc`). The root is the lower median of the
+keys whose zone selects the recording in the tone database (`TgVoiceRoutePtrCalc`'s key maps), over every
+parameter record that selects it. The `smpl` chunk carries the root.
+
+| statement                                                        | status                                                                                                                                           |
+|------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| which keys select which recording; each zone's correction; E     | read from the bytes (`kn7000/tools/wave_root_rates.py`)                                                                                          |
+| the pitch class                                                  | measured from the audio: in 682 of 702 loops the derived period fits better than the uncorrected one (`notes/sound-probes/loop_period_check.py`) |
+| the octave (E's weight in the law, the C7 anchor)                | *[INFERENCE]* the emulation fit of the pitch law (478 of 556 voices); not checked on hardware                                                    |
+| the 1,020 recordings no zone selects (kit zones, unused entries) | *[INFERENCE]* corr taken as 0 and the root as key 66, the pitch16 0x4280 point                                                                   |
+
+A single-cycle wave can exceed 192 kHz at its root; its root then moves down by whole octaves until the rate
+is at most 192 kHz (121 recordings, each flagged). Rates run from 3,977 Hz to 189,437 Hz, median 37,084 Hz.
+Examples: the piano's C4 recording `Main_P0A_W00F` (and `Sub_P08_W023`) is 18,508 Hz at root 63; the
+512-sample sine is 189,437 Hz at root 66. `Main_P00_W0AF`, whose P word reads as E = 47, keeps 44,100 Hz.
+The rates are in `kn7000/src/wave/root_rates.tsv` and the manifests; `scripts/build/pcm_wav.py retag` wrote
+them into the headers, the samples are unchanged and `pcm_wav.py verify` still round-trips every file.
+
+A zone's side bit (`TgVoiceSideSelect`, halfword +0 & 0x0C00) names the tone generator: **0x400 is MAIN and
+0x800 SUB**, measured on 658 of 658 zones whose entry exists on one tone generator only
+(`notes/sound-probes/kn7000_zone_side.py`).
+
+The output clock does not enter the derivation: the law is fitted against absolute pitch. The master tone
+generator's crystal X1 is listed as "16.9944MHz" (part H0J1693xxxxx), very probably 16.9344 MHz =
+384 x 44,100 Hz (*[INFERENCE]*), and the DSP frame rate was measured on the owner's unit at 44,087 Hz
+([KN7000 Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/)). The KN5000's IC307 recordings get half
+these rates ([Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/#sample-rate)).
+
+Source: disassembly `notes/sound-2026-10-31/README.md`, section 1 (the derivation in full, and the
+regeneration order).
 
 ## Open questions
 
@@ -243,8 +282,11 @@ play and edit them, for all models, is on [Media Files]({{ site.baseurl }}/media
 - **The split list**, the values below 0x80: it does not change the pitch in emulation. Perhaps the
   interpolator's or a filter's switch points by pitch.
 - **P bit 12**, always set, and **bit 9** of `Main_P00_E0AF`.
-- **The 8-bit gain law.** `2^(-(code&7)/2)` is a fit; the code's high three bits, and the code on
-  `REC_END` words, are unexplained. A line-out recording of an 8-bit sound would settle it.
+- **The 8-bit gain law.** `2^(-(code&7)/2)`, 3 dB per step of bits 10:8, is a fit; the code's high three bits, and the code on
+  `REC_END` words, are unexplained. Nothing in the firmware reads the code, no datasheet is known for the
+  tone generator LSIs, and none of the 548 searchable 8-bit recordings has a 16-bit copy to measure against
+  (`notes/sound-probes/gain_law_duplicates.py`). A line-out recording of an 8-bit sound (e.g. STRINGS, whose
+  attack runs through codes 5..0) would settle it. The WAVs keep the stored levels.
 - **What plays after the loop.** Many recordings carry data past their loop end: a release segment?
 - ~~**Shared recordings with the KN5000.**~~ Settled on 2026-10-30 (lane media-files): the KN5000's
   IC307 is the Y half of such a pair. No 1 MiB page of IC307 equals a KN7000 page (whole-page

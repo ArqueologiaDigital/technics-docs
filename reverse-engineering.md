@@ -1255,7 +1255,7 @@ Digital Signal Processor for audio effects. See [Effects DSP]({{ site.baseurl }}
 
 ### DAC (IC313)
 
-Converts digital audio to analog output. See [Audio Subsystem]({{ site.baseurl }}/audio-subsystem/).
+IC313 is a Burr-Brown PCM69AU (not IC310, which is the MN19413 DSP2 that feeds it): one serial data line from IC310's `SDO1`, the clocks from the tone generator IC303, current outputs into the IC314 current-to-voltage converters. Pin use and the clock wiring: [Hardware Architecture]({{ site.baseurl }}/hardware-architecture/#dac-ic313-burr-brown-pcm69au); the path on to the jacks and speakers: [Audio output path]({{ site.baseurl }}/hardware-architecture/#audio-output-path).
 
 ### Waveform ROMs (IC304-IC307)
 
@@ -1308,7 +1308,7 @@ Auto-accompaniment system for backing tracks.
 - Chord patterns
 - Style variations (Intro, Main A/B, Fill, Ending)
 
-See [Accompaniment Engine]({{ site.baseurl }}/accompaniment-engine/#chord-detection).
+See [Accompaniment Engine]({{ site.baseurl }}/accompaniment-engine/#chord-recognition).
 
 ### Sample/Patch Extraction
 

@@ -100,11 +100,11 @@ a build of the tree before the change.
 They are plain mono RIFF WAVE files, `pcm_s16le` or `pcm_u8`: `ffplay kn7000/wav/main/Main_P0A_W00F.wav`
 plays one, and Audacity opens the folder. `ffprobe` read all 5,095 without an error (2026-10-30).
 
-| set                      | files | 16-bit | 8-bit | header rate (nominal) | `smpl` loops | manifest                       |
-|--------------------------|-------|--------|-------|-----------------------|--------------|--------------------------------|
-| KN5000 IC307             | 1,413 | 1,213  | 200   | 22,050 Hz             | 0            | `waveform/wav_manifest.tsv`    |
-| SX-KN7000 MAIN (IC203/4) | 2,251 | 1,806  | 445   | 44,100 Hz             | 477          | `kn7000/src/wave/main_wav.tsv` |
-| SX-KN7000 SUB (IC207/8)  | 1,431 | 917    | 514   | 44,100 Hz             | 360          | `kn7000/src/wave/sub_wav.tsv`  |
+| set                      | files | 16-bit | 8-bit | header rate | `smpl` loops | manifest                       |
+|--------------------------|-------|--------|-------|-------------|--------------|--------------------------------|
+| KN5000 IC307             | 1,413 | 1,213  | 200   | see below   | 0            | `waveform/wav_manifest.tsv`    |
+| SX-KN7000 MAIN (IC203/4) | 2,251 | 1,806  | 445   | see below   | 477          | `kn7000/src/wave/main_wav.tsv` |
+| SX-KN7000 SUB (IC207/8)  | 1,431 | 917    | 514   | see below   | 360          | `kn7000/src/wave/sub_wav.tsv`  |
 
 (Counted from the three committed manifests, which hold one row per recording and no sample data:
 label, offset in the reference, end, bit depth, sample rate, WAV file name, unity note, loops and the
@@ -121,19 +121,27 @@ INFO comment.)
   (`Main_P00_W000_Sine.wav`; 1,118 of 3,682, from `kn7000/src/wave/ic307_names.tsv`). Each file's
   LIST/INFO chunk carries the label and a comment: tone generator, page, entries, select, format, and
   the IC307 or KN7000 counterpart.
-- **Sample rates are nominal.** Neither ROM stores a rate. 44.1 kHz is the rate at which the KN7000's
-  tone generator steps one source sample per output sample; IC307's 22.05 kHz is half of it, because
-  that chip holds every other sample (below).
+- **Sample rates (since 2026-10-31).** Neither ROM stores a rate, but the headers now carry a real
+  sample rate and root note:
+  - the SX-KN7000: the tone generator's read rate at the recording's root key, from the tone database
+    ([KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/#sample-rates)); rates run from
+    3,977 Hz to 189,437 Hz;
+  - KN5000 IC307: half that rate where the KN7000 holds the same recording (1,339 of 1,413); the other 74
+    stay at 22,050 Hz, nominal, because their pitch exponent is on the undumped IC306.
+
+  `scripts/build/pcm_wav.py retag` rewrote the header chunks of 5,094 WAVs; the samples are the ROM's bytes,
+  so a WAV still rebuilds the ROM exactly (disassembly `notes/sound-2026-10-31/README.md`, section 1).
 - **Loops and root note (KN7000).** The KN7000 files carry a `smpl` chunk that samplers read: the loop
   where the parameter record marks one (837 recordings), written from the record's `LOOP_START` /
-  `LOOP_END` segment ends, and a unity note from the pitch law `96 + 12 (log2(44100 / 2093.0045) - (E - 9))`.
-  That law was fitted in emulation (kn7000_mame `notes/g13-waves-2026-10-20`, 478 of 556 voices), so
-  the root note is *[INFERENCE]* and only near: it leaves out each zone's tuning. 90 loops end past
+  `LOOP_END` segment ends, and a unity note: the root key plus the rounding of the rate. The pitch law
+  behind it was fitted in emulation (kn7000_mame `notes/g13-waves-2026-10-20`, 478 of 556 voices), so
+  the octave of the root is *[INFERENCE]*; the pitch class is checked against the audio. 90 loops end past
   their item and are left out of the WAV (its comment says how many); `Main_P00_W0AF` has no unity
   note, because its P word reads as E = 47.
 - **8-bit gain.** The KN7000's 8-bit segments carry a 6-bit code that, in emulation, scales the
   segment by 2^(-b/2) (fitted, not derived). The WAV holds the raw samples, so 8-bit recordings play
-  with their segments at the stored level.
+  with their segments at the stored level: the segment gain law is not established, so no gained copy
+  was made.
 
 How each encoding was established is on [KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/#encoding-and-the-wav-files)
 and [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/#ic307-is-half-of-a-pair).
@@ -153,8 +161,9 @@ the "Y" chip of a word-interleaved pair, like the SX-KN7000's wave ROMs. The pro
 
 So the KN5000's tone generator must read its wave ROMs in pairs too (*[INFERENCE]* from the chip's
 contents; the MAME driver maps IC304-IC307 as one linear 16 MB region). The partner chip, which holds
-the other half and each entry's format, pitch and loop word, is not dumped, and which socket it is
-(IC304, IC305 or IC306) is not known. An IC307 WAV therefore sounds like its recording at half the
+the other half and each entry's format, pitch and loop word, is **IC306** (from the service manual's
+wiring, [Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/#ic307s-partner-is-ic306)), not
+dumped. An IC307 WAV therefore sounds like its recording at half the
 sample rate, without anti-alias filtering. 200 of the waves are 8-bit (two samples per word, so an
 8-bit IC307 WAV holds the sample pairs 4i, 4i + 1): 169 known from the KN7000 recording with the same
 audio, 31 by a byte-correlation rule calibrated on those (*[INFERENCE]*). For the 1,327 waves that match
@@ -244,25 +253,29 @@ The probe fails the other way too: with one WAV untracked and one SX-WSA1R `.bin
 
 ### What is left
 
-- **Tracked renders that are not converter outputs.** `table_data/images/icons/` (191 colour-mapped PNGs
-  that `scripts/analysis/extract_icons.py` writes from the ROM) duplicates `table_data/images/icons_png/`,
-  which the build reads; a few raw blobs (`table_data/includes/icon_pixel_data.bin` and others) still hold
-  pixels the PNGs now hold. No ROM build reads them for those pictures. Removing them is the owner's call.
-- **Tracked build state that is not a media conversion**: the `v7`, `v6`, `v5` `*.bin.patched` stamps of
-  the C-divergence patcher, and the MN10300 trees' `src/constants.inc`, which `gen_constants.py` rewrites
-  with the same content from the reference.
-- One-shot generators that wrote pixel rows into sources (the SX-WSA1R widget pages) would undo the
-  respell if re-run as they are.
-- The probe's limit: a picture under a label that names no picture class, held as typed rows, is not
-  seen.
+Nothing in this list. On 2026-10-31 (lane media-cleanup):
+
+- the 191 colour renders that used to sit in `table_data/images/icons/` were deleted. They duplicated
+  `table_data/images/icons_png/`, the indexed PNGs the build converts, and `scripts/analysis/extract_icons.py`
+  now paints those (`make gallery` writes the sprite sheet). The eight raw blobs that were byte-for-byte
+  slices of the table-data and HD-AE5000 reference images (table_data/includes/icon_pixel_data.bin,
+  icons_to_strings.bin, wallpaper1_to_icons.bin, hdae5000/includes/code_*.bin; deleted, so named without code marks) were deleted too. No
+  build read them; the maintenance commands that did read the same bytes from the reference image.
+- the C-divergence patcher's stamps are build state, no longer committed. A missing stamp makes the
+  patcher recompile that bin first, so it can never patch a bin twice.
+- the MN10300 trees' `src/constants.inc` is committed source, rewritten only by `make constants`.
+- the one-shot generator that wrote the SX-WSA1R widget pages as pixel rows no longer writes anything.
+
+The probe's limit stays: a picture under a label that names no picture class, held as typed rows, is not
+seen. (Disassembly `notes/media-cleanup-2026-10-31/README.md`.)
 
 ## Open questions
 
-- **Sample rates.** Neither ROM stores one; the WAV headers are nominal.
+- ~~**Sample rates.**~~ Derived from the tone database on 2026-10-31 (above); the octave rests on the emulation fit, and 74 IC307 items wait for IC306.
 - **The 8-bit gain law**, KN7000 and IC307: fitted in emulation, not derived. A line-out recording of an
   8-bit sound would settle it, and whether the WAVs should apply it.
-- **IC307's partner chip**: which socket, and what the other pair holds (selector classes 0-3). Until it
-  is dumped, an IC307 WAV is half of each recording.
+- **IC307's partner chip** is IC306, and selector classes 0-3 are IC304 + IC305; until they are dumped,
+  an IC307 WAV is half of each recording.
 - **The 71 IC307 waves with no KN7000 counterpart**: their 8-bit or 16-bit format is the byte-correlation
   inference.
 
