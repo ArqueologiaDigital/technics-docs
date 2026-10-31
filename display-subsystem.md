@@ -706,10 +706,13 @@ Many domain-specific widget types exist for the keyboard's various modes (arrang
 
 Images extracted from firmware ROMs:
 
-| Source       | Count | Description                                                            |
-|--------------|-------|------------------------------------------------------------------------|
-| Main CPU ROM | 42    | UI elements, logos, demo graphics                                      |
-| HDAE5000 ROM | 5     | Boot splash, product logo, drive mechanism, file panel, hard-disk icon |
+| Source       | Count | Description                                                                                                                                                                                                        |
+|--------------|-------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Main CPU ROM | 61    | UI elements (split-point keys, drawbar sliders, sound-editor envelope curves and radio buttons, Fade In/Out labels), the Technics and KN5000 logos, the eight 1 bpp flash-update banners, MIDI connection diagrams |
+| HDAE5000 ROM | 6     | Boot splash, product logo, drive mechanism, file panel, hard-disk icon, STORE button                                                                                                                               |
+
+The counts are the committed PNGs in the disassembly, `v10/maincpu/images/*.png` and `hdae5000/images/*.png`
+(2026-10-31, disassembly `130735749`; the build turns each into the ROM bytes).
 
 See [Image Gallery]({{ site.baseurl }}/image-gallery/) for all extracted images.
 
@@ -828,7 +831,7 @@ The `MainTitleCtrl_ChangeTitle` (0xF9936D) handler manages full-screen mode tran
 
 All scrolling is software-based — no VGA hardware scroll registers are used. Scrolling is implemented via `MovePixels` (0xFABA53), which copies rectangular pixel blocks within the offscreen buffer. The `AcRotStrBoxProc` (0xF967E8) handler provides smooth scrollbar animation with timer-based auto-repeat.
 
-UI element names "SlideMove" and "SlideBase" appear in the firmware's string table (0xEAB8D8), suggesting slide animation support for UI transitions.
+The names "SlideMove" and "SlideBase" at 0xEAB8D8 are not an animation feature. They are entries of `BitmapID_Names`, the name table of the NAKA bitmap-ID property (`BitmapIDProc` reads `BitmapIDProc_PtrTable[id]`): `idSlideBase` = 2 and `idSlideMove` = 3, beside `idMixerControl` / `idMixerPoint` = 4 / 5. The development-time table `BitmapID_FileNamePtrTable`, which nothing in the ROM reads, gives their resource files as `slide.bmp` and `slmove.bmp`. [INFERENCE] From the names and the pairing with MixerControl / MixerPoint, they are the track and the moving knob of a slider control.
 
 ## MAME Emulation Status
 

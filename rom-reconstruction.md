@@ -536,10 +536,11 @@ directives per ROM tree (`python3 tools/incbin_bytes.py` in this repository):
 (`4b5e625f8`). v7's C data bins are compiled from the C it shares with v9/v10.
 `scripts/build/apply_v7_c_divergence.py` then applies the differences recorded in
 `v7/maincpu/includes/v7_c_divergence.json`, which are mostly pointer relocations by a
-recorded per-range delta plus a small number of raw bytes. The bytes with no source at all
-are committed under `v7/maincpu/includes/romslices/`, and 10 `.incbin` lines of it are still
-live. At `3417969c0`, `scripts/analysis/kn5000_source_coverage.py` counts v7's verbatim debt
-as 6,591 B (99.7 % source).
+recorded per-range delta plus a small number of raw bytes. The last bytes with no source at all
+were committed under `v7/maincpu/includes/romslices/`; since `d89e64558` (2026-10-24) no `.incbin`
+line of the tree reads that directory (only `; (was .incbin ...)` comments name it), and
+`scripts/analysis/kn5000_source_coverage.py` counts v7's verbatim debt as **0 B (100.0 %
+source)** (re-measured at disassembly `130735749`, 2026-10-31).
 
 Additional known-unfinished items:
 
@@ -569,7 +570,9 @@ Additional known-unfinished items:
   from 2 KB read at each end (0xFE0000–0xFE07FF and 0xFF7800–0xFF7FFF), the range was never
   read, and its `0xFF` is assumed (see [Dump Provenance](#dump-provenance)). The comment, not
   the bytes, needs correcting in the disassembly.
-- The v1.40 sub-CPU payload has no source tree (v1.41 has had one since 2026-10-24); see
+- The v1.41 and v1.40 sub-CPU payloads have had source trees since 2026-10-24
+  (`v141/subcpu/`, `v140/subcpu/`, generated from v1.42 and v1.41 by recorded edits) and
+  rebuild byte-identical in `make gate`; see
   [Sub-CPU Firmware Images]({{ site.baseurl }}/subcpu-firmware-images/).
 
 Three items on this list were closed by the August waves, and a fourth, the HD-AE5000 UI
@@ -659,23 +662,25 @@ At `be376096` the residue still included 585/611/2,102 in the main-CPU trees and
 `prom_c`'s dead `UNREFERENCED_TRAMPOLINES` block; see
 [SX-WSA1R older-build remnants]({{ site.baseurl }}/wsa1-disassembly/#older-build-remnants-and-why-unreached-code-can-be-correct).
 
-## Verbatim debt across the twelve measured TLCS-900 images
+## Verbatim debt across the seventeen measured TLCS-900 images
 
 `scripts/analysis/kn5000_source_coverage.py` measures **verbatim debt**: bytes that enter
 the build through an `.incbin` of a committed blob with no generating source. It measures
-eight KN5000 images and the four SX-WSA1R images together, 12,386,304 B. It leaves out the
-four gated KN5000 images that would count bytes twice: v8 (v9's source with one byte
-changed), the v1.41 payload (generated from v1.42's) and the two compressed update images
-(re-encodings of the payloads). This is a narrower question than "is this region
-understood": a `.byte` run that spells real code (tracked separately per image; see the
-maincpu figures above), or a wrong disassembly that happens to re-assemble to the right
-bytes (see the data-as-code note above), is invisible to it. Outside the five
-data-as-code-clean images above, every debt figure on this page is therefore a lower bound.
+thirteen KN5000 images (main CPU v10, v9, v7, v6 and v5; sub-CPU payload v1.42; sub-CPU boot;
+table data; custom data; HD-AE5000 v2.06i, v2.01i, v1.15i and v1.10i) and the four SX-WSA1R
+images together, 18,153,472 B. It leaves out the gated KN5000 images that would count bytes
+twice: v8 (v9's source with one byte changed), the v1.41 and v1.40 payloads (generated from
+v1.42's) and the three compressed update images (re-encodings of the payloads). This is a
+narrower question than "is this region understood": a `.byte` run that spells real code
+(tracked separately per image; see the maincpu figures above), or a wrong disassembly that
+happens to re-assemble to the right bytes (see the data-as-code note above), is invisible to
+it. Outside the five data-as-code-clean images above, every debt figure on this page is
+therefore a lower bound.
 
-**Eleven of the twelve measured images are at zero verbatim debt: 100% source.** Nothing in
-maincpu v10 or v9, the sub-CPU payload v142, the sub-CPU boot ROM, table data, custom data,
-HD-AE5000, or any of the four SX-WSA1R images enters the build as an opaque blob. Even the
-eight flash-update boot banners round-trip from committed PNGs
+**Fifteen of the seventeen measured images are at zero verbatim debt: 100% source.** Nothing in
+maincpu v10, v9 or v7, the sub-CPU payload v142, the sub-CPU boot ROM, table data, custom data,
+the four HD-AE5000 versions, or any of the four SX-WSA1R images enters the build as an opaque
+blob. Even the eight flash-update boot banners round-trip from committed PNGs
 (`python3 scripts/build/mono_images.py verify` reports `ROUND TRIP EXACT: all 8 banners x
 2 revisions (9,856 B)`, the same 616-byte-each files shared byte-for-byte between the two
 firmware revisions). v9's confirmed-region backlog (the high-confidence code-as-`.byte`
@@ -684,13 +689,21 @@ re-running it directly against v9 (not mirrored from v10, whose source has since
 out of lockstep) finds zero confirmed hits beyond the same hand-audited DATA regions
 already on record.
 
-| Image        | Verbatim debt | % source |
-|--------------|--------------:|---------:|
-| `v7/maincpu` | 6,591 B       | 99.7%    |
-| all twelve   | 6,591 B       | 99.9%    |
+The two that are not are the ported trees. v6 was generated from v7 and v5 from v6 by
+`scripts/converters/port_maincpu_version.py`; where no line of the older tree maps onto the
+bytes, the port writes `.byte` rows under `; TODO(port): ...`, and the raw bytes of each
+tree's C divergence file (`v6/maincpu/includes/v6_c_divergence.json`, likewise v5) are counted
+with them. That is their debt:
 
-*(2026-10-24, disassembly `2319e9b94`, from the command above. The v7 row falls as
-conversion lanes land; re-run rather than quoting this table.)*
+| Image           | Verbatim debt | % source |
+|-----------------|--------------:|---------:|
+| `v6/maincpu`    | 13,756 B      | 99.3%    |
+| `v5/maincpu`    | 15,910 B      | 99.2%    |
+| all seventeen   | 29,666 B      | 99.8%    |
+
+*(2026-10-31, disassembly `130735749`, from the command above; v7 fell to 0 B at `d89e64558`
+on 2026-10-24. The v6 and v5 rows fall as their `TODO(port)` rows are decoded; re-run rather
+than quoting this table.)*
 
 **Table data reached zero on 2026-10-24.** Until then the tool counted 318,468 B against it:
 the six `FTBMP01-06.BMP` feature-demo slide images, genuine uncompressed 8bpp Windows BMPs

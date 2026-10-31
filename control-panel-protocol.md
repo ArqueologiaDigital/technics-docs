@@ -270,15 +270,18 @@ The encoder dispatch routine `CPanel_EncoderDispatch` (0xFC6C5F):
 
 **Known Encoder IDs:**
 
-| ID                 | Handler                         | Output Variable            | Physical Control                         |
-|--------------------|---------------------------------|----------------------------|------------------------------------------|
-| 2                  | `Encoder_ProcessModwheel`       | `MIDI_CC_MODWHEEL_VALUE`   | Modulation wheel                         |
-| 5                  | `Encoder_ProcessVolume`         | `MIDI_CC_VOLUME_VALUE`     | Volume slider                            |
-| 25                 | `Encoder_ProcessBreath`         | `MIDI_CC_BREATH_VALUE`     | Breath controller                        |
-| 26                 | `Encoder_ProcessFoot`           | `MIDI_CC_FOOT_VALUE`       | Foot controller                          |
-| 27                 | `Encoder_ProcessExpression`     | `MIDI_CC_EXPRESSION_VALUE` | Expression pedal                         |
-| 31                 | `Encoder_PassthroughIdentity`   | Direct passthrough         | TEMPO/PROGRAM data wheel (header `0xD7`) |
-| 0-1,3-4,6-24,28-30 | `Encoder_ReturnDefaultConstant` | Returns 1                  | Unused                                   |
+| ID                 | Handler                         | Output Variable            | Physical Control (from the event it posts; see [Analog controllers](#analog-controller--encoder-format)) |
+|--------------------|---------------------------------|----------------------------|----------------------------------------------------------------------------------------------------------|
+| 2                  | `Encoder_ProcessModwheel`       | `MIDI_CC_MODWHEEL_VALUE`   | main-CPU A/D channel 0 (`ADREG04`), not a panel frame: CC 1 or CC 11 by panel parameter 0x2880           |
+| 5                  | `Encoder_ProcessVolume`         | `MIDI_CC_VOLUME_VALUE`     | main-CPU A/D channel 1 (`ADREG15`), not a panel frame: channel pressure (aftertouch)                     |
+| 25                 | `Encoder_ProcessBreath`         | `MIDI_CC_BREATH_VALUE`     | pitch-bend wheel (header `0xD1`; posts event 0xB1, sent as MIDI pitch bend)                              |
+| 26                 | `Encoder_ProcessFoot`           | `MIDI_CC_FOOT_VALUE`       | modulation wheel (header `0xD2`; posts event 0xB2, sent as CC 1)                                         |
+| 27                 | `Encoder_ProcessExpression`     | `MIDI_CC_EXPRESSION_VALUE` | header `0xD3`; posts event 0xB0 with controller 0 (control not established)                              |
+| 31                 | `Encoder_PassthroughIdentity`   | Direct passthrough         | TEMPO/PROGRAM data wheel (header `0xD7`)                                                                 |
+| 0-1,3-4,6-24,28-30 | `Encoder_ReturnDefaultConstant` | Returns 1                  | Unused                                                                                                   |
+
+The handler and variable names are the disassembly's current labels; they predate the reading of the posted
+events and still say breath, foot, volume and expression (tracker item `kn5000-3c7` renames them).
 
 **Encoder Processing:**
 - Raw input values are inverted (`CPL A`) and stored in `ENCODER_RAW_*` variables
@@ -360,10 +363,11 @@ Without filtering, these produce 2 INTA sessions per ghost toggle, flooding the 
 
 A segment change becomes a 3-byte record `{event index, new state, changed bits}` in a queue at RAM `0x8E94`
 (count at `0x8EC4`). The event index is the one above: 0-10 = left-panel segments 0-10,
-11-21 = right-panel segments 0-10, 22-24 = left-panel headers `0xD1`, `0xD2`, `0xD3` (Type 2 frames of encoder IDs 25-27: `Encoder_ProcessBreath`, `Encoder_ProcessFoot`, `Encoder_ProcessExpression`), 25 = header `0xD7`, the TEMPO/PROGRAM data wheel (records
+11-21 = right-panel segments 0-10, 22-24 = left-panel headers `0xD1`, `0xD2`, `0xD3` (Type 2 frames of encoder IDs 25-27, processed by `Encoder_ProcessBreath`, `Encoder_ProcessFoot`, `Encoder_ProcessExpression`: the pitch-bend wheel, the modulation wheel and a third control, by the events they post), 25 = header `0xD7`, the TEMPO/PROGRAM data wheel (records
 `{0x19, ±delta, 0xFF}`: MAME's panel device has sent the `[0xD7, count]` frame that produces these records since
 [mamedev/mame#15919](https://github.com/mamedev/mame/pull/15919)), 26 = the
-modulation wheel and 27 = the volume slider (`ENCODER_0_OUTPUT` / `ENCODER_1_OUTPUT`, queued by `PanelInput_QueueWheelChanges`),
+main CPU's A/D channel 0 and 27 = its A/D channel 1 (`ENCODER_0_OUTPUT` / `ENCODER_1_OUTPUT`, queued by `PanelInput_QueueWheelChanges`;
+channel 0 posts CC 1 or CC 11, channel 1 channel pressure, see [Analog controllers](#analog-controller--encoder-format)),
 28 = foot switches FS1/FS2 (PG.2-3), 29 = foot controllers FC1-FC4 (PG.4-7), 30 = PD.6 (the pedal records of
 `PanelInput_ScanPedalPorts`; see [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/)). For each record, `PanelButton_DispatchChange` walks one **action list**, chosen by the event
 index from `PanelButton_ActionLists` (ROM `0xED9C1E`), or from `PanelButton_HelpModeActionLists`
@@ -496,12 +500,12 @@ typed in `ui_widgets/naka_extension_device.c` (`panel_button_action_t`, `PanelAc
 | 21    | CPR 10  | MENU: CONTROL (`0x08`)                                                                                                   | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
 | 21    | CPR 10  | MENU: MIDI (`0x10`)                                                                                                      | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
 | 21    | CPR 10  | MENU: DISK (`0x20`)                                                                                                      | `0xA9`, `0x20` | `PanelButton_ModeKey`                 |
-| 22    | --      | -- (`0xFF`)                                                                                                              | `0xB1`, `0x00` | `PanelAction_Event22`                 |
-| 23    | --      | -- (`0x7F`)                                                                                                              | `0xB2`, `0x00` | `PanelAction_Event23`                 |
+| 22    | --      | pitch-bend wheel (header 0xD1, ID 25): the byte as LSB/MSB, event 0xB1 = MIDI pitch bend (`0xFF`)                        | `0xB1`, `0x00` | `PanelAction_Event22`                 |
+| 23    | --      | modulation wheel (header 0xD2, ID 26): event 0xB2 = CC 1 (`0x7F`)                                                        | `0xB2`, `0x00` | `PanelAction_Event23`                 |
 | 24    | --      | -- (`0x7F`)                                                                                                              | `0xB0`, `0x00` | `PanelEvent_Post`                     |
 | 25    | --      | TEMPO/PROGRAM data wheel (header 0xD7; records {0x19, delta, 0xFF}, mamedev/mame#15919) (`0xFF`)                         | `0xA9`, `0x21` | `PanelAction_PostUnlessDemo`          |
-| 26    | --      | modulation wheel (ENCODER_0) (`0x7F`)                                                                                    | `0xB0`, `0x01` | `PanelAction_ModWheel`                |
-| 27    | --      | volume slider (ENCODER_1) (`0x7F`)                                                                                       | `0xB4`, `0x00` | `PanelAction_Volume`                  |
+| 26    | --      | A/D channel 0 (ENCODER_0): CC 1 or, with 0x2880 = 183, event 0xB3 = CC 11 (`0x7F`)                                       | `0xB0`, `0x01` | `PanelAction_ModWheel`                |
+| 27    | --      | A/D channel 1 (ENCODER_1): event 0xB4 = channel pressure (`0x7F`)                                                        | `0xB4`, `0x00` | `PanelAction_Volume`                  |
 | 28    | --      | foot switch FS1 (PG.2) (`0x01`)                                                                                          | `0xA9`, `0x32` | `PanelAction_FootSwitch1`             |
 | 28    | --      | foot switch FS2 (PG.3) (`0x02`)                                                                                          | `0xA9`, `0x33` | `PanelAction_FootSwitch2`             |
 | 29    | --      | foot controller FC1 (PG.4) (`0x01`)                                                                                      | `0xA9`, `0x34` | `PanelAction_FootController1`         |
@@ -903,7 +907,19 @@ void kn5000_cpanel_device::update_leds(int index, uint8_t pattern)
 
 ### Analog Controller / Encoder Format
 
-Analog controllers (modwheel, volume, breath, foot, expression) send **absolute 8-bit ADC values** via Type 2 packets — NOT signed deltas. The MCU samples analog inputs and sends the raw position value; the main CPU compares with the previous stored value to detect changes.
+The left panel's analog controllers (encoder IDs 25-27) send **absolute 8-bit ADC values** via Type 2 packets — NOT signed deltas. The MCU samples analog inputs and sends the raw position value; the main CPU compares with the previous stored value to detect changes. Two more analog inputs are the main CPU's own A/D channels 0 and 1 (`ADREG04`, `ADREG15`), which never travel over the panel link: `MidiParam_ProcessDeltas` feeds them through the handlers of IDs 2 and 5 (see [MIDI Parameter Delta Processing](#midi-parameter-delta-processing)).
+
+**What each one is, from the event it posts (2026-10-31).** The handler names in the source (`Encoder_ProcessBreath`, `Encoder_ProcessFoot`, `Encoder_ProcessExpression`, `Encoder_ProcessModwheel`, `Encoder_ProcessVolume`, and the `MIDI_CC_*_VALUE` variables) are older guesses. The events their records post, followed to the MIDI-out builders, say what the controls are:
+
+| input                     | record | action (`PanelButton_ActionLists`)                                                 | event tag                                                     | MIDI out (handler of `MidiDispatchCC_HandlerTable`)                                                                                                       | control                       |
+|---------------------------|--------|------------------------------------------------------------------------------------|---------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------|
+| ID 25, header `0xD1`      | 22     | `PanelAction_Event22`: byte b as LSB `(b & 1) << 6`, MSB `b >> 1` (0xFF = 127/127) | 0xB1                                                          | `MidiCC_ChannelDispatch_CtrlFlags`: status `0xE0` \| channel, LSB, MSB, to `MidiTx_PartTargets_PitchBend`                                                 | pitch-bend wheel              |
+| ID 26, header `0xD2`      | 23     | `PanelAction_Event23`                                                              | 0xB2                                                          | `MidiCC_ChannelDispatch_Ctrl1`: CC 1, to `MidiTx_PartTargets_CC1_Modulation`                                                                              | modulation wheel              |
+| ID 27, header `0xD3`      | 24     | `PanelEvent_Post`                                                                  | 0xB0, controller 0                                            | `ExtData_Voice_CompareAndDispatch_Helper`: status 0xB0, controller 0 (it also re-flags `MIDI_CC_EXPRESSION_PENDING`)                                      | not established               |
+| A/D channel 0 (`ADREG04`) | 26     | `PanelAction_ModWheel`                                                             | 0xB0, controller 1; or 0xB3 when panel parameter 0x2880 = 183 | CC 1 (`MidiCh_ConfigVoiceAndParts`), or CC 11 (`MidiCC_ChannelDispatch_Ctrl3`, `MidiTx_PartTargets_CC11_Expression`); nothing unless 0x2880 is 182 or 183 | an assignable pedal input     |
+| A/D channel 1 (`ADREG15`) | 27     | `PanelAction_Volume`, only when panel parameter 0x104 is set                       | 0xB4                                                          | `MidiCC_ChannelDispatch_CtrlFlags2`: status `0xD0` \| channel, to `MidiTx_PartTargets_ChannelPressure`                                                    | aftertouch (channel pressure) |
+
+The event tag is the first byte of the panel event; `Audio_MainPeriodicUpdate` hands each queued event to `SoundProgram_DispatchTable[tag]`, whose 0xB1 / 0xB2 / 0xB3 / 0xB4 handlers pass the tag on as the status of `MIDI_DispatchCC`. The service manual's names for the two A/D inputs (EXP and AFT, as read by the open-items register lane) agree with the last two rows; that reading of the schematic was not re-checked here.
 
 **Type 2 Packet Format (2 bytes):**
 
@@ -921,19 +937,19 @@ encoder_id = (byte0 & 0x07) | ((byte0 & 0xC0) >> 3)  // 5-bit ID, range 0-31
 
 **Active Encoder IDs and Handlers:**
 
-| ID                 | Handler                         | Controller               | Processing                          | MIDI CC | Output Variable                     |
-|--------------------|---------------------------------|--------------------------|-------------------------------------|---------|-------------------------------------|
-| 2                  | `Encoder_ProcessModwheel`       | Modulation wheel         | Invert, /2, 128-entry LUT           | CC#1    | `MIDI_CC_MODWHEEL_VALUE` (0x8EE4)   |
-| 5                  | `Encoder_ProcessVolume`         | Volume slider            | /2, 128-entry LUT, clamp+scale      | CC#7    | `MIDI_CC_VOLUME_VALUE` (0x8EF4)     |
-| 25                 | `Encoder_ProcessBreath`         | Breath controller        | Invert, LUT, mode-dependent scaling | CC#2    | `MIDI_CC_BREATH_VALUE` (0x8EE8)     |
-| 26                 | `Encoder_ProcessFoot`           | Foot controller          | /2, 128-entry LUT                   | CC#4    | `MIDI_CC_FOOT_VALUE` (0x8EEA)       |
-| 27                 | `Encoder_ProcessExpression`     | Expression pedal         | Invert, /2, 128-entry LUT           | CC#0    | `MIDI_CC_EXPRESSION_VALUE` (0x8EE6) |
-| 31                 | `Encoder_PassthroughIdentity`   | TEMPO/PROGRAM data wheel | No processing (signed detent count) | N/A     | Direct return                       |
-| 0-1,3-4,6-24,28-30 | `Encoder_ReturnDefaultConstant` | Unused                   | Returns 1                           | N/A     | N/A                                 |
+| ID                 | Handler                         | Controller                             | Processing                          | MIDI out                 | Output Variable                     |
+|--------------------|---------------------------------|----------------------------------------|-------------------------------------|--------------------------|-------------------------------------|
+| 2                  | `Encoder_ProcessModwheel`       | A/D channel 0 (assignable pedal input) | Invert, /2, 128-entry LUT           | CC 1 or CC 11            | `MIDI_CC_MODWHEEL_VALUE` (0x8EE4)   |
+| 5                  | `Encoder_ProcessVolume`         | A/D channel 1 (aftertouch)             | /2, 128-entry LUT, clamp+scale      | channel pressure         | `MIDI_CC_VOLUME_VALUE` (0x8EF4)     |
+| 25                 | `Encoder_ProcessBreath`         | Pitch-bend wheel                       | Invert, LUT, mode-dependent scaling | pitch bend               | `MIDI_CC_BREATH_VALUE` (0x8EE8)     |
+| 26                 | `Encoder_ProcessFoot`           | Modulation wheel                       | /2, 128-entry LUT                   | CC 1                     | `MIDI_CC_FOOT_VALUE` (0x8EEA)       |
+| 27                 | `Encoder_ProcessExpression`     | not established                        | Invert, /2, 128-entry LUT           | event 0xB0, controller 0 | `MIDI_CC_EXPRESSION_VALUE` (0x8EE6) |
+| 31                 | `Encoder_PassthroughIdentity`   | TEMPO/PROGRAM data wheel               | No processing (signed detent count) | N/A                      | Direct return                       |
+| 0-1,3-4,6-24,28-30 | `Encoder_ReturnDefaultConstant` | Unused                                 | Returns 1                           | N/A                      | N/A                                 |
 
 **Value Processing Pipeline (typical):**
 1. Raw 8-bit value from MCU ADC (0-255)
-2. Optional invert (`cpl a` = 255-value) for modwheel, breath, expression
+2. Optional invert (`cpl a` = 255-value) for IDs 2, 25 and 27
 3. Divide by 2 (`srl a, 1`) → 0-127 index
 4. 128-entry ROM lookup table → MIDI CC value (0-127)
 5. Compare with previously stored value; if unchanged, return 0xFFFF (no event)
@@ -990,8 +1006,9 @@ The wheel's frame *is* a Type 2 packet. Header `0xD7` has type bits 5:3 = `010`,
 `(0xD7 & 0x07) | ((0xD7 & 0xC0) >> 3)` = 31: the pass-through entry `Encoder_PassthroughIdentity`
 of the table at `0xEDA0BC`. That entry returns the count unchanged, with no lookup table and no
 MIDI CC. `CPanel_RX_EncoderPacket` then queues `{0xD7, count, 0xFF}`, where `0xFF` is the record's
-changed-bits byte. The analog IDs are modwheel(2), volume(5), breath(25), foot(26) and
-expression(27). Every other ID returns a constant 1.
+changed-bits byte. The analog IDs are 2 and 5 (the main CPU's A/D channels 0 and 1) and 25, 26 and 27
+(the pitch-bend wheel, the modulation wheel and a third, unestablished control). Every other ID returns a
+constant 1.
 
 #### Segment 0x0B: a boot-time settling register
 
@@ -1067,14 +1084,14 @@ The firmware has two separate polling loops:
 
 ### MIDI Parameter Delta Processing
 
-The main loop calls `MidiParam_ProcessDeltas` (0xFC6ED1) every iteration (when input processing is enabled) to detect changes in the main CPU's A/D results ADREG04 and ADREG15 (modulation wheel and volume slider) and re-route them through the encoder value processing pipeline.
+The main loop calls `MidiParam_ProcessDeltas` (0xFC6ED1) every iteration (when input processing is enabled) to detect changes in the main CPU's A/D results ADREG04 and ADREG15 (A/D channel 0, the assignable pedal input, and channel 1, aftertouch; see [Analog controllers](#analog-controller--encoder-format)) and re-route them through the encoder value processing pipeline.
 
 **Two-channel processing:**
 
-| Channel | Status Register             | Output Buffer               | Previous Value                  | Encoder ID   | Controller |
-|---------|-----------------------------|-----------------------------|---------------------------------|--------------|------------|
-| 0       | `ENCODER_0_STATUS` (0x8F04) | `ENCODER_0_OUTPUT` (0x8F10) | `ENCODER_0_LAST_VALUE` (0x8EFC) | 2 (Modwheel) | Modulation |
-| 1       | `ENCODER_1_STATUS` (0x8F06) | `ENCODER_1_OUTPUT` (0x8F16) | `ENCODER_1_LAST_VALUE` (0x8EFE) | 5 (Volume)   | Volume     |
+| Channel | Status Register             | Output Buffer               | Previous Value                  | Encoder ID   | Controller               |
+|---------|-----------------------------|-----------------------------|---------------------------------|--------------|--------------------------|
+| 0       | `ENCODER_0_STATUS` (0x8F04) | `ENCODER_0_OUTPUT` (0x8F10) | `ENCODER_0_LAST_VALUE` (0x8EFC) | 2 (Modwheel) | CC 1 / CC 11 pedal input |
+| 1       | `ENCODER_1_STATUS` (0x8F06) | `ENCODER_1_OUTPUT` (0x8F16) | `ENCODER_1_LAST_VALUE` (0x8EFE) | 5 (Volume)   | aftertouch               |
 
 Each channel reads its current A/D result via `MidiChannel_GetParamByIndex`, computes the delta against the previously stored value, applies debounce filtering through `MIDI_ComputeParamDelta`, and if the delta is confirmed valid, re-dispatches through `CPanel_EncoderDispatch` to apply lookup table conversion. The result is stored in the output buffer with bit 7 of the flags byte set to indicate a value change.
 
@@ -1095,7 +1112,7 @@ Status register bit definitions:
 
 **`MidiChannel_GetParamByIndex` (0xFC6EA7):**
 
-Returns, in L, the high byte of one of the main CPU's four A/D conversion result registers (`ld l, (xbc + 1)` with XBC = 0x120 / 0x122 / 0x124 / 0x126, the TMP94C241's `ADREG04L` / `ADREG15L` / `ADREG26L` / `ADREG37L`, for index 0-3). The modulation wheel (ID 2) and the volume slider (ID 5) are read from `ADREG04` and `ADREG15` (index 0 and 1):
+Returns, in L, the high byte of one of the main CPU's four A/D conversion result registers (`ld l, (xbc + 1)` with XBC = 0x120 / 0x122 / 0x124 / 0x126, the TMP94C241's `ADREG04L` / `ADREG15L` / `ADREG26L` / `ADREG37L`, for index 0-3). Channels 0 and 1, processed by the ID 2 and ID 5 handlers, are read from `ADREG04` and `ADREG15` (index 0 and 1):
 
 | Channel | Base Address (decimal) | Register        |
 |---------|------------------------|-----------------|
@@ -1360,14 +1377,14 @@ LED of their own hold `{0x0E, 0x0F}`, which is row 14, the four START/STOP beat 
 ### Encoder Physical Mapping (RESOLVED)
 
 Six encoder IDs have dedicated handlers (the five analog IDs carry **absolute 8-bit ADC values**; ID 31 carries the data wheel's signed detent count):
-- **ID 2**: Modulation wheel → `MIDI_CC_MODWHEEL_VALUE` (inverted, /2, 128-entry LUT)
-- **ID 5**: Volume slider → `MIDI_CC_VOLUME_VALUE` (/2, LUT, clamp+scale)
-- **ID 25**: Breath controller → `MIDI_CC_BREATH_VALUE` (inverted, mode-dependent scaling)
-- **ID 26**: Foot controller → `MIDI_CC_FOOT_VALUE` (/2, LUT)
-- **ID 27**: Expression pedal → `MIDI_CC_EXPRESSION_VALUE` (inverted, /2, LUT)
+- **ID 2**: main-CPU A/D channel 0, an assignable pedal input (CC 1 or CC 11) → `MIDI_CC_MODWHEEL_VALUE` (inverted, /2, 128-entry LUT)
+- **ID 5**: main-CPU A/D channel 1, aftertouch (channel pressure) → `MIDI_CC_VOLUME_VALUE` (/2, LUT, clamp+scale)
+- **ID 25**: pitch-bend wheel (event 0xB1, MIDI pitch bend) → `MIDI_CC_BREATH_VALUE` (inverted, mode-dependent scaling)
+- **ID 26**: modulation wheel (event 0xB2, CC 1) → `MIDI_CC_FOOT_VALUE` (/2, LUT)
+- **ID 27**: not established (event 0xB0, controller 0) → `MIDI_CC_EXPRESSION_VALUE` (inverted, /2, LUT)
 - **ID 31**: TEMPO/PROGRAM data wheel (header `0xD7`), signed detent count passed through unchanged
 
-Physical assignments confirmed from firmware analysis. Remaining IDs (0-1, 3-4, 6-24, 28-30) return 1 (unused).
+Physical assignments from the events each record posts (see [Analog controllers](#analog-controller--encoder-format), corrected 2026-10-31; the earlier breath / foot / expression / volume reading was the handlers' names). Remaining IDs (0-1, 3-4, 6-24, 28-30) return 1 (unused).
 
 **Data wheel (jog dial)**: ROTA/ROTB quadrature on the CPL MCU. The panel reports `[0xD7, signed detent count]`, a Type 2 frame with encoder ID 31 (`Encoder_PassthroughIdentity`, which passes the count through). The count becomes record 0x19 and then `EVT_DIAL` (0x1C0001F); see [Data Wheel]({{ site.baseurl }}/data-wheel-investigation/).
 

@@ -1163,6 +1163,17 @@ for the directory, the 629-entry tone-record offset table, drum kits and percuss
 - Data read: 0x110000 (16-bit: low byte = key index in bits 6:0 plus the key-state bit 7 (set = down), high byte = raw touch reading, a curve index; 0xFF = no touch value)
 - Register write: 0x100000 (address), 0x100002 (data) with P6.7 chip-select protocol
 
+### Clock and Output Rate
+
+IC303's crystal, X301, is a **33.8688 MHz** part: the service manual's replacement parts list gives part
+number QSXG1I3386A (the schematic prints "36.8688MHz", which no listed part matches). 33.8688 MHz is
+768 × 44,100 Hz, so IC303's output, and the sample rate the DAC (IC313 PCM69AU) receives through IC310, is
+very probably **44.1 kHz**, not the 48 kHz this page and the emulator used to assume. *[INFERENCE]* The rate
+follows from the ratio; it has not been measured on the instrument. The SX-KN7000's master tone generator has
+the matching 16.9344 MHz = 384 × 44,100 Hz crystal, and its DSP frame rate was measured on the owner's unit
+at 44,087 Hz ([KN7000 Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/)). Source: disassembly
+`notes/sound-2026-10-31/README.md` (section "The output clocks were checked anyway").
+
 ## Sound Categories
 
 The Main CPU organizes sounds into 16 categories with pointers at 0xE023B0:
@@ -1918,7 +1929,8 @@ The MAME driver includes device classes for the audio chips. The tone generator 
 
 **Tone Generator (`kn5000_tonegen_device`):**
 - Register-indirect config interface (address port + data port)
-- 64-voice PCM wavetable playback at 48kHz from waveform ROMs (IC304-IC307), which the driver maps as
+- 64-voice PCM wavetable playback at 48 kHz (the hardware rate is very probably 44.1 kHz, see
+  [Clock and Output Rate](#clock-and-output-rate); the device's stream rate is not yet changed) from waveform ROMs (IC304-IC307), which the driver maps as
   one linear 16 MB region. IC307's contents say the hardware reads them as two word-interleaved pairs
   instead, IC307 being the Y half of one ([Waveform ROM Format]({{ site.baseurl }}/waveform-rom-format/#ic307-is-half-of-a-pair)):
   what the overlay plays from IC307 is therefore half of each recording (*[INFERENCE]*)
