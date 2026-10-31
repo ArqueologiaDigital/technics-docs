@@ -39,7 +39,23 @@ F0 50 87 <param>
 | `0x10` | Panel button press (specific modes)                                        | Rhythm-mode byte (bits 7-4 = 1 → word table 0x00F6F3 index 1 → 0x041360)    |
 | `0x68` | Sound initialization                                                       | Rhythm-mode byte (bits 7-4 = 6, bit 3 set)                                  |
 
-The `0x08` value is the most common; it is sent after operations that change the rhythm/sound configuration (sequencer start/stop, drum kit selection, tempo changes, accompaniment mode switching). `MIDI_SendSysExFromW` (`0xEF6085`) is a second entry point that copies W into A; its callers, all in `display/scoop_display.s`, pass `0x62`, `0x68`, `0x72` and `0x76`, and one passes a byte of `SqStep_ButtonRhythmModeBytes` with bit 1 set.
+The `0x08` value is the most common; it is sent after operations that change the rhythm/sound configuration (sequencer start/stop, drum kit selection, tempo changes, accompaniment mode switching). `MIDI_SendSysExFromW` (`0xEF6085`) is a second entry point that copies W into A; its callers, all in `display/scoop_display.s`, pass `0x62`, `0x68`, `0x72` and `0x76`, and one, `SqStep_PanelButtonDispatch` (the step recorder's panel-button dispatcher, on its note-length buttons), passes a byte of the six-byte table `SqStep_ButtonRhythmModeBytes` (`0x50, 0x40, 0x30, 0x20, 0x10, 0x00`) with bit 1 set. Neither is a SysEx routine: the names `SysEx_BytecodeDispatcher` / `SysInit_BytecodeBlock` they had before 2026-10-31 were wrong.
+
+### Other sub-commands of the record
+
+`Voice_SystemMsg` on the Sub CPU accepts more sub-commands in the same `F0 50 <sub>` shape (traced 2026-10-31,
+disassembly `notes/open4-kn5000-b/midi/README.md`, kn5000-81p):
+
+| Sub-command | Handler / meaning                                                                                                                                                            | Sent by                    |
+|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
+| `0x80-0x87` | `Voice_SystemMsg_DispatchTable`: 0x80/0x81 bare `ret`s, 0x82 master tune, 0x83 pitch-bend range, 0x84 ignored, 0x85 key-shift enable, 0x86 scale-tune mode, 0x87 rhythm mode | `MIDI_SendSysExCmd` (0x87) |
+| `0x09`      | polyphony mode                                                                                                                                                               |                            |
+| `0x91`      | `Voice_SetVelSwitchConfig` (global velocity-switch configuration)                                                                                                            | `AudioInit_VoiceParamCtrl` |
+| `0x92`      | `Voice_AllVoices_PortamentoUpdate`                                                                                                                                           |                            |
+| `0x99`      | accepted (not described here)                                                                                                                                                |                            |
+| `0xA3-0xB1` | `Voice_SystemMsg_SubA3` .. `Voice_SystemMsg_SubB1`: scale-tune user offsets, velocity update, scale-tune enable                                                              |                            |
+
+`SeqVoice_CheckAndRet_Prologue` sends `{4, F0, A, C, E}` records of this shape.
 
 ### Implementation
 
@@ -117,35 +133,148 @@ The macro switches (`SysEx_DispatchByChannel` at `0xFDACEA`, chorus macros; `Sys
 
 ### States (stored at DRAM address 48414)
 
-| State | Action | Transition |
-|-------|--------|------------|
-| 0 | Wait for `0xF0` (SysEx start) | → State 1 on match |
-| 1 | Check manufacturer ID | → State 2 if `0x50`, `0x7E`, or `0x41`; → State 0 otherwise |
-| 2+ | Accumulate data bytes | → Process on `0xF7` (SysEx end); → State 0 on invalid |
+| State | Action                        | Transition                                                  |
+|-------|-------------------------------|-------------------------------------------------------------|
+| 0     | Wait for `0xF0` (SysEx start) | → State 1 on match                                          |
+| 1     | Check manufacturer ID         | → State 2 if `0x50`, `0x7E`, or `0x41`; → State 0 otherwise |
+| 2+    | Accumulate data bytes         | → Process on `0xF7` (SysEx end); → State 0 on invalid       |
 
 ### Accepted Manufacturer IDs
 
-| ID | Manufacturer | Usage |
-|----|-------------|-------|
-| `0x41` | Roland | GS voice parameter commands |
-| `0x50` | Technics (Panasonic) | Proprietary mode commands |
+| ID     | Manufacturer           | Usage                                         |
+|--------|------------------------|-----------------------------------------------|
+| `0x41` | Roland                 | GS voice parameter commands                   |
+| `0x50` | Technics (Panasonic)   | Proprietary mode commands                     |
 | `0x7E` | Universal Non-Realtime | Standard MIDI extensions (GM System On, etc.) |
 
 Data bytes (bit 7 clear) are accumulated via `VoiceQueue_Append`. The buffer limit is checked against address 48212 (if the 16-bit value at that address reaches `0xFF`, further data is rejected). When `0xF7` is received, the accumulated message is processed by `SeqData_InitPlaybackFromField`.
+
+## Technics (0x50) Messages on MIDI
+
+Traced 2026-10-31 (issue kn5000-81p; disassembly `notes/open4-kn5000-b/midi/README.md`, probes
+`notes/open4-kn5000-b/midi/probes/sysex_rx_catalogue.py` and `technics_param_addresses.py`). Addresses are main CPU v10.
+
+The KN5000's own 0x50 messages share the WSA1R's command bytes (21-2D, 7E) but use the model header
+`01 28 12` where the WSA1R uses `04 md 11`. Incoming messages are recognised by a byte trie,
+`SysExRx_TrieRoot` (0xEE493E, 817 six-byte `{key, action, next}` entries), which `MidiSeq_AssignVoiceSlots` /
+`MidiSeq_ScanSlot*_Loop` walk byte by byte after `SysEx_ParserLoop` has taken F0 and the manufacturer byte. An
+entry with a non-zero action ends the match; the action byte is a message id that indexes
+`SeqChan_CommandHandlers` (bulk transfer, `MidiTable_DispatchHelper`, only on the MIDI EXCLUSIVE screen, title
+0x57 TITLE_MDEXC) and `SeqData_Handlers` (`SeqData_DispatchHandler`: parameters, tempo, GM and GS).
+`sysex_rx_catalogue.py` walks the trie and prints all 101 terminal paths (34 ids). Condensed:
+
+| id    | bytes after F0 50                          | direction | meaning                                                                            | routine                                                                     |
+|-------|--------------------------------------------|-----------|------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| 7     | `21 01 28 12 F7`                           | both      | handshake request (the sender's opening message)                                   | `MidiPkt_XferAnswerMsg21` answers once with `22 01 28 12 F7`                |
+| 8     | `22 01 28 12 F7`                           | both      | handshake reply                                                                    | `MidiPkt_HandleCmdCode01` (stores three fields, state 2)                    |
+| 1, 2  | `23 7E F7`, `24 7E F7`                     | sent      | ACK / NAK-shaped (WSA1R names)                                                     | received as bare `ret`s                                                     |
+| 3     | `27 7E F7`                                 | both      | end of a transfer group                                                            | `MidiPkt_XferOnGroupEnd` (sets the group's bit of `0xBD1A`)                 |
+| 4     | `28 7E F7`, `2A 7E F7`                     | both      | end of dump / destination full                                                     | `MidiSysEx_ProcessBlock`                                                    |
+| 5     | `29 7E F7`                                 | both      | error / abort                                                                      | `SeqChan_UnhandledCmd_0x12` (error 23, `MidiSysEx_RecoverAbortedXferGroup`) |
+| 9     | `25 <lo> <hi> F7`                          | both      | tempo: BPM = lo + 16 * hi, 40..300                                                 | `SeqData_FormatOutput_Dispatch` -> `SeqTimer_SetPanelTempo`                 |
+| 10    | `7E <hi lo nibbles ...> <more> <cs> F7`    | both      | bulk data packet                                                                   | `MidiPkt_XferOnDataPacket` -> `SeqChan_StepCmdHandlers[state]`              |
+| 11-25 | `2D 01 28 12 <adr3> <len3>`                | both      | data-dump block header (table below)                                               | `MidiPkt_ArpExtHandler_A` ... `MidiPkt_ArpExtHandler_J`                     |
+| 27    | `2C 01 28 12 <adr3> <siz3> <data> <cs> F7` | both      | parameter change (address table below)                                             | `SysEx_OnTechnicsParamChange`                                               |
+| 26    | `2C 01 28 12 28/30 xx xx xx xx xx`         | received  | parameter change, addresses 28xxxx / 30xxxx                                        | `SeqData_FormatOutput_CaseC`                                                |
+| 29    | `2B 01 28 12 <adr3> <siz3> <cs> F7`        | received  | parameter request: answered with a 2C message                                      | `SysEx_OnTechnicsParamRequest`                                              |
+| 28    | `2B 01 28 12 28/30 xx xx xx xx xx`         | received  | parameter request, addresses 28xxxx / 30xxxx                                       | `SeqData_FormatOutput_Default`                                              |
+| 30-35 | `2B 01 28 12 <grp> 00 00 xx xx xx`         | received  | dump request: 20 panel, 38 sound memory, 50 style image, 60 sequencer, 48 MSP user | `MidiPkt_DispatchData_Chan4/3/1/2/6` -> `SysEx_InitiateSend` code 4/3/1/2/6 |
+| 36/37 | (F0 7E) `7F 09 01` / `7F 09 02`            | received  | GM System On / Off                                                                 | `SysEx_OnGmSystemOn` / `SysEx_OnGmSystemOff`                                |
+| 38    | (F0 41) `<dev> 42 12 40 ...`               | received  | Roland GS data set (reverb/chorus macro and level)                                 | `SysEx_OnRolandGsParam`                                                     |
+
+`SysEx_InitiateSend` code 5 has no dump-request row (id 34 is not in the trie), which is why
+`SysEx_InitiateSend_SendNoData` is never selected by a request.
+
+### Bulk transfer blocks
+
+The data-dump block headers (`SysEx_TechMsg_*`, sent by the `MidiPkt_SendBlock_*` routines, and recognised as
+ids 11-25) give each group's blocks; the receive handlers' headers give where each lands:
+
+| id | header after `2D 01 28 12` | group / block                      | lands at (receive side)                          |
+|----|----------------------------|------------------------------------|--------------------------------------------------|
+| 11 | `20 00 00 00 0C 40`        | panel, block 1 (live panel)        | `MidiPkt_SetXferBlock_LivePanel`                 |
+| 12 | `24 00 00 04 59 30`        | panel, block 2 (80 panel memories) | `0x1ED350`, 0x12CB0 bytes                        |
+| 13 | `38 00 00 00 00 10`        | sound RAM, start (16-byte id)      | total at `0x1E0000`, 0x72AA bytes                |
+| 14 | `38 00 10 00 5A 50`        | sound RAM, block 2                 | the rest of `0x1E0000`                           |
+| 15 | `50 00 00 00 00 60`        | style image, start                 | `RHYTHM_PATTERN_BUF_A`, 0x16800 or the used size |
+| 16 | `50 00 60 00 26 60`        | style image, block 2               |                                                  |
+| 17 | `50 27 40`                 | style image, block 3               |                                                  |
+| 18 | `60 00 00 00 10 00`        | sequencer: current song            |                                                  |
+| 19 | `60 10 00 01 20 00`        | sequencer: song slots              |                                                  |
+| 20 | `61 30 00 <len>`           | sequencer: event memory            | `0xB0000`, 0x4D800 or the used size              |
+| 23 | `48 00 00 00 00 20`        | accompaniment block area, start    | `0x1E8800`, 0x3C00 or the used size              |
+| 24 | `48 00 20 00 01 60`        | accompaniment block area, block 2  |                                                  |
+| 25 | `48 02 00`                 | accompaniment block area, block 3  |                                                  |
+
+The 3-byte fields after the address are the block's length as transmitted (whether their unit is bytes or a 7-bit
+nibble count was not checked). Each block's data follows as `F0 50 7E` packets: every data byte is sent as two
+nibbles, high first (`ArpQueue_ProcessAndSort_Data_Helper2`), until the 252-byte output buffer is full or the
+block ends; then a continuation byte (1 = more, 0 = last, `ArpQueue_ProcessAndSort_Data_Helper3`), the checksum
+`-(sum) & 0x7F` (`ArpQueue_ComputeAndEnqueue` with `SysEx_ChecksumEoxTemplate`) and F7. A group ends with
+`27 7E F7`, the dump with `28 7E F7` (or `29 7E F7` after an error), sent by `SysEx_FinishBulkSend`. Session: the
+sender opens with `21 01 28 12 F7`, the receiver answers `22 01 28 12 F7`.
+
+### Parameter change / request addresses
+
+`SysEx_DispatchTechnicsParamChange` switches on the address group (field 1 from the trie: 1 = `00 00 xx`,
+3 = `01 00 xx`, 7 = `0A 00 xx`) and takes a 20-byte MIDI control record from `MidiCtl_SelectTable0` / `4` / `10`
+(requests: `1` / `5` / `11`). The record holds the address again (+0..+2), the panel-memory record tag (+6),
+byte (+7), mask (+8) and range (+9..+10). `technics_param_addresses.py --md` prints all 34:
+
+| address  | size | panel record, byte, mask | range   | known field (ram_panel_records.s)                  |
+|----------|------|--------------------------|---------|----------------------------------------------------|
+| 00 00 00 | 1    | 0x91 +0 0xFF             | -64..63 |                                                    |
+| 00 00 01 | 1    | 0x91 +2 0xFF             | 0..1    |                                                    |
+| 00 00 02 | 1    | 0x70 +2 0xFF             | 0..11   | transpose (+2)                                     |
+| 00 00 03 | 1    | 0x93 +0 0x0F             | 0..9    |                                                    |
+| 00 00 08 | 1    | 0x90 +4 0xFF             | 40..88  | R1R2 octave (+4)                                   |
+| 00 00 10 | 1    | 0x98 +1 0x7F             | 0..80   | panel memory number (+1)                           |
+| 00 00 11 | 1    | 0x98 +0 0x40             | 0..1    | panel memory mode (+0)                             |
+| 00 00 12 | 1    | 0x98 +3 0x01             | 0..48   | music style arranger (+3)                          |
+| 00 00 13 | 1    | 0x98 +3 0x70             | 1..3    | music style arranger (+3)                          |
+| 00 00 20 | 2    | 0x17 +0 0xFF             | 0..127  |                                                    |
+| 01 00 00 | 1    | 0xB0 +1 0x7F             | 0..127  |                                                    |
+| 01 00 08 | 1    | 0x48 +4 0x40             | 0..1    |                                                    |
+| 01 00 09 | 1    | 0x70 +4 0x0F             | 0..13   | TechniChord type (+4)                              |
+| 01 00 10 | 1    | 0x60 +1 0x80             | 0..127  | acoustic illusion / equalizer / reverb on/off (+1) |
+| 01 00 11 | 1    | 0x63 +0 0xFF             | 9..27   |                                                    |
+| 01 00 21 | 1    | 0x61 +0 0xFF             | 1..99   |                                                    |
+| 01 00 22 | 1    | 0x61 +17 0xFF            | 0..99   |                                                    |
+| 01 00 30 | 1    | 0x60 +1 0x40             | 0..1    | acoustic illusion / equalizer / reverb on/off (+1) |
+| 01 00 31 | 1    | 0x65 +0 0xFF             | 57..60  |                                                    |
+| 01 00 40 | 1    | 0x43 +0 0x80             | 0..1    |                                                    |
+| 01 00 41 | 1    | 0x66 +0 0xFF             | 88..91  |                                                    |
+| 0A 00 00 | 2    | 0x48 +0 0xFF             | 0..139  |                                                    |
+| 0A 00 02 | 1    | 0x48 +3 0x07             | 0..3    |                                                    |
+| 0A 00 03 | 1    | 0x48 +3 0x08             | 0..1    |                                                    |
+| 0A 00 04 | 1    | 0x90 +3 0x02             | 0..1    | APC on bass / left hold (+3)                       |
+| 0A 00 08 | 1    | 0x48 +5 0x02             | 0..1    |                                                    |
+| 0A 00 09 | 1    | 0x48 +7 0x30             | 0..3    |                                                    |
+| 0A 00 0A | 1    | 0x48 +5 0x04             | 0..2    |                                                    |
+| 0A 00 0B | 1    | 0x48 +5 0x08             | 0..1    |                                                    |
+| 0A 00 0C | 1    | 0x48 +5 0xC0             | 0..2    |                                                    |
+| 0A 00 0E | 1    | 0x48 +5 0x30             | 0..2    |                                                    |
+| 0A 00 10 | 1    | 0x98 +11 0x80            | 0..1    |                                                    |
+| 0A 00 11 | 1    | 0x98 +11 0x40            | 0..1    |                                                    |
+| 0A 00 18 | 1    | 0x43 +1 0x7F             | 0..127  |                                                    |
+
+The trie accepts a subset of these per direction (it has no request path for `00 00 20`, `0A 00 0A`-`0A 00 11`).
+The panel-record tags are the panel-memory TLV tags (`PanelTlv_PayloadOfTag`); tag 0x48 is the style record.
+Naming each field is left open: it needs each tag's keys, which `ram_panel_records.s` does not have for most tags.
 
 ## Bulk Data Transfer (SysEx Exclusive Functions)
 
 The KN5000 supports bulk data transfer for six data types, each with a named handler function (widget instances `NakaInst_Exc*Func` at `0xE555A4`-`0xE555EC`):
 
-| Function | ROM String | Data Type | Jump Table Base |
-|----------|-----------|-----------|-----------------|
-| `ExcSendFunc` | "ExcSendFunc" | Main send dispatch | N/A (dispatches to others) |
-| `ExcDotFunc` | "ExcDotFunc" | Data Object Transfer | `0xE7FD8A` |
-| `ExcPmemFunc` | "ExcPmemFunc" | Panel Memory (PM1-PM8) | `0xE7FDD6` |
-| `ExcSmemFunc` | "ExcSmemFunc" | Sound Memory banks | `0xE7FDEA` |
-| `ExcCompFunc` | "ExcCompFunc" | Composer/arranger data | `0xE7FDFE` |
-| `ExcSeqFunc` | "ExcSeqFunc" | Sequencer song data | `0xE7FE12` |
-| `ExcMspFunc` | "ExcMspFunc" | Music Style Programmer | `0xE7FE26` |
+| Function      | ROM String    | Data Type              | Jump Table Base            |
+|---------------|---------------|------------------------|----------------------------|
+| `ExcSendFunc` | "ExcSendFunc" | Main send dispatch     | N/A (dispatches to others) |
+| `ExcDotFunc`  | "ExcDotFunc"  | Data Object Transfer   | `0xE7FD8A`                 |
+| `ExcPmemFunc` | "ExcPmemFunc" | Panel Memory (PM1-PM8) | `0xE7FDD6`                 |
+| `ExcSmemFunc` | "ExcSmemFunc" | Sound Memory banks     | `0xE7FDEA`                 |
+| `ExcCompFunc` | "ExcCompFunc" | Composer/arranger data | `0xE7FDFE`                 |
+| `ExcSeqFunc`  | "ExcSeqFunc"  | Sequencer song data    | `0xE7FE12`                 |
+| `ExcMspFunc`  | "ExcMspFunc"  | Music Style Programmer | `0xE7FE26`                 |
 
 ### Handler Architecture
 
@@ -169,7 +298,7 @@ The cases are NAKA widget events (in `ExcPmemFunc`: `ExcPmemFunc_OnGetLargeStep`
 1. Sets bit 7 of the mode byte (DRAM 48380)
 2. Sets the SysEx active flag (bit 6 of DRAM 48408)
 3. Clears all MIDI channel states (`MidiChan_ClearAllStates`)
-4. Dispatches to one of 6 mode-specific handlers via a jump table at `0xEE2F7E`
+4. Dispatches through `SysExSend_SwitchOffsets` (`0xEE2F7E`), 7 entries, codes 0-6: all data, style image, sequencer, sound memory, panel memory, none, MSP user (code 5 is never selected by a dump request; see the message table above)
 
 When the mode is deactivated (bit 7 clear), it clears the SysEx flag and calls `SoundMode_ResetAllParams`.
 
@@ -276,9 +405,9 @@ tempo, the unit does **not** echo panel edits as SysEx.
 Incoming messages are routed through two parallel dispatch tables — one for data
 loaded from file, one for live MIDI:
 
-| Table | Address | Role |
-|-------|---------|------|
-| `PtrTable_F4F800` | `prom_b 0xF4F800` | File / load path |
+| Table             | Address           | Role                                       |
+|-------------------|-------------------|--------------------------------------------|
+| `PtrTable_F4F800` | `prom_b 0xF4F800` | File / load path                           |
 | `PtrTable_F4F888` | `prom_b 0xF4F888` | Live-MIDI path (a subset of the file path) |
 
 Dispatchers `SysExRx_ParseDispatch_Ring601646` (`0xFB2160`, file) and `SysExRx_PollRing601C6E` (`0xFB21CB`, live) index these tables by a
@@ -300,11 +429,11 @@ the output queue and write it to `SC0BUF` at `0xFA547E`.
 That output queue is a **256-byte ring at `0x601432`** with the usual eleven veneers. So an
 ordinary MIDI transmission is:
 
-| Step | Routine | Convention |
-|------|---------|------------|
-| queue a block | `Ring601432_PutBlock` — slot `0xF41DF8`, body `prom_a 0xF8481C` | `push <buffer:4>`, `pushw <count:2>`, call, clean 6. The frame is read as `ld BC,(XIZ+0x08)` = count, `ld XIY,(XIZ+0x0a)` = buffer |
-| wake the transmitter | `MIDI_PostSendWork` — `prom_a 0xFA590F` | no arguments; sets the `(0x77)` mailbox to `0xDD`, which restarts a transmitter that has already run dry. `MIDI_TX_Ready` writes `0xFD` there when it runs out |
-| queue one byte | `Ring601432_Put` — slot `0xF41DF4` | one byte at `(XIZ+0x08)` |
+| Step                 | Routine                                                         | Convention                                                                                                                                                     |
+|----------------------|-----------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| queue a block        | `Ring601432_PutBlock` — slot `0xF41DF8`, body `prom_a 0xF8481C` | `push <buffer:4>`, `pushw <count:2>`, call, clean 6. The frame is read as `ld BC,(XIZ+0x08)` = count, `ld XIY,(XIZ+0x0a)` = buffer                             |
+| wake the transmitter | `MIDI_PostSendWork` — `prom_a 0xFA590F`                         | no arguments; sets the `(0x77)` mailbox to `0xDD`, which restarts a transmitter that has already run dry. `MIDI_TX_Ready` writes `0xFD` there when it runs out |
+| queue one byte       | `Ring601432_Put` — slot `0xF41DF4`                              | one byte at `(XIZ+0x08)`                                                                                                                                       |
 
 `MIDI_SendBankAndProgram` (`0xFA5B5F`) shows the pair in use at `0xFA5BC6`–`0xFA5BD5`, in
 the arm its own header calls *"port A"*.
@@ -385,8 +514,8 @@ transfer commands). The BPM is a 9-bit value split across the two data bytes as
 F0 50 25 <BPM & 0x0F> <BPM >> 4> F7
 ```
 
-| BPM | message |
-|-----|---------|
+| BPM           | message             |
+|---------------|---------------------|
 | 120 (`0x078`) | `F0 50 25 08 07 F7` |
 | 200 (`0x0C8`) | `F0 50 25 08 0C F7` |
 | 300 (`0x12C`) | `F0 50 25 0C 12 F7` |

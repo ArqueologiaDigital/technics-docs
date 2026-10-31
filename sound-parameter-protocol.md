@@ -35,27 +35,34 @@ This page documents the protocol used by the KN5000 Main CPU to send sound param
 │  LAYER 3: Sub CPU (Sound Processing)                    │
 │                                                         │
 │  INT0 ISR → ring buffer 0x2B0D                          │
-│  CC dispatch → Voice_CC_91 (reverb depth, at 0x02A46C) │
-│    → Voice_CC_SetReverbDepth: store at voice[ch × 0x11F + 0x7F]   │
+│  CC dispatch → e.g. Voice_CC_VelSwitchConfig (0x02A46C) │
+│    → setter stores at part[ch × 0x11F + 0x7F]           │
 │  Part records: 287 bytes/part from 0x041368             │
 │  (offsets on this page count from 0x041300)             │
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Concrete trace: Reverb Depth (CC#91)
+## Concrete trace: CC 0x91 (velocity-switch configuration)
+
+> **Corrected 2026-10-31 (disassembly `notes/open4-kn5000-b/midi/README.md`, issue kn5000-5ck).** CC 0x91 is
+> not reverb depth: the byte it stores (part record +0x17, `0x04137F`) is read only by the
+> `Voice_Env_ApplyVelocity_*` dispatchers and is the part's own **velocity-switch configuration**; see
+> [MIDI Subsystem]({{ site.baseurl }}/midi-subsystem/#proprietary-controllers). The "reverb depth" reading had no
+> reader behind it. The part's reverb level travels as CC 0x5B (reverb send, below). The Sub CPU half of the trace
+> holds for any controller.
 
 **Sub CPU side (already decoded):**
 - `Voice_CC_VelSwitchConfig` loads channel from `(xiz+1)`, value from `(xiz+3)`
 - Calls `Voice_CC_SetVelSwitchConfig`: computes `wa × 0x11F`, points to `0x04137F` (= base 0x041300 + offset 0x7F)
-- Stores reverb depth in the per-voice parameter structure
+- Stores the part's velocity-switch configuration byte in the part record
 
 **For comparison, other CC handlers at nearby offsets:**
 
-| CC   | Handler             | Sub CPU function        | Voice offset | Meaning             |
-|------|---------------------|-------------------------|--------------|---------------------|
-| 0x91 | Voice_CC_91         | Voice_CC_SetReverbDepth | +0x7F        | Reverb depth        |
-| 0x95 | Voice_CC_GlidePedal | Voice_CC_SetGlidePedal  | +0x72        | Glide pedal (bit 2) |
-| 0x5B | Voice_CC_ReverbSend | Voice_CC_SetReverbSend  | +0x77        | Reverb send         |
+| CC   | Handler                  | Sub CPU function            | Voice offset | Meaning                |
+|------|--------------------------|-----------------------------|--------------|------------------------|
+| 0x91 | Voice_CC_VelSwitchConfig | Voice_CC_SetVelSwitchConfig | +0x7F        | Velocity-switch config |
+| 0x95 | Voice_CC_GlidePedal      | Voice_CC_SetGlidePedal      | +0x72        | Glide pedal (bit 2)    |
+| 0x5B | Voice_CC_ReverbSend      | Voice_CC_SetReverbSend      | +0x77        | Reverb send            |
 
 ## Reverb preset loading path
 
@@ -92,9 +99,9 @@ All reference the same parameter table at **0xE952AA** (per-channel config) and 
 
 ## Investigation plan
 
-### Phase 1: Proof of concept — Reverb Depth end-to-end trace
+### Phase 1: Proof of concept — Reverb end-to-end trace
 
-Fully trace a reverb-depth edit end to end, from the LswReverb widget to Sub CPU `Voice_CC_VelSwitchConfig` and the field at 0x04137F (part record +0x17). The Sub CPU half is traced below. The Main CPU half is not: LswReverb's handling of event `0x1E00042` (`EVT_GET_LSW_STRING`) only formats the displayed value with `Sprintf_Locked` (formerly `Audio_SendCommand`), and how an edit reaches `sendCOMM` has not been traced.
+Fully trace a reverb edit end to end, from the LswReverb widget to the Sub CPU. This phase first followed CC 0x91 as "reverb depth" to `Voice_CC_VelSwitchConfig` and the field at 0x04137F (part record +0x17); since 2026-10-31 that controller is known to be the per-part velocity-switch configuration, so the CC half below documents the controller path, not a reverb parameter. The Sub CPU half is traced below. The Main CPU half is not: LswReverb's handling of event `0x1E00042` (`EVT_GET_LSW_STRING`) only formats the displayed value with `Sprintf_Locked` (formerly `Audio_SendCommand`), and how an edit reaches `sendCOMM` has not been traced.
 
 **Status:** Sub CPU half complete; the Main CPU half (widget edit → sendCOMM) is not traced
 
@@ -145,23 +152,23 @@ Each part has a **287-byte (0x11F)** record; the 26 records start at `Part_Recor
 
 ### Complete CC → Voice Offset Mapping
 
-| MIDI CC   | Name             | Handler                     | Voice Offset | Size  | Operation                | Default  |
-|-----------|------------------|-----------------------------|--------------|-------|--------------------------|----------|
-| 0x01      | Mod Wheel        | Voice_ModWheel_Apply        | (complex)    | -     | Multi-register update    | -        |
-| 0x07      | Volume           | Voice_CC_SetVolume          | +0x74        | 2     | Lookup table at 0x011D16 | 0xFE00   |
-| 0x0A      | Pan              | Voice_CC_SetPan             | +0x76        | 1     | Store direct             | -        |
-| 0x0B      | Expression       | Voice_CC_SetExpression      | +0x78        | 2     | Lookup table at 0x011D16 | 0xFE00   |
-| 0x40      | Sustain          | Voice_CC_SetSustain         | +0x72        | bit 0 | Set/clear bit 0          | 0        |
-| 0x5B      | Reverb Send      | Voice_CC_SetReverbSend      | +0x77        | 1     | Store direct             | -        |
-| 0x5D      | DSP Effect Send  | Voice_CC_SetDspEffectSend   | +0x7A        | 1     | Store direct             | -        |
-| 0x5E      | Portamento       | Voice_Portamento_OnHandler  | (complex)    | -     | Multi-function chain     | -        |
-| 0x78-0x82 | (Extended)       | Jump table at 0x00F739      | various      | -     | See extended table       | -        |
-| 0x91      | **Reverb Depth** | **Voice_CC_SetReverbDepth** | **+0x7F**    | **1** | **Store direct**         | **0x00** |
-| 0x95      | Glide Pedal      | Voice_CC_SetGlidePedal      | +0x72        | bit 2 | Set/clear bit 2          | 0        |
-| 0x97      | Sustain Length   | Voice_CC_SetSustainLength   | +0x80        | 1     | Store direct             | 0x06     |
-| 0x9B      | Delay Depth      | Voice_CC_SetDelayDepth      | +0x8D        | 1     | Store direct             | 0x01     |
-| 0x9C      | Key Scaling      | Voice_CC_SetKeyScaling      | +0x6A        | bit 8 | Set/clear bit 8          | 0x00     |
-| 0x9D      | Delay Feedback   | Voice_CC_SetDelayFeedback   | +0x8E        | 1     | Store direct             | 0x00     |
+| MIDI CC   | Name                   | Handler                     | Voice Offset | Size  | Operation                | Default |
+|-----------|------------------------|-----------------------------|--------------|-------|--------------------------|---------|
+| 0x01      | Mod Wheel              | Voice_ModWheel_Apply        | (complex)    | -     | Multi-register update    | -       |
+| 0x07      | Volume                 | Voice_CC_SetVolume          | +0x74        | 2     | Lookup table at 0x011D16 | 0xFE00  |
+| 0x0A      | Pan                    | Voice_CC_SetPan             | +0x76        | 1     | Store direct             | -       |
+| 0x0B      | Expression             | Voice_CC_SetExpression      | +0x78        | 2     | Lookup table at 0x011D16 | 0xFE00  |
+| 0x40      | Sustain                | Voice_CC_SetSustain         | +0x72        | bit 0 | Set/clear bit 0          | 0       |
+| 0x5B      | Reverb Send            | Voice_CC_SetReverbSend      | +0x77        | 1     | Store direct             | -       |
+| 0x5D      | DSP Effect Send        | Voice_CC_SetDspEffectSend   | +0x7A        | 1     | Store direct             | -       |
+| 0x5E      | Portamento             | Voice_Portamento_OnHandler  | (complex)    | -     | Multi-function chain     | -       |
+| 0x78-0x82 | (Extended)             | Jump table at 0x00F739      | various      | -     | See extended table       | -       |
+| 0x91      | Velocity-switch config | Voice_CC_SetVelSwitchConfig | +0x7F        | 1     | Store direct             | 0x00    |
+| 0x95      | Glide Pedal            | Voice_CC_SetGlidePedal      | +0x72        | bit 2 | Set/clear bit 2          | 0       |
+| 0x97      | Sustain Length         | Voice_CC_SetSustainLength   | +0x80        | 1     | Store direct             | 0x06    |
+| 0x9B      | Gate routing override  | Voice_CC_SetGateRoutingMode | +0x8D        | 1     | Store direct             | 0x01    |
+| 0x9C      | Key Scaling            | Voice_CC_SetKeyScaling      | +0x6A        | bit 8 | Set/clear bit 8          | 0x00    |
+| 0x9D      | TG pan override        | Voice_CC_SetTgPanMode       | +0x8E        | 1     | Store direct             | 0x00    |
 
 ### Extended CC Table (0x78-0x82)
 
@@ -181,7 +188,7 @@ controller of its Lsw number ([Panel Parameter Keys]({{ site.baseurl }}/panel-pa
 0x9C key scaling. The sub CPU's arms for these controllers used to carry General MIDI guesses (sostenuto, soft
 pedal, portamento rate/depth/time, chorus enable/depth, delay enable) and are now named for those parameters;
 the bodies agree (0x81 stores `(value - 0x80) × 2` and refreshes the sounding pitches, 0x82 stores
-`value - 0x40`). `SndPart_SetParam` does not send 0x5E, 0x91, 0x9B or 0x9D, whose meanings are not established.
+`value - 0x40`). `SndPart_SetParam` does not send 0x5E, 0x91, 0x9B or 0x9D. 0x91, 0x9B and 0x9D were traced from their readers on 2026-10-31 (velocity-switch configuration, gate-word routing override, TG register 0x180 pan override; [MIDI Subsystem]({{ site.baseurl }}/midi-subsystem/#proprietary-controllers)); 0x5E's meaning is not established.
 
 ### Flags Word at Offset +0x72
 
@@ -190,7 +197,7 @@ The 16-bit word at offset +0x72 is a bitfield shared by multiple CC handlers:
 | Bit | CC           | Meaning          | Set mask | Clear mask |
 |-----|--------------|------------------|----------|------------|
 | 0   | 0x40         | Sustain pedal on | 0x0001   | 0xFFFE     |
-| 2   | 0x95         | Chorus enable    | 0x0004   | 0xFFFB     |
+| 2   | 0x95         | Glide pedal on   | 0x0004   | 0xFFFB     |
 | 14  | (0x5E chain) | Alt sustain mode | 0x4000   | 0xBFFF     |
 
 ### Volume and Expression: Lookup Table
@@ -199,7 +206,10 @@ CC 0x07 (Volume) and CC 0x0B (Expression) don't store the raw CC value — they 
 
 When CC value is 0, a special "mute" value 0xFE00 is stored instead.
 
-### Reverb Depth Trace (CC 0x91) — Complete Path
+### CC 0x91 Trace — Complete Path
+
+The Main CPU part is the LswReverb widget's, kept from the original reverb plan; it does not lead to CC 0x91,
+which is the velocity-switch configuration (see the correction above).
 
 ```
 Main CPU UI:
@@ -207,7 +217,7 @@ Main CPU UI:
     → bit 13 set: Sprintf_Locked (formerly Audio_SendCommand) formats "%3d"
       under semaphore #7 into the caller's text buffer (display only)
     → bit 13 clear: Strcpy of the inactive string
-  How a reverb-depth edit reaches sendCOMM has not been traced.
+  How a reverb edit reaches sendCOMM has not been traced.
 
 Inter-CPU Transport:
   sendCOMM (EF32F4): takes the caller's buffer (XDE), count (BC) and
@@ -225,13 +235,13 @@ Sub CPU:
       channel = (xiz+1) = 0x00-0x19
       cc# = (xiz+2) = 0x91
       value = (xiz+3) = 0x00-0x7F
-    → Voice_CC_SetReverbDepth:
+    → Voice_CC_SetVelSwitchConfig:
       extz wa                      ; wa = channel
       muls wa, 0x11F               ; wa = channel × 287
       lda xde, (0x04137f:24)       ; de = base + 0x7F
       ld (xde+wa), c               ; store the value byte at [de + wa]
       ret
-    → Reverb depth stored at: 0x041300 + (channel × 0x11F) + 0x7F
+    → velocity-switch configuration stored at: 0x041300 + (channel × 0x11F) + 0x7F
 ```
 
 ### Reverb Preset Loading Path — Complete

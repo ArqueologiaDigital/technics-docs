@@ -121,16 +121,42 @@ The `Voice_CtrlChange` routine dispatches to specific handlers based on CC numbe
 
 ### Proprietary Controllers
 
-Offsets are from the part record at `0x041368 + part × 0x11F`.
+Offsets are from the part record at `0x041368 + part × 0x11F`. Each setter stores one byte of the part record;
+the readers of those bytes say what the controller is (traced 2026-10-31, disassembly
+`notes/open4-kn5000-b/midi/README.md`, issue kn5000-5ck).
 
-| CC#  | Handler                    | Parameter          | Voice Offset | Notes                                                        |
-|------|----------------------------|--------------------|--------------|--------------------------------------------------------------|
-| 0x91 | `Voice_CC_VelSwitchConfig` | Reverb depth       | +0x17        | `Voice_CC_SetVelSwitchConfig`, raw byte                      |
-| 0x95 | `Voice_CC_GlidePedal`      | Glide pedal on/off | +0x0A bit 2  | `Voice_CC_SetGlidePedal` (part parameter 0x603)              |
-| 0x97 | `Voice_CC_SustainLength`   | Sustain length     | +0x18        | `Voice_CC_SetSustainLength`, raw byte (part parameter 0x600) |
-| 0x9B | `Voice_CC_GateRoutingMode` | Delay depth        | +0x25        | `Voice_CC_SetGateRoutingMode`, raw byte                      |
-| 0x9C | `Voice_CC_KeyScaling`      | Key scaling on/off | +0x02 bit 8  | `Voice_CC_SetKeyScaling` (part parameter 0x602)              |
-| 0x9D | `Voice_CC_TgPanMode`       | Delay feedback     | +0x26        | `Voice_CC_SetTgPanMode`, raw byte                            |
+| CC#  | Handler                    | Parameter                            | Part byte   | Notes                                                                                                                              |
+|------|----------------------------|--------------------------------------|-------------|------------------------------------------------------------------------------------------------------------------------------------|
+| 0x91 | `Voice_CC_VelSwitchConfig` | velocity-switch configuration (part) | +0x17       | `Voice_CC_SetVelSwitchConfig`; read by the `Voice_Env_ApplyVelocity_*` dispatchers; sent by `SwbtB2_Code9A_Listener` for parts 0-2 |
+| 0x95 | `Voice_CC_GlidePedal`      | glide pedal on/off                   | +0x0A bit 2 | `Voice_CC_SetGlidePedal` (part parameter 0x603)                                                                                    |
+| 0x97 | `Voice_CC_SustainLength`   | sustain length                       | +0x18       | `Voice_CC_SetSustainLength`, raw byte (part parameter 0x600)                                                                       |
+| 0x9B | `Voice_CC_GateRoutingMode` | gate-word routing override           | +0x25       | `Voice_CC_SetGateRoutingMode`; nibbles 0/1/2 force bits 11:9 / 14:12 of the gate word to 7 / leave / 1; no sender found            |
+| 0x9C | `Voice_CC_KeyScaling`      | key scaling on/off                   | +0x02 bit 8 | `Voice_CC_SetKeyScaling` (part parameter 0x602)                                                                                    |
+| 0x9D | `Voice_CC_TgPanMode`       | TG register 0x180 (pan) override     | +0x26       | `Voice_CC_SetTgPanMode`; 1 = 0x00, 2 = 0x7F, else the voice's own value; no sender found                                           |
+
+What the three bytes do, from their readers (sub CPU v1.42):
+
+- **0x91** (`0x04137F`): read by `Voice_Env_ApplyVelocity_Type0` / `_Type2`, sub-cases 2 and 3 only. It is the
+  part's own velocity-switch configuration, twin of the global byte `0x04134B` (`Voice_SetVelSwitchConfig`,
+  sub-command `F0 50 91`). Bit 3 (type 0/1) or bit 4 (type 2) set = nothing; else bit 0 (case 2), or bit 0 with
+  bit 1 clear (case 3), lets `Instrument_LookupProgram_HiNibble` / `_LoNibble` install the patch's +0x2A
+  octave-shift nibble into part +0x6D. Reset value 0.
+- **0x9B** (`0x04138D`): read by `Voice_Apply_GateRouting`, called by `Voice_Build_GateCommand` and
+  `Voice_Build_GateCommand_NoPartial`. It patches the voice's gate/control word (TG bank +0x000). Low nibble:
+  0 = force bits 11:9 to 7, 1 = leave, 2 = force to 1. High nibble 0x00 / 0x10 / 0x20: the same for bits 14:12.
+  Reset value 1.
+- **0x9D** (`0x04138E`): read by `Voice_Level_ClearAllOutputRegs`, `Voice1_UpdatePitch_WriteStereoField` and
+  `Voice_Step_ExprRamp`. It chooses the low 7 bits of the voice's TG register 0x180 (pan on
+  [Tone Generator]({{ site.baseurl }}/tone-generator/), 0x40 = centre): 1 = 0x00, 2 = 0x7F, anything else = the
+  voice's own value. Reset value 0.
+
+The reset values are those `Voice_ResetAllControllers` writes. **Senders.** `SndPart_SetParam` sends none of the
+three. A search of every `MIDI_SendControlChange` call in the v10 tree finds one sender of 0x91 and none of
+0x9B / 0x9D: `SwbtB2_Code9A_Listener` (`audio/note_voice_mapping.s`), which for parts 0, 1 and 2 sends CC 0x91
+with value payload 3 AND payload 2. The global byte is sent by `AudioInit_VoiceParamCtrl` as `F0 50 91 <(0xC5A8)>`.
+Controllers above 0x7F cannot arrive on MIDI IN, so 0x9B and 0x9D stay at their reset values unless code the search
+did not find sends them (the HD-AE5000 was searched too). That they are dormant in v10 is a finding of the search,
+not a proof.
 
 ### CC Handler Structure
 
@@ -147,7 +173,7 @@ Voice_CtrlChange:
 
     LD A, (XIZ + 002h)          ; Get CC number
     CP A, 09Dh
-    JRL Z, Voice_CC_9D
+    JRL Z, Voice_CC_TgPanMode
     CP A, 09Ch
     JRL Z, Voice_CC_KeyScaling
     ; ... check other CC numbers
@@ -160,26 +186,27 @@ Voice_CtrlChange:
 
 The Main CPU handles external MIDI I/O via serial ports:
 
-| Function | Description |
-|----------|-------------|
-| MIDI IN | Receives external MIDI, routes to internal synth or THRU |
-| MIDI OUT | Transmits keyboard events, sequencer playback |
-| MIDI THRU | Hardware echo of MIDI IN |
+| Function  | Description                                              |
+|-----------|----------------------------------------------------------|
+| MIDI IN   | Receives external MIDI, routes to internal synth or THRU |
+| MIDI OUT  | Transmits keyboard events, sequencer playback            |
+| MIDI THRU | Hardware echo of MIDI IN                                 |
 
 ### MIDI Implementation
 
-Based on KN5000 specifications:
+Traced from the firmware (2026-10-31, issue kn5000-ake; the Technics SysEx formats are on
+[SysEx Messages]({{ site.baseurl }}/sysex-messages/#technics-0x50-messages-on-midi)):
 
-| Feature        | Support                                                 |
-|----------------|---------------------------------------------------------|
-| Channels       | 1-16 transmit and receive                               |
-| Notes          | Full 0-127 range                                        |
-| Velocity       | Note On/Off                                             |
-| Aftertouch     | Channel (polyphonic key pressure is ignored on receive) |
-| Controllers    | Standard + proprietary                                  |
-| Program Change | With bank select                                        |
-| System         | Clock, Start/Stop/Continue                              |
-| SysEx          | Technics-specific messages                              |
+| Feature          | What the firmware does                                                                                                                                             | Where                                                |
+|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------|
+| Channel messages | 8n, 9n, Bn, Cn, Dn, En dispatched; An (poly pressure) is ignored                                                                                                   | `MIDI_CHANNEL_MESSAGE_DISPATCHER`, midi-serial-io.md |
+| Parts            | 26 internal parts (0x00-0x19) in the sub CPU; the main CPU maps MIDI channels to parts                                                                             | `Voice_CtrlChange` rejects part >= 0x1A              |
+| Controllers      | 0x01, 0x07, 0x0A, 0x0B, 0x40, 0x5B, 0x5D, 0x5E, the channel-mode range 0x78-0x7F (0x7A, 0x7C-0x7F ignored), internal 0x80-0x82, 0x91, 0x95, 0x97, 0x9B, 0x9C, 0x9D | `Voice_CtrlChange`; table above                      |
+| Program change   | `{5, C0, part, program, bank, effect}` record to the sub CPU after `SndParam_ApplyMaskClamp`                                                                       | `SndPart_SendProgramChange`, sound-categories.md     |
+| Bank select      | received Cn remapped through descriptor +0x38 into Bn 00, Bn 20, Cn                                                                                                | `SndParam_LookupFromPointerTable`                    |
+| System real time | F8 clock (96 PPQN internal), FA/FB/FC; F8 sent on MIDI OUT; FE sent while bit 4 of 0xFD50 is set                                                                   | midi-serial-io.md                                    |
+| SysEx            | Technics 0x50 (handshake, dump, parameter change/request, tempo), Universal 7E (GM On/Off), Roland 41 GS (reverb/chorus)                                           | sysex-messages.md                                    |
+| GM mode          | descriptor mode 1 (128 GM voices, GS drum-set map) selected by `SndParam_LookupReadOnly(0xC0)`                                                                     | sound-categories.md                                  |
 
 ## MIDI Channel Assignment and Voice Routing
 
@@ -319,4 +346,4 @@ The accompaniment engine has its own MIDI filter system:
 - [x] ~~Analyze MIDI routing logic in Main CPU~~ — Complete: see [MIDI Serial I/O]({{ site.baseurl }}/midi-serial-io/)
 - [x] ~~Document Technics SysEx message format~~ — Complete: see [SysEx Messages]({{ site.baseurl }}/sysex-messages/)
 - [x] ~~Document MIDI filter and channel assignment settings~~ — Complete: 26 voice channels, voice data tables (0xEDB264, 0xEDAE64, 0xEE8EB8-0xEE8F70), channel lookup functions, multi-layer voice system (0-4 layers per channel), style-record special-casing (tag 0x48), Sub CPU filter tables, accompaniment MIDI filtering
-- [x] ~~Map remaining proprietary CC handlers (0x97, 0x9B-0x9D)~~ — Complete: CC91 = reverb depth, CC95 = glide pedal on/off, CC97 = sustain length, CC9B = delay depth, CC9C = key scaling on/off, CC9D = delay feedback (handlers `Voice_CC_VelSwitchConfig`, `Voice_CC_GlidePedal`, `Voice_CC_SustainLength`, `Voice_CC_GateRoutingMode`, `Voice_CC_KeyScaling`, `Voice_CC_TgPanMode` in the sub-CPU payload; see the Proprietary Controllers table above. An earlier reading here called 0x95 / 0x97 / 0x9C chorus on/off, chorus depth and delay on/off; the setters they call, `Voice_CC_SetGlidePedal`, `Voice_CC_SetSustainLength` and `Voice_CC_SetKeyScaling`, show otherwise)
+- [x] ~~Map remaining proprietary CC handlers~~ — 0x91 = per-part velocity-switch configuration, 0x95 = glide pedal, 0x97 = sustain length, 0x9B = gate routing override, 0x9C = key scaling, 0x9D = TG pan override (2026-10-31; the earlier reverb/chorus/delay readings had no reader behind them).
