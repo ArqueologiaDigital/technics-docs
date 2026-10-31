@@ -133,11 +133,11 @@ still spell the function-table offset as a number, not as the routine's name.
 
 ## Names
 
-| tree     | from the image's own MILK reflection tables (`*.sym`)                              | by hand (`*_manual.sym`)                | carried from KN7000 program 941 (`*_ported.sym`) |
-|----------|-----------------------------------------------------------------------------------:|-----------------------------------------|-------------------------------------------------:|
-| `kn6000` | 1,255                                                                              | `_reset`, `_vector_08`, `crt0_start`    | 546                                              |
-| `kn6500` | 1,395                                                                              | `_reset`, `_vector_08`, `crt0_start`    | 552                                              |
-| `hdsx3`  | 98 (`Kss*` window procedures, `Debug_Wind_RW`, `Bitmap*` resource procedures, ...) | `XaprEmptySlot`, `XaprTrailerSignature` | 29                                               |
+| tree     | from the image's own MILK reflection tables (`*.sym`)                              | by hand (`*_manual.sym`)                                                                              | carried from KN7000 program 941 (`*_ported.sym`) |
+|----------|-----------------------------------------------------------------------------------:|-------------------------------------------------------------------------------------------------------|-------------------------------------------------:|
+| `kn6000` | 1,251                                                                              | 27: `_reset`, `crt0_start`, data blocks and the MILK kernel's tail (`KernelInit`, `KernelStart`, ...) | 715                                              |
+| `kn6500` | 1,391                                                                              | 26: `_reset`, `crt0_start`, data blocks and the MILK kernel's tail (`KernelInit`, `KernelStart`, ...) | 722                                              |
+| `hdsx3`  | 98 (`Kss*` window procedures, `Debug_Wind_RW`, `Bitmap*` resource procedures, ...) | `XaprEmptySlot`, `XaprTrailerSignature`                                                               | 52                                               |
 
 `gen_symbols.py` takes only tables whose procedures land in the code ranges. Counting the
 whole image as code, it would also accept a `DiskMenu` table whose pointers lead into data
@@ -150,8 +150,8 @@ least 8 of them unmasked, and the match unique on both sides. The other labels f
 KN7000 convention: `func_<ADDR>` for an entry no table names, `<name>_entry` for the
 register-save `call` entry behind a named prologue, `<entry>_L<offset>` for a branch target.
 The site's [Firmware Names & Symbols]({{ site.baseurl }}/kn6000-names/) page covers the
-reflection tables themselves. The counts above are those of the 2026-10-24 merge. Since then the
-pairing became start-aligned, the name porter carried more names, and each data tree's
+reflection tables themselves. The counts above were taken 2026-10-31 at technics-roms-disasm `f4045a81c`, as each file's rows that
+start with `0x` (`command grep -c '^0x' <folder>/<file>`). Each data tree's
 `src/program/data/functions.sym` gives the code the firmware's own names of the procedures its
 MILK function tables list (551 on the KN6000); the `entries` row below counts all of them.
 

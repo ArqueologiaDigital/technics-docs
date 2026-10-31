@@ -97,6 +97,8 @@ under the `custom_data` block.
 >
 > *************************************************************************
 
+*Editor's note (2026-10-31): this source comment predates 2026-10-19, when the four wave ROMs were dumped from the owner's instrument ([KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/)); the comment is quoted as the driver has it.*
+
 *(The SX-KN2400 and SX-KN2600 service manuals are EMID0304001C0 and EMID0304002C0,
 both dated 2003; the driver's list does not give them yet.)*
 
@@ -597,6 +599,8 @@ private detail of a device that does correspond to a part.
 >  so with the wave ROMs undumped the zone limits are unknown and a voice
 >  whose zone would have folded sounds an octave out. The pitch CLASS is
 >  exact either way.
+
+*Editor's note (2026-10-31): this source comment predates 2026-10-19, when the four wave ROMs were dumped from the owner's instrument ([KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/)); the comment is quoted as the driver has it.*
 
 
 **`m_mode[v] = (m_aux[v] & 0x8000) ? 1 : 0;`**

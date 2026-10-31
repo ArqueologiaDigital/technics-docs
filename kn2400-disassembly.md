@@ -89,11 +89,14 @@ range to RAM is still not identified: crt0 copies only `.data` (`0x6E78` bytes f
 
 ## Names
 
-| file                | what it holds                                                                                                                                           | names |
-|---------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|------:|
-| `kn2400.sym`        | function names from the firmware's own MILK reflection tables (`gen_symbols.py`), only from tables whose procedures land in the flash-linked code range | 2,277 |
-| `kn2400_manual.sym` | names recovered by hand: `_reset`, `_vector_0a`, `crt0_start`                                                                                           | 3     |
-| `kn2400_ported.sym` | names carried over from KN7000 program 941 by `port_names_by_code.py` (`make ported-names`, generated)                                                  | 485   |
+| file                | what it holds                                                                                                                                                                              | names |
+|---------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------:|
+| `kn2400.sym`        | function names from the firmware's own MILK reflection tables (`gen_symbols.py`), only from tables whose procedures land in the flash-linked code range                                    | 2,277 |
+| `kn2400_manual.sym` | names recovered by hand: `_reset`, `_vector_0a`, `crt0_start`, data blocks (`StyleRecordTable`, `TechnicsPadsResource`, ...) and the MILK kernel's tail (`KernelInit`, `KernelStart`, ...) | 20    |
+| `kn2400_ported.sym` | names carried over from KN7000 program 941 by `port_names_by_code.py` (`make ported-names`, generated)                                                                                     | 679   |
+
+Counted 2026-10-31 at technics-roms-disasm `f4045a81c` as each file's rows that start with `0x`
+(`command grep -c '^0x' kn2400/<file>`).
 
 `port_names_by_code.py` carries a name only when one of this image's unnamed entries is the
 same code as a routine the KN7000's symbol files name: the same instructions from the entry
