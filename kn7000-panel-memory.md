@@ -154,6 +154,79 @@ Not named: the unit's `+0x04`..`+0x06` (SOUND EDIT reads and writes them through
 routine reads. Which tone generator (MAIN or SUB) each zone's side bit `0x400` / `0x800` selects is
 not traced either: `TgVoiceSideSelect` maps class 1 / 2 kits to `0x400` and 3 / 4 to `0x800`.
 
+## IC21: what a KN7000 keeps in its custom-data flash
+
+The KN7000 keeps the data its owner can change but Initial Setting must not touch in a 2 MB flash,
+IC21, at `0x96800000`. One real chip is rebuilt byte for byte: the IC21 of the project owner's
+KN7000 (program 893, table 80), read with the instrument's own [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/)
+on 2026-10-19, twice, with identical results. Until 2026-10-31 that read was kept out of the trees as
+personal data; on that day the owner decided it becomes typed source, and lane ic21-own made it so:
+[`kn7000/src/ic21own/ic21.s`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/src/ic21own/ic21.s), whose header says what each region holds, and [`kn7000/notes/ic21-own/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/ic21-own/README.md). The read itself
+stays private: `make -C kn7000 verify-ic21-own` (in `make gate-kn7000`) copies it, git-ignored and
+SHA-1-checked, and rebuilds all 2 MB from the source.
+
+| CPU          | chip offsets        | contents                                                                                        |
+|--------------|---------------------|-------------------------------------------------------------------------------------------------|
+| `0x96804000` | `0x04000`-`0x0427F` | the three USER MIDI SETTINGs, the layout of a `.MD` file                                        |
+| `0x96804280` | `0x04280`-`0x04A6F` | the CUSTOM PANEL: a PANEL MEMORY record (43 records) and a second list (7)                      |
+| `0x96804A70` | `0x04A70`-`0x04AA3` | 26 halfwords of system settings (language, display times, data protect ...)                     |
+| `0x96806000` | `0x06000`-`0x07FFF` | `A5 A5 5A 5A` x 2048: the pattern the service ROM test writes and reads back                    |
+| `0x96810000` | `0x10000`-`0x10197` | FAVORITES: four banks of ten items (a `.FAV` file)                                              |
+| `0x96811000` | `0x11000`-`0x15441` | the HOME PAGE: its layout record and a 160 x 100 BMP (a `.HMP` file)                            |
+| `0x96820000` | `0x20000`-`0xF8F16` | the CUSTOM STYLE memory: 20 styles with their One Touch Settings (an `.AST` file is all of it)  |
+
+Everything else is erased. *[INFERENCE]* The boundaries fit the sector map of a bottom-boot 16 Mbit
+AMD flash (16 KB, 8 KB, 8 KB, 32 KB, then 64 KB sectors), so each block starts a sector of its own.
+
+**The settings image at `0x96804000`** (0xAA4 bytes). The table's help text says what it is: "User
+MIDI Settings, Help language, and Rhythm Custom etc. are not affected by Initial Setting"
+(`HelpTextEn41_0`). `func_4C024247` copies the whole image to RAM `0x500D2B14`; `func_4C024000`
+programs it back, and `func_4C024030(n)` re-reads one section. At boot `func_4C023EC9` compares the
+image's first 3 bytes with `"JK "` and, when they differ, rebuilds the image from ROM and programs it:
+the `.MD` part from `Str_JK_6` and its blocks, the CUSTOM PANEL from `Str_empty_1431` (0x7F0 bytes),
+the 26 halfwords from `func_4C023EC9_Table` and `func_4C023F9B_Table`. It then resets the home page
+(`HpFlashWriteDefaults`) and the favorites. The FAVORITES and HOME PAGE records are checked the same
+way by their own `JK` signatures.
+
+- **USER MIDI SETTINGs** (`+0x000`). The header is `UMD_HEADER` (`"JK "`, then the offset and size of
+  the id list and of a setting, and the count, 3), then a list of 44 parameter ids (`UMD_PARAM`), then
+  three settings of 0x90 bytes. A part parameter takes 32 bytes (value n for part n), any other one
+  byte: 137 values per setting. The parameters are LOCAL, MIDI CHANNEL and MIDI OCTAVE per part, the
+  MIDI CONTROL channel and the MIDI message filters.
+- **The CUSTOM PANEL** (`+0x280`, 0x7F0 bytes) is "a special Panel Memory in which you can store your
+  favorite Panel Memory settings ... Even initializing the KN will not delete the Custom Panel"
+  (`HelpTextEn35_0`): the live panel state `0x84000020`, stored or recalled by `func_4C021903`, in the
+  PANEL MEMORY format of this page, every record spelled with its `PMR_*` macro. It is 0x750 bytes
+  (43 tag / length records ended by FF FF), or 0x7F0 with a second list of 7 records (tags 0x52, 0x50,
+  0x51, 0x60, 0x61, 0x62, 0x68) when `cus_mem_mode` (`+0xA9A`, `CusMemModeBoxProc`) is non-zero.
+  *[INFERENCE]* That is the help text's choice "whether to load all panel settings or to load panel
+  memory parameters".
+- **System settings** (`+0xA70`, `USR_SETUP`): 26 halfwords, RAM `0x500D3584`..`0x500D35B7`, each named
+  after the routines that read its RAM copy (language: `CheckLanguage`, `AcLanguageTextProc`; data
+  protect: `DataProtectGridCheck`). Three fields have no named reader.
+
+**The flash test** at `0x96806000`. `func_4849FCF2`, one step of the ROM test (`MainRomTestFunc`),
+programs a buffer of `0x5A5AA5A5` there in 0x80-byte chunks, 0x2000 bytes in its long form (0x320
+otherwise), and reads it back; nothing erases it afterwards. The 0x2000 bytes on this chip say the
+long form of the test ran on this unit. The source spells them as 64 `FLASH_TEST_CHUNK`s.
+
+**FAVORITES** at `0x96810000` (0x198 bytes): `FAV_HEADER` (`"JK "` and a u32 stamp), then four banks
+(`FAV_BANK`) of a 16-character name, a u32 and ten `{u32 kind, u32 value}` items (`FAV_ITEM`), which
+`AcFavoriteProc` dispatches by kind through `AcFavoriteProc_Table`. **HOME PAGE** at `0x96811000`
+(0x4442 bytes, the whole `.HMP` file, as `HmpBlobGet` returns it): the 0x18C-byte record
+(`HP_HEADER` with the home-page type, 0..5, then 64 parts of 6 bytes, `HP_PART`) and the BMP.
+
+**This unit's chip.** Its MIDI settings and favorites are the factory ones byte for byte (`02UMDINI.MD`
+and `03FAVINI.FAV` of the Initial Data Disk, and the defaults in program 893), and so is its home-page
+picture (`Bmp_48743E5C`, which the source includes as a committed BMP). Its custom panel (1,935 of
+2,032 bytes equal the default) and its home-page layout (type 0 with three parts, where the factory
+file has type 5 and twelve) are his own. Its 20 custom styles are styles of the KN5000, loaded into
+the KN7000 ([Custom Style Memory]({{ site.baseurl }}/kn7000-custom-style-memory/#a-real-units-bank-the-owners-ic21)).
+
+**Corrected 2026-10-31.** The first analysis of this read (2026-10-19) took `0x04280`-`0x04ABF` for
+"2 KB more MIDI-setting records". It is the CUSTOM PANEL and the system settings, and the used part ends
+at `0x04AA3`.
+
 ## Open
 
 - The `m<id>` parameters: their set handlers (the trie's type 1-6 records) or the MIDI
@@ -161,3 +234,7 @@ not traced either: `TgVoiceSideSelect` maps class 1 / 2 kits to `0x400` and 3 / 
 - The song record's `+0x07`..`+0xCF` and `+0x100`..`+0x11F`; the track directory's low flag bits.
 - The `0x7A` unit's untraced bytes; the tone generators' side bits.
 - The KN6000's extra foot-controller functions in tag `0x48`.
+- IC21 (lane ic21-own): the CUSTOM PANEL's second list (tags 0x50-0x68, the 0xA0 bytes `cus_mem_mode`
+  adds); the system settings `s35a6`, `s35a8`, `s35aa` and `s35b0`, which have no named reader; the
+  FAVORITES kinds 2 and 4-9 and the u32 at bank `+0x10`; the home-page part kinds, and x / y = 0xFFFF on
+  a used part; when the long form of the flash test runs.

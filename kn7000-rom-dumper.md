@@ -113,7 +113,9 @@ rhythm ROM, whose CPU address nobody knows.
 - **Names.** The program and table names follow the driver's pattern, filled in with the build
   numbers the firmware reports on its SOFT VERSION screen: `…_v1.6_b941`, `…_b84` on build 941,
   and `…_v1.3_b893` on the owner's instrument. IC21's whole chip has no file name in the driver;
-  the driver's `01ctmini.ic21` is the part of it from `0x20000` on.
+  the driver's `01ctmini.ic21` is the part of it from `0x20000` on. The owner's IC21 read (pass 1) is
+  rebuilt byte for byte from typed source since 2026-10-31
+  ([IC21]({{ site.baseurl }}/kn7000-panel-memory/#ic21-what-a-kn7000-keeps-in-its-custom-data-flash)).
 - **Wave ROMs.** These are not on the CPU bus. They are read exactly the way the firmware's own
   service-mode WAVE ROM test reads them, through each tone generator's test latches, 16 MB per chip.
 
