@@ -65,12 +65,24 @@ Viewable tables, 35 OT blocks, 278 titles and 23 modes; `milk_model --check`: 0 
 
 ## Typed from its readers (lane siblings-final)
 
-**The Music Stylist.** `StyleRecordTable` (720 records at `0x48571564`) and `StyleRecordTableAlt`
-(680 records at `0x48577738`) are the KN7000's 24-byte `MusicStylistSetup` records. `func_48641CCD`
-returns `&StyleRecordTableAlt[i]` when `func_487055C4` answers 1 and `&StyleRecordTable[i]`
-otherwise; `func_487055C4` reads bits 0 and 1 of `0x98070000`, the board straps that tell a KN2400
-from a KN2600. *[INFERENCE]* The two lists are the two models'; both point at the same one-touch
-settings. Those are `0xA0` bytes, the KN7000 layout with `PM_PART_TAIL` x 4, typed with the
+**The Music Stylist.** `StyleRecordTable` (720 records at `0x48571564`) and `StyleRecordTableKN2400`
+(680 records at `0x48577738`, was `StyleRecordTableAlt`) are the KN7000's 24-byte `MusicStylistSetup`
+records. Lane mn10300-formats (2026-10-31, [`kn7000/notes/mn10300-formats/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-formats/README.md), section 1) settled which list is whose:
+`KnprModelGet` (`0x487055C4`, was `func_487055C4`) reads the board strap at `0x98070000` and answers
+0 for the KN2600, 1 for the KN2400 and 2 for the PR54
+([the strap table]({{ site.baseurl }}/kn2400-kn2600/#one-firmware-image-three-models)). Five routines
+pick the KN2400's list for 1 and the other for 0 and 2:
+
+| routine (was)                      | KN2600 / PR54 list (count)         | KN2400 list (count)                  |
+|------------------------------------|------------------------------------|--------------------------------------|
+| `MssSetupGet` (func_48641CCD)      | `StyleRecordTable` (720 x 24 B)    | `StyleRecordTableKN2400` (680)       |
+| `MssSetupIndexGet` (func_48641D02) | `StyleSetupIndexTable` (720 x u16) | `StyleSetupIndexTableKN2400` (684)   |
+| `MssGenreGet` (func_48641D2F)      | `StyleGenreTable` (11 x 8 B)       | `StyleGenreTableKN2400` (11)         |
+| `MssLetterGet` (func_48641D5E)     | `StyleAlphabetTable` (34 x 8 B)    | `StyleAlphabetTableKN2400` (34)      |
+| `MssEraGet` (func_48641D8D)        | `StyleEraTable` (10 x 12 B)        | `StyleEraTableKN2400` (10)           |
+
+The record kinds are the KN6000's (`StyleGenre`, `StyleLetter`, `StyleEra`, `MusicStylistSetup`).
+Both sets point at the same one-touch settings. Those are `0xA0` bytes, the KN7000 layout with `PM_PART_TAIL` x 4, typed with the
 one-touch macros ([Panel Memory Records]({{ site.baseurl }}/kn7000-panel-memory/)): 719 of the 720;
 the one left out does not fit the masks.
 
@@ -82,6 +94,38 @@ the [KN6000]({{ site.baseurl }}/kn6000-program-data/#the-note-conversion-rules).
 
 **The built-in "Technics Pads" bank.** `TechnicsPadsResource` (`0x48532260`), the table flash's
 segment 4 format, typed with the pads' events one per line.
+
+## The DSP-effect descriptors (lane mn10300-formats)
+
+The "1,089 small pieces between effect names" at `0x48439000..` were one structure: **107 effect
+descriptors and their 809 parameter records**, tiling `0x48439000..0x48440898` (30,872 bytes) with no
+gap ([`kn7000/notes/mn10300-formats/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-formats/README.md), section 3; `kn7000/notes/mn10300-formats-probes/kn2400_fx_desc.py`).
+`FxDescGet` (`0x4863CDEF`) answers `FxDescTable[FxDescIndexGet(effect code)]` (`0x4856C74C`, 260
+pointers); `FxCategoryGet` maps the effect code to one of 15 categories whose jump tables decide how
+the index is found. Each field is named by the routine that reads it:
+
+| record           | fields                                                                                                                                                                                                                                                                                                            |
+|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `FX_DESC`, 16 B  | `count` records at `params` (right before the descriptor); `nparams` (`FxDescNParamsGet`); `mode` (`FxDescModeGet`; `SndUnitDbGroupQuery` searches the parameters for 1 and 2); `pnum9` / `pnum10` / `pnum11`, a parameter number or -1 (`FxDescPnum9Get` ...); `send_param` (`FxDescSendParamGet`); 3 zero bytes |
+| `FX_PARAM`, 36 B | the name, NUL-padded to 20 bytes; `number`, `min`, `max` (`FxParamNumberGet`, `FxParamMinGet`, `FxParamMaxGet`); `band` and `sub` (`FxParamBandGet`, `FxParamSubGet`); `variant` (`FxParamVariantGet`); `x29` (`FxParamX29Get`); 2 zero bytes; `values`, the value texts (`FxParamValuesGet`)                     |
+
+- `send_param` is the REVERB SEND parameter's number ("106 of 106" in the lane's count) and -1 in the
+  reverbs; `pnum9` is the number of a *SPEED* parameter in 91 of 106 descriptors (the roles of `pnum9` ..
+  `pnum11` were not traced).
+- `band` / `sub` are 0..4 / 0..2 in the EQ's band parameters: frequency, Q, gain.
+- `variant` is 0 and 1 for two alternative records of one number ("DEPTH" / "DEPTH (V)", "SPEED FAST" /
+  "SLOW"), 0xFF for a record always shown.
+
+`gen_data_s.py`'s `fx_descriptors()` pass (profile key `fx_descriptors`, the KN2400 only) writes them
+one line a record. The KN7000's `SndUnitDbGroupQuery` / `SndRec*` routines are the same family, but the
+KN7000's records are not this layout.
+
+**zlib's tables and field names.** Lane mn10300-formats named zlib 1.0.4's 19 data tables, found by
+their contents, in this tree's manual symbol file too (`cplens`, `cplext`, `static_l_desc`,
+`inflate_mask`, `z_errmsg` ...), and the record macros' fields are now named after what the code does
+with them: 524 of the KN2400's 1,281 fields have a name, against 36 before
+(`field_names_census.py`). The method and every tree's figures are on
+[KN7000 Program Data Region]({{ site.baseurl }}/kn7000-data-region/#field-names-from-their-use).
 
 ## The menu map
 
@@ -208,14 +252,18 @@ name (not traced one by one). The largest opaque pieces, which no instruction re
 | run                      | bytes  | what it is, as far as known                                                                                                                                                          |
 |--------------------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `0x4853C5BE..0x48541488` | 20,065 | `7c aa aa 7d 55 55 7e aa aa 7f ...` command streams with names, and more at `0x48537CDC..` / `0x48539DD5..`: *[INFERENCE]* effect-DSP programs, not the KN7000's SHARC record format |
-| `0x48430000..0x4843FFFF` | 44,299 | 1,089 small pieces between effect names: effect parameter records nothing reads directly                                                                                             |
+| `0x48430000..0x4843FFFF` | 44,299 | 1,089 small pieces between effect names; since lane mn10300-formats typed as the DSP-effect descriptors ([above](#the-dsp-effect-descriptors-lane-mn10300-formats))                  |
 | `0x4853AF63..0x4853C5AA` | 5,703  | high-entropy bytes                                                                                                                                                                   |
 | `0x484FE008..`           | 5,147  | 8-byte rows of a count and up to 4 notes, *[INFERENCE]* chord voicings (the KN6500 has them too)                                                                                     |
 
 ## Open
 
-- *[INFERENCE]* which of the two Music Stylist lists belongs to which model.
-- The effect-program blocks' format.
+- ~~Which of the two Music Stylist lists belongs to which model~~: settled by the model strap
+  ([above](#typed-from-its-readers-lane-siblings-final)). Other strap-chosen tables
+  (`func_487019FB_entry_Lf_Table` / `func_487019FB_entry_L29_Table`, `func_4865F898_Table` /
+  `func_4865F898_Table_2`, `func_5015A8CC_entry_L21_Table`) hold things not traced.
+- The 20 KB of `7c aa aa 7d 55 55 ...` streams at `0x4853C5BE..` (*[INFERENCE]* effect-DSP programs),
+  which nothing reads.
 - Who copies the RAM-linked code to `0x50120000`: `func_4870587E` reads `RamCodeTrailer`, but
   what it does with each record's three words was not traced.
 - The 123 address-only blocks the callee walk leaves as rows, and the 12-byte blocks the switch

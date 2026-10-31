@@ -157,8 +157,19 @@ lane's base (disassembly `fd73a97fa`), whose plug-in data had no widget record t
 
 ## Open
 
-- `image_id=32872` and `icon=1` of the `KssBgScreen` records are numbers: probably a resource id
-  of the host, not traced.
+- ~~`image_id=32872` and `icon=1` of the `KssBgScreen` records are numbers~~: traced by lane
+  mn10300-formats (2026-10-31,
+  [`kn7000/notes/mn10300-formats/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-formats/README.md),
+  section 4; probe `kss_bgscreen_ids.py`), and the plug-in's records now say both in their comments:
+  - `icon` (1 in every record) is program 942's icon index. `KssBgScreenProc` (`0x483E9060`) answers
+    its `+0x30` for `MT_GetIcon`, which 942's `TtlScreenProc` sends and passes to `DrawTitleBar` ->
+    `DrawTitleBarOW` -> `DrawIcons`: entry 1 of the table flash's `ResIconTable`, `ResIcon001`, the
+    icon 942's own `TtSoftver` / `TtDebug` screens show.
+  - `image_id` (`0x8068` in every record) is read by nothing: no access of the plug-in's code at
+    `+0x28` is 16 bits wide, `KssBgScreenProc` reads `+0x2C` and `+0x30` only, and 942's `Screen`
+    class (40 bytes) ends before it. `0x8068` is no id of 942's resource-id trie. *[INFERENCE]* A field
+    the plug-in's authors did not use; read as a Slide Show picture code (`0x8000 + n`), n = 104 would
+    be past the 100 presets the slide show accepts.
 - The RAM words the `str_adr` / `extension` fields point at hold values like `0x00C5CF2D` /
   `0x01514568` that are no address of this image or of the program; *[INFERENCE]* initial values
   the code overwrites. They are written `.long` with the comment "initial value".

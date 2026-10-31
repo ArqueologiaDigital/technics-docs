@@ -18,15 +18,17 @@ same generator (`--profile sp7001 / b935 / b893`, `src/<build>/program/data/`,
 `make verify-sp7001 verify-935 verify-893`).
 
 The GUI part of the region, the 8,509 widget records and their classes, is on
-[KN7000 Menu Map]({{ site.baseurl }}/kn7000-menu-map/). This page covers the rest. Three lanes of
+[KN7000 Menu Map]({{ site.baseurl }}/kn7000-menu-map/). This page covers the rest. The lanes of
 the data-semantics effort did the work; their notes, in the disassembly repository, are the
 reference:
 
-| lane             | notes                                                                                                                                                   | what it added                                                                                    |
-|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
-| gui-kn7000       | [`kn7000/notes/gui-data-region/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/gui-data-region/README.md) | the GUI, demo songs, the built-in style, jump tables, reader tables, sparse maps, panel memories |
-| kn7000-data-rest | [`kn7000/notes/data-rest/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/data-rest/README.md)             | the reader walk; struct arrays and the records their pointers lead to; DSP records, bitmaps      |
-| kn7000-final     | [`kn7000/notes/data-final/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/data-final/README.md)           | the extended walk; the resource-id trie, SupportClass table, SysEx strings; the SP7001 plug-in   |
+| lane             | notes                                                                                                                                                   | what it added                                                                                             |
+|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
+| gui-kn7000       | [`kn7000/notes/gui-data-region/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/gui-data-region/README.md) | the GUI, demo songs, the built-in style, jump tables, reader tables, sparse maps, panel memories          |
+| kn7000-data-rest | [`kn7000/notes/data-rest/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/data-rest/README.md)             | the reader walk; struct arrays and the records their pointers lead to; DSP records, bitmaps               |
+| kn7000-final     | [`kn7000/notes/data-final/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/data-final/README.md)           | the extended walk; the resource-id trie, SupportClass table, SysEx strings; the SP7001 plug-in            |
+| mn10300-formats  | [`kn7000/notes/mn10300-formats/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-formats/README.md) | the alphabetical sound lists, zlib's tables, field names from their use (2026-10-31)                      |
+| mn10300-typer    | [`kn7000/notes/mn10300-typer/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-typer/README.md)     | pointers only at instruction starts, array ends, loop indexes, stepped arrays, record chains (2026-10-31) |
 
 ## Structures that have a format of their own
 
@@ -107,9 +109,9 @@ follows what the plain walk lost:
 |-------------------|----------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
 | stack slots       | `mov aN, (8, sp)` ... `mov (8, sp), a0`: a slot keeps the value stored                                         | `func_484C4229` spills a value block to `(0x2c, sp)` and reads it with `movbu (a0), d2` |
 | joins             | a label that paths reach with different data addresses holds "one of them"; reads through it are reads of each | `func_484C01F1`, a 260-way switch that leaves one descriptor's address in `(0, sp)`     |
-| return values     | what a function returns in a0: one of a set of addresses, or a pointer loaded from a typed field               | `func_484C01F1` (260 records), `func_485831BA` (an entry of `func_485831BA_Table`)      |
+| return values     | what a function returns in a0: one of a set of addresses, or a pointer loaded from a typed field               | `func_484C01F1` (260 records), `SoundAlphaListGet` (an entry of `SoundAlphaListTable`)  |
 | named loop labels | a label is a function start only at its header, or where nothing falls in and no branch reaches it             | `DrawIcons_Impl_RowLoop` keeps a3 = `DrawIcons_PixelPairTable`                          |
-| loop bodies       | a label reached only by a backward branch keeps the frame's slots                                              | `func_485831DC`'s `movbu (d1, a0), d2` over a demo stream                               |
+| loop bodies       | a label reached only by a backward branch keeps the frame's slots                                              | `SoundAlphaIndexBuild`'s `movbu (d1, a0), d2` over a sound list                         |
 | bounds            | a load whose source the walk does not know drops the bound an earlier `cmp` gave the register                  | `DrawIcons_PixelPairTable` is 256 entries, not the 240 of `cmp 0xf0, d0`                |
 
 On program 941 the plain walk sees 22,372 distinct accesses and the extended one 26,677
@@ -138,6 +140,73 @@ Other examples: `TechniChordCompute_Table_2` is the chord-type switch of `Techni
 and `code_refs.txt` makes the code generator label it); the effect names and fixed-width value
 strings ("  0.1   ", "   10 ms") are string arrays; `{u32 key, code address}` runs are dispatch
 tables, with a MILK-id key spelled by its name.
+
+## Sound lists, zlib's tables and field names (lane mn10300-formats)
+
+Lane mn10300-formats (2026-10-31, [`kn7000/notes/mn10300-formats/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-formats/README.md)) took the last open data-format items of the
+MN10300 trees. Its KN2400 and KN6000 findings are on their pages
+([the model strap and the effect descriptors]({{ site.baseurl }}/kn2400-program-data/#the-dsp-effect-descriptors-lane-mn10300-formats),
+[the sound hash payloads]({{ site.baseurl }}/kn6000-program-data/#the-built-in-sound-hash-tables-kn6000));
+the KN7000's are here and on [SP7001 Plug-in]({{ site.baseurl }}/kn7000-sp7001-plugin/#open).
+
+### The alphabetical sound lists
+
+`SoundAlphaListTable`'s lists were described here as demo-song streams of 4-byte events. **They are no
+demo songs.** `SoundAlphaIndexBuild` (`0x485831DC`) reads `+0` of each 4-byte entry and groups the
+entries by that byte with the C library's ctype table (letters first, then digits), and
+`SoundAlphaInitialGet` (`0x485834C0`) matches `+1` / `+2` / `+3` against a sound's bank MSB, LSB and
+program and answers `+0`. So an entry is {char initial; u8 bank MSB, LSB, program}, a list ends with a
+zero entry, and `SoundAlphaListGet` (`0x485831BA`) picks one of the table's 6 pointers by kind (the
+sound group) and a variant. The four lists (941):
+
+| label                             | entries | selected for                           |
+|-----------------------------------|---------|----------------------------------------|
+| `SoundAlphaList_Groups00_12`      | 1,236   | groups 0..0x12 and 0x1F, variant 0     |
+| `SoundAlphaList_Groups00_12_Var1` | 1,215   | the same groups, variant 1             |
+| `SoundAlphaList_Groups13_1E`      | 1,210   | groups 0x13..0x1E but 0x19 / 0x1A      |
+| `SoundAlphaList_DrumKits`         | 41      | groups 0x19 and 0x1A (the drum kits)   |
+
+`gen_data_s.py`'s `sound_alpha_lists()` pass writes one `SOUND_ALPHA "A", 121, 2, 120` line an entry in
+the four KN7000 program builds; the siblings have no such lists. Variant 1 is chosen when
+`func_484974A4` answers 0 for the group *[INFERENCE on what it tests]*. The real demo-song streams are
+the inflated ones whose tables sit in the initialised RAM at `0x50000C20` / `0x50000C50` / `0x50000C80`
+([Work RAM]({{ site.baseurl }}/kn7000-work-ram/)).
+
+### zlib's tables
+
+`kn7000/notes/mn10300-formats-probes/zlib_tables.py` finds 19 of zlib 1.0.4's
+data tables by their contents (they are the zlib sources' own) in every KN7000 build and in the KN6000,
+KN6500 and KN2400; the HD-SX3 plug-in has no zlib. They are named at their RAM addresses (the
+initialised-RAM image) in each tree's manual symbol file: `configuration_table`, `extra_lbits`,
+`extra_dbits`, `extra_blbits`, `bl_order`, `static_l_desc` / `static_d_desc` / `static_bl_desc`,
+`static_init_done`, `border`, `cplens`, `cplext`, `cpdist`, `cpdext`, `fixed_built`, the two copyright
+strings, `inflate_mask` and `z_errmsg`.
+
+### Field names from their use
+
+`kn7000/tools/data_field_uses.py` follows the register a field's
+reading instruction loads through the next instructions, and into the routine it is handed to, two
+levels deep; `data_struct_names.auto_name()` names the field after what is done with it: `proc`,
+`text`, `key`, `count`, `index`, `flags`, `kind`, a parameter name of a known routine (`view`, `title`,
+`event`, `icon` ...), `<Routine>_<reg>` for another named routine, or a constant's family. The curated
+names still come first; a field whose places of reading disagree, or whose use the linear walk does
+not see, keeps its offset name. Record-macro fields named, before and after
+(`kn7000/notes/mn10300-formats-probes/field_names_census.py`, on the lane's base `f4045a81c` and after
+its regeneration):
+
+| tree       | fields after | named before | named after | offset-named with a reader, before | after |
+|------------|--------------|--------------|-------------|------------------------------------|-------|
+| kn7000-941 | 1,436        | 31           | 601         | 893                                | 628   |
+| kn7000-942 | 1,446        | 30           | 605         | 898                                | 630   |
+| kn7000-935 | 1,440        | 26           | 599         | 901                                | 634   |
+| kn7000-893 | 1,440        | 26           | 600         | 901                                | 633   |
+| kn6000     | 1,330        | 30           | 525         | 1,156                              | 668   |
+| kn6500     | 1,331        | 30           | 523         | 1,156                              | 670   |
+| kn2400     | 1,281        | 36           | 524         | 1,111                              | 622   |
+| hdsx3      | 58           | 0            | 8           | 46                                 | 43    |
+
+What stays offset-named: fields read in more than one place of a function with different uses, values
+stored to the frame and used later, and values whose only use is arithmetic.
 
 ## Blocks a routine is handed
 
@@ -257,11 +326,12 @@ since each had a reader. In 941:
   `Label+N`, under a header naming the readers. Four are read at a known width (the tail of
   `func_4841493C_Table`, u32; the 33 bytes before `func_4856E588`'s 16-byte records; ...). The rest
   are pieces whose address the code only takes: the RAM-image tables `data_500077A4` (208 bytes,
-  u8 rows), two u32 tables at `0x5000102C` / `0x50001120` (*[INFERENCE]* zlib 1.0.4's `cplext` and
-  `cpdext` by their contents; since lane callee-walk `huft_build_Table_3` / `huft_build_Table_4`,
-  typed from the reads of `huft_build`, to which `inflate_trees_dynamic` / `inflate_trees_fixed` pass
-  them), the three
-  20-byte records `_tr_init` takes (*[INFERENCE]* zlib's `static_*_desc` by their values), the
+  u8 rows), two u32 tables at `0x5000102C` / `0x50001120` (zlib 1.0.4's `cplext` and
+  `cpdext`: since lane callee-walk typed from the reads of `huft_build`, to which
+  `inflate_trees_dynamic` / `inflate_trees_fixed` pass them, and since lane mn10300-formats named so,
+  [below](#zlibs-tables)), the three
+  20-byte records `_tr_init` takes (zlib's `static_l_desc` / `static_d_desc` / `static_bl_desc`, named
+  the same way), the
   16-colour tables of `VwUserBitmapProc` / `AcMonImageProc` (`0x00BBGGRR` rows at `0x4859E484` /
   `0x485EFF04`; since lane callee-walk `DrawBitmapSPFast16_Impl_Table` / `_Table_2`, 16 x u32, from
   the reads of `DrawBitmapSPFast16_Impl`, to which they are passed), `SjisMissingGlyph` (32 bytes; since lane media-files a 16 x 16 one-bit PNG,
@@ -341,8 +411,9 @@ in a branch the linear walk enters with no state.
 
 - Recursive structures besides the resource-id trie are typed one level deep: the walk sees one
   loop iteration.
-- The 4-byte demo-stream events of `func_485831BA_Table`'s three streams are byte rows: the reader
-  indexes `+0` of every 4-byte step, the other three bytes' readers were not traced.
+- ~~The 4-byte demo-stream events of the table's three streams are byte rows~~: they are no demo
+  streams but the alphabetical sound lists, typed since lane mn10300-formats
+  ([above](#the-alphabetical-sound-lists)).
 - Records whose pointer fields point into their own tail want a "record + inline payload"
   representation. (The KN7000's switch descriptors are records since lane generic-zero; the
   KN2400's twins, reached only as a base, are u8 rows with `.long data_X+20`.)
@@ -351,8 +422,8 @@ in a branch the linear walk enters with no state.
   it back later reads; library copies (memcpy, strcpy, `LibStrlen`); arrays indexed by a loop counter,
   which the linear walk takes as a constant (`DrawBitmapSPFast16_Impl`'s palette); and loop-stepped
   records, whose count the walk does not know. Field names past `T_CTSK`'s need each routine read.
-  Naming zlib's `cplext` / `cpdext` / `static_*_desc` in the symbol files would need the ported
-  935 / 893 / 942 symbol files regenerated.
+  (~~Naming zlib's tables in the symbol files~~: done by lane mn10300-formats, ported to 935 / 893 /
+  942, [above](#zlibs-tables).)
 - ~~`func_487B8E34` is declared `unknown-dump`~~ and ~~`func_4C03B799_Table` (353 x s16) runs on into
   code~~: both settled by lane code-island ([above](#the-kernels-flash-tail)).
 - `func_487B8FB2`, after `KernelInitHook`: code by its bytes, entered by no traced path

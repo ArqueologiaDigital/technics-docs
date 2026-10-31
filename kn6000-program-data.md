@@ -148,16 +148,39 @@ of `{u32 next, key, payload}`. The readers are used when no archive is loaded (w
 answers neither 1 nor 2). Each takes `key * mult % nbuckets` (`func_4C09B1EC`), walks the chain
 comparing `+4` and answers the payload:
 
-| descriptor         | address      | buckets | entries x size | key                                                  | reader          |
-|--------------------|--------------|---------|----------------|------------------------------------------------------|-----------------|
-| `ToneKeyHashDesc`  | `0x4C3E8680` | 1,139   | 1,896 x 20     | `MSB << 16 \| LSB << 8 \| program` (`func_4C09ACF3`) | `func_4C09B08C` |
-| `ShortKeyHashDesc` | `0x4C3E9850` | 1,907   | 2,898 x 12     | u16, `byte << 8 \| byte` (`func_4C09B200`)           | `func_4C09B2AE` |
-| `BankKeyHashDesc`  | `0x4C3EC6A0` | 1,139   | 1,375 x 12     | `MSB << 16 \| LSB << 8 \| program` (`func_4C09BCFA`) | `func_4C09BDB2` |
+| descriptor         | address      | buckets | entries x size | key                                                         | lookup           |
+|--------------------|--------------|---------|----------------|-------------------------------------------------------------|------------------|
+| `ToneKeyHashDesc`  | `0x4C3E8680` | 1,139   | 1,896 x 20     | `MSB << 16 \| LSB << 8 \| program` (`ToneKeyFind`)          | `ToneKeyLookup`  |
+| `ShortKeyHashDesc` | `0x4C3E9850` | 1,907   | 2,898 x 12     | a panel switch, `group << 8 \| number` (`SoundSwNoBankGet`) | `ShortKeyLookup` |
+| `BankKeyHashDesc`  | `0x4C3EC6A0` | 1,139   | 1,375 x 12     | `MSB << 16 \| LSB << 8 \| program` (`SoundBankIndexGet`)    | `BankKeyLookup`  |
 
 `kn6000/notes/siblings-data-final-probes/hash_chains.py` checks every key against its bucket (0
-misplaced). These 89,196 bytes were the "past the tone directory" region of the first notes. The
-payloads are byte rows; *[INFERENCE]* the tone-key payload's first u16 is a tone-record index, as in the
-KN7000's 'Tone' hash.
+misplaced). These 89,196 bytes were the "past the tone directory" region of the first notes.
+
+**The payloads** (lane mn10300-formats, 2026-10-31, [`kn7000/notes/mn10300-formats/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-formats/README.md), section 2). `hash_payloads.py` shows
+which payload bytes carry values, and the routines that read them (named in `kn6000_manual.sym`) say
+what they are; the bytes nobody reads are 0 in every entry, the macros' trailing `.space`:
+
+| payload macro       | fields, from their readers                                                                                                                                                                                                                                         |
+|---------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `TONE_KEY_PAYLOAD`  | +0 u16 `tone` (`SoundToneIndexGet`), +2 `icon` (`SoundIconGet`; `MainGetSoundName` answers it for `MT_GetSoundIcon`), +3 / +4 `swgroup01` / `swgroup23`, +5..+8 `swno0`..`swno3` (`SoundSwNoGet`: the panel switch {group, number} for the reference's state 0..3) |
+| `SHORT_KEY_PAYLOAD` | the bank `msb`, `lsb` and `program` the switch selects (`SoundSwNoBankGet` copies +0 / +1 / +2 to its three outputs)                                                                                                                                               |
+| `BANK_KEY_PAYLOAD`  | the u16 `index` `SoundBankIndexGet` answers                                                                                                                                                                                                                        |
+
+So `ToneKeyHash` maps a sound to its icon, tone and panel button, and `ShortKeyHash` maps a button back
+to its sound. `swgroup01` takes 0..15 and `swno0` / `swno1` 0..39 (the panel's sound groups),
+`swgroup23` 0..31 and `swno2` / `swno3` 0..127 (bank-and-program style numbers) *[INFERENCE on what
+the two pairs of states are]*. The KN7000's 'Tone' hash has the same 12-byte payload; its readers were
+not traced.
+
+### zlib's tables and field names (lane mn10300-formats)
+
+Lane mn10300-formats named zlib 1.0.4's 19 data tables, found by
+their contents, in this tree's manual symbol file too (`cplens`, `cplext`, `static_l_desc`,
+`inflate_mask`, `z_errmsg` ...), and the record macros' fields are now named after what the code does
+with them: 525 of the KN6000's 1,330 fields have a name, against 30 before (KN6500: 523 of 1,331)
+(`field_names_census.py`). The method and every tree's figures are on
+[KN7000 Program Data Region]({{ site.baseurl }}/kn7000-data-region/#field-names-from-their-use).
 
 ## The HD-SX6 plug-in
 
@@ -294,7 +317,9 @@ library's constant tables).
 
 ## Open
 
-- The hash tables' payloads past their first field, and the key of the short-key table.
+- ~~The hash tables' payloads past their first field, and the key of the short-key table~~: read from
+  their readers ([above](#the-built-in-sound-hash-tables-kn6000)); what the two pairs of switch states
+  mean is still *[INFERENCE]*.
 - The one-touch bytes the macros keep as hex.
 - The code reaches many tables with computed offsets; their bounds come from the labels the code
   names, so a table can still be split in two.
