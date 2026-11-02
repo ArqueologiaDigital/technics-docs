@@ -54,17 +54,17 @@ assembler, `kn7000/tools/kn7asm.py`; how much of each model's images is source i
 
 A green gate says nothing about how much of an image is real source rather than a
 passed-through blob, so that is measured separately, per model, with the commands below
-(run at disassembly `2319e9b94`, 2026-10-24; the KN5000 row re-run at `130735749`, 2026-10-31):
+(run at disassembly `2319e9b94`, 2026-10-24; the KN5000 row re-run at `fb8aaf94c`, 2026-11-02):
 
-| model                         | how much of the image is source                                                                                                                                                                                                                                             | command (in the disassembly repository)                       |
-|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
-| KN5000                        | 99.8% of its 13 measured images (16,056,320 B); 11 at 100% (v7 and table data reached 0 B verbatim on 2026-10-24); the ported v6 (99.3%, 13,756 B) and v5 (99.2%, 15,910 B) carry their `TODO(port)` rows. v8 is v9's source; v1.41 and v1.40 are not measured on their own | `python3 scripts/analysis/kn5000_source_coverage.py`          |
-| SX-WSA1R                      | 100%: no `.incbin` left; 78.0% substantive, the rest verified filler emitted as `.fill`                                                                                                                                                                                     | `cd wsa1 && python3 scripts/analysis/source_coverage.py`      |
-| KN7000                        | 44.58% of program 941 (1,853,232 of 4,157,185 B): all 3,658 function blocks are instructions; the 2.3 MB data region still enters as `.incbin_range`                                                                                                                        | `cd kn7000 && python3 tools/coverage_score.py`                |
-| KN2400 / KN2600               | 98.91% of the code ranges emitted as instructions (46.77% of the image)                                                                                                                                                                                                     | `kn2400/notes/conversion-stats.txt`, written by the generator |
-| KN6000                        | 98.72% of the code ranges (36.64% of the image)                                                                                                                                                                                                                             | `kn6000/notes/conversion-stats.txt`                           |
-| KN6500                        | 98.96% of the code ranges (41.63% of the image)                                                                                                                                                                                                                             | `kn6500/notes/conversion-stats.txt`                           |
-| HD-SX3 (most probably HD-SX6) | 99.53% of the code ranges (32.09% of the image)                                                                                                                                                                                                                             | `hdsx3/notes/conversion-stats.txt`                            |
+| model                         | how much of the image is source                                                                                                                                                                                                                                                                                   | command (in the disassembly repository)                       |
+|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+| KN5000                        | 99.9% of its 13 measured images (16,056,320 B; 23,753 B verbatim); 10 at 100%; table data 99.3% (15,634 B: two stale SLIDE4K tails no source can rebuild), the ported v6 (99.8%, 3,615 B) and v5 (99.8%, 4,504 B) carry their `TODO(port)` rows. v8 is v9's source; v1.41 and v1.40 are not measured on their own | `python3 scripts/analysis/kn5000_source_coverage.py`          |
+| SX-WSA1R                      | 100%: no `.incbin` left; 78.0% substantive, the rest verified filler emitted as `.fill`                                                                                                                                                                                                                           | `cd wsa1 && python3 scripts/analysis/source_coverage.py`      |
+| KN7000                        | 44.58% of program 941 (1,853,232 of 4,157,185 B): all 3,658 function blocks are instructions; the 2.3 MB data region still enters as `.incbin_range`                                                                                                                                                              | `cd kn7000 && python3 tools/coverage_score.py`                |
+| KN2400 / KN2600               | 98.91% of the code ranges emitted as instructions (46.77% of the image)                                                                                                                                                                                                                                           | `kn2400/notes/conversion-stats.txt`, written by the generator |
+| KN6000                        | 98.72% of the code ranges (36.64% of the image)                                                                                                                                                                                                                                                                   | `kn6000/notes/conversion-stats.txt`                           |
+| KN6500                        | 98.96% of the code ranges (41.63% of the image)                                                                                                                                                                                                                                                                   | `kn6500/notes/conversion-stats.txt`                           |
+| HD-SX3 (most probably HD-SX6) | 99.53% of the code ranges (32.09% of the image)                                                                                                                                                                                                                                                                   | `hdsx3/notes/conversion-stats.txt`                            |
 
 The MN10300 rows measure something weaker than the TLCS-900 ones. `kn5000_source_coverage.py`
 counts only verbatim blobs as debt, so typed data counts as source; the MN10300 generators
@@ -690,10 +690,9 @@ happens to re-assemble to the right bytes (see the data-as-code note above), is 
 it. Outside the five data-as-code-clean images above, every debt figure on this page is
 therefore a lower bound.
 
-**Fifteen of the seventeen measured images are at zero verbatim debt: 100% source.** Nothing in
-maincpu v10, v9 or v7, the sub-CPU payload v142, the sub-CPU boot ROM, table data, custom data,
-the four HD-AE5000 versions, or any of the four SX-WSA1R images enters the build as an opaque
-blob. Even the eight flash-update boot banners round-trip from committed PNGs
+**Fourteen of the seventeen measured images are at zero verbatim debt: 100% source.** Nothing in
+maincpu v10, v9 or v7, the sub-CPU payload v142, the sub-CPU boot ROM, custom data, the four
+HD-AE5000 versions, or any of the four SX-WSA1R images enters the build as an opaque blob. Even the eight flash-update boot banners round-trip from committed PNGs
 (`python3 scripts/build/mono_images.py verify` reports `ROUND TRIP EXACT: all 8 banners x
 2 revisions (9,856 B)`, the same 616-byte-each files shared byte-for-byte between the two
 firmware revisions). v9's confirmed-region backlog (the high-confidence code-as-`.byte`
@@ -702,7 +701,7 @@ re-running it directly against v9 (not mirrored from v10, whose source has since
 out of lockstep) finds zero confirmed hits beyond the same hand-audited DATA regions
 already on record.
 
-The two that are not are the ported trees. v6 was generated from v7 and v5 from v6 by
+The three that are not are table data (below) and the ported trees. v6 was generated from v7 and v5 from v6 by
 `scripts/converters/port_maincpu_version.py`; where no line of the older tree maps onto the
 bytes, the port writes `.byte` rows under `; TODO(port): ...`, and the raw bytes of each
 tree's C divergence file (`v6/maincpu/includes/v6_c_divergence.json`, likewise v5) are counted
@@ -710,16 +709,24 @@ with them. That is their debt:
 
 | Image           | Verbatim debt | % source |
 |-----------------|--------------:|---------:|
-| `v6/maincpu`    | 13,756 B      | 99.3%    |
-| `v5/maincpu`    | 15,910 B      | 99.2%    |
-| all seventeen   | 29,666 B      | 99.8%    |
+| `v6/maincpu`    | 3,615 B       | 99.8%    |
+| `v5/maincpu`    | 4,504 B       | 99.8%    |
+| table data      | 15,634 B      | 99.3%    |
+| all seventeen   | 23,753 B      | 99.9%    |
 
-*(2026-10-31, disassembly `130735749`, from the command above; v7 fell to 0 B at `d89e64558`
+*(2026-11-02, disassembly `fb8aaf94c`, from the command above; v7 fell to 0 B at `d89e64558`
 on 2026-10-24. The v6 and v5 rows fall as their `TODO(port)` rows are decoded; re-run rather
 than quoting this table.)*
 
-Of those figures, 3,403 B (v6) and 4,284 B (v5) are `TODO(port)` rows and 10,353 B / 11,626 B
-are raw bytes of the C-divergence files (lane kn5000-ports, disassembly
+Since 2026-11-02 the v6 and v5 trees compile their own C: each NAKA blob takes its own address
+(`#define BASE`, or a `PORT_BASE(off)` chain where the port moved parts of it), the work-RAM cell
+header carries their own addresses, and the re-ordered name tables name their strings. The C-divergence
+patch shrank from 10,353 to 212 raw bytes (v6) and from 11,626 to 220 (v5), so of the figures above
+3,403 B (v6) and 4,284 B (v5) are `TODO(port)` rows (lane kn5000-c, disassembly
+`notes/kn5000-c-2026-11-02/README.md`).
+
+Until then 3,403 B (v6) and 4,284 B (v5) were `TODO(port)` rows and 10,353 B / 11,626 B
+were raw bytes of the C-divergence files (lane kn5000-ports, disassembly
 `notes/kn5000-ports-2026-10-31/README.md` section 5, measured with the same script; that lane
 lowered them from 16,502 B / 19,310 B by writing rows as `.long Label`, `.asciz` and
 `aligned_string` with `scripts/converters/port_todo_typed.py`). What is left needs the NAKA record
@@ -728,7 +735,19 @@ differ from v7's C. The same lane moved the names the port had carried onto the 
 procedure back where the firmware's own name and pointer tables put them
 (`scripts/tools/port_fix_label_shifts.py`); the name changed at 595 addresses in v6 and 633 in v5.
 
-**Table data reached zero on 2026-10-24.** Until then the tool counted 318,468 B against it:
+**Table data: 15,634 B, which no source can rebuild.** They are the stale ends of an older SLIDE4K
+stream after demo songs 17 and 18 (the slices' bytes past the stream the header's size makes the decoder
+read): demo song 17's 15,559 B after a 398-byte repeat of its own stream end
+(`DemoSongPreset17_StaleStreamTail`), and demo song 18's 75 B, which are the same stream's last bytes
+(`DemoSongPreset18_StaleStreamTail`). *[INFERENCE]* An earlier Feature Demo. A stream's window is everything
+decoded before, and that stream's start is overwritten, so no source can rebuild it. Until 2026-11-02 the
+build copied them from the factory slices inside the two demo payloads, and the table counted 0 B. The demo
+songs themselves are now encoded by the factory encoder (Okumura's LZSS.C, N = 4096, F = 18) with no reference
+stream; all 22 factory SLIDE4K streams are checked against it (disassembly
+`notes/misc2-2026-11-02/README.md`, probes `slide4k_encode_exact.py` and `slide4k_stale_tails.py`; tracker
+kn5000-3ei).
+
+**Before that, table data had reached zero on 2026-10-24.** Until then the tool counted 318,468 B against it:
 the six `FTBMP01-06.BMP` feature-demo slide images, genuine uncompressed 8bpp Windows BMPs
 that were stored verbatim. They are now generated by `scripts/build/ftbmp_images.py` from a
 committed PNG plus a JSON file holding each BMP header, and the build checks that the

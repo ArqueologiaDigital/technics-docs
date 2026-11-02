@@ -1157,11 +1157,17 @@ Each channel reads its current A/D result via `AnalogIn_ReadAdcHigh`, computes t
 
 This routine filters encoder value changes to reject electrical noise and debounce mechanical jitter. It uses a 3-level threshold system:
 
-| Absolute Delta | Action | Status Bits |
-|---------------|--------|-------------|
-| ≤ 2 | **Noise rejection** — ignore change, clear debounce counter | Clear bits 0-1 |
-| 3-6 | **Debounce phase** — increment debounce counter, wait for sustained change | Set bit 2, increment bits 0-1 |
-| > 6 | **Confirmed change** — if debounce counter saturated (bits 0-1 = 3), set valid flag; otherwise increment counter | Set bit 3 (valid) when confirmed |
+| Absolute Delta | Action                                                                                                                                                                       | Status Bits                      |
+|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------|
+| ≤ 2            | **Noise rejection** — ignore change, clear debounce counter and pending bit                                                                                                  | Clear bits 0-2                   |
+| 3-6            | **Two-reading confirm** — the first such reading sets the pending bit; a second consecutive one accepts the change (sets bit 3, clears bits 0-2). The counter is not changed | Set bit 2, then bit 3            |
+| > 6            | **Spike filter** — if the debounce counter is 3 (bits 0-1), accept the change; otherwise increment the counter and clear the pending bit                                     | Set bit 3 (valid) when confirmed |
+
+So a 3-6 change is taken on the second consecutive 3-6 reading, and a > 6 change on the fourth > 6 reading
+since the counter was last cleared; only a ≤ 2 reading or an acceptance clears the counter. (Corrected
+2026-11-02: this table used to say that a 3-6 reading increments the counter. Source: disassembly
+`notes/open4-kn5000-b/cpanel/README.md`, "`AnalogIn_DebounceChange`, step by step", re-read from
+`v10/maincpu/audio/audio_control_engine.s`.)
 
 Status register bit definitions:
 - **Bits 0-1:** Debounce counter (0-3, saturates at 3 → triggers bit 3)
