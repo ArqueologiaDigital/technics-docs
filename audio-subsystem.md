@@ -1067,9 +1067,32 @@ to pool 16 and flagged, so the next allocation anywhere takes it first.
 | B                              | 12, 6, 6, 4, 4, 4, 4, 4, 2 x 7, 6 |
 
 Both quota rows sum to 64 (`Voice_Pool_Quota_ModeA` / `Voice_Pool_Quota_ModeB`, copied into the pool records by
-`Voice_Reset_Engine`, which `Voice_SetPolyphonyMode` calls). *[INFERENCE]* Mode A is the keyboard's own
-allocation (four pools for the panel's part groups), mode B a 16-part multi-timbral one; which main-CPU
-code sends sub-command 0x09 has not been traced.
+`Voice_Reset_Engine`, which `Voice_SetPolyphonyMode` calls). Mode A is the keyboard's own allocation (four
+pools for the panel's part groups), mode B the General MIDI one (16 pools, one per MIDI channel); see below.
+
+##### Mode A and mode B: General MIDI
+
+The quota mode is the GM ON/OFF switch (`PANEL_GM`, record 0x91, field 3 bit 2). Each change of that bit
+sends the system record `F0 7F 09 <mode>`. Mode 1 means GM on and selects mode B: 16 pools, one per MIDI
+channel. Mode 2 means GM off and selects mode A, the keyboard's four pools of 32 / 16 / 4 / 12 voices.
+`Voice_SystemMsg` reads only the last two bytes of the record; `Voice_SetPolyphonyMode` treats 1 as
+`Voice_Reset_Engine(1)` and any other value as mode A, and it drops every sounding voice (`VoiceSlot_ClearAll`).
+
+On the main CPU (v10), the panel-code 0x91 listeners `MidiCtrl_ModeSwitchHandler` and
+`MidiCtrl_GmSwitchListener` call `MidiCtrl_GmBitToPolyphonyMode`, which calls
+`SubCPU_SetPolyphonyModeAndResendVolumes`. That routine sends the record through `SubCPU_SendSystemRecord`,
+then re-sends CC 7 to every part, because the sub CPU has just dropped its voices. The bit changes on:
+
+- GM System On / Off from MIDI IN (`SysEx_OnGmSystemOn` / `SysEx_OnGmSystemOff`);
+- selecting a song whose record byte +0xBD is 0xFF, the flag SMF playback sets (`SongBank_ApplySongGmFlag`,
+  `FloppyIO_ConfigureSwitchboard`);
+- power-on: GM is turned off unless it was on at power-off (`NMI_HANDLER` stores 0x5A5A / 0xA5A5 at 0xFFCC).
+
+The sub CPU starts in mode A. A second sender, `SndParam_ApplySystemParam` for system parameter 0x00C0
+(the registry's key 0xC0 = record 0x91 field 3 mask 0x04), also sends 1 or 2; *[INFERENCE]* it looks dormant
+in v10, because the 0x91 listener feeding `SndParam_ApplyEventField` forwards only bit 0. Only v10 was read.
+Source: disassembly `notes/open6-kn5000-d/subcmd/README.md`, section "kn5000-1gu" (probe
+`probes/subcmd_probe.py`).
 
 Voices come back through `Voice_Manager_PollBank`, which reads one bank of 16 TG activity bits every
 other tick and returns to the free list each voice that went silent and is not held; a released voice

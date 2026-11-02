@@ -275,6 +275,16 @@ The ring holds fixed-width internal records, not MIDI wire bytes, and there is n
 
 The Sub CPU has 26 parts (0x00-0x19).
 
+The 0xD0 record is `D0 part 00 value`: `Voice_ChanPressure` reads the value at +3. Song controller events
+0xD0-0xD3 reach the sub CPU as `D0 part 00 value`, `B0 part 01 value`, `E0 part lsb msb` and
+`B0 part 0B value` ([Sequencer: controller events on playback]({{ site.baseurl }}/sequencer/#controller-events-on-playback)).
+
+System records (`0xF0`) are `F0 <b1> <sub-command> <value>`. `Voice_SystemMsg` reads only the last two bytes;
+the main CPU writes 0x50 as b1, and 0x7F for sub-command 0x09. Sub-command 0x09 = polyphony mode (1 = GM /
+16 pools, else the keyboard's 4 pools), sent when GM ON/OFF changes
+([Audio subsystem: mode A and mode B]({{ site.baseurl }}/audio-subsystem/#mode-a-and-mode-b-general-midi)). Most system
+records come from `SubCPU_SendSystemRecord`. Source: disassembly `notes/open6-kn5000-d/subcmd/README.md`.
+
 ### Supported MIDI Control Changes
 
 | CC#       | Name                    | Description                                                                                                                |
