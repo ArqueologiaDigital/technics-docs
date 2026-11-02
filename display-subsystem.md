@@ -517,6 +517,20 @@ Hex digits support `0-9`, `a-f`, and `A-F`.
 which becomes 0xA5 (¥). Codes 0x10-0x1F map to UI-symbol glyphs, and 0x80-0xAB to the Latin-1 letters of the
 fonts' accent page (Ä Ö Ü ä ö ü ß ...). The routine after it searches the same table to convert a glyph back.
 
+Codes 0x01-0x0F map to 0x20, so every control character draws as a blank cell, and 0x00 stays 0 and ends
+the string. The step-record screen's own copy of the map (`Scoop_CharGlyphMap`, 0xE0CB1A in v10,
+byte-identical) is applied by `Scoop_CurveUpdate_SegmentEnd` to its pop-up line (RAM 0x0ECA, 30 characters,
+style 6 = font 0, at x 8, y 180). That is why the two pairs of TAB bytes (0x09) in `Tbl_AccompPartNames`
+draw as spaces.
+
+**A firmware bug in the ACCOMP PART pop-up.** `ParamPopup_AccompPart` copies 16 bytes from
+`Tbl_AccompPartNames + 16 × (flags >> 5)` and overwrites "ON " at +13 with "OFF", but the table's three
+strings start at offsets 2, 18 and 36 (0x09 0x09 "ACCOMP PART1 ON ACCOMP PART2 ON " 0x09 0x09 "ACCOMP PART3 ON ").
+No flag value the caller allows (1-7) lands on a string: the line reads `N ACCOMP PART2 O`,
+`N ACCOMP PARTOFF`, `N   ACCOMP PART3` and so on, or bytes of program code past the table. The same in
+v5-v10. *[INFERENCE]* from the code and the ROM bytes (probe `notes/open6-kn5000-d/misc/probes/accomp_part_popup_glyph.py`
+in technics-roms-disasm); not yet seen on an instrument.
+
 **Text style → font:** display records and widgets carry a *style* byte rather than a font number.
 `TextStyle_FontTable` (64 × u32, 0xEAB004 in v10) maps `style & 0x3F` to the font passed to
 `DrawText_QueueOrDirect`: style 7 → font 1, style 8 → font 2, style 32 → font 6, every other style → font 0.

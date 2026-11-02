@@ -272,12 +272,33 @@ and sent to the **FAJ board** as `LOUT` / `ROUT` (main CN9, with ±15 V and `MIC
 |-------------------|--------------------------------|------------------------------------------------------------------------|
 | I/V converter     | IC314 M5218AFP (main board)    | 6.8 kΩ parallel 680 pF, roll-off 34.4 kHz                              |
 | mixing amp        | IC4A/B M5218AL                 | DAC in at 10 kΩ (gain -3.3), second input at 15 kΩ                     |
-| "low pass filter" | IC7A/B                         | per the manual's label                                                 |
-| equaliser         | IC8, IC10, IC11, IC12          | four filter sections per channel                                       |
+| "low pass filter" | IC7A/B                         | labelled so, but drawn as a high-pass: 60.4 Hz, Q 1.44                 |
+| equaliser         | IC8, IC10, IC11, IC12          | four fixed gyrator shunts: dips at 245 Hz, 790 Hz and 2.27 kHz         |
 | output summers    | IC14A/B                        | to the SWA board as LIN / RIN                                          |
 | speaker amp       | SWA board                      | switching amplifier: integrator, comparator, gate drive, MOSFET bridge |
 | headphone amp     | IC5, IC6 + Q5-Q8               | to the PHONES jack on the HB board                                     |
 | microphone amp    | IC13 + Q9                      | MIC jack -> `MICIN` -> IC310 on the main board                         |
+
+**Speaker equaliser.**  IC7's output reaches a bus through R55 (3.3 kΩ); four gyrator networks (an M5218AL half
+wired as a follower, with RC around it) shunt that bus to ground, and IC14 (82 kΩ in, 150 kΩ feedback) buffers it.
+Each network can only cut, where its impedance is lowest.  Computed from the printed values (both channels
+identical):
+
+| section | network                                    | effect (alone)                                        |
+|---------|--------------------------------------------|-------------------------------------------------------|
+| IC7     | MFB high-pass, 10k / 150k, 47n / 68n / 68n | high-pass 60.4 Hz, Q 1.44 (manual: "low pass filter") |
+| IC8     | second-order gyrator, 6.8k / 4.7k / 150k   | dip at 800 Hz, about -6.7 dB                          |
+| IC10    | the same, with 10n / 47n                   | dip at 245 Hz, about -5.9 dB                          |
+| IC11    | 15n in series with a 0.33 H gyrator, 1k    | notch at 2.26 kHz, Q 4.1, about -11 dB                |
+| IC12    | gyrator 10k / 8.2k / 15n                   | almost flat (0.45 dB)                                 |
+
+From `LOUT` to the speaker amplifier the path gains +8.4 dB at 1 kHz and, relative to that, is -3 dB at 50 Hz,
+-4.9 dB at 245 Hz, -4.2 dB at 790 Hz, -8.7 dB at 2.27 kHz and -3.7 dB at 20 kHz.  *[INFERENCE]* The headphone
+amplifier (IC5 / IC6) is fed ahead of IC7, so headphones and LINE OUT do not get this EQ; the SWA board's bass
+channel sums LIN and RIN, so it gets the 60 Hz high-pass and the 245 Hz dip.  *[INFERENCE]* The dips voice the
+cabinet and drivers; no acoustic measurement exists.  Computed by `notes/open6-kn5000-d/misc/probes/faj_eq_response.py`
+(technics-roms-disasm) from service manual p. II-25; the full 1/3-octave table is its output
+`probes/faj_eq_response.txt`.
 
 **Speakers.**  The SWA board drives three channels: left and right (Q32 SLA5007, 60 µH output filters) and a
 bass channel that sums L and R through its own low-pass filter (IC3) into a MOSFET pair (Q33 2SJ425 / Q34
