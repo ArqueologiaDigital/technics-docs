@@ -1375,8 +1375,8 @@ All observed states (0x00, 0x01, 0xE0, 0xE4) are outside the 0x10-0x16 skip rang
 
 **Startup flag always zero:**
 - `startflag=0000` at RAM `(0x0251D8)` — never set to a non-zero value
-- This flag controls whether `Seq_StartMainControlAlt` (called from `DemoMode_Initialize`) calls `Part_InitFromPreset` (0xF42EA4)
-- It is the presentation-loaded flag. Only `Seq_InitializeAndStart` sets it, when a presentation is executed (`EVT_EXEC_PRESENTATION_REQ`). `Seq_StartMainControlAlt` sends `EVT_EXIT_PRESENTATION`, which calls `Part_InitFromPreset` only if the flag is set and then clears it. So 0 is the expected value during the ROM Feature Demo.
+- This flag controls whether `Seq_StartMainControlAlt` (called from `DemoMode_Initialize`) calls `SeqSong_ResetAll` (0xF42EA4)
+- It is the presentation-loaded flag. Only `Seq_InitializeAndStart` sets it, when a presentation is executed (`EVT_EXEC_PRESENTATION_REQ`). `Seq_StartMainControlAlt` sends `EVT_EXIT_PRESENTATION`, which calls `SeqSong_ResetAll` only if the flag is set and then clears it. So 0 is the expected value during the ROM Feature Demo.
 
 **Event loop rate drops 60x after demo init:**
 - Before demo: ~11,500 event loop iterations/sec

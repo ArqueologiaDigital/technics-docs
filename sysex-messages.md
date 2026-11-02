@@ -55,7 +55,7 @@ disassembly `notes/open4-kn5000-b/midi/README.md`, kn5000-81p):
 | `0x99`      | accepted (not described here)                                                                                                                                                |                            |
 | `0xA3-0xB1` | `Voice_SystemMsg_SubA3` .. `Voice_SystemMsg_SubB1`: scale-tune user offsets, velocity update, scale-tune enable                                                              |                            |
 
-`SeqVoice_CheckAndRet_Prologue` sends `{4, F0, A, C, E}` records of this shape.
+`SubCPU_SendSystemRecord` sends `{4, F0, A, C, E}` records of this shape.
 
 ### Implementation
 

@@ -373,7 +373,7 @@ DSP Path (Effect Parameters):
 
 **Command byte encoding:** `(handler_id << 5) | (payload_byte_count - 1)`, as in Layer 2 above.
 
-The values 0x63 and 0x64 that the preset loaders use are not command bytes: `ReverbPreset_Load` and `EQPreset_Load` pass them to `AssswbWr` as SwbtWr event codes, one event per record byte, and listeners such as `SwbtB2_Code63_Listener` receive them.
+The values 0x63 and 0x64 that the preset loaders use are not command bytes: `ReverbPreset_Load` and `EQPreset_Load` pass them to `AssswbWr` as SwbtWr event codes, one event per record byte, and listeners such as `PanelTag63_ApplyDspSlot` receive them.
 
 ### DSP Effect Name Table (ROM 0xE331E4)
 
@@ -680,7 +680,7 @@ The pointer table at 0xE32A7A has **128 entries**; beyond the 40 above, the ones
 
 ### Remaining Questions
 
-1. **Main CPU dispatch formatting:** `SwbtWr_DispatchLoop` delivers `ReverbPreset_Load`'s code-`0x63` events to `SwbtB2_Code63_Listeners` (`SwbtB2_Code63_Listener`, `UIState_KeyScan_Dispatch`, `EffEdit_DSPConfigBlock`; `ui_widgets/widget_dispatch.s`). `SwbtB2_Code63_Listener`, the same code as the code-`0x61` listener `HdaeRom_ProcessBlock`, passes each event to `SndParam_ApplyEventField`. How these listeners turn preset bytes into DSP ring messages has not been traced.
+1. **Main CPU dispatch formatting:** `SwbtWr_DispatchLoop` delivers `ReverbPreset_Load`'s code-`0x63` events to `SwbtB2_Code63_Listeners` (`PanelTag63_ApplyDspSlot`, `UIState_KeyScan_Dispatch`, `EffEdit_DSPConfigBlock`; `ui_widgets/widget_dispatch.s`). `PanelTag63_ApplyDspSlot`, the same code as the code-`0x61` listener `PanelTag61_ApplyDspSlot`, passes each event to `SndParam_ApplyEventField`. How these listeners turn preset bytes into DSP ring messages has not been traced.
 2. **DSP hardware path:** see the pages linked under Phase 4.
 3. **WAVE REVERB extra parameters:** Preset 9 (WAVE REVERB 2) has non-zero B7-B8 values (18, 84). These likely control waveform modulation parameters unique to the WAVE REVERB algorithm.
 4. **EQ crossover frequencies:** The 4 big-endian 16-bit values in EQ presets need verification as frequency values (Hz). The monotonic ordering suggests crossover points for a 4-band parametric EQ.

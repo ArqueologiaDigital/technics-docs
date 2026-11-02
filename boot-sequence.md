@@ -559,7 +559,7 @@ During boot, the firmware validates the battery-backed SRAM at 0x1E0000-0x1FFFFF
 3. Compares against the stored checksum at offset 0x72A8
 4. Before the checksum, compares the 16-byte header at 0x1E0000 with "KN5000 SOUND RAM" only (the "KN3000 SOUND RAM" and "KN1500 SOUND RAM" identifiers are recognised by a different routine, `SoundRam_IdentifyImage`, which the sound-RAM data handlers use; this boot check does not)
 
-If both checks pass, the routine (`SendPartDataBlock_ClearByte4`) bulk-transfers the 0x72AA-byte image at 0x1E0000 to sub-CPU 0x7800; if either fails, it sends the sub CPU a 0xFF/0xFF packet instead and shows no message (`v10/maincpu/audio/note_voice_mapping.s:26502-26532`). The **"ERROR in back-up SRAM"** screen (view `TEST1RAM`) comes from a different check: the boot self-test `SelfTest_SramAndRom` posts it only when the 0x5A/0xA5 write test `Test_SRAM_IC21` fails (`v10/maincpu/ui/ui_mode_handlers.s:1657-1679`). The factory defaults are embedded in Program ROM at offset 0x0A0150 (0x72A6 bytes, starting with "KN5000 SOUND RAM" header).
+If both checks pass, the routine (`SoundRam_InitPhase0_SendImage`) bulk-transfers the 0x72AA-byte image at 0x1E0000 to sub-CPU 0x7800; if either fails, it sends the sub CPU a 0xFF/0xFF packet instead and shows no message (`v10/maincpu/audio/note_voice_mapping.s:26502-26532`). The **"ERROR in back-up SRAM"** screen (view `TEST1RAM`) comes from a different check: the boot self-test `SelfTest_SramAndRom` posts it only when the 0x5A/0xA5 write test `Test_SRAM_IC21` fails (`v10/maincpu/ui/ui_mode_handlers.s:1657-1679`). The factory defaults are embedded in Program ROM at offset 0x0A0150 (0x72A6 bytes, starting with "KN5000 SOUND RAM" header).
 
 The kn7000_mame overlay driver implements this with a custom NVRAM handler (`kn5000_state::nvram_init`) that copies the factory defaults and computes the checksum on first run; mainline MAME declares a plain `NVRAM(config, "nvram")` without it.
 
@@ -594,27 +594,27 @@ queue at RAM 0xC039), `FileIO_InitFuncTable` (was `DiskOp_ChannelCfgTable`) and 
 `EffectMode_DispatchTable`). The other nine took the same form on 2026-10-17 (`COMM_`, `Xapr_`, `SoundMode_`, `Audio_`,
 `SoundData_`, `SeqInit_`, `SeqDispatch_`, `SoundRam_` and `CharMap_InitFuncTable`), named after their slot-0 handler.
 
-| #  | Table                          | Slot 0                          | Slot 1                         | Slot 2                          | Slot 3                          |
-|----|--------------------------------|---------------------------------|--------------------------------|---------------------------------|---------------------------------|
-| 0  | `Seq_InitFuncTable`            | `Seq_FullInit`                  | `Seq_InitStub_Nop2`            | `Seq_InitStub_Nop1`             | `Seq_InitStub_Nop3`             |
-| 1  | `COMM_InitFuncTable`           | `COMM_ResetSentValues`          | `COMM_ResetSentValues_Phase1`  | `CommParam_SetComplete_Return2` | `CommParam_SetComplete_Return3` |
-| 2  | `Xapr_InitFuncTable`           | `Xapr_DetectOnInit`             | `Xapr_InitPhase1_NullRet`      | `Xapr_InitPhase2_NullRet`       | `Xapr_InitPhase3_NullRet`       |
-| 3  | `SC0_InitFuncTable`            | `SC0_InitSerialPort`            | `SC0Init_PaddingStub`          | `SC0Init_PaddingStub`           | `SC0Init_PaddingStub`           |
-| 4  | `SoundMode_InitFuncTable`      | `SoundMode_ResetJump2`          | `SoundMode_RetStub_A`          | `SoundMode_RetStub_B`           | `SoundMode_RetStub_C`           |
-| 5  | `SndParam_InitFuncTable`       | `MIDI_INIT_SEQUENCES`           | `SndParam_InitPhase1_NullRet`  | `SndParam_InitPhase2_NullRet`   | `SndParam_InitPhase3_NullRet`   |
-| 6  | `Audio_InitFuncTable`          | `Audio_InitAllDefaults`         | `Audio_ReinitToneGenAndOutput` | `Audio_ResetAfterPayloadError`  | `Audio_FullReinitWithPreset`    |
-| 7  | `FileIO_InitFuncTable`         | `FileIO_DiskInserted`           | `FileIO_DiskInserted_Stub1`    | `FileIO_DiskInserted_Stub2`     | `FileIO_DiskRemoved`            |
-| 8  | `VGA_InitFuncTable`            | `VGA_Initialize`                | `VGA_Stub_1`                   | `VGA_Stub_2`                    | `VGA_Stub_3`                    |
-| 9  | `PanelInput_InitFuncTable`     | `PanelInput_InitPedalRecords`   | `Audio_NullHandler_A`          | `Audio_NullHandler_B`           | `Audio_NullHandler_C`           |
-| 10 | `PanelEvent_InitPhaseHandlers` | `Encoder_MarkInvalid`           | `Encoder_Stub1`                | `Encoder_Stub2`                 | `Encoder_Stub3`                 |
-| 11 | `SoundData_InitFuncTable`      | `SoundData_InitPhase0`          | `Param_SignExtendRetu_Return`  | `Param_SignExtendRetu_Return`   | `Param_SignExtendRetu_Return`   |
-| 12 | `SeqInit_InitFuncTable`        | `SeqInit_SetBaseAddress`        | `SeqInit_ReturnStub`           | `SeqInit_JumpToPartInit`        | `SeqInit_FullReset`             |
-| 13 | `SeqDispatch_InitFuncTable`    | `SeqDispatch_ResetAndValidate`  | `SeqDispatch_ReturnNop`        | `SeqDispatch_InitWithPayload`   | `SeqDispatch_ReturnNop`         |
-| 14 | `AccompSeq_InitFuncTable`      | `AccompSeq_ResetToFactoryBanks` | `AccompSeq_VoiceResetStub`     | `AccompSeq_InitBankIfNoError`   | `AccompSeq_VoiceResetStub`      |
-| 15 | `AccPatch_InitFuncTable`       | `AccTone_StubReturn_B`          | `AccTone_StubReturn_A`         | `AccDemo_InitDone`              | `AccPatch_InitAndCountSlots`    |
-| 16 | `SoundRam_InitFuncTable`       | `SendPartDataBlock_ClearByte4`  | `SendPartDataBlock_Return4`    | `SendPartDataBlock_DoGetError`  | `SendPartDataBlock_Return5`     |
-| 17 | `FDemoText_InitFuncTable`      | `FDemoText_StubReturn_A`        | `FDemoText_StubReturn_B`       | `FDemoText_StubReturn_C`        | `FDemoText_RescanAllVoices`     |
-| 18 | `CharMap_InitFuncTable`        | `CharMap_NullPreamble_0`        | `CharMap_NullPreamble_1`       | `CharMap_NullPreamble_2`        | `CharMap_ActivePreamble`        |
+| #   | Table                          | Slot 0                          | Slot 1                         | Slot 2                               | Slot 3                          |
+|-----|--------------------------------|---------------------------------|--------------------------------|--------------------------------------|---------------------------------|
+| 0   | `Seq_InitFuncTable`            | `Seq_FullInit`                  | `Seq_InitStub_Nop2`            | `Seq_InitStub_Nop1`                  | `Seq_InitStub_Nop3`             |
+| 1   | `COMM_InitFuncTable`           | `COMM_ResetSentValues`          | `COMM_ResetSentValues_Phase1`  | `CommParam_SetComplete_Return2`      | `CommParam_SetComplete_Return3` |
+| 2   | `Xapr_InitFuncTable`           | `Xapr_DetectOnInit`             | `Xapr_InitPhase1_NullRet`      | `Xapr_InitPhase2_NullRet`            | `Xapr_InitPhase3_NullRet`       |
+| 3   | `SC0_InitFuncTable`            | `SC0_InitSerialPort`            | `SC0Init_PaddingStub`          | `SC0Init_PaddingStub`                | `SC0Init_PaddingStub`           |
+| 4   | `SoundMode_InitFuncTable`      | `SoundMode_ResetJump2`          | `SoundMode_RetStub_A`          | `SoundMode_RetStub_B`                | `SoundMode_RetStub_C`           |
+| 5   | `SndParam_InitFuncTable`       | `MIDI_INIT_SEQUENCES`           | `SndParam_InitPhase1_NullRet`  | `SndParam_InitPhase2_NullRet`        | `SndParam_InitPhase3_NullRet`   |
+| 6   | `Audio_InitFuncTable`          | `Audio_InitAllDefaults`         | `Audio_ReinitToneGenAndOutput` | `Audio_ResetAfterPayloadError`       | `Audio_FullReinitWithPreset`    |
+| 7   | `FileIO_InitFuncTable`         | `FileIO_DiskInserted`           | `FileIO_DiskInserted_Stub1`    | `FileIO_DiskInserted_Stub2`          | `FileIO_DiskRemoved`            |
+| 8   | `VGA_InitFuncTable`            | `VGA_Initialize`                | `VGA_Stub_1`                   | `VGA_Stub_2`                         | `VGA_Stub_3`                    |
+| 9   | `PanelInput_InitFuncTable`     | `PanelInput_InitPedalRecords`   | `Audio_NullHandler_A`          | `Audio_NullHandler_B`                | `Audio_NullHandler_C`           |
+| 10  | `PanelEvent_InitPhaseHandlers` | `Encoder_MarkInvalid`           | `Encoder_Stub1`                | `Encoder_Stub2`                      | `Encoder_Stub3`                 |
+| 11  | `SoundData_InitFuncTable`      | `SoundData_InitPhase0`          | `Param_SignExtendRetu_Return`  | `Param_SignExtendRetu_Return`        | `Param_SignExtendRetu_Return`   |
+| 12  | `SeqInit_InitFuncTable`        | `SeqInit_SetBaseAddress`        | `SeqInit_ReturnStub`           | `SeqInit_JumpToPartInit`             | `SeqInit_FullReset`             |
+| 13  | `SeqDispatch_InitFuncTable`    | `SeqDispatch_ResetAndValidate`  | `SeqDispatch_ReturnNop`        | `SeqDispatch_InitWithPayload`        | `SeqDispatch_ReturnNop`         |
+| 14  | `AccompSeq_InitFuncTable`      | `AccompSeq_ResetToFactoryBanks` | `AccompSeq_VoiceResetStub`     | `AccompSeq_InitBankIfNoError`        | `AccompSeq_VoiceResetStub`      |
+| 15  | `AccPatch_InitFuncTable`       | `AccTone_StubReturn_B`          | `AccTone_StubReturn_A`         | `Composer_ResetStyleImage`           | `AccPatch_InitAndCountSlots`    |
+| 16  | `SoundRam_InitFuncTable`       | `SoundRam_InitPhase0_SendImage` | `SoundRam_InitPhase1_Nop`      | `SoundRam_InitPhase2_ResetIfRamLost` | `SoundRam_InitPhase3_Nop`       |
+| 17  | `FDemoText_InitFuncTable`      | `FDemoText_StubReturn_A`        | `FDemoText_StubReturn_B`       | `FDemoText_StubReturn_C`             | `FDemoText_RescanAllVoices`     |
+| 18  | `CharMap_InitFuncTable`        | `CharMap_NullPreamble_0`        | `CharMap_NullPreamble_1`       | `CharMap_NullPreamble_2`             | `CharMap_ActivePreamble`        |
 
 Source: `boot/screen_group_dispatch.s` and `ui_widgets/widget_dispatch.s` (`Subsys_HandlerTableList`);
 `scripts/tools/label_subsys_init_tables.py` in the disassembly repository.

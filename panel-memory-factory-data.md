@@ -231,11 +231,12 @@ records store `0xCF`.
 ## How the firmware loads it
 
 Three main-CPU routines, cited at their v10 addresses; v7 and v9 carry the same code at
-shifted addresses. The routines now carry names in the v10 source, but the names do not
-describe what they do here: `Display_CopyAndRenderBitmaps` (0xFC81EF),
-`VoiceData_ExtendedParamSetup` (0xFC7E82) and `VoiceData_InitAndCopyParams` (0xFC7DD8). The
-`tdata` lane recorded this in `table_data/panel_memory_presets.s` and left the rename to the
-file's owner.
+shifted addresses: `PanelMem_InitAllFromFactory` (0xFC81EF), `VoiceData_ExtendedParamSetup`
+(0xFC7E82) and `PanelMem_InitFromFactory` (0xFC7DD8). The first and last were named from their bodies on
+2026-11-02 (disassembly `notes/open6-kn5000-d/naming/README.md`, section "kn5000-j8z", where
+`PanelMem_InitAllFromFactory` is MainSysControl's INITIAL SETTING resetter for PANEL MEMORY and
+`PanelMem_ApplyFixups`, 0xFC822D, its last step); `VoiceData_ExtendedParamSetup` keeps a name that
+does not describe it.
 
 **`0xFC81EF` -- initialise everything.**
 
@@ -374,8 +375,8 @@ Open items on this block:
 * the preset-15 `0x19`/`0xC0` outlier is unexplained;
 * the Composer image's header words, and the misaligned 64-byte pseudo-cell at `+0x13C0`,
   are undescribed;
-* the loader routines carry misleading names (`Display_CopyAndRenderBitmaps`,
-  `VoiceData_ExtendedParamSetup`, `VoiceData_InitAndCopyParams`); renaming them is pending.
+* of the loader routines, `VoiceData_ExtendedParamSetup` still carries a misleading name; the other two
+  were renamed on 2026-11-02 (`PanelMem_InitAllFromFactory`, `PanelMem_InitFromFactory`).
 
 ## Provenance
 

@@ -16,7 +16,7 @@ Both ROMs are exactly 2 MB (2,097,152 bytes). Of those, **13,517 bytes differ** 
 
 ### 1. SubCPU Data Block Transfer: Two Small Fixes
 
-The only code changes are two small edits in `audio/note_voice_mapping.s`, both described under The Engineering Story below. `SendPartDataBlock_DoGetError` gains an error check (+11 bytes), and the routine at `SoundRam_WriteIdAndChecksum` turns its tail jump to `SoundRam_WriteChecksum` into a call followed by `ld hl, 0` and `ret` (+3 bytes). Every other differing byte is an address or branch displacement moved by those 14 bytes, apart from the version byte and the main-program version number.
+The only code changes are two small edits in `audio/note_voice_mapping.s`, both described under The Engineering Story below. `SoundRam_InitPhase2_ResetIfRamLost` gains an error check (+11 bytes), and the routine at `SoundRam_WriteIdAndChecksum` turns its tail jump to `SoundRam_WriteChecksum` into a call followed by `ld hl, 0` and `ret` (+3 bytes). Every other differing byte is an address or branch displacement moved by those 14 bytes, apart from the version byte and the main-program version number.
 
 The v10 version adds **14 bytes** of net code growth. Because both source trees use symbolic label references for function calls and data pointers, this address shift is invisible in the source diff — the linker resolves all labels automatically.
 
@@ -57,13 +57,13 @@ One data word changed: `Softver_MainProgramVersion` in `naka_style_bitmaps.c` we
 
 The v9-to-v10 firmware update tells a clear story when read at the instruction level. Matsushita's engineers made **one targeted change**, two small edits to the SubCPU data block transfer routines, and the rest of the ROM differences are mechanical consequences of that change.
 
-### The First Edit: `SendPartDataBlock_DoGetError`
+### The First Edit: `SoundRam_InitPhase2_ResetIfRamLost`
 
-The change is in `SendPartDataBlock_DoGetError`, the sound-RAM subsystem's phase-2 handler (entry 2 of `SoundRam_InitFuncTable`). The boot code runs it through `ScreenGroup_Dispatch` slot 2 when `SubCPU_Payload_GetErrorFlag` is non-zero; `MainSysControl` runs it during a system initialisation (`EVT_SYS_INI`); and the MIDI transfer-abort recovery (`MidiSysEx_RecoverAbortedXferGroup`) calls it for the sound-RAM data group. It does not verify a transfer.
+The change is in `SoundRam_InitPhase2_ResetIfRamLost`, the sound-RAM subsystem's phase-2 handler (entry 2 of `SoundRam_InitFuncTable`). The boot code runs it through `ScreenGroup_Dispatch` slot 2 when `SubCPU_Payload_GetErrorFlag` is non-zero; `MainSysControl` runs it during a system initialisation (`EVT_SYS_INI`); and the MIDI transfer-abort recovery (`MidiSysEx_RecoverAbortedXferGroup`) calls it for the sound-RAM data group. It does not verify a transfer.
 
 **v9:**
 ```asm
-SendPartDataBlock_DoGetError:
+SoundRam_InitPhase2_ResetIfRamLost:
     ldw  wa, 0xff        ; packet bytes 0xFF, 0xFF
     ldw  bc, 0xff
     jp   COMM_BuildAndSendPacket   ; tail-call: send and return
@@ -71,7 +71,7 @@ SendPartDataBlock_DoGetError:
 
 **v10:**
 ```asm
-SendPartDataBlock_DoGetError:
+SoundRam_InitPhase2_ResetIfRamLost:
     call SubCPU_Payload_GetErrorFlag   ; HL = byte at 0x1E53E, sign-extended
     cp   hl, 0xffff                    ; is that byte 0xFF?
     ret  nz                            ; no: return without sending
@@ -81,7 +81,7 @@ SendPartDataBlock_DoGetError:
     ret                                ; explicit return
 ```
 
-In v9, `SendPartDataBlock_DoGetError` sent its `0xFF`/`0xFF` message to the sub-CPU (`COMM_BuildAndSendPacket`) every time it was called. v10 first reads the flag byte at `0x1E53E` (`SubCPU_Payload_GetErrorFlag`) and sends the message only when that byte is `0xFF`; for `0x00` or `0x01` it returns without sending. The byte is `0xFF` when `SubCPU_Payload_Verify` finds no valid saved power-down state (the `0xF980` region fails its check) and `0x01` when only the `0xF180` region fails (see [Boot Sequence]({{ site.baseurl }}/boot-sequence/#welcome-screen-and-boot-animation)). Because the boot code runs the routine whenever the byte is non-zero (see [Subsystem Init Phases]({{ site.baseurl }}/boot-sequence/#subsystem-init-phases)), the two versions differ at boot only for `0x01`: v9 sent the message and v10 does not. `MainSysControl` sets the byte to `0xFF` (`SubCPU_PayloadErrorStore`) before it dispatches a system initialisation (`EVT_SYS_INI`), so that path still sends the message, and the MIDI transfer-abort recovery (`MidiSysEx_RecoverAbortedXferGroup`) now sends it only while the byte reads `0xFF`. This grew the function from 10 bytes to 21 bytes (**+11 bytes**).
+In v9, `SoundRam_InitPhase2_ResetIfRamLost` sent its `0xFF`/`0xFF` message to the sub-CPU (`COMM_BuildAndSendPacket`) every time it was called. v10 first reads the flag byte at `0x1E53E` (`SubCPU_Payload_GetErrorFlag`) and sends the message only when that byte is `0xFF`; for `0x00` or `0x01` it returns without sending. The byte is `0xFF` when `SubCPU_Payload_Verify` finds no valid saved power-down state (the `0xF980` region fails its check) and `0x01` when only the `0xF180` region fails (see [Boot Sequence]({{ site.baseurl }}/boot-sequence/#welcome-screen-and-boot-animation)). Because the boot code runs the routine whenever the byte is non-zero (see [Subsystem Init Phases]({{ site.baseurl }}/boot-sequence/#subsystem-init-phases)), the two versions differ at boot only for `0x01`: v9 sent the message and v10 does not. `MainSysControl` sets the byte to `0xFF` (`SubCPU_PayloadErrorStore`) before it dispatches a system initialisation (`EVT_SYS_INI`), so that path still sends the message, and the MIDI transfer-abort recovery (`MidiSysEx_RecoverAbortedXferGroup`) now sends it only while the byte reads `0xFF`. This grew the function from 10 bytes to 21 bytes (**+11 bytes**).
 
 ### The Second Edit: Return Value Handling
 
@@ -131,7 +131,7 @@ None of the five single-byte differences listed here is an independent fix. Item
 
 ### Conclusion
 
-**The v9-to-v10 update was a small, targeted code change.** v10 makes `SendPartDataBlock_DoGetError` send its `0xFF`/`0xFF` message only while the flag byte at `0x1E53E` reads `0xFF`, and makes `SoundRam_WriteIdAndChecksum` return `HL = 0`. What that message does on the sub-CPU side, and so which user-visible fault the change addresses, has not been established.
+**The v9-to-v10 update was a small, targeted code change.** v10 makes `SoundRam_InitPhase2_ResetIfRamLost` send its `0xFF`/`0xFF` message only while the flag byte at `0x1E53E` reads `0xFF`, and makes `SoundRam_WriteIdAndChecksum` return `HL = 0`. What that message does on the sub-CPU side, and so which user-visible fault the change addresses, has not been established.
 
 The fix was surgical: add 14 bytes of error checking code, fix a return value corruption path, and let the existing 0xFF padding absorb the growth.
 
