@@ -136,8 +136,9 @@ INFO comment.)
   `LOOP_END` segment ends, and a unity note: the root key plus the rounding of the rate. The pitch law
   behind it was fitted in emulation (kn7000_mame `notes/g13-waves-2026-10-20`, 478 of 556 voices), so
   the octave of the root is *[INFERENCE]*; the pitch class is checked against the audio. 90 loops end past
-  their item and are left out of the WAV (its comment says how many); `Main_P00_W0AF` has no unity
-  note, because its P word reads as E = 47.
+  their item and are left out of the WAV (its comment says how many). (The old item `Main_P00_W0AF`, which
+  had no unity note, is part of `Main_P00_W065` since 2026-11-02: its entry, the Reverse Cymbal, plays
+  `Main_P00_W0AE` backwards; [KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/).)
 - **8-bit gain.** The KN7000's 8-bit segments carry a 6-bit code that, in emulation, scales the
   segment by 2^(-b/2) (fitted, not derived). The WAV holds the raw samples, so 8-bit recordings play
   with their segments at the stored level: the segment gain law is not established, so no gained copy

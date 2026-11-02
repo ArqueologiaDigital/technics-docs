@@ -78,12 +78,15 @@ carried into it from the KN7000 (below), 250 come from KN7000 library routines, 
 `Tg*` tone-generator routines. The source assembles it under `.mnbase 0x4FDF7A42`, so its
 PC-relative encodings are reproduced exactly.
 
-**Open: who copies it there.** The 24 bytes after the last instruction hold, among others,
-`0x487285BE` (the range's flash address), `0x50120000` (its link address) and `0x487965B8`,
-which fits a copy descriptor (`RamCodeTrailer`). `func_4870587E` reads it, byte by byte from
-`RamCodeTrailer+3`, 12 bytes a record (each word assembled little-endian with `asl 8 / 16 / 24`);
-what it does with the three words of each record was not traced, so the routine that copies the
-range to RAM is still not identified: crt0 copies only `.data` (`0x6E78` bytes from
+**Who copies it there.** The 24 bytes after the last instruction hold, among others,
+`0x487285BE` (the range's flash address), `0x50120000` (its link address) and `0x487965B8`: a copy
+descriptor (`RamCodeTrailer`). `RamSectionsCopy` (`0x4870587E`), crt0_start's last call before `KernelStart`, walks
+the 12-byte records {u16 flags (bit 15 = last), u16 length, u32 source, u32 dest} from `RamCodeTrailer+3`, each
+field read byte by byte: {`0x0002`, `0xDFFA`, `0x487285BE`, `0x50120000`} copies the RAM-linked code, `0x6DFFA`
+bytes (the next record's source minus this one's), and {`0x8003`, 3, `0x487965B8`, `0x5018FFF0`} copies the
+trailer's first 3 bytes (`de 00 00`, `retf [], 0`) to `0x5018FFF0`. So the KN2400/KN2600 copies its RAM-linked
+tone-generator library itself (settled 2026-11-02, lane mn10300-names; disassembly
+`kn2400/notes/data-region/README.md` and the row of `RamSectionsCopy` in `kn2400/kn2400_manual.sym`). crt0 itself copies only `.data` (`0x6E78` bytes from
 `0x485DD334` to `0x50000010`). (Corrected 2026-10-30, lane generic-zero, disassembly
 `c65a62c5b`: this paragraph had said no code reads them.)
 
@@ -162,7 +165,7 @@ run into the next function's `add -N, sp`, 7 are fill and 2 stop early
 - Reflection tables whose procedures are in the RAM-linked range: `gen_symbols.py` assumes
   one link base, so it pairs none of them.
 - RAM and I/O addresses are still numbers. Since the data is typed, the code names the data
-  addresses it uses by their labels, but not everywhere: the RAM-linked `func_50173F49` still
+  addresses it uses by their labels, but not everywhere: the RAM-linked `NoteConvApply` still
   loads `NoteConvRules` as `mov 0x4854b24c, d3`.
 - The 4 MiB half of the IC12/IC13 flash pair at `0x48000000` has never been read; see
   [Memory layout]({{ site.baseurl }}/kn2400-kn2600/#memory-layout).

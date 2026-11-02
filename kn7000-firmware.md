@@ -108,7 +108,7 @@ queued wake-ups) and returns with `rets`: the interrupt-handler shape. `LibIrqSc
 `0x4C03DE26`) reads the accepted group from `0x34000200`, finds the request in GxICR, maps it through
 the RAM table `0x50380A6C` to an index and calls the handler from the RAM table `0x50380B64` with
 `calls (a2)`. KernelInit fills that table with the default `loc_4C03DEE9`, and the def_int service
-`func_4C03DB21` installs a handler from a packet {attribute, handler, level, ICR address}. The only
+`KernelDefInt` installs a handler from a packet {attribute, handler, level, ICR address}. The only
 def_int of G6ICR is the application start-up's (`func_48447F33`, which KernelInit calls): interrupt 1,
 handler `KernelTickHandler` (lib `0x4C02BB05`, the 1 kHz tick), level 6. No word of the program, table
 or IC18 image holds `0x487B8FB2`, no instruction names it and no branch reaches it, so it is the kernel

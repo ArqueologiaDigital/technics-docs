@@ -43,7 +43,7 @@ cell) is on [MEMORY DUMP Screen]({{ site.baseurl }}/kn7000-memory-dump-screen/).
 ## Every setting has a parameter id
 
 Every live parameter is read and written through a 24-bit id. `GetM3Em` / `PutM3Em` look the id up
-in `ResourceIdTrie` (KN7000 `0x4858B424`, walked by lib `func_4C01BB1A`; KN6000 `0x4C1935DC` and
+in `ResourceIdTrie` (KN7000 `0x4858B424`, walked by lib `ResourceIdFind`; KN6000 `0x4C1935DC` and
 KN2400 `0x48404E70`, each walked by its `ResourceIdFind`, named and typed by lane mn10300-rest: a root of
 16 entries `{u32 target, u8 inner, u8 count, u16 0}`, taken by the id's nibbles from bit 20 down). A leaf is
 `{u32 id, u16 type, u16 kind, u16 min, u16 max, u8 block, u8 offset, u8 mask, u8 shift}`. For type
@@ -56,7 +56,7 @@ Part-scoped ids take the block from the id's top byte.
 `m3em_param_map.py` measured 469 trie records on the KN7000 (314 of type 0) and 307 of type 0 on
 the KN6000.
 
-Many ids are MIDI messages. `func_48440533` builds an id as `(status & 0xF0) << 16 | controller`,
+Many ids are MIDI messages. `PartEventToParam` builds an id as `(status & 0xF0) << 16 | controller`,
 so `0xB0nnnn` is control change nn and `0xC00000` program change; *[INFERENCE]* `0xB080nn` is RPN nn
 (its ranges are 0..12 for RPN 0, 40..88 for RPN 2). Names for the other ids come from their callers
 (`m3em_callers.py`: 1,303 calls with a literal id, 213 distinct ids), from the GUI grids of the

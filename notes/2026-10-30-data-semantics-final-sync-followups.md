@@ -32,7 +32,7 @@ corrected in technics-roms-disasm `bf0581312`; kept here as the record of what w
   contradicts the same README's "The data region and the plug-in's GUI", which says they go
   through the KN6000's block-0 Function table (registry slot `0x100`).
 - `kn7000/kn7000.sym` comments `ResourceIdTrie` as "used by libROM 0x4C01BB1C"; the walker the
-  notes and the code name is `func_4C01BB1A`.
+  notes and the code name is `ResourceIdFind`.
 
 **On the site, not done in this sync:**
 

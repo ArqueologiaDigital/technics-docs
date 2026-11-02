@@ -374,7 +374,7 @@ generic-zero (disassembly `c04e41079`, `c65a62c5b`, `4653d696b`) took them to 0 
 - the KN6000 / KN6500 code file's two `.incbin_range`s (115 + 586 B) are typed:
   `FirmwareVersionByte`, the kernel's version string, `KernelServiceHash`, `KernelRamLayout`,
   `KernelParams`, and its two interrupt dispatchers as code;
-- the KN2400's `RamCodeTrailer` has a reader after all (`func_4870587E`).
+- the KN2400's `RamCodeTrailer` has a reader after all (`RamSectionsCopy`).
 
 Opaque fell with it: bytes declared unread turned out to be record parts. The snapshot counts the
 data that no instruction reads as opaque `unknown-dump`, each piece declared with the reader

@@ -16,7 +16,7 @@ archive**. It opens with a table of little-endian u32 chunk offsets, and each en
 | Address      | Segment | Tag / content        | Meaning                                                                                                                                                                                                                                               |
 |--------------|---------|----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `0x48000000` |         | u32 offset directory | index of all chunks (first chunk at `0x48000200`)                                                                                                                                                                                                     |
-| `0x48034858` | 1       | **`ZZZJ`**           | 220 battery-SRAM default records of eight program selections each ([below](#zzzj-segment-1))                                                                                                                                                          |
+| `0x48034858` | 1       | **`ZZZJ`**           | the SOUND ARRANGER's factory settings: 220 battery-SRAM records, one sound per accompaniment part ([below](#zzzj-segment-1))                                                                                                                          |
 | `0x48035d08` | 2       | **`TCMP`**           | the factory rhythm-**style** container (3 built-in styles, " Easy 8 Beat " / "Easy 16 Beat " / " Easy Swing  "), copied by `memcpy_entry` to RAM `0x50180000` (`MEM_STYLE_AREA`) at boot — **data, not code**; nothing ever calls into that RAM range |
 | `0x48040674` | 3       | **`TPAD`**           | the factory PERFORMANCE PAD user memory: 5 banks, 18 pads                                                                                                                                                                                             |
 | `0x4804238c` | 4       | `Technics Pads`      | the built-in pad bank: 120 pads                                                                                                                                                                                                                       |
@@ -175,9 +175,19 @@ gives TCMP's stored 0xCC00 and TPAD's stored 0xE13D (`notes/table-semantics-prob
 `SramRecordsLoadFactory` compares the first 8 bytes with `'ZZZJ', 0, 'K', 0, 0xDC` and copies
 records of 0x18 bytes over the battery-SRAM table at `0x84030FF8`. A record is read as eight
 {program, bank LSB, bank MSB} entries; that is an inference from the bank pattern (bank MSB 0x26
-in entries 0 and 1 of all 220 records, the drum/melodic pattern of the styles' part programs). 220
-is the rhythm count, but no record matches any table style's eight part programs, so what the
-records configure is still open.
+in entries 0 and 1 of all 220 records, the drum/melodic pattern of the styles' part programs).
+
+They are the **SOUND ARRANGER**'s factory settings (traced 2026-11-02, lane mn10300-names): for each
+of the 220 preset rhythms, one replacement sound per accompaniment part, copied to battery SRAM.
+Record n is preset rhythm n: a rhythm id becomes a number by counting the genres' rhythms before its
+own (10 + 16 + ... + 26 = 220 in genres 0..13; CUSTOM, MEMORY and composer rhythms have none). The
+eight entries are {program, bank LSB, bank MSB}, one per accompaniment part in the order Drum, Perc,
+Bass, Acc1..Acc5. Bit 7 of entry 0's program byte is the arranger's ON for that rhythm (0 in all 220
+factory records); bit 7 of entries 2..7 makes that part's CC94 127 instead of 0 (44 entries). The help
+text agrees: "There are some preset settings already in the Sound Arranger ... Turn Sound Arranger
+off to return to the factory settings". Source: disassembly
+`kn7000/notes/table-semantics-2026-10-29.md`, section "'ZZZJ', segment 1", probe
+`kn7000/notes/mn10300-names-probes/songtable_zzzj.py`.
 
 ### The 'JK' internal voice archive
 
@@ -237,7 +247,7 @@ repository).
 
 - The 'JK' archive's fields that no traced routine reads (the 0x7A unit's `+0x04`..`+0x06` and
   others), and which tone generator each zone's side bit selects.
-- 'ZZZJ': what the 220 records select.
+- ~~'ZZZJ': what the 220 records select.~~ The SOUND ARRANGER's factory settings ([above](#zzzj-segment-1)).
 - The USER HP pictures' true box sizes.
 - A few pad, TPAD and TCMP head bytes that no traced code reads.
 

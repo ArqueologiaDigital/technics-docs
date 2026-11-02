@@ -120,14 +120,14 @@ addresses.
 
 With it come new passes of `gen_data_s.py`:
 
-| pass              | what it types                                                                                                         | evidence                                                         |
-|-------------------|-----------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
-| `support_classes` | the SupportClass table (registry slot `0xD`, 54 entries and an empty one) as `SUPPORT_CLASS proc, x4, propsize, data` | `InitSptClassTable` registers it; `SupportClassProc` reads it    |
-| `resource_trie`   | the resource-id trie: 177 tables, 940 entries, 7,400 bytes, as `RES_TRIE_ENTRY target, inner, count`                  | `func_4C01BB1A`: nibble-indexed 8-byte entries, inner 0 = a leaf |
-| `sysex_strings`   | MIDI SysEx messages a typed pointer points at (`0xF0`, data below `0x80`, `0xF7`; `0x50` = Matsushita), one row each  | the framing, and the pointer fields that hold them               |
-| `copied_blocks`   | a data address passed to memcpy / memcmp / strncmp / strncpy with a constant length: that many bytes                  | the call's a0 / a1 and d0, cited in the header                   |
-| `pointer_runs`    | aligned runs of 3 or more words that are each 0 or an address of the region: `.long Label`                            | *[INFERENCE]* by value; the header says no reader was traced     |
-| `ptr_records`     | records one function selects: `<func>_Result` / `<func>_Selected`; short records as `<kind>_s<N>` size variants       | the reads through the selected value                             |
+| pass              | what it types                                                                                                         | evidence                                                          |
+|-------------------|-----------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
+| `support_classes` | the SupportClass table (registry slot `0xD`, 54 entries and an empty one) as `SUPPORT_CLASS proc, x4, propsize, data` | `InitSptClassTable` registers it; `SupportClassProc` reads it     |
+| `resource_trie`   | the resource-id trie: 177 tables, 940 entries, 7,400 bytes, as `RES_TRIE_ENTRY target, inner, count`                  | `ResourceIdFind`: nibble-indexed 8-byte entries, inner 0 = a leaf |
+| `sysex_strings`   | MIDI SysEx messages a typed pointer points at (`0xF0`, data below `0x80`, `0xF7`; `0x50` = Matsushita), one row each  | the framing, and the pointer fields that hold them                |
+| `copied_blocks`   | a data address passed to memcpy / memcmp / strncmp / strncpy with a constant length: that many bytes                  | the call's a0 / a1 and d0, cited in the header                    |
+| `pointer_runs`    | aligned runs of 3 or more words that are each 0 or an address of the region: `.long Label`                            | *[INFERENCE]* by value; the header says no reader was traced      |
+| `ptr_records`     | records one function selects: `<func>_Result` / `<func>_Selected`; short records as `<kind>_s<N>` size variants       | the reads through the selected value                              |
 
 **The resource-id trie** is the table every live panel parameter goes through: `GetM3Em` /
 `PutM3Em` look a 24-bit parameter id up in `ResourceIdTrie` (`0x4858B424`, inside the typed
@@ -437,6 +437,29 @@ code / chord maps 5,352, chord voicings and inversions 5,008, fixed-count tables
 initialised RAM image 3,526, style / setup lists 638. What stays opaque, and why, is listed in the README:
 alignment padding and record tails no reader reaches, the IvCustomizeBase record's x / y (no routine reads them), the reflection tables'
 second halves, the flash sector tables' unread words.
+
+## More of the data typed from the code that reads it (lane mn10300-data)
+
+Every widget's state variable in the initialised RAM -- the selected item of a list, the value of a
+number box, the window a screen opens -- is now written at the width its class's procedure reads it,
+with that instruction cited. The chord and code maps (128 rows by 64 entries, one row per note, one
+column per chord type) and the chord voicings (twelve keys, up to seven notes each, and the
+inversions) are tables of their own; so are the lists the firmware walks until an end marker (the
+panel buttons' descriptors, the effect programs' command lists, the style lists) and the tables whose
+size the code checks before indexing them (the 32-slot hash tables, the 101-entry curves, the 99 words
+the hard-disk defaults copy).
+
+| tree         | typed bytes before | typed bytes after | opaque pieces / bytes before | opaque pieces / bytes after |
+|--------------|--------------------|-------------------|------------------------------|-----------------------------|
+| 941          | 2,154,302          | 2,256,494         | 912 / 15,782                 | 256                         |
+| 942 (SP7001) | 2,161,564          | 2,261,320         | 917 / 15,655                 | 258                         |
+| 935          | 2,154,908          | 2,257,439         | 929 / 16,310                 | 263                         |
+| 893          | 2,156,004          | 2,257,726         | 918 / 15,843                 | 263                         |
+
+Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER --brief` (typed bytes from
+`labels.sym`'s item sizes; opaque pieces as the generator counts them, not the data-incbin census), before =
+disassembly `c240d1c0b`, after = the lane's regenerated sources; the rules are the `gen_data_s.FEATURES` keys
+(disassembly `kn7000/notes/mn10300-data/README.md`). The census below predates this lane.
 
 ## What is left: the census
 

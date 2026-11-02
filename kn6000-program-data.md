@@ -93,7 +93,7 @@ only 21 of those tables.
 | demo songs (36 zlib streams) | both: 12 songs x record / events / panel bank | the floppy describers type them (song record `0x870` bytes on the KN6000); `.zlib 6` re-compresses byte-exactly      |
 | `TechnicsRhythmsResource`    | `0x4C359AC0` / `0x4C2E5304`                   | IC18's format, one style " 8 Beat 1"; `func_4C0557E9` falls back to it when the table ROM's resource does not check  |
 | bitmap resources (13 / 13)   | both                                          | procedures answering `MT_GetBitmapData` / `Width` / `Height` / `Palette` / `MT_GetBitCount`; indexed PNG             |
-| `ToneRecordDirectory`        | KN6000 `0x4C3E5FD4` (2,475 entries)           | `func_4C07C26A`: record index -> address when no archive is loaded; tone, TABLE-tone and voice records               |
+| `ToneRecordDirectory`        | KN6000 `0x4C3E5FD4` (2,475 entries)           | `ToneRecordGet`: record index -> address when no archive is loaded; tone, TABLE-tone and voice records               |
 | `FactoryPanelMemory`         | `0x4C32BE24` / `0x4C2B7668`, 13 banks x 8     | `func_4C03D431` / `func_4C03D5A1` copy it (`0x2D8D0` bytes) and the `.PMT` header to the backup RAM                  |
 | `TechnicsPadsResource`       | `0x4C35FF84` / `0x4C2EB7C8`                   | `TechnicsPadsResourceInit` keeps it and calls `TechnicsPadsResourceParse` when the table flash's copy does not check |
 | JPEG / BMP files             | 3                                             | whole files                                                                                                          |
@@ -134,7 +134,7 @@ KN6500 1,080.
 ### The note-conversion rules
 
 `NoteConvRules` (KN6000 `0x4C3850BC`, KN6500 `0x4C3108F8`) is 128 x 8 bytes, `{is_melody, alt_chord,
-no_third_adj, no_transpose, table}`. Its reader, `func_4C05805C`, is the KN7000's `func_48436229`
+no_third_adj, no_transpose, table}`. Its reader, `func_4C05805C`, is the KN7000's `NoteConvApply`
 instruction for instruction: it adds `4 + (type - 1) * 12`, or `4 + (type - 1) * 0x90 + (root - 1) *
 12`, then note % 12, and reads a signed byte. The tables are the KN7000's `NoteConvTable` {name;
 s8 deltas}, 492-byte melody and 4,900-byte chord tables: on the KN6000 21 tables, about 50 KB (the
@@ -313,6 +313,28 @@ A few bytes that an over-long table held before (32 on the KN6000, 35 on the KN6
 are now rows or fill: the `0xFFFFFFFF` terminators after some tables, whose loop stops before them. The kernel's routine after `KernelInitHook` is `KernelTickIsrDefault`
 ([KN6000 Disassembly]({{ site.baseurl }}/kn6000-disassembly/#the-two-program-images)); since it is a
 function now, its call names an entry, one more routine without a header in the doc-quality census.
+## More of the data typed from the code that reads it (lane mn10300-data)
+
+Every widget's state variable in the initialised RAM -- the selected item of a list, the value of a
+number box, the window a screen opens -- is now written at the width its class's procedure reads it,
+with that instruction cited. The chord and code maps (128 rows by 64 entries, one row per note, one
+column per chord type) and the chord voicings (twelve keys, up to seven notes each, and the
+inversions) are tables of their own; so are the lists the firmware walks until an end marker (the
+panel buttons' descriptors, the effect programs' command lists, the style lists) and the tables whose
+size the code checks before indexing them (the 32-slot hash tables, the 101-entry curves, the 99 words
+the hard-disk defaults copy). What the KN6000 and KN6500 used to show as "doubles" is their feature demo's XML script (`<ACT NO=5><SHOW OBJ="fdemo_a5">` ...), now text *[INFERENCE: text, from 32 or more printable bytes no instruction reads]*.
+
+| tree                     | typed bytes before | typed bytes after | opaque pieces / bytes before | opaque pieces / bytes after |
+|--------------------------|--------------------|-------------------|------------------------------|-----------------------------|
+| KN6000                   | 2,450,916          | 2,549,408         | 1,145 / 24,654               | 264                         |
+| KN6500                   | 1,962,208          | 2,062,463         | 1,176 / 27,134               | 263                         |
+| HD-SX6 plug-in (`hdsx3`) | 484,505            | 484,903           | 40 / 386                     | 37                          |
+
+Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER --brief` (typed bytes from
+`labels.sym`'s item sizes; opaque pieces as the generator counts them, not the data-incbin census), before =
+disassembly `c240d1c0b`, after = the lane's regenerated sources; the rules are the `gen_data_s.FEATURES` keys
+(disassembly `kn7000/notes/mn10300-data/README.md`). The census below predates this lane.
+
 ## What is left: the census
 
 The fourth committed snapshot of `scripts/analysis/data_incbin_census.py`,

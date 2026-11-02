@@ -182,9 +182,26 @@ Every memory operand that names a device register is an `.equ`. On 2026-10-24
 `kn7000/notes/ic18-boot-rom-probes/leftovers.py` found 0 numeric memory operands left (down
 from 222) and 193 bytes of `.byte` lines without a comment, under 23 labels, down from 422.
 Still open: `LcdOldPaletteA`/`B` (they depend on the unidentified map), `OldDataImage` (the
-older link's `.data`), the layout of `LocaleNumericC` / `LocaleMonetaryC`, and what
-`FatMountFailImage`'s numbers were meant to be. Four register placeholders keep a TODO each:
-`UNKNOWN_32000010`, `UNKNOWN_34004002`, `TGA_04` and `TGA_10`.
+older link's `.data`) and the layout of `LocaleNumericC` / `LocaleMonetaryC`. `FatMountFailImage`'s
+numbers are never used: every caller stops on the failed mount, and a good mount rewrites every word
+(*[INFERENCE]* placeholders: the volume name is "12345678").
+
+On 2026-11-02 (lane mn10300-names) the boot ROM's TODO markers went from 16 to 3. Tone generator A's
+two other ports are `TGA_KEY_FIFO` (`0x98050004`), the key-event FIFO that program 941 drains as
+{key, velocity} words and that its `TgChipResetSideA` writes 3 three times, and `TGA_INIT`
+(`0x98050010`, *[INFERENCE]* a start-up strobe), which `TgChipResetSideA` writes 1 three times just
+before. The interrupt controller's `IAGR` (`0x34000200`) and `G0ICR` (`0x34000100`) are named from
+the MN1030 instruction manual's interrupt example. Also settled: the panel link's busy count
+(`PanelBusyPumpCount`, 20 pump calls = time-out), the copy descriptor's unread `0x8001` word, the
+write-only `PanelLinkConst7D`, the tick hook's words (`TickHookArg0`..`3`, an empty debug hook),
+`TickJobs`' consumers (941's `TickJobsTask`), the font header's +4 (descent) and +6 (byte columns
+per glyph), `SdUpdateVerify` (nonzero: read the written file back) and the mode-2 SD frames
+`SdFrameR2Cmd0`..`7` ({clock mode, response type, 0x40 | n, argument, CRC}; only `SdFrameR2Cmd0` is
+used). Three stay BLOCKED: `UNKNOWN_32000010` and `UNKNOWN_34004002` (program 941 writes them the same
+way, 0x400 first in its bus set-up and 0 right after MEMCTR0; no MN103002A register manual is at
+hand, only the MN1030 instruction manual), and the device behind the update lamps (on no page of the
+service manual; the factory jig on CN106). Source: disassembly `kn7000/notes/ic18-boot-rom.md`,
+probe `kn7000/notes/ic18-boot-rom-probes/ic18boot_xref.py`.
 
 ## The rest of IC18: rhythm data
 

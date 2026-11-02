@@ -64,23 +64,34 @@ parameter word; and the code field (below) is non-zero only in 8-bit entries.
 
 ### Directory entry
 
-| word | name | meaning                                                                                                 |
-|------|------|---------------------------------------------------------------------------------------------------------|
-| 4j   | A    | the entry's parameter record, in words from the page start                                              |
-| 4j+1 | P    | `0x1000 \| E<<4 \| F<<3 \| K`                                                                           |
-|      | E    | bits 11:4, the pitch exponent: a period of 2^(E-9) samples sounds at the note (inferred from emulation) |
-|      | F    | bit 3 (`PCM8`): two signed 8-bit samples per word, low byte first                                       |
-|      | K    | bits 2:0 (`GRAN_16` .. `GRAN_2048`): segments and loops count in granules of L = 2^(K+4) samples        |
-|      | -    | bit 12 (`PFMT`): set in every entry; meaning unknown                                                    |
-| 4j+2 | B    | the recording's first sample, in units of 16 words (32 bytes) from the page start                       |
-| 4j+3 | Q    | a copy of the record's first parameter word                                                             |
+| word | name | meaning                                                                                                |
+|------|------|--------------------------------------------------------------------------------------------------------|
+| 4j   | A    | the entry's parameter record, in words from the page start                                             |
+| 4j+1 | P    | `0x1000 \| R<<9 \| E<<4 \| F<<3 \| K`                                                                  |
+|      | R    | bit 9 (`PREV`): the entry plays a recording backwards (one entry, below)                               |
+|      | E    | bits 8:4, the pitch exponent: a period of 2^(E-9) samples sounds at the note (inferred from emulation) |
+|      | F    | bit 3 (`PCM8`): two signed 8-bit samples per word, low byte first                                      |
+|      | K    | bits 2:0 (`GRAN_16` .. `GRAN_2048`): segments and loops count in granules of L = 2^(K+4) samples       |
+|      | -    | bit 12 (`PFMT`): set in every entry, bits 15:13 and 11:10 clear in every entry; meaning unknown        |
+| 4j+2 | B    | the recording's first sample, in units of 16 words (32 bytes) from the page start                      |
+| 4j+3 | Q    | a copy of the record's first parameter word                                                            |
 
 The evidence for F: of 937 recordings whose entry has it set, 929 read better as 8-bit samples;
 of 2,721 with it clear, 4 do (`format_probe.py`). For K: with L = 2^(K+4), 945 of 954 marked
 loops repeat exactly; with L/2 or 2L, 1 of 1,887 (`loop_probe.py`).
 
-E is 13 to 19 in every entry but one, main page 0x00 entry 0x0AF (`Main_P00_E0AF`), whose P is
-`0x12fa`. That is its neighbours' value with bit 9 also set, so bit 9 may be a flag of its own.
+E fits bits 8:4: it is 13 to 19 in every entry. Bit 9 is set in one entry, main page 0x00 entry
+0x0AF (`Main_P00_E0AF`, P = `0x12fa`, its neighbours' value with bit 9 added). **That entry plays a
+recording backwards**: it is the Reverse Cymbal (its bank key is the one of the archive's " Reverse
+Cymbal " sounds), and its B is the negated address of the last 16-word unit of the ride cymbal
+recording of entry 0x0AE, whose 964 units it covers from the last down to the first, with the same
+segments and no loop. So the tone generator, given bit 9 (`PREV`), reads the address counter negated
+and plays `Main_P00_W0AE` from its end. The source spells it that way, and the stream has no
+`Main_P00_W0AF` item: the 21,888 bytes that used to be one are the rest of `Main_P00_W065`'s 16-bit
+recording, so the two WAV files became one (2,250 MAIN WAV files since 2026-11-02). *[INFERENCE]* The
+meaning of bit 9: the firmware never reads P, and a listening test of the Reverse Cymbal would
+confirm it. Source: disassembly `kn7000/notes/wave-roms-2026-10-29.md`, probe `wave_reverse_entry.py`
+(lane mn10300-names).
 
 ### Parameter record
 
@@ -228,7 +239,8 @@ play and edit them, for all models, is on [Media Files]({{ site.baseurl }}/media
 - The `smpl` chunk carries the unity note always and the loop where the record marks one: 837
   recordings (477 MAIN, 360 SUB, counted from the manifests). 90 loops end past their item (an entry
   can play into the next recording's bytes); the WAV leaves those out and says so in its comment.
-  `Main_P00_W0AF` has no unity note: its entry's P word reads as E = 47 (see `Main_P00_E0AF` above).
+  (Until 2026-11-02 an item `Main_P00_W0AF` had no unity note, its P word read as E = 47; it is now
+  part of `Main_P00_W065`, and `Main_P00_E0AF` plays `Main_P00_W0AE` backwards, above.)
 - The unity note includes the zone correction of the keys that select the recording (see below);
   a recording selected with differing corrections (30 of 2,662) uses the one most keys use.
 - A recording whose audio the KN5000's IC307 also holds gets the IC307 name too
@@ -256,7 +268,8 @@ parameter record that selects it. The `smpl` chunk carries the root.
 A single-cycle wave can exceed 192 kHz at its root; its root then moves down by whole octaves until the rate
 is at most 192 kHz (121 recordings, each flagged). Rates run from 3,977 Hz to 189,437 Hz, median 37,084 Hz.
 Examples: the piano's C4 recording `Main_P0A_W00F` (and `Sub_P08_W023`) is 18,508 Hz at root 63; the
-512-sample sine is 189,437 Hz at root 66. `Main_P00_W0AF`, whose P word reads as E = 47, keeps 44,100 Hz.
+512-sample sine is 189,437 Hz at root 66. (The 44,100 Hz the old `Main_P00_W0AF` item kept is gone with it:
+`wave_root_rates.py` now reads E as P bits 8:4 and gives the reversed entry the recording it plays.)
 The rates are in `kn7000/src/wave/root_rates.tsv` and the manifests; `scripts/build/pcm_wav.py retag` wrote
 them into the headers, the samples are unchanged and `pcm_wav.py verify` still round-trips every file.
 
@@ -281,13 +294,17 @@ regeneration order).
   everywhere.)
 - **The split list**, the values below 0x80: it does not change the pitch in emulation. Perhaps the
   interpolator's or a filter's switch points by pitch.
-- **P bit 12**, always set, and **bit 9** of `Main_P00_E0AF`.
+- **P bit 12**, always set and read by no firmware code: it needs the tone generator's datasheet.
+  (Bit 9 is the reversed entry, above.)
 - **The 8-bit gain law.** `2^(-(code&7)/2)`, 3 dB per step of bits 10:8, is a fit; the code's high three bits, and the code on
   `REC_END` words, are unexplained. Nothing in the firmware reads the code, no datasheet is known for the
   tone generator LSIs, and none of the 548 searchable 8-bit recordings has a 16-bit copy to measure against
   (`notes/sound-probes/gain_law_duplicates.py`). A line-out recording of an 8-bit sound (e.g. STRINGS, whose
   attack runs through codes 5..0) would settle it. The WAVs keep the stored levels.
-- **What plays after the loop.** Many recordings carry data past their loop end: a release segment?
+- ~~**What plays after the loop.**~~ Answered 2026-11-02 (lane mn10300-names): a directory entry gives
+  where a recording starts and its record where it ends; a looped recording ends 32 samples after its loop
+  end, and those 32 samples repeat the loop's start. There is no release segment (disassembly
+  `kn7000/notes/wave-roms-2026-10-29.md`, "Where a recording ends", probe `wave_record_extent.py`).
 - ~~**Shared recordings with the KN5000.**~~ Settled on 2026-10-30 (lane media-files): the KN5000's
   IC307 is the Y half of such a pair. No 1 MiB page of IC307 equals a KN7000 page (whole-page
   comparison, 2026-10-29), but 1,342 of its 1,413 waves occur verbatim in this tone generator pair's

@@ -45,11 +45,14 @@ Viewable tables, 35 OT blocks, 278 titles and 23 modes; `milk_model --check`: 0 
 - **Built-in style**: `TechnicsRhythmsResource` (`0x4852BD9C`), IC18's format with one style.
 - **Bitmaps**: 45 bitmap resources, PNG in `media/`, besides 3 JPEG and 2 BMP files.
 - **`RamCodeTrailer`** (`0x487965B8`, 27 bytes after the RAM-linked code): 7 bytes, then
-  `0x487285BE`, `0x50120000`, `0x00038003`, `0x487965B8`, `0x5018FFF0`. *[INFERENCE]* a copy
-  descriptor. `func_4870587E` reads it, byte by byte from `+3`, 12 bytes a record (`movbu`, each
-  word assembled little-endian with `asl 8 / 16 / 24`); its immediates are spelled
-  `RamCodeTrailer+3` ... and `RamCodeTrailerWords+N`. What it does with the three words of each
-  record was not traced. (Corrected by lane generic-zero, disassembly `c65a62c5b`: the notes, and
+  `0x487285BE`, `0x50120000`, `0x00038003`, `0x487965B8`, `0x5018FFF0`, a copy descriptor; its
+  immediates are spelled `RamCodeTrailer+3` ... and `RamCodeTrailerWords+N`. `RamSectionsCopy` (`0x4870587E`), crt0_start's last call before `KernelStart`, walks
+  the 12-byte records {u16 flags (bit 15 = last), u16 length, u32 source, u32 dest} from `RamCodeTrailer+3`, each
+  field read byte by byte: {`0x0002`, `0xDFFA`, `0x487285BE`, `0x50120000`} copies the RAM-linked code, `0x6DFFA`
+  bytes (the next record's source minus this one's), and {`0x8003`, 3, `0x487965B8`, `0x5018FFF0`} copies the
+  trailer's first 3 bytes (`de 00 00`, `retf [], 0`) to `0x5018FFF0`. So the KN2400/KN2600 copies its RAM-linked
+  tone-generator library itself (settled 2026-11-02, lane mn10300-names; disassembly
+  `kn2400/notes/data-region/README.md` and the row of `RamSectionsCopy` in `kn2400/kn2400_manual.sym`). (Corrected by lane generic-zero, disassembly `c65a62c5b`: the notes, and
   this page, had said nothing reads it.)
 
 - **The MILK kernel's tables and routines** (lane code-island, 2026-10-30,
@@ -87,9 +90,9 @@ one-touch macros ([Panel Memory Records]({{ site.baseurl }}/kn7000-panel-memory/
 the one left out does not fit the masks.
 
 **The note-conversion rules.** The KN2400's copy of `NoteConvRules` (`0x4854B24C`, 128 x 8 bytes) is
-read by `func_50173F49` in the RAM-linked code, which the reader walk follows: `+4` is loaded at
-`func_50173F49_entry_L13` (`0x50173F61`), and the answers for `+1` / `+2` / `+3` come from `func_50173EF8`,
-`func_50173F13` and `func_50173F2E`. The tables it points at are the KN7000's `NoteConvTable`, as on
+read by `NoteConvApply` in the RAM-linked code, which the reader walk follows: `+4` is loaded at
+`NoteConvApply_entry_L13` (`0x50173F61`), and the answers for `+1` / `+2` / `+3` come from `NoteConvRuleByte1Get`,
+`NoteConvRuleByte2Get` and `NoteConvRuleByte3Get`. The tables it points at are the KN7000's `NoteConvTable`, as on
 the [KN6000]({{ site.baseurl }}/kn6000-program-data/#the-note-conversion-rules).
 
 **The built-in "Technics Pads" bank.** `TechnicsPadsResource` (`0x48532260`), the table flash's
@@ -289,6 +292,26 @@ the 12-byte blocks the switch descriptors' `p8` leads to (`memcpy(.., 12)`) are 
 doc-quality census rose here (routines without a header 21,233 -> 21,242, `loc_` locals 4,967 -> 4,975):
 newly typed records' pointer fields name code addresses no label had (a table of handlers), and a
 pointed-to label counts as a routine.
+## More of the data typed from the code that reads it (lane mn10300-data)
+
+Every widget's state variable in the initialised RAM -- the selected item of a list, the value of a
+number box, the window a screen opens -- is now written at the width its class's procedure reads it,
+with that instruction cited. The chord and code maps (128 rows by 64 entries, one row per note, one
+column per chord type) and the chord voicings (twelve keys, up to seven notes each, and the
+inversions) are tables of their own; so are the lists the firmware walks until an end marker (the
+panel buttons' descriptors, the effect programs' command lists, the style lists) and the tables whose
+size the code checks before indexing them (the 32-slot hash tables, the 101-entry curves, the 99 words
+the hard-disk defaults copy). The SX-KN2400's 548 DSP effect presets are typed with their names and parameters (name, descriptor index, parameter count, parameters, key; read by `FxPresetGet` and `FxDescIndexGet`).
+
+| tree   | typed bytes before | typed bytes after | opaque pieces / bytes before | opaque pieces / bytes after |
+|--------|--------------------|-------------------|------------------------------|-----------------------------|
+| KN2400 | 1,783,452          | 1,906,859         | 1,192 / 27,313               | 208                         |
+
+Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER --brief` (typed bytes from
+`labels.sym`'s item sizes; opaque pieces as the generator counts them, not the data-incbin census), before =
+disassembly `c240d1c0b`, after = the lane's regenerated sources; the rules are the `gen_data_s.FEATURES` keys
+(disassembly `kn7000/notes/mn10300-data/README.md`). The census below predates this lane.
+
 ## What is left: the census
 
 The fourth committed snapshot,
@@ -361,7 +384,7 @@ name (not traced one by one). The largest opaque pieces, which no instruction re
   terminator-ended lists 4,189, widget variables in the initialised RAM image 3,876, fixed-count tables
   896), and what stays opaque and why: the chord-name tables (no word of the image points into them) and
   the coefficient curves at `0x4840DAF8` (no holder). The list is section 7 of the lane's README.
-- Who copies the RAM-linked code to `0x50120000`: `func_4870587E` reads `RamCodeTrailer`, but
-  what it does with each record's three words was not traced.
+- ~~Who copies the RAM-linked code to `0x50120000`~~: `RamSectionsCopy`, from the two records of
+  `RamCodeTrailer` ([above](#the-kn7000s-milk-layout-throughout)).
 - The 123 address-only blocks the callee walk leaves as rows, and the 12-byte blocks the switch
   descriptors' `p8` points at, which nothing reads.
