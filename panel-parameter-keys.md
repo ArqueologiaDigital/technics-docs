@@ -312,6 +312,19 @@ Notes on the table:
   (DIGITAL REVERB). Each slot's namespace is `0x4?00` algorithm, `0x4?04` parameter
   count, `0x4?10+i` parameter `i`.
 
+### DSP slot records
+
+The DSP slot records (tags 0x61 DSP EFFECT, 0x63 DIGITAL REVERB, 0x64 EQUALIZER, 0x65 ACOUSTIC ILLUSION, 0x66 MIC
+REVERB) hold the effect number and then its parameters in the order of the effect's parameter list, but not one byte
+each: the firmware's per-effect write list (`DspFxRecListPtrTable`, walked by `DSPCfg_ReadMultiField` /
+`DSPCfg_ReadField`) gives each parameter a kind. A delay time or a pre-delay is a big-endian 16-bit word (even PRE
+DELAY, 0..200); a damping gain is the low 6 bits of a byte; an equalizer band is one 16-bit word holding Q (bits
+15-11), frequency (10-6) and gain (5-0); the GEQ and the ROOM / KARAOKE / BATH ROOM / STAGE illusions pair frequency
+(10-6) and gain (5-0) the same way; every other parameter is a byte, feedback and resonance signed. With this layout
+every saved DSP slot record of the 14 factory diskettes (23,434 typed records) decodes inside its parameter ranges.
+The bytes after the last parameter are not read. Source: disassembly `notes/open6-kn5000-d/panel/README.md`, section
+2 (the op / value / width table in full), probe `probes/dsp_slot_packing.py`.
+
 ## Still unidentified
 
 55 of the 972 registered descriptors per firmware version keep address-derived names; the

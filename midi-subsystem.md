@@ -255,10 +255,14 @@ These two routines are panel-memory TLV lookups, not MIDI-channel voice tables; 
 - Jump table at `0xFD175E` (192 entries × 4 bytes for CC 0x00-0xBF)
 - CC > 0xBF rejected
 
-**`MIDI_DistributeParamToChannels`** (`audio/audio_control_engine.s`):
-- Distributes a parameter update across all active channels
-- Input: A = part tag (0x00-0x1F; 0x48 = the style record), C = parameter index, E = value
+**`PanelVari_SetGroupSlot`** (`audio/audio_control_engine.s`):
+- Stores companion[group] = slot: the sound (or, for 0x48, the style) last chosen in a SOUND GROUP / RHYTHM GROUP
+  ([companion records]({{ site.baseurl }}/floppy-disk-formats/#how-each-kind-is-typed)); `PanelVari_GetGroupSlot`
+  reads it back when a group button is pressed
+- Input: A = part tag (0x00-0x1F; 0x48 = the style record), C = group, E = slot
 - Writes through `PanelTlv_CompanionOfPart`; for 0x48 the index limit is 0x0F
+- Formerly misnamed `MIDI_DistributeParamToChannels` (renamed 2026-11-02, disassembly
+  `notes/open6-kn5000-d/panel/README.md`)
 
 ### Voice Channel Architecture
 
@@ -267,7 +271,7 @@ The KN5000 uses a multi-layer voice system where each MIDI channel can have mult
 - **26 internal voice channels** (0x00-0x19): Used by Sub CPU for tone generation
 - **16 external MIDI channels** (0-15): Standard MIDI, mapped to voice channels
 - **Voice layers** (0-4): Each MIDI channel can split into up to 5 layers (e.g., left hand, right hand, split zones)
-- **Tag 0x48** is special-cased by `PanelTlv_CompanionOfPart` and `MIDI_DistributeParamToChannels`: it is the panel memory's style record (companion: tag 0x49 at RAM 0xFF92), not a drum channel
+- **Tag 0x48** is special-cased by `PanelTlv_CompanionOfPart` and `PanelVari_SetGroupSlot`: it is the panel memory's style record (companion: tag 0x49 at RAM 0xFF92), not a drum channel
 
 ### Sub CPU Voice Filtering
 
@@ -323,7 +327,7 @@ The accompaniment engine has its own MIDI filter system:
 | `MIDI_CHANNEL_MESSAGE_DISPATCHER` | `midi_serial_routines.s`          | External MIDI message dispatcher                                                    |
 | `MIDI_DispatchCC`                 | `midi/midi_dispatch_handlers.s`   | CC dispatch via jump table at 0xFD175E                                              |
 | `MidiChannel_ConfigureController` | `midi/midi_dispatch_handlers.s`   | Configure MIDI controller for voice channel                                         |
-| `MIDI_DistributeParamToChannels`  | `audio/audio_control_engine.s`    | Distribute param to all active channels                                             |
+| `PanelVari_SetGroupSlot`          | `audio/audio_control_engine.s`    | Distribute param to all active channels                                             |
 | `PanelTlv_CompanionOfPart`        | `audio/audio_control_engine.s`    | Part tag → companion record's payload (0xEDB264; 0x48 = style record)               |
 | `PanelTlv_PayloadOfTag`           | `audio/audio_control_engine.s`    | Record tag → payload address (0xEDAE64)                                             |
 | `NoteMap_LookupVoice`             | `note_voice_mapping.s`            | Find voice slot for note event                                                      |

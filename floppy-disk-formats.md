@@ -128,14 +128,30 @@ the RAM layout of its region.** The handlers' `_VRAM` / `_ExtMem` suffixes are o
   DIGITAL EFFECT and bit 3 SUSTAIN (not "reverb on" / "chorus on"), and +7 is REVERB SEND. A DSP effect slot
   (tags 0x61, 0x63..0x66) holds the effect number and then that effect's parameters in order (DEPTH, LFO
   SPEED, ...), from the v10 tables `DspFxParamCountTable`, `DSPCfg_LookupAndExtract_PtrTable` and
-  `DspParamName_Table`; a parameter whose range passes 255 takes two bytes, big-endian. Over the 23,487 DSP
-  slot records on the disks that layout decodes every record of 28 of the 44 effects used; the reverbs 18,
-  19 and 21-26, GEQ, ROOM and PEQ+S.DELAY pack two parameters to a word in a way not yet established.
+  `DspParamName_Table`, but not one byte each: the effect's parameter-write list gives each parameter a kind
+  ([Panel Parameter Keys]({{ site.baseurl }}/panel-parameter-keys/#dsp-slot-records)). With that layout all
+  23,434 typed DSP slot records of the floppies decode inside their parameter ranges, for every effect (the
+  older byte-per-parameter reading fitted 28 of the 44 effects used), and the floppy sources write one macro
+  per effect (disassembly `notes/open6-kn5000-d/panel/README.md`, section 2, probe
+  `probes/dsp_slot_packing.py`).
   Of the 818 macro arguments of the 43 record kinds, 175 are named from a descriptor or the curated studies,
   33 by the firmware's key only, 23 are DSP slot parameters, 419 are `reserved_<offset>` (zeroed on load, no
-  descriptor, no reference), 43 are bits no descriptor names, and 125 keep `f<offset>` (mostly the companion
-  records 0xC0..0xD7, refreshed from each part's sound by `PanelTlv_ResolvePartCompanions`). Counts and
-  probes: the disassembly's `notes/kn5000-style-2026-10-31/README.md`.
+  descriptor, no reference), 43 are bits no descriptor names, and 125 kept `f<offset>`. Counts and
+  probes: the disassembly's `notes/kn5000-style-2026-10-31/README.md`. Of those 125, 62 were named on
+  2026-11-02 (mostly the companion records' bytes, below) and one more, record 0x90 +1, is `conductor_flags`;
+  61 turned out to have no reader and are `reserved_<offset>`, and one, MIDI record 0x80 +4, stays `f4`:
+  it is kept across a demo preset load but no instruction tests it, so only a MIDI capture from an
+  instrument with the byte set can show what it does (disassembly `notes/open6-kn5000-d/panel/README.md`,
+  section 1, probe `probes/panel_f_readers.py`).
+
+  **Companion records.** Each part record 0x00..0x14 and 0x17 has a companion record (tag 0xC0 + part, 18
+  bytes), and the style record 0x48 has one (tag 0x49, 16 bytes). Byte k of a companion is the sound (0..39)
+  the part last had in SOUND GROUP k (PIANO, GUITAR, ..., MEMORY A, MEMORY B), or the style last chosen in
+  RHYTHM GROUP k (STANDARD ROCK .. MEMORY): when a group button is pressed, the instrument recalls that byte
+  (`PanelVari_SetGroupSlot` stores it, `PanelVari_GetGroupSlot` reads it for `PanelButton_SoundGroup` and
+  `PanelButton_RhythmGroup`). The loader zeroes the records and then re-derives the byte of the current sound
+  (`PanelTlv_ResolvePartCompanions`), so the saved values are the panel's memory at save time. Over the
+  floppies, 1,386 companion records hold no byte above 39 (`probes/panel_byte_values.py`).
 - **TM sound records.** The 470-byte record is the sub-CPU's 426-byte tone record plus four
   11-byte velocity-split records, named from the sub-CPU reader table. The value ranges come
   from the sound-RAM byte clamp at v10 0xFEEC48, which also settles which fields are signed. The
@@ -143,6 +159,21 @@ the RAM layout of its region.** The handlers' `_VRAM` / `_ExtMem` suffixes are o
   and an image checksum, `~sum` of the 0x24B8 words from +0x10 (checked on all 45 KN5000 files).
   406 of the 470 record bytes are named (71 of them by inference), and 10,025 of the 10,538 kit
   bytes.
+
+  **Envelopes, LFOs and controllers of a sound.** Each of a sound's tones (81-byte blocks at +0x66) has three
+  envelopes, named as the SOUND EDIT pages show them. PITCH: TOTAL DEPTH, START PITCH, then ATK, PEAK, DECAY1,
+  SUST1, DECAY2, SUST2, RELEASE, STOP PITCH (+0x07..+0x10), then TOUCH ADR-TIME, TOUCH DEPTH and KEY FOLLOW
+  CENTER / ATTACK / DECAY / RELEASE. AMPLITUDE: ATK, PEAK, DECAY1, SUST1, DECAY2, SUST2, RELEASE
+  (+0x27..+0x2D), TOUCH ATTACK / DECAY, the KEY FOLLOW RANGE notes (middle, low, high) and KEY FOLLOW ATK /
+  DECAY / RELEASE. FILTER: as PITCH, 0x36 bytes later, with CUTOFF ADJUST, START POINT and STOP POINT. Every
+  envelope stores a time and then a level. The sound has twelve LFOs (PITCH, AMPLITUDE, FILTER, four each, at
+  +0x2B), each DEPTH, SPEED, TOUCH + KEYSYNC, WAVE + DELAY; each tone chooses one LFO of each kind (and its
+  sign) in three switch bytes. Seven controller assignments at +0x14 each hold the tones it acts on (OFF / ON /
+  INV, two bits per tone), its FUNCTION (PITCH BEND, AMP ENV SUST, FILTER CUTOFF, an LFO depth or speed, ...)
+  and a DEPTH; the first is the fixed PITCH BEND assignment. *[INFERENCE]* The names rest on the agreement of
+  each SOUND EDIT column's element number and edit range with the record offset and its clamp range; the
+  sub-CPU handler of the element message was not traced. Which physical controller each CONTROLLER row is was
+  not read (disassembly `notes/open6-kn5000-d/panel/README.md`, section 3, probe `probes/se_page_names.py`).
 - **SQT slot headers** are the RAM image of the current-song record (0xF180): the track mask and
   assignment, the edit parameters, per-track tail cells and write offsets, the free list, the
   punch-in fields, `event_used_size16`, and the +0xD0 track table, whose first cells are the
@@ -176,20 +207,20 @@ that keeps the meter changeable until something is recorded, the preset style th
 per part the sound, panpot, digital effect on/off, pitch point and upper note limit. The same layout
 is in the IC19 custom-data banks, the .CMP files and each section of an .RCM file.
 
-| offset              | field                                                                                           | read or written by (v10)                                                                       |
-|---------------------|-------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
-| header +0x0E        | `password` (u16)                                                                                | `FmmPasswordFunc` through `SetCurrentSlotIndex`; read by `GetCurrentSlotIndex` (both misnamed) |
-| header +0x10        | `composer_mode`: 0 NORMAL, 1 EXPAND                                                             | `AcCmpMdBoxProc`, `CmpSetP1_TtlDispatch`                                                       |
-| record +0x00..+0x0A | first cells of DRUM, BASS, ACCOMP1-3 (+0x02 unused)                                             | `MapBitFlagsToChannelOffset`                                                                   |
-| record +0x0C        | `time_sig`                                                                                      | `RhythmPatInit_LoadParams`                                                                     |
-| record +0x0D        | `last_measure` (the MEASURE row shows it + 1)                                                   | `RhythmPatInit_LoadParams`, `Tempo_DisplayMeasureRange`                                        |
-| record +0x0E        | `rec_chord`: bits 0-3 key, 4 minor, 5 accomp 7th, 6 bass 7th                                    | `RhythmPatInit_LoadParams`, `RhythmProc_CheckConfigBits`                                       |
-| record +0x0F        | `edit_flags`: bit 7 = MEASURE / TIME SIGNATURE changeable                                       | `DrumVoice_Handler0` / `1` refuse with error 19 when it is clear                               |
-| record +0x10, +0x11 | `style_number`, `style_group`: the preset style (a `PANEL_STYLE` pair)                          | `RhythmVariation_Select_Entry_Data`                                                            |
-| record +0x18 + 8 i  | part i (DRUM, BASS, ACCOMP1-3): sound, bank, pan, digital effect, byte 4, pitch point, high key | `MainCmpSetFunc`, `AccPatch_ChannelBitToIndex`                                                 |
-| record +0x40        | `name`                                                                                          | `Tempo_DisplayMeasureRange`                                                                    |
-| +0xBA0              | `chord_map[5]`, 32 bytes each: one value per variation (0..11 or 0xFF)                          | `CmpNcp_StepSlotInGroup2`; selecting map n sets `PANEL_STYLE` = 0xF0 + n                       |
-| +0xC40              | `measure_start[12][5][8]`: {cell, offset}                                                       | `AccVoice_GetMeasureStartBlock`, `AccPatch_StoreMeasureCursor`                                 |
+| offset              | field                                                                                           | read or written by (v10)                                                            |
+|---------------------|-------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| header +0x0E        | `password` (u16)                                                                                | `FmmPasswordFunc` through `Composer_SetPassword`; read by `Composer_GetPassword`    |
+| header +0x10        | `composer_mode`: 0 NORMAL, 1 EXPAND                                                             | `AcCmpMdBoxProc`, `CmpSetP1_TtlDispatch`                                            |
+| record +0x00..+0x0A | first cells of DRUM, BASS, ACCOMP1-3 (+0x02 unused)                                             | `MapBitFlagsToChannelOffset`                                                        |
+| record +0x0C        | `time_sig`                                                                                      | `RhythmPatInit_LoadParams`                                                          |
+| record +0x0D        | `last_measure` (the MEASURE row shows it + 1)                                                   | `RhythmPatInit_LoadParams`, `Tempo_DisplayMeasureRange`                             |
+| record +0x0E        | `rec_chord`: bits 0-3 key, 4 minor, 5 accomp 7th, 6 bass 7th                                    | `RhythmPatInit_LoadParams`, `RhythmProc_CheckConfigBits`                            |
+| record +0x0F        | `edit_flags`: bit 7 = MEASURE / TIME SIGNATURE changeable                                       | `CmpRecSet_OnMeasure` / `CmpRecSet_OnTimeSig` refuse with error 19 when it is clear |
+| record +0x10, +0x11 | `style_number`, `style_group`: the preset style (a `PANEL_STYLE` pair)                          | `RhythmVariation_Select_Entry_Data`                                                 |
+| record +0x18 + 8 i  | part i (DRUM, BASS, ACCOMP1-3): sound, bank, pan, digital effect, byte 4, pitch point, high key | `MainCmpSetFunc`, `AccPatch_ChannelBitToIndex`                                      |
+| record +0x40        | `name`                                                                                          | `Tempo_DisplayMeasureRange`                                                         |
+| +0xBA0              | `chord_map[5]`, 32 bytes each: one value per variation (0..11 or 0xFF)                          | `CmpNcp_StepSlotInGroup2`; selecting map n sets `PANEL_STYLE` = 0xF0 + n            |
+| +0xC40              | `measure_start[12][5][8]`: {cell, offset}                                                       | `AccVoice_GetMeasureStartBlock`, `AccPatch_StoreMeasureCursor`                      |
 
 The other header words and the record bytes not listed have no reader: they are constant in every bank
 or zero, and the code hard-codes the sizes they would give. Part byte 4 is the fifth byte of the part's
