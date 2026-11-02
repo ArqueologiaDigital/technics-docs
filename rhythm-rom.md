@@ -123,7 +123,7 @@ The six parts are the one-hot `ACC_PART_BIT` values 1, 2, 4, 8, 16, 32, named `D
 `Acc2`, `Acc3` in the source (`probes/part_stats_probe.py`):
 
 - parts 0 and 1 have identical slot lists in all 404 halves and play General MIDI drum notes (36, 49 and 38 most
-  common); the note check `Rhythm_CheckVelocityThreshold` is skipped for these two parts only;
+  common); the fixed-note check `Rhythm_CheckFixedNote` (notes of 120 and above are not converted for the chord) is skipped for these two parts only;
 - part 2 plays notes 23..84, median 36: a bass line;
 - parts 3..5 play notes with medians 62..64, mostly `0x91` notes: chord parts.
 
@@ -152,13 +152,13 @@ starts just after the header. In the header, +1/+2 and +3/+4 are page links (`Ac
 link is ever taken. The same header frames the 256-byte cells of the user styles in the
 [custom-data flash]({{ site.baseurl }}/custom-data-flash/) (IC19) and on disk, where the links are used.
 
-| status    | bytes | source macro                                          | fields                                                   | reader                                                   | count   |
-|-----------|-------|-------------------------------------------------------|----------------------------------------------------------|----------------------------------------------------------|---------|
-| 0x81      | 1     | `beat [count]`                                        | one beat passes (96 ticks)                               | `AccVoice_HandleBarEndEvent`, `AccTempo_PositionCompare` | 163,146 |
-| 0x90      | 6     | `note tick, key, vel, dur_ticks, dur_beats`           | tick in the beat 0..95, note, velocity, duration         | `AccMidi_ParseCommon`                                    | 319,081 |
-| 0x91      | 8     | `note2 ... , ext1, ext2`                              | as 0x90, then two bytes whose meaning is not established | `AccMidi_ParseNoteOn`                                    | 95,112  |
-| 0xD1-0xD5 | 3     | `cc_mod`, `cc_bend`, `cc_damper`, `cc_pan`, `cc_expr` | tick, value; selector = status & 0x0f                    | `AccMidi_ParseDType`                                     | 24,229  |
-| 0x83 0x87 | 2     | `trk_end`                                             | end of the pattern, then the page-end byte               | `AccVoice_HandleMarker83`                                | 28,400  |
+| status    | bytes | source macro                                          | fields                                                                                                                                                                                                               | reader                                                   | count   |
+|-----------|-------|-------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------|---------|
+| 0x81      | 1     | `beat [count]`                                        | one beat passes (96 ticks)                                                                                                                                                                                           | `AccVoice_HandleBarEndEvent`, `AccTempo_PositionCompare` | 163,146 |
+| 0x90      | 6     | `note tick, key, vel, dur_ticks, dur_beats`           | tick in the beat 0..95, note, velocity, duration                                                                                                                                                                     | `AccMidi_ParseCommon`                                    | 319,081 |
+| 0x91      | 8     | `note2 ... , ext1, ext2`                              | as 0x90, then the two chord-conversion rule bytes: the first for a seventh-family chord, the second for a minor-family one ([Pattern transposition]({{ site.baseurl }}/accompaniment-engine/#pattern-transposition)) | `AccMidi_ParseNoteOn`                                    | 95,112  |
+| 0xD1-0xD5 | 3     | `cc_mod`, `cc_bend`, `cc_damper`, `cc_pan`, `cc_expr` | tick, value; selector = status & 0x0f                                                                                                                                                                                | `AccMidi_ParseDType`                                     | 24,229  |
+| 0x83 0x87 | 2     | `trk_end`                                             | end of the pattern, then the page-end byte                                                                                                                                                                           | `AccVoice_HandleMarker83`                                | 28,400  |
 
 The controller counts are `0xD1` 2,540, `0xD2` 10,496, `0xD3` 9,402, `0xD4` 6 and `0xD5` 1,785; unlike the IC19
 styles, IC14 uses all five selectors. Their meanings (modulation, pitch bend, damper, pan, expression) come from the

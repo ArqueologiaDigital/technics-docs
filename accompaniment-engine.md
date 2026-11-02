@@ -199,32 +199,152 @@ root, are the held set exactly (93), a subset of it (34: extra held notes are ig
 incomplete fingering, such as a 9th chord held without its fifth). The 18 entries whose notes contradict the
 held set are all among the 51 with bit 7 of the offset byte set: approximations that are accepted at once.
 
-The 41 chord types (`ChordTables_TypeIntervals`; the firmware stores no names, the names are the disassembly's):
+The 41 chord types. The names are the firmware's own (`Tbl_ChordTypeNames`, 0xEFF5B9: 64 names of 5 LCD
+characters, read by `SNS_LoadKeyAndChord`; type 1 shows the root alone). "Voicing" is `ChordTables_TypeIntervals`,
+the notes `Chord_ApplyCurrentChord` and the sequencer's step entry use; the accompaniment does not use it (see
+[Pattern transposition](#pattern-transposition)).
 
-| type | intervals | name   | type | intervals | name    | type  | intervals | name       |
-|------|-----------|--------|------|-----------|---------|-------|-----------|------------|
-| 1    | 0 4 7     | M      | 15   | 4 7 10 2  | 9       | 29    | 0 4 8 10  | 7(#5)      |
-| 2    | 0 4 7 10  | 7      | 16   | 4 7 10 1  | 7(b9)   | 30    | 0 4 9 10  | 7(13)      |
-| 3    | 0 4 7 11  | M7     | 17   | 4 7 11 2  | M7(9)   | 31-39 | (zero)    | no voicing |
-| 4    | 0 4 8     | aug    | 18   | 4 7 9 2   | 6(9)    | 40    | 0 4 7 2   | add9       |
-| 5    | 0 3 7     | m      | 19   | 0 3 7 9   | m6      | 41    | 0 3 7 2   | madd9      |
-| 6    | 0 3 7 10  | m7     | 20   | 0 3 6     | dim     |       |           |            |
-| 7    | 0 3 6 9   | dim7   | 21   | 3 7 10 2  | m7(9)   |       |           |            |
-| 8    | 0 3 6 10  | m7(b5) | 22   | 3 9 2 7   | m6(9)   |       |           |            |
-| 9    | 0 3 7 11  | mM7    | 23   | 0 5 7     | sus4    |       |           |            |
-| 10   | 0 5 7 10  | 7sus4  | 24   | 4 7 10 3  | 7(#9)   |       |           |            |
-| 11   | 0 4 7 9   | 6      | 25   | 0 4 6 11  | M7(b5)  |       |           |            |
-| 12   | 0 4 8 10  | 7(#5)  | 26   | 0 4 8 11  | M7(#5)  |       |           |            |
-| 13   | 0 4 6     | (b5)   | 27   | 0 3 6 11  | mM7(b5) |       |           |            |
-| 14   | 0 4 6 10  | 7(b5)  | 28   | 0 4 9 10  | 7(13)   |       |           |            |
+| type | LCD name     | voicing  | type | LCD name | voicing  | type | LCD name | voicing  |
+|------|--------------|----------|------|----------|----------|------|----------|----------|
+| 1    | (root alone) | 0 4 7    | 15   | "79"     | 4 7 10 2 | 29   | "9#5"    | 0 4 8 10 |
+| 2    | "7"          | 0 4 7 10 | 16   | "7 b9"   | 4 7 10 1 | 30   | "b9 13"  | 0 4 9 10 |
+| 3    | "Maj7"       | 0 4 7 11 | 17   | "M79"    | 4 7 11 2 | 31   | "#9 13"  | (none)   |
+| 4    | "aug"        | 0 4 8    | 18   | "69"     | 4 7 9 2  | 32   | "b13"    | (none)   |
+| 5    | "min"        | 0 3 7    | 19   | "m6"     | 0 3 7 9  | 33   | "b9b13"  | (none)   |
+| 6    | "min7"       | 0 3 7 10 | 20   | "m b5"   | 0 3 6    | 34   | "#9b13"  | (none)   |
+| 7    | "dim"        | 0 3 6 9  | 21   | "m79"    | 3 7 10 2 | 35   | "13"     | (none)   |
+| 8    | "m7b5"       | 0 3 6 10 | 22   | "m69"    | 3 9 2 7  | 36   | "b13"    | (none)   |
+| 9    | "mM7"        | 0 3 7 11 | 23   | "sus4"   | 0 5 7    | 37   | "7 #11"  | (none)   |
+| 10   | "7sus4"      | 0 5 7 10 | 24   | "7 #9"   | 4 7 10 3 | 38   | "m7 11"  | (none)   |
+| 11   | "6"          | 0 4 7 9  | 25   | "M7b5"   | 0 4 6 11 | 39   | "+7#11"  | (none)   |
+| 12   | "aug7"       | 0 4 8 10 | 26   | "M7#5"   | 0 4 8 11 | 40   | "add9"   | 0 4 7 2  |
+| 13   | "b5"         | 0 4 6    | 27   | "mM7b5"  | 0 3 6 11 | 41   | "madd9"  | 0 3 7 2  |
+| 14   | "7 b5"       | 0 4 6 10 | 28   | "13"     | 0 4 9 10 |      |          |          |
 
-Types 15-18, 21, 22 and 24 are voiced without the root (four tension notes). Types 31-39 are recognized
-(103 table entries) but their voicing rows are zero; where they get their notes is not traced. Nor is the
-9-bit table `NoteMask9_ClassTable` (512 bytes at 0xEEBE44, read by `ComputeNoteBitPositi_StoreDRAM` and
-`Voice_UpdateNoteBitmap`): which chord mode uses it is open.
+Types 15-18, 21, 22 and 24 are voiced without the root (four tension notes). The voicings of 29 and 30 are 0 4 8 10
+and 0 4 9 10, four-note subsets of 9(#5) and 7(b9,13): they are different chords from 12 and 28, recognized from
+other note sets. Types 35 and 36 carry the same LCD names as 28 and 32 but are the major-seventh forms (M7(13),
+M7(b13)). Types 31-39 are recognized (103 table entries) but have no voicing row: for the sequencer's step entry
+their voicing is four times the root *[INFERENCE: only that consumer was traced]*; the accompaniment converts its
+patterns for them like any other type.
 
-The chord then drives the pattern: how the Rhythm-ROM notes are transposed to the root and chord type is not
-traced yet (below).
+The chord mode decides which recognizer runs. In PIANIST mode (`PANEL_STYLE+3` = 3) it is the 2,048-entry table
+above. In FINGERED mode (2, and the default) `ComputeNoteBitPositi_StoreDRAM` tries each held note as the root
+and looks the intervals up in `NoteMask9_ClassTable` (512 entries at 0xEEBE44): it knows types 1-27 plus add9 /
+madd9, so the tension chords 28-39 are recognized in PIANIST mode only. ONE FINGER (1) has its own key rules.
+*[INFERENCE]* The mapping of the AUTO PLAY CHORD dialog's three entries to `PANEL_STYLE+3` values 1-3: the dialog's
+radio values and `ParamEdit_WordTable`'s order agree; the widget-to-record link was not traced.
+
+## Pattern transposition
+
+The rhythm-ROM patterns are written for C major. Each note of the BASS and ACCOMP 1-3 parts is converted for the
+current chord when the lane writes it into its ring buffer (`AccBuf_WriteExtendedEvent` ->
+`AccVoice_ConvertNoteForChord`), and again from the stored pattern note (the last byte of the 7- or 9-byte ring
+record) when the chord changes (`Rhythm_CompareAndTrigger`, `RhythmEvt_FullProcess`, `Rhythm_ValidateAndSend`).
+The drum parts are not converted, nor are notes of 120 (0x78) and above (`Rhythm_CheckFixedNote`). The chord is
+the accompaniment's copy at 0x32D7..0x32DA (flags, type, root 1 = C .. 12 = B, bass root), written by
+`AccChord_ReadAndStoreKeys`.
+
+1. A 0x91 note carries two rule bytes. For a seventh-family chord the first applies, for a minor-family chord
+   the second (`Rhythm_ChordExtSelect`): low nibble = semitones, bit 4 = down, bit 5 = drop. In IC14 the
+   first moves the colour note to Bb (G, C, A or B -> Bb) and the second E to Eb (and A to Ab or G).
+2. The chord type picks one of 21 rows of semitone moves per pitch class (`Rhythm_ChordRowMap`,
+   `Rhythm_ChordRowMap_Acc1`, `Rhythm_ChordRowMap_Bass`; the rows are `Rhythm_ChordNoteDeltaRows`, 0xE461C2): M7
+   raises Bb to B, m7 lowers E, dim snaps every note to C Eb Gb A, and so on. ACCOMP 1 has its own map that
+   replaces the root with the tension (D for 9, Db for b9, D# for #9).
+3. The note moves by the root (`Rhythm_TransposeNote`): up by up to the part's turnover (IC14: 6 semitones for
+   the bass, 8 for the chords), otherwise down; notes at or above the part's ceiling drop by octaves.
+4. The bass plays the bass root of an on-bass chord, and the root on the first note after each chord change
+   (`Rhythm_BassToRoot`), within a floor (RAM 0x332E) that keeps it near the written note. With chord flag bit 0,
+   every note plays the root (`Rhythm_RootOnlyNote`).
+
+Per chord type (`python3 notes/open6-kn5000-d/accomp/probes/pattern_transpose.py --tables`): family is
+`Chord_TypeFamilyTable` (0 major, 1 minor, 2 seventh, 3 dim7), row is the `Rhythm_ChordNoteDeltaRows` row each
+part uses, the rule byte selector is `Rhythm_ChordExtSelect` / `Rhythm_ChordExtSelect_Bass` (0 none, 1 first byte, 2 second byte), and
+"recognized from" is the union of the pitch-class sets `ChordRecog_IntervalMaskTable` maps to the type, relative to
+the root.
+
+| type | family | row (parts 16 / 32, 8, 4) | rule byte (default, bass) | recognized from |
+|------|--------|---------------------------|---------------------------|-----------------|
+| 1    | 0      | 0 0 0                     | 0 0                       | 0,4,7           |
+| 2    | 2      | 0 0 0                     | 1 1                       | 0,4,7,10        |
+| 3    | 2      | 1 1 1                     | 1 1                       | 0,4,7,11        |
+| 4    | 0      | 5 5 5                     | 0 1                       | 0,4,8           |
+| 5    | 1      | 0 0 0                     | 2 2                       | 0,3,7           |
+| 6    | 2      | 3 3 3                     | 1 1                       | 0,3,7,10        |
+| 7    | 3      | 9 9 9                     | 1 1                       | 0,3,6,9         |
+| 8    | 1      | 10 10 10                  | 2 2                       | 0,3,6,10        |
+| 9    | 2      | 7 7 7                     | 1 1                       | 0,3,7,11        |
+| 10   | 2      | 4 4 4                     | 1 1                       | 0,5,7,10        |
+| 11   | 2      | 2 2 2                     | 1 1                       | 0,4,7,9         |
+| 12   | 2      | 5 5 5                     | 1 1                       | 0,4,8,10        |
+| 13   | 0      | 6 6 6                     | 0 0                       | 0,4,6           |
+| 14   | 2      | 6 6 6                     | 1 1                       | 0,4,6,10        |
+| 15   | 2      | 0 11 0                    | 1 1                       | 0,2,4,7,10      |
+| 16   | 2      | 0 12 0                    | 1 1                       | 0,1,4,7,10      |
+| 17   | 2      | 1 14 1                    | 1 1                       | 0,2,4,7,11      |
+| 18   | 2      | 2 15 2                    | 1 1                       | 0,2,4,7,9       |
+| 19   | 2      | 8 8 8                     | 1 1                       | 0,3,7,9         |
+| 20   | 1      | 10 10 10                  | 2 2                       | 0,3,6           |
+| 21   | 2      | 3 16 3                    | 1 1                       | 0,2,3,7,10      |
+| 22   | 2      | 8 17 8                    | 1 1                       | 0,2,3,7,9       |
+| 23   | 0      | 4 4 4                     | 0 0                       | 0,5,7           |
+| 24   | 2      | 0 13 0                    | 1 1                       | 0,3,4,7,10      |
+| 25   | 2      | 18 18 18                  | 1 1                       | 0,4,6,11        |
+| 26   | 2      | 19 19 19                  | 1 1                       | 0,4,8,11        |
+| 27   | 2      | 20 20 20                  | 1 1                       | 0,3,6,11        |
+| 28   | 2      | 0 0 0                     | 1 1                       | 0,2,4,7,9,10    |
+| 29   | 0      | 5 5 5                     | 0 1                       | 0,2,4,8,10      |
+| 30   | 2      | 0 12 0                    | 1 1                       | 0,1,4,7,9,10    |
+| 31   | 2      | 0 13 0                    | 1 1                       | 0,3,4,7,9,10    |
+| 32   | 2      | 5 5 5                     | 1 1                       | 0,2,4,7,8,10    |
+| 33   | 2      | 0 12 0                    | 1 1                       | 0,1,4,7,8,10    |
+| 34   | 2      | 0 13 0                    | 1 1                       | 0,3,4,7,8,10    |
+| 35   | 2      | 1 1 1                     | 1 1                       | 0,2,4,7,9,11    |
+| 36   | 2      | 1 1 1                     | 1 1                       | 0,2,4,7,8,11    |
+| 37   | 2      | 6 6 6                     | 1 1                       | 0,4,6,7,10      |
+| 38   | 2      | 4 4 4                     | 1 1                       | 0,3,5,7,10      |
+| 39   | 2      | 5 5 5                     | 1 1                       | 0,4,6,8,10      |
+| 40   | 0      | 0 11 0                    | 0 0                       | 0,2,4,7         |
+| 41   | 1      | 0 16 0                    | 2 2                       | 0,2,3,7         |
+
+The 21 rows (semitone moves per pitch class C..B; `.` = 0):
+
+| row | C  | Db | D  | Eb | E  | F  | Gb | G  | Ab | A  | Bb | B  | effect                           |
+|-----|----|----|----|----|----|----|----|----|----|----|----|----|----------------------------------|
+| 0   | .  | .  | .  | .  | .  | .  | .  | .  | .  | .  | .  | .  | none                             |
+| 1   | .  | .  | .  | .  | .  | .  | .  | .  | .  | .  | +1 | .  | Bb -> B (major seventh)          |
+| 2   | .  | .  | .  | .  | .  | .  | .  | .  | .  | .  | -1 | .  | Bb -> A (sixth)                  |
+| 3   | .  | .  | .  | .  | -1 | .  | .  | .  | .  | .  | .  | .  | E -> Eb (minor third)            |
+| 4   | .  | .  | .  | +1 | +1 | .  | .  | .  | .  | .  | .  | .  | Eb, E -> E, F (sus4)             |
+| 5   | .  | .  | .  | .  | .  | .  | .  | +1 | .  | .  | .  | .  | G -> G# (#5)                     |
+| 6   | .  | .  | .  | .  | .  | .  | .  | -1 | .  | .  | .  | .  | G -> Gb (b5)                     |
+| 7   | .  | .  | .  | .  | -1 | .  | .  | .  | .  | .  | +1 | .  | mM7                              |
+| 8   | .  | .  | .  | .  | -1 | .  | .  | .  | .  | .  | -1 | .  | m6                               |
+| 9   | .  | -1 | -2 | .  | -1 | -2 | .  | -1 | +1 | .  | -1 | +1 | every note to C Eb Gb A (dim7)   |
+| 10  | .  | -1 | -2 | .  | -1 | -2 | .  | -1 | -2 | +1 | .  | -1 | every note to C Eb Gb Bb (m7b5)  |
+| 11  | +2 | .  | .  | .  | .  | .  | .  | .  | .  | .  | .  | .  | C -> D (9th instead of the root) |
+| 12  | +1 | .  | .  | .  | .  | .  | .  | .  | .  | .  | .  | .  | C -> Db (b9)                     |
+| 13  | +3 | .  | .  | .  | .  | .  | .  | .  | .  | .  | .  | .  | C -> D# (#9)                     |
+| 14  | +2 | .  | .  | .  | .  | .  | .  | .  | .  | .  | +1 | .  | M7(9)                            |
+| 15  | +2 | .  | .  | .  | .  | .  | .  | .  | .  | .  | -1 | .  | 6(9)                             |
+| 16  | +2 | .  | .  | .  | -1 | .  | .  | .  | .  | .  | .  | .  | m7(9)                            |
+| 17  | +2 | .  | .  | .  | -1 | .  | .  | .  | .  | .  | -1 | .  | m6(9)                            |
+| 18  | .  | .  | .  | .  | .  | .  | .  | -1 | .  | .  | +1 | .  | M7(b5)                           |
+| 19  | .  | .  | .  | .  | .  | .  | .  | +1 | .  | .  | +1 | .  | M7(#5)                           |
+| 20  | .  | .  | .  | .  | -1 | .  | .  | -1 | .  | .  | +1 | .  | mM7(b5)                          |
+
+Rows 11-17 are used only by part 8 (ACCOMP 1). Worked examples: E4 of a 0x91 note with rule bytes 00 / 11 plays F4
+for Dm7 and B4 for G7; G1 in the bass plays E1 for C/E; C4 in ACCOMP 1 plays B3 for A9.
+
+Evidence: the disassembly's probe `notes/open6-kn5000-d/accomp/probes/pattern_transpose.py` re-implements the
+conversion from the firmware's tables and runs it on all 245,470 IC14 pattern notes of parts 4..32 (root C): for
+every type that has a conversion, the share of played pitch classes that are tones of the chord rises, never
+falls (min 57.5 % -> 77.8 %, m7b5 35.0 % -> 100 %, dim 39.5 % -> 100 %; the unconverted major patterns are
+72.9 %, the rest being passing and colour notes). Only v10 was read. Open: what sets `CHORD_FLAGS` / 0x32D7 bit 0
+(the only path found is a song override at 0x2306); the caller of the second converter `Rhythm_TransposeWithMod`;
+and whether the fast path's table, which differs from the full path's at type 7, is a firmware bug. Source:
+disassembly `notes/open6-kn5000-d/accomp/README.md`, section A.
 
 ## Section switching: intro, fill-in, ending
 
@@ -267,11 +387,33 @@ ARRANGER on, FILL IN 1 steps the variation down and FILL IN 2 steps it up, from 
 
 A section plays on all six lanes (`ACC_LANES_INTRO1` .. `ACC_LANES_ENDING2`, one bit per lane). When its last
 lane reaches the pattern's end marker, `Rhythm_SaveState` clears the request and the LED. After a fill-in or an
-intro the accompaniment returns to the variation. Where the firmware stops it after an ending is not traced yet.
+intro the accompaniment returns to the variation.
 
-SYNCHRO is record 0x48 field 5 bit 1. When it is armed and nothing records or plays, the accompaniment waits
-(`ACC_TRANSPORT_STATE` 128 / 134) and `INTTR4_SeqAutoStart` starts it at the end of a bar of the accompaniment
-clock.
+An ending does not loop: each lane stops at the end marker (`AccVoice_HandleMarker83` -> `AccVoice_ParkLaneAtEnd`),
+and when all six have stopped (0x3283 bit 2) `AccTick_Main` runs `AccEnding_StopWhenSilent` each tick. When the last
+ending note has been released, that routine stops the accompaniment (`AccPlayMode_StopPlayAndAcc`; only the
+accompaniment, `AccPlayMode_StopAcc`, if a song plays), sends all notes off, shows the keyboard's chord again and
+clears the ENDING LEDs, 0x3283 bit 2 and the section lanes.
+
+### SYNCHRO & BREAK
+
+The button (`PanelButton_SynchroBreak` -> `AccStyleCtl_SynchroButton`) toggles SYNCHRO (record 0x48 field 5 bit 1)
+whether the accompaniment runs or not; there is no separate BREAK action. While SYNCHRO is lit, an AUTO PLAY CHORD
+mode is on and no song plays or records (`AccSynchro_UpdateArmed`), the chord keys drive the transport
+(`AccSynchro_OnChordKeyEvent`, for every key event from `NoteOn_EntryPoint`):
+
+- stopped: the first chord key starts the accompaniment from the top (`AccSynchro_StartOrCancelStop` ->
+  `AccPlayMode_StartAccPlayFull`);
+- running: releasing every chord key stops it at the next sixteenth (`AccSynchro_StopOnChordRelease` ->
+  `AccPlayMode_StopPlayAndAcc`, both transports to state 12), the break; the next chord starts it again, and a
+  chord played before the stop takes effect cancels it.
+
+SYNCHRO stays lit after a synchro start; only the button, or a song track starting (`AccSynchro_PeriodicCheck` ->
+`AccSynchro_Disarm`), turns it off. Without SYNCHRO, releasing the keys does nothing. *[INFERENCE]* That "break" is
+the owner's manual's word for this behaviour: the manual was not checked. `ACC_TRANSPORT_STATE` 128 / 134, which
+`INTTR4_SeqAutoStart` completes at a bar end, is the sequencer's own start (0x28B2 bit 1), not the chord synchro
+start. Source: disassembly `notes/open6-kn5000-d/accomp/README.md`, section B (flag bytes listed by
+`scripts/analysis/kn5000_ram_bit_usage.py --tree v10 0x3283 0x332a 0x346d 0x3498 0x3499 0x346e 0x28b2`).
 
 Sources: v10 `sequencer/accompaniment_engine.s` (`AccStyleCtl_*`, `AccSection_*`), `sequencer/seq_audio_mode.s`
 (`AccSection_Latch*`, `AccSection_DeferToBar*`), `sequencer/smf_event_processor.s` (`SeqTick_ReadControlState`)
@@ -373,13 +515,13 @@ These ensure accompaniment state changes (start/stop, variation switch) are sync
 
 The rhythm section uses a specialized note dispatch system:
 
-| Function                        | Purpose                                      |
-|---------------------------------|----------------------------------------------|
-| `Rhythm_NoteDispatchWrapper`    | Wrapper for rhythm note events               |
-| `Rhythm_NoteOnAfterSetup_A/B/C` | Note-on for three rhythm channels            |
-| `Rhythm_NoteRangeCheck`         | Validate note is in playable range           |
-| `Rhythm_NoteOffMax_Dispatch`    | Note-off with part-specific dispatch (D4-D7) |
-| `DrumChannel_MapToIndexA/B`     | Map drum MIDI notes to internal indices      |
+| Function                        | Purpose                                             |
+|---------------------------------|-----------------------------------------------------|
+| `Rhythm_NoteDispatchWrapper`    | Wrapper for rhythm note events                      |
+| `Rhythm_NoteOnAfterSetup_A/B/C` | Note-on for three rhythm channels                   |
+| `Rhythm_RootOnlyNote`           | with chord flag bit 0, plays every note as the root |
+| `Rhythm_NoteOffMax_Dispatch`    | Note-off with part-specific dispatch (D4-D7)        |
+| `DrumChannel_MapToIndexA/B`     | Map drum MIDI notes to internal indices             |
 
 ## Display Integration
 
@@ -411,10 +553,10 @@ The `StyleUI_*` labels define parameter blocks and screen layouts for the style 
 
 ## Research Needed
 
-- [x] ~~Decode chord recognition algorithm (which chord types are supported, how root is determined)~~ — [Chord Recognition](#chord-recognition); open: the voicing source of types 31-39 and the chord mode that uses `NoteMask9_ClassTable`
-- [ ] Transposition of the Rhythm-ROM pattern notes to the recognized chord (root shift, chord-type note rule; tracker kn5000-3qp). Leads: the lane note writers `AccBuf_WriteNoteEvent`, `AccVoice_WriteNoteEventToBuffer`, `AccPlay_ProcessNoteEvent`; `Note_PitchClassTable` and `ToneGen_PitchClassNoteFormTable` are not transposition tables (they choose the 0x90 / 0x91 event form of the composer's pattern writer)
+- [x] ~~Decode chord recognition algorithm (which chord types are supported, how root is determined)~~ — [Chord Recognition](#chord-recognition); open: what sets `CHORD_FLAGS` bit 0
+- [x] ~~Transposition of the Rhythm-ROM pattern notes to the recognized chord (root shift, chord-type note rule)~~ — [Pattern transposition](#pattern-transposition); `Note_PitchClassTable` is the note -> pitch-class map it uses
 - [ ] Map the complete style data format (header, part assignments, note data encoding). The Composer style bank is now named field by field ([Floppy Disk Formats]({{ site.baseurl }}/floppy-disk-formats/#the-composer-style-bank)); the Rhythm-ROM format is on [Rhythm ROM]({{ site.baseurl }}/rhythm-rom/)
-- [x] ~~Document the variation/fill-in switching state machine~~ — [Section switching](#section-switching-intro-fill-in-ending); open: SYNCHRO & BREAK while running and synchro stop (tracker kn5000-rzg), and where the accompaniment stops after an ending
-- [ ] Analyze the bass pattern generation algorithm (how bass notes are derived from chord)
+- [x] ~~Document the variation/fill-in switching state machine~~ — [Section switching](#section-switching-intro-fill-in-ending), [SYNCHRO & BREAK](#synchro--break)
+- [x] ~~Analyze the bass pattern generation algorithm (how bass notes are derived from chord)~~ — the bass is converted like the other parts, plus the root rule ([Pattern transposition](#pattern-transposition))
 - [ ] Document style conversion routines (`StylCnv_*`) for loading custom styles
 - [ ] Map the accompaniment pedal interaction (`AccPedal_ScanVoiceSlots`)
