@@ -996,6 +996,15 @@ control come from the decoded cells. With it on, a plucked note leaves a decayin
 the diffusion and decay-control are decoded, but the exact topology and absolute reverb time await
 the decode above.
 
+**What the topology waits on (2026-11-02).** None of the reverb's nine still-undecoded words
+belongs to the bit-11 family: four are delay escapes carrying `ACT 0x0B`, three carry `ACT 0x1A`
+and two read `SRC 0x11` (ROOM REVERB 1, algorithm 16: 133 words, 124 decoded tier 1). Choosing
+between the pipe-comb and the series comb cascade depends on the delay-read latency, which neither
+board's software can observe, and the SX-WSA1R's reverb is a different program (21 of 133 words
+align). An impulse response of the real KN5000 on ROOM REVERB 1, taken at EFFECT OUT, is what would
+settle it. Source: disassembly `notes/open6-kn5000-d/dsp/README.md` and
+`dsp/analysis/bit11-xprod-2026-11-02.md` (tracker kn5000-i2m, blocked on the KN5000 hardware).
+
 ---
 
 ## 20. Distortion is not "undumped" either (2026-09-12)

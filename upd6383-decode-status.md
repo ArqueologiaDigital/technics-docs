@@ -163,6 +163,13 @@ only when both fall:
       residue: 183 words, ~20 further small axes
 ```
 
+⚠ **As of 2026-11-02 every step of the internal cascade is blocked on a named input, not
+unfinished.** Steps 2 (`ACT 0x0B`) and 3 (`f31 3..7`) need a recorded output of an effect that
+carries the code on a real KN5000; step 4 (addressing classes) has one witness program and no
+replication in either corpus; step 5 (bit-11) is in R1 below. The 80.8 % figure is where corpus work
+stops (`python3 dsp/tools/decoded_selfcheck.py` in the disassembly: 7,273 distinct words, 1,397
+undecoded; tracker kn5000-ax7, notes `notes/open6-kn5000-d/dsp/README.md`).
+
 ⚠⚠ **Read this as reach, not as a schedule.** These counts come from the decoder's own model of
 what blocks each word: how many words a decision would unlock, **not how hard the decision is**.
 Several of these have resisted for months *with the blockage proved* rather than merely
@@ -195,10 +202,18 @@ no risk. **This is the recommendation**, and the ranking is not close: it is fou
 the two instruments that have delivered every recent promotion — the relocation test and the
 two-sided gate — are already built and documented.
 
-The best-posed single target is the **bit-11 alternate encoding**: nine shapes, two carrying most
-of the family, everything else about those words already characterised, and a named first target
-(`8801308BC`, 37 occurrences, a register-file access aimed at the very table its largest sibling's
-idiom reads — which a relocation-style test can attack).
+The bit-11 alternate encoding looked like the best-posed single target: nine shapes, two carrying
+most of the family, and a named first word (`8801308BC`) for a relocation-style test. **That test
+was run on 2026-11-02, and it is spent.** The KN5000 loads its effect bodies at I-RAM 84 and the
+SX-WSA1R at 110, and all 62 bit-11 words that align between the two products' copies of a program
+are byte-identical after that move (`C63` also moved inside its body in 41 of 44). So no field of
+these words is an instruction-RAM address. Beyond that the test has nothing to measure: `8BC`'s
+fields do not vary anywhere in the pooled corpus (49 of 49 at the start of a program, `lo12`
+constant, `addr8 = 0x30` in all 37 fused copies). The family is control words that no audio
+measurement sees and that the emulator model gives no meaning, so **the corpus cannot decide it**.
+The named routes are a second product's firmware (the CDJ-500, R2) or the chip's emulator mode (R5).
+Source: disassembly `dsp/analysis/bit11-xprod-2026-11-02.md`, tool `dsp/tools/bit11_xprod.py`, output
+`dsp/analysis/data/bit11_xprod-2026-11-02.txt`.
 
 ### R2 — A Pioneer CDJ-500 firmware dump · a cheap second-hand player · **+2.9 points, but only after R1**
 
@@ -369,15 +384,15 @@ Reaching a true 100 % needs at least one of:
 
 ## 8. What to do, in order
 
-| # | action | cost | risk | why now |
-|---|---|---|---|---|
-| **1** | **The bit-11 alternate encoding.** Nine shapes, two carrying 87.6 %; a named first target and a relocation-style test that fits it | days, no hardware | none | Biggest single block, and everything else about those words is already characterised |
-| **2** | **Does the kernel write `DO2`/`DO3`?** A corpus question about the output stage | hours | none | Decides whether the isolated DSP lanes are usable at all — and it gates item 5 |
-| **3** | The rest of the R1 cascade — `f31 3..7`, `ACT 0x0B`, the addressing classes | weeks | none | 80.8 % → 95.2 % |
-| **4** | **Order a CDJ-500**, dump it, then set it aside until 1–3 are done | one cheap player | low | Weeks of latency; worth +2.9 points *afterwards* |
-| **5** | **A CN14 tap** on `SUBOUT2`/`SUBOUT3` into an I²S receiver | four wires + a cheap receiver | low — a connector, no soldering to the board | Exact integers, and the only un-summed DSP output on the machine |
-| **6** | Extend the debug monitor across the CPU-2 mailbox | substantial | medium | Nothing can be uploaded to the DSP without it |
-| **7** | The emulator mode (`SETRDY` / `BR-RQ`) | board modification | **high** | Only after everything above |
+| #     | action                                                                                                                             | cost                                  | risk                                         | why now                                                                                   |
+|-------|------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------|----------------------------------------------|-------------------------------------------------------------------------------------------|
+| **1** | **The bit-11 alternate encoding.** Nine shapes, two carrying 87.6 %; a named first target and a relocation-style test that fits it | done 2026-11-02: no corpus route left | n/a                                          | the relocation test ran and is spent; the family now waits on R2 (CDJ-500 firmware) or R5 |
+| **2** | **Does the kernel write `DO2`/`DO3`?** A corpus question about the output stage                                                    | hours                                 | none                                         | Decides whether the isolated DSP lanes are usable at all — and it gates item 5            |
+| **3** | The rest of the R1 cascade — `f31 3..7`, `ACT 0x0B`, the addressing classes                                                        | weeks                                 | none                                         | 80.8 % → 95.2 %                                                                           |
+| **4** | **Order a CDJ-500**, dump it, then set it aside until 1–3 are done                                                                 | one cheap player                      | low                                          | Weeks of latency; worth +2.9 points *afterwards*                                          |
+| **5** | **A CN14 tap** on `SUBOUT2`/`SUBOUT3` into an I²S receiver                                                                         | four wires + a cheap receiver         | low — a connector, no soldering to the board | Exact integers, and the only un-summed DSP output on the machine                          |
+| **6** | Extend the debug monitor across the CPU-2 mailbox                                                                                  | substantial                           | medium                                       | Nothing can be uploaded to the DSP without it                                             |
+| **7** | The emulator mode (`SETRDY` / `BR-RQ`)                                                                                             | board modification                    | **high**                                     | Only after everything above                                                               |
 
 ⛔ **And one route that closed on 2026-09-15.** The `RQ`/`GF` flag experiments — using the chip's
 host-visible flags to read results back — are **dead on the SX-WSA1R**. On IC30, `RQ1`–`RQ3`
