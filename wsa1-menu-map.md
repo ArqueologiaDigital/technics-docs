@@ -264,11 +264,17 @@ its handler, every list) is in the [full map](https://github.com/ArqueologiaDigi
 | 0x47 | `Paint_DiskL0adFile`                 | SAVE / SAVE FILE / SAVE ·                                    | 6    | -            |
 | 0x49 | `Paint_MidiFileL0ad`                 | MIDI FILE L0AD / : / L0AD ·                                  | 6    | -            |
 | 0x4C | `PageDispatch_DiskSaveFile`          | DISK SAVE : FILE NAMING                                      | 63   | -            |
-| 0x4E | `PageDispatch_MidiFileSave`          | SAVE                                                         | 33   | -            |
-| 0x50 | `Paint_FloppyDiskFormatSelectType`   | COMPOSER LOAD                                                | 33   | -            |
-| 0x51 | `Paint_FloppyDiskFormatAreYouSure`   | ATTENTION! / Using DISK FORMAT will erase / any current data | 33   | -            |
+| 0x4E | `PageDispatch_MidiFileSave`          | SAVE                                                         | 25   | -            |
+| 0x50 | `Paint_FloppyDiskFormatSelectType`   | COMPOSER LOAD                                                | 5    | -            |
+| 0x51 | `Paint_FloppyDiskFormatAreYouSure`   | ATTENTION! / Using DISK FORMAT will erase / any current data | 3    | -            |
 | 0x53 | `PageDispatch_L0adSingleC0mbination` | LOAD SINGLE COMBINATION / DISK / 0K                          | 0    | -            |
 | 0x54 | `PageDispatch_L0adSingleS0und`       | LOAD SINGLE SOUND / DISK / 0K                                | 0    | -            |
+
+Screens 0x50 and 0x51 (FLOPPY DISK FORMAT: choose 2DD / 2HD, then "Are You Sure?") read rows 4 and 5 of
+MIDI FILE SAVE's key matrix through their own button methods; on 0x50 LCD row 3 picks 2DD and row 4 2HD,
+on 0x51 row 3 is YES (format) and row 4 NO. (Until 2026-11-02 this table counted the whole six-row matrix,
+33 keys, for each of the three screens; the counts now follow `wsa1/docs/gui-menu-map.md` in the disassembly,
+and the evidence is `notes/open6-kn5000-d/wsa1/README.md` with its probe `probes/wsa1_wxn_refs.py`.)
 
 ### System (0x5B-0x6E)
 
