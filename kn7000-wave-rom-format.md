@@ -88,8 +88,9 @@ recording of entry 0x0AE, whose 964 units it covers from the last down to the fi
 segments and no loop. So the tone generator, given bit 9 (`PREV`), reads the address counter negated
 and plays `Main_P00_W0AE` from its end. The source spells it that way, and the stream has no
 `Main_P00_W0AF` item: the 21,888 bytes that used to be one are the rest of `Main_P00_W065`'s 16-bit
-recording, so the two WAV files became one (2,250 MAIN WAV files since 2026-11-02). *[INFERENCE]* The
-meaning of bit 9: the firmware never reads P, and a listening test of the Reverse Cymbal would
+recording, so the two WAV files became one (2,250 MAIN WAV files from 2026-11-02; 2,178, one per
+recording, since 2026-11-03, when `Main_P00_W065` itself became a cue point in `Main_P00_W064.wav`,
+below). *[INFERENCE]* The meaning of bit 9: the firmware never reads P, and a listening test of the Reverse Cymbal would
 confirm it. Source: disassembly `kn7000/notes/wave-roms-2026-10-29.md`, probe `wave_reverse_entry.py`
 (lane mn10300-names).
 
@@ -135,7 +136,7 @@ No CPU reads these ROMs except the service-mode checksum.
 
 MAIN tone generator (IC203 + IC204):
 
-| page | entries | 8-bit | recordings | record words | first recording (word) | end fill (words) |
+| page | entries | 8-bit | distinct B | record words | first recording (word) | end fill (words) |
 |------|---------|-------|------------|--------------|------------------------|------------------|
 | 0x00 | 181     | 67    | 160        | 3,907        | 0x1220                 | 4,416            |
 | 0x01 | 130     | 0     | 90         | 1,106        | 0x660                  | 192              |
@@ -157,7 +158,7 @@ MAIN tone generator (IC203 + IC204):
 
 SUB tone generator (IC207 + IC208):
 
-| page | entries | 8-bit | recordings | record words | first recording (word) | end fill (words) |
+| page | entries | 8-bit | distinct B | record words | first recording (word) | end fill (words) |
 |------|---------|-------|------------|--------------|------------------------|------------------|
 | 0x00 | 208     | 99    | 177        | 5,775        | 0x19d0                 | 384              |
 | 0x01 | 198     | 67    | 161        | 2,800        | 0xe10                  | 448              |
@@ -177,19 +178,24 @@ SUB tone generator (IC207 + IC208):
 | 0x0F | 28      | 9     | 28         | 716          | 0x340                  | 15,360           |
 | all  | 1,548   | 521   | 1,431      | 36,223       |                        | 228,288          |
 
-Several entries can play the same recording, so a page has fewer recordings than entries. Main
+The "distinct B" columns count the distinct start addresses B of a page (`layout_probe.py`). They are
+not the recordings: main page 0x00's 160 include the reversed entry's B, which is not a recording, and 72
+MAIN and 29 SUB starts (96 and 29 entries) are alternate starts into another entry's recording. So the
+streams hold 2,178 and 1,402 recordings (`wave_record_extent.py`), in 2,250 and 1,431 source items until
+2026-11-03, and since then in one WAV file each, 3,580 in all (below). Several entries can play the same
+recording, so a page has fewer starts than entries. Main
 page 0x06, with 1,132 entries of about 950 words each, is probably the drum and percussion page;
 that is an inference, not checked against the firmware's kit tables.
 
 ## The source
 
-| file                       | what it is                                                                                                                   |
-|----------------------------|------------------------------------------------------------------------------------------------------------------------------|
-| `src/wave/wave_format.inc` | the field constants (`PFMT`, `PCM8`, `GRAN_*`, `LOOP_START`, `LOOP_END`, `REC_END`) with evidence                            |
-| `src/wave/main.s`          | the MAIN stream: per page `Main_P00`, entries `Main_P00_E000`, records `Main_P00_R000`, recordings `Main_P00_W000` and so on |
-| `src/wave/sub.s`           | the SUB stream, the same way (`Sub_P00` ...)                                                                                 |
-| `tools/gen_wave_s.py`      | wrote the two sources from the reference streams, re-checking the layout rules (`make wave-src`)                             |
-| `tools/wave_pair.py`       | chips to stream (`join`) and back (`split`)                                                                                  |
+| file                       | what it is                                                                                                                                  |
+|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `src/wave/wave_format.inc` | the field constants (`PFMT`, `PCM8`, `GRAN_*`, `LOOP_START`, `LOOP_END`, `REC_END`) with evidence                                           |
+| `src/wave/main.s`          | the MAIN stream: per page `Main_P00`, entries `Main_P00_E000`, records `Main_P00_R000`, recordings `Main_P00_W000` and so on                |
+| `src/wave/sub.s`           | the SUB stream, the same way (`Sub_P00` ...)                                                                                                |
+| `tools/gen_wave_s.py`      | wrote the two sources and the WAV manifests `src/wave/*_wav.tsv` from the reference streams, re-checking the layout rules (`make wave-src`) |
+| `tools/wave_pair.py`       | chips to stream (`join`) and back (`split`)                                                                                                 |
 
 A directory entry is one line of typed fields with symbolic pointers:
 
@@ -199,17 +205,24 @@ Main_P00_E003:	.word	(Main_P00_R003 - Main_P00) / 2, PFMT | 18<<4 | GRAN_512, (M
 
 A recording is a labelled item named after the lowest entry that plays it; its comment gives the
 sample count, the format and every entry that plays it. Since 2026-10-30 (lane media-files) each one
-is a WAV file, and the source `.incbin`s the raw item that `pcm_wav.py` makes from it:
+is a WAV file, and the source `.incbin`s the raw item that `pcm_wav.py` makes from it (since 2026-11-03
+an alternate start is a slice of its recording's item, and an explicit loop's run-out a
+`<recording>_RunOut` slice, see [One WAV per recording](#one-wav-per-recording-since-2026-11-03)):
 
 ```
 Main_P00_W000:	.incbin	"build/wav_pcm/main/Main_P00_W000.pcm", 0, 1024	; census: generated -- ../scripts/build/pcm_wav.py, from wav/main/Main_P00_W000_Sine.wav: 512 16-bit samples, entry 000
 ```
 
-The data-incbin census reads 3,682 generated items (66,319,584 bytes), all of them from media, and
-0 opaque and 0 generic for this tree (snapshot `docs/coverage/data-incbin-2026-10-30-04`, as in `-03`; until
-`-02` the recordings were `.incbin_range`s of the reference stream, declared `census: opaque -- pcm`).
-The other 789,280 bytes of the 64 MiB are directories, records, alignment and fill, all typed. For
-this format `kn7asm.py` gained the operators `/`, `<<`, `>>`, `|` and `&`.
+After the WAV merge of 2026-11-03 the data-incbin census reads 4,548 generated lines (66,310,688 bytes)
+for this tree, all 4,548 from media, and 0 opaque and 0 generic (a read-only run of
+`data_incbin_census.py --tree kn7000-wave` at disassembly commit `32b8124e7`; no snapshot has been committed
+since). The last committed snapshot, `docs/coverage/data-incbin-2026-11-02-01`, reads 4,539 lines, the same
+bytes, of which 3,690 lines (66,265,504 bytes) named their WAV and the 849 run-out lines did not; the 9 more
+lines are the second halves of the 9 run-outs that are not a copy. Snapshot `-10-30-04` read 3,682 generated
+items (66,319,584 bytes); until `-02` the recordings were `.incbin_range`s of the reference stream, declared
+`census: opaque -- pcm`. The other 798,176 bytes of the 64 MiB (67,108,864 less 66,310,688) are
+directories, records, alignment, zero words and fill, all typed. For this format `kn7asm.py` gained the
+operators `/`, `<<`, `>>`, `|` and `&`.
 
 ## Encoding and the WAV files
 
@@ -234,17 +247,56 @@ play and edit them, for all models, is on [Media Files]({{ site.baseurl }}/media
 `kn7000/notes/wave-roms-probes/loop_probe.py` in the disassembly repository.)
 
 - The WAV `data` chunk of a 16-bit recording is the stream's bytes unchanged; an 8-bit one's is each
-  byte XOR 0x80, because WAV 8-bit PCM is unsigned. `scripts/build/pcm_wav.py verify` round-trips
-  2,251 of 2,251 (MAIN) and 1,431 of 1,431 (SUB).
-- The `smpl` chunk carries the unity note always and the loop where the record marks one: 837
-  recordings (477 MAIN, 360 SUB, counted from the manifests). 90 loops end past their item (an entry
-  can play into the next recording's bytes); the WAV leaves those out and says so in its comment.
+  byte XOR 0x80, because WAV 8-bit PCM is unsigned. After the merge, `wav_merge_counts.py` finds the
+  `data` chunk equal to the samples of the old pieces in 2,178 of 2,178 (MAIN) and 1,402 of 1,402 (SUB)
+  files, and `make -C kn7000 verify-wave` rebuilds the four chips byte for byte from them.
+  `scripts/build/pcm_wav.py verify` checks the round trip, and refuses a loop or a cue that lies outside
+  the recording.
+- The `smpl` chunk carries the unity note always and the loop where the record marks one: 858
+  recordings (496 MAIN, 362 SUB, counted from the manifests). No loop ends past its file any more
+  (`wav_merge_counts.py`: every `smpl` loop and cue lies inside the data in all 3,580 files).
   (Until 2026-11-02 an item `Main_P00_W0AF` had no unity note, its P word read as E = 47; it is now
-  part of `Main_P00_W065`, and `Main_P00_E0AF` plays `Main_P00_W0AE` backwards, above.)
+  part of `Main_P00_W065`'s recording, and `Main_P00_E0AF` plays `Main_P00_W0AE` backwards, above.)
 - The unity note includes the zone correction of the keys that select the recording (see below);
   a recording selected with differing corrections (30 of 2,662) uses the one most keys use.
 - A recording whose audio the KN5000's IC307 also holds gets the IC307 name too
-  (`Main_P00_W000_Sine.wav`): 1,118 of 3,682, from `src/wave/ic307_names.tsv`.
+  (`Main_P00_W000_Sine.wav`): 1,114 of 3,580 (MAIN 993, SUB 121, counted from the manifests), from
+  `src/wave/ic307_names.tsv`. An alternate start's IC307 twin is named in its cue note instead.
+
+### One WAV per recording (since 2026-11-03)
+
+The owner decided to merge the WAVs into one file per recording and to trim each to the recording's end.
+There are now 3,580 WAV files: 2,178 MAIN and 1,402 SUB (before: 2,250 and 1,431). Each ends where its
+parameter record says the recording ends: at the loop end for a looped recording, after its last granule
+otherwise. The 32-sample run-out after a loop and any zero words before the next recording are spelled in
+the source only.
+
+- **Alternate starts are cue points.** The 101 directory starts that begin part-way into another entry's
+  recording (MAIN 72, SUB 29) no longer have a WAV of their own. Each is a cue point in its recording's
+  WAV: a `cue ` chunk, and a LIST/adtl chunk whose `labl` is the source label (for example
+  `Main_P00_W065`, in `Main_P00_W064.wav`) and whose `note` gives the entries, the select and the pitch
+  exponent. MAIN has 40 such recordings and SUB 21. In the source, each alternate start is a slice of its
+  recording's raw item.
+- **Loops.** The `smpl` chunk holds the recording's loop, counted from its first sample, for every entry
+  that plays it, alternate starts included. That is 858 recordings with a loop (MAIN 496, SUB 362), and no
+  loop ends past its file. A record with `LOOP_END` but no `LOOP_START` loops from sample 0.
+- **Nine run-outs are not a copy of the loop start.** Each is its loop's first 16 words, then words 16-31
+  from the loop start of an earlier recording on the same page: MAIN page 0x03 W053/W054, 0x06 W048 and
+  0x0A W015-W017, and SUB page 0x08 W029-W02B. The source spells each one as those two slices.
+  *[INFERENCE]* It is an authoring artefact.
+- Every kept sample is unchanged, and the four chips still rebuild byte for byte (`make verify-wave`).
+
+| what (`wav_merge_counts.py`, against 1c5221133)           | MAIN                 | SUB                  |
+|-----------------------------------------------------------|----------------------|----------------------|
+| WAV files before                                          | 2,250 (34,185,192 B) | 1,431 (33,532,570 B) |
+| WAV files after                                           | 2,178 (34,182,754 B) | 1,402 (33,534,926 B) |
+| merged: recordings with cue points / alternate-start WAVs | 40 / 72              | 21 / 29              |
+| trimmed: run-out only / zero words only / both            | 447 / 4 / 49         | 341 / 5 / 21         |
+| sample bytes removed                                      | 33,056               | 21,600               |
+| data chunks equal to the old pieces' samples              | 2,178 of 2,178       | 1,402 of 1,402       |
+
+Probes: `kn7000/notes/wave-roms-probes/wav_merge_counts.py` and `wave_runout_halves.py` in the
+disassembly repository; disassembly notes `kn7000/notes/wave-roms-2026-10-29.md`, "Recording lines".
 
 ### Sample rates
 

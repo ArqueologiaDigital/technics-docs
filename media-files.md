@@ -25,16 +25,16 @@ The repository's own rule is the CLAUDE.md section "Media Files Are Committed; C
 
 ## Where the files are
 
-| kind       | model     | folders                                                                                                                                                      |
-|------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| pictures   | KN5000    | `v10/maincpu/images/` (and the `images/` of `v9`, `v7`, `v6`, `v5`), `table_data/images/`, `hdae5000*/images/`                                               |
-| pictures   | SX-KN7000 | `kn7000/src/table/`, `kn7000/src/picture/`, `kn7000/src/program/data/media/` (and each other build's `program/data/media/`), `kn7000/src/ic18/media/`        |
-| pictures   | siblings  | `kn2400/`, `kn6000/`, `kn6500/`, `hdsx3/` `src/program/data/media/`                                                                                          |
-| pictures   | SX-WSA1R  | `wsa1/prom_a/images/`, `wsa1/prom_b/images/` (with `fonts/`)                                                                                                 |
-| recordings | KN5000    | `waveform/wav/` (IC307, 1,413 files)                                                                                                                         |
-| recordings | SX-KN7000 | `kn7000/wav/main/`, `kn7000/wav/sub/` (3,682 files)                                                                                                          |
-| MIDI       | KN5000    | `table_data/includes/demo_presets/midi/` (the demo songs)                                                                                                    |
-| disk files | all       | `floppy/<model>/<disk>/media/`: the softlist floppies' BMP, JPEG and MIDI files, 131 files, 5,062,376 B (KN5000 29, SX-WSA1R 16, KN6000 85, SX-KN7000 1)     |
+| kind       | model     | folders                                                                                                                                                  |
+|------------|-----------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| pictures   | KN5000    | `v10/maincpu/images/` (and the `images/` of `v9`, `v7`, `v6`, `v5`), `table_data/images/`, `hdae5000*/images/`                                           |
+| pictures   | SX-KN7000 | `kn7000/src/table/`, `kn7000/src/picture/`, `kn7000/src/program/data/media/` (and each other build's `program/data/media/`), `kn7000/src/ic18/media/`    |
+| pictures   | siblings  | `kn2400/`, `kn6000/`, `kn6500/`, `hdsx3/` `src/program/data/media/`                                                                                      |
+| pictures   | SX-WSA1R  | `wsa1/prom_a/images/`, `wsa1/prom_b/images/` (with `fonts/`)                                                                                             |
+| recordings | KN5000    | `waveform/wav/` (IC307, 1,413 files)                                                                                                                     |
+| recordings | SX-KN7000 | `kn7000/wav/main/`, `kn7000/wav/sub/` (3,580 files; 3,682 until 2026-11-02 and 3,681 until 2026-11-03)                                                   |
+| MIDI       | KN5000    | `table_data/includes/demo_presets/midi/` (the demo songs)                                                                                                |
+| disk files | all       | `floppy/<model>/<disk>/media/`: the softlist floppies' BMP, JPEG and MIDI files, 131 files, 5,062,376 B (KN5000 29, SX-WSA1R 16, KN6000 85, SX-KN7000 1) |
 
 Indexed PNGs store the ROM's palette indices, so a pixel's value is the ROM's byte. One-bit pictures
 are one-bit PNGs. The KN5000's 8-bit pictures carry the main palette, `Palette_8bit_RGBA.bin`; the
@@ -98,27 +98,32 @@ a build of the tree before the change.
 ## The WAV files
 
 They are plain mono RIFF WAVE files, `pcm_s16le` or `pcm_u8`: `ffplay kn7000/wav/main/Main_P0A_W00F.wav`
-plays one, and Audacity opens the folder. `ffprobe` read all 5,095 without an error (2026-10-30).
+plays one, and Audacity opens the folder. `ffprobe` read all 5,095 without an error (2026-10-30), and
+opens all 3,580 KN7000 files of the merged set (2026-11-03, `wav_merge_counts.py --ffprobe`).
 
 | set                      | files | 16-bit | 8-bit | header rate | `smpl` loops | manifest                       |
 |--------------------------|-------|--------|-------|-------------|--------------|--------------------------------|
 | KN5000 IC307             | 1,413 | 1,213  | 200   | see below   | 0            | `waveform/wav_manifest.tsv`    |
-| SX-KN7000 MAIN (IC203/4) | 2,251 | 1,806  | 445   | see below   | 477          | `kn7000/src/wave/main_wav.tsv` |
-| SX-KN7000 SUB (IC207/8)  | 1,431 | 917    | 514   | see below   | 360          | `kn7000/src/wave/sub_wav.tsv`  |
+| SX-KN7000 MAIN (IC203/4) | 2,178 | 1,801  | 377   | see below   | 496          | `kn7000/src/wave/main_wav.tsv` |
+| SX-KN7000 SUB (IC207/8)  | 1,402 | 905    | 497   | see below   | 362          | `kn7000/src/wave/sub_wav.tsv`  |
 
 (Counted from the three committed manifests, which hold one row per recording and no sample data:
 label, offset in the reference, end, bit depth, sample rate, WAV file name, unity note, loops and the
-INFO comment.)
+INFO comment. The KN7000 manifests have one row per recording since 2026-11-03, plus a `cues` column
+for the alternate starts.)
 
 - **The mapping is exact both ways.** A 16-bit recording is signed little-endian, so the WAV's `data`
   chunk holds the ROM bytes unchanged. An 8-bit recording is two signed samples per word, low byte
   first; WAV 8-bit PCM is unsigned, so each WAV byte is the ROM byte XOR 0x80.
-  `scripts/build/pcm_wav.py verify` checks the round trip (1,413 / 2,251 / 1,431 of 1,413 / 2,251 /
-  1,431). `pcm_wav.py build` refuses a WAV that is not mono integer PCM of the recording's bit depth,
+  `scripts/build/pcm_wav.py verify` checks the round trip (1,413 of 1,413 for IC307), and refuses a loop
+  or a cue that lies outside the recording. For the merged KN7000 files, `wav_merge_counts.py` finds the
+  `data` chunk equal to the samples of the pieces it replaced in 2,178 of 2,178 (MAIN) and 1,402 of 1,402
+  (SUB) files, and `make -C kn7000 verify-wave` rebuilds the chips byte for byte from them. `pcm_wav.py build` refuses a WAV that is not mono integer PCM of the recording's bit depth,
   or whose length differs, because the page layout fixes where every recording starts.
 - **Names.** A WAV is named after its source label. The KN5000 labels already carry the instrument
   (`P1_W0003_JazzFlute.wav`). A KN7000 recording whose audio IC307 also holds gets the IC307 name too
-  (`Main_P00_W000_Sine.wav`; 1,118 of 3,682, from `kn7000/src/wave/ic307_names.tsv`). Each file's
+  (`Main_P00_W000_Sine.wav`; 1,114 of 3,580, from `kn7000/src/wave/ic307_names.tsv`; an alternate
+  start's IC307 twin is named in its cue note instead). Each file's
   LIST/INFO chunk carries the label and a comment: tone generator, page, entries, select, format, and
   the IC307 or KN7000 counterpart.
 - **Sample rates (since 2026-10-31).** Neither ROM stores a rate, but the headers now carry a real
@@ -132,13 +137,20 @@ INFO comment.)
   `scripts/build/pcm_wav.py retag` rewrote the header chunks of 5,094 WAVs; the samples are the ROM's bytes,
   so a WAV still rebuilds the ROM exactly (disassembly `notes/sound-2026-10-31/README.md`, section 1).
 - **Loops and root note (KN7000).** The KN7000 files carry a `smpl` chunk that samplers read: the loop
-  where the parameter record marks one (837 recordings), written from the record's `LOOP_START` /
+  where the parameter record marks one (858 recordings: 496 MAIN, 362 SUB), written from the record's `LOOP_START` /
   `LOOP_END` segment ends, and a unity note: the root key plus the rounding of the rate. The pitch law
   behind it was fitted in emulation (kn7000_mame `notes/g13-waves-2026-10-20`, 478 of 556 voices), so
-  the octave of the root is *[INFERENCE]*; the pitch class is checked against the audio. 90 loops end past
-  their item and are left out of the WAV (its comment says how many). (The old item `Main_P00_W0AF`, which
-  had no unity note, is part of `Main_P00_W065` since 2026-11-02: its entry, the Reverse Cymbal, plays
-  `Main_P00_W0AE` backwards; [KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/).)
+  the octave of the root is *[INFERENCE]*; the pitch class is checked against the audio. (The old item
+  `Main_P00_W0AF`, which had no unity note, is part of `Main_P00_W065`'s recording since 2026-11-02: its
+  entry, the Reverse Cymbal, plays `Main_P00_W0AE` backwards;
+  [KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/).)
+- **One file per recording (KN7000, since 2026-11-03).** A recording that two or three directory entries
+  start into is one WAV, with a cue point (`cue ` + LIST/adtl `labl` / `note`) at each later start. Every
+  file ends where its recording ends, so a looped recording ends at its loop end. The run-out after the
+  loop is in the source only, and no loop is left out of a file any more (until 2026-11-03, 90 loops ended
+  past their item and were left out of the WAV). 101 alternate-start WAVs were merged into 61 recordings,
+  and 867 files were trimmed
+  ([KN7000 Wave ROM Format]({{ site.baseurl }}/kn7000-wave-rom-format/#one-wav-per-recording-since-2026-11-03)).
 - **8-bit gain.** The KN7000's 8-bit segments carry a 6-bit code that, in emulation, scales the
   segment by 2^(-b/2) (fitted, not derived). The WAV holds the raw samples, so 8-bit recordings play
   with their segments at the stored level: the segment gain law is not established, so no gained copy
@@ -235,7 +247,10 @@ snapshot [`docs/coverage/data-incbin-2026-10-31-02.txt`](https://github.com/Arqu
 
 The class *opaque pcm* has been empty in every tree since snapshot `data-incbin-2026-10-30-03`; in `-02`
 it held 5,095 items, 70,490,064 bytes (`kn5000-waveform` 1,413 / 4,170,480 and `kn7000-wave`
-3,682 / 66,319,584, now all generated from media). The NAKA GUI C's pictures still count as compiled C,
+3,682 / 66,319,584, now all generated from media). Since the KN7000 WAV merge of 2026-11-03,
+`kn7000-wave` reads 4,548 generated lines, 66,310,688 bytes, all from media (read-only run at disassembly
+commit `32b8124e7`; no snapshot committed since `data-incbin-2026-11-02-01`, which reads 4,539 lines, the
+same bytes, 3,690 of them from media). The NAKA GUI C's pictures still count as compiled C,
 not as "from media", although their pixels are now written from the PNGs.
 
 ## The inventory
