@@ -586,6 +586,15 @@ The whole GUI, every title with its menu path, menu entries, EXIT target and wid
 [`docs/gui/kn5000-menu-map.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/gui/kn5000-menu-map.md); the [KN5000 Menu Map]({{ site.baseurl }}/kn5000-menu-map/)
 page summarises it.
 
+Since 2026-11-06 the records the first typing had cut across (an IvExit read together with the record after it)
+are typed too (`scripts/converters/naka_type_straddling_records.py`), so a record's 32-bit words are never read
+as pointers when they are rectangle words. The sound editor's pages (TITLE_SE*) are DirmdEmulator screens: their
+menu paths come from each page's method table and switch handlers, and the docs/gui menu map now gives 158 of the
+211 titles a path. In v10 that lane took the typed records from 3,242 to 3,259 and the `field_XX` members from 523
+to 434 (`naka_gui_census.py`; 291 are still in `naka_sequencer_channels.c`); by its probe's rule 52 Viewable
+elements are still untyped (69 before), 49 of them in the asm. Notes:
+[`notes/kn5000-notes-2026-11-06/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/notes/kn5000-notes-2026-11-06/README.md).
+
 ## Event System
 
 ### Event Code Spaces

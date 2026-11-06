@@ -256,7 +256,8 @@ the accompaniment's copy at 0x32D7..0x32DA (flags, type, root 1 = C .. 12 = B, b
    the bass, 8 for the chords), otherwise down; notes at or above the part's ceiling drop by octaves.
 4. The bass plays the bass root of an on-bass chord, and the root on the first note after each chord change
    (`Rhythm_BassToRoot`), within a floor (RAM 0x332E) that keeps it near the written note. With chord flag bit 0,
-   every note plays the root (`Rhythm_RootOnlyNote`).
+   every note plays the root (`Rhythm_RootOnlyNote`); nothing sets that bit in v10 / v9 / v7, so this is a dead
+   path (below).
 
 Per chord type (`python3 notes/open6-kn5000-d/accomp/probes/pattern_transpose.py --tables`): family is
 `Chord_TypeFamilyTable` (0 major, 1 minor, 2 seventh, 3 dim7), row is the `Rhythm_ChordNoteDeltaRows` row each
@@ -341,10 +342,13 @@ Evidence: the disassembly's probe `notes/open6-kn5000-d/accomp/probes/pattern_tr
 conversion from the firmware's tables and runs it on all 245,470 IC14 pattern notes of parts 4..32 (root C): for
 every type that has a conversion, the share of played pitch classes that are tones of the chord rises, never
 falls (min 57.5 % -> 77.8 %, m7b5 35.0 % -> 100 %, dim 39.5 % -> 100 %; the unconverted major patterns are
-72.9 %, the rest being passing and colour notes). Only v10 was read. Open: what sets `CHORD_FLAGS` / 0x32D7 bit 0
-(the only path found is a song override at 0x2306); the caller of the second converter `Rhythm_TransposeWithMod`;
-and whether the fast path's table, which differs from the full path's at type 7, is a firmware bug. Source:
-disassembly `notes/open6-kn5000-d/accomp/README.md`, section A.
+72.9 %, the rest being passing and colour notes). Only v10 was read. Since 2026-11-06: nothing sets `CHORD_FLAGS`
+/ 0x32D7 bit 0 in v10 / v9 / v7 (every writer copies a CHORD_FLAGS value or stores 0), so the root-only rule is a
+dead path; the second converter, `Rhythm_PhraseConvertNote`, belongs to the AccompSeq phrase player
+(`AccompSeq_ConvertNote90` / `AccompSeq_ConvertNote91`), which converts with the ACCOMP1 rows, a fixed turnover of 6
+and no bass rule. Open: whether the fast path's table, which differs from the full path's at type 7, is a firmware
+bug. Source: disassembly `notes/open6-kn5000-d/accomp/README.md`, section A, and
+`notes/kn5000-notes-2026-11-06/README.md`.
 
 ## Section switching: intro, fill-in, ending
 
@@ -394,6 +398,11 @@ and when all six have stopped (0x3283 bit 2) `AccTick_Main` runs `AccEnding_Stop
 ending note has been released, that routine stops the accompaniment (`AccPlayMode_StopPlayAndAcc`; only the
 accompaniment, `AccPlayMode_StopAcc`, if a song plays), sends all notes off, shows the keyboard's chord again and
 clears the ENDING LEDs, 0x3283 bit 2 and the section lanes.
+
+The accompaniment keeps a record of every sounding note per part (`ACC_DRUM1_NOTES` .. `ACC_ACCOMP3_NOTES`: status,
+note, velocity and the time left), counts them down every tick and stops after an ending only when none is left.
+A chord key that comes just after the accompaniment stopped (it ran through the last two ticks) has its synchro
+start deferred to the main loop, which first lets the rhythm byte stream drain.
 
 ### SYNCHRO & BREAK
 
@@ -553,7 +562,7 @@ The `StyleUI_*` labels define parameter blocks and screen layouts for the style 
 
 ## Research Needed
 
-- [x] ~~Decode chord recognition algorithm (which chord types are supported, how root is determined)~~ — [Chord Recognition](#chord-recognition); open: what sets `CHORD_FLAGS` bit 0
+- [x] ~~Decode chord recognition algorithm (which chord types are supported, how root is determined)~~ — [Chord Recognition](#chord-recognition); `CHORD_FLAGS` bit 0 is set by nothing in v10 / v9 / v7 ([Pattern transposition](#pattern-transposition))
 - [x] ~~Transposition of the Rhythm-ROM pattern notes to the recognized chord (root shift, chord-type note rule)~~ — [Pattern transposition](#pattern-transposition); `Note_PitchClassTable` is the note -> pitch-class map it uses
 - [ ] Map the complete style data format (header, part assignments, note data encoding). The Composer style bank is now named field by field ([Floppy Disk Formats]({{ site.baseurl }}/floppy-disk-formats/#the-composer-style-bank)); the Rhythm-ROM format is on [Rhythm ROM]({{ site.baseurl }}/rhythm-rom/)
 - [x] ~~Document the variation/fill-in switching state machine~~ — [Section switching](#section-switching-intro-fill-in-ending), [SYNCHRO & BREAK](#synchro--break)

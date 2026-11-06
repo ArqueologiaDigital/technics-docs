@@ -12,6 +12,13 @@ generated file [`docs/gui/kn5000-menu-map.md`](https://github.com/ArqueologiaDig
 technics-roms-disasm (about 200 KB, 3,861 lines). The numbers below are that file's, generated from
 program v10 on 2026-10-29.
 
+**Since 2026-11-06 the generated file reads further** (lane kn5000-notes, disassembly
+`notes/kn5000-notes-2026-11-06/README.md`): 158 of the 211 titles have a path (53 without, 81
+before), with 275 code transitions (93 before) and 3,259 widget records. The sound editor's pages
+(`TITLE_SE*`) are DirmdEmulator screens, and their method tables and switch handlers are now
+modelled; `SeMenu_SendEvent`, the sound editor's title opener, is now traced. This summary has not
+been regenerated from it yet: its tables and lists below are still those of 2026-10-29.
+
 ## Terms
 
 - A **title** (`TITLE_*`, id `0x01A0xxxx`) is a screen. `RegTitle` binds each title to a view
