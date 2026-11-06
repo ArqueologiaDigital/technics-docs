@@ -24,18 +24,19 @@ door, in a fixed way:
 
 A new program is a new folder on the card. Nothing on the floppy changes.
 
-> **Status (2026-10-27).**
+> **Status (2026-11-06).**
 > - **The loader** (`KN7LOAD.CNV`, SHA-1 `6b81f382fd29b9bc5a025854af0e20a194e68bec`, unchanged since
 >   2026-10-19) has run on the owner's unit in every pass of the [ROM dumper]({{ site.baseurl }}/kn7000-rom-dumper/).
 > - **Another World** ran on the unit on 2026-10-20, from the card's root: first slowly, then with
 >   the faster blit at about 20 frames per second. Its sound played there too, first on the tone
 >   generator over MIDI and, since 2026-10-21, as the game's own samples on the effects DSP
->   ([below](#sound)). Its third round (2026-10-21: the sounds load faster, the keybed alone plays
->   the game, PART SELECT RIGHT 1 mutes the keys' own notes; `KN7APP.BIN` `94910f68…`) has run only
->   in MAME so far.
+>   ([below](#sound)). Since 2026-11-01 the owner has played its new builds, logging the sessions
+>   for replay in MAME: 384x240 pages, the LCD at 8 bits a pixel with an ambilight, a settings
+>   page, and the panel's LEDs following the game ([below](#another-world-on-the-instrument)).
 > - **The program menu** passes its tests in MAME, on program 893 with the owner's loader floppy
->   image and a copy of his card. On the unit it has started Another World from `AW\` and DSPTONE
->   (2026-10-21).
+>   image and a copy of their card. On the unit it has started Another World from `AW\`, DSPTONE
+>   (2026-10-21), Pinball Fantasies and ProTracker. Since 2026-11-04 it draws in an LCD frame of its
+>   own, so nothing of the firmware's screen shows, and each row says what the program is.
 > - **DSPTONE**, a program of our own on the effects DSP, ran on the unit on 2026-10-21: the owner
 >   heard its tone and its sweep, and the reverb came back after STOP
 >   ([Effects DSP]({{ site.baseurl }}/kn7000-effects-dsp/#dsptone-iteration-1-a-tone-and-a-sweep)).
@@ -53,37 +54,45 @@ A new program is a new folder on the card. Nothing on the floppy changes.
 1. Switch on and wait for the main screen. Insert the KN7LOAD floppy and the SD card.
 2. **DISK MENU**, then **STYLE CONVERT** (left button 3). The list shows `KN7LOAD.CNV`. Press
    **OK** (right button 4).
-3. The loader's screen flashes by. Then "KN7000 PROGRAMS": the list, five to a page, one program
-   beside each left button. Press the **left button** beside a program to select it. PART SELECT
-   LEFT / RIGHT 1 move the selection; right button 2 or PAGE DOWN shows the next page, right button
-   1 or PAGE UP the one before.
+3. The loader's screen flashes by. Then "KN7000 PROGRAMS": the list, five rows to a page, one
+   beside each left button. A row is a program or a menu folder (Games, Tools, Other apps, HW
+   Probes), with its icon, its name, and under it the program's folder on the card and what it is
+   (the manifest's `DESC=`). Press the **left button** beside a row to select it; a folder's row
+   opens the folder, and right button 1 (**BACK**) goes up again. PART SELECT LEFT / RIGHT 1 move
+   the selection, across pages; PAGE DOWN shows the next page, PAGE UP the one before.
 4. **RUN** (right button 5) reads the program, checks it as the loader would, and starts it. A
    damaged or foreign `KN7APP.BIN` is refused: its line says why, in red, and nothing starts.
-5. When the program ends, the firmware shows its message, then "Continue Next?". **YES** (right
+5. When the program ends, the firmware shows its message, then "Continue Next?". (Another World
+   goes straight back to the menu instead, [below](#another-world-on-the-instrument).) **YES** (right
    button 3) brings the menu back; **NO** (right button 4) returns to the main screen. EXIT on
    "Continue Next?" cancels to the STYLE CONVERT screen, so do not press it there.
 6. To leave the menu itself: **LEAVE** (right button 4), or hold EXIT for 1.5 s and let go; then NO.
 
 ## The card
 
-The menu's build (`make card` in `kn7000/tools/kn7menu`) writes everything for the card's root:
+The menu's build (`make card` in `kn7000/tools/kn7menu`) writes the menu, Another World, Pinball
+Fantasies and the probes; the KN7000 repository's `tools/sdcard/stage.sh` adds the programs of
+other repositories and stages the whole tree, as on the owner's card (2026-11-05):
 
-| on the card  | what                                                                                    |
-|--------------|-----------------------------------------------------------------------------------------|
-| `KN7APP.BIN` | the program menu (12,739 bytes)                                                         |
-| `AW\`        | Another World: its `KN7APP.BIN` and 140 game files, made from your own copy of the game |
-| `SURVEY2\`   | the ROM dumper's pass 5                                                                 |
-| `DSPPROBE\`  | pass 6, the DSP probe, phase 1                                                          |
-| `DSPMEM\`    | pass 7, the DSP probe, phase 2                                                          |
-| `DSPRATE\`   | pass 8, the DSP frame rate                                                              |
-| `CPUTIME\`   | pass 9, the CPU timing probe                                                            |
-| `DSPTONE\`   | our own program on the effects DSP, iteration 1                                         |
+| on the card              | what                                                                                                     |
+|--------------------------|----------------------------------------------------------------------------------------------------------|
+| `KN7APP.BIN`             | the program menu (14,706 bytes)                                                                          |
+| `KN7MENU.TOC`            | the menu's table of contents, made with the card: every program's name, menu folder, icon and size       |
+| `AW\`                    | Games: Another World: its `KN7APP.BIN`, a manifest, an icon and 73 files made from your copy of the game |
+| `PINBALL\`               | Games: Pinball Fantasies, the 1994 DOS game's four tables, from your own copy                            |
+| `DOOM\`                  | Games: [Doom]({{ site.baseurl }}/kn7000-doom/) (Chocolate Doom, the shareware episode)                   |
+| `KEYFALL\`               | Games: [Keyfall]({{ site.baseurl }}/kn7000-keyfall/), a falling-notes piano game                         |
+| `PDF\`                   | Tools: the [PDF viewer]({{ site.baseurl }}/kn7000-pdf-viewer/) (MuPDF)                                   |
+| `PROTRACK\`              | Other apps: [ProTracker 2.3D]({{ site.baseurl }}/kn7000-protracker/), which plays and edits modules      |
+| `DSPTONE\`               | Other apps: our own program on the effects DSP, iteration 1                                              |
+| `PFDIAG\`                | Other apps: Pinball Fantasies with its start-up logged to the card                                       |
+| `SURVEY2\` .. `CPUTIME\` | HW Probes / ROM dumper passes: passes 5 (SURVEY2) to 9 (the CPU's timing), the DSP probes between        |
+| `PFHELLO\`, `PFT1\` ..   | HW Probes / Pinball probes: the probes that settled the CPU's and the LCD's behaviour for the ports      |
 
+A program's menu folder and its description come from its `MANIFEST.TXT` (`FOLDER=`, `DESC=`).
 [KN7FM]({{ site.baseurl }}/kn7000-fm-synth/), a DX7-style FM synthesizer on the effects DSP, is a program for the same
-card but not part of this build: its folder `KN7FM\` comes from its own `make card-dir` (kn5000_homebrew
-`demos/kn7000_fm`). So far it has run in MAME only. So has [ProTracker]({{ site.baseurl }}/kn7000-protracker/), the
-Amiga's ProTracker 2.3D (folder `PROTRACK\`, kn5000_homebrew `demos/kn7000_protracker`), which plays modules on the
-effects DSP.
+card but not part of the staged tree: its folder `KN7FM\` comes from its own `make card-dir` (kn5000_homebrew
+`demos/kn7000_fm`). So far it has run in MAME only.
 
 The probes' binaries are the released ones, byte for byte; the build checks each against its
 release's `SHA1SUMS`. The probes still write their result files to the card's root, as they did
@@ -101,9 +110,14 @@ A program is a folder in the card's root with a `KN7APP.BIN` in it: any applicat
       # Another World for the KN7000
       NAME=Another World
       ICON=ICON.BMP
+      FOLDER=Games
+      DESC=Eric Chahi's 1991 cinematic adventure
 
   `NAME` is what the list shows (ASCII, up to 63 characters). `ICON` names an icon file in the same
-  folder. Without a usable name the list shows the folder's long name, or its 8.3 name.
+  folder. Without a usable name the list shows the folder's long name, or its 8.3 name. `FOLDER`
+  is the menu folder the program is listed in (a path such as `HW Probes/Pinball probes`; without
+  it, the top of the menu), and `DESC` what the row's second line says after the program's folder.
+  Both are read when the card is made (`mktoc.py`, which writes `KN7MENU.TOC`), not by the menu.
 - **The icon**: a Windows BMP of exactly 32 × 32 pixels, 24 or 32 bits per pixel, uncompressed.
   `png2icon.py my.png ICON.BMP` makes one from any PNG. Without a usable icon the list shows a
   default one.
@@ -119,17 +133,17 @@ A program that wants its own files from its folder reads the **launch block**: 2
 The loader zeroes the whole area before it loads anything, so a program started straight from
 `C:\KN7APP.BIN` finds zeros there. No program may keep data of its own in these 256 bytes.
 
-| offset | field       | size | what                                                              |
-|--------|-------------|------|-------------------------------------------------------------------|
-| `0x00` | `LB_MAGIC`  | 4    | `0x4C374E4B` ("KN7L")                                             |
-| `0x04` | `LB_ABI`    | 4    | 1                                                                 |
-| `0x08` | `LB_SIZE`   | 4    | the bytes of `KN7APP.BIN` the menu put at the load address        |
-| `0x0C` | `LB_CRC`    | 4    | its CRC-32, as in its header                                      |
-| `0x10` | `LB_DIR`    | 16   | the folder's 8.3 name, `AW`, NUL-ended                            |
-| `0x20` | `LB_PREFIX` | 16   | the same with a backslash, `AW\`: put in front of a file name     |
-| `0x30` | `LB_PATH`   | 32   | `C:\AW`, for the firmware's set-folder routine                    |
-| `0x50` | `LB_NAME`   | 64   | the name the menu showed, NUL-ended                               |
-| `0xFC` | `LB_CHECK`  | 4    | `0xB3C8B1B4`, the bitwise NOT of the magic                        |
+| offset | field       | size | what                                                          |
+|--------|-------------|------|---------------------------------------------------------------|
+| `0x00` | `LB_MAGIC`  | 4    | `0x4C374E4B` ("KN7L")                                         |
+| `0x04` | `LB_ABI`    | 4    | 1                                                             |
+| `0x08` | `LB_SIZE`   | 4    | the bytes of `KN7APP.BIN` the menu put at the load address    |
+| `0x0C` | `LB_CRC`    | 4    | its CRC-32, as in its header                                  |
+| `0x10` | `LB_DIR`    | 16   | the folder's 8.3 name, `AW`, NUL-ended                        |
+| `0x20` | `LB_PREFIX` | 16   | the same with a backslash, `AW\`: put in front of a file name |
+| `0x30` | `LB_PATH`   | 32   | `C:\AW`, for the firmware's set-folder routine                |
+| `0x50` | `LB_NAME`   | 64   | the name the menu showed, NUL-ended                           |
+| `0xFC` | `LB_CHECK`  | 4    | `0xB3C8B1B4`, the bitwise NOT of the magic                    |
 
 Another World copies `LB_PREFIX` on its first call and opens every file as that prefix and its
 name (`AW\AWR11.AW`), through the loader's open routine. In the root, without the menu, the prefix
@@ -257,34 +271,57 @@ The game's build checks every routine for it.
 ## Another World on the instrument
 
 The same [Another World VM]({{ site.baseurl }}/another-world-vm/) that runs on the KN5000, ported to
-the MN10300, is a program of this kind: `AW\KN7APP.BIN` on the card. It takes no address from any
-build: it finds the firmware's task services, millisecond counter, panel bitmaps and MIDI rings by
-signature, and runs on programs 893, 935, 941 and 942.
+the MN10300, is a program of this kind: `AW\KN7APP.BIN` on the card, listed under **Games** in the
+menu. It takes no address from any build: it finds the firmware's task services, millisecond
+counter, panel bitmaps, LED shadow and MIDI rings by signature, and runs on programs 893, 935, 941
+and 942.
+
+> **Status (2026-11-06).** The latest build, `KN7APP.BIN` `7c2d2c06…` (technics-anotherworld
+> `5f348df`), passes its finale and settings checks in MAME on program 893 and is staged on the
+> owner's card.
+> - **On the unit.** The owner has played the builds of 2026-11-01 to 2026-11-04 on program 893 and
+>   asked for changes from what was seen there, among them:
+>   - the firmware's screen showing through while a part loaded;
+>   - a flash of the next picture in the old colours at the splash's cuts;
+>   - "Loading..." coming up only after a black screen;
+>   - the PANEL MEMORY ring being green, where the parts list says amber.
+>
+>   The first session the game logged there, on 2026-11-01, found a bug in the VM
+>   ([below](#replaying-a-session)).
+> - **In MAME only so far:** the credits' light show and the code wheel's retry (2026-11-05).
 
 - **Memory.** Everything the game writes is in `0x502BA000`-`0x50379FFF`: code, VM state, the four
   pages, the current part's files. It holds one part at a time and loads each part's files from the
   card when the part starts, as the original engine does. It never touches IC23 or the user-memory
   pools: a build-time guard, run-time range checks and MAME write taps over whole sessions check
   it. The procedure for a run on the unit records IC23 before and after the session with the
-  dumper's SURVEY2 pass, so that any change would show.
+  dumper's SURVEY2 pass, so that any change would show. Outside that range it writes the mailbox's
+  request, the LCD's display memory and controller registers (put back at the quit), the firmware's
+  LED shadow and MIDI IN 1 ring, three words of program 893's screen code (put back), its own files
+  on the card, and the effects DSP's memory ([below](#sound)).
+- **Starting.** The whole LCD goes black at the first call and "Loading... NN%" counts up in its
+  middle, drawn from the first frame: the firmware search, the font and strings, the sound tables,
+  then the game's samples on the effects DSP (the first time after power-on) and the first part.
+  Each later part loads behind a black screen.
 - **Controls.** Since the third round (2026-10-21) the game is played on the **keybed only**, or
-  over MIDI IN 1 on channels 1-3; no panel button moves the player any more (the keys: the table
-  below). A♭5 and B♭5 are the black keys either side of A5; B5 is no control (the owner's choice). With
+  over MIDI IN 1 on channels 1-3; no panel button moves the player (the keys: the table below).
+  A♭5 and B♭5 are the black keys either side of A5; B5 is no control (the owner's choice). With
   three keys down at once (an action key, a direction and up: run and jump) the keybed's scan
-  matrix can lose A♭5 or B♭5. The panel's buttons are the port's own: OTHER PART & FR the level
-  codes, HELP the help pages (PAGE UP / PAGE DOWN turn them; one gives the project's address,
-  `github.com/felipesanches/technics-anotherworld`), **PART SELECT RIGHT 2** the game's
-  sound mode ([below](#sound)), **PART SELECT RIGHT 1** the keybed's own sound, PAGE UP the speed
-  overlay, PAGE DOWN the old blit. Hold EXIT for 1.5 s to quit. R1/R2 OCTAVE + / − and SUSTAIN
-  no longer do anything in the game, but the firmware still does their own job while it runs.
+  matrix can lose A♭5 or B♭5. The panel's buttons are the port's own (second table).
+- **Quitting.** Hold EXIT for 1.5 s. Started from the program menu, the game goes straight back to
+  the menu: it reads and checks the menu's `KN7APP.BIN` and starts it through the menu's own
+  trampoline, so no firmware message and no "Continue Next?" come between them (in MAME, 5.5 s from
+  EXIT going down, the 1.5 s hold included). Started from the card's root, it ends with the
+  firmware's message and "Continue Next?" as before.
+- **The end.** After the credits the game's last words scroll up and the picture stops, as in the
+  original. Then any key of the keybed, or 3 s of the still picture, starts the intro again.
 - **The keybed's own sound.** The instrument plays its own voice for every key that steers the
   game. PART SELECT RIGHT 1 mutes those notes and brings them back: the game sends expression
   (MIDI CC 11) 0 on channels 1-3 (RIGHT 1, RIGHT 2, LEFT) through the firmware's MIDI IN path, and
   127 again when it leaves and at every new game. Expression is a live controller, so nothing is
   stored. The help screen's first page shows "KEYBED SOUND: ON" or "OFF". In MAME the firmware's
   expression byte goes to 0 and back, but the mute cannot be heard there: the overlay's tone
-  generator ignores the level word the firmware writes for it. Whether it silences the notes on the
-  instrument is for the owner's ears.
+  generator ignores the level word the firmware writes for it.
 
 | game   | key (or MIDI IN 1, channels 1-3) |
 |--------|----------------------------------|
@@ -293,6 +330,137 @@ signature, and runs on programs 893, 935, 941 and 942.
 | left   | F5                               |
 | right  | C6                               |
 | action | C4 or any key below              |
+
+| what         | panel                                                                                                |
+|--------------|------------------------------------------------------------------------------------------------------|
+| codes        | OTHER PART & FR: the level-code screen                                                               |
+| help         | HELP; PAGE UP / PAGE DOWN turn pages; EXIT, HELP or any key returns; OTHER PART & FR the code screen |
+| settings     | HELP, then PAGE DOWN three times ([below](#settings))                                                |
+| sound        | PART SELECT RIGHT 2: the game's sound, DSP / tone generator / off ([below](#sound))                  |
+| keybed sound | PART SELECT RIGHT 1: the instrument's own notes for your keys on / off                               |
+| screen       | PAGE UP: 384x240 (the default); PAGE DOWN: 320x200                                                   |
+| quit         | hold EXIT for 1.5 s                                                                                  |
+
+The help screen has four pages: the controls, with the current sound mode and keybed sound; two pages of level
+codes, in the game's order, each with where it starts, centred as one block, the second ending with the project's
+address (`github.com/felipesanches/technics-anotherworld`); and the settings. R1/R2 OCTAVE + / − and SUSTAIN do nothing
+in the game, but the firmware still does their own job while it runs, and keeps the change. **Do not press
+DISPLAY HOLD**: once in MAME it made the firmware repaint its screen and stop calling the game for good.
+
+### The screen
+
+- **Two resolutions** (since 2026-11-02). By default the game's four pages are **384x240**, the LCD's whole
+  height, 6/5 of the original both ways, centred with strips at the sides. The polygons are computed and filled
+  at that resolution, not enlarged afterwards. The text keeps its 8x8 glyphs, pixel for pixel, each placed at
+  6/5 of where the game puts it. The twelve background bitmaps, which the game has at 320x200, come from the
+  card at 384x240, enlarged at build time with Catmull-Rom interpolation restricted to the source's own nearby
+  colours. **PAGE DOWN** switches to the original **320x200** in the middle of the LCD, PAGE UP back; the
+  pages are converted on the spot.
+- **8 bits a pixel through the look-up table.** The LCD controller
+  ([S1D13806]({{ site.baseurl }}/kn7000-display-subsystem/)) shows a frame of the game's own at display memory
+  `0x50000` at 8 bits a pixel through its 256-entry look-up table, as Pinball Fantasies does on the unit. Each
+  byte is the page's colour index, so a palette change is 16 table entries, not a repainted window. A new
+  palette goes into the table only after the page's pixels; when a quarter of the window or more changes at
+  once, the game's 16 entries are black while the pixels are written. At the quit, or when the firmware stops
+  calling the game, the controller's registers go back and the firmware's own screen shows again.
+- **The ambilight.** The strips beside the window glow with the picture's colours, by palette changes alone.
+  The border is drawn once per window size with table entries 16-255: 2 sides × 8 bands of rows × 15 levels of
+  distance, dithered. For each picture shown, each band's colour is the average of the window's quarter on
+  its side in those rows, smoothed, fading as the square of the distance to black at the LCD's edge. Only the
+  entries that change are written.
+- **The firmware's screen stays out.** Program 893 repaints its STYLE CONVERT screen at every converter call,
+  which showed through during part loads on the unit. As Pinball Fantasies does, the game points ScreenProc's
+  record in the firmware's view class table at a copy that answers the paint event without the wallpaper copy,
+  and turns the firmware's drawing off at every yield (DrawEnable `0x5002A018`, `0x5002A01C`); both go back at
+  the quit. On any other program build nothing is hooked. In MAME the intro's and the lake's loads stayed black
+  and took 0.58 and 0.53 s instead of 0.98 and 0.93 s.
+
+### Settings
+
+The help screen's fourth page holds six settings, chosen with UP and DOWN and changed with LEFT and RIGHT. A
+change applies at once. The game keeps them in `AWPREFS.CFG` in the card's root (16 bytes: "AWP1", then one byte
+a setting), reads it at the start and writes it after a change, at a call with no panel button down and no part
+loading, or at the quit.
+
+| setting       | values                         | default | what it does                                                                        |
+|---------------|--------------------------------|---------|-------------------------------------------------------------------------------------|
+| resolution    | 384x240, 320x200               | 384x240 | the display mode the game starts in                                                 |
+| ambilight     | on, off                        | on      | the glow in the strips beside the picture                                           |
+| light scatter | short, medium, long, very long | long    | how far the glow reaches into the strips                                            |
+| keybed sound  | on, off                        | on      | the instrument's own notes for the keys that steer the game                         |
+| LED effects   | on, off                        | on      | the panel LEDs following the game ([below](#the-panels-leds))                       |
+| code wheel    | off, on                        | off     | the original game's copy protection, from the next start ([below](#the-code-wheel)) |
+
+### The code wheel
+
+With the setting off, the game starts as the KN5000 port does: part 0x3E80's logo and credits, with the variables
+the copy protection would set (0xBC, 0xC6, 0xF2) already set. With it on, the game starts where the DOS game does:
+part 0x3E80 from its beginning, whose thread 20 asks for the three symbols at a position of the code wheel that came
+with the game, entered with the game's own controls. A right answer sets those variables by the game's own code and
+goes on to the logo and the intro. A wrong one shows the game's ERROR page, where the DOS game stays for good; here,
+3 s later, the part starts again with a new random seed and asks for another position (`src/interp.s` WheelRetry,
+since 2026-11-05). In MAME, two wrong answers in a row each showed ERROR, and the question came back 3.20 and 3.18 s
+later, the second time for position K14. The setting is read when the game starts.
+
+### The panel's LEDs
+
+With the LED effects on, every LED of the panel goes dark once the firmware search is done, and from then on only
+the game lights them. It writes the firmware's own LED shadow, so the firmware's 24 ms flush carries the pattern;
+at the quit the LEDs go back to what the firmware had them showing. The shadow's address is known for programs
+893, 935, 941 and 942; on any other build the game leaves the LEDs alone. The moments are recognised in the
+game's own bytecode as it runs, by a sound and the thread or pc that plays it, a variable, a thread's pc, or a
+palette, the signals found by logging the reference VM (rustyworld) over the same sessions:
+
+| moment                                                          | LEDs                                                                                                                                |
+|-----------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| a guard's laser shot                                            | every red LED, 150 ms                                                                                                               |
+| Lester's laser shot                                             | the red LEDs on the half of the panel he shoots towards, 150 ms                                                                     |
+| the gun charging; the big ball                                  | the PANEL MEMORY ring pulses; twice as fast, with every green LED, for the big ball                                                 |
+| a shield; the big blast                                         | a random 30% of the red LEDs for 150 ms; every LED while the blast shows                                                            |
+| a skeleton exploding, a lamp holder shot down                   | every green LED (the PANEL MEMORY ring's too), 200 ms                                                                               |
+| the gun recharging at a station                                 | the green LEDs blinking fast at random for 1.4 s                                                                                    |
+| the waterfall; the lift's bouncing light                        | LEDs at random while the falls are on screen; a chase along the PANEL MEMORY ring following the light                               |
+| the battle tank's panel                                         | its buttons and lamps mirrored on the panel's                                                                                       |
+| a guard's red lamp (code TXHF); the guard under the glass globe | the red LATIN & WORLD LED blinking with it; PANEL MEMORY 1-4 following his reflection, and a sparkle for 1.8 s when the globe falls |
+| a door blasted open (the corridor of code HBHK)                 | the green LEDs flash for 0.6 s at each panel a blast knocks out                                                                     |
+| the intro's lightning and thunder; the lab struck               | every LED at each flash or loud clap; every LED blinking three times                                                                |
+| the explosion in the lake                                       | every green LED, 300 ms                                                                                                             |
+| the dragon spreading its wings (the end, code KRTD)             | the RHYTHM GROUP's red LEDs are its left wing, the SOUND GROUP's its right, lit column by column from the centre out as each opens  |
+| the dragon flying away                                          | a wave along both wings with its wing beats, over fewer columns as it shrinks into the distance                                     |
+| the credits                                                     | a light show over all 101 LEDs, stepping with the music (below)                                                                     |
+
+**The credits' light show** (2026-11-05). Each LED is lit by where it is on the panel, as the MAME layout places it,
+in six patterns that take turns, each lasting at least 4 s and changing on a note:
+- a marquee: every third LED, one step at each beat of the bass and drums;
+- rings from the centre: one further out at each bass note;
+- sparkles: two random LEDs at each note, 250 ms each;
+- two bouncing beams: the top rows' with the chords, the bottom rows' the other way with the bass;
+- a checkerboard swapping with the bass and drums;
+- a meter from the centre out, full at each bass note and falling back in 0.25 s.
+
+The music ends about 11 s before the credits do. From 1 s after the last bass or drum note, the show keeps its own
+beat, a step every 0.3 s. Over the credits of the same replayed session in MAME (`probes/finalecheck.py`):
+
+| over the credits             | the blinking before (2026-11-04) | the light show |
+|------------------------------|----------------------------------|----------------|
+| LEDs lit at some frame       | 59 of 101                        | 101 of 101     |
+| different on-off timelines   | 4 (four groups)                  | 101            |
+| longest with no LED changing | 10,078 ms (dark after the music) | 976 ms         |
+
+### Replaying a session
+
+Every game keeps an **input log** (since 2026-11-01): everything the VM was given from outside, frame by frame,
+the input mask, the music's sync marks and the parts asked for. It is written to the card's root as `AWIN00.BIN`,
+`AWIN01.BIN`, ... (8 KB each), between part loads and at the quit. The VM is otherwise deterministic, so a session
+played on the instrument can be played again exactly in MAME and in the reference VM (rustyworld), and the two
+compared frame by frame, page and variables.
+
+The owner's first logged session (2026-11-01: 1,346 frames, the splash, the intro, a code, part 0x3E86 until the
+hero died) differed from rustyworld from frame 1,143 on: a black bar in the wrong room. The first variable to
+differ was 0x4B, and rustyworld's opcode trace showed a SHR of 0x8000 by 6. The port shifted arithmetically, the
+original's engine logically. With SHR fixed, the replay matched rustyworld on all 1,346 frames and all 256
+variables at every frame. The LED effects above are checked the same way: in MAME, by replaying a logged session
+with an LED log and comparing it with the reference VM's events of the same session.
 
 ### Speed
 
@@ -325,9 +493,10 @@ overlay emulator now models the CPU's real timing, so MAME shows the slow LCD to
 The game has three sound modes, and **PART SELECT RIGHT 2** cycles through them: the game's own
 samples on the **effects DSP**, the **tone generator** over MIDI, and **off**. The key works inside
 the help screen too, whose first page names the current mode at once ("NOW: DSP SAMPLES", "NOW:
-TONE GENERATOR", "NOW: OFF"), with "NO DSP n" when the DSP was given up, and how long the sample
-bank took ("SENT IN n S", or "CHECKED IN n S" when it was already there). The game starts in the DSP mode when it could set the DSP
-up, and in the tone generator's otherwise. In every mode the music player runs and writes the
+TONE GENERATOR", "NOW: OFF"), with "NO DSP n" when the DSP was given up. The game starts in the DSP mode when it could set the DSP
+up, and in the tone generator's otherwise. The DSP mixer's output gain is 2 since 2026-11-02 (it was 128,
+36 dB louder), ProTracker's value: with 128, ProTracker on the owner's unit was comfortable only at the bottom of
+MAIN VOLUME's travel. In every mode the music player runs and writes the
 **sync marks** the intro reads (variable `0xF4`), so the intro's scenes follow the music, as in the
 original, whether the sound is on or off.
 
@@ -336,8 +505,8 @@ original, whether the sound is on or off.
 > **On the instrument (2026-10-21, `KN7APP.BIN` `a2fbbaa6…`, program 893).** By the owner's
 > report the sounds play perfectly, with REVERB on and with REVERB off (on is a little louder),
 > at about a piano note's level. Nothing was garbled or stuck, and the reverb and the chorus came
-> back after quitting. The first load of the sounds felt slow. The third round (`94910f68…`), with
-> the coded bank, has run only in MAME.
+> back after quitting. The first load of the sounds felt slow. The builds the owner has played
+> since 2026-11-01 carry the coded bank (below); its load time on the unit has not been measured.
 
 The tone generators play only their wave ROMs, so the game's own sounds have to come from the
 effects DSP. The game puts a sample mixer of its own into the DSP's running kernel, as
@@ -353,7 +522,7 @@ through the firmware's own host-port routines.
   bank only when that checksum is the one the build recorded. The first load went from 25.9 s to
   **11.6 s in MAME**. On the instrument it should take about 9.5 s, against about 22 s for the
   build before by the same estimate (from the unit's handshake rate, one DSP frame each; not a
-  measurement: the help screen will show it). A marker left in DSP memory lets every later start have the DSP check the bank (0.4 s
+  measurement). A marker left in DSP memory lets every later start have the DSP check the bank (0.4 s
   in MAME) instead of sending it again.
 - **Eight voices**: the original's four sound-effect channels and its module player's four, mixed
   on the DSP at the samples' own rates and volumes.

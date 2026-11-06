@@ -18,8 +18,10 @@ copy of the game.
 
 Source: `kn5000_homebrew/demos/kn7000_protracker/` (its `README.md` has the details).
 
-> **Status (2026-10-27): runs in MAME; not yet tried on an instrument.** In MAME (program 893, the loader floppy, the
-> program menu on a copy of the owner's card) it:
+> **Status (2026-11-06): runs in MAME, and has played on the owner's KN7000.** On the unit (2026-10-29)
+> its loudness was tried: at the mixer gain of the time a comfortable level needed MAIN VOLUME near the bottom, so
+> the gain went from 128 to 16 and then to 2 ([How it works](#how-it-works)). The owner has not yet reported on gain 2.
+> In MAME (program 893, the loader floppy, the program menu on a copy of the owner's card) it:
 > - starts from the menu, plays the six Pinball Fantasies modules and edits them with the panel and the keybed;
 > - saves the result as a module that other trackers play.
 >
@@ -86,6 +88,10 @@ What pt2-clone did through its own Paula emulation and SDL is done this way on t
   79 % of their bytes for the Pinball Fantasies modules). The converter calls send them through the host port; the
   DSP decodes them into its SDRAM and confirms them with a checksum. This is the platform's new `dspSend` call.
   Sending takes 0.5-2 s.
+- **Loudness.** The DSP mixer multiplies its sum by 2 (the Makefile's `DSP_GAIN`; Another World's too since 2026-11-02, 128 before). On the
+  owner's unit (2026-10-29) a comfortable level needed MAIN VOLUME close to the bottom of its travel at 128, and 25 % of
+  it at 16, 18 dB less. A volume control's usual audio taper puts 70 % about 19 dB above 25 %, hence 2, 18 dB below
+  16. `make DSP_GAIN=n` builds another level (1 to 128; each doubling is 6 dB).
 - **Time.** The replayer ticks by the kernel's millisecond counter and timer 4, 2.5/BPM seconds a tick, as the Amiga's
   CIA timer does.
 - **The screen.** ProTracker's 12-bit colours go into the LCD controller's look-up table, and the screen is shown at 8
