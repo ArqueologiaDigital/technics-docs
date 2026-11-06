@@ -66,7 +66,10 @@ A new program is a new folder on the card. Nothing on the floppy changes.
    goes straight back to the menu instead, [below](#another-world-on-the-instrument).) **YES** (right
    button 3) brings the menu back; **NO** (right button 4) returns to the main screen. EXIT on
    "Continue Next?" cancels to the STYLE CONVERT screen, so do not press it there.
-6. To leave the menu itself: **LEAVE** (right button 4), or hold EXIT for 1.5 s and let go; then NO.
+6. To leave the menu itself: **LEAVE** (right button 4), or hold EXIT for 1.5 s and let go. The main screen
+   comes back with no message (since 2026-11-06, in MAME; until then the firmware put up "ERROR!" and
+   "Continue Next?", which it does for every converter that ends with request 0xFE). To open the menu again:
+   DISK MENU, STYLE CONVERT, OK.
 
 ## The card
 
@@ -276,9 +279,10 @@ menu. It takes no address from any build: it finds the firmware's task services,
 counter, panel bitmaps, LED shadow and MIDI rings by signature, and runs on programs 893, 935, 941
 and 942.
 
-> **Status (2026-11-06).** The latest build, `KN7APP.BIN` `7c2d2c06…` (technics-anotherworld
-> `5f348df`), passes its finale and settings checks in MAME on program 893 and is staged on the
-> owner's card.
+> **Status (2026-11-06).** The latest build, `KN7APP.BIN` `aafd752e…` (technics-anotherworld
+> `fb549ff`), is staged on the owner's card. It adds three things to `7c2d2c06…`, so far checked in MAME
+> only: the music at the Amiga original's tempo ([Sound](#sound)), a code wheel page in the help screen,
+> and the code wheel setting taking effect at once ([below](#the-code-wheel)).
 > - **On the unit.** The owner has played the builds of 2026-11-01 to 2026-11-04 on program 893 and
 >   asked for changes from what was seen there, among them:
 >   - the firmware's screen showing through while a part loaded;
@@ -337,15 +341,17 @@ and 942.
 |--------------|------------------------------------------------------------------------------------------------------|
 | codes        | OTHER PART & FR: the level-code screen                                                               |
 | help         | HELP; PAGE UP / PAGE DOWN turn pages; EXIT, HELP or any key returns; OTHER PART & FR the code screen |
+| code wheel   | HELP at the code wheel question, or PAGE DOWN four times; TEMPO/PROGRAM turns the disk               |
 | settings     | HELP, then PAGE DOWN three times ([below](#settings))                                                |
 | sound        | PART SELECT RIGHT 2: the game's sound, DSP / tone generator / off ([below](#sound))                  |
 | keybed sound | PART SELECT RIGHT 1: the instrument's own notes for your keys on / off                               |
 | screen       | PAGE UP: 384x240 (the default); PAGE DOWN: 320x200                                                   |
 | quit         | hold EXIT for 1.5 s                                                                                  |
 
-The help screen has four pages: the controls, with the current sound mode and keybed sound; two pages of level
+The help screen has five pages: the controls, with the current sound mode and keybed sound; two pages of level
 codes, in the game's order, each with where it starts, centred as one block, the second ending with the project's
-address (`github.com/felipesanches/technics-anotherworld`); and the settings. R1/R2 OCTAVE + / − and SUSTAIN do nothing
+address (`github.com/felipesanches/technics-anotherworld`); the settings; and the code wheel
+([below](#the-code-wheel)). R1/R2 OCTAVE + / − and SUSTAIN do nothing
 in the game, but the firmware still does their own job while it runs, and keeps the change. **Do not press
 DISPLAY HOLD**: once in MAME it made the firmware repaint its screen and stop calling the game for good.
 
@@ -391,7 +397,7 @@ loading, or at the quit.
 | light scatter | short, medium, long, very long | long    | how far the glow reaches into the strips                                            |
 | keybed sound  | on, off                        | on      | the instrument's own notes for the keys that steer the game                         |
 | LED effects   | on, off                        | on      | the panel LEDs following the game ([below](#the-panels-leds))                       |
-| code wheel    | off, on                        | off     | the original game's copy protection, from the next start ([below](#the-code-wheel)) |
+| code wheel    | off, on                        | off     | the original game's copy protection ([below](#the-code-wheel))                      |
 
 ### The code wheel
 
@@ -402,7 +408,25 @@ with the game, entered with the game's own controls. A right answer sets those v
 goes on to the logo and the intro. A wrong one shows the game's ERROR page, where the DOS game stays for good; here,
 3 s later, the part starts again with a new random seed and asks for another position (`src/interp.s` WheelRetry,
 since 2026-11-05). In MAME, two wrong answers in a row each showed ERROR, and the question came back 3.20 and 3.18 s
-later, the second time for position K14. The setting is read when the game starts.
+later, the second time for position K14.
+
+Since 2026-11-06 the setting takes effect at once until play begins. At the question, its ERROR wait, the logo or
+the intro, turning it on asks the question, with a new random seed; turning it off at the question goes on to the
+logo. Once play has begun nothing restarts, and the row reads "ON, next start" or "OFF, next start". A restart is a
+`G` record in the input log, so replays repeat it. In MAME, `probes/cnv/run_wheelnow.sh` passes its 5 checks.
+
+**The code wheel page.** The help screen's fifth page is the code wheel that came with the game, drawn from
+`AnotherWorld_VMTools/aw_codewheel.svg` by `tools/codewheel_render.py` into five files on the card
+(`AWWH0.AW`-`AWWH4.AW`, 55,624 bytes). HELP at the question opens this page; elsewhere HELP opens the first page
+and PAGE DOWN reaches it. Each step of the TEMPO/PROGRAM wheel turns the upper disk to the next or previous of
+the 20 numbers, in 280 ms, eased; steps taken during a turn add up. The numbers' angles are measured from the
+drawing (17.51° to 18.35° apart, not even 18° steps). The game takes the wheel's steps from the panel's receive
+ring before the firmware does, so the tempo does not change; a step the firmware takes first is undone with one
+the other way. The disk is rotated as it is drawn: the nearest texel while turning, bilinear at rest, writing only
+the LCD words that changed. The page borrows VM pages 2-3, LUT entries 16-255 and the 8-bit frame while it shows
+and gives them back unchanged. In MAME (`probes/cnv/run_wheel.sh`, 11 checks pass) a picture during a turn takes
+24.4 to 68.9 ms (median 45.5) and one at rest about 364 ms; all 13 pictures read from the LCD equal the renderer's.
+The page shows its own drawing times on the instrument.
 
 ### The panel's LEDs
 
@@ -501,6 +525,16 @@ up, and in the tone generator's otherwise. The DSP mixer's output gain is 2 sinc
 MAIN VOLUME's travel. In every mode the music player runs and writes the
 **sync marks** the intro reads (variable `0xF4`), so the intro's scenes follow the music, as in the
 original, whether the sound is on or off.
+
+**The music's tempo** (2026-11-06). A row of the module lasts what it does on the Amiga original, whose player
+loads the module's delay into CIA-A timer A and plays a row every sixth interrupt: 6 × delay / 709,379 s, 132.79 ms
+for the intro's module. The port had used rawgl's formula, 0.9 % faster. On the owner's unit the intro's music
+still runs ahead of its picture: in a session of 2026-11-06 the frames took 17.7 % longer than the game asked for
+(110.0 s for 93.5 s by the countdown), so the countdown's loop began 2.7 s before "THE EXPERIMENT WILL BEGIN"
+came up. The game can only cut scenes short when the music is ahead, never wait for it. rawgl, Sanglard's
+interpreter and rustyworld time each frame as if drawing were free, which brings their picture to the countdown
+10 to 12 s before the music, so none of them settles the question; the Amiga original measured in an emulator
+would. Evidence: technics-anotherworld `kn7000/probes/MUSIC-TIMING.md`.
 
 #### The DSP mode: the game's own samples
 
