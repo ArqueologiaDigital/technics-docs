@@ -37,7 +37,7 @@ flowchart TD
     FW_VER -->|"0xFF (boot ROM)"| SHOW_WAIT["Display<br/>'Please Wait !!'"]
     FW_VER -->|"Normal"| POST_TEST["Post self test"]
     SHOW_WAIT --> POST_TEST
-    POST_TEST --> TASK_INIT["TaskSched_Init<br/>0xEF1977"]
+    POST_TEST --> TASK_INIT["Kernel_InitRam<br/>0xEF1977"]
     TASK_INIT --> PERIPH["Init peripherals<br/>GPIO, region code"]
     PERIPH --> FLASH["Flash_InitAllBanks"]
     FLASH --> HDAE{"HD-AE5000<br/>present?"}
@@ -120,7 +120,7 @@ flowchart TD
     BOOT["Boot_DisplayScreen"] --> SCHED
 
     subgraph MAIN_LOOP ["Main event loop (cooperative multitasking)"]
-        SCHED["TaskSched_Dispatch<br/>0xEF1AC0 — run next ready task"]
+        SCHED["Kernel_Dispatch<br/>0xEF1AC0 — run next ready task"]
         SCHED --> EVT_CHECK{"Events<br/>pending?"}
         EVT_CHECK -->|Yes| EVT_DISPATCH["Event dispatch<br/>route to registered handler"]
         EVT_CHECK -->|No| TIMER_CHECK{"Timer<br/>expired?"}

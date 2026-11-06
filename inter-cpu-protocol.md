@@ -15,8 +15,8 @@ The KN5000 uses two TMP94C241F CPUs that communicate via a pair of memory-mapped
 │                        MAIN CPU (TMP94C241F)                          │
 │                                                                       │
 │  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐   │
-│  │ Audio_Lock_     │    │ Audio_DMA_      │    │ Audio_Lock_     │   │
-│  │ Acquire         │───>│ Transfer        │───>│ Release         │   │
+│  │ Kernel_Sema     │    │ Audio_DMA_      │    │ Kernel_Sema     │   │
+│  │ Wait            │───>│ Transfer        │───>│ Signal          │   │
 │  │ (0xEF1FEE)      │    │ (0xEF341B)      │    │ (0xEF1F0F)      │   │
 │  └─────────────────┘    └────────┬────────┘    └─────────────────┘   │
 │                                  │                                    │
@@ -63,25 +63,26 @@ The KN5000 uses two TMP94C241F CPUs that communicate via a pair of memory-mapped
 ### Lock Mechanism
 
 The Main CPU uses a semaphore system to serialize access to the inter-CPU latch. The two
-routines are the multitasking kernel's **generic** semaphore P/V: `Audio_Lock_Release` is a byte
-twin of the sub CPU's `Kernel_SemaSignal`, and the "lock index" is a semaphore number. The names
-are historical; see [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/#the-two-kn5000-cpus-share-kernel-code-byte-for-byte).
+routines, `Kernel_SemaWait` / `Kernel_SemaSignal` (the main CPU's `Audio_Lock_Acquire` /
+`Audio_Lock_Release` until 2026-11-06), are the multitasking kernel's **generic** semaphore P/V: both KN5000
+CPUs assemble them from one source, `wsa1/kernel/kernel.s`, and the "lock index" is a semaphore number. The old
+names were historical; see [CPU Subsystem]({{ site.baseurl }}/cpu-subsystem/#the-two-kn5000-cpus-share-kernel-code-byte-for-byte).
 
 ```asm
 ; Acquire lock before sending
     LD A, lock_index        ; Lock index 0-7
-    CALL Audio_Lock_Acquire ; Decrements counter, waits if busy
+    CALL Kernel_SemaWait    ; Decrements counter, waits if busy
 
 ; ... send the command bytes to the latch at 0x140000 ...
 
 ; Release lock when done
     LD A, lock_index
-    CALL Audio_Lock_Release ; Increments counter, signals waiters
+    CALL Kernel_SemaSignal  ; Increments counter, signals waiters
 ```
 
 **Lock Variables:**
 - Counter: `(0x0532 + lock_index)` - Decremented on acquire, incremented on release
-- Wait queues: one per semaphore, head at `0x04FF + 4 × lock_index`. `(0x0487)` holds the current task, which `Audio_Lock_Acquire` moves onto that queue when the count is zero
+- Wait queues: one per semaphore, head at `0x04FF + 4 × lock_index`. `(0x0487)` holds the current task, which `Kernel_SemaWait` moves onto that queue when the count is zero
 
 ### Latch Transfer (`Audio_DMA_Transfer`)
 
@@ -342,16 +343,16 @@ During boot, the Main CPU loads the 192KB Sub CPU payload:
 
 ### Main CPU (`v10/maincpu/boot/system_handlers.s`, `v10/maincpu/kn5000_v10_program.s`)
 
-| Routine | Address | Description |
-|---------|---------|-------------|
-| `SubCPU_Init_DMA_Channels` | 0xEF329E | Initialize DMA channels for inter-CPU communication |
-| `SubCPU_Send_Payload` | 0xEF068A | Transfer 192KB payload to Sub CPU |
-| `InterCPU_E1_Bulk_Transfer` | 0xEF3457 | E1 two-phase bulk transfer protocol |
-| `InterCPU_E2_Send` | 0xEF33AA | E2 extended transfer command |
-| `InterCPU_Send_Data_Block` | 0xEF3345 | Send variable-length data packet |
-| `Audio_DMA_Transfer` | 0xEF341B | Core DMA transfer routine |
-| `Audio_Lock_Acquire` | 0xEF1FEE | Acquire communication lock |
-| `Audio_Lock_Release` | 0xEF1F0F | Release communication lock |
+| Routine                     | Address  | Description                                                                     |
+|-----------------------------|----------|---------------------------------------------------------------------------------|
+| `SubCPU_Init_DMA_Channels`  | 0xEF329E | Initialize DMA channels for inter-CPU communication                             |
+| `SubCPU_Send_Payload`       | 0xEF068A | Transfer 192KB payload to Sub CPU                                               |
+| `InterCPU_E1_Bulk_Transfer` | 0xEF3457 | E1 two-phase bulk transfer protocol                                             |
+| `InterCPU_E2_Send`          | 0xEF33AA | E2 extended transfer command                                                    |
+| `InterCPU_Send_Data_Block`  | 0xEF3345 | Send variable-length data packet                                                |
+| `Audio_DMA_Transfer`        | 0xEF341B | Core DMA transfer routine                                                       |
+| `Kernel_SemaWait`           | 0xEF1FEE | Acquire communication lock (semaphore P; `Audio_Lock_Acquire` until 2026-11-06) |
+| `Kernel_SemaSignal`         | 0xEF1F0F | Release communication lock (semaphore V; `Audio_Lock_Release` until 2026-11-06) |
 
 ### Sub CPU (`v142/subcpu/kn5000_subprogram_v142.s`)
 
@@ -720,12 +721,12 @@ Runtime commands go through `sendCOMM` (0xEF32F4). Its call sites pass a buffer 
 
 | Stage       | Routine                    | Address  | CPU  | Description                                                                                                            |
 |-------------|----------------------------|----------|------|------------------------------------------------------------------------------------------------------------------------|
-| 1. Lock     | `Audio_Lock_Acquire`       | 0xEF1FEE | Main | Acquire semaphore #2 (taken inside `sendCOMM`)                                                                         |
+| 1. Lock     | `Kernel_SemaWait`          | 0xEF1FEE | Main | Acquire semaphore #2 (taken inside `sendCOMM`)                                                                         |
 | 2. Send     | `sendCOMM`                 | 0xEF32F4 | Main | Chunk into ≤32-byte blocks, call `InterCPU_Send_Data_Block`                                                            |
 | 3. Transfer | `InterCPU_Send_Data_Block` | 0xEF3345 | Main | Handshake, then `Audio_DMA_Transfer` writes the bytes to the latch at 0x140000 one at a time (a software loop, no DMA) |
 | 4. Receive  | `MICRODMA_CH0_HANDLER`     | 0x020F1F | Sub  | DMA interrupt reads from latch, dispatches to handler                                                                  |
 | 5. Parse    | `MIDI_Dispatch`            | 0x034D93 | Sub  | Handler 0 only: parse the ring's fixed-width records, route to voice handlers                                          |
-| 6. Unlock   | `Audio_Lock_Release`       | 0xEF1F0F | Main | Release semaphore #2                                                                                                   |
+| 6. Unlock   | `Kernel_SemaSignal`        | 0xEF1F0F | Main | Release semaphore #2                                                                                                   |
 
 `Sprintf_Locked` (formerly `Audio_SendCommand`) and `AssswbWr` are not on this path. `Sprintf_Locked` is a general sprintf() that takes semaphore #7 and formats text into a memory buffer through `Sprintf_OutputCallback`; it sends nothing to the Sub CPU. `AssswbWr` appends 4-byte events to `SWBTWR_EVENT_QUEUE` (0xBD3C), which `SwbtWr_DispatchLoop` delivers to listeners on the Main CPU.
 
@@ -746,17 +747,17 @@ After `MIDI_Dispatch` parses the ring buffer, it routes MIDI messages to these v
 
 The following naming patterns are used consistently across both CPUs:
 
-| Main CPU Pattern                                  | Sub CPU Pattern                                                                                      | Relationship                                                                                                                                                                                      |
-|---------------------------------------------------|------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `Audio_Lock_*`, `AudioLock_*`                     | `Kernel_Sema*` (`Kernel_SemaSignal`, `Kernel_SemaWait`, `Kernel_SemaTryWait`) and `TaskSem_GetCount` | Kernel semaphores (the same code on both CPUs; the main-CPU names are historical)                                                                                                                 |
-| `InterCPU_Send_Data_Block` + `Audio_DMA_Transfer` | `InterCPU_DMA_SendDataPacket`                                                                        | One packet onto the latch (handshake, header byte, up to 32 data bytes); the data bytes go by a software loop on the Main CPU (no DMA despite the name) and by micro-DMA channel 2 on the Sub CPU |
-| `sendCOMM`                                        | `InterCPU_DMA_Send`                                                                                  | 32-byte chunkers (only `sendCOMM` takes semaphore #2)                                                                                                                                             |
-| `InterCPU_E1_*`                                   | `InterCPU_E1_DMA_Transfer`                                                                           | E1 bulk transfer protocol (both sides)                                                                                                                                                            |
-| `InterCPU_E2_Send`                                | `Cmd_Check_E2_Pending`                                                                               | E2 parameter transfer (send vs. deferred receive)                                                                                                                                                 |
-| `InterCPU_Send_Data_Block`                        | `MICRODMA_CH0_HANDLER`                                                                               | Standard command send vs. receive dispatch                                                                                                                                                        |
-| `SubCPU_Send_Payload`                             | `InterCPU_RX_Handler` (boot)                                                                         | Boot-time payload transfer                                                                                                                                                                        |
-| `SubCPU_Init_DMA_Channels`                        | `InterCPU_Latch_Setup`                                                                               | DMA channel initialization                                                                                                                                                                        |
-| `sendCOMM`                                        | `Audio_CmdHandler_*`                                                                                 | High-level send wrapper vs. per-range handlers                                                                                                                                                    |
+| Main CPU Pattern                                                                       | Sub CPU Pattern                                                                                      | Relationship                                                                                                                                                                                      |
+|----------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Kernel_Sema*` and `TaskSem_GetCount` (`Audio_Lock_*`, `AudioLock_*` until 2026-11-06) | `Kernel_Sema*` (`Kernel_SemaSignal`, `Kernel_SemaWait`, `Kernel_SemaTryWait`) and `TaskSem_GetCount` | Kernel semaphores (one source on both CPUs, `wsa1/kernel/kernel.s`)                                                                                                                               |
+| `InterCPU_Send_Data_Block` + `Audio_DMA_Transfer`                                      | `InterCPU_DMA_SendDataPacket`                                                                        | One packet onto the latch (handshake, header byte, up to 32 data bytes); the data bytes go by a software loop on the Main CPU (no DMA despite the name) and by micro-DMA channel 2 on the Sub CPU |
+| `sendCOMM`                                                                             | `InterCPU_DMA_Send`                                                                                  | 32-byte chunkers (only `sendCOMM` takes semaphore #2)                                                                                                                                             |
+| `InterCPU_E1_*`                                                                        | `InterCPU_E1_DMA_Transfer`                                                                           | E1 bulk transfer protocol (both sides)                                                                                                                                                            |
+| `InterCPU_E2_Send`                                                                     | `Cmd_Check_E2_Pending`                                                                               | E2 parameter transfer (send vs. deferred receive)                                                                                                                                                 |
+| `InterCPU_Send_Data_Block`                                                             | `MICRODMA_CH0_HANDLER`                                                                               | Standard command send vs. receive dispatch                                                                                                                                                        |
+| `SubCPU_Send_Payload`                                                                  | `InterCPU_RX_Handler` (boot)                                                                         | Boot-time payload transfer                                                                                                                                                                        |
+| `SubCPU_Init_DMA_Channels`                                                             | `InterCPU_Latch_Setup`                                                                               | DMA channel initialization                                                                                                                                                                        |
+| `sendCOMM`                                                                             | `Audio_CmdHandler_*`                                                                                 | High-level send wrapper vs. per-range handlers                                                                                                                                                    |
 
 ## Records a converter can send (2026-10-22)
 

@@ -327,7 +327,7 @@ Events are dequeued by the main event loop and dispatched via `SendEvent`.
 
 `ApPostEvent` (0xFA9D58) writes the same 12-byte entries into the same ring. It
 differs in what it does when the queue is full: it yields to other tasks
-(`TaskSched_YieldToQueue`) and retries, or gives up, depending on
+(`Kernel_YieldRotate`) and retries, or gives up, depending on
 `Boot_CheckConfigFlag7`. All the mode and title requests above use `ApPostEvent`
 except the boot-time pair from `MainTitle_InitGraphicsAndEvents`, which uses
 `PostEvent`.

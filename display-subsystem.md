@@ -362,14 +362,14 @@ This ensures all VRAM/buffer writes happen in a single task context, avoiding co
 
 The draw queue is a **circular buffer** managed by `DrawQueue_Alloc` (0xFAA444):
 
-| Property        | Value                                                                                                                              |
-|-----------------|------------------------------------------------------------------------------------------------------------------------------------|
-| Base address    | 0x030466                                                                                                                           |
-| Size            | 8KB (0x2000 bytes)                                                                                                                 |
-| Write pointer   | 0x03246A                                                                                                                           |
-| Read pointer    | 0x032474                                                                                                                           |
-| Entry count     | 0x03247A (modular counter, wraps at 0x7C entries)                                                                                  |
-| Synchronization | Event 3 (wait/signal) + semaphore 4 (taken with the kernel's generic `Audio_Lock_Acquire`/`Audio_Lock_Release`; not an audio lock) |
+| Property        | Value                                                                                                                                                                                      |
+|-----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Base address    | 0x030466                                                                                                                                                                                   |
+| Size            | 8KB (0x2000 bytes)                                                                                                                                                                         |
+| Write pointer   | 0x03246A                                                                                                                                                                                   |
+| Read pointer    | 0x032474                                                                                                                                                                                   |
+| Entry count     | 0x03247A (modular counter, wraps at 0x7C entries)                                                                                                                                          |
+| Synchronization | Event 3 (wait/signal) + semaphore 4 (taken with the kernel's generic `Kernel_SemaWait`/`Kernel_SemaSignal`, `Audio_Lock_Acquire`/`Audio_Lock_Release` until 2026-11-06; not an audio lock) |
 
 Each queued command starts with a 4-byte function pointer (the `DrawXxx_Impl` address), followed by serialized parameters (8-28 bytes depending on the primitive). When the draw task processes a command, it calls the function pointer with the parameter block.
 

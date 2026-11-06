@@ -168,7 +168,8 @@ No overlap, and a gap of 0.41.
 
 The KN5000 SUB-CPU's kernel labels are settled: since 2026-11-06 that payload
 builds its kernel from the SX-WSA1R's `wsa1/kernel/kernel.s` (one source, three
-processors, `.if KERNEL_KN5000` blocks where the text differs), and its routines
+processors then and four since the main CPU joined it the same day, `.if KERNEL_KN5000`
+blocks where the text differs), and its routines
 carry the shared names. The pairing behind the renames was redone routine against
 routine on proven boundaries (`wsa1/notes/open9-a3-probes/kernel_a3_pairing.py`):
 26 pairs in the same ROM order on both products. It also corrected the approximate
@@ -176,8 +177,8 @@ sites above: `MsgQueue_Send` is `TaskMsgQ_Send` (not `TaskSched_Wait`, which is
 `Kernel_SemaWait`), and `Kernel_SemaSignal` is `TaskSem_Release` (not
 `TaskEvent_Wait`; the `TaskEvent_*` event flags have no WSA1 partner). On the MAIN
 CPU the site matching `Kernel_StartTask` at 0.978 was called `Show_ScreenGroup`
-(renamed `TaskSched_SpawnTask` on 2026-10-17); its kernel is a separate build and
-is not joined yet.
+(renamed `TaskSched_SpawnTask` on 2026-10-17, `Kernel_StartTask` on 2026-11-06, when
+the main CPU's kernel was joined to `wsa1/kernel/kernel.s` as a fourth processor).
 
 Not established: who wrote it, and that the sources are identical.
 `Kernel_Dispatch` scores only 0.742, because the KN5000 version has no tick-drain

@@ -278,7 +278,10 @@ differs in 25 of 26 paired routines, so those runs sit in `.if KERNEL_KN5000` /
 `.if KERNEL_KN5000 == 0`. The KN5000 routines took the shared names
 (`TaskSched_Dispatch` is `Kernel_Dispatch`, `TaskSem_Release` is
 `Kernel_SemaSignal`, ...; `scripts/renaming/rename_kernel_a3.sed`, and
-`wsa1/notes/open9-a3-probes/`).
+`wsa1/notes/open9-a3-probes/`). **The same day the KN5000's main CPU became a fourth
+processor** (`kernel_kn5000_maincpu.inc`, `KERNEL_KN5000 = 2`): its text is the sub
+CPU's but for two copy lengths, and 801 kernel code lines are written once for all four
+processors (`wsa1/notes/open10-kernel4-probes/`).
 
 The array sizes are where the two processors' personalities live: CPU 1 runs **4
 tasks, 8 semaphores, 4 message queues**; CPU 2 runs **3, 4 and 2**. The same

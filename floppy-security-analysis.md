@@ -192,7 +192,7 @@ One firmware path does run code loaded from floppy, outside the update handlers.
 
 ### Stack location
 
-The boot stack starts at `0xC00`, the top of on-chip RAM (`0x000400`–`0x000BFF`; `ld xsp, 0xc00` in `kn5000_v10_program.s`), and `TaskSched_Init` later moves it to `0x01E53A` in work DRAM. Both are below the overflow origin at `0x050000`, so a sequential upward overflow cannot reach the stack.
+The boot stack starts at `0xC00`, the top of on-chip RAM (`0x000400`–`0x000BFF`; `ld xsp, 0xc00` in `kn5000_v10_program.s`), and `Kernel_InitRam` (the shared kernel's start-up, `wsa1/kernel/kernel.s`; `KERNEL_STACK_TOP` in `kernel_kn5000_maincpu.inc`) later moves it to `0x01E53A` in work DRAM. Both are below the overflow origin at `0x050000`, so a sequential upward overflow cannot reach the stack.
 
 ### LZSS dictionary wraps safely
 

@@ -182,13 +182,13 @@ otherwise tracks.
 That absence is exactly what turns a suggestive result into a shape. Read the two
 findings together:
 
-|                     | KN5000 ↔ KN7000                                     | KN5000 ↔ WSA1                                                                                                             |
-|---------------------|-----------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| CPUs                | **differ** (TLCS-900 vs MN10300)                    | **match** (both TLCS-900)                                                                                                 |
-| machine code shared | **none possible**                                   | **32,795 B, null 0 B**                                                                                                    |
-| kernel / RTOS       | rewritten                                           | **one kernel, four processors, two products** — see below; one source file for three of the four (`wsa1/kernel/kernel.s`) |
-| MILK UI framework   | **shared, and the evidence for this page's thesis** | **absent — it had not been written yet**                                                                                  |
-| assets              | tone-name tables byte-identical incl. padding       | the **81-byte voice-parameter block** shared with prom_d                                                                  |
+|                     | KN5000 ↔ KN7000                                     | KN5000 ↔ WSA1                                                                                                                     |
+|---------------------|-----------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| CPUs                | **differ** (TLCS-900 vs MN10300)                    | **match** (both TLCS-900)                                                                                                         |
+| machine code shared | **none possible**                                   | **32,795 B, null 0 B**                                                                                                            |
+| kernel / RTOS       | rewritten                                           | **one kernel, four processors, two products** — see below; one source file for all four since 2026-11-06 (`wsa1/kernel/kernel.s`) |
+| MILK UI framework   | **shared, and the evidence for this page's thesis** | **absent — it had not been written yet**                                                                                          |
+| assets              | tone-name tables byte-identical incl. padding       | the **81-byte voice-parameter block** shared with prom_d                                                                          |
 
 ### ★★ One kernel, four processors, two products
 
@@ -208,6 +208,11 @@ stronger than "the same RTOS":
   per CPU and 306 exist only on the KN5000 (an event-flag family, a lock-depth word
   in RAM, a pending-wake count per task) inside `.if KERNEL_KN5000` blocks
   (`wsa1/notes/open9-a3-probes/`).
+* **Since 2026-11-06 all four processors build it from one file:** `wsa1/kernel/kernel.s`
+  assembles into prom_a, prom_c, the KN5000 sub-CPU payloads and the KN5000 main
+  program (v10, v9, v8, v7), all byte-identical; 801 code lines are written once for all
+  four, 334 more once for both KN5000 CPUs, 2 per KN5000 CPU
+  (`wsa1/notes/open10-kernel4-probes/`).
 * **The same kernel is in both of the KN5000's processors**, in the sub-CPU
   payload and — as a separate build, not a copy — in the main program ROM
   (`wsa1/notes/kernel_structural_match.py`).

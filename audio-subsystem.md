@@ -14,7 +14,7 @@ The KN5000 audio subsystem handles all sound generation, processing, and output.
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      MAIN CPU (TMP94C241F)                          │
 │                                                                     │
-│  Audio_Lock_Acquire ──> Audio_DMA_Transfer ──> Audio_Lock_Release   │
+│  Kernel_SemaWait ─────> Audio_DMA_Transfer ──> Kernel_SemaSignal    │
 │                                 │                                   │
 │              Latch @ 0x140000 (Inter-CPU Communication)             │
 └─────────────────────────────────┬───────────────────────────────────┘
@@ -1405,20 +1405,20 @@ Causes considered at the time (superseded by the /INT0 fix above):
 
 ### Main CPU (`v10/maincpu/kn5000_v10_program.s`)
 
-| Routine                                                  | Address  | Description                                                                                                       |
-|----------------------------------------------------------|----------|-------------------------------------------------------------------------------------------------------------------|
-| `Audio_Lock_Acquire`                                     | 0xEF1FEE | Kernel semaphore P (wait); the audio path uses semaphore 7                                                        |
-| `Audio_Lock_Release`                                     | 0xEF1F0F | Kernel semaphore V (release); byte twin of the sub CPU's `Kernel_SemaSignal` (`TaskSem_Release` until 2026-11-06) |
-| `Audio_DMA_Transfer`                                     | 0xEF341B | Core DMA transfer                                                                                                 |
-| `SubCPU_Init_DMA_Channels` (was `Audio_InitDMAChannels`) | 0xEF329E | Initialize DMA channels                                                                                           |
-| `sendCOMM`                                               | 0xEF32F4 | Send command/audio data to Sub CPU (chunks 32-byte blocks)                                                        |
-| `InterCPU_Send_Data_Block`                               | 0xEF3345 | Send 1-32 byte packet via inter-CPU latch                                                                         |
-| `Audio_CheckSubsystemReady`                              | 0xFDDE6F | Check if audio subsystem is ready for commands                                                                    |
-| `Audio_CheckInitStatus`                                  | 0xFDF08A | Verify audio init state (checks 0xF19E)                                                                           |
-| `Voice_InitializeAll`                                    | 0xFE0E75 | Initialize all 16 voices (26 params each)                                                                         |
-| `Fade_Cancel`                                            | 0xFDBD52 | Cancel any FADE IN / OUT and restore the level (configures no DSP)                                                |
-| `DemoMode_Initialize`                                    | 0xF869E3 | Feature Demo first-time initialization                                                                            |
-| `DemoMode_Main_Operation`                                | 0xF8696F | Feature Demo normal playback handler                                                                              |
+| Routine                                                  | Address  | Description                                                                                                                                |
+|----------------------------------------------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| `Kernel_SemaWait`                                        | 0xEF1FEE | Kernel semaphore P (wait); the audio path uses semaphore 7 (`Audio_Lock_Acquire` until 2026-11-06)                                         |
+| `Kernel_SemaSignal`                                      | 0xEF1F0F | Kernel semaphore V (release); the same source as the sub CPU's (one kernel, `wsa1/kernel/kernel.s`); `Audio_Lock_Release` until 2026-11-06 |
+| `Audio_DMA_Transfer`                                     | 0xEF341B | Core DMA transfer                                                                                                                          |
+| `SubCPU_Init_DMA_Channels` (was `Audio_InitDMAChannels`) | 0xEF329E | Initialize DMA channels                                                                                                                    |
+| `sendCOMM`                                               | 0xEF32F4 | Send command/audio data to Sub CPU (chunks 32-byte blocks)                                                                                 |
+| `InterCPU_Send_Data_Block`                               | 0xEF3345 | Send 1-32 byte packet via inter-CPU latch                                                                                                  |
+| `Audio_CheckSubsystemReady`                              | 0xFDDE6F | Check if audio subsystem is ready for commands                                                                                             |
+| `Audio_CheckInitStatus`                                  | 0xFDF08A | Verify audio init state (checks 0xF19E)                                                                                                    |
+| `Voice_InitializeAll`                                    | 0xFE0E75 | Initialize all 16 voices (26 params each)                                                                                                  |
+| `Fade_Cancel`                                            | 0xFDBD52 | Cancel any FADE IN / OUT and restore the level (configures no DSP)                                                                         |
+| `DemoMode_Initialize`                                    | 0xF869E3 | Feature Demo first-time initialization                                                                                                     |
+| `DemoMode_Main_Operation`                                | 0xF8696F | Feature Demo normal playback handler                                                                                                       |
 
 ### Sub CPU (`v142/subcpu/kn5000_subprogram_v142.s`)
 
