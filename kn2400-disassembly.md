@@ -147,6 +147,38 @@ call-site rule is right 650 times and wrong 3 (`TgGlobalRegWriteB` against 941's
 `TgGlobalRegWriteBoth`, `FxCategoryGet` / `DspPresetKeyKind`, `AcRcVolumeProc` / `AcMonitorOnProc`,
 read as two names for one routine), the same-body rule 190 / 0.
 
+**More ways a KN7000 name reaches a sibling.** Since the second round of November 2026 a
+routine also takes a KN7000 name when the routines both models name hand it over the same way:
+as a callback (`mov func, d0` at the same place of the same routine), or as an entry of a table
+the two routines read at the same place, when the table's other entries that both models name
+already agree. Variables are paired the same way and, between two paired variables of one
+module, by their spacing, since a relinked module keeps its variables' order. Every rule is
+checked where the answer is known, on the routines both models name already; the table rule is
+used only with its check, because without it a third of the table entries pair wrongly in the
+KN2400.
+
+Lane sibling-names2 (2026-11-06, disassembly
+[`kn7000/notes/sibling-names2/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/sibling-names2/README.md),
+merged in `0aa9f82f9`) added those rules to `port_names_by_alignment.py`. It also stopped carrying 941's
+name for a RAM window's base (`WORK_RAM_BASE`, `0x50000000`): the base is a memory-map constant, not a
+variable, and the name had made the data generator cut the KN6000 / KN6500 RAM-test region records
+short, so the few operands that composed an address in the window are numbers again.
+
+| file                 | rows | by class                                                  |
+|----------------------|------|-----------------------------------------------------------|
+| `kn2400_aligned.sym` | 257  | routines 249 (6 of them by pointers alone), RAM = (941) 8 |
+| `kn2400_ram.sym`     | 641  | accessor 28, owner 613                                    |
+
+Counted with `grep -c '^0x'` at `8d0865c27`. `sibling_name_census.py` reads the change as `func_` labels
+11,340 -> 11,315 (routine starts 6,538 -> 6,517) and numeric work-RAM operands / addresses 20,931 / 2,940
+-> 20,908 / 2,933 (before at `e53dc9b3a`). The call-site audit is 674 right / 3 wrong (the same three),
+the same-body rule 201 / 0, the table rule 1,684 / 5 left one out, the RAM pairs by spacing 1,900 / 2.
+Four of the new names are the KN7000's own since November 2026 (`JpegEncSetup`, `JpegEncImage`,
+`JpegEncMcu`, `KeyZoneNoteResolve`). In the RAM-linked tone-generator library the KN2400 has 424 of
+941's 544 names (418 before); 30 short routines identical to 941's stay unnamed, because each is told
+apart only by one byte variable in a block whose layout the KN2400 changed, so no RAM pair can be right
+for them.
+
 **Two sibling names that look like one.** The KN2400's `FilePriorityFunc` and the KN7000's
 `SdcPanelSwAsFunc` have the same code because both are two-entry choice parameters of one
 template; their choice lists (TECHNICS / SMF and SD-AUDIO / SD-SOUND) tell them apart, so each
@@ -205,13 +237,14 @@ run into the next function's `add -N, sp`, 7 are fill and 2 stop early
 
 ## Open work
 
-- Most entries are still `func_<ADDR>` (11,340 `func_` labels after lane sibling-names,
-  above, as `sibling_name_census.py` counts them). Routines that differ
+- Most entries are still `func_<ADDR>` (11,315 `func_` labels after lane sibling-names2,
+  above, as `sibling_name_census.py` counts them); 2,320 of its 6,518 routine starts (counted just before
+  the lane's last name) pair by call sites with a 941 routine that 941 leaves unnamed too. Routines that differ
   slightly from their KN7000 versions need another naming method than exact matching or
   call-site alignment.
 - Reflection tables whose procedures are in the RAM-linked range: `gen_symbols.py` assumes
   one link base, so it pairs none of them.
-- Most RAM and I/O addresses are still numbers (20,931 numeric work-RAM operands). Since the data is typed, the code names the data
+- Most RAM and I/O addresses are still numbers (20,908 numeric work-RAM operands). Since the data is typed, the code names the data
   addresses it uses by their labels, but not everywhere: the RAM-linked `NoteConvApply` still
   loads `NoteConvRules` as `mov 0x4854b24c, d3`.
 - The 4 MiB half of the IC12/IC13 flash pair at `0x48000000` has never been read; see

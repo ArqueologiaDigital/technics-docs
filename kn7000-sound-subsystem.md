@@ -153,8 +153,34 @@ runtime, and every effect algorithm.
 - **IC310** (PCM69BU) — a second stereo DAC on the SUB-OUT path.
 - **IC309 / IC410** (PCM1800E) — stereo ADCs that digitise MIC/LINE inputs (for
   the DSP's mic effects) and re-digitise the final mix for the recorder.
-- A **CPU-writable latch** (IC25, a 74HC174) programs the main DAC's mode pins
-  and the speaker-mute/relay lines.
+- A **CPU-writable latch** (IC25, a 74AHC174, at `0x98060000`) programs the main DAC's
+  serial mode port and the headphone / speaker switch line (below).
+
+### Sound muting (hardware)
+
+The KN7000 can silence its built-in amplifier from software. The main CPU's port line P22 (signal
+PMUT, CPU pin 148; GPIO byte `0x36008004` bit 2) switches the +15 V bias supply of the power-amplifier
+stages on the ASUB board (+15PM, the MUTE line of connector CN506). The program holds it low from reset
+until the end of its start-up (`BootPanelResetCheck` sets it), and pulls it low again when a power
+failure or system error triggers the NMI.
+
+A second line, SPSW, opens or closes the FET switches between the mixed sound and the headphone and
+speaker stages on the FAJ board. It comes from the six-bit latch at `0x98060000` (IC25), which also
+carries the USB-MIDI wait line, the SD board's mode line (SDMODE), and the serial mode port of the main
+D/A converter IC311 (ML / MC / MDI). SPSW follows the M3 message id `0x600009`
+(`AudioOutSwitchM3Handler`), which the code only ever sends as 1. The program writes the converter's
+two mode words once at start-up (`DacModeInit`: `0x1220`, `0x1380`, each shifted in by
+`DacModeWordWrite`) and never again. The disassembly's constant for the latch, `SD_POWER_CTRL`, and
+the `SdPowerCtrl*` routines that write it keep the names of an earlier reading, which took bit 2's SD use
+for an SD power controller; the bits are named after the service manual's schematic (MAIN 1/5).
+
+None of the lines that can mute (PMUT, SPSW, the D/A converter's mode) moves on the SD-card screens:
+statically no code path does it, and in MAME
+(programs 941 and 893; **observed in emulation, not on hardware**) PMUT, SPSW and the D/A mode stay
+"sound on" from the end of the boot through SD PICTURE LOAD, a key held on it, and EXIT. So the
+PICTURE LOAD silence the owner's manual describes is not made by them; what makes it needs a key played
+on the instrument with a card that holds pictures (disassembly `kn7000/notes/audio-mute-probes/README.md`,
+lane kn7000-research2).
 
 The **FAJ board** carries the jacks (mic, line, aux, sub-out, main-out,
 headphones), a multi-band **"EQUALIZING"** op-amp bank, and the power stages
@@ -173,15 +199,15 @@ playing back recorded audio.
 The whole sound block lives in the `0x98000000` region of the MN10300 memory
 map:
 
-| Range                               | Function                                                                                                 |
-|-------------------------------------|----------------------------------------------------------------------------------------------------------|
-| `0x98040000` / `0x98050000`         | master / sub tone-generator register ports                                                               |
-| `0x98040004` / `0x98050004`         | key-bed / voice-event FIFOs                                                                              |
-| `0x98040006/8/A` / `0x98050006/8/A` | wave-ROM readback windows                                                                                |
-| `0x9805000E`                        | not a sound register: the SD card's SPI clock-rate latch, next to the SPI shift register at `0x9805000C` |
-| `0x98060000`                        | bit-banged serial config to the DAC/codec                                                                |
-| `0x98070000`                        | read-only board strap word: `0xF8F7` on the owner's unit                                                 |
-| `0x98000000` + `0x9C000000`         | effects-DSP host port (index + data)                                                                     |
+| Range                               | Function                                                                                                             |
+|-------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| `0x98040000` / `0x98050000`         | master / sub tone-generator register ports                                                                           |
+| `0x98040004` / `0x98050004`         | key-bed / voice-event FIFOs                                                                                          |
+| `0x98040006/8/A` / `0x98050006/8/A` | wave-ROM readback windows                                                                                            |
+| `0x9805000E`                        | not a sound register: the SD card's SPI clock-rate latch, next to the SPI shift register at `0x9805000C`             |
+| `0x98060000`                        | the sound-control latch IC25: USB-MIDI wait, SPSW, SDMODE, and the main D/A converter's serial mode port (see below) |
+| `0x98070000`                        | read-only board strap word: `0xF8F7` on the owner's unit                                                             |
+| `0x98000000` + `0x9C000000`         | effects-DSP host port (index + data)                                                                                 |
 
 The firmware's sound engine allocates voices, writes them to the tone
 generators, and separately manages the DSP effect units. The user-facing screens
@@ -224,6 +250,11 @@ The message path between the FIFO and the tone generator (2026-11-06, disassembl
 `0x98050004`; the tick task (`TickJobsTask`) turns each into an internal message, the keyboard router
 maps it through the active zone to a part, and the translator writes a note message into the tone
 generator's command stream (`TgcBufWrite`). Only the factory test modes divert keys from that path.
+For each zone a key sounds in, `KeyZoneNoteResolve` (941 `0x484516EC`) copies the key and velocity and
+reads the zone's part and that part's SOUND: a drum kit (a TABLE tone) has its key mapped through the
+kit's key map when the M3 setting `0x2025` is 1 and is otherwise left alone; any other sound gets
+TRANSPOSE. Program 893's copy (`0x48451649`) tests for a kit through `SoundTableKeyMapOn`, so there a
+kit with that setting off is transposed too (lane kn7000-research2, 2026-11-06).
 
 ## Factory diagnostics as documentation
 

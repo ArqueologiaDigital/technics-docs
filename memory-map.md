@@ -102,6 +102,21 @@ uimisc lane reports (`notes/lanes/wave2-2026-09-25/lane-reports/`), the
 own header block still quotes v10's image-2 values. The code below it uses
 `0xE2C2` / `0x931`.)
 
+### Audio state words (work RAM)
+
+Four words beside `AUDIO_CONFIG_UPDATE` (`0xC594`) and `AUDIO_CONFIG_FLAGS` (`0xC596`), named on
+2026-11-06 from their per-bit uses (disassembly `notes/kn5000-naka2-2026-11-06/README.md` and its
+`ram/audio_state_names.txt`; the `.equ`s are in `shared/ram_variables_by_use.s`).
+`Audio_CheckInitStatus` rebuilds `AUDIO_SEQ_TRACK_FLAGS` from 0 over the 16 sequencer tracks: its play
+tracks are `SEQ_TRACK_MASK | 0x0D51`, its record tracks `SEQ_REC_TRACKS | 0x0D4F`.
+
+| address  | name                    | what                                                                                             |
+|----------|-------------------------|--------------------------------------------------------------------------------------------------|
+| `0xC598` | `AUDIO_SEQ_TRACK_FLAGS` | which sequencer tracks (play / record; CHORD, APC, RHYTHM) the voice routing must serve          |
+| `0xC59A` | `AUDIO_VOICE_CHANGES`   | `AudioInit_DispatchChanges`' second change mask (voice config, priority table, tone refresh)     |
+| `0xC59C` | `AUDIO_STATE_CHANGES`   | which parts of the 358-byte audio state at `0xC1FE` `AudioInit_DispatchChanges` compares / sends |
+| `0xC59E` | `AUDIO_REC_TRACK_SLOT`  | the slot of the first record track                                                               |
+
 ## Rhythm Data ROM (IC14) Internal Layout
 
 The 4 MB mask ROM holds the factory accompaniment styles. The main CPU reads it in 64 KB banks

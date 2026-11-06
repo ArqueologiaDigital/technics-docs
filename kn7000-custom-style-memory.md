@@ -112,6 +112,15 @@ records of `0x8E` bytes, the tone generator's voice-resource unit (`VoiceRecFetc
 `VoiceSubRecFetch`, `TgPartLocalEditElemRecPtr`), typed by `VOICE_HEAD`, `VOICE_SUB` and
 `VOICE_ELEM`.
 
+The block is a **TABLE tone** (2026-11-06, lane kn7000-research2; spelled by the `CSOUND_HEAD` macro).
+The tone library takes it as the part's tone record, so the `0x27`-byte header is a tone head: the
+16-character name, the class `+0x10` = `0x40` (TABLE, the class `TgNoteOn` sends to
+`TgNoteOnTableTone`), the **key map** byte `+0x11` (0..6; the User Kit uses 1), and 21 bytes no traced
+code reads. It is byte for byte the head of 20 of the table flash's 52 TABLE tones, the kits, Standard
+Kit1 among them. `TgNoteOnTableTone` reads the entry at `+0x27 + note * 3`, so the 128 references are
+**one per MIDI note**, and it tests the voice record's `+0x0D`: bit 0 enables layer 0 and bit 2 layer 1.
+The key map is applied by `KeyZoneNoteResolve` only when the M3 setting `0x2025` is 1.
+
 **One touch settings.** Four records of `0xA0` bytes (KN6000: `0x90`), one per ONE TOUCH SETTING,
 built by library `func_4C02A0C4` (KN6000 `func_4C04B9F8`) from four consecutive PANEL MEMORY
 records of the backup SRAM (KN7000: `0x750`-byte records at `0x84000824 + bank*0x3A90 + 0x10 +
@@ -330,7 +339,7 @@ names into a KN6000 CUSTOM file by hand. *[INFERENCE]* Who did, and with what, n
   factory sets, so only their strides are known.
 - The voice record's fields that `voice_record.inc` cannot yet name from a reader (`VOICE_SUB`
   outside its element reference, the element's `+3` / `+4`), and the custom-sound block's
-  `0x27`-byte header.
+  21 unread head bytes (its class and key map are traced, above).
 - ~~TCMP variation bytes `+0x01`, `+0x02`, `+0x18`, `+0x19`; the style record's two u16BE at
   `+0x70`~~: traced 2026-11-06 ([above](#the-tcmp-style-container)). Nine of the pad record's thirteen
   setting bytes still have no reader.

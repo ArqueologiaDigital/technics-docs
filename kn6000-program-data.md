@@ -390,13 +390,54 @@ chord-recognition table's 2,048 entries are typed in every build.
 The plug-in's widget variables are now read through the KN6000's class procedures, which its
 widgets are instances of (`host_widget_vars`). On the KN6000 / KN6500 24 bytes typed before are not
 typed after: a record array whose first field holds bus-window bases (`0x50000000` ...) stops at its
-first record once `0x50000000` has a name (`WORK_RAM_BASE`, from lane sibling-names).
+first record once `0x50000000` has a name (`WORK_RAM_BASE`, from lane sibling-names). Fixed in the next
+round on both sides: the base is no longer named, and such a name no longer ends a record run (below).
 
 Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER --brief`, before = disassembly
 `2bde950fa`'s committed data directories, after = the lane's regenerated sources; the rules are the
 `gen_data_s.FEATURES` keys `sentinel_indexed`, `frozen_obj_names` and `host_widget_vars` (disassembly
 [`kn7000/notes/mn10300-data3/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data3/README.md),
 merged in `3834c8773`).
+
+## Effect-DSP parameter lists, name tables, field names (lane mn10300-data4)
+
+**The effect DSP's parameter lists (SX-KN6000 / KN6500).** For each of its 208 DSP effect types the firmware
+keeps a list that says what a parameter does to the effect DSP: for parameter n, a group of 13-byte entries,
+each a converter kind, two 32-bit operands and one or two 16-bit DSP addresses (0xC0xx for most), the group
+ended by 0xFF and the list by one more. When a parameter changes, the firmware finds its group and runs
+every entry through the converter its kind selects, with the parameter's value. The 66 lists the types point
+at (and five older copies between them) take 7,091 bytes of each image. The GUI's resource name tables are
+512 slots: 256 names, then the 256 file names of the same resources ("music1.bmp", "i0.bmp"); the second half
+is now typed as such. The KN6000's per-voice tone-generator register image (160 bytes) is written to the TG
+one register class at a time, and its fields are named by those classes; the meaning of most classes is not
+known yet.
+
+The lists are written with the macros `FXL_ENTRY` / `FXL_END` under `FxParamListTable`, the 208-pointer
+table in the initialised-RAM image (KN6000 `0x500060DC`, KN6500 `0x50006088`); their readers are
+`func_4C155072`, which finds parameter n's group, and `func_4C155C08`, which decodes each entry (the stream
+format is the reader's; no KN7000 counterpart was needed). The register image is `TgVoiceRegImage`, whose
+fields are `tg_<class>`, with `+0x7C` `pitch_hi`, the 17th pitch bit. The RAM test's regions are typed
+`RamTestRegion` {base, length} and `RamTestByteRegion` {base, length, fail_bit}: the three-record array
+`func_4C0506C7_entry_L4_Records` (KN6500 `func_4C050837_entry_L4_Records`) whose first field holds the bus
+windows' bases is whole again. `ToneTypeFeature` names, in every tree, the per-tone-type record the LFO
+EDIT loaders read (four LFO triples and four 5-byte EG segment entries; what each LFO value means is not
+traced).
+
+| tree                     | typed bytes before | typed bytes after | opaque pieces / bytes before | opaque pieces / bytes after |
+|--------------------------|--------------------|-------------------|------------------------------|-----------------------------|
+| KN6000                   | 2,560,919          | 2,569,446         | 764 / 16,206                 | 696 / 7,665                 |
+| KN6500                   | 2,074,318          | 2,082,853         | 755 / 18,340                 | 687 / 9,791                 |
+| HD-SX6 plug-in (`hdsx3`) | 485,452            | 485,507           | 30 / 346                     | 28 / 288                    |
+
+Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER --brief`, before = disassembly
+`e53dc9b3a`'s committed data directories, after = the lane's regenerated sources; the rules are the
+`gen_data_s.FEATURES` keys `fx_param_lists`, `string_ptr_runs` and `named_base_not_end` (disassembly
+[`kn7000/notes/mn10300-data4/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data4/README.md),
+merged in `8d0865c27`).
+Offset-named fields with a reader fell from 222 to 157 (KN6000) and 220 to 156 (KN6500). What is left,
+largest first: the table tails (2,697 / 2,504 bytes: the `func_4C03CD2C_entry_L9d_Selected_*` records' tails,
+`ResourceIdLeaf` tails), bytes read as text that are not (994 / 2,949), and fixed-width text cells holding the
+glyph `0x95` between labelled strings (192 bytes each).
 
 ## What is left: the census
 
@@ -470,8 +511,8 @@ an argument into the routine that reads it; lane callee-walk changed that
 ([above](#blocks-a-routine-is-handed)), and the rows left say why in their headers.
 
 Opaque means that the reader search found no load, store, base or call argument in the bytes. The
-biggest on these images: records `03 00 00 00 00 00 00 00 f0 c0 05 ff ff ff 04 ...` (3,927 bytes at
-`0x4C398C2B` / `0x4C3244AF`), the tail of a pointed record kind with small 0..13 values (3,888
+biggest on these images were: records `03 00 00 00 00 00 00 00 f0 c0 05 ff ff ff 04 ...` (3,927 bytes at
+`0x4C398C2B` / `0x4C3244AF`; the effect DSP's parameter lists, typed since lane mn10300-data4, above), the tail of a pointed record kind with small 0..13 values (3,888
 bytes), and `{0, pointer}` word pairs whose pointers lead into gaps. The 1,525-byte "high-entropy" block
 the MILK siblings share, which is followed by the JPEG zig-zag order and was read here as the JPEG
 decoder's tables, is part of the C library's powers of ten (`Pow10Table`, typed by lane mn10300-rest).

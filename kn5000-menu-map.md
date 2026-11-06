@@ -9,15 +9,18 @@ permalink: /kn5000-menu-map/
 Every screen the KN5000 firmware can show, how you reach it from the panel, and where EXIT takes
 you. This page is a browsable summary. The full map, with the widget tree of every screen, is the
 generated file [`docs/gui/kn5000-menu-map.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/gui/kn5000-menu-map.md) in
-technics-roms-disasm (3,912 lines). The numbers below are that file's, generated from
+technics-roms-disasm (3,904 lines). The numbers below are that file's, generated from
 program v10 on 2026-11-06.
 
 Since 2026-11-06 the sound editor's pages (`TITLE_SE*`, DirmdEmulator screens) are modelled through
 their method tables and switch handlers, `SeMenu_SendEvent` and `SeMenu_GoToPageOnEnabledPart` are
 traced as title openers, and the filter page's type step is read (its type 2..5 opens
-`TITLE_SEFILHPQ1` / `SEFILL241` / `SEFILH241` / `SEFILBPF1`). For a title no path reaches, the
-generated file names the code that opens it (lanes kn5000-notes and kn5000-naka, disassembly
-`notes/kn5000-naka-2026-11-06/README.md`).
+`TITLE_SEFILHPQ1` / `SEFILL241` / `SEFILH241` / `SEFILBPF1`). A title procedure's direct callees count
+as the procedure (the Style Convert pages are opened by `FloppyState_Dispatch`, which `StylCnvModlTtlFunc`
+calls), and a Function-table entry that handles a panel switch event is a root of its own ("panel switch
+handler"). For a title no path reaches, the generated file names the code that opens it (lanes
+kn5000-notes, kn5000-naka and kn5000-naka2, disassembly `notes/kn5000-naka-2026-11-06/README.md` and
+`notes/kn5000-naka2-2026-11-06/README.md`).
 
 ## Terms
 
@@ -54,18 +57,19 @@ The panel buttons come from the mode-key maps `PanelButton_ModeKeyCodes*` in
 byte 0x26FC is 1, and MENU opens `MD_SEQ_PLAY` when bit 0 of 0x266A is set. The button names are the
 MAME driver's `CPL_SEGn` / `CPR_SEGn` port names.
 
-| what                            | count |
-|---------------------------------|-------|
-| titles                          | 211   |
-| titles with a path              | 162   |
-| modes (each with a home title)  | 21    |
-| titles one step below a home    | 86    |
-| titles two steps below a home   | 40    |
-| titles three steps below a home | 15    |
-| widget records, in 18 C files   | 3,260 |
-| menu entries                    | 99    |
-| code transitions                | 282   |
-| EXIT links                      | 267   |
+| what                                      | count |
+|-------------------------------------------|-------|
+| titles                                    | 211   |
+| titles with a path                        | 170   |
+| modes (each with a home title)            | 21    |
+| titles one step below a home or a handler | 87    |
+| titles two steps below a home             | 40    |
+| titles three steps below a home           | 21    |
+| titles four steps below a home            | 1     |
+| widget records, in 18 C files             | 3,260 |
+| menu entries                              | 99    |
+| code transitions                          | 357   |
+| EXIT links                                | 267   |
 
 ## Modes and their home screens
 
@@ -79,7 +83,7 @@ MAME driver's `CPL_SEGn` / `CPR_SEGn` port names.
 | `MD_SOUNDEDIT`   | -                  | `TITLE_SEMENU`    | -                    | 32           |
 | `MD_CONTROL`     | MENU CONTROL       | `TITLE_CTMENU`    | -                    | 8            |
 | `MD_MIDI`        | MENU MIDI          | `TITLE_MDMENU`    | MIDI MENU            | 12           |
-| `MD_DISK`        | MENU DISK          | `TITLE_DKMENU`    | DISK MENU            | 27           |
+| `MD_DISK`        | MENU DISK          | `TITLE_DKMENU`    | DISK MENU            | 34           |
 | `MD_ENTERTAINER` | ENTERTAINER        | `TITLE_ETMENU`    | ENTERTAINER          | 2            |
 | `MD_SEQ`         | SEQUENCER MENU     | `TITLE_SQMENU`    | SEQUENCER MENU       | 11           |
 | `MD_SEQ_EREC`    | SEQUENCER EASY REC | `TITLE_SQEASYREC` | EASY RECORD          | 1            |
@@ -212,6 +216,13 @@ text follows the title name when it differs. Modes with no titles below them are
 - "DIRECT PLAY" (by DirectPlayTtlJgFunc) > (by FmmDocMedleyFunc) > (by DpDocTtlFunc) -> `TITLE_SQMIXER` "TRACK MIXER"
 - "SAVE" > "SMF FORMAT 0" (by SaveSmfTtlJgFunc) > "NAME" -> `TITLE_DKSVNAMESMF` "SAVE FILE NAMING"
 - "SAVE" > "TECHNICS FORMAT" (by SaveTtlJgFunc) > "NAME" -> `TITLE_DKSVNAME` "SAVE FILE NAMING"
+- "SONG MEDLEY" (by SongMedleyTtlJgFunc) > (by FmmDiskMedleySelectFunc) > (by PlayMode_CheckAndDispatch) -> `TITLE_SQMDLY` "INTERNAL SONG MEDLEY"
+- "STYLE CONVERT" > (by StylCnvWaitTtlFunc) > (by FloppyState_Dispatch) -> `TITLE_STYLCNVCNVT`
+- "STYLE CONVERT" > (by StylCnvWaitTtlFunc) > (by FloppyState_Dispatch) -> `TITLE_STYLCNVCONT`
+- "STYLE CONVERT" > (by StylCnvWaitTtlFunc) > (by FloppyState_Dispatch) -> `TITLE_STYLCNVSEL`
+- "STYLE CONVERT" > (by StylCnvWaitTtlFunc) > (by FloppyState_Dispatch) -> `TITLE_STYLCNVSTOR` "STORAGE DATA"
+- "STYLE CONVERT" > (by StylCnvWaitTtlFunc) > (by FloppyState_Dispatch) -> `TITLE_STYLCNVTXT`
+- "SONG MEDLEY" (by SongMedleyTtlJgFunc) > (by FmmDiskMedleySelectFunc) > (by PlayMode_CheckAndDispatch) > (by FmmIntMedleyFunc) -> `TITLE_SQMDLYPLY`
 
 ### ENTERTAINER (`MD_ENTERTAINER`)
 
@@ -281,24 +292,21 @@ text follows the title name when it differs. Modes with no titles below them are
 - "PERFORMANCES" > (by DemoStyleTtlFunc) -> `TITLE_DEMOSOUND`
 - "PERFORMANCES" > (by DemoStyleTtlFunc) -> `TITLE_DEMORHY`
 
-## Titles with no path (49)
+### Panel switch handler `PmBankNamingCheck`
 
-31 of them are opened by code, but by code that no traced path reaches: panel-button handlers, the
+- (by BitMapOut_UpdateWidget_Finalize) -> `TITLE_PMBKSEL`
+
+## Titles with no path (41)
+
+23 of them are opened by code, but by code that no traced path reaches: panel-button handlers, the
 self test, the sequencer's play modes. The routine named is the nearest routine entry above the
 opening call.
 
 | title               | opened by code in                                                                            |
 |---------------------|----------------------------------------------------------------------------------------------|
 | `TITLE_SDOCT`       | `MidiPartGridCheck`                                                                          |
-| `TITLE_STYLCNVCNVT` | `FloppyState_Dispatch`, `TableData_JumpToEntry`                                              |
-| `TITLE_STYLCNVSTOR` | `FloppyState_Dispatch`                                                                       |
-| `TITLE_STYLCNVTXT`  | `FloppyState_Dispatch`                                                                       |
-| `TITLE_STYLCNVSEL`  | `FloppyState_Dispatch`                                                                       |
-| `TITLE_STYLCNVCONT` | `AccBankData_ProcessWithCopy`, `FloppyState_Dispatch`                                        |
 | `TITLE_DPPD`        | `FmmPdMedleyFunc`                                                                            |
 | `TITLE_DPMDLYPD`    | `FmmPdMedleyFunc`                                                                            |
-| `TITLE_SQMDLY`      | `PlayMode_CheckAndDispatch`, `PlayMode_StartAndSendCommand`, `SeqRestart_SendPlaybackNotify` |
-| `TITLE_SQMDLYPLY`   | `FmmIntMedleyFunc`                                                                           |
 | `TITLE_SQCYCPLY`    | `ApPlaySyori`                                                                                |
 | `TITLE_SQCYCREC`    | `ApPlaySyori`                                                                                |
 | `TITLE_SQSTEP`      | `Part_ValidateAndActivate`                                                                   |
@@ -310,7 +318,6 @@ opening call.
 | `TITLE_SQMETBAL`    | `ApPlaySyori`                                                                                |
 | `TITLE_MUSICSTYL`   | `EffectMode_CopyVoiceParams`                                                                 |
 | `TITLE_MSPBKSL`     | `AccompSeq_ProcessAfterNote_Helper`, `SoundCtrl_CalcScaledTempo`                             |
-| `TITLE_PMBKSEL`     | `BitMapOut_UpdateWidget_Finalize`                                                            |
 | `TITLE_APCSEL`      | `SoundCtrl_CalcScaledTempo`                                                                  |
 | `TITLE_SOFTVER`     | `Boot_HandleComboDisplay`, `MainTitle_PrepareAndDispatch`                                    |
 | `TITLE_TEST1`       | `SelfTest_FirmwareVersionCheck`                                                              |
@@ -325,9 +332,10 @@ For the other 18 no opener was found: `TITLE_CTPMPARA`, `TITLE_SQPUNCHM`, `TITLE
 `TITLE_CMMODE`, `TITLE_MSCTSEL`, `TITLE_MSSCTSEL`, `TITLE_MSSONGLIST`, `TITLE_MSALPSEL`,
 `TITLE_PMVIEW`, `TITLE_PMNAME`, `TITLE_PMBKNAME`, `TITLE_SVARI`, `TITLE_RVARI`, `TITLE_ACCORDION`,
 `TITLE_SPLITSEL`, `TITLE_WELCOM`, title `0x01A000FC` (the factory floppy test, which has no
-`TITLE_` name) and `TITLE_FDMSP`. 19 call sites take the title index from RAM or a table
-(DirmdEmulator's pending title, the saved return titles of the disk dialogs, `DemoSong_TitleCol`),
-which the tracer does not follow, so some of these may be opened there.
+`TITLE_` name) and `TITLE_FDMSP`. 18 call sites take the title index from RAM or a table
+(DirmdEmulator's pending title, the saved return titles of the disk dialogs), which the tracer does
+not follow, so some of these may be opened there. (`DemoSong_TitleCol`'s four bytes are read from the
+ROM since 2026-11-06: they open `TITLE_DEMOSTYLE` / `DEMOSOUND` / `DEMORHY` / `DEMOFEATURE`.)
 
 ## Reading a screen in the source
 

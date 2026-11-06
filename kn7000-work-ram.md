@@ -91,6 +91,17 @@ program does not mute the keyboard on this screen. *[INFERENCE]* The silence the
 most likely a hardware mute tied to the card access; which line, is for the service manual's
 MUTE lines (traced to their CPU pin) or a measurement on the instrument.
 
+**The mute lines, traced** (2026-11-06, lane kn7000-research2,
+[`audio-mute-probes/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/audio-mute-probes/README.md)).
+The manual's MUTE line is PMUT, CPU port P22 (GPIO `0x36008004` bit 2); the second switch, SPSW, and
+the main D/A converter's mode port are outputs of the latch at `0x98060000`
+([Sound muting]({{ site.baseurl }}/kn7000-sound-subsystem/#sound-muting-hardware)). The firmware
+moves none of them on SD PICTURE LOAD, and in MAME (programs 941 and 893; **observed in emulation, not
+on hardware**) all three stay "sound on" from the end of the boot through the screen, a key held on it,
+and EXIT. So none of the software-driven mute lines makes the silence. What is left needs the
+instrument: play a key on SD PICTURE LOAD with a card that holds pictures, and note whether the sound
+stops for the whole screen or only while the card is read (the emulated card answers at once).
+
 **The slide-show pool.** SswPoolAlloc is a bump allocator: a block is
 round4(n) + 4 bytes with its length word in front, and the payload starts at
 (pool+0x18) + 4. In the main pool (base 0x502031A0, heap from 0x50203F90) the first
@@ -432,8 +443,8 @@ Each gap between referenced bases equals count x stride. The strides come from t
   for the "about 80 minutes" the service manual gives for the sequencer data; the RAM
   is DRAM, so the mechanism is not visible in the code.
 - What keeps the keyboard silent for the whole time the PICTURE LOAD screen is shown
-  (only the open-time All Notes Off was traced; in MAME the keys sound there, above, so the
-  candidate is a hardware mute the emulator does not model).
+  (only the open-time All Notes Off was traced; in MAME the keys sound there, above, and none of
+  the software-driven mute lines moves, so it needs a key played on the instrument).
 
 ## Related
 

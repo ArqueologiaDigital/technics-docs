@@ -73,6 +73,16 @@ sound on a KN7000 rather than silence.
 
 Full technical write-up: `notes/sound-bank-classes.md` in the emulation repository.
 
+### Drum kits and user kits
+
+A drum kit is a "table" tone: a short head (its name, the class, and a key-map number 0..6) followed by
+one entry per MIDI note naming the drum voice that plays it. Each voice can sound one or two layers. A
+user kit saved with a CUSTOM style has exactly this layout, so the instrument plays it like a built-in
+kit. The factory User Kit in the Custom Style disk's third set has the same head as Standard Kit1. When
+the relevant setting is on, the key-map number picks which of seven key layouts maps the keyboard onto
+the kit (lane kn7000-research2, 2026-11-06; the layout is on
+[Custom Style Memory]({{ site.baseurl }}/kn7000-custom-style-memory/#the-slot-record)).
+
 ## Pad bank / slot names  
 <small>table @ `0x0406dd` — 19 names</small>
 

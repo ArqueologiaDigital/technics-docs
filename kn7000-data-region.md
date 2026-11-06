@@ -523,6 +523,32 @@ Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER 
 [`kn7000/notes/mn10300-data3/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data3/README.md),
 merged in `3834c8773`).
 
+## The plug-in regenerates again; field names (lane mn10300-data4)
+
+The KN7000 builds gain no typed byte in this round: their opaque bytes stay 9,760 (941), 9,633 (942),
+10,300 (935) and 9,833 (893). Their change is field names: `ToneTypeFeature`, the per-tone-type record of
+`TgPartEditLfoLoadA_Records` that the LFO EDIT loaders read (a 19-byte head with four LFO triples, then
+four 5-byte EG segment entries from `+0x13`), so the offset-named fields with a reader fall from 203 to 185
+(941 / 942) and 225 to 207 (935 / 893). A curated field name is no longer given to a multi-byte field no
+reader of the build touches. The SP7001 plug-in's data regenerates again (`make -C kn7000 plugin-src`
+reaches its fixpoint, `verify-sp7001` is byte-identical): the generator now follows a plug-in's host
+Function-table record reached by an address sum, so all ten `RegisterObjectTable` calls of
+`func_483E8071` are seen, and the plug-in's object names are frozen in its `gui_object_names.tsv` (311
+objects) like every other tree's ([SP7001 Plug-in]({{ site.baseurl }}/kn7000-sp7001-plugin/)). The
+siblings' share of the round, the KN6000 / KN6500 effect-DSP parameter lists and the name tables' file
+halves, is on [KN6000 Program Data]({{ site.baseurl }}/kn6000-program-data/#effect-dsp-parameter-lists-name-tables-field-names-lane-mn10300-data4)
+and [KN2400 Program Data]({{ site.baseurl }}/kn2400-program-data/#name-tables-message-tables-field-names-lane-mn10300-data4).
+`func_48449207` and `func_48449462` (the sound-kind test and the kits' key maps, see
+[Sound Subsystem]({{ site.baseurl }}/kn7000-sound-subsystem/#from-a-key-press-to-a-voice--the-firmware-signal-path))
+keep their `func_` names for now, because the data labels `func_48449462_Records` / `_Table` are derived
+from them; `SoundKindGet` and `TableToneKeyMap` are the names proposed.
+
+Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER --brief`, before = disassembly
+`e53dc9b3a`'s committed data directories, after = the lane's regenerated sources; the rules are the
+`gen_data_s.FEATURES` keys `named_base_not_end` and the `milk_model` / `data_structs` changes (disassembly
+[`kn7000/notes/mn10300-data4/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data4/README.md),
+merged in `8d0865c27`).
+
 ## What is left: the census
 
 The instrument is `scripts/analysis/data_incbin_census.py`

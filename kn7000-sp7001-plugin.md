@@ -35,6 +35,12 @@ make -C kn7000 verify-sp7001   # table 83 and program 942 rebuilt byte for byte
 make -C kn7000 verify-gui-map  # the menu maps, this one included, are current
 ```
 
+After wave 11 `plugin-src` failed; since 2026-11-06 (lane mn10300-data4,
+[`kn7000/notes/mn10300-data4/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data4/README.md)) it runs again: `milk_model.parse_calls` follows the host's Function-table record that
+`func_483E8071` reaches by an address sum (`add dN, aM`, then `mov (aM), aN`), so the data generator sees
+all ten `RegisterObjectTable` calls below, and the plug-in's object names are kept in
+`kn7000/src/sp7001/plugin/data/gui_object_names.tsv` (311 objects) like every other tree's.
+
 ## How it registers its GUI with the host
 
 The plug-in calls program 942 through 942's own registered Function table, as the HD-SX6 plug-in

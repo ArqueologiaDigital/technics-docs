@@ -368,6 +368,31 @@ Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER 
 [`kn7000/notes/mn10300-data3/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data3/README.md),
 merged in `3834c8773`).
 
+## Name tables, message tables, field names (lane mn10300-data4)
+
+The GUI's resource name tables are 512 slots: 256 names, then the 256 file names of the same resources;
+the second half is now typed as such. The KN2400's icon table (`names_48545C20`) holds 241 pointers to
+"kari.bmp", "i0.bmp" ... in the 256 slots after its names, 1,080 bytes that had been an opaque table
+tail. The per-language message tables are typed too: runs of words, each 0 or the address of a
+NUL-ended string, that no item held. `ToneTypeFeature` names the per-tone-type record the LFO EDIT
+loaders read, as in every tree.
+
+| tree   | typed bytes before | typed bytes after | opaque pieces / bytes before | opaque pieces / bytes after |
+|--------|--------------------|-------------------|------------------------------|-----------------------------|
+| KN2400 | 1,920,463          | 1,923,193         | 790 / 16,682                 | 769 / 13,880                |
+
+Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER --brief`, before = disassembly
+`e53dc9b3a`'s committed data directories, after = the lane's regenerated sources; the rules are the
+`gen_data_s.FEATURES` keys `string_ptr_runs` and `named_base_not_end` (disassembly
+[`kn7000/notes/mn10300-data4/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data4/README.md),
+merged in `8d0865c27`).
+Offset-named fields with a reader fell from 160 to 142. Two opaque classes rose a little (binary
+program flash 461 / 10,264 -> 462 / 10,282 bytes): remainders of pieces the string rule split, whose rest
+now classifies as binary. What is left, largest first: 6,013 bytes inside labelled items (the switch blocks
+of `func_5016594F`, and around `func_50186924_Selected_6` 856 bytes of 44-byte records of 24-bit DSP
+coefficients in 32-bit words, of which the code selects 7, followed by single-precision floats that the
+doubles pass misreads as doubles), and 3,859 bytes of table tails.
+
 ## What is left: the census
 
 The fourth committed snapshot,
