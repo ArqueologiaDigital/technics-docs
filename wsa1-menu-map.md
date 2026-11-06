@@ -163,7 +163,7 @@ chosen through a pointer table, is missing from it. Nothing in it is more than t
 
 The map's index, grouped by screen-id range. "First texts drawn" are the first captions of the
 display lists the Enter method names (many captions spell O as the digit 0, exactly as the ROM's
-text does, and the labels derived from them keep that spelling); "keys" counts the key-map slots that do something; "reached from"
+text does; since 2026-11-06 the labels derived from them spell the word with O); "keys" counts the key-map slots that do something; "reached from"
 is the screen or mode whose key handler requests this one. The per-screen detail (every key and
 its handler, every list) is in the [full map](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/wsa1/docs/gui-menu-map.md).
 
@@ -186,14 +186,14 @@ its handler, every list) is in the [full map](https://github.com/ArqueologiaDigi
 | 0x16 | `CombiEdit_Begin`                        | -                                                            | 0    | -            |
 | 0x17 | `ModeEnter_SoundEdit`                    | SOUND EDIT / · WRITE / COPY                                  | 0    | -            |
 | 0x21 | `InstallPainter_SoundMode_Entry`         | SOUND MODE / 1 / 2                                           | 19   | -            |
-| 0x22 | `InstallPainter_C0mbinati0nM0de_Entry`   | C0MBINATI0N M0DE / PAGE2/2 / SOUND:                          | 0    | -            |
+| 0x22 | `InstallPainter_CombinationMode_Entry`   | C0MBINATI0N M0DE / PAGE2/2 / SOUND:                          | 0    | -            |
 | 0x24 | `Paint_Sequencer`                        | SEQUENCER / REALTIME / EDIT                                  | 14   | -            |
 | 0x26 | `ScreenEnter_RealtimeRecordScreen_Fwd`   | -                                                            | 20   | -            |
 | 0x27 | `ScreenEnterBody_CombiEditMixer`         | MIXER / SOUND:                                               | 0    | -            |
 | 0x28 | `ScreenEnter_CycleRecordScreen_Fwd`      | -                                                            | 7    | -            |
-| 0x2B | `ScreenEnter_AfterT0uchSetting`          | AFTER T0UCH SETTING / Select whether or not After Touch / is | 0    | -            |
+| 0x2B | `ScreenEnter_AfterTouchSetting`          | AFTER T0UCH SETTING / Select whether or not After Touch / is | 0    | -            |
 | 0x2C | `ScreenEnter_MetronomeBalanceScreen_Fwd` | -                                                            | 3    | -            |
-| 0x2D | `ScreenEnter_S0ngSelectName`             | S0NG SELECT & NAME / KB / S0NG                               | 0    | -            |
+| 0x2D | `ScreenEnter_SongSelectName`             | S0NG SELECT & NAME / KB / S0NG                               | 0    | -            |
 | 0x2E | `ScreenEnter_StepRecord`                 | -                                                            | 0    | -            |
 | 0x2F | `ScreenEnter_StepRecordPartSelect`       | STEP RECORD / : PART SELECT / Press the up/down button under | 17   | -            |
 
@@ -202,14 +202,14 @@ its handler, every list) is in the [full map](https://github.com/ArqueologiaDigi
 | id   | Enter method                             | first texts drawn                                            | keys | reached from                                           |
 |------|------------------------------------------|--------------------------------------------------------------|------|--------------------------------------------------------|
 | 0x01 | `InstallPainter_SoundMode_Entry`         | SOUND MODE / 1 / 2                                           | 19   | screen 0xA1, screen 0xA6                               |
-| 0x02 | `InstallPainter_C0mbinati0nM0de_Entry`   | C0MBINATI0N M0DE / PAGE2/2 / SOUND:                          | 0    | screen 0xA1, screen 0xA5, screen 0xA6                  |
+| 0x02 | `InstallPainter_CombinationMode_Entry`   | C0MBINATI0N M0DE / PAGE2/2 / SOUND:                          | 0    | screen 0xA1, screen 0xA5, screen 0xA6                  |
 | 0x04 | `Paint_Sequencer`                        | SEQUENCER / REALTIME / EDIT                                  | 14   | mode 0x2F, screen 0x0F, screen 0x10, screen 0x13       |
 | 0x06 | `ScreenEnter_RealtimeRecordScreen_Fwd`   | -                                                            | 20   | mode 0x28, screen 0x08, screen 0x1E                    |
 | 0x07 | `ScreenEnterBody_CombiEditMixer`         | MIXER / SOUND:                                               | 0    | -                                                      |
 | 0x08 | `ScreenEnter_CycleRecordScreen_Fwd`      | -                                                            | 7    | mode 0x26, screen 0x06                                 |
-| 0x0B | `ScreenEnter_AfterT0uchSetting`          | AFTER T0UCH SETTING / Select whether or not After Touch / is | 0    | mode 0x24, screen 0x04                                 |
+| 0x0B | `ScreenEnter_AfterTouchSetting`          | AFTER T0UCH SETTING / Select whether or not After Touch / is | 0    | mode 0x24, screen 0x04                                 |
 | 0x0C | `ScreenEnter_MetronomeBalanceScreen_Fwd` | -                                                            | 3    | mode 0x26, screen 0x06                                 |
-| 0x0D | `ScreenEnter_S0ngSelectName`             | S0NG SELECT & NAME / KB / S0NG                               | 0    | mode 0x24, screen 0x04                                 |
+| 0x0D | `ScreenEnter_SongSelectName`             | S0NG SELECT & NAME / KB / S0NG                               | 0    | mode 0x24, screen 0x04                                 |
 | 0x0E | `ScreenEnter_StepRecord`                 | -                                                            | 0    | mode 0x24, screen 0x04                                 |
 | 0x0F | `ScreenEnter_StepRecordPartSelect`       | STEP RECORD / : PART SELECT / Press the up/down button under | 17   | -                                                      |
 | 0x10 | `ScreenEnter_TrackAssign`                | SONG / TRACK ASSIGN / TRACK   L0CAL   MIDI                   | 15   | mode 0x24, screen 0x04, screen 0x11                    |
@@ -221,11 +221,11 @@ its handler, every list) is in the [full map](https://github.com/ArqueologiaDigi
 | 0x1A | `ScreenEnter_Edit`                       | EDIT / SEQ. / N0TE                                           | 16   | screen 0x1B, screen 0x1C, screen 0x1D, screen 0x1E +11 |
 | 0x1B | `ScreenEnter_SongClear`                  | SONG / CLEAR / KB                                            | 7    | screen 0x1A                                            |
 | 0x1C | `ScreenEnter_TrackClear`                 | TRACK / CLEAR / Press                                        | 21   | screen 0x1A                                            |
-| 0x1D | `ScreenEnter_Vel0cityChange`             | VEL0CITY CHANGE / TRACK           : / FIRST MEASURE   :      | 11   | screen 0x1A                                            |
+| 0x1D | `ScreenEnter_VelocityChange`             | VEL0CITY CHANGE / TRACK           : / FIRST MEASURE   :      | 11   | screen 0x1A                                            |
 | 0x1E | `ScreenEnter_Quantize`                   | QUANTIZE / TRACK         : / STRENGTH :                      | 11   | mode 0x26, screen 0x06, screen 0x1A                    |
 | 0x1F | `ScreenEnter_TrackMerge`                 | TRACK MERGE / OK / TRACK  :                                  | 8    | screen 0x1A                                            |
 | 0x20 | `ScreenEnter_MeasureErase`               | MEASURE ERASE / TRACK           : / FIRST MEASURE   :        | 11   | screen 0x1A                                            |
-| 0x21 | `ScreenEnter_MeasureC0py`                | MEASURE C0PY / FROM TRACK / TO TRACK                         | 11   | screen 0x1A                                            |
+| 0x21 | `ScreenEnter_MeasureCopy`                | MEASURE C0PY / FROM TRACK / TO TRACK                         | 11   | screen 0x1A                                            |
 | 0x22 | `ScreenEnter_MeasureInsert`              | MEASURE INSERT / FROM TRACK / TO TRACK                       | 11   | screen 0x1A                                            |
 | 0x23 | `ScreenEnter_MeasureDelete`              | MEASURE DELETE / TRACK           : / FIRST MEASURE   :       | 10   | screen 0x1A                                            |
 | 0x24 | `ShowScreen_NoteEditPartSelect`          | NOTE / EDIT / :                                              | 17   | screen 0x1A, screen 0x25, screen 0x28                  |
@@ -234,10 +234,10 @@ its handler, every list) is in the [full map](https://github.com/ArqueologiaDigi
 | 0x27 | `ShowScreen_DrumEditPartSelect`          | DRUM / EDIT / :                                              | 17   | screen 0x1A, screen 0x25, screen 0x28                  |
 | 0x28 | `EditScreen_EnterDrumEdit`               | -                                                            | 20   | screen 0x26, screen 0x29                               |
 | 0x29 | `ScreenEnter_CyclePlayEditScreen29_Fwd`  | -                                                            | 6    | screen 0x25, screen 0x28                               |
-| 0x2A | `ScreenEnter_S0ngC0py`                   | S0NG C0PY / FROM / TO                                        | 21   | screen 0x1A                                            |
-| 0x2B | `ScreenEnter_Transp0se`                  | TRANSP0SE / TRACK           : / FIRST MEASURE   :            | 11   | screen 0x1A                                            |
+| 0x2A | `ScreenEnter_SongCopy`                   | S0NG C0PY / FROM / TO                                        | 21   | screen 0x1A                                            |
+| 0x2B | `ScreenEnter_Transpose`                  | TRANSP0SE / TRACK           : / FIRST MEASURE   :            | 11   | screen 0x1A                                            |
 | 0x2C | `ScreenEnter_AdvanceDelay`               | ADVANCE/DELAY / TRACK           : / FIRST MEASURE   :        | 11   | screen 0x1A                                            |
-| 0x2D | `ScreenEnter_N0teChange`                 | N0TE CHANGE / TARGET NOTE / TRACK         :                  | 10   | screen 0x1A                                            |
+| 0x2D | `ScreenEnter_NoteChange`                 | N0TE CHANGE / TARGET NOTE / TRACK         :                  | 10   | screen 0x1A                                            |
 | 0x2E | `ScreenEnter_PanelWrite`                 | PANEL WRITE / PANEL WRITE replaces the sounds and / settings | 0    | screen 0x1A                                            |
 
 ### Combination edit (0x33-0x3C)
@@ -261,14 +261,14 @@ its handler, every list) is in the [full map](https://github.com/ArqueologiaDigi
 |------|--------------------------------------|--------------------------------------------------------------|------|--------------|
 | 0x40 | `Paint_DiskMenu`                     | MIDI FILE LOAD / MIDI FILE SAVE / LOAD                       | 5    | -            |
 | 0x45 | `Paint_MidiFileDirectPlay`           | PLAY ·                                                       | 6    | -            |
-| 0x47 | `Paint_DiskL0adFile`                 | SAVE / SAVE FILE / SAVE ·                                    | 6    | -            |
-| 0x49 | `Paint_MidiFileL0ad`                 | MIDI FILE L0AD / : / L0AD ·                                  | 6    | -            |
+| 0x47 | `Paint_DiskLoadFile`                 | SAVE / SAVE FILE / SAVE ·                                    | 6    | -            |
+| 0x49 | `Paint_MidiFileLoad`                 | MIDI FILE L0AD / : / L0AD ·                                  | 6    | -            |
 | 0x4C | `PageDispatch_DiskSaveFile`          | DISK SAVE : FILE NAMING                                      | 63   | -            |
 | 0x4E | `PageDispatch_MidiFileSave`          | SAVE                                                         | 25   | -            |
 | 0x50 | `Paint_FloppyDiskFormatSelectType`   | COMPOSER LOAD                                                | 5    | -            |
 | 0x51 | `Paint_FloppyDiskFormatAreYouSure`   | ATTENTION! / Using DISK FORMAT will erase / any current data | 3    | -            |
-| 0x53 | `PageDispatch_L0adSingleC0mbination` | LOAD SINGLE COMBINATION / DISK / 0K                          | 0    | -            |
-| 0x54 | `PageDispatch_L0adSingleS0und`       | LOAD SINGLE SOUND / DISK / 0K                                | 0    | -            |
+| 0x53 | `PageDispatch_LoadSingleCombination` | LOAD SINGLE COMBINATION / DISK / 0K                          | 0    | -            |
+| 0x54 | `PageDispatch_LoadSingleSound`       | LOAD SINGLE SOUND / DISK / 0K                                | 0    | -            |
 
 Screens 0x50 and 0x51 (FLOPPY DISK FORMAT: choose 2DD / 2HD, then "Are You Sure?") read rows 4 and 5 of
 MIDI FILE SAVE's key matrix through their own button methods; on 0x50 LCD row 3 picks 2DD and row 4 2HD,

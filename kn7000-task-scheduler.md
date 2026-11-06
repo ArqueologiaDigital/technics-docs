@@ -149,7 +149,8 @@ blocks there are 941 instruction slots, 939 of them on both sides. 735 of those
 needed no reconciliation; of the other 204, 129 differ in house style and 81 name a
 per-CPU value (6 slots are both). Those 81 reduce to **21 named constants** (twelve
 RAM addresses, six array sizes, three ROM pointers) — with no conditional assembly
-anywhere in the file.
+between the two WSA1R builds (the KN5000 sub-CPU build, added on 2026-11-06, has
+`.if KERNEL_KN5000` blocks of its own).
 
 For the KN5000 the identification rests on **control-flow shape**, not byte
 identity. Byte identity is the wrong measure across products: two processors in
@@ -165,13 +166,18 @@ instruction counts:
 
 No overlap, and a gap of 0.41.
 
-⚠ **Do not trust the KN5000's kernel labels.** The measured alignment does not
-match them: the site that actually corresponds to `MsgQueue_Send` is labelled
-`TaskSched_Wait`, the one matching `Kernel_SemaSignal` is labelled
-`TaskEvent_Wait`, and on the main CPU the site matching `Kernel_StartTask` at 0.978
-was called `Show_ScreenGroup` (renamed `TaskSched_SpawnTask` on 2026-10-17). Several KN5000 kernel labels are simply wrong —
-a renaming pass waiting to happen, and a reminder that names point an instrument at
-a region without being evidence about it.
+The KN5000 SUB-CPU's kernel labels are settled: since 2026-11-06 that payload
+builds its kernel from the SX-WSA1R's `wsa1/kernel/kernel.s` (one source, three
+processors, `.if KERNEL_KN5000` blocks where the text differs), and its routines
+carry the shared names. The pairing behind the renames was redone routine against
+routine on proven boundaries (`wsa1/notes/open9-a3-probes/kernel_a3_pairing.py`):
+26 pairs in the same ROM order on both products. It also corrected the approximate
+sites above: `MsgQueue_Send` is `TaskMsgQ_Send` (not `TaskSched_Wait`, which is
+`Kernel_SemaWait`), and `Kernel_SemaSignal` is `TaskSem_Release` (not
+`TaskEvent_Wait`; the `TaskEvent_*` event flags have no WSA1 partner). On the MAIN
+CPU the site matching `Kernel_StartTask` at 0.978 was called `Show_ScreenGroup`
+(renamed `TaskSched_SpawnTask` on 2026-10-17); its kernel is a separate build and
+is not joined yet.
 
 Not established: who wrote it, and that the sources are identical.
 `Kernel_Dispatch` scores only 0.742, because the KN5000 version has no tick-drain

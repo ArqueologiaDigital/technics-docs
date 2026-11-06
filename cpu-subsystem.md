@@ -260,21 +260,22 @@ built). A run that starts at the same offset in both enclosing routines (ALIGNED
 script's strongest sign that the two names label the same routine. That is how the subcpu lane (September 2026) found several
 main-CPU kernel names to be wrong. The main-CPU source still carries these names:
 
-| Sub CPU (v1.42, named from the code)                 | Main CPU (v10 label)                                     | aligned run                                |
-|:-----------------------------------------------------|:---------------------------------------------------------|:-------------------------------------------|
-| `TaskSched_PreemptiveYield`                          | `TaskSched_YieldToQueue`                                 | 63 B at +21                                |
-| `TaskSched_Block_Self` — blocks the **calling** task | `TaskSched_Resume` (0xEF1CEC)                            | 56 B at +15                                |
-| `TaskEvent_Signal` / `TaskEvent_Wait_SuspendTask`    | `TaskSched_SignalEvent` / `TaskSched_WaitForEvent_Block` | 38 B / 30 B                                |
-| `TaskSem_Release` (semaphore V)                      | `Audio_Lock_Release` (0xEF1F0F)                          | 44 B at +39                                |
-| `TaskSem_Release_WakeWaiter`                         | `AudioLock_Release_WakeWaiter`                           | 16 B at +56                                |
-| `TaskSem_TryDec` / `TaskSem_GetCount`                | `AudioLock_TryAcquire` / `AudioLock_GetCount`            | 22 B / 26 B                                |
-| `TaskMsgQ_Send` / `TaskMsgQ_Receive`                 | `TaskMsg_Send` / `TaskMsg_Receive`                       | 41 B at +37 and 54 B at +102 / 39 B at +23 |
+| Sub CPU (v1.42; since 2026-11-06 built from `wsa1/kernel/kernel.s`) | Main CPU (v10 label)                                     | aligned run                                |
+|:--------------------------------------------------------------------|:---------------------------------------------------------|:-------------------------------------------|
+| `Kernel_YieldRotate`                                                | `TaskSched_YieldToQueue`                                 | 63 B at +21                                |
+| `Kernel_BlockSelf` — blocks the **calling** task                    | `TaskSched_Resume` (0xEF1CEC)                            | 56 B at +15                                |
+| `TaskEvent_Signal` / `TaskEvent_Wait_SuspendTask`                   | `TaskSched_SignalEvent` / `TaskSched_WaitForEvent_Block` | 38 B / 30 B                                |
+| `Kernel_SemaSignal` (semaphore V)                                   | `Audio_Lock_Release` (0xEF1F0F)                          | 44 B at +39                                |
+| `Kernel_SemaSignal__wake`                                           | `AudioLock_Release_WakeWaiter`                           | 16 B at +56                                |
+| `Kernel_SemaTryWait` / `TaskSem_GetCount`                           | `AudioLock_TryAcquire` / `AudioLock_GetCount`            | 22 B / 26 B                                |
+| `MsgQueue_Send` / `MsgQueue_ReceiveBlocking`                        | `TaskMsg_Send` / `TaskMsg_Receive`                       | 41 B at +37 and 54 B at +102 / 39 B at +23 |
 
 The table used to have two more rows. The main CPU routines at 0xEF1B9C (formerly `Show_ScreenGroup`; aligned
-run 63 B at +32 with the sub CPU's `TaskSched_SpawnTask`) and 0xEF1C16 (formerly
-`SndTable_ByteBlock_ReadOps_Helper`; 20 B at +29 with `TaskSched_ExitCurrentTask`) have carried the sub-CPU
-names since 2026-10-17, which their own main-CPU code
-supports: the first fills a task's TCB from `TaskSched_TaskTable` and queues it, the second ends the calling
+run 63 B at +32 with the sub CPU's `Kernel_StartTask`) and 0xEF1C16 (formerly
+`SndTable_ByteBlock_ReadOps_Helper`; 20 B at +29 with `Kernel_ExitTask`) carried the sub-CPU
+names `TaskSched_SpawnTask` / `TaskSched_ExitCurrentTask` from 2026-10-17; on 2026-11-06 the sub CPU's kernel
+became the SX-WSA1R's shared source and took its names, so the main CPU now keeps the old ones until its own
+kernel is joined. Their own main-CPU code supports those names: the first fills a task's TCB from `TaskSched_TaskTable` and queues it, the second ends the calling
 task (kn5000-roms-disasm `scripts/renaming/rename_task_spawn.sed`,
 `analysis/kn5000-naming/proposals-2026-10-17-helpers-h2.json`).
 
@@ -282,14 +283,16 @@ So **`Audio_Lock_Acquire` / `Audio_Lock_Release` are the kernel's generic semaph
 routines**, not an audio-specific lock. Their "lock index" is a semaphore number. The audio
 command path happens to use semaphore 7 (see
 [Inter-CPU Protocol]({{ site.baseurl }}/inter-cpu-protocol/#lock-mechanism)).
-`TaskSched_SpawnTask` (formerly `Show_ScreenGroup`) spawns a task. `TaskSched_Resume` puts the calling task to sleep
+`TaskSched_SpawnTask` (formerly `Show_ScreenGroup`) spawns a task on the main CPU, as `Kernel_StartTask` does on
+the sub CPU. `TaskSched_Resume` puts the calling task to sleep
 rather than resuming another. The run table also pairs the scheduler's init and dispatch
-(`TaskSched_Init_TaskDescriptors` / `TaskSched_InitTCBFields`,
-`TaskSched_Dispatch_ScanQueues` / `TaskSched_ScanPriorityQueues`) and the timer tick
-(`TaskSched_SoftTimer_Service` / `TaskSched_TimerTick`). The same scan shows that main-CPU
+(`Kernel_InitRam__tcbs` / `TaskSched_InitTCBFields`,
+`Kernel_Dispatch__pick_task` / `TaskSched_ScanPriorityQueues`) and the timer tick
+(`Kernel_ServiceSoftTimers` / `TaskSched_TimerTick`). The same scan shows that main-CPU
 `Math_DivModSigned32` (0xFF0BC3) is byte-identical to the sub CPU's `Int_SignedDiv` over 170 bytes. Both are Toshiba's C runtime `SDivMod` (LDIVL.ASM); see [Original Toolchain]({{ site.baseurl }}/original-toolchain/).
 Source: `notes/lanes/wave2-2026-09-25/lane-reports/subcpu.json`, and the sub-CPU headers
-(`TaskSem_Release`'s says it was `TaskSched_PreemptiveYield_INT` until September 2026).
+(`Kernel_SemaSignal`'s KN5000 header says it was `TaskSched_PreemptiveYield_INT` until September 2026, and
+`TaskSem_Release` until November).
 
 ### Audio Processing Architecture
 

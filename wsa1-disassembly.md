@@ -266,8 +266,19 @@ equate and one of the two images stops rebuilding.
 Of 941 instruction slots (939 present on both sides as source lines), 735 already
 said the same thing, 129 differed only in house style, and **81 carry a per-CPU
 value. Those 81 sites are 21 constants**, not 81 patches: twelve RAM addresses,
-six array sizes, three ROM pointers. There is no `.if`/`.else` anywhere in the
-file — an equate names each difference once and the body stays genuinely shared.
+six array sizes, three ROM pointers. Between the two WSA1R CPUs there is no
+`.if`/`.else` — an equate names each difference once and the body stays genuinely shared.
+
+**Since 2026-11-06 the file has a third processor:** the KN5000 sub-CPU payload
+(v1.42, v1.41 and v1.40) includes it through `kernel_kn5000_subcpu.inc`, which sets
+`KERNEL_KN5000 = 1` (the two WSA1R `.inc` files set 0). Between the two WSA1R CPUs
+the difference is still only equates; between the WSA1R and the KN5000 the text
+differs in 25 of 26 paired routines, so those runs sit in `.if KERNEL_KN5000` /
+`.else` blocks (109 of them), and the WSA1R's stack faces in
+`.if KERNEL_KN5000 == 0`. The KN5000 routines took the shared names
+(`TaskSched_Dispatch` is `Kernel_Dispatch`, `TaskSem_Release` is
+`Kernel_SemaSignal`, ...; `scripts/renaming/rename_kernel_a3.sed`, and
+`wsa1/notes/open9-a3-probes/`).
 
 The array sizes are where the two processors' personalities live: CPU 1 runs **4
 tasks, 8 semaphores, 4 message queues**; CPU 2 runs **3, 4 and 2**. The same

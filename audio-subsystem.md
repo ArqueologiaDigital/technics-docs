@@ -604,18 +604,18 @@ The `count` field gives the number of data bytes following the header (after sub
 
 **Opcode Set:**
 
-| Opcode | Name | Description |
-|--------|------|-------------|
-| 0x0 | DSP Write Type 0 | Basic DSP register write (offset 0x000 in handler table) |
-| 0x1 | DSP Write Type 1 | Extended parameter write (offset 0x23A) |
-| 0x2 | DSP Write Type 2 | Multi-register write variant (offset 0x333) |
-| 0x3 | DSP Write Type 3 | Complex routing write (offset 0x3DA) |
-| 0x4 | DSP Write Type 4 | Short parameter write (offset 0x473) |
-| 0x5 | DSP Write Type 5 | Short config write (offset 0x48D) |
-| 0x6-0xC | — | Invalid (skipped) |
-| 0xD | State Change | `DSP_Bytecode_NotifyStateChange`: releases kernel semaphore 1 (`TaskSem_Release`, WA = 1 is the semaphore id, not a priority), waking the task blocked on it, then switches tasks; continues when this task is next dispatched |
-| 0xE | Send Command | Sends command byte + data bytes directly to DSP hardware |
-| 0xF | End | Terminates bytecode execution |
+| Opcode  | Name             | Description                                                                                                                                                                                                                      |
+|---------|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0x0     | DSP Write Type 0 | Basic DSP register write (offset 0x000 in handler table)                                                                                                                                                                         |
+| 0x1     | DSP Write Type 1 | Extended parameter write (offset 0x23A)                                                                                                                                                                                          |
+| 0x2     | DSP Write Type 2 | Multi-register write variant (offset 0x333)                                                                                                                                                                                      |
+| 0x3     | DSP Write Type 3 | Complex routing write (offset 0x3DA)                                                                                                                                                                                             |
+| 0x4     | DSP Write Type 4 | Short parameter write (offset 0x473)                                                                                                                                                                                             |
+| 0x5     | DSP Write Type 5 | Short config write (offset 0x48D)                                                                                                                                                                                                |
+| 0x6-0xC | —                | Invalid (skipped)                                                                                                                                                                                                                |
+| 0xD     | State Change     | `DSP_Bytecode_NotifyStateChange`: releases kernel semaphore 1 (`Kernel_SemaSignal`, WA = 1 is the semaphore id, not a priority), waking the task blocked on it, then switches tasks; continues when this task is next dispatched |
+| 0xE     | Send Command     | Sends command byte + data bytes directly to DSP hardware                                                                                                                                                                         |
+| 0xF     | End              | Terminates bytecode execution                                                                                                                                                                                                    |
 
 **Opcode 0xE Detail (Send Command):**
 
@@ -1405,20 +1405,20 @@ Causes considered at the time (superseded by the /INT0 fix above):
 
 ### Main CPU (`v10/maincpu/kn5000_v10_program.s`)
 
-| Routine                                                  | Address  | Description                                                                |
-|----------------------------------------------------------|----------|----------------------------------------------------------------------------|
-| `Audio_Lock_Acquire`                                     | 0xEF1FEE | Kernel semaphore P (wait); the audio path uses semaphore 7                 |
-| `Audio_Lock_Release`                                     | 0xEF1F0F | Kernel semaphore V (release); byte twin of the sub CPU's `TaskSem_Release` |
-| `Audio_DMA_Transfer`                                     | 0xEF341B | Core DMA transfer                                                          |
-| `SubCPU_Init_DMA_Channels` (was `Audio_InitDMAChannels`) | 0xEF329E | Initialize DMA channels                                                    |
-| `sendCOMM`                                               | 0xEF32F4 | Send command/audio data to Sub CPU (chunks 32-byte blocks)                 |
-| `InterCPU_Send_Data_Block`                               | 0xEF3345 | Send 1-32 byte packet via inter-CPU latch                                  |
-| `Audio_CheckSubsystemReady`                              | 0xFDDE6F | Check if audio subsystem is ready for commands                             |
-| `Audio_CheckInitStatus`                                  | 0xFDF08A | Verify audio init state (checks 0xF19E)                                    |
-| `Voice_InitializeAll`                                    | 0xFE0E75 | Initialize all 16 voices (26 params each)                                  |
-| `Fade_Cancel`                                            | 0xFDBD52 | Cancel any FADE IN / OUT and restore the level (configures no DSP)         |
-| `DemoMode_Initialize`                                    | 0xF869E3 | Feature Demo first-time initialization                                     |
-| `DemoMode_Main_Operation`                                | 0xF8696F | Feature Demo normal playback handler                                       |
+| Routine                                                  | Address  | Description                                                                                                       |
+|----------------------------------------------------------|----------|-------------------------------------------------------------------------------------------------------------------|
+| `Audio_Lock_Acquire`                                     | 0xEF1FEE | Kernel semaphore P (wait); the audio path uses semaphore 7                                                        |
+| `Audio_Lock_Release`                                     | 0xEF1F0F | Kernel semaphore V (release); byte twin of the sub CPU's `Kernel_SemaSignal` (`TaskSem_Release` until 2026-11-06) |
+| `Audio_DMA_Transfer`                                     | 0xEF341B | Core DMA transfer                                                                                                 |
+| `SubCPU_Init_DMA_Channels` (was `Audio_InitDMAChannels`) | 0xEF329E | Initialize DMA channels                                                                                           |
+| `sendCOMM`                                               | 0xEF32F4 | Send command/audio data to Sub CPU (chunks 32-byte blocks)                                                        |
+| `InterCPU_Send_Data_Block`                               | 0xEF3345 | Send 1-32 byte packet via inter-CPU latch                                                                         |
+| `Audio_CheckSubsystemReady`                              | 0xFDDE6F | Check if audio subsystem is ready for commands                                                                    |
+| `Audio_CheckInitStatus`                                  | 0xFDF08A | Verify audio init state (checks 0xF19E)                                                                           |
+| `Voice_InitializeAll`                                    | 0xFE0E75 | Initialize all 16 voices (26 params each)                                                                         |
+| `Fade_Cancel`                                            | 0xFDBD52 | Cancel any FADE IN / OUT and restore the level (configures no DSP)                                                |
+| `DemoMode_Initialize`                                    | 0xF869E3 | Feature Demo first-time initialization                                                                            |
+| `DemoMode_Main_Operation`                                | 0xF8696F | Feature Demo normal playback handler                                                                              |
 
 ### Sub CPU (`v142/subcpu/kn5000_subprogram_v142.s`)
 

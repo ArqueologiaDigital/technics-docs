@@ -126,7 +126,7 @@ EI 6        ; Restrict to level 6+ only
 
 fails because `EI 0` immediately triggers a pending interrupt before `NOP` executes. The interrupt handler runs, returns via `RETI`, and the CPU re-enters the handler infinitely --- `EI 6` never executes, and the CPU is stuck.
 
-In the KN5000 firmware this exact sequence is the task-scheduler entry: `INTT3_EnterScheduler` in the main-CPU program and `TaskSwitch_Expired` in the sub-CPU payload. The one-instruction shadow this PR adds lets the emulated CPU get past it.
+In the KN5000 firmware this exact sequence is the task-scheduler entry: `INTT3_EnterScheduler` in the main-CPU program and `IRQ_Epilogue__enter_kernel` in the sub-CPU payload (`TaskSwitch_Expired` until 2026-11-06; the label of the shared kernel source `wsa1/kernel/kernel.s`). The one-instruction shadow this PR adds lets the emulated CPU get past it.
 
 ### Changes
 
