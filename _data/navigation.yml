@@ -118,6 +118,12 @@
           url: /kn7000-style-converter/
         - title: "Your Own Code on a Stock KN7000"
           url: /kn7000-cnv-homebrew/
+        - title: "Doom on the KN7000"
+          url: /kn7000-doom/
+        - title: "Keyfall (falling-notes piano game)"
+          url: /kn7000-keyfall/
+        - title: "PDF Viewer (MuPDF)"
+          url: /kn7000-pdf-viewer/
         - title: Work RAM Map
           url: /kn7000-work-ram/
     - title: Sound
