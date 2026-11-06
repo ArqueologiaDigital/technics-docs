@@ -288,7 +288,9 @@ and 942.
 >
 >   The first session the game logged there, on 2026-11-01, found a bug in the VM
 >   ([below](#replaying-a-session)).
-> - **In MAME only so far:** the credits' light show and the code wheel's retry (2026-11-05).
+> - **On the unit, 2026-11-06:** the owner played this build and reports that the credits' light show works
+>   and the code wheel's retry is what they asked for. Both sessions the game logged are in technics-anotherworld
+>   `kn7000/probes/sessions/2026-11-06-felipe-unit-1` and `-2`.
 
 - **Memory.** Everything the game writes is in `0x502BA000`-`0x50379FFF`: code, VM state, the four
   pages, the current part's files. It holds one part at a time and loads each part's files from the

@@ -20,7 +20,8 @@ Source: `kn5000_homebrew/demos/kn7000_protracker/` (its `README.md` has the deta
 
 > **Status (2026-11-06): runs in MAME, and has played on the owner's KN7000.** On the unit (2026-10-29)
 > its loudness was tried: at the mixer gain of the time a comfortable level needed MAIN VOLUME near the bottom, so
-> the gain went from 128 to 16 and then to 2 ([How it works](#how-it-works)). The owner has not yet reported on gain 2.
+> the gain went from 128 to 16 and then to 2 ([How it works](#how-it-works)). On 2026-11-06 the owner reported that at
+> gain 2 it sounds good.
 > In MAME (program 893, the loader floppy, the program menu on a copy of the owner's card) it:
 > - starts from the menu, plays the six Pinball Fantasies modules and edits them with the panel and the keybed;
 > - saves the result as a module that other trackers play.

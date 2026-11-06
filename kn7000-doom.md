@@ -20,7 +20,7 @@ not part of the source.
 
 Source: `kn5000_homebrew/demos/kn7000_doom/` (its `README.md` has the details).
 
-> **Status (2026-10-29): runs in MAME; not yet run on the instrument.** In MAME (program 893, the loader floppy, the
+> **Status (2026-11-06): runs in MAME, and works on the owner's KN7000.** In MAME (program 893, the loader floppy, the
 > program menu on a copy of the owner's card) it:
 > - starts from the program menu, prints Chocolate Doom's startup log on the LCD, shows the title screen and plays
 >   the demos;
@@ -28,8 +28,9 @@ Source: `kn5000_homebrew/demos/kn7000_doom/` (its `README.md` has the details).
 > - plays its sound effects on the effects DSP;
 > - ends when EXIT is held, and gives the instrument back with the firmware's RAM it borrowed as it was.
 >
-> The `DOOM\` folder has been staged for the owner's SD card since 2026-10-29, and the card's listings show it there,
-> but no run on the unit is recorded yet. Not yet done: the music, and saving games and settings.
+> The `DOOM\` folder has been staged for the owner's SD card since 2026-10-29. On 2026-11-06 the owner reported
+> that they had run it on the unit and that it works. Doom keeps no log on the card, so there are no figures from
+> the unit. Not yet done: the music, and saving games and settings.
 
 ## Playing it
 
@@ -149,7 +150,7 @@ All of this was in MAME, program 893 (the scripts and their results are in `test
 
 ## Limits and open items
 
-- **Not yet run on the instrument.** Everything above is from MAME.
+- **No figures from the instrument.** The owner reports that it works there; the timings above are from MAME.
 - **No music.** Probes found that bytes put into MIDI IN 1's ring while Doom draws are taken 0.6 to 159 ms later
   (median 55 ms): the firmware reads the ring only when the game's task yields, once a frame. Music played from Doom's
   task needs that task to yield more often, or another timer. Whether GM2 banks select GM sounds could not be told in
