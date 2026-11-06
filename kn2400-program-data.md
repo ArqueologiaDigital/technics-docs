@@ -305,12 +305,35 @@ the hard-disk defaults copy). The SX-KN2400's 548 DSP effect presets are typed w
 
 | tree   | typed bytes before | typed bytes after | opaque pieces / bytes before | opaque pieces / bytes after |
 |--------|--------------------|-------------------|------------------------------|-----------------------------|
-| KN2400 | 1,783,452          | 1,906,859         | 1,192 / 27,313               | 208                         |
+| KN2400 | 1,783,452          | 1,906,859         | 2,885 / 61,226               | 1,192 / 27,313              |
 
 Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER --brief` (typed bytes from
 `labels.sym`'s item sizes; opaque pieces as the generator counts them, not the data-incbin census), before =
 disassembly `c240d1c0b`, after = the lane's regenerated sources; the rules are the `gen_data_s.FEATURES` keys
 (disassembly `kn7000/notes/mn10300-data/README.md`). The census below predates this lane.
+
+## Value names, boot sectors, style lists (lane mn10300-data2)
+
+**The framework's value names, the disk formats' boot sectors, the style lists.** Each of the MILK
+framework's 54 support classes (the integer, ID, pointer, rectangle and flag types an object's
+properties have) points at a list of value names, `{name, value}` pairs ended by an empty name:
+"True" / "False", the view flags `VF_*`, the colours `CL_*`, the borders `BD_*` ...; the classes'
+common handler turns a value into its name and back with them. The disk formatters' boot sectors are
+typed too: the jump, the OEM name "Technics" and the BIOS parameter block of a 720 KB disk (1,440
+sectors, media 0xF9) and of a 1.44 MB one (2,880 sectors, media 0xF0), then a two-byte `jmp $`. The
+Music Stylist's genre lists now show every style with its four setups. `gui_ids.inc` also gains the
+25 `TT_` names `TitleNameTable` holds for titles no `RegisterTitle` call names (the firmware's 17
+placeholders, `_TT_13e` ..., stay unnamed).
+
+| tree   | typed bytes before | typed bytes after | opaque pieces / bytes before | opaque pieces / bytes after |
+|--------|--------------------|-------------------|------------------------------|-----------------------------|
+| KN2400 | 1,906,859          | 1,916,287         | 1,192 / 27,313               | 801 / 18,746                |
+
+Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER --brief`, before = disassembly
+`1345995bc`'s committed data directories, after = the lane's regenerated sources; the rules are the
+`gen_data_s.FEATURES` keys `support_values`, `sibling_support`, `boot_sectors`, `panel_700`, `style_lists`,
+`reclaim_strings` and `curated_counts` (disassembly
+[`kn7000/notes/mn10300-data2/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data2/README.md)).
 
 ## What is left: the census
 

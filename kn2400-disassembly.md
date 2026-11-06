@@ -106,7 +106,18 @@ same code as a routine the KN7000's symbol files name: the same instructions fro
 to the first return, with every number of 0x10000 or more masked out (addresses, and MILK
 message codes, which are renumbered between models). At least 8 of those instructions must
 have nothing masked, and the match must be unique among all of the KN7000's routine starts
-and among this image's entries. Each row records the KN7000 address it came from.
+and among this image's entries. Each row records the KN7000 address it came from. Since
+2026-11-06 a call entry (`func_<ADDR>_entry`, three bytes after an `add -N, sp` prologue) is a
+candidate too, so a name the KN7000 gives a routine's call entry is carried. With that and the
+lane's new KN7000 names the ported rows went from 746 to 767 (13 of the new rows are those names; KN6000 778 -> 806, KN6500 803 -> 831, HD-SX3 52 unchanged; counted with
+`grep -c '^0x'` at disassembly `a385de42f` and after lane kn7000-names,
+`kn7000/notes/kn7000-names/README.md`).
+
+**Two sibling names that look like one.** The KN2400's `FilePriorityFunc` and the KN7000's
+`SdcPanelSwAsFunc` have the same code because both are two-entry choice parameters of one
+template; their choice lists (TECHNICS / SMF and SD-AUDIO / SD-SOUND) tell them apart, so each
+image's name is right for its own routine (settled 2026-11-06,
+`kn7000/notes/kn7000-names-probes/names_choice_func_lists.py`).
 
 Counting the whole image as code would let `gen_symbols.py` name 194 more addresses, from
 seven more tables, and those names would be wrong: event-name string tables and the

@@ -194,11 +194,14 @@ program's own parameter dump (`PartParamDumpLine`) and the GUI's formatters (`Pa
 | 14   | CC92       | `multi`                        | MULTI EFFECT DEPTH                                                                                                          | 0 in 1259                                              |
 
 The four EQ fields are a two-band part equaliser: the tone generator's `TgPartEqCoefCalc` takes the
-two (FC, gain) pairs and computes the filter coefficients; which register they reach was not traced.
+two (FC, gain) pairs and computes the filter coefficients. Since 2026-11-06 their path is known: each part's
+two-band EQ becomes five filter coefficients written into every voice of the part (the tone generator's
+per-voice register classes `0x40000000`..`0x50000000`, through `TgVoiceReg4000GroupWrite`); what the TG does
+with them needs its datasheet.
 **`fold_root`** is the note-conversion octave fold: the note follows the chord root up by `root - 1`
 semitones, and by `root - 13` when `root - 1 > fold_root` (`NoteConvApply`). So with 8 the pattern
 moves up for roots C to G# and down for A, A# and B, which keeps an accompaniment part within a
-fifth of where it was written; only that branch of `NoteConvApply` was followed.
+fifth of where it was written. `NoteConvApply`'s other branches are the conversion rules below.
 
 Fields 15-23 of the table (CC64, CC1, CC11, channel pressure, pitch bend, CC16, CC17, CC13) are
 not in a style's set-up; they start from the default template `0x485B7804`. *[INFERENCE]* The
@@ -231,17 +234,19 @@ counts.
 
 `StyleRecordBindBuiltin` (`0x484336DB`) binds the current one into the pattern player's view:
 
-| offset     | size  | field                         | evidence                                                                         |
-|------------|-------|-------------------------------|----------------------------------------------------------------------------------|
-| `+0`       | 1     | bars - 1                      | `0x50122DCE`; `StyleBoundRecByteCeInc` + 1 -> `0x5003A452` (`func_48442293`)     |
-| `+1`       | 1     | beats a bar - 1               | `0x50122DCF`; `StyleBoundRecByteCfLow3` + 1 -> `0x5003A454`                      |
-| `+2`, `+3` | 1, 1  | two part numbers, `0xFF` none | `0x50122DD4`; `func_48442164` stores them as key `0xB048`                        |
-| `+4`       | u16BE | set-up length L               | `0x50122DCC`                                                                     |
-| `+6`       | L     | set-up events                 | `0x50122DC8`; replayed into the part table by `StyleTemplateRebuild`             |
-| `+6+L`     | u24BE | stream length S               |                                                                                  |
-| `+9+L`     | S     | the event stream              | start `0x50122DC0`, end `0x50122DC4` = start + S - 1, the `0xF5`                 |
+| offset     | size  | field                                                           | evidence                                                                     |
+|------------|-------|-----------------------------------------------------------------|------------------------------------------------------------------------------|
+| `+0`       | 1     | bars - 1                                                        | `0x50122DCE`; `StyleBoundRecByteCeInc` + 1 -> `0x5003A452` (`func_48442293`) |
+| `+1`       | 1     | beats a bar - 1                                                 | `0x50122DCF`; `StyleBoundRecByteCfLow3` + 1 -> `0x5003A454`                  |
+| `+2`, `+3` | 1, 1  | the style parts the DSP units EFF4 / EFF5 serve, `0xFF` default | `0x50122DD4`; `func_48442164` stores them as key `0xB048`                    |
+| `+4`       | u16BE | set-up length L                                                 | `0x50122DCC`                                                                 |
+| `+6`       | L     | set-up events                                                   | `0x50122DC8`; replayed into the part table by `StyleTemplateRebuild`         |
+| `+6+L`     | u24BE | stream length S                                                 |                                                                              |
+| `+9+L`     | S     | the event stream                                                | start `0x50122DC0`, end `0x50122DC4` = start + S - 1, the `0xF5`             |
 
-Bytes 2/3 are `FF FF` in 2,710 of the 3,380 variations and `FF 02`-`FF 07` in the rest. The
+Bytes 2/3 are `FF FF` in 2,710 of the 3,380 variations and `FF 02`-`FF 07` in the rest. They name
+the parts the style's two DSP effect units apply to (Acc1 and Acc2 by default); in the 670 variations
+that name a part, that part's SOUND DSP is switched on (2026-11-06). The
 set-up events are only controllers (22,351) and program changes (4,947). The MEMORY ("TCMP")
 variation record holds the same fields in a different layout (bars at `+0x10`, meter at `+0x11`,
 the stream offset at `+0x15`, no set-up events); `MemStyleVarBarCount` (`0x4843C445`) gives the
@@ -306,8 +311,14 @@ with a pointer to its name, so the rules name themselves:
 
 Every note on parts 0 and 7 has rule 0. Part 1, the bass, mostly has `NcrRootShiftOnly` and
 `NcrMelodyBasic`; the chord parts have the `Chord` rules. The 128 entries, their flags and their
-names are the same in the KN2400, KN6000 and KN6500 programs. *[INFERENCE]* What each conversion
-table does to a key was not followed further than `NoteConvApply`.
+names are the same in the KN2400, KN6000 and KN6500 programs.
+
+**What the conversion rules do** (2026-11-06). A style is written over a C chord, and each note
+names one of the firmware's conversion rules: melody rules move each written scale degree to fit
+the chord type and transpose by the root, chord rules pick each note's chord tone and inversion so
+the voicing stays near where it was written. `NoteConvApply` has 11 tables of the first kind (an
+offset per chord type and pitch class, then the root shift) and 10 of the second (an offset per
+chord type, root and pitch class), over the 41 chord types `AcChordBoxProc` prints.
 
 **In the source** each event is one macro line (macros defined in `rhythm.s`):
 
@@ -327,18 +338,23 @@ So `@n 48,0,KitBassDrum1,64,16,NcrNone` is a bass drum on part 0 at tick 48 of t
 long.
 
 **Drum keys.** On parts 0 and 7 a key is spelled by its name in table 84's Standard Kit 1
-(`.equ KitBassDrum1, 36` ...); keys 0, 1 and 117-127 are "Silent" there and stay numbers. The kits
+(`.equ KitBassDrum1, 36` ...); keys 0, 1 and 117-127 are "Silent" there and stay numbers. A style
+that asks for a kit the instrument lacks gets the bank-LSB-0 kit of the same program, else the kit at
+that program rounded down to a multiple of 8, else Standard Kit 1 (`ToneKeyFind`). The kits
 share Standard Kit 1's layout: GS's for 27-87, its own around it, for example 18 "H.H.On Beat", 19
 "H.H.Off Beat", 20 "Hi-Hat Accent", 21 "H.H.Half Open", 24 "Piccolo Snare", 104 "Shaker OnBeat",
 106 "Maracas On" and 111-116 "Cowbell 1" to "Cowbell 6"; it calls key 37 "Rim Shot" (GS: side
-stick). Of the 203,802 drum notes, 188,420 (92.5 %, a lower bound) play a voice that has Standard
-Kit 1's name for that key in the note's own kit; the rest are the kits' own sounds on the same keys
+stick). Of the 203,802 drum notes, 191,448 (93.9 %; 92.5 % before the kit fallback was traced on
+2026-11-06) play a voice that has Standard Kit 1's name for that key in the kit they sound; the rest are the kits' own sounds on the same keys
 (the brush kits' "Brush Tap", "Brush Slap" and "Brush Swirl" on 38-40, for example).
 
 Source: disassembly `kn7000/notes/ic18-rhythm-rom.md` (sections "The style table and the count-in
 patterns", "A style record", "The 20 slots", "The event stream"), with the probes
 `rhythm_style_semantics.py`, `rhythm_style_record_readers.py` and `rhythm_drum_kit_keys.py` in
-`kn7000/notes/mn10300-names-probes/` (lane mn10300-names, 2026-11-02).
+`kn7000/notes/mn10300-names-probes/` (lane mn10300-names, 2026-11-02); the conversion tables, the
+kit fallback, the part EQ and the units' parts with `rhythm_noteconv_tables.py`,
+`rhythm_kit_tone_fallback.py` and `rhythm_part_eq_and_units.py` in `kn7000/notes/ic18-rhythm-rom-probes/`
+(lane kn7000-names, 2026-11-06).
 
 ## Past the last style
 
@@ -384,8 +400,9 @@ of macro invocations fast (all of IC18 assembles in about 18 s).
 ## Open questions
 
 - The count block's bytes after the 220 and the style byte at `+0x89` have no reader.
-- CC97 (part `mode`), CC94, CC96 and CC80-CC83: the firmware routes them into part fields, but
-  what each does to the sound was not traced into the tone generator.
+- CC97 (part `mode`), CC94 and CC96: the firmware routes them into part fields, but what each
+  does to the sound was not traced into the tone generator. CC80-CC83 (the EQ) reach the per-voice
+  register classes `0x40000000`..`0x50000000`; their meaning needs the TG's datasheet.
 - What the sound-unit key values (`0x0044`, `0x1111`, `0x0B12` ...) select in units
   `0xB040` / `0xB050`.
 - The A/B halves of the intros and endings (a major/minor pair would fit, but nothing shows it).

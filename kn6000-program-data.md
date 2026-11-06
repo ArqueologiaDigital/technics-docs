@@ -326,14 +326,38 @@ the hard-disk defaults copy). What the KN6000 and KN6500 used to show as "double
 
 | tree                     | typed bytes before | typed bytes after | opaque pieces / bytes before | opaque pieces / bytes after |
 |--------------------------|--------------------|-------------------|------------------------------|-----------------------------|
-| KN6000                   | 2,450,916          | 2,549,408         | 1,145 / 24,654               | 264                         |
-| KN6500                   | 1,962,208          | 2,062,463         | 1,176 / 27,134               | 263                         |
-| HD-SX6 plug-in (`hdsx3`) | 484,505            | 484,903           | 40 / 386                     | 37                          |
+| KN6000                   | 2,450,916          | 2,549,408         | 2,175 / 39,985               | 1,145 / 24,654              |
+| KN6500                   | 1,962,208          | 2,062,463         | 2,189 / 44,212               | 1,176 / 27,134              |
+| HD-SX6 plug-in (`hdsx3`) | 484,505            | 484,903           | 95 / 594                     | 40 / 386                    |
 
 Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER --brief` (typed bytes from
 `labels.sym`'s item sizes; opaque pieces as the generator counts them, not the data-incbin census), before =
 disassembly `c240d1c0b`, after = the lane's regenerated sources; the rules are the `gen_data_s.FEATURES` keys
 (disassembly `kn7000/notes/mn10300-data/README.md`). The census below predates this lane.
+
+## Value names, boot sectors, style lists (lane mn10300-data2)
+
+**The framework's value names, the disk formats' boot sectors, the style lists.** Each of the MILK
+framework's 54 support classes (the integer, ID, pointer, rectangle and flag types an object's
+properties have) points at a list of value names, `{name, value}` pairs ended by an empty name:
+"True" / "False", the view flags `VF_*`, the colours `CL_*`, the borders `BD_*` ...; the classes'
+common handler turns a value into its name and back with them. The disk formatters' boot sectors are
+typed too: the jump, the OEM name "Technics" and the BIOS parameter block of a 720 KB disk (1,440
+sectors, media 0xF9) and of a 1.44 MB one (2,880 sectors, media 0xF0), then a two-byte `jmp $`. The
+Music Stylist's genre lists now show every style with its four setups. On the SX-KN6000 / KN6500
+the default panel memory (0x700 bytes, 42 records) is typed record by record, as on the KN7000.
+
+| tree                     | typed bytes before | typed bytes after | opaque pieces / bytes before | opaque pieces / bytes after |
+|--------------------------|--------------------|-------------------|------------------------------|-----------------------------|
+| KN6000                   | 2,549,408          | 2,556,875         | 1,145 / 24,654               | 774 / 18,082                |
+| KN6500                   | 2,062,463          | 2,070,274         | 1,176 / 27,134               | 765 / 20,216                |
+| HD-SX6 plug-in (`hdsx3`) | 484,903            | 484,906           | 40 / 386                     | 40 / 386                    |
+
+Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER --brief`, before = disassembly
+`1345995bc`'s committed data directories, after = the lane's regenerated sources; the rules are the
+`gen_data_s.FEATURES` keys `support_values`, `sibling_support`, `boot_sectors`, `panel_700`, `style_lists`,
+`reclaim_strings` and `curated_counts` (disassembly
+[`kn7000/notes/mn10300-data2/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data2/README.md)).
 
 ## What is left: the census
 

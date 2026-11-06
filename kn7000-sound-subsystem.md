@@ -219,6 +219,12 @@ the MAME driver) shows a clear pipeline:
 All four steps now run in emulation, and the emulator turns the firmware's voice
 writes into sound (see below).
 
+The message path between the FIFO and the tone generator (2026-11-06, disassembly
+`kn7000/notes/work-ram-map.md`): the key bed delivers {key, velocity} words through the FIFO at
+`0x98050004`; the tick task (`TickJobsTask`) turns each into an internal message, the keyboard router
+maps it through the active zone to a part, and the translator writes a note message into the tone
+generator's command stream (`TgcBufWrite`). Only the factory test modes divert keys from that path.
+
 ## Factory diagnostics as documentation
 
 The service diagnostic mode (entered by holding **C#3 + D#3 + C#4** at power-on)

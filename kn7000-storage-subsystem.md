@@ -266,6 +266,19 @@ requests it (otherwise it took FORMAT TRACK's last sector ID).
 
 ⚠ **ERROR 08 identifies no decision point.** It is `FmmFormatFunc`'s *default* message number — any result code absent from the status-to-error table at `0x48663794` produces it (the KN5000's copy is `FileIO_StatusToErrorCode`, `0xEA067C`), and the format worker's own `-6` maps to 8 as well. The code means "the format returned failure", nothing more. Reasoning that treats 8 as naming a particular branch is unsound; several earlier notes did.
 
+## PC COMMUNICATION: file commands over MIDI
+
+Established from the code on 2026-11-06, not yet run (disassembly
+`kn7000/notes/presentation-control-probes/song-records.md`, section 7, probe `sysex_pccom.py`). The
+KN7000 accepts file commands from a computer as Technics SysEx (`F0 50 2C 20 31 1F 7F gg ss .. name 00
+cc F7`) and shows the screen PC COMMUNICATION (`TT_PCCOM`) while it runs them: load or save a named file
+of one of the file groups, an SMF, a picture import, or one of five SD-card operations. Each frame
+carries the SD card's CRC-7 before F7. The instrument echoes the request, waits for the computer's
+go-ahead (`F0 50 23 ..`), then answers "done" (`F0 50 28 20 31 1F cc F7`) or a status code (`F0 50 29
+20 31 1F ee cc F7`). The file data never travels over MIDI: each command names a file the instrument
+loads or saves itself. *[INFERENCE]* The computer side is the CD-ROM's "Technics SongManager &
+AudioRecorder (for KN7000)", which was not decoded.
+
 ## Relationship to the KN5000
 
 The floppy/FAT layer and the FMM screen design are **shared with the KN5000**

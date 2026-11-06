@@ -227,7 +227,7 @@ table is set up, against 65,600 the run before. In cost, the work RAM fills a ca
 | 0x5001EC50 | 0x500214F0  | 0x28A0  | 8 MIDI receive byte FIFOs + descriptors                                                        | lib 0x4C024BED..0x4C024CB2                                                     |
 | 0x500214F0 | 0x500214F8  | 0x8     | Library vars 0x500214F0/F2/F4/F6                                                               | lib 0x4C02B979                                                                 |
 | 0x500214F8 | 0x50021CF8  | 0x800   | Boot (pre-kernel) stack, 0x800 bytes, top = INITIAL_SP (note 1)                                | SP set 0x4840FFF9; replaced at 0x487B8FA4; 0x800 in all four builds            |
-| 0x50021CF8 | 0x50021F8C  | 0x294   | 10 records x 0x42 (RAM twin of SRAM 0x840301B8 + n*0x42)                                       | func_48412C25 0x48412C3C..0x48412C55; count from the gap                       |
+| 0x50021CF8 | 0x50021F8C  | 0x294   | DspPresetRamRecords: 10 records x 0x42 (RAM twin of SRAM 0x840301B8 + n*0x42)                  | func_48412C25 0x48412C3C..0x48412C55; count from the gap                       |
 | 0x50021F8C | 0x50022004  | 0x78    | Panel LED / index-switch state                                                                 | 0x48416515..0x48416587                                                         |
 | 0x50022004 | 0x5002A004  | 0x8000  | Malloc arena, 32 KB                                                                            | .data 0x500006E0/E4; Malloc 0x48416625                                         |
 | 0x5002A004 | 0x5002A034  | 0x30    | Malloc lock id, graphics globals (draw enable 0x5002A01C)                                      | 0x484165D0, InitializeGraphics                                                 |
@@ -308,8 +308,15 @@ in every build, with a "RAM initialised" marker at `0x5000000E` (`RamInitMarker`
 factory reset wipes work RAM and battery SRAM, sets the marker to `0x5AA5` and restarts; the second
 pass finds `0x5AA5`, skips the wipe and clears it. That is the owner's manual's power-on reset
 (which of the panel's power-on codes 1 and 6 is that button combination was not traced). The reset
-code runs on a 2 KB stack below `0x50021CF8`, `0x800` bytes in all four builds. Source: disassembly
-`kn7000/notes/work-ram-map.md`, note 1, probe `kn7000/notes/mn10300-names-probes/ramgui_ramrefs.py`.
+code puts the stack at the top of a 2 KB block of work RAM, `0x800` bytes in all four builds; its
+address differs between program versions: `0x50021CF8` in v1.6 (941), `0x50021D08` in 942 (SP7001),
+`0x50021CCC` in v1.5 (935) and `0x50021CC8` in v1.3 (893). Each build's reset code loads it in one
+`mov imm32, aN ; mov aN, sp`, and since 2026-11-06 `INITIAL_SP` is ported from that instruction (it had
+been given 941's value in 935 and left unported in 893); the ten 0x42-byte records that start at 941's
+stack top are `DspPresetRamRecords`. Source: disassembly
+`kn7000/notes/work-ram-map.md`, note 1, probe `kn7000/notes/mn10300-names-probes/ramgui_ramrefs.py`;
+the stack tops: `kn7000/notes/kn7000-names/README.md`, probe
+`kn7000/notes/kn7000-names-probes/names_reset_sp_check.py`.
 
 **1. How reset sets RAM up** (read from 0x4840FF7E..0x48410156):
 - SP is set to 0x50021CF8 (0x4840FFF9).

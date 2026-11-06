@@ -152,7 +152,9 @@ and name 38 (KN6000) or 39 (KN6500) more addresses wrongly
 carries a KN7000 name only when an unnamed entry is the same code as a named KN7000 routine:
 the same instructions from the entry to the first return, with every number of 0x10000 or
 more masked out (addresses, and MILK message codes, which are renumbered between models), at
-least 8 of them unmasked, and the match unique on both sides. The other labels follow the
+least 8 of them unmasked, and the match unique on both sides; since 2026-11-06 a call entry
+(`func_<ADDR>_entry`) is a candidate too (with the same lane's new KN7000 names, ported rows KN6000
+778 -> 806, KN6500 803 -> 831, HD-SX3 52; `kn7000/notes/kn7000-names/README.md`). The other labels follow the
 KN7000 convention: `func_<ADDR>` for an entry no table names, `<name>_entry` for the
 register-save `call` entry behind a named prologue, `<entry>_L<offset>` for a branch target.
 The site's [Firmware Names & Symbols]({{ site.baseurl }}/kn6000-names/) page covers the
