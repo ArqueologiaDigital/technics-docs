@@ -359,6 +359,45 @@ Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER 
 `reclaim_strings` and `curated_counts` (disassembly
 [`kn7000/notes/mn10300-data2/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data2/README.md)).
 
+## Stable names, track lists, the APC / SEQUENCER slider (lane mn10300-data3)
+
+**Stable names, track parameter lists and the APC / SEQUENCER slider.** The firmware's screens
+hold thousands of widgets with no resource name of their own; the disassembly invents a name for
+each (its screen, its class and the text it shows) and now keeps those names in a table beside the
+source (`<src>/data/gui_object_names.tsv`), so that they no longer change when the source is
+regenerated: a run reads the table before it makes any name and writes it back, and editing one row
+renames that object and nothing else. The five lists of parameter ids that `func_4C11B347` (KN6500 `func_4C11B237` walks by
+index to the end marker -1 (one 32-bit word per id; picked by the sequencer track kind, through the
+byte table `func_4C11B347_Table` for kinds 0..0x12 and `cmp 0x40` / `0x41` / `0x42` for APC, CONTROL and RHYTHM)
+are typed as lists; they are the ids a song track of that kind may carry (on the KN7000 82 for a part
+track, 62 for PART 10, 12 for APC, 32 for CONTROL, 8 for RHYTHM; see
+[Sequencer]({{ site.baseurl }}/kn7000-sequencer/#what-a-song-can-carry)). In the one-touch settings and panel memories, the
+byte that was called `m008008` is `apc_volume`, the APC VOLUME (parameter `0x008008`): the APC /
+SEQUENCER VOLUME slider (on the KN6000 / KN6500 the panel CPU's input AD6, VR1, read through `PanelCtrlValueGet(0xC6)`) sets the APC VOLUME while no song plays and the SEQ VOLUME
+(`0x008006`) while the sequencer plays, holding the other at full level (127). The other `m<id>`
+fields the firmware's own parameter dump names were renamed with it: `master_tune`, `msa_on`,
+`apc_type`, `apc_type_alt`, `rhythm_sync`, `drawbar_type`, `tabs_1`, `tabs_2`
+([Panel Memory Records]({{ site.baseurl }}/kn7000-panel-memory/#what-is-named)). The C library's
+locale tables (`LconvMonetary` / `LconvNumeric`), the voice directory's hash chains and the
+chord-recognition table's 2,048 entries are typed in every build.
+
+| tree                     | typed bytes before | typed bytes after | opaque pieces / bytes before | opaque pieces / bytes after |
+|--------------------------|--------------------|-------------------|------------------------------|-----------------------------|
+| KN6000                   | 2,556,875          | 2,560,919         | 774 / 18,082                 | 764 / 16,206                |
+| KN6500                   | 2,070,274          | 2,074,318         | 765 / 20,216                 | 755 / 18,340                |
+| HD-SX6 plug-in (`hdsx3`) | 484,906            | 485,452           | 40 / 386                     | 30 / 346                    |
+
+The plug-in's widget variables are now read through the KN6000's class procedures, which its
+widgets are instances of (`host_widget_vars`). On the KN6000 / KN6500 24 bytes typed before are not
+typed after: a record array whose first field holds bus-window bases (`0x50000000` ...) stops at its
+first record once `0x50000000` has a name (`WORK_RAM_BASE`, from lane sibling-names).
+
+Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER --brief`, before = disassembly
+`2bde950fa`'s committed data directories, after = the lane's regenerated sources; the rules are the
+`gen_data_s.FEATURES` keys `sentinel_indexed`, `frozen_obj_names` and `host_widget_vars` (disassembly
+[`kn7000/notes/mn10300-data3/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data3/README.md),
+merged in `3834c8773`).
+
 ## What is left: the census
 
 The fourth committed snapshot of `scripts/analysis/data_incbin_census.py`,

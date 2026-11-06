@@ -103,7 +103,13 @@ table (`0x48626C14`, read by `MidiPartGrid`) names the parts:
   the part's `ctl_bits` / `tg_bits` bits `0x204080`-`0x204088` (sent to the tone generator as TG
   codes), the second sound triple `0x204020` at part `+0x3C`, the MIDI filter bits of tag `0x47`
   (the MIDI control grid builds those ids at run time, so the literal-call probe does not see them),
-  and the vocalist and mic bytes of tags `0x4A` / `0x4B`.
+  and the vocalist and mic bytes of tags `0x4A` / `0x4B`. Since 2026-11-06 nine of them carry the
+  names of the firmware's own parameter dump (`PartParamDumpLine`; lane kn7000-research, applied by
+  lane mn10300-data3): `master_tune` (`0x000000`, tag `0x50`), `msa_on` (`0x0000A0`, tag `0x52`),
+  `apc_volume` (`0x008008`, APC VOLUME, tag `0x44` `+8` and `PM_SET88`), `apc_type` / `apc_type_alt`
+  (`0x00C080` / `0x00C081`, tag `0x42`), `rhythm_sync` (`0x00D000`), `drawbar_type` (`0x200080`, ROCK /
+  JAZZ) and the TAB ORGAN bits `tabs_1` / `tabs_2` (`0x2000B0`-`B7` / `0x2000B8`-`BF`, part `+0x38` /
+  `+0x39`).
 - `p<hex>` / `x<hex>`: no parameter record covers the byte (part `+0x06`..`+0x0A`, `+0x21`, `+0x2B`,
   `+0x44`..`+0x47`; most of tags `0x41`, `0x48` and `0x60`-`0x68`). Nothing in the parameter layer
   reads them; a direct reader elsewhere may exist.

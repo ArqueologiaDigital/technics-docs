@@ -135,21 +135,41 @@ not hold program 941's part tails at `+0x8F`.
 The CUSTOM container is the MEMORY style area's layout with one style (`MemStyleExportToCustom`,
 `0x4843DEC7`). Big-endian.
 
-| offset    | field                                                                                                |
-|-----------|------------------------------------------------------------------------------------------------------|
-| `+0x00`   | `"TCMP"`, `00 00`; the checksum descriptor `[0x06,0x10)` zero (the export clears it)                 |
-| `+0x10`   | u24BE container length; `+0x13` u24BE allocator top: both equal the size here                        |
-| `+0x16`   | u16BE style count 1; `+0x18` the template tail `00 60 0D 08 04 02 02 01 02 0F`; 64 spaces at `+0x30` |
-| `+0x70`   | style record, `0x80` bytes: name, four variation-name fields, indices 0..19, two u16BE at `+0x70`    |
-| `+0xF0`   | 20 variation records of `0xE0` bytes                                                                 |
-| `+0x1270` | the 20 event streams, contiguous, the last ending at the container's end                             |
+| offset    | field                                                                                                 |
+|-----------|-------------------------------------------------------------------------------------------------------|
+| `+0x00`   | `"TCMP"`, `00 00`; the checksum descriptor `[0x06,0x10)` zero (the export clears it)                  |
+| `+0x10`   | u24BE container length; `+0x13` u24BE allocator top: both equal the size here                         |
+| `+0x16`   | u16BE style count 1; `+0x18` the template tail `00 60 0D 08 04 02 02 01 02 0F`; 64 spaces at `+0x30`  |
+| `+0x70`   | style record, `0x80` bytes: name, four variation-name fields, indices 0..19, DSP-unit keys at `+0x70` |
+| `+0xF0`   | 20 variation records of `0xE0` bytes                                                                  |
+| `+0x1270` | the 20 event streams, contiguous, the last ending at the container's end                              |
 
-A variation record holds its kind at `+0x00`, a pair flag at `+0x03` (bit 4), eight per-part
-bytes at `+0x04`, bars at `+0x10` and meter at `+0x11` (`MemStyleVarBarCount`), the stream offset
-at `+0x15`, then eight part set-ups of `0x18` bytes at `+0x20` (`PART_SETUP`). *[INFERENCE]* The
-`0x18`-byte set-up is the 24 fields of the part-field table `0x485B77D4` in order; its first 15
-are the built-in styles' 15-byte part set-up described on
+A variation record holds the built-in style it was copied from at `+0x00`..`+0x02`, a pair flag
+at `+0x03` (bit 4), eight per-part bytes at `+0x04`, bars at `+0x10` and meter at `+0x11`
+(`MemStyleVarBarCount`), the stream offset at `+0x15`, the style parts the DSP units EFF4 / EFF5
+apply to at `+0x18` / `+0x19`, then eight part set-ups of `0x18` bytes at `+0x20` (`PART_SETUP`).
+The `0x18`-byte set-up is laid out like the 24 fields of the part-field table `0x485B77D4`, in its
+order; its first 15 are the built-in styles' 15-byte part set-up described on
 [Rhythm ROM (IC18)]({{ site.baseurl }}/kn7000-rhythm-rom/#a-style-record-0xc6-bytes).
+
+Traced 2026-11-06 (lane kn7000-research, disassembly
+[`kn7000/notes/custom-data-ic21.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/custom-data-ic21.md); counts over the nine factory
+banks, 180 styles, 3,600 variations):
+
+- **`+0x00`..`+0x02`, the source style.** `func_4843B386`, which copies a built-in variation into a
+  MEMORY style, writes `key & 0x7F`, `key >> 7` and 0; `func_4843511C` reads variation 0's three
+  bytes back as the key. 0 0 0 in 2,553 variations (written from scratch); `+0x02` is 0 in all.
+- **`+0x18` / `+0x19`, the DSP units' parts**, `0xFF` = the default (Acc1 / Acc2):
+  `StyleRecordBindMem` / `StyleRecordBindCustom` hand `var + 0x18` to the code that reads a built-in
+  variation's `+2` / `+3`. `FF FF` in 3,380 variations, otherwise parts 1..7.
+- **The style record's `+0x70`..`+0x73`, the two DSP-unit preset keys**, a built-in style's
+  `style_units`: `StyleNameCommitMem` / `StyleNameCommitCustom` pass them to `StyleDspUnitsApply`,
+  which decodes them (`StyleDspKeyDecode`) into the keys of EFF4 and EFF5; bit 7 of `+0x71` is TOTAL
+  MODE. 132 of the 180 styles hold `10 00 23 00`.
+- **The part set-up's reader**: `StyleTemplateLoadParts` copies **15** bytes of each set-up
+  (`StylePartSetupPtrGet`) into the part template, whose fields `StylePartFieldEmit` sends in the
+  table's order. Bytes 15..23 are never read and are 0 in all 28,800 factory set-ups, so their names
+  stay an inference from the stride.
 
 **Event streams** are `[index][u24BE count][events]`: the index is the variation number
 (`MemStyleAreaStreamsVerify`, `0x4843579E`, rejects any other), the count excludes the 4-byte
@@ -180,6 +200,12 @@ The PERFORMANCE PAD user memory's layout (`MemPadAreaLoadFactory`, `0x48432175`)
 | `+0x70`  | bank record `0x30`: 16-byte name ("User Bank 1"), six `{bank, pad, 0x20}`                                         |
 | `+0xA0`  | six pad records of `0x60`: name, 13 setting bytes, u24BE stream offset at `+0x1D`, two part set-ups at `+0x28`    |
 | `+0x2E0` | six event streams, same format, index = pad                                                                       |
+
+Of a pad record's thirteen setting bytes (`+0x10`..`+0x1C`) the user-pad module reads four (2026-11-06,
+lane kn7000-research): `+0x13` the RECORD KEY / CHORD (`UserPadRecChordGet`), `+0x18` measures - 1 and
+`+0x19` beats - 1 (stored by `MainPAD_SetUserPadMsrTmSigAftClr`, multiplied into the beat count as
+`MemStyleVarBarCount` does for a style) and `+0x1A` the flags (bit 0 LOOP, bit 1 SYNCHRO). The
+`TPAD_PAD` macro names the four; the other nine have no reader there.
 
 ## Stale records and residue
 
@@ -305,9 +331,11 @@ names into a KN6000 CUSTOM file by hand. *[INFERENCE]* Who did, and with what, n
 - The voice record's fields that `voice_record.inc` cannot yet name from a reader (`VOICE_SUB`
   outside its element reference, the element's `+3` / `+4`), and the custom-sound block's
   `0x27`-byte header.
-- TCMP variation bytes `+0x01`, `+0x02`, `+0x18`, `+0x19`; the style record's two u16BE at
-  `+0x70`; the pad record's setting bytes.
-- A reader of the 24-field part set-up, to confirm the field order.
+- ~~TCMP variation bytes `+0x01`, `+0x02`, `+0x18`, `+0x19`; the style record's two u16BE at
+  `+0x70`~~: traced 2026-11-06 ([above](#the-tcmp-style-container)). Nine of the pad record's thirteen
+  setting bytes still have no reader.
+- ~~A reader of the 24-field part set-up~~: `StyleTemplateLoadParts` reads its first 15 fields; bytes
+  15..23 have no reader (0 everywhere).
 - Where the factory sets were made: the residue matches across sets, so one tool built them in
   sequence, reusing its buffer.
 - The owner's bank (BLOCKED, no image): who typed the respelled KN5000 names into the KN6000 CUSTOM

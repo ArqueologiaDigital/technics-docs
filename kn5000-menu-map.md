@@ -9,15 +9,15 @@ permalink: /kn5000-menu-map/
 Every screen the KN5000 firmware can show, how you reach it from the panel, and where EXIT takes
 you. This page is a browsable summary. The full map, with the widget tree of every screen, is the
 generated file [`docs/gui/kn5000-menu-map.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/gui/kn5000-menu-map.md) in
-technics-roms-disasm (about 200 KB, 3,861 lines). The numbers below are that file's, generated from
-program v10 on 2026-10-29.
+technics-roms-disasm (3,912 lines). The numbers below are that file's, generated from
+program v10 on 2026-11-06.
 
-**Since 2026-11-06 the generated file reads further** (lane kn5000-notes, disassembly
-`notes/kn5000-notes-2026-11-06/README.md`): 158 of the 211 titles have a path (53 without, 81
-before), with 275 code transitions (93 before) and 3,259 widget records. The sound editor's pages
-(`TITLE_SE*`) are DirmdEmulator screens, and their method tables and switch handlers are now
-modelled; `SeMenu_SendEvent`, the sound editor's title opener, is now traced. This summary has not
-been regenerated from it yet: its tables and lists below are still those of 2026-10-29.
+Since 2026-11-06 the sound editor's pages (`TITLE_SE*`, DirmdEmulator screens) are modelled through
+their method tables and switch handlers, `SeMenu_SendEvent` and `SeMenu_GoToPageOnEnabledPart` are
+traced as title openers, and the filter page's type step is read (its type 2..5 opens
+`TITLE_SEFILHPQ1` / `SEFILL241` / `SEFILH241` / `SEFILBPF1`). For a title no path reaches, the
+generated file names the code that opens it (lanes kn5000-notes and kn5000-naka, disassembly
+`notes/kn5000-naka-2026-11-06/README.md`).
 
 ## Terms
 
@@ -57,14 +57,14 @@ MAME driver's `CPL_SEGn` / `CPR_SEGn` port names.
 | what                            | count |
 |---------------------------------|-------|
 | titles                          | 211   |
-| titles with a path              | 130   |
+| titles with a path              | 162   |
 | modes (each with a home title)  | 21    |
-| titles one step below a home    | 75    |
-| titles two steps below          | 23    |
-| titles three steps below        | 11    |
-| widget records, in 18 C files   | 3,242 |
+| titles one step below a home    | 86    |
+| titles two steps below a home   | 40    |
+| titles three steps below a home | 15    |
+| widget records, in 18 C files   | 3,260 |
 | menu entries                    | 99    |
-| code transitions                | 93    |
+| code transitions                | 282   |
 | EXIT links                      | 267   |
 
 ## Modes and their home screens
@@ -76,7 +76,7 @@ MAME driver's `CPL_SEGn` / `CPR_SEGn` port names.
 | `MD_PS`          | -                  | `TITLE_PS`        | -                    | 1            |
 | `MD_NORMAL`      | -                  | `TITLE_NORMAL`    | NORMAL               | 0            |
 | `MD_SOUND`       | MENU SOUND         | `TITLE_SDMENU`    | SOUND MENU           | 14           |
-| `MD_SOUNDEDIT`   | -                  | `TITLE_SEMENU`    | -                    | 0            |
+| `MD_SOUNDEDIT`   | -                  | `TITLE_SEMENU`    | -                    | 32           |
 | `MD_CONTROL`     | MENU CONTROL       | `TITLE_CTMENU`    | -                    | 8            |
 | `MD_MIDI`        | MENU MIDI          | `TITLE_MDMENU`    | MIDI MENU            | 12           |
 | `MD_DISK`        | MENU DISK          | `TITLE_DKMENU`    | DISK MENU            | 27           |
@@ -121,6 +121,41 @@ text follows the title name when it differs. Modes with no titles below them are
 - "REVERB & EQ PRESETS" > "EQUALIZER PRESETS" -> `TITLE_EQPRESET`
 - "REVERB & EQ PRESETS" > "REVERB + EQUALIZER PRESETS" -> `TITLE_REVEQPRESET`
 - "REVERB & EQ PRESETS" > "REVERB PRESETS" -> `TITLE_REVPRESET`
+
+### `TITLE_SEMENU` (`MD_SOUNDEDIT`)
+
+- (by SeMenuTitleFunc_DispatchSwitch) -> `TITLE_SEAMPAMP1`
+- (by SeMenuTitleFunc_DispatchSwitch) -> `TITLE_SECOPY`
+- (by SeMenuTitleFunc_DispatchSwitch) -> `TITLE_SECTR2`
+- (by SeMenuTitleFunc_DispatchSwitch) -> `TITLE_SEDIGEFF`
+- (by SeMenuTitleFunc_DispatchSwitch) -> `TITLE_SEEASY`
+- (by SeMenuTitleFunc_DispatchSwitch) -> `TITLE_SEFILLPQ1`
+- (by SeMenuTitleFunc_DispatchSwitch) -> `TITLE_SEPITPIT1`
+- (by SeMenuTitleFunc_DispatchSwitch) -> `TITLE_SETONRAN1`
+- (by SeMenuTitleFunc_DispatchSwitch) -> `TITLE_SETONTON1`
+- (by SeMenuTitleFunc_DispatchSwitch) -> `TITLE_SEWRTMEM`
+- (by UpdSeSel_ProcessStep) -> `TITLE_DRAWBAR`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SeAmpAmp1_OnSideRow1) -> `TITLE_SEAMPENV1`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SeAmpAmp1_OnSideRow3) -> `TITLE_SEAMPLFO1`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SeAmpAmp1_OnSwitch25) -> `TITLE_SEAMPAMP2`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SeCopy_OnSideRow2) -> `TITLE_SETONHYB1`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SeCopy_OnSideRow5) -> `TITLE_SEWRTSND`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SeCtr2_OnSwitch25) -> `TITLE_SECTR3`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SeFilLpq1_OnColumn4_Join26) -> `TITLE_SEFILENV1`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SeFilLpq1_OnColumn4_Join28) -> `TITLE_SEFILLFO1`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SeFilLpq1_OnSwitch25) -> `TITLE_SEFILFIL2`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SePitPit1_OnSideRow1) -> `TITLE_SEPITENV1`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SePitPit1_OnSideRow3) -> `TITLE_SEPITLFO1`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SeTonRan1_OnSideRow3) -> `TITLE_SETONRAN2`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by UpdSeSel_DetailedUpdate_SetDisplayState_Join12) -> `TITLE_SEFILBCF1`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by UpdSeSel_DetailedUpdate_SetDisplayState_Join12) -> `TITLE_SEFILBPF1`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by UpdSeSel_DetailedUpdate_SetDisplayState_Join12) -> `TITLE_SEFILH241`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by UpdSeSel_DetailedUpdate_SetDisplayState_Join12) -> `TITLE_SEFILHPQ1`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by UpdSeSel_DetailedUpdate_SetDisplayState_Join12) -> `TITLE_SEFILL241`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SeAmpAmp1_OnSideRow1) > (by SeAmpEnv1_OnSwitch25) -> `TITLE_SEAMPENV2`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SeCopy_OnSideRow2) > (by SeTonHyb1_OnSwitch25) -> `TITLE_SETONTON2`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SeFilLpq1_OnColumn4_Join26) > (by SeFilEnv1_OnSwitch25) -> `TITLE_SEFILENV2`
+- (by SeMenuTitleFunc_DispatchSwitch) > (by SePitPit1_OnSideRow1) > (by SePitEnv1_OnSwitch25) -> `TITLE_SEPITENV2`
 
 ### CONTROL menu, `TITLE_CTMENU` (`MD_CONTROL`)
 
@@ -246,26 +281,53 @@ text follows the title name when it differs. Modes with no titles below them are
 - "PERFORMANCES" > (by DemoStyleTtlFunc) -> `TITLE_DEMOSOUND`
 - "PERFORMANCES" > (by DemoStyleTtlFunc) -> `TITLE_DEMORHY`
 
-## Titles with no path (81)
+## Titles with no path (49)
 
-No menu entry and no traced code opens these 81 titles, so the map has no path for them. (Of the 130
-title names that the assembly never spells as an operand, 108 are opened by no traced code.) They are:
+31 of them are opened by code, but by code that no traced path reaches: panel-button handlers, the
+self test, the sequencer's play modes. The routine named is the nearest routine entry above the
+opening call.
 
-| group                    | titles                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Sound editor pages (31)  | `TITLE_SEEASY`, `TITLE_SETONTON1`/`2`, `TITLE_SETONRAN1`/`2`, `TITLE_SETONHYB1`, `TITLE_SEPITPIT1`, `TITLE_SEPITENV1`/`2`, `TITLE_SEPITLFO1`, `TITLE_SEAMPAMP1`/`2`, `TITLE_SEAMPENV1`/`2`, `TITLE_SEAMPLFO1`, `TITLE_SEFILLPQ1`, `TITLE_SEFILHPQ1`, `TITLE_SEFILL241`, `TITLE_SEFILH241`, `TITLE_SEFILBPF1`, `TITLE_SEFILBCF1`, `TITLE_SEFILFIL2`, `TITLE_SEFILENV1`/`2`, `TITLE_SEFILLFO1`, `TITLE_SEDIGEFF`, `TITLE_SECTR2`/`3`, `TITLE_SECOPY`, `TITLE_SEWRTMEM`, `TITLE_SEWRTSND` |
-| Style Convert (5)        | `TITLE_STYLCNVCNVT`, `TITLE_STYLCNVSTOR`, `TITLE_STYLCNVTXT`, `TITLE_STYLCNVSEL`, `TITLE_STYLCNVCONT`                                                                                                                                                                                                                                                                                                                                                                                  |
-| Sequencer, Composer (13) | `TITLE_SQMDLY`, `TITLE_SQMDLYPLY`, `TITLE_SQCYCPLY`, `TITLE_SQCYCREC`, `TITLE_SQPUNCHM`, `TITLE_SQSTEP`, `TITLE_SQNOTEEDT`, `TITLE_SQNOTECYCP`, `TITLE_SQDRMEDT`, `TITLE_SQDRMCYCP`, `TITLE_SQSTEPBAL`, `TITLE_SQMETBAL`, `TITLE_CMPLD`                                                                                                                                                                                                                                                |
-| Music Stylist, MSP (6)   | `TITLE_MUSICSTYL`, `TITLE_MSCTSEL`, `TITLE_MSSCTSEL`, `TITLE_MSSONGLIST`, `TITLE_MSALPSEL`, `TITLE_MSPBKSL`                                                                                                                                                                                                                                                                                                                                                                            |
-| Panel memory (4)         | `TITLE_PMBKSEL`, `TITLE_PMVIEW`, `TITLE_PMNAME`, `TITLE_PMBKNAME`                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Direct play (2)          | `TITLE_DPPD`, `TITLE_DPMDLYPD`                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Other screens (9)        | `TITLE_SDOCT`, `TITLE_CTPMPARA`, `TITLE_CMMODE`, `TITLE_SVARI`, `TITLE_RVARI`, `TITLE_DRAWBAR`, `TITLE_ACCORDION`, `TITLE_SPLITSEL`, `TITLE_APCSEL`                                                                                                                                                                                                                                                                                                                                    |
-| System and test (11)     | `TITLE_WELCOM`, `TITLE_SOFTVER`, `TITLE_TEST1` ... `TITLE_TEST6`, `TITLE_EXT`, `TITLE_FDMSP`, and title `0x01A000FC` (the factory floppy test, which has no `TITLE_` name)                                                                                                                                                                                                                                                                                                             |
+| title               | opened by code in                                                                            |
+|---------------------|----------------------------------------------------------------------------------------------|
+| `TITLE_SDOCT`       | `MidiPartGridCheck`                                                                          |
+| `TITLE_STYLCNVCNVT` | `FloppyState_Dispatch`, `TableData_JumpToEntry`                                              |
+| `TITLE_STYLCNVSTOR` | `FloppyState_Dispatch`                                                                       |
+| `TITLE_STYLCNVTXT`  | `FloppyState_Dispatch`                                                                       |
+| `TITLE_STYLCNVSEL`  | `FloppyState_Dispatch`                                                                       |
+| `TITLE_STYLCNVCONT` | `AccBankData_ProcessWithCopy`, `FloppyState_Dispatch`                                        |
+| `TITLE_DPPD`        | `FmmPdMedleyFunc`                                                                            |
+| `TITLE_DPMDLYPD`    | `FmmPdMedleyFunc`                                                                            |
+| `TITLE_SQMDLY`      | `PlayMode_CheckAndDispatch`, `PlayMode_StartAndSendCommand`, `SeqRestart_SendPlaybackNotify` |
+| `TITLE_SQMDLYPLY`   | `FmmIntMedleyFunc`                                                                           |
+| `TITLE_SQCYCPLY`    | `ApPlaySyori`                                                                                |
+| `TITLE_SQCYCREC`    | `ApPlaySyori`                                                                                |
+| `TITLE_SQSTEP`      | `Part_ValidateAndActivate`                                                                   |
+| `TITLE_SQNOTEEDT`   | `BmDrEdit_SaveSequencerState`                                                                |
+| `TITLE_SQNOTECYCP`  | `BmDrEdit_PostModeChange96`                                                                  |
+| `TITLE_SQDRMEDT`    | `BmDrEdit_SaveSequencerState`, `SeMenu_HandleMenuChange`                                     |
+| `TITLE_SQDRMCYCP`   | `BmDrEdit_PostModeChange99`                                                                  |
+| `TITLE_SQSTEPBAL`   | `UIDisp_StepMeasure`                                                                         |
+| `TITLE_SQMETBAL`    | `ApPlaySyori`                                                                                |
+| `TITLE_MUSICSTYL`   | `EffectMode_CopyVoiceParams`                                                                 |
+| `TITLE_MSPBKSL`     | `AccompSeq_ProcessAfterNote_Helper`, `SoundCtrl_CalcScaledTempo`                             |
+| `TITLE_PMBKSEL`     | `BitMapOut_UpdateWidget_Finalize`                                                            |
+| `TITLE_APCSEL`      | `SoundCtrl_CalcScaledTempo`                                                                  |
+| `TITLE_SOFTVER`     | `Boot_HandleComboDisplay`, `MainTitle_PrepareAndDispatch`                                    |
+| `TITLE_TEST1`       | `SelfTest_FirmwareVersionCheck`                                                              |
+| `TITLE_TEST2`       | `SelfTest_FirmwareVersionCheck`                                                              |
+| `TITLE_TEST3`       | `SelfTest_FirmwareVersionCheck`                                                              |
+| `TITLE_TEST4`       | `SelfTest_FirmwareVersionCheck`                                                              |
+| `TITLE_TEST5`       | `SelfTest_FirmwareVersionCheck`                                                              |
+| `TITLE_TEST6`       | `SelfTest_FirmwareVersionCheck`                                                              |
+| `TITLE_EXT`         | `SelfTest_FirmwareVersionCheck`                                                              |
 
-The sound-editor pages (`TITLE_SE*`) are opened by the Scoop module's own screens, through their data
-rather than through NAKA records; see [Sound Editor Screens]({{ site.baseurl }}/sound-editor-screens/).
-For the other groups the opener has not been found. 18 title sites and 1 mode site in the assembly take
-their index from memory, which the tracer cannot follow, so some of these titles may be opened there.
+For the other 18 no opener was found: `TITLE_CTPMPARA`, `TITLE_SQPUNCHM`, `TITLE_CMPLD`,
+`TITLE_CMMODE`, `TITLE_MSCTSEL`, `TITLE_MSSCTSEL`, `TITLE_MSSONGLIST`, `TITLE_MSALPSEL`,
+`TITLE_PMVIEW`, `TITLE_PMNAME`, `TITLE_PMBKNAME`, `TITLE_SVARI`, `TITLE_RVARI`, `TITLE_ACCORDION`,
+`TITLE_SPLITSEL`, `TITLE_WELCOM`, title `0x01A000FC` (the factory floppy test, which has no
+`TITLE_` name) and `TITLE_FDMSP`. 19 call sites take the title index from RAM or a table
+(DirmdEmulator's pending title, the saved return titles of the disk dialogs, `DemoSong_TitleCol`),
+which the tracer does not follow, so some of these may be opened there.
 
 ## Reading a screen in the source
 

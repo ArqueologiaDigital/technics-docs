@@ -99,9 +99,13 @@ title per filter type), the KN6000 has one title per section. `TT_SEMENU`, `TT_S
 ## In the menu map
 
 The generated [KN5000 Menu Map]({{ site.baseurl }}/kn5000-menu-map/) reaches `TITLE_SEMENU`, the home title of
-`MD_SOUNDEDIT`, but none of the 31 other `TITLE_SE*` pages: no NAKA menu entry and no traced title-index operand opens
-them. The Scoop module's sound-editor screens open them through their own data, not through NAKA
-records.
+`MD_SOUNDEDIT`, and since 2026-11-06 the 31 other `TITLE_SE*` pages too, with `TITLE_DRAWBAR`: 32 titles below
+`MD_SOUNDEDIT`, up to three steps deep. No NAKA menu entry opens them; the Scoop module's screens do, through their
+method tables and switch handlers, which the map now models (`SeMenuTitleFunc_DispatchSwitch` opens ten of the pages from the
+SOUND EDIT menu, the pages' own handlers the rest), with `SeMenu_SendEvent` and the forwarder
+`SeMenu_GoToPageOnEnabledPart` traced as title openers and the filter page's type step read (types 2..5 open
+`TITLE_SEFILHPQ1` / `SEFILL241` / `SEFILH241` / `SEFILBPF1`, type 0 `TITLE_SEFILBCF1`; lanes kn5000-notes and
+kn5000-naka, disassembly `notes/kn5000-naka-2026-11-06/README.md`).
 
 ## Related pages
 

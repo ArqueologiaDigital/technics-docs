@@ -130,6 +130,12 @@ The `CL_` / `BD_` / `ES_` / `VF_` names are the firmware's own name / value tabl
 are named `<nearest named ancestor>_<class without its Vw/Ac/Ps/Iv prefix>`, plus the label text
 when the record shows one, numbered when that repeats. Those names are the source's own: the
 firmware has none for those objects.
+Since 2026-11-06 they are frozen: each tree's `<src>/data/gui_object_names.tsv` (941: 6,309 rows;
+object id = slot << 16 plus the index, class, name) is read before any name is made and written back
+by each run, so a regeneration reproduces every name, and editing one row renames that object and
+its `next` / `prev` / `OBJ` references and nothing else; a name is invented only for an object the
+table lacks or whose class changed (lane mn10300-data3, disassembly
+`kn7000/notes/mn10300-data3/README.md`).
 
 **Ids in the code.** `gui_event_ids.inc` and `gui_code_ids.inc` define the ids the data registers,
 and the code generator writes them by name in `mov IMM, dN` / `cmp IMM, dN`: 11,405 EV_ / MT_
@@ -220,4 +226,5 @@ the RAM-init image (the copy loop's source address and the like), kept as number
 - `D` (the type character of `IvSDPlayTimer` / `IvSDFwdRewTimer`) may be 1 byte rather than 2;
   both classes pad to 8 either way.
 - The names given to the 6,309 objects with an empty ResName are invented (parent + class +
-  text); they are stable across regenerations only while the tree is.
+  text). ~~They are stable across regenerations only while the tree is~~: since 2026-11-06 they are
+  frozen in `gui_object_names.tsv` ([Widget records](#widget-records)).

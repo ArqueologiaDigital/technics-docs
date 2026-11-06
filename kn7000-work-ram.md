@@ -61,7 +61,10 @@ file buffer: the same immediate is the size check (0x48581327), the read length
 (0x48581363, for fmmread at 0x48581369) and the offset of the second work buffer, 0x502B8000 + 0x4D800 =
 0x50305800 (0x485814B5, 0x485814E3). That buffer holds a JPEG decoded to 640 x 240 x 3
 bytes (0x70800) when a JPEG taller than 240 rows is trimmed; JpegDecodeCrop keeps the
-top, centre or bottom 240 rows and JpegEncode re-encodes them into 0x502B8000. BMPs
+top, centre or bottom 240 rows and JpegEncode re-encodes them into 0x502B8000 (through
+the encoder's three routines, named 2026-11-06: JpegEncSetup 0x4840D29C, the mode 1..5 table
+fill; JpegEncImage 0x4840D3FD, the headers and then the MCU grid; JpegEncMcu 0x4840D61D, one
+MCU; builds 893 and 935 have their own versions at 0x48404D10 / 0x48404E71 / 0x48405091). BMPs
 are cropped in place (SswBmpCropRows). The highest byte an import writes is
 0x50375FFF. The read is already capped, so the size check does not prevent an
 overflow; it refuses a file that would be stored cut short. Why exactly 310 KiB is not
@@ -73,6 +76,20 @@ unconditionally at 0x4852270F; SD conditionally at 0x4855D148/0x4855D167, via
 SdUiBusyBegin). That matches the manual's "no sound is produced" at the moment the
 screen opens; what keeps the instrument silent afterwards was not traced. Neither is
 tied to the buffer.
+
+**PICTURE LOAD in MAME** (2026-11-06, lane kn7000-research,
+[`picload-silence-probes/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/picload-silence-probes/README.md);
+**observed in emulation, not on hardware**). With SD PICTURE LOAD opened the manual's way (PICTURE
+LIST, then its PICTURE LOAD item; the firmware calls `InterruptTitle(0x12B)`, `TT_PICTLDSD`), a key
+held for a second passes every routine of the key path the same number of times as on the home
+screen, the tone generators receive the same 118 register writes, and the `-wavwrite` capture is
+as loud (RMS 322.5 against 321.2 on channel 0). Opening the screen writes nothing to the tone
+generators or the effects DSP; it adds only GPIO `0x36008004 := 0x84` (bit 1 low, the SD card's
+chip select, for the folder scan) and the strobes `0x36008024` / `0x36008064`. So the emulated
+program does not mute the keyboard on this screen. *[INFERENCE]* The silence the manual describes
+(p. 91, and the "SD IN USE" list on p. 139) comes from something the emulator does not model,
+most likely a hardware mute tied to the card access; which line, is for the service manual's
+MUTE lines (traced to their CPU pin) or a measurement on the instrument.
 
 **The slide-show pool.** SswPoolAlloc is a bump allocator: a block is
 round4(n) + 4 bytes with its length word in front, and the payload starts at
@@ -415,7 +432,8 @@ Each gap between referenced bases equals count x stride. The strides come from t
   for the "about 80 minutes" the service manual gives for the sequencer data; the RAM
   is DRAM, so the mechanism is not visible in the code.
 - What keeps the keyboard silent for the whole time the PICTURE LOAD screen is shown
-  (only the open-time All Notes Off was traced).
+  (only the open-time All Notes Off was traced; in MAME the keys sound there, above, so the
+  candidate is a hardware mute the emulator does not model).
 
 ## Related
 

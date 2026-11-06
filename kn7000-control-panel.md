@@ -354,6 +354,24 @@ the firmware services the panel handshake wedges the whole link (delivery re-arm
 attention signal only when the outgoing queue is empty), so the driver records the
 fader's power-on position silently and only speaks when it moves.
 
+**What the firmware does with the APC/SEQ fader** (2026-11-06, lane kn7000-research,
+[`picload-silence-probes/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/picload-silence-probes/README.md);
+code read, and the M3 traffic **observed in emulation, not on hardware**). The firmware latches the
+frame in `PanelCtrlLatch32` (the remapped value 0..0x7F at `0x5006BEAD`) and reads it back as
+`PanelCtrlValueGet(0xC2)`: the index drops the TYPE bits, so control `0xC2` and wire byte `0xD2`
+select the same latch. `func_48454E3A` sets two parameters from it, and `func_48454D21` decides
+which: normally (no sequencer part plays, and always in DEMO) the slider sets **APC VOLUME**
+(`0x008008`, the automatic accompaniment) and SEQ VOLUME (`0x008006`) is held at 127; while the
+sequencer plays the roles swap, and the slider sets **SEQ VOLUME** (all the playback parts) with APC
+VOLUME at 127. The names are the firmware's own parameter dump's (`PartParamDumpLine`), and the
+behaviour is the owner's manual's (p. 56 and p. 85). In MAME, moving the fader on the home screen
+posts panel event `0x701009` with the remapped value; leaving DEMO re-sends it as `0x8006 := 0x7F`,
+`0x8008 :=` the fader's value. Injected TYPE 2 frames for the other wire addresses post `0xD0` ->
+`0x701005`, `0xD1` -> `0x701004` (a 14-bit value; *[INFERENCE]* the pitch-bend wheel) and `0xD3` ->
+`0x701010`; `0xD3`'s latch is what TOTAL EXPRESSION (`0x008002`) takes when the FOOT CONTROLLERS
+screen assigns the expression pedal to it, so *[INFERENCE]* `0xD3` is the expression pedal input
+rather than a volume pot. Which physical controls `0xD1` and `0xD3` are is not settled.
+
 The remaining two type-2 handlers are the panel's **rotary encoders**, both on wire
 bank `00`: **`0x17` is the TEMPO/PROGRAM knob** and **`0x10` is the large DATA dial**
 (the one with the central `SET` button). Neither is an absolute pot, and the two are

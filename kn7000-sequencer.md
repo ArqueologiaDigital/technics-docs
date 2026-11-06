@@ -70,6 +70,20 @@ every event through a list of the ids allowed for that track's kind:
 | RHYTHM, APC    | the rhythm subset (intro, fill, ending, start/stop, style, variation, tempo)                                              |
 | CHORD          | no list: everything                                                                                                       |
 
+**Every id on the lists is named** (2026-11-06, lane kn7000-research,
+[`presentation-control-probes/song-records.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/presentation-control-probes/song-records.md)
+sections 3 and 6). PROGRAM 941 keeps a parameter dump of its own, `PartParamDumpLine`, which
+prints one labelled line per parameter ("%s DRAWBAR TYPE %s", "%s SUSTAIN LENGTH %3d", ...); its
+labels, checked against ids known independently, name the rest: TOTAL EXPRESSION (`0x008002`, the
+level the expression pedal sets), SEQ VOLUME (`0x008006`) and APC VOLUME (`0x008008`), the two levels
+the APC / SEQUENCER VOLUME slider sets ([Control Panel]({{ site.baseurl }}/kn7000-control-panel/#continuous-controls-the-volume-faders)),
+GLIDE (`0x008031`), APC HOLD (`0x008032`), the performance pads' PAD VOLUME and its mute
+(`0x00E001` / `0x00E002`), APC TYPE (`0x00C081`, which replaces `0x00C080` when non-zero), and every
+DIGITAL DRAWBAR and TAB ORGAN setting a song can record (`0x200081`, `0x200088`-`8B`, `0x200099` /
+`9A`, the sixteen tabs `0x2000B0`-`BF`). `0x20008C`-`8F`, once listed in the disassembly's notes as part ids, are on no list:
+the lists hold `0x200088`-`8B`. The PERFORMANCE PADS STOP button posts panel event `0x702033`, whose
+handler `TempoSyncE000Set` sets `0x00E000` (observed in emulation).
+
 Every change also reaches the GUI as `EV_MMMDATA`, so the screen that shows a setting redraws as
 the song changes it; nothing in a song switches screens. Panel operations made while recording
 are captured through the same lists, so an automated performance can be recorded on the
