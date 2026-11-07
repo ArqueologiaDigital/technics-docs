@@ -326,8 +326,10 @@ the records between typed too (*[INFERENCE]*). Fields are offset-named (`f12`, `
 its body `cre_tsk_Impl` (`func_4C03D154` until lane uitron-names, 2026-11-07); before, each field was a
 separate one-word table. Other examples: `REC_cre_flg_ArgA0` (`REC_func_4C03C7EF_ArgA0` until the same
 lane; 12 bytes, 10 blocks and one 8-byte variant: uITRON's `T_CFLG` {exinf, flgatr, iflgptn} by size,
-not yet typed as such), `REC_func_48401F32_ArgA0`
-(28 bytes, with one record between two passed ones inferred), `REC_func_4844416A_ArgA0` (read at
+not yet typed as such), `REC_func_48401F32_ArgA0_s4`
+(an array of 35 4-byte records that `func_48401F32` steps through by 4; the callee walk first read it as one 28-byte
+`REC_func_48401F32_ArgA0`, with one record between two passed ones inferred, until the mn10300-typer regen
+`d0adc5707`), `REC_func_4844416A_ArgA0` (read at
 +3..+5 after an `add 2, a0`).
 
 Reader rows and records, before and after, measured against disassembly `2a7b45be5`
