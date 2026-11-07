@@ -106,6 +106,24 @@ interrupt 1 / G6ICR (KN6000 `0x4C171C06`, KN6500 `0x4C172408`, KN2400 `0x5018B5F
 service (lane mn10300-typer, *[INFERENCE]* that it is the configuration's default;
 [Firmware Images]({{ site.baseurl }}/kn7000-firmware/#the-kernels-flash-tail)).
 
+### The MILK kernel's services
+
+The kernel's services are named after their µITRON 3.0 function codes, as on the KN7000 (lane
+uitron-names, 2026-11-07, disassembly merge `49872b9c1`,
+[`kn7000/notes/uitron3-function-codes/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/uitron3-function-codes/README.md);
+the method, the service list and the specification's licence are on
+[KN7000 Firmware Images]({{ site.baseurl }}/kn7000-firmware/#the-milk-kernels-services)). Each
+service reports errors to `KernelErrorHook` with d0 = its function code; the wrapper a task calls is
+named after the service and the body behind it `<svc>_Impl`: on the KN6000 `wai_sem` (`0x4C3F641E`) and
+`wai_sem_Impl` (`0x4C3F64AA`), on the KN6500 `0x4C38007E` and `0x4C38010A`. The 19 routines of each
+image that report a code all decode to one defined code, and no label disagrees with its code. Both
+models have the services KN7000 program 942 has and 941 lacks (`ter_tsk`, `ext_tsk`, `del_mbx`,
+`del_sem`, `del_flg`, `ref_sem`), and neither has `sus_tsk` or `rsm_tsk`. `LibMsgSend` / `LibMsgReceive` became `snd_msg` / `rcv_msg`
+(KN6000 `0x4C3F680E` / `0x4C3F6962`). 41 labels changed in each tree; `sibling_name_census.py` counts
+`func_` labels 9,910 -> 9,843 on the KN6000 and 9,966 -> 9,899 on the KN6500 (routine starts 5,671 ->
+5,632 and 5,698 -> 5,659; before at `dfd9dfd90`). The HD-SX3 plug-in has no kernel of its own: it calls
+the host's `dly_tsk`, `dis_int` and `ena_int` through registry slot 0x107.
+
 ## The XAPR plug-in (HD-SX3 or HD-SX6)
 
 The keyboard's own MN10300 runs this image from `0x97800000`, where the expansion board
@@ -302,14 +320,17 @@ The `.AST` header carries the tag `"I K"` where the KN7000's carries `"J K"`.
 
 ## Open work
 
-- Names: most entries are still `func_<ADDR>` (9,910 / 9,966 `func_` labels after lane
-  sibling-names2, above). Most of 941's names the siblings lack belong to code the sibling changed
+- Names: most entries are still `func_<ADDR>` (9,843 / 9,899 `func_` labels after lane
+  uitron-names, above; 9,910 / 9,966 after lane sibling-names2). Most of 941's names the siblings lack belong to code the sibling changed
   or does not have; routines that differ slightly from their KN7000 versions need another method
   than exact matching or call-site and pointer alignment. Names from the KN2400 and from each other
   were measured and would add one or two per model (above).
-- The MILK kernel's services: each calls `KernelErrorHook` with a μITRON 3.0 function code before it
+- ~~The MILK kernel's services: each calls `KernelErrorHook` with a μITRON 3.0 function code before it
   returns an error, and 17 of the 19 such services are still `func_`; the specification's
-  function-code table would name them (not in the repository, and not named from memory).
+  function-code table would name them (not in the repository, and not named from memory)~~: done by
+  lane uitron-names (2026-11-07, [above](#the-milk-kernels-services)), from the specification's
+  official text, which the disassembly downloads and does not commit. The kernel's inner routines that
+  report no code (the poll cores, the queue helpers) are still `func_`.
 - Most RAM and I/O addresses are still numbers in the sources (17,755 / 17,791 numeric work-RAM
   operands): 941 itself names few RAM variables, so its RAM map carries 8 or 9 names per sibling;
   each KN7000 RAM name added later reaches them by a re-run of `make aligned-names`. Data addresses the code uses are

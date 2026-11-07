@@ -52,13 +52,13 @@ this file equals `kn2400_program.rom` byte for byte.
 
 ## Layout: the data first, and part of the code linked for RAM
 
-| file offsets          | linked for              | contents                                                                         |
-|-----------------------|-------------------------|----------------------------------------------------------------------------------|
-| `0x000000`-`0x000010` | `0x48400000`            | boot header: `_reset` (jmp to `crt0_start`), 5 nops, `_vector_0a`, one data byte |
-| `0x000010`-`0x1E427C` | `0x48400000`            | data: names, styles, bitmaps, tables, the `MILK MN10300 Ver1.0R1` banner         |
-| `0x1E427C`-`0x3285BE` | `0x48400000`            | code linked for flash: the MILK kernel and the application                       |
-| `0x3285BE`-`0x3965BB` | `0x50120000` (work RAM) | code linked for work RAM                                                         |
-| `0x3965BB`-`0x3965D3` | none                    | 24 bytes after the last instruction                                              |
+| file offsets          | linked for              | contents                                                                                                                                                                                             |
+|-----------------------|-------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x000000`-`0x000010` | `0x48400000`            | boot header: `_reset` (jmp to `crt0_start`), 5 nops, `_vector_0a`, one data byte                                                                                                                     |
+| `0x000010`-`0x1E427C` | `0x48400000`            | data: names, styles, bitmaps, tables, the `MILK MN10300 Ver1.0R1` banner                                                                                                                             |
+| `0x1E427C`-`0x3285BE` | `0x48400000`            | code linked for flash: the application, ending in the MILK kernel's flash tail (`KernelInit` ... `KernelTickIsrDefault`)                                                                             |
+| `0x3285BE`-`0x3965BB` | `0x50120000` (work RAM) | code linked for work RAM: much of what the KN7000 keeps in its library, the MILK kernel's services among it (`slp_tsk` `0x5018B821` ... `dly_tsk` `0x5018DE54`, [below](#the-milk-kernels-services)) |
+| `0x3965BB`-`0x3965D3` | none                    | 24 bytes after the last instruction                                                                                                                                                                  |
 
 This is the reverse of the KN7000's program image, which has its code first. The last code
 range runs at **`file offset + 0x4FDF7A42`**, in work RAM from `0x50120000`. The evidence,
@@ -89,6 +89,25 @@ tone-generator library itself (settled 2026-11-02, lane mn10300-names; disassemb
 `kn2400/notes/data-region/README.md` and the row of `RamSectionsCopy` in `kn2400/kn2400_manual.sym`). crt0 itself copies only `.data` (`0x6E78` bytes from
 `0x485DD334` to `0x50000010`). (Corrected 2026-10-30, lane generic-zero, disassembly
 `c65a62c5b`: this paragraph had said no code reads them.)
+
+## The MILK kernel's services
+
+The kernel's services are named after their µITRON 3.0 function codes, as on the KN7000 (lane
+uitron-names, 2026-11-07, disassembly merge `49872b9c1`,
+[`kn7000/notes/uitron3-function-codes/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/uitron3-function-codes/README.md);
+the method, the service list and the specification's licence are on
+[KN7000 Firmware Images]({{ site.baseurl }}/kn7000-firmware/#the-milk-kernels-services)). Here the
+services sit in the code linked for work RAM, from `slp_tsk` (`0x5018B821`) to `dly_tsk`
+(`0x5018DE54`); `wai_sem`, for one, is `0x5018CF54` and its body `wai_sem_Impl` `0x5018CFE0`. Each reports errors to `KernelErrorHook` with d0 = its
+function code; the wrapper a task calls is named after the service and the body behind it
+`<svc>_Impl`, and `loc_cpu`, `sus_tsk` (`0x5018DB81`) and `ena_dsp` (`0x5018D879`) are called directly.
+The 17 routines that report a code all decode to one defined code, and no label disagrees with its code.
+Like the KN7000, it has
+`sus_tsk` and `rsm_tsk` (`0x5018D8C7`, *[INFERENCE]*: no code and no name of the firmware's own, the
+inverse of `sus_tsk`); it lacks `preq_sem` and the services KN7000 program 942 has and 941 lacks
+(`ter_tsk`, `ext_tsk`, `del_mbx`, `del_sem`, `del_flg`, `ref_sem`). `LibMsgSend` / `LibMsgReceive`
+became `snd_msg` / `rcv_msg` (`0x5018D2FE` / `0x5018D452`). 39 labels changed; `sibling_name_census.py`
+counts `func_` labels 11,315 -> 11,254 (routine starts 6,517 -> 6,480; before at `dfd9dfd90`).
 
 ## Names
 
@@ -237,8 +256,8 @@ run into the next function's `add -N, sp`, 7 are fill and 2 stop early
 
 ## Open work
 
-- Most entries are still `func_<ADDR>` (11,315 `func_` labels after lane sibling-names2,
-  above, as `sibling_name_census.py` counts them); 2,320 of its 6,518 routine starts (counted just before
+- Most entries are still `func_<ADDR>` (11,254 `func_` labels after lane uitron-names, 11,315
+  after lane sibling-names2, above, as `sibling_name_census.py` counts them); 2,320 of its 6,518 routine starts (counted just before
   the lane's last name) pair by call sites with a 941 routine that 941 leaves unnamed too. Routines that differ
   slightly from their KN7000 versions need another naming method than exact matching or
   call-site alignment.

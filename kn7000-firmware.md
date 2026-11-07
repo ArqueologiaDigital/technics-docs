@@ -86,20 +86,20 @@ code that lands in the data region (`TAIL_CODE`, `find_tail_code()`), writes it 
 `gen_data_s.py`). Program 941 (lane code-island,
 [`kn7000/notes/code-island/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/code-island/README.md)):
 
-| CPU (941)    | bytes | name                        | what it is                                                                                                                             |
-|--------------|-------|-----------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
-| `0x487B8AAC` | 24    | `Str_MILK_MN10300_Ver1_0R1` | the kernel's version string and two 0xFF pad bytes                                                                                     |
-| `0x487B8AC4` | 128   | `KernelServiceHash`         | 16 x {u32 key, case address}: `KernelWaitRelease` probes it by `(key & 0xF) * 8` and jumps through `+4`; typed `REC_KernelServiceHash` |
-| `0x487B8B44` | 24    | `KernelRamLayout`           | 6 RAM addresses; +0x14 is `KernelStart`'s stack pointer                                                                                |
-| `0x487B8B5C` | 28    | `KernelParams`              | 14 u16 = 10, 20, 20, 20, 10, 10, 10, 10, 10, 10, 20, 10, 30, 0; read at +0 (`get_tid`), +0x10, +0x12 and +0x16                         |
-| `0x487B8B78` | 695   | `KernelInit`                | `KernelStart`'s `jmp` target: fills the kernel's RAM tables, creates the task `func_4C03B514`, calls `KernelInitHook`                  |
-| `0x487B8E2F` | 364   | `KernelWaitRelease`         | a `movm` + `add -0x10, sp` prologue, then `KernelWaitRelease_entry`; the 11 cases `KernelServiceHash` points at are its labels         |
-| `0x487B8F9B` | 3     | `KernelErrorHook`           | `retf 0, 0`; 26 calls, each before a service returns an error (d0 = function code, d1 = a uITRON error code)                           |
-| `0x487B8F9E` | 3     | `KernelErrorHook2`          | `retf 0, 0`; 3 calls, the same arguments                                                                                               |
-| `0x487B8FA1` | 3     | `KernelWaitAbortHook`       | `retf 0, 0`; `func_4C03B514` calls it with a0 = the task's control block, d0 = -0x55 (E_TMOUT)                                         |
-| `0x487B8FA4` | 11    | `KernelStart`               | `mov (KernelRamLayout+20), a3 / mov a3, sp / jmp KernelInit`; jumped to from the reset code and from `func_4C03DD98`                   |
-| `0x487B8FAF` | 3     | `KernelInitHook`            | `ret 0, 0`, called by `KernelInit`                                                                                                     |
-| `0x487B8FB2` | 31    | `KernelTickIsrDefault`      | the kernel's default system-tick interrupt handler, which nothing enters: the application installs its own (below)                     |
+| CPU (941)    | bytes | name                        | what it is                                                                                                                                                       |
+|--------------|-------|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x487B8AAC` | 24    | `Str_MILK_MN10300_Ver1_0R1` | the kernel's version string and two 0xFF pad bytes                                                                                                               |
+| `0x487B8AC4` | 128   | `KernelServiceHash`         | 16 x {u32 key, case address}: `KernelWaitRelease` probes it by `(key & 0xF) * 8` and jumps through `+4`; typed `REC_KernelServiceHash`                           |
+| `0x487B8B44` | 24    | `KernelRamLayout`           | 6 RAM addresses; +0x14 is `KernelStart`'s stack pointer                                                                                                          |
+| `0x487B8B5C` | 28    | `KernelParams`              | 14 u16 = 10, 20, 20, 20, 10, 10, 10, 10, 10, 10, 20, 10, 30, 0; read at +0 (`get_tid`), +0x10, +0x12 and +0x16                                                   |
+| `0x487B8B78` | 695   | `KernelInit`                | `KernelStart`'s `jmp` target: fills the kernel's RAM tables, creates the task `func_4C03B514`, calls `KernelInitHook`                                            |
+| `0x487B8E2F` | 364   | `KernelWaitRelease`         | a `movm` + `add -0x10, sp` prologue, then `KernelWaitRelease_entry`; the 11 cases `KernelServiceHash` points at are its labels                                   |
+| `0x487B8F9B` | 3     | `KernelErrorHook`           | `retf 0, 0`; 26 calls, each before a service returns an error (d0 = its µITRON 3.0 function code, d1 = a µITRON error code; [below](#the-milk-kernels-services)) |
+| `0x487B8F9E` | 3     | `KernelErrorHook2`          | `retf 0, 0`; 3 calls, the same arguments                                                                                                                         |
+| `0x487B8FA1` | 3     | `KernelWaitAbortHook`       | `retf 0, 0`; `func_4C03B514` calls it with a0 = the task's control block, d0 = -0x55 (E_TMOUT)                                                                   |
+| `0x487B8FA4` | 11    | `KernelStart`               | `mov (KernelRamLayout+20), a3 / mov a3, sp / jmp KernelInit`; jumped to from the reset code and from `func_4C03DD98`                                             |
+| `0x487B8FAF` | 3     | `KernelInitHook`            | `ret 0, 0`, called by `KernelInit`                                                                                                                               |
+| `0x487B8FB2` | 31    | `KernelTickIsrDefault`      | the kernel's default system-tick interrupt handler, which nothing enters: the application installs its own (below)                                               |
 
 **`KernelTickIsrDefault`** (lane mn10300-typer, 2026-10-31, [`kn7000/notes/mn10300-typer/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-typer/README.md), section 4; was
 `func_487B8FB2`). It clears bits 4..7 of G6ICR `0x34000118`, acknowledging interrupt group 6, calls
@@ -141,6 +141,103 @@ The KN6000, KN6500 and KN2400 keep the same routines, under the same names
 | ~`0x186208` – `0x3B8B78` | Data / resources: multi-language UI text, FAT boot template, flash-chip ID strings, RGB palettes, fonts, GUI resource tables, 8 JPEGs, two Windows `.BMP` images; typed source since 2026-10-29 ([Program Data Region]({{ site.baseurl }}/kn7000-data-region/)); it ends in the kernel's flash-resident tables, `0x3B8AAC` – `0x3B8B78` |
 | `0x3B8B78` – `0x3B8FD1`  | The MILK kernel's flash tail: 1,113 bytes of code run from the flash, `KernelInit` .. `KernelTickIsrDefault` ([below](#the-kernels-flash-tail))                                                                                                                                                                                         |
 | `0x3B8FD1` – `0x3F6F01`  | Code region 2: the library image the boot copies to `0x4C000000`, the `MILK MN10300` kernel + zlib 1.0.4 and the C runtime                                                                                                                                                                                                              |
+
+### The MILK kernel's services
+
+**The MILK kernel is a µITRON 3.0 kernel.** Its services report errors to an empty hook,
+`KernelErrorHook` (or `KernelErrorHook2`), with d0 = the service's µITRON 3.0 function code and
+d1 = a µITRON error code. The function codes are those of the TRON Association's "µITRON 3.0
+Specification", Ver 3.02.00 (document I-01-02E), section 6.3; read as a signed number, the 16-bit
+code is what the firmware passes (`cre_tsk` is H'ffef = -17). So the codes name the services, in
+the KN7000's program builds 893 (v1.3), 935 (v1.5), 941 (v1.6) and 942 (SP7001) and in the
+SX-KN6000, KN6500 and KN2400 alike; lane uitron-names (2026-11-07, disassembly merge `49872b9c1`,
+[`kn7000/notes/uitron3-function-codes/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/uitron3-function-codes/README.md))
+named them in all seven MN10300 trees.
+
+The specification's licence allows it to be reproduced only in its entirety, so neither the
+disassembly nor this page reproduces any part of it. The codes below are facts about the firmware,
+cited to the document, version and section; the official text is
+[mitron3.02.txt.Z](https://www.ertl.jp/ITRON/SPEC/FILE/mitron3.02.txt.Z), and the disassembly's
+`fetch_spec.sh` downloads it (checking its sha256) for `function_codes.py`, which parses it each time
+it runs and does not commit it.
+
+**Wrapper and body.** A task calls most services through a small *wrapper*: `add -4, sp / mov d1,
+(0, sp)`, the register save with `udf15 d3, d3` (unless the call is nested), a switch to the kernel
+stack and a call of the *body*, which does the work and reports the errors. The wrappers are almost
+the same bytes for every service. The disassembly names the wrapper after the service, as program
+942's export table does (its `wai_sem`, `unl_cpu` ... are wrappers), and the body `<svc>_Impl`
+(`wai_sem` / `wai_sem_Impl`), the way `DrawBox` / `DrawBox_Impl` were already named. `loc_cpu`,
+`sus_tsk` and `ena_dsp` (and 942's `ref_sem` and `ter_tsk`) are called directly and keep the plain
+name; `ena_dsp`'s one caller is `unl_cpu_Impl`. The SP7001 build exports 20 kernel services by name
+to its plug-in and 10 more through small forwarders (`cre_tsk_X`, `snd_msg_X` ...); wherever a name
+and a code meet, they agree (`function_codes.py --selftest`: PASS).
+
+| service                         | how it is named: the function code its body reports (d0), the errors seen (d1), or 942's name | called                        | builds without it     |
+|---------------------------------|-----------------------------------------------------------------------------------------------|-------------------------------|-----------------------|
+| `rel_blk`                       | -143 (H'ff71); E_PAR, E_OBJ                                                                   | wrapper                       | none                  |
+| `get_blk`                       | -141 (H'ff73); E_OBJ, E_TMOUT                                                                 | wrapper                       | none                  |
+| `cre_mpl`                       | -137 (H'ff77); E_NOMEM                                                                        | wrapper                       | none                  |
+| `rcv_msg`                       | -61 (H'ffc3); E_CTX; 942's `rcv_msg_X` calls it                                               | wrapper (was `LibMsgReceive`) | none                  |
+| `prcv_msg`                      | -61, rcv_msg's code: the polling variant; 942's `prcv_msg_X` calls it                         | wrapper                       | none                  |
+| `wai_sem`                       | -53 (H'ffcb); E_CTX                                                                           | wrapper                       | none                  |
+| `preq_sem`                      | -53, wai_sem's code: the polling variant; 942 export                                          | wrapper                       | KN2400                |
+| `wai_flg`                       | -46 (H'ffd2); E_CTX                                                                           | wrapper                       | none                  |
+| `wup_tsk`                       | -39 (H'ffd9); E_QOVR                                                                          | wrapper                       | none                  |
+| `slp_tsk`                       | -38 (H'ffda); E_CTX                                                                           | wrapper                       | none                  |
+| `sus_tsk`                       | -33 (H'ffdf); E_OBJ, E_QOVR                                                                   | directly                      | KN6000, KN6500        |
+| `ena_dsp`                       | -29 (H'ffe3); E_CTX                                                                           | directly                      | none                  |
+| `rot_rdq`                       | -28 (H'ffe4); E_CTX                                                                           | wrapper                       | none                  |
+| `chg_pri`                       | -27 (H'ffe5); E_ID, E_CTX                                                                     | wrapper                       | none                  |
+| `ter_tsk`                       | -25 (H'ffe7); E_OBJ                                                                           | directly                      | 941, 935, 893, KN2400 |
+| `exd_tsk`                       | -22 (H'ffea); E_OBJ                                                                           | wrapper                       | none                  |
+| `ext_tsk`                       | -21 (H'ffeb); E_OBJ                                                                           | wrapper                       | 941, 935, 893, KN2400 |
+| `cre_tsk`                       | -17 (H'ffef); its core's result (E_NOMEM = -10)                                               | wrapper                       | none                  |
+| `loc_cpu`                       | -8 (H'fff8); E_CTX                                                                            | directly                      | none                  |
+| `unl_cpu`                       | -7 (H'fff9); E_CTX                                                                            | wrapper                       | none                  |
+| `snd_msg`                       | 942's `snd_msg_X` calls it                                                                    | wrapper (was `LibMsgSend`)    | none                  |
+| `cre_mbx`, `cre_sem`, `cre_flg` | 942's `cre_mbx_X`, `cre_sem_X`, `cre_flg_X` call them                                         | wrapper                       | none                  |
+| `set_flg`, `sig_sem`, `sta_tsk` | 942 export                                                                                    | wrapper                       | none                  |
+| `del_mbx`, `del_sem`, `del_flg` | 942 export                                                                                    | wrapper                       | 941, 935, 893, KN2400 |
+| `ref_sem`                       | 942's `ref_sem_X` calls it                                                                    | directly                      | 941, 935, 893, KN2400 |
+| `rsm_tsk`                       | *[INFERENCE]*, below                                                                          | wrapper                       | KN6000, KN6500        |
+
+A name from 942 reaches the other builds and models through a body that is the same code with labels
+and addresses masked. **Two services report another's code**: `preq_sem`'s body passes wai_sem's -53
+and `prcv_msg`'s rcv_msg's -61, each with d1 = the result of the poll core it shares with the waiting
+service (E_TMOUT, -85, when the poll fails). The code alone would name them `wai_sem` / `rcv_msg`; 942's
+export table names the one wrapper `preq_sem`, and its forwarder `prcv_msg_X` calls the other.
+
+**`rsm_tsk` *[INFERENCE]*.** One wrapper has no function code (its body reports no error) and no name
+of the firmware's own (941 `0x4C03D7E2`, 942 `0x4C03DB4A`, 893 `0x4C03D7CF`, KN2400 `0x5018D8C7`). Its
+body counts the task's suspend count (TCB +0x12) down by one and, at zero, makes the task ready or
+clears its suspend bit: the inverse of `sus_tsk`, and `sus_tsk`'s callers call it in mirror order
+(`sus_tsk(7)`, `sus_tsk(3)`, work, `rsm_tsk(3)`, `rsm_tsk(7)`). µITRON's `rsm_tsk` returns E_OBJ for a
+task that is not suspended; this body does not check.
+
+**Renamed.** `LibMsgSend` and `LibMsgReceive` (the disk worker's mailbox calls) are `snd_msg` and
+`rcv_msg`; every other renamed routine was a `func_<ADDR>` placeholder. Routine starts still named
+`func_`, before (disassembly `dfd9dfd90`) and after:
+
+| tree         | labels changed | `func_` routine starts before | after |
+|--------------|----------------|-------------------------------|-------|
+| 941 (v1.6)   | 39             | 6,327                         | 6,290 |
+| 942 (SP7001) | 44             | 6,331                         | 6,289 |
+| 935 (v1.5)   | 39             | 6,324                         | 6,287 |
+| 893 (v1.3)   | 39             | 6,316                         | 6,279 |
+| KN6000       | 41             | 5,671                         | 5,632 |
+| KN6500       | 41             | 5,698                         | 5,659 |
+| KN2400       | 39             | 6,517                         | 6,480 |
+
+The HD-SX3 plug-in has no kernel of its own: it calls the host's `dly_tsk`, `dis_int` and `ena_int`
+through registry slot 0x107. Still `func_`: the kernel's inner routines that no wrapper calls directly
+and that report no code (the poll cores, the ready-queue and wait-queue helpers); the function codes say
+nothing about them.
+
+**`loc_cpu` was never mislabelled.** Notes of 2026-11-06 read code -8 as `clr_flg` in some trees and
+`ena_int` in others. That was the probe's error: it skipped every label starting `loc_` (meant for the
+local `loc_<ADDR>` labels), so `loc_cpu`'s code went to the routine before it. In all seven trees the
+routine that reports -8 is labelled `loc_cpu`, and its body is µITRON's `loc_cpu`; `clr_flg` and
+`ena_int` are right too. The probe is fixed (disassembly `kn7000/notes/sibling-names2-probes/`).
 
 ### Version numbers
 
