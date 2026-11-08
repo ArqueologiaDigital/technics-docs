@@ -555,6 +555,48 @@ Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER 
 [`kn7000/notes/mn10300-data4/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data4/README.md),
 merged in `8d0865c27`).
 
+## Hook dispatch lists, accordion diagrams, copies (lane mn10300-data5)
+
+**Hook dispatch lists.** Parameter changes are fanned out through lists of {mask, value, handler}
+records, 12 bytes each: for a parameter id the firmware calls every handler whose `(id & mask) == value`,
+until a record whose handler is 0. The dispatcher picks the list by the parameter's group, and the
+lists are now typed whole. **Accordion register diagrams.** The accordion tab's register symbols are
+18-byte pictures, three cells of five characters and a NUL, blanks and bullets (`0x95` in the
+firmware's font), which `AcAcdnTabProc` copies whole (`memcpy` of `0x12` bytes) for drawing; they had
+been guessed as strings. **Copies.** Some tables stand twice in an image with nothing seen to read the
+second copy; the copies are now written as copies of the typed originals, each item by its own rule,
+under `<item>_Copy`. Every image keeps the EQ band labels ("   20", "   25", " 31.5" ...) twice.
+In program 941 the two dispatchers are `func_4C021761` (nine lists, `func_4C021761_Selected_0` ..
+`_8`) and `M3HookDispatch` (eight); the lists are `{mask, value, handler}` walks the reader steps by `0xC`.
+The same rules and four new curated kinds (`SdCommandFrame` for `SdCommandSend`'s 10-byte command frame,
+`StylePartTemplate` for `StylePartTemplateDefault`'s answer, `BlockPatch`, the JPEG encoder's per-mode
+sampling / table-selection records) apply to every build; an array whose label was kept from before its
+reader had a name is also looked up under the reader's present name, which gives 935's `localeconv`
+records 941's `LconvMonetary` / `LconvNumeric` fields and `TtMessage`'s table `MessageBoxDef`.
+
+| build | opaque bytes before | after | offset-named fields with a reader, lane | at `486525b6e` |
+|-------|---------------------|-------|-----------------------------------------|----------------|
+| 941   | 9,760               | 8,038 | 185 -> 136                              | 160            |
+| 942   | 9,633               | 7,911 | 185 -> 148                              | 168            |
+| 935   | 10,300              | 8,578 | 207 -> 140                              | 164            |
+| 893   | 9,833               | 8,111 | 207 -> 152                              | 172            |
+
+Opaque bytes are `kn7000/notes/mn10300-data5-probes/opaque_diff.py` (before = the base `92b5cc4a7`'s data
+directories; "newly opaque" is 0 in every build) and `kn7000/notes/mn10300-data-probes/opaque_left.py`,
+which gives the same totals at `486525b6e`. The fields are
+`kn7000/notes/mn10300-formats-probes/field_names_census.py --md`: the lane measured 136 / 148 / 140 / 152
+on its branch, but at `486525b6e`, after lane kn7000-subsystems renamed the data labels derived from the
+routines it named, the curated kinds keyed by the old labels (`AppTaskState`, the cyclic-handler packet,
+the four JPEG mode records) no longer apply, so the census reads 160 / 168 / 164 / 172. The rules are the
+`gen_data_s.FEATURES` keys `sentinel_copy`, `float_pairs`, `dup_spans` and `copied_reclaim` (disassembly
+[`kn7000/notes/mn10300-data5/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data5/README.md),
+merged in `4e1d77a5b`).
+
+What is left in 941, by class (`opaque_left.py --tree 941`, bytes, base -> after): false-string 2,426 ->
+2,282, table-tail 3,556 -> 2,800, after-string 1,389 -> 567, labelled-held 1,398 -> 1,398, other groups 991
+-> 991. The largest pieces left are table tails (`TgPartEgRampBuild_Table_3` 304 bytes,
+`func_4843CAF9_Block_2` 198) and bytes a string guess took after a NUL (`Str_empty_276`, 641 bytes).
+
 ## What is left: the census
 
 The instrument is `scripts/analysis/data_incbin_census.py`

@@ -439,6 +439,45 @@ largest first: the table tails (2,697 / 2,504 bytes: the `func_4C03CD2C_entry_L9
 `ResourceIdLeaf` tails), bytes read as text that are not (994 / 2,949), and fixed-width text cells holding the
 glyph `0x95` between labelled strings (192 bytes each).
 
+## Hook dispatch lists, accordion diagrams, copies (lane mn10300-data5)
+
+**Hook dispatch lists.** Parameter changes are fanned out through lists of {mask, value, handler}
+records, 12 bytes each: for a parameter id the firmware calls every handler whose `(id & mask) == value`,
+until a record whose handler is 0. The dispatcher picks the list by the parameter's group, and the
+lists are now typed whole. **Accordion register diagrams.** The accordion tab's register symbols are
+18-byte pictures, three cells of five characters and a NUL, blanks and bullets (`0x95` in the
+firmware's font), which `AcAcdnTabProc` copies whole (`memcpy` of `0x12` bytes) for drawing; they had
+been guessed as strings. **Copies.** Some tables stand twice in an image with nothing seen to read the
+second copy; the copies are now written as copies of the typed originals, each item by its own rule,
+under `<item>_Copy`. Every image keeps the EQ band labels ("   20", "   25", " 31.5" ...) twice.
+The KN6000's dispatchers are `func_4C03CD2C` and `M3HookDispatch`, the twins of program 941's.
+
+| tree                     | opaque pieces / bytes before | opaque pieces / bytes after | offset-named fields with a reader, lane | at `486525b6e` |
+|--------------------------|------------------------------|-----------------------------|-----------------------------------------|----------------|
+| KN6000                   | 696 / 7,665                  | 662 / 6,507                 | 157 -> 150                              | 144            |
+| KN6500                   | 687 / 9,791                  | 653 / 8,633                 | 156 -> 149                              | 143            |
+| HD-SX6 plug-in (`hdsx3`) | 28 / 288                     | 28 / 288                    | 20 -> 20                                | 20             |
+
+On the KN6000 the dispatch-list tails were 660 bytes, the accordion diagrams' cells 312 and the EQ band
+labels' copy 186. Measured by `kn7000/notes/mn10300-data5-probes/opaque_diff.py` (before = the base
+`92b5cc4a7`'s data directories; nothing became newly opaque) and `kn7000/notes/mn10300-data-probes/opaque_left.py`,
+which gives the same totals at `486525b6e`; fields by `kn7000/notes/mn10300-formats-probes/field_names_census.py --md`,
+whose figures at `486525b6e` are lower again because more routines are named
+(disassembly [`kn7000/notes/mn10300-data5/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data5/README.md),
+merged in `4e1d77a5b`).
+
+| tree   | false-string   | table-tail     | after-string | labelled-held  | other groups | total          |
+|--------|----------------|----------------|--------------|----------------|--------------|----------------|
+| KN6000 | 994 -> 886     | 2,697 -> 2,037 | 930 -> 540   | 2,380 -> 2,380 | 664 -> 664   | 7,665 -> 6,507 |
+| KN6500 | 2,949 -> 2,841 | 2,504 -> 1,844 | 886 -> 496   | 2,837 -> 2,837 | 615 -> 615   | 9,791 -> 8,633 |
+
+(bytes, `opaque_left.py --tree <t>`, base -> after). What is left on the KN6000, largest first: bytes inside
+labelled items (2,380), table tails (2,037: a 198-byte remainder after a `memcpy`'d block,
+`func_4C05E846_Block_2`, in every build; `ResourceIdLeaf` tails; `VocalistGrid_L16b_Table` 88), bytes read as
+text that are not (886) and bytes after a string (540). The KN6500's false-string group holds one piece of
+1,998 bytes whose first 1,838 bytes are a copy of `func_4C16F9FF_Table` + 322, left because the copy does
+not start at an item.
+
 ## What is left: the census
 
 The fourth committed snapshot of `scripts/analysis/data_incbin_census.py`,

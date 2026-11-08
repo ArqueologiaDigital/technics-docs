@@ -391,7 +391,43 @@ program flash 461 / 10,264 -> 462 / 10,282 bytes): remainders of pieces the stri
 now classifies as binary. What is left, largest first: 6,013 bytes inside labelled items (the switch blocks
 of `func_5016594F`, and around `func_50186924_Selected_6` 856 bytes of 44-byte records of 24-bit DSP
 coefficients in 32-bit words, of which the code selects 7, followed by single-precision floats that the
-doubles pass misreads as doubles), and 3,859 bytes of table tails.
+doubles pass misreads as doubles), and 3,859 bytes of table tails. *Corrected by lane mn10300-data5
+([below](#hook-dispatch-lists-accordion-diagrams-copies-lane-mn10300-data5)):* the 856 bytes after
+`func_50186924_Selected_6` and the 496 "doubles" after them are the second, unreferenced copy of the
+interpolation and float tables, now typed as such.
+
+## Hook dispatch lists, accordion diagrams, copies (lane mn10300-data5)
+
+**Hook dispatch lists.** Parameter changes are fanned out through lists of {mask, value, handler}
+records, 12 bytes each: for a parameter id the firmware calls every handler whose `(id & mask) == value`,
+until a record whose handler is 0. The dispatcher picks the list by the parameter's group, and the
+lists are now typed whole. **Accordion register diagrams.** The accordion tab's register symbols are
+18-byte pictures, three cells of five characters and a NUL, blanks and bullets (`0x95` in the
+firmware's font), which `AcAcdnTabProc` copies whole (`memcpy` of `0x12` bytes) for drawing; they had
+been guessed as strings. **Copies.** Some tables stand twice in an image with nothing seen to read the
+second copy; the copies are now written as copies of the typed originals, each item by its own rule,
+under `<item>_Copy`. Every image keeps the EQ band labels ("   20", "   25", " 31.5" ...) twice.
+The SX-KN2400 keeps its whole set of interpolation tables twice: the 11-point curves `func_50186924`
+reads between points (x / 10, so 0 .. 100), the tables of `func_50186981`, and the single-precision
+curves of `func_50189206`, `func_5018884C` and `func_5018888A`; the second copy, 1,352 bytes, has nothing
+pointing at it. Part of it had been read as doubles: a run of 8-byte words whose halves are each a
+plausible single (61 of its 62 words; for real doubles about one in four) is now left to the later
+passes, which type it as floats (`gen_data_s.FEATURES` key `float_pairs`, checked by
+`kn7000/notes/mn10300-data5-probes/float_pairs.py`).
+
+| tree   | opaque pieces / bytes before | opaque pieces / bytes after | offset-named fields with a reader, lane | at `486525b6e` |
+|--------|------------------------------|-----------------------------|-----------------------------------------|----------------|
+| KN2400 | 769 / 13,880                 | 729 / 12,004                | 142 -> 131                              | 126            |
+
+By class (`kn7000/notes/mn10300-data-probes/opaque_left.py --tree kn2400`, bytes, base -> after):
+false-string 1,795 -> 1,691, table-tail 3,859 -> 2,351, after-string 1,497 -> 1,233, labelled-held 6,013
+-> 6,013, other groups 716 -> 716. Before = the base `92b5cc4a7`'s data directories; nothing became newly
+opaque (`opaque_diff.py`), and `opaque_left.py` gives the same totals at `486525b6e`; fields by
+`kn7000/notes/mn10300-formats-probes/field_names_census.py --md` (disassembly
+[`kn7000/notes/mn10300-data5/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data5/README.md),
+merged in `4e1d77a5b`). The interpolation tables themselves are still split by the generator into a
+4-byte record and a ten-word table, and one is mistyped as a string (`Str_empty_1216`); typed, not opaque,
+so outside the census. Next: the switch blocks of `func_5016594F` (the 6,013 labelled-held bytes).
 
 ## What is left: the census
 
