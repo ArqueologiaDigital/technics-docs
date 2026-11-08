@@ -249,6 +249,64 @@ another lacks sit on code the other does not have. Of the KN6000's 5,671 routine
 `func_`, 1,358 pair by call sites with a 941 routine that 941 leaves unnamed too (KN6500 1,421 of 5,698):
 every KN7000 name given to one of those reaches the sibling by `make aligned-names`.
 
+**Names from the firmware's own evidence.** Code the SX-KN7000 does not have gets its names by hand
+since November 2026, each with the evidence it rests on: the strings it uses, the screens it posts
+to, the hardware registers it drives, or a table another image names. The expansion board's
+plug-in, for instance, lists its file services in its header, so the keyboard routines that call
+each slot take the slot's name (`FileOpen`, `FileRead`, `FileWrite`, `FileSeek`, `FileClose` ...; the
+slot names are the plug-in's own, [above](#the-xapr-plug-in-hd-sx3-or-hd-sx6)), and through them the
+keyboard's whole file layer and the small file-system library beneath it (`FsOpen`, `FsRead`, `FsWrite`,
+`FsSeek`, `FsClose` ...; a stdio-like API of its own, not the C runtime's) got names. The SMF reader
+(`SmfReadHeaderChunk`, `SmfReadTracks` ...), the zlib file codec, the expansion board's hard-disk test
+screens (`HDDTestProc` and its ATA layer, `HddIdentify`, `HddWriteSector` ...), the factory test mode
+(`RamTestWords`, `RamTestBytes`, `RomTestChecksums`) and the checks of the built-in resources followed,
+with 22 RAM addresses read off those routines. The SX-KN6500 and SX-KN2400 share much of this code; a
+routine named in one sibling passes to another when its code, with every address masked, is the same at
+the same place in the link order, a rule checked on the routines both models already name: KN6000 ->
+KN6500 2,233 alike / 0 unlike, KN6000 -> KN2400 1,074 / 2 (`port_hand_names.py --report`). Every hand row
+starts with its evidence class (`string`, `gui`, `io`, `table`, `callee`, `caller`, `ram`, `body`, `libc`,
+`same-body`, `data`, `var`), which `hand_names_check.py` requires.
+
+Lane sibling-names3 (2026-11-07, disassembly
+[`kn7000/notes/sibling-names3/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/sibling-names3/README.md),
+merged in `5ee2082dd`) wrote those rows, one block of each `<model>_manual.sym`:
+
+| tree     | hand rows                                 | `func_` labels before -> after | routine starts before -> after | named before -> after | numeric work-RAM operands / addresses before -> after |
+|----------|-------------------------------------------|--------------------------------|--------------------------------|-----------------------|-------------------------------------------------------|
+| `kn6000` | 154 (22 of them RAM `var` rows)           | 9,843 -> 9,600                 | 5,632 -> 5,501                 | 2,831 -> 2,962        | 17,755 / 2,522 -> 17,339 / 2,484                      |
+| `kn6500` | 152 (135 carried from the KN6000, 21 RAM) | 9,899 -> 9,658                 | 5,659 -> 5,529                 | 2,837 -> 2,967        | 17,791 / 2,531 -> 17,379 / 2,495                      |
+| `hdsx3`  | none                                      | 765 -> 765                     | 459 -> 459                     | 179 -> 179            | 0                                                     |
+
+The figures are `sibling_name_census.py`, before at `92b5cc4a7` and after on the lane's tree
+(`kn7000/notes/sibling-names3-probes/census-92b5cc4a7.txt`, `census-after.txt`). With the new routine
+names `name_ram_by_use.py` named more RAM by its owner routine: `*_ram.sym` KN6000 486 -> 503, KN6500
+486 -> 502.
+
+**941's names of November 2026 reach the siblings.** In the same wave lane kn7000-subsystems named
+2,312 of program 941's unnamed routines by hand
+([KN7000 Firmware]({{ site.baseurl }}/kn7000-firmware/#names-from-the-routines-own-code)), and
+`make aligned-names` carried them to every sibling routine that 941's named routines call at the same
+place. The two lanes had named the same C file layer, string helpers and `INSTALL_SCRATCH` cursor twice;
+941 took the siblings' names (`Fs*`, `StrCopy`, `FileNameWithExt`, `FsMountVolume`, `ScratchPosReset`
+...), so each routine has one name across the models. Measured on the merged tree against main
+`4e1d77a5b` (disassembly
+[`kn7000/notes/kn7000-subsystems/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/kn7000-subsystems/README.md),
+merged in `d8aa8ade1`):
+
+| tree     | aligned routine names | call-site audit, right / wrong | RAM names (`*_ram.sym`) | `func_` labels  | routine starts  | named          | numeric work-RAM operands / addresses |
+|----------|-----------------------|--------------------------------|-------------------------|-----------------|-----------------|----------------|---------------------------------------|
+| `kn6000` | 115 -> 1,040          | 498 / 2 -> 758 / 3             | 503 -> 602              | 9,600 -> 8,057  | 5,501 -> 4,577  | 2,962 -> 3,887 | 17,339 / 2,484 -> 16,871 / 2,387      |
+| `kn6500` | 114 -> 1,056          | 504 / 2 -> 761 / 3             | 502 -> 601              | 9,658 -> 8,100  | 5,529 -> 4,599  | 2,967 -> 3,898 | 17,379 / 2,495 -> 16,910 / 2,398      |
+| `hdsx3`  | 2 -> 6                | 36 / 0 -> 36 / 0               | -                       | 765 -> 758      | 459 -> 455      | 179 -> 183     | 0                                     |
+
+The new wrong pair in the KN6000 and KN6500 is one routine with two names: 941's `SoundRamHeaderStamp`
+and the KN6000's `SoundRamSumUpdate` (marked *[INFERENCE: name from the store]*) both copy the
+16-character "KN7000 / KN6000 SOUND RAM" signature to the SOUND RAM header and then store
+`SoundRamChecksumCalc`'s value; the KN6000 row is left for the sibling lane to rename. The aligned
+names are those files' headers at `486525b6e` (1,040 / 1,056 / 6 routine names plus 8 / 9 / 0 RAM
+names), the census figures `sibling_name_census.py` (`kn7000/notes/kn7000-subsystems-probes/sibling-census-main-4e1d77a5b.txt`,
+`sibling-census-after.txt`, re-run at `486525b6e` with the same result).
+
 ## How much of each image is code
 
 `src/program.s` in each folder is generated by `make program-src`
@@ -320,8 +378,13 @@ The `.AST` header carries the tag `"I K"` where the KN7000's carries `"J K"`.
 
 ## Open work
 
-- Names: most entries are still `func_<ADDR>` (9,843 / 9,899 `func_` labels after lane
-  uitron-names, above; 9,910 / 9,966 after lane sibling-names2). Most of 941's names the siblings lack belong to code the sibling changed
+- Names: most entries are still `func_<ADDR>` (8,057 / 8,100 `func_` labels after wave 13's lanes
+  sibling-names3 and kn7000-subsystems, above; 9,843 / 9,899 after lane uitron-names). The sibling-only
+  code left is largest in the sequencer's core (0x4C11xxxx-0x4C12xxxx, the same code in the KN6000,
+  KN6500 and KN2400, but not the KN7000's), whose routines are tied together through RAM rather than
+  strings: the next step is to name its variables from the named accessors (`GetSeqPlyPart` ...) and the
+  routines by the variables they own; then the Lyrics / PlayDisp display procedures and the file-name
+  list helpers of the Fmm screens. Each further name 941 gets reaches the siblings by `make aligned-names`. Most of 941's names the siblings lack belong to code the sibling changed
   or does not have; routines that differ slightly from their KN7000 versions need another method
   than exact matching or call-site and pointer alignment. Names from the KN2400 and from each other
   were measured and would add one or two per model (above).
@@ -331,8 +394,8 @@ The `.AST` header carries the tag `"I K"` where the KN7000's carries `"J K"`.
   lane uitron-names (2026-11-07, [above](#the-milk-kernels-services)), from the specification's
   official text, which the disassembly downloads and does not commit. The kernel's inner routines that
   report no code (the poll cores, the queue helpers) are still `func_`.
-- Most RAM and I/O addresses are still numbers in the sources (17,755 / 17,791 numeric work-RAM
-  operands): 941 itself names few RAM variables, so its RAM map carries 8 or 9 names per sibling;
+- Most RAM and I/O addresses are still numbers in the sources (16,871 / 16,910 numeric work-RAM
+  operands after wave 13; 17,755 / 17,791 before): 941 itself names few RAM variables, so its RAM map carries 8 or 9 names per sibling;
   each KN7000 RAM name added later reaches them by a re-run of `make aligned-names`. Data addresses the code uses are
   named from the typed data's labels (`labels.sym`, read by `gen_image_s.py`), except a few that
   fall inside typed items.

@@ -92,11 +92,11 @@ code that lands in the data region (`TAIL_CODE`, `find_tail_code()`), writes it 
 | `0x487B8AC4` | 128   | `KernelServiceHash`         | 16 x {u32 key, case address}: `KernelWaitRelease` probes it by `(key & 0xF) * 8` and jumps through `+4`; typed `REC_KernelServiceHash`                           |
 | `0x487B8B44` | 24    | `KernelRamLayout`           | 6 RAM addresses; +0x14 is `KernelStart`'s stack pointer                                                                                                          |
 | `0x487B8B5C` | 28    | `KernelParams`              | 14 u16 = 10, 20, 20, 20, 10, 10, 10, 10, 10, 10, 20, 10, 30, 0; read at +0 (`get_tid`), +0x10, +0x12 and +0x16                                                   |
-| `0x487B8B78` | 695   | `KernelInit`                | `KernelStart`'s `jmp` target: fills the kernel's RAM tables, creates the task `func_4C03B514`, calls `KernelInitHook`                                            |
+| `0x487B8B78` | 695   | `KernelInit`                | `KernelStart`'s `jmp` target: fills the kernel's RAM tables, creates the task `KernelTimerTask`, calls `KernelInitHook`                                          |
 | `0x487B8E2F` | 364   | `KernelWaitRelease`         | a `movm` + `add -0x10, sp` prologue, then `KernelWaitRelease_entry`; the 11 cases `KernelServiceHash` points at are its labels                                   |
 | `0x487B8F9B` | 3     | `KernelErrorHook`           | `retf 0, 0`; 26 calls, each before a service returns an error (d0 = its µITRON 3.0 function code, d1 = a µITRON error code; [below](#the-milk-kernels-services)) |
 | `0x487B8F9E` | 3     | `KernelErrorHook2`          | `retf 0, 0`; 3 calls, the same arguments                                                                                                                         |
-| `0x487B8FA1` | 3     | `KernelWaitAbortHook`       | `retf 0, 0`; `func_4C03B514` calls it with a0 = the task's control block, d0 = -0x55 (E_TMOUT)                                                                   |
+| `0x487B8FA1` | 3     | `KernelWaitAbortHook`       | `retf 0, 0`; `KernelTimerTask` calls it with a0 = the task's control block, d0 = -0x55 (E_TMOUT)                                                                 |
 | `0x487B8FA4` | 11    | `KernelStart`               | `mov (KernelRamLayout+20), a3 / mov a3, sp / jmp KernelInit`; jumped to from the reset code and from `func_4C03DD98`                                             |
 | `0x487B8FAF` | 3     | `KernelInitHook`            | `ret 0, 0`, called by `KernelInit`                                                                                                                               |
 | `0x487B8FB2` | 31    | `KernelTickIsrDefault`      | the kernel's default system-tick interrupt handler, which nothing enters: the application installs its own (below)                                               |
@@ -426,6 +426,62 @@ function no symbol file names yet is `func_<ADDR>`; every branch target is a lab
 starts with a register-save prologue (`movm [regs], (sp)` and/or `add -N, sp`) and is entered
 by `call` right after it, so its label sits on the prologue and `<name>_entry` on the `call`
 entry. Naming the `func_` functions and the `loc_` labels is the next step.
+
+### Names from the routines' own code
+
+**Most of the program's routines have names now.** Beyond the 2,302 names the firmware's own
+reflection tables give and the hand-named modules, a pass in November 2026 read the remaining unnamed
+routines of program v1.6 (build 941) range by range and named 2,312 of them, each from evidence in its
+own code: the strings it prints or compares, the named routines it calls and how, the variables and
+hardware registers it uses, or the table that lists it. Each name's evidence is recorded beside it in
+the symbol file. Among them are both copies of the floppy-controller driver (the same code as the IC18
+boot ROM's `Fdc*` routines: the copy entered on strap 3 is `FdcStrap3*`, the program's own `FdcPrg*`),
+the FAT file system (`Fat*`) and the SD-card layer, the song memory of the sequencer (song records,
+256-byte pages, the read and write cursors), the tempo clocks, the performance-pad and composer
+editors, the SD audio player (`SdAud*`), the slide show (`Ssw*`), the PC COMMUNICATION protocol and the
+kernel's queues. The names reach program v1.3 (893), v1.5 (935) and the SP7001 build (942) by the same
+code, and the KN6000, KN6500 and KN2400 wherever their code calls the same routines in the same places
+([KN6000 / KN6500]({{ site.baseurl }}/kn6000-disassembly/#names),
+[KN2400]({{ site.baseurl }}/kn2400-disassembly/#names)).
+
+Lane kn7000-subsystems (2026-11-07, disassembly
+[`kn7000/notes/kn7000-subsystems/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/kn7000-subsystems/README.md),
+merged in `d8aa8ade1`) wrote them as one section of `kn7000/kn7000_manual.sym`, each row
+`0xADDR  Name  ; [CLASS] evidence`, and `check_proposals.py` checked every row (well formed, new in every
+MN10300 tree, on a 941 `func_` routine start, with a class). The classes, as `name_tally.py` counts them
+(a row with two classes counts in both):
+
+| class  | the name comes from                                                                              | rows  |
+|--------|--------------------------------------------------------------------------------------------------|-------|
+| STR    | a firmware string the routine itself uses                                                        | 218   |
+| TABLE  | a firmware table that names it or its slot                                                       | 103   |
+| WRAP   | its whole body is one call of a named routine with constant arguments, or a named routine's twin | 90    |
+| CALLEE | what it does, read from the named routines it calls and the arguments it passes them             | 922   |
+| CALLER | its callers are all in one named subsystem, and its body does what the name says                 | 613   |
+| RAM    | the named RAM it reads or writes                                                                 | 759   |
+| IO     | the named I/O registers or hardware windows it drives                                            | 168   |
+| BODY   | a self-contained helper whose body alone shows what it computes                                  | 1,201 |
+
+Routines still named `func_<ADDR>` (`kn7000/notes/kn7000-subsystems-probes/placeholders.py`, at main
+`4e1d77a5b`, the merge base, and after; re-run at `486525b6e` with the same result):
+
+| build      | before | after | named by the lane |
+|------------|--------|-------|-------------------|
+| 941 (v1.6) | 6,282  | 3,970 | 2,312             |
+| 942        | 6,281  | 3,970 | 2,311             |
+| 935 (v1.5) | 6,279  | 3,967 | 2,312             |
+| 893 (v1.3) | 6,271  | 3,968 | 2,303             |
+
+The names reach 942, 935 and 893 through the offset map (`make -C kn7000 symbols-sp7001 exports-941
+symbols-935 symbols-893`); the few that do not reach a build sit in code it lacks or rewrote. The C file
+layer, the string helpers and the `INSTALL_SCRATCH` cursor, which lane sibling-names3 named in the
+KN6000 and KN2400 at the same time, take the siblings' names in 941 too (`FsOpen`, `FsMountVolume`,
+`FileNameWithExt`, `StrCopy`, `ScratchPosReset` ..., in place of the lane's first names), so each routine
+has one name across the models.
+The readers also reported that `StyleIdArrayHandler` is the style parts' MIDI event output (it maps
+`status & 0x0F` through `StylePartToTgPart` and sends the event on), not a builder of style-ID arrays;
+the name is kept for now. 3,970 routines are left, and the ones the siblings pair by call sites are the
+next names with the widest reach.
 
 ### Calling convention
 

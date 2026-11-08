@@ -198,6 +198,53 @@ Four of the new names are the KN7000's own since November 2026 (`JpegEncSetup`, 
 apart only by one byte variable in a block whose layout the KN2400 changed, so no RAM pair can be right
 for them.
 
+**Names from the firmware's own evidence.** Code the SX-KN7000 does not have gets its names by hand
+since November 2026, each with the evidence it rests on: the strings it uses, the screens it posts
+to, the hardware registers it drives, or a table another image names. Most of it was named in the
+SX-KN6000 ([KN6000 / KN6500 / HD-SX]({{ site.baseurl }}/kn6000-disassembly/#names)): its file layer, the
+small file-system library beneath it (`FsOpen`, `FsRead`, `FsWrite` ...), the SMF reader, the zlib file
+codec. A routine named there passes to the KN2400 when its code, with every address masked, is the
+same at the same place in the link order, a rule checked on the routines both models already name
+(KN6000 -> KN2400 1,074 alike / 2 unlike, `port_hand_names.py --report`; the two are pairs already
+known as two names for one routine). The KN2400's fmm layer sits on the same `Fs` library. Of its own,
+the KN2400 got its string helpers (`StrCopy`, `StrAppend`, `StrCopyPad`) and `FileNameWithExt` with its
+14-entry `FileTypeExtTable` ("ACT" added to the KN6000's list), 13 load / save bodies named by their file
+type (`LoadCmpFile`, `SaveTmFile` ...), two trampoline bodies, `CaptureLcdWriteBmp`, `FsMountVolume`
+*[INFERENCE]* and `TestSdImmunityFile`.
+
+Lane sibling-names3 (2026-11-07, disassembly
+[`kn7000/notes/sibling-names3/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/sibling-names3/README.md),
+merged in `5ee2082dd`) wrote those 66 rows of `kn2400_manual.sym` (48 carried from the KN6000, 15 of them
+RAM). `sibling_name_census.py` reads the change as `func_` labels 11,254 -> 11,166 (routine starts 6,480
+-> 6,430), named entries 3,478 -> 3,528 and numeric work-RAM operands / addresses 20,908 / 2,933 ->
+20,564 / 2,916 (before at `92b5cc4a7`; `kn7000/notes/sibling-names3-probes/census-92b5cc4a7.txt`,
+`census-after.txt`); `kn2400_ram.sym` went from 641 to 643 rows.
+
+**941's names of November 2026 reach the KN2400.** In the same wave lane kn7000-subsystems named 2,312
+of program 941's unnamed routines by hand
+([KN7000 Firmware]({{ site.baseurl }}/kn7000-firmware/#names-from-the-routines-own-code)), and
+`make aligned-names` carried them to every KN2400 routine that 941's named routines call at the same
+place. The C file layer, the string helpers and the `INSTALL_SCRATCH` cursor, which both lanes had
+named, now carry the siblings' names in 941 too. Measured on the merged tree against main `4e1d77a5b`
+(disassembly
+[`kn7000/notes/kn7000-subsystems/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/kn7000-subsystems/README.md),
+merged in `d8aa8ade1`):
+
+| measure                                        | before         | after          |
+|------------------------------------------------|----------------|----------------|
+| aligned routine names (`kn2400_aligned.sym`)   | 249            | 1,629          |
+| call-site audit, right / wrong                 | 674 / 3        | 1,107 / 3      |
+| RAM pairs                                      | 3,147          | 3,355          |
+| RAM names, `kn2400_ram.sym` (accessor + owner) | 643            | 773 (82 + 691) |
+| `func_` labels (`sibling_name_census.py`)      | 11,166         | 8,901          |
+| routine starts named `func_`                   | 6,430          | 5,060          |
+| named entries                                  | 3,528          | 4,899          |
+| numeric work-RAM operands / addresses          | 20,564 / 2,916 | 19,952 / 2,786 |
+
+The census figures are `kn7000/notes/kn7000-subsystems-probes/sibling-census-main-4e1d77a5b.txt` and
+`sibling-census-after.txt` (re-run at `486525b6e` with the same result); `kn2400_aligned.sym`'s header
+at `486525b6e` reads 1,629 routine names and 9 RAM names.
+
 **Two sibling names that look like one.** The KN2400's `FilePriorityFunc` and the KN7000's
 `SdcPanelSwAsFunc` have the same code because both are two-entry choice parameters of one
 template; their choice lists (TECHNICS / SMF and SD-AUDIO / SD-SOUND) tell them apart, so each
@@ -256,14 +303,18 @@ run into the next function's `add -N, sp`, 7 are fill and 2 stop early
 
 ## Open work
 
-- Most entries are still `func_<ADDR>` (11,254 `func_` labels after lane uitron-names, 11,315
-  after lane sibling-names2, above, as `sibling_name_census.py` counts them); 2,320 of its 6,518 routine starts (counted just before
-  the lane's last name) pair by call sites with a 941 routine that 941 leaves unnamed too. Routines that differ
+- Most entries are still `func_<ADDR>` (8,901 `func_` labels after wave 13's lanes sibling-names3 and
+  kn7000-subsystems, above; 11,254 after lane uitron-names, 11,315 after lane sibling-names2, as
+  `sibling_name_census.py` counts them). The sibling-only code left is largest in the sequencer's core
+  (0x4861xxxx-0x4862xxxx), shared with the KN6000 and KN6500, whose names reach the KN2400 from the
+  KN6000. The 30 short tone-generator twins stay unnamed: none of their callers in the RAM-linked
+  library is named yet. Routines that differ
   slightly from their KN7000 versions need another naming method than exact matching or
   call-site alignment.
 - Reflection tables whose procedures are in the RAM-linked range: `gen_symbols.py` assumes
   one link base, so it pairs none of them.
-- Most RAM and I/O addresses are still numbers (20,908 numeric work-RAM operands). Since the data is typed, the code names the data
+- Most RAM and I/O addresses are still numbers (19,952 numeric work-RAM operands after wave 13; 20,908
+  before). Since the data is typed, the code names the data
   addresses it uses by their labels, but not everywhere: the RAM-linked `NoteConvApply` still
   loads `NoteConvRules` as `mov 0x4854b24c, d3`.
 - The 4 MiB half of the IC12/IC13 flash pair at `0x48000000` has never been read; see
