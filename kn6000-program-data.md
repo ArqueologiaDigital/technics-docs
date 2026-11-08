@@ -461,8 +461,8 @@ The KN6000's dispatchers are `func_4C03CD2C` and `M3HookDispatch`, the twins of 
 On the KN6000 the dispatch-list tails were 660 bytes, the accordion diagrams' cells 312 and the EQ band
 labels' copy 186. Measured by `kn7000/notes/mn10300-data5-probes/opaque_diff.py` (before = the base
 `92b5cc4a7`'s data directories; nothing became newly opaque) and `kn7000/notes/mn10300-data-probes/opaque_left.py`,
-which gives the same totals at `486525b6e`; fields by `kn7000/notes/mn10300-formats-probes/field_names_census.py --md`,
-whose figures at `486525b6e` are lower again because more routines are named
+which gives the same totals at `486525b6e`; fields by `kn7000/notes/mn10300-formats-probes/field_names_census.py --md`
+(the lane's run, and again at `486525b6e`, after the other wave-13 merges)
 (disassembly [`kn7000/notes/mn10300-data5/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data5/README.md),
 merged in `4e1d77a5b`).
 

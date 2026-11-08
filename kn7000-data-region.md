@@ -587,7 +587,7 @@ which gives the same totals at `486525b6e`. The fields are
 `kn7000/notes/mn10300-formats-probes/field_names_census.py --md`: the lane measured 136 / 148 / 140 / 152
 on its branch, but at `486525b6e`, after lane kn7000-subsystems renamed the data labels derived from the
 routines it named, the curated kinds keyed by the old labels (`AppTaskState`, the cyclic-handler packet,
-the four JPEG mode records) no longer apply, so the census reads 160 / 168 / 164 / 172. The rules are the
+the four JPEG mode records) are no longer applied, and the census reads 160 / 168 / 164 / 172. The rules are the
 `gen_data_s.FEATURES` keys `sentinel_copy`, `float_pairs`, `dup_spans` and `copied_reclaim` (disassembly
 [`kn7000/notes/mn10300-data5/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data5/README.md),
 merged in `4e1d77a5b`).
