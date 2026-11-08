@@ -114,13 +114,13 @@ at `0x4C3DF8EC` (KN6000), 1,080 at `0x4C36F724` (KN6500). The KN6000's field rea
 |------------------|-------------------------------------------------------------------------------------------------|
 | `+0 panel`       | `func_4C16B6B5_entry_L43` loads it and calls `func_4C04C476`, which hands it to `func_4C04C58C` |
 | `+4 name`        | `MssNameFunc_L121` (`0x4C1637F8`), strncpy 16                                                   |
-| `+8 genre`       | `func_4C1640C8`: `StyleGenreTable` + genre * 8                                                  |
-| `+10 style`      | `func_4C1640C8`: the genre's style list + style * 8                                             |
-| `+12 setup`      | `func_4C1649B6`, `func_4C164AAC`                                                                |
+| `+8 genre`       | `StyleSubCatHeaderBuild`: `StyleGenreTable` + genre * 8                                         |
+| `+10 style`      | `StyleSubCatHeaderBuild`: the genre's style list + style * 8                                    |
+| `+12 setup`      | `StyleCtgRowGet`, `StyleGenreStyleStep`                                                         |
 | `+14 era`        | `func_4C165A19`, `cmp 0xffff, d1`                                                               |
 | `+16 era_pos`    | `func_4C16619A`: `LibDiv32` by 9, page and row                                                  |
-| `+18 letter`     | `func_4C164F3F`: `StyleAlphabetTable` + letter * 8                                              |
-| `+20 letter_pos` | `func_4C164F3F`, `func_4C1655C7`                                                                |
+| `+18 letter`     | `StyleAlphaHeaderBuild`: `StyleAlphabetTable` + letter * 8                                      |
+| `+20 letter_pos` | `StyleAlphaHeaderBuild`, `StyleAlphaRowGet`                                                     |
 
 The `panel` record is the one-touch-setting record that the CUSTOM banks also hold, `0x90` bytes
 here (`func_4C04C552`, KN6500 `func_4C04C6C2`, answers `0x90`). `func_4C04C58C` merges it into

@@ -109,7 +109,7 @@ queued wake-ups) and returns with `rets`: the interrupt-handler shape. `LibIrqSc
 the RAM table `0x50380A6C` to an index and calls the handler from the RAM table `0x50380B64` with
 `calls (a2)`. KernelInit fills that table with the default `loc_4C03DEE9`, and the def_int service
 `KernelDefInt` installs a handler from a packet {attribute, handler, level, ICR address}. The only
-def_int of G6ICR is the application start-up's (`func_48447F33`, which KernelInit calls): interrupt 1,
+def_int of G6ICR is the application start-up's (`KernelTickTaskInit`, which KernelInit calls): interrupt 1,
 handler `KernelTickHandler` (lib `0x4C02BB05`, the 1 kHz tick), level 6. No word of the program, table
 or IC18 image holds `0x487B8FB2`, no instruction names it and no branch reaches it, so it is the kernel
 configuration's default tick handler, which the application replaced *[INFERENCE]*. All four models
@@ -130,7 +130,7 @@ block sits at the same distance from the library image in every build, so the ta
 The KN6000, KN6500 and KN2400 keep the same routines, under the same names
 ([KN6000 / KN6500 / HD-SX Disassembly]({{ site.baseurl }}/kn6000-disassembly/#the-two-program-images)).
 `func_487B8E34`, which the data region used to declare as 301 opaque bytes, was the address of
-`KernelWaitRelease_entry`; `func_4C03B799_Table`, "353 x s16", is 3 x s16 ([Program Data Region]({{ site.baseurl }}/kn7000-data-region/#the-kernels-flash-tail)).
+`KernelWaitRelease_entry`; `KernelTaskReadyRemove_Table` (then `func_4C03B799_Table`), "353 x s16", is 3 x s16 ([Program Data Region]({{ site.baseurl }}/kn7000-data-region/#the-kernels-flash-tail)).
 
 ### Region map
 

@@ -234,15 +234,15 @@ counts.
 
 `StyleRecordBindBuiltin` (`0x484336DB`) binds the current one into the pattern player's view:
 
-| offset     | size  | field                                                           | evidence                                                                     |
-|------------|-------|-----------------------------------------------------------------|------------------------------------------------------------------------------|
-| `+0`       | 1     | bars - 1                                                        | `0x50122DCE`; `StyleBoundRecByteCeInc` + 1 -> `0x5003A452` (`func_48442293`) |
-| `+1`       | 1     | beats a bar - 1                                                 | `0x50122DCF`; `StyleBoundRecByteCfLow3` + 1 -> `0x5003A454`                  |
-| `+2`, `+3` | 1, 1  | the style parts the DSP units EFF4 / EFF5 serve, `0xFF` default | `0x50122DD4`; `func_48442164` stores them as key `0xB048`                    |
-| `+4`       | u16BE | set-up length L                                                 | `0x50122DCC`                                                                 |
-| `+6`       | L     | set-up events                                                   | `0x50122DC8`; replayed into the part table by `StyleTemplateRebuild`         |
-| `+6+L`     | u24BE | stream length S                                                 |                                                                              |
-| `+9+L`     | S     | the event stream                                                | start `0x50122DC0`, end `0x50122DC4` = start + S - 1, the `0xF5`             |
+| offset     | size  | field                                                           | evidence                                                                    |
+|------------|-------|-----------------------------------------------------------------|-----------------------------------------------------------------------------|
+| `+0`       | 1     | bars - 1                                                        | `0x50122DCE`; `StyleBoundRecByteCeInc` + 1 -> `0x5003A452` (`RhyMeterBind`) |
+| `+1`       | 1     | beats a bar - 1                                                 | `0x50122DCF`; `StyleBoundRecByteCfLow3` + 1 -> `0x5003A454`                 |
+| `+2`, `+3` | 1, 1  | the style parts the DSP units EFF4 / EFF5 serve, `0xFF` default | `0x50122DD4`; `StyleVarDspPartsApply` stores them as key `0xB048`           |
+| `+4`       | u16BE | set-up length L                                                 | `0x50122DCC`                                                                |
+| `+6`       | L     | set-up events                                                   | `0x50122DC8`; replayed into the part table by `StyleTemplateRebuild`        |
+| `+6+L`     | u24BE | stream length S                                                 |                                                                             |
+| `+9+L`     | S     | the event stream                                                | start `0x50122DC0`, end `0x50122DC4` = start + S - 1, the `0xF5`            |
 
 Bytes 2/3 are `FF FF` in 2,710 of the 3,380 variations and `FF 02`-`FF 07` in the rest. They name
 the parts the style's two DSP effect units apply to (Acc1 and Acc2 by default); in the 670 variations

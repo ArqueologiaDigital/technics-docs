@@ -227,9 +227,9 @@ a mode byte chooses the bank: 0 for bank A, any other value for bank B.
 | `SetDialLed`                              | `0x48416521`                | `0x48416563`                |
 
 **The TEMPO/PROGRAM knob's LED** is `SetDialLed`'s, LED number 4. In program 893 it is bit 1 of
-bank A's register 18 (`0x50150A2A`, written by `func_484B0AB3`), which goes to panel address `0x0C`
-and lights `cpr_led97` in MAME, or bit 7 of bank B's register 9 (`0x50150A61`, `func_484B0AD2`);
-`func_484B0AF3` chooses between them by the mode byte. The Pinball Fantasies port finds the two
+bank A's register 18 (`0x50150A2A`, written by `PanelLedDialSetA`), which goes to panel address `0x0C`
+and lights `cpr_led97` in MAME, or bit 7 of bank B's register 9 (`0x50150A61`, `PanelLedDialSetB`);
+`PanelLedDialSet` chooses between them by the mode byte. The Pinball Fantasies port finds the two
 writers by a code signature, which matches once in each of programs 893, 935, 941 and 942
 (`notes/session-2026-10-27/dialled_sig.py` in that repository).
 
@@ -359,7 +359,7 @@ fader's power-on position silently and only speaks when it moves.
 code read, and the M3 traffic **observed in emulation, not on hardware**). The firmware latches the
 frame in `PanelCtrlLatch32` (the remapped value 0..0x7F at `0x5006BEAD`) and reads it back as
 `PanelCtrlValueGet(0xC2)`: the index drops the TYPE bits, so control `0xC2` and wire byte `0xD2`
-select the same latch. `func_48454E3A` sets two parameters from it, and `func_48454D21` decides
+select the same latch. `ApcSeqSliderRoute` sets two parameters from it, and `ApcSeqSliderOnSeq` decides
 which: normally (no sequencer part plays, and always in DEMO) the slider sets **APC VOLUME**
 (`0x008008`, the automatic accompaniment) and SEQ VOLUME (`0x008006`) is held at 127; while the
 sequencer plays the roles swap, and the slider sets **SEQ VOLUME** (all the playback parts) with APC

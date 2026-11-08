@@ -74,13 +74,25 @@ Live UI objects are kept in a fixed table in work RAM at **`0x5000757C`**, with
 address the same way (`base + id*0x38`), which is how the geometry is known;
 `GetCurrentTarget` is the clearest:
 
+> **Read again in November 2026.** The index is a task id, not an object id: the helper below,
+> `GuiCallerTaskIdGet` (named 2026-11-07 by lane kn7000-subsystems, `kn7000/kn7000_manual.sym`), answers
+> 1 for the main GUI task and 2 for the AP task, and `GetFocusEvent`, `GetTitleNow` and 38 other Main / Ap
+> pairs index their per-task tables with it. The table at `0x5000757C` (`DeleteEventForTask_Table`) is four
+> 56-byte per-task records. Lane mn10300-data5 read their fields from their readers (`PostEventForTask`,
+> `InitDrawTask`, `DispatchEventForTask`, `ProcCall`, `SendEventForTask`): an event queue (read and
+> write index, size, buffer at `+0x2C`), a message and a lock flag, the current class, and the object,
+> event and parameter of the message being dispatched and of the call being made
+> (`kn7000/notes/mn10300-data5/README.md`, the kind `AppTaskState` of `kn7000/tools/data_struct_names.py`;
+> at disassembly `486525b6e` the generated source does not apply it, because the array's label was
+> renamed after its routine in the same wave). The slot's `+0x10` is that record's object field.
+
 ```
 GetCurrentTarget:                 # CPU 0x4842943B
     add     -0x10, sp
     mov     sp, a0
     add     0xc, a0               # a0 -> a halfword on the stack
-    call    func_48414A4D_entry, [a2], 4  # GetCurrentObjectId (below): id -> (a0)
-    movhu   (0xc, sp), d0         # d0 <- the active object's id
+    call    GuiCallerTaskIdGet_entry, [a2], 4  # (below): the calling task's id -> (a0)
+    movhu   (0xc, sp), d0         # d0 <- the GUI task id (1 main, 2 AP)
     mov     0x38, d1
     exth    d0
     mul     d1, d0                # id * 0x38
@@ -101,29 +113,30 @@ in it.
 The KN7000 runs two cooperative UI tasks — a **main** task and an **AP**
 (application) task — matching the `SleepMainTask`/`SleepApTask` /
 `WakeUpMainTask`/`WakeUpApTask` pair. The helper that every event call uses to
-find "the current object" selects between the two:
+find its task's record selects between the two:
 
 ```
-GetCurrentObjectId:               # prologue func_48414A4D: movm [a2], (sp)
-                                  # CPU 0x48414A4F  (func_48414A4D_entry)
-    mov     (0x50380004), a2      # current-task handle
-    mov     (0x5038002c), a1      # main-task handle
+GuiCallerTaskIdGet:               # CPU 0x48414A4D, prologue: movm [a2], (sp)
+GuiCallerTaskIdGet_entry:         # CPU 0x48414A4F
+    mov     (0x50380004), a2      # task 1's (the main task's) TCB
+    mov     (0x5038002c), a1      # the running task's TCB
     cmp     a1, a2
     bne     .ap                   # not the main task -> AP path
-    movhu   (0x500d3c60), d0      # main task's focused-object id
+    movhu   (0x500d3c60), d0      # the main GUI task's id (1)
     movhu   d0, (a0)
     bra     .done
 .ap:
-    movhu   (0x500d3c5c), d0      # AP task's focused-object id
+    movhu   (0x500d3c5c), d0      # the AP task's id (2)
     movhu   d0, (a0)
 .done:
     clr     d0
     retf    [a2], 4
 ```
 
-i.e. the *focused object id* is kept per task (`0x500D3C60` for main,
-`0x500D3C5C` for AP), and is chosen by comparing the running task handle
-(`0x50380004`) against the main-task handle (`0x5038002C`).
+i.e. the id of the calling GUI task (`0x500D3C60` holds the main task's, 1; `0x500D3C5C` the AP
+task's, 2), chosen by comparing the running task's TCB (`0x5038002C`) with task 1's (`0x50380004`).
+An earlier version of this page read the two words as per-task focused-object ids and the two TCB
+words the other way round.
 
 ## Dispatch API
 
@@ -138,7 +151,7 @@ The public entry points, all recovered by name and converted to source:
 | `GetEvent` | `0x484293D2` | fetch an event `(obj, a0, a1)` for processing |
 | `GetCurrentTarget` | `0x4842943B` | the active object's current target (slot `+0x10`) |
 
-Most begin by resolving the current object via `GetCurrentObjectId`, then hand
+Most begin by resolving the calling task's id via `GuiCallerTaskIdGet`, then hand
 off to a lower-level queue/dispatch helper (`func_48428…`) that walks the object
 tree and invokes the target's window procedure. (`DispatchEvent` is argument-less
 precisely because it acts on the *current* object rather than a passed-in one —

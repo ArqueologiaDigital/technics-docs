@@ -47,10 +47,10 @@ in `ResourceIdTrie` (KN7000 `0x4858B424`, walked by lib `ResourceIdFind`; KN6000
 KN2400 `0x48404E70`, each walked by its `ResourceIdFind`, named and typed by lane mn10300-rest: a root of
 16 entries `{u32 target, u8 inner, u8 count, u16 0}`, taken by the id's nibbles from bit 20 down). A leaf is
 `{u32 id, u16 type, u16 kind, u16 min, u16 max, u8 block, u8 offset, u8 mask, u8 shift}`. For type
-0, `func_4C015602` dispatches on `kind` and reads through `func_4C01F153(block, offset, mask)`;
-writes go through `func_4C01F200`, which then calls `func_4C01F8F4`, the accompaniment-entry
-mirror. The block is a pointer from a table read by `func_4C021040` (KN7000 `0x4858D44C`; KN6000
-`0x4C195520`, read by `func_4C031C94`), and **block n is the payload of the panel record's tag n**.
+0, `M3GetByKind` dispatches on `kind` and reads through `M3BlockFieldRead(block, offset, mask)`;
+writes go through `M3BlockFieldWrite`, which then calls `func_4C01F8F4`, the accompaniment-entry
+mirror. The block is a pointer from a table read by `M3BlockPtrGet` (KN7000 `0x4858D44C`; KN6000
+`0x4C195520`, read by `M3BlockPtrGet`), and **block n is the payload of the panel record's tag n**.
 Part-scoped ids take the block from the id's top byte.
 
 `m3em_param_map.py` measured 469 trie records on the KN7000 (314 of type 0) and 307 of type 0 on
@@ -122,7 +122,7 @@ The KN6000 has more foot-controller functions (`0x004008`-`0x004041` in tag `0x4
 
 ## The song record keeps an image of the same SRAM
 
-`func_4C01F153`, in mode bit 0 (the `GetM3Sqf` / `PutM3Sqf` "Sqf" bank), reads a parameter at
+`M3BlockFieldRead`, in mode bit 0 (the `GetM3Sqf` / `PutM3Sqf` "Sqf" bank), reads a parameter at
 `Rec8E0Field120Ptr` (record 0) `+ (block - 0x84000000)`. So song record `+0x120` onward is an image
 of backup SRAM `0x84000000 + (offset - 0x120)`: `+0x140` is the song's panel memory (the image of
 the live record), and the tail after it is block `0x52`, 46 bytes on the KN6000 (the record's end)
@@ -131,7 +131,7 @@ tag / length bytes the song copy does not keep. All 605 song records type that b
 / `PMR_52_46`. `+0x07`..`+0xCF` and `+0x100`..`+0x11F` stay rows: no reader was traced.
 
 The song events now follow the firmware's own per-status length table (`0x485B9328`, read by
-`func_4845BC5B`; the player tick steps each track through it). It agrees with the lengths measured
+`SongEventLenGet`; the player tick steps each track through it). It agrees with the lengths measured
 on every status the 27 disks hold, and adds `0x84` (bar), `0x8A` (PIC), `0xA2` / `0xA3` and `0xF4`;
 `0xB1`-`0xBF` are not events. The macros' parameters are the event layouts: `sq_cc` {part, cc,
 value}, `sq_a` {part, flags, id big-endian, value}, `sq_note` {key, velocity, u16 duration}.

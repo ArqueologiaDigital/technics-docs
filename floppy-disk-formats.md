@@ -360,7 +360,7 @@ KN7000 program 941 routine (names and addresses in `kn7000/kn7000_manual.sym`, q
 - **Events** were first typed by a measured grammar: a tick byte before every event; 0x9n + 4,
   0xAn + 6, 0xBn + 3, 0xCn + 3, 0xDn + 1, 0xEn + 2, 0x8n + 2; 0xF1 + 5, 0xF2 + 6, 0xF3 + 7;
   0x85 / 0x86 + 0; 0x81 beat, 0x82 end. Since 2026-10-29 `kn_sqt.py` uses the firmware's own
-  per-status length table (KN7000 `0x485B9328`, read by `func_4845BC5B`; the player tick steps
+  per-status length table (KN7000 `0x485B9328`, read by `SongEventLenGet`; the player tick steps
   each track through it). The table agrees with the measured lengths on every status the 27 disks
   hold, adds 0x84 (bar), 0x8A (PIC), 0xA2 / 0xA3 and 0xF4, and makes 0xB1-0xBF non-events. The
   macros' parameters are the event layouts: `sq_cc` {part, cc, value}, `sq_a` {part, flags, id

@@ -39,7 +39,7 @@ Viewable tables, 35 OT blocks, 278 titles and 23 modes; `milk_model --check`: 0 
   entries agreeing and 0 disagreeing, where it read 2,193 and 90 before (disassembly `8037f3750`).
   No page of this site quoted any of the 90 names.
 - **Demo songs**: `func_486183E3` inflates song n's three streams (record, events, panel memory)
-  through `func_486D4A2A`, as the KN7000's `func_48457350` / `func_48533758` do. The song record's
+  through `func_486D4A2A`, as the KN7000's `DemoSongLoad` / `func_48533758` do. The song record's
   signature is `01 0E` (`0x8E0` bytes), measured on the 8 songs; all 24 streams are typed inside
   `.zlib 6` blocks.
 - **Built-in style**: `TechnicsRhythmsResource` (`0x4852BD9C`), IC18's format with one style.

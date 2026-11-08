@@ -33,7 +33,7 @@ reference:
 ## Structures that have a format of their own
 
 - **The built-in demo songs.** The 30 zlib streams of each build are its 10 demo songs, three
-  streams each. `func_48457350` (d0 = the song) takes song n's streams from three 12-entry tables
+  streams each. `DemoSongLoad` (d0 = the song) takes song n's streams from three 12-entry tables
   in the initialised RAM and inflates them with `func_48533758`: the song record into
   `Rec8E0TablePtr(0)` (`0x8E0` bytes), the event memory into `0x5003D36C` (`0x9800` bytes) and a
   panel-memory bank. They are the formats of the floppies' `.SQT` and `.PMT` files, so the floppy
@@ -87,9 +87,9 @@ whose header lists every field, its type and its first readers, with the instruc
 
 ```
 # MusicStylistSetup: 24-byte records (StyleRecordTable, 1080 records); fields, and what reads them:
-#   +0   panel        ptr            func_4847B18C 0x4847B18C `mov (d2, a2), a0`; AcCategoryListBoxProc 0x4847B2AE `mov (d0, a0), d0` (+10)
-#   +4   name         ptr            MssNameFunc 0x4847AFDD `mov (4, a0), a1`; func_4847B14B 0x4847B14B `mov (4, a0), a1` (+3)
-#   +8   genre        u16            AcCategoryListBoxProc 0x4847B2AE `movhu (8, a1), d0`; func_4847BA42 0x4847BA42 `movhu (8, a1), d0` (+9)
+#   +0   panel        ptr            StyleListItemTextBuild 0x4847B18C `mov (d2, a2), a0`; AcCategoryListBoxProc 0x4847B2AE `mov (d0, a0), d0` (+10)
+#   +4   name         ptr            MssNameFunc 0x4847AFDD `mov (4, a0), a1`; StyleRecNameGet 0x4847B14B `mov (4, a0), a1` (+3)
+#   +8   genre        u16            AcCategoryListBoxProc 0x4847B2AE `movhu (8, a1), d0`; StyleSubCatHeaderBuild 0x4847BA42 `movhu (8, a1), d0` (+9)
 #   ...
 #   +22  x22          u8[2]          no reader seen
 ```
@@ -253,7 +253,7 @@ holding the array's base at the loop head and base + s at the compare, the array
 table header cites the compare. Only bottom-tested loops count. 40 bounds in build 941, 16 tables
 shortened: `MainMmmControl_Table` is 256 entries, not 260 (its +1024 / +1028 are `MainMmmControl`'s
 two variables), and the code that named the bytes after a shortened table now names their own tables:
-`movhu (func_4850DF34_Table+20), d0` became `movhu (FE_CmpMDelFstMeas_Table), d0`, one of the `FE_*`
+`movhu (CmpMCopyFieldApply_Table+20), d0` became `movhu (FE_CmpMDelFstMeas_Table), d0`, one of the `FE_*`
 menu fields' min / max pairs the table had swallowed.
 
 **The walk.** (a) `mem_ptrs` follows a pointer stored to a memory slot and loaded back; it found 5
@@ -285,7 +285,7 @@ mid-instruction `.long` count; measured against main `868b201f0`; n / bytes):
 Of the rules alone on 941, `deep_records` types the most (+11,924 bytes) and `loop_index` next
 (+5,959); they overlap. No tree loses typed coverage; a few bytes per tree that an over-long table or
 record held before (6 to 87) are now rows, fill or opaque pieces, for instance the `0xFFFFFFFF` after
-`func_484161BE_Table` (the loop stops before it) and `func_48440E4D_Records`, 3 "User Bank" records,
+`PartHasDspUnit_Table` (the loop stops before it) and `func_48440E4D_Records`, 3 "User Bank" records,
 not 6.
 
 ## Blocks a routine is handed
@@ -327,7 +327,7 @@ its body `cre_tsk_Impl` (`func_4C03D154` until lane uitron-names, 2026-11-07); b
 separate one-word table. Other examples: `REC_cre_flg_ArgA0` (`REC_func_4C03C7EF_ArgA0` until the same
 lane; 12 bytes, 10 blocks and one 8-byte variant: uITRON's `T_CFLG` {exinf, flgatr, iflgptn} by size,
 not yet typed as such), `REC_func_48401F32_ArgA0_s4`
-(an array of 35 4-byte records that `func_48401F32` steps through by 4; the callee walk first read it as one 28-byte
+(an array of 35 4-byte records that `FdcPrgRequest` steps through by 4; the callee walk first read it as one 28-byte
 `REC_func_48401F32_ArgA0`, with one record between two passed ones inferred, until the mn10300-typer regen
 `d0adc5707`), `REC_func_4844416A_ArgA0` (read at
 +3..+5 after an `add 2, a0`).
@@ -342,7 +342,7 @@ Reader rows and records, before and after, measured against disassembly `2a7b45b
 | 935   | 52 / 1,133               | 41 / 778 | 88 / 1,454      | 90 / 1,151 | 40 / 547       | 1 / 28           |
 | 893   | 49 / 1,033               | 39 / 682 | 85 / 1,354      | 88 / 1,055 | 40 / 547       | 1 / 28           |
 
-The row count rises by 2 or 3 while the bytes fall: 13 empty strings handed to `func_48502E9F` (one of
+The row count rises by 2 or 3 while the bytes fall: 13 empty strings handed to `StrIsBlank` (one of
 a switch's set, now followed) are written `.asciz ""` in place of a variable and a table. With the walk
 on, each build types 333 to 335 more bytes of the data region than with it off
 (`callee_off_on.py --profile P`), and 128 bytes typed only with it off are now string rows. In 941 the
@@ -542,10 +542,12 @@ objects) like every other tree's ([SP7001 Plug-in]({{ site.baseurl }}/kn7000-sp7
 siblings' share of the round, the KN6000 / KN6500 effect-DSP parameter lists and the name tables' file
 halves, is on [KN6000 Program Data]({{ site.baseurl }}/kn6000-program-data/#effect-dsp-parameter-lists-name-tables-field-names-lane-mn10300-data4)
 and [KN2400 Program Data]({{ site.baseurl }}/kn2400-program-data/#name-tables-message-tables-field-names-lane-mn10300-data4).
-`func_48449207` and `func_48449462` (the sound-kind test and the kits' key maps, see
+The sound-kind test and the kits' key maps (see
 [Sound Subsystem]({{ site.baseurl }}/kn7000-sound-subsystem/#from-a-key-press-to-a-voice--the-firmware-signal-path))
-keep their `func_` names for now, because the data labels `func_48449462_Records` / `_Table` are derived
-from them; `SoundKindGet` and `TableToneKeyMap` are the names proposed.
+kept their `func_` names in this round, because the data labels derived from them would have changed
+under other lanes; they are `SoundKindGet` and `TableToneKeyMap` since 2026-11-07, with the data labels
+`TableToneKeyMap_Records` / `_Table` renamed in the same step (lane kn7000-subsystems,
+`kn7000/tools/derived_label_renames.py`).
 
 Measured by `kn7000/notes/mn10300-data-probes/data_stats.py --dirs BEFORE AFTER --brief`, before = disassembly
 `e53dc9b3a`'s committed data directories, after = the lane's regenerated sources; the rules are the
@@ -615,7 +617,7 @@ since each had a reader. In 941:
 - **Reader rows**, 87 pieces / 1,390 bytes: each is written as rows at the width and signedness of
   the reads that land in it (`tab_u8` ... `tab_u32`), its address words as `.long Label` /
   `Label+N`, under a header naming the readers. Four are read at a known width (the tail of
-  `func_4841493C_Table`, u32; the 33 bytes before `func_4856E588`'s 16-byte records; ...). The rest
+  `DialEventRepost_Table`, u32; the 33 bytes before `func_4856E588`'s 16-byte records; ...). The rest
   are pieces whose address the code only takes: the RAM-image tables `data_500077A4` (208 bytes,
   u8 rows), two u32 tables at `0x5000102C` / `0x50001120` (zlib 1.0.4's `cplext` and
   `cpdext`: since lane callee-walk typed from the reads of `huft_build`, to which
@@ -657,15 +659,15 @@ bytes from `KernelInit` on are code, and the 204 bytes before them stay typed da
 its evidence and its address in each build, is on
 [Firmware Images]({{ site.baseurl }}/kn7000-firmware/#the-kernels-flash-tail).
 
-**`func_4C03B799_Table`'s true extent.** `func_4C03B799` reads it four times, always as
-`movhu (func_4C03B799_Table), dN`, with no index and no offset, so it reaches exactly one halfword,
+**`KernelTaskReadyRemove_Table`'s true extent.** `KernelTaskReadyRemove` reads it four times, always as
+`movhu (KernelTaskReadyRemove_Table), dN`, with no index and no offset, so it reaches exactly one halfword,
 `KernelParams + 0x16` (value 10). The two halfwords after it (30, 0) are the end of `KernelParams`,
 which no instruction the walk sees reads. The table had been typed "353 x s16" because
 `reader_tables()` runs a fixed-address read up to the next label, and the next label was the call
 target `func_487B8E34`, 706 bytes on: entries [3] .. [352] were the 695 bytes of `KernelInit` and the
 5-byte prologue of `KernelWaitRelease`. (The many 20,536 = `0x5038` halfwords in it were the high
 halves of `KernelInit`'s `mov 0x5038xxxx, aN` immediates.) It now reads `3 x s16, 0..30`, its header
-saying which index is read; `func_4C03B514_Table` next door is two halfwords of `KernelParams` the
+saying which index is read; `KernelTimerTask_Table` next door is two halfwords of `KernelParams` the
 same way.
 
 The opaque census fell by 8 pieces / 507 bytes in each of the four builds (the tail's 7 pieces and

@@ -33,11 +33,12 @@ both hold `0x50381470` because the main task is the one running. See
 [Kernel tasks and the tick](#kernel-tasks-and-the-tick-build-942).)
 
 Code decides "am I the main or the AP task?" by comparing them — exactly what the
-event layer's `GetCurrentObjectId` helper (`func_48414A4D_entry` in the disassembly, the call entry after the register-save prologue `func_48414A4D`) does
-before it picks the active task's focused-object id (`0x500D3C60` for main,
-`0x500D3C5C` for AP; see the
-[event page]({{ site.baseurl }}/kn7000-event-system/)). So each task carries its own focused UI
-object, and the event dispatcher always acts on the running task's object.
+event layer's `GuiCallerTaskIdGet` helper (`GuiCallerTaskIdGet_entry`, the call entry after its
+register-save prologue; called `GetCurrentObjectId` on this site before it was named on 2026-11-07) does
+before it answers the running GUI task's id (`0x500D3C60` holds the main task's, 1; `0x500D3C5C` the AP
+task's, 2; see the [event page]({{ site.baseurl }}/kn7000-event-system/)). The event layer indexes its
+per-task tables with that id, so each task has its own event queue and dispatch state, and an event call
+always acts on the running task's.
 
 ## Kernel tasks and the tick (build 942)
 

@@ -226,7 +226,7 @@ program of one's own needs to know (measured in MAME on programs 941 and 893):
   call again", parks the firmware just as well and leaves the screen alone. The ROM dumper parks
   this way.
 - **What request 5 costs.** Program 893 answers request 5 with `ChangeTitle(0x4A)` on every call
-  (`func_48479771`), the new title calls the converter again, and each change repaints the screen:
+  (`StylCnvRequestLoop`), the new title calls the converter again, and each change repaints the screen:
   a loop on the main task, through `ScreenProc`'s paint (`DrawWall`, a 150 KB copy of the wallpaper
   plane) and a copy of the changed areas to the LCD a dot at a time. In MAME the Pinball Fantasies
   port's game got 35 % of the CPU while that ran (`cpu_split.py`, session notes 2026-10-26). The
