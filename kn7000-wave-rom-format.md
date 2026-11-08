@@ -99,17 +99,20 @@ confirm it. Source: disassembly `kn7000/notes/wave-roms-2026-10-29.md`, probe `w
 The record at A is B again, then parameter words `[flags:2][code:6][value:8]`, up to the first
 word with bit 15 set:
 
-| value / flags                                | meaning                                                                        |
-|----------------------------------------------|--------------------------------------------------------------------------------|
-| value >= 0x80                                | a segment of (256 - value) granules, laid out from the first sample            |
-| flag `LOOP_START` (0x4000) on a segment      | the loop starts at the segment's end                                           |
-| flag `LOOP_END` (0x8000) on a segment        | the loop ends at the segment's end, and so does the record                     |
-| value < 0x80, descending multiples of 8      | the "split list" (values 8..104); meaning unknown                              |
-| `REC_END` (0xc000), value 0 or a split value | ends a record that has no `LOOP_END`                                           |
-| code, bits 13:8                              | non-zero only in 8-bit entries; in emulation it scales a segment by 2^(-b/2)   |
+| value / flags                                | meaning                                                                          |
+|----------------------------------------------|----------------------------------------------------------------------------------|
+| value >= 0x80                                | a segment of (256 - value) granules, laid out from the first sample              |
+| flag `LOOP_START` (0x4000) on a segment      | the loop starts at the segment's end                                             |
+| flag `LOOP_END` (0x8000) on a segment        | the loop ends at the segment's end, and so does the record                       |
+| `LOOP_END` with no `LOOP_START` before it    | the loop starts at the recording's first sample                                  |
+| value < 0x80, descending multiples of 8      | the "split list" (values 8..104): one granule each; meaning of the value unknown |
+| `REC_END` (0xc000), value 0 or a split value | ends a record that has no `LOOP_END`; also one granule                           |
+| code, bits 13:8                              | non-zero only in 8-bit entries; in emulation it scales its word's granules       |
 
-The code's gain law is a fit to emulation, not derived. Without an explicit loop, the emulation
-model loops the single granule after the last segment; that has not been checked on hardware.
+So every word of a record is a run of granules. The code's gain law, 2^(-b/2) for b in code bits 2:0,
+is a fit to emulation, not derived. Without an explicit loop, the emulation model loops the record's
+last granule (since 2026-11-08, review of mamedev/mame#16775; before, the granule after the last
+segment, which left out every split-list granule); that has not been checked on hardware.
 
 ## How the firmware selects a recording
 
@@ -305,7 +308,7 @@ generator's read rate at a root key:
 
     rate(n) = 440 x 2^((n - 69)/12 + E - 9 + corr/3072)
 
-E is the entry's pitch exponent (P bits 11:4) and corr the zone correction the firmware adds
+E is the entry's pitch exponent (P bits 8:4) and corr the zone correction the firmware adds
 (`TgPitchNoteResolve`; the pitch itself is computed by `TgPitchInitCalc`). The root is the lower median of the
 keys whose zone selects the recording in the tone database (`TgVoiceRoutePtrCalc`'s key maps), over every
 parameter record that selects it. The `smpl` chunk carries the root.
