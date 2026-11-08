@@ -83,6 +83,21 @@ the relevant setting is on, the key-map number picks which of seven key layouts 
 the kit (lane kn7000-research2, 2026-11-06; the layout is on
 [Custom Style Memory]({{ site.baseurl }}/kn7000-custom-style-memory/#the-slot-record)).
 
+Each drum voice of a kit is a short record: a 13-character name, three flag bytes and one or two layers
+of 28 bytes. The flags say which layers sound, whether the voice stops at key release (otherwise it
+rings out, like a real drum) and which exclusive group it belongs to, so that a closed hi-hat cuts an
+open one. A layer gives the voice's pan (the built-in kits place the bass drum in the centre, the snare a
+little right, the hi-hat right and the ride left), its tuning in semitones and fine steps, its level and
+how that changes across the keyboard, an amplitude envelope (an attack rate with key scaling, two decay
+segments, a release rate), a filter (type, cutoff with key follow, velocity sensitivity, resonance) and
+two effect sends. It points to an element, which splits the velocity range into up to four zones, each
+pointing to the parameter record of its sample and adding its own level and filter offsets. A kit's head also carries six modulation
+routings for the part that plays it. A user kit saved with a CUSTOM style has exactly this layout. The
+disassembly names every byte of it from the firmware routine that reads it, checked by playing the
+factory user kit in the MAME emulator: that is an observation in emulation, not on the instrument (lane
+kn7000-ic21, 2026-11-07; the fields and their readers are on
+[Custom Style Memory]({{ site.baseurl }}/kn7000-custom-style-memory/#the-custom-sound-blocks-fields-from-their-readers)).
+
 ## Pad bank / slot names  
 <small>table @ `0x0406dd` — 19 names</small>
 

@@ -115,11 +115,69 @@ records of `0x8E` bytes, the tone generator's voice-resource unit (`VoiceRecFetc
 The block is a **TABLE tone** (2026-11-06, lane kn7000-research2; spelled by the `CSOUND_HEAD` macro).
 The tone library takes it as the part's tone record, so the `0x27`-byte header is a tone head: the
 16-character name, the class `+0x10` = `0x40` (TABLE, the class `TgNoteOn` sends to
-`TgNoteOnTableTone`), the **key map** byte `+0x11` (0..6; the User Kit uses 1), and 21 bytes no traced
-code reads. It is byte for byte the head of 20 of the table flash's 52 TABLE tones, the kits, Standard
+`TgNoteOnTableTone`), the **key map** byte `+0x11` (0..6; the User Kit uses 1), and 21 bytes that no
+code traced by 2026-11-06 read (fifteen of them have readers since, [below](#the-custom-sound-blocks-fields-from-their-readers)). It is byte for byte the head of 20 of the table flash's 52 TABLE tones, the kits, Standard
 Kit1 among them. `TgNoteOnTableTone` reads the entry at `+0x27 + note * 3`, so the 128 references are
 **one per MIDI note**, and it tests the voice record's `+0x0D`: bit 0 enables layer 0 and bit 2 layer 1.
 The key map is applied by `KeyZoneNoteResolve` only when the M3 setting `0x2025` is 1.
+
+### The custom-sound block's fields, from their readers
+
+Lane kn7000-ic21 (2026-11-07) played the factory user kit in the MAME emulator and logged every CPU
+read of the block with its PC, then did the same with the table flash's built-in kits ("archive"
+below). **These are observations in emulation, not on hardware**: program 941 on the kn7000_mame
+build of 2026-11-06 (disassembly `kn7000/notes/kn7000-ic21/README.md`, probes and run logs in
+`kn7000/notes/kn7000-ic21-probes/`). The kit's style does not use the kit; its pads 1 and 4 do, and
+the probe had to replace the first pad id of the pad phase by `0x200000` (a breakpoint) so that
+`PadSelectById` took the CUSTOM style's own pads. From there the firmware's own code ran:
+`PadBindCustom` bound pad 1, `TgNoteOnTableTone` ran 64 times on the pad parts and
+`CustomVoiceRecFetch` 84 times. How the instrument selects a CUSTOM style's pads by itself was not
+traced. Every byte of the block that the firmware read has its reader, and the fields of
+`voice_record.inc` and `customdata.inc` are named after them (addresses are program 941's).
+
+The voice record's 28-byte sub-record (`VOICE_SUB`, at record `+0x10` / `+0x2C`), which
+`TgTableToneStage` stages as the voice's second descriptor:
+
+| field                                                | off    | reader                                                      | what the reader does with it                                                | seen in      |
+|------------------------------------------------------|--------|-------------------------------------------------------------|-----------------------------------------------------------------------------|--------------|
+| `pan`                                                | `0x00` | `TgLevelResolve` 0x4C02FBDE                                 | + the part's pan + pan modulation, clamped 0..0x7F                          | kit, archive |
+| `elem_prog`, `elem_bank_lsb`, `elem_bank_msb`        | `0x01` | `TgTableToneStage` 0x4C035EA5                               | the element's {program, bank LSB, bank MSB}                                 | kit, archive |
+| `coarse_tune`, `fine_tune`                           | `0x04` | `TgPitchZoneFold` 0x4C02FB25                                | signed semitones; signed steps of 1/128 semitone                            | kit, archive |
+| `level`                                              | `0x06` | `TgVoiceLevelTermCalc` 0x4C02FD94                           | level base + value - 100 (0 = silent) + the part's per-note offset          | kit, archive |
+| `level_key_slope`, `level_key_curve`                 | `0x07` | `func_4C02FCBA`                                             | the signed slope and the curve of the level's key scaling                   | kit, archive |
+| `aeg_attack_rate`                                    | `0x09` | `TgTableAmpAttackRateCalc` 0x4C02FDFA                       | the amp EG attack rate, through the attack curve                            | kit, archive |
+| `aeg_rate1`, `aeg_level1`, `aeg_rate2`, `aeg_level2` | `0x0A` | `TgElemNoteOnStd` 0x4C030A98                                | two decay segments, rate and level each                                     | kit, archive |
+| `aeg_release_rate`                                   | `0x0E` | `TgTableKeyOffRelease` 0x4C02FE59                           | the release rate, only when the head's `voice_flags` has bit 5              | archive      |
+| `aeg_attack_key`                                     | `0x0F` | `TgTableAmpAttackRateCalc`                                  | signed key scaling of the attack rate                                       | kit, archive |
+| `filter_flags`                                       | `0x10` | `func_4C02FFD4`, `TgVoiceFilterProgram`, `TgVeloSenseApply` | bits 0-1 the filter mode (0 = off), bits 5-7 the velocity curve             | kit, archive |
+| `filter_velo_sense`                                  | `0x11` | `TgVeloSenseApply` 0x4C02FE77                               | signed depth of that curve                                                  | kit, archive |
+| `cutoff`                                             | `0x12` | `TgVoiceFilterProgram` 0x4C030606                           | the base of `TgPartCutoffResolve`'s cutoff                                  | kit, archive |
+| `filter_level`                                       | `0x13` | `TgTableFilterLevelCalc` 0x4C02FEC7                         | + a part term + the layer's filter offset, through `TgVeloSenseApply`       | kit, archive |
+| `cutoff_key_follow`                                  | `0x14` | `TgVoiceFilterProgram`                                      | `TgPartCutoffResolve`'s key-follow depth                                    | kit, archive |
+| `filter_q`                                           | `0x15` | `func_4C02FFD4`                                             | + 0x18, clamped; *[INFERENCE]* the resonance                                | kit, archive |
+| `filter_shape`                                       | `0x16` | `func_4C02FFD4`, `TgVoiceFilterProgram`                     | bits 6-7 the variant, bit 5 / bits 0-4 an entry of one of two 3-byte tables | kit, archive |
+| `send_a`, `send_b`                                   | `0x18` | `TgElemNoteOnStd`                                           | the two effect sends                                                        | kit, archive |
+| `s17`, `s1a`, `s1b`                                  |        |                                                             | not read (0 in nearly all of the archive's 1,617 sub-records)               |              |
+
+The rest of the voice record: the head's `voice_flags` (`+0x0D`; bit 0 layer 0, bit 2 layer 1, bit 5 the
+voice takes a key-off, otherwise it is a one-shot), `excl_group` (`+0x0E`, `TgExclGroupChoke`: bit 7 in an
+exclusive group, bits 0-6 its id, such as open / closed hi-hat) and `ctrl_sense` (`+0x0F`,
+`TgPartCtrlSenseElem`: a signed amount the part's control mode scales); the element's three velocity
+split points (`TgTableToneStage`) and, per layer, the parameter record reference, a signed level offset
+`l<k>_level` (`func_4C02FCBA`) and a signed filter offset `l<k>_filter_ofs` (`TgTableFilterLevelCalc`).
+The element's `+0x03` / `+0x04` were not read.
+
+The TABLE head: its six modulation routings at `+0x12 + k*3` (`mod<k>_dest`, `mod<k>_depth`) are read by
+`TgPartToneModRoutesLoad` 0x4C009C88, whose destination 1..0x2E is an entry of `TgPartModConfigStore`'s
+jump table, and `+0x24..+0x26` by `func_48448EA3` (bytes 6..8 of its nine-byte tone summary). So of the
+21 unread head bytes, fifteen have readers; the six `mod<k>_src` bytes are not read on this path
+(*[INFERENCE]* the source, by the melodic head's `mod_src` fields at `+0x12`).
+
+`TgLevelResolve` turned out to resolve the **pan**, not a level: it adds the sub-record's first byte (in the
+archive the drum kits' pan positions: bass drum 64, snare 76, closed hi-hat 88, ride 40, crash 96 or 48) to
+the part's pan byte - 0x40, clamps it and forces hard left or right in two part states. Its name is kept,
+because it is in the generated sources of four builds and in other lanes' committed probes; its comment
+says what it does.
 
 **One touch settings.** Four records of `0xA0` bytes (KN6000: `0x90`), one per ONE TOUCH SETTING,
 built by library `func_4C02A0C4` (KN6000 `func_4C04B9F8`) from four consecutive PANEL MEMORY
@@ -178,7 +236,9 @@ banks, 180 styles, 3,600 variations):
 - **The part set-up's reader**: `StyleTemplateLoadParts` copies **15** bytes of each set-up
   (`StylePartSetupPtrGet`) into the part template, whose fields `StylePartFieldEmit` sends in the
   table's order. Bytes 15..23 are never read and are 0 in all 28,800 factory set-ups, so their names
-  stay an inference from the stride.
+  stay an inference from the stride. In MAME (2026-11-07, lane kn7000-ic21, observed in emulation)
+  `StyleTemplateLoadParts` and `StylePartFieldEmit` read the same 15 fields of slot 7's TCMP and TPAD
+  set-ups, and bytes 15..23 were not read either.
 
 **Event streams** are `[index][u24BE count][events]`: the index is the variation number
 (`MemStyleAreaStreamsVerify`, `0x4843579E`, rejects any other), the count excludes the 4-byte
@@ -214,7 +274,9 @@ Of a pad record's thirteen setting bytes (`+0x10`..`+0x1C`) the user-pad module 
 lane kn7000-research): `+0x13` the RECORD KEY / CHORD (`UserPadRecChordGet`), `+0x18` measures - 1 and
 `+0x19` beats - 1 (stored by `MainPAD_SetUserPadMsrTmSigAftClr`, multiplied into the beat count as
 `MemStyleVarBarCount` does for a style) and `+0x1A` the flags (bit 0 LOOP, bit 1 SYNCHRO). The
-`TPAD_PAD` macro names the four; the other nine have no reader there.
+`TPAD_PAD` macro names the four; the other nine have no reader there. In MAME (2026-11-07, observed in
+emulation) `PadBindCustom` read the name, `bars`, `meter`, `flags` and the stream offset while a pad of
+slot 7 played, and none of the nine.
 
 ## Stale records and residue
 
@@ -229,14 +291,16 @@ like live records (`StaleNN.inc`). The 80 "Blank" slots of the eight custom1/cus
 The residue is typed too, in this order: copies of typed records at the same or any offset
 (2,202,310 bytes, spelled with that record's own macros and a comment naming it), whole event
 streams and TCMP/TPAD records that no record holds (200,114 bytes), runs that parse as events
-(185,705), and what is left, 4,179 bytes in 679 `.incbin_range` entries of the reference, mostly
-1-15-byte splinters between matched pieces (partial events, the bytes of a header cut by the
-next write). Of the 2,592,308 residue bytes the first rounds declared opaque, 99.84% are now
-typed. `scripts/analysis/data_incbin_census.py` measures the trees:
+(185,705), and what is left. That was 4,179 bytes in 679 `.incbin_range` entries of the reference, of
+the 2,592,308 residue bytes the first rounds declared opaque; since lane ic21-rest (2026-10-31) it is
+**157 bytes in 28 entries**: pieces of one-touch settings and TCMP style records cut at both ends by
+other pieces, event bytes between two pieces where a position falls, and single bytes after a
+stream's end (disassembly `kn7000/notes/custom-data-ic21.md`, "Census", which also tallies each image
+by kind). `scripts/analysis/data_incbin_census.py` measures the trees:
 
 | tree                | opaque (entries / bytes) | generic (entries) | generic (bytes) |
 |---------------------|--------------------------|-------------------|-----------------|
-| `kn7000-customdata` | 679 / 4,179              | 0                 | 0               |
+| `kn7000-customdata` | 28 / 157                 | 0                 | 0               |
 | `kn6000-customdata` | 0 / 0                    | 0                 | 0               |
 
 ## The `.AST` file
@@ -337,12 +401,14 @@ names into a KN6000 CUSTOM file by hand. *[INFERENCE]* Who did, and with what, n
   [Panel Memory Records]({{ site.baseurl }}/kn7000-panel-memory/#what-is-named).
 - The `0x42`-byte dependency records (five kinds) and the `0x2C8` SOUND EDIT records: none in the
   factory sets, so only their strides are known.
-- The voice record's fields that `voice_record.inc` cannot yet name from a reader (`VOICE_SUB`
-  outside its element reference, the element's `+3` / `+4`), and the custom-sound block's
-  21 unread head bytes (its class and key map are traced, above).
+- ~~The voice record's fields that `voice_record.inc` cannot yet name from a reader, and the
+  custom-sound block's 21 unread head bytes~~: named from their readers in MAME, 2026-11-07
+  ([above](#the-custom-sound-blocks-fields-from-their-readers)). Not read: the six `mod<k>_src` bytes,
+  three sub-record bytes and the element's `+0x03` / `+0x04`.
 - ~~TCMP variation bytes `+0x01`, `+0x02`, `+0x18`, `+0x19`; the style record's two u16BE at
   `+0x70`~~: traced 2026-11-06 ([above](#the-tcmp-style-container)). Nine of the pad record's thirteen
-  setting bytes still have no reader.
+  setting bytes still have no reader, neither in the user-pad module nor in MAME; next, the PAD edit
+  screens' procs.
 - ~~A reader of the 24-field part set-up~~: `StyleTemplateLoadParts` reads its first 15 fields; bytes
   15..23 have no reader (0 everywhere).
 - Where the factory sets were made: the residue matches across sets, so one tool built them in
