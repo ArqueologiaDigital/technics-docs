@@ -106,16 +106,24 @@ own header block still quotes v10's image-2 values. The code below it uses
 
 Four words beside `AUDIO_CONFIG_UPDATE` (`0xC594`) and `AUDIO_CONFIG_FLAGS` (`0xC596`), named on
 2026-11-06 from their per-bit uses (disassembly `notes/kn5000-naka2-2026-11-06/README.md` and its
-`ram/audio_state_names.txt`; the `.equ`s are in `shared/ram_variables_by_use.s`).
+`ram/audio_state_names.txt`; the `.equ`s are in `shared/ram_variables_by_use.s`), and the two 358-byte
+blocks they describe, named on 2026-11-07 (`notes/kn5000-naka3-2026-11-07/README.md` and its
+`ram/audio_state_record.txt`).
 `Audio_CheckInitStatus` rebuilds `AUDIO_SEQ_TRACK_FLAGS` from 0 over the 16 sequencer tracks: its play
 tracks are `SEQ_TRACK_MASK | 0x0D51`, its record tracks `SEQ_REC_TRACKS | 0x0D4F`.
 
-| address  | name                    | what                                                                                             |
-|----------|-------------------------|--------------------------------------------------------------------------------------------------|
-| `0xC598` | `AUDIO_SEQ_TRACK_FLAGS` | which sequencer tracks (play / record; CHORD, APC, RHYTHM) the voice routing must serve          |
-| `0xC59A` | `AUDIO_VOICE_CHANGES`   | `AudioInit_DispatchChanges`' second change mask (voice config, priority table, tone refresh)     |
-| `0xC59C` | `AUDIO_STATE_CHANGES`   | which parts of the 358-byte audio state at `0xC1FE` `AudioInit_DispatchChanges` compares / sends |
-| `0xC59E` | `AUDIO_REC_TRACK_SLOT`  | the slot of the first record track                                                               |
+| address  | name                    | what                                                                                                                                      |
+|----------|-------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| `0xC1FE` | `AUDIO_STATE`           | the 358-byte audio state the main CPU keeps for the voice routing; byte 1 is the record track's slot                                      |
+| `0xC364` | `AUDIO_STATE_SENT`      | its copy as last sent: `AudioInit_DispatchChanges` sends the fields that differ, then `AudioInit_Dispatch_Finalize` copies the state over |
+| `0xC598` | `AUDIO_SEQ_TRACK_FLAGS` | which sequencer tracks (play / record; CHORD, APC, RHYTHM) the voice routing must serve                                                   |
+| `0xC59A` | `AUDIO_VOICE_CHANGES`   | `AudioInit_DispatchChanges`' second change mask (voice config, priority table, tone refresh)                                              |
+| `0xC59C` | `AUDIO_STATE_CHANGES`   | which parts of `AUDIO_STATE` `AudioInit_DispatchChanges` compares with `AUDIO_STATE_SENT` and sends                                       |
+| `0xC59E` | `AUDIO_REC_TRACK_SLOT`  | the slot of the first record track                                                                                                        |
+
+`AudioInit_Dispatch_Finalize` copies all 179 words of `AUDIO_STATE` over `AUDIO_STATE_SENT` (`ldirw`), so the
+two blocks share one layout and a field reads `AUDIO_STATE+k` / `AUDIO_STATE_SENT+k`. The sources spell
+635 / 606 / 635 / 633 / 629 operands that way in v10 / v9 / v7 / v6 / v5.
 
 ## Rhythm Data ROM (IC14) Internal Layout
 
@@ -418,6 +426,21 @@ Each song slot is 2048 bytes (0x800). The slot address is calculated as: `0xAB00
 | `0x889A` | `MEDLEY_SONG_COUNT`    | Number of songs in current playlist                   |
 | `0x889C` | `MEDLEY_CURRENT_INDEX` | Currently playing song index                          |
 | `0x889E` | `MEDLEY_REPEAT_FLAG`   | Repeat mode: 0=no repeat, 1=repeat all                |
+
+### Sequencer Flag Bytes
+
+Two flag bytes of the sequencer's start / stop and record paths, named on 2026-11-07 from what each
+routine does with each bit (disassembly `notes/kn5000-naka3-2026-11-07/README.md`, `ram/seq_flag_names.txt`;
+the per-bit lists come from `notes/kn5000-naka3-2026-11-07/probes/flag_bit_ops.py 0x28b2 0x28b3`).
+
+| address  | name                | bits                                                                                                                                                                                                                                  |
+|----------|---------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x28B2` | `SEQ_METRO_FLAGS`   | bit 0 the METRONOME switch of the record pages (set by `ApPlaySyori_OnSetMetro`); bit 1 the take starts with the metronome count-in; bit 2 the count-in runs (measure -2, then -1, `SeqPlay_CountInToLastBar`); bit 7 is only cleared |
+| `0x28B3` | `SEQ_CONTROL_FLAGS` | bit 0 a redraw is due; 1 recording was started by a start request; 2 a restart check is due after a stop; 3 record standby (tracks armed, recording not begun); 4 the buffers are to be re-initialised when the sequencer is idle     |
+
+In `SEQ_METRO_FLAGS` bits 3-6 are untouched. In `SEQ_CONTROL_FLAGS` bit 5 is tested and cleared but never
+set, and bit 6 is set but never read. Record standby (bit 3) is why `Audio_CheckInitStatus` drops
+`AUDIO_SEQ_TRACK_FLAGS` bit 9; `SeqPlay_CountInEnd` ends it on the last beat of the count-in.
 
 ### Key Medley Routines (ROM)
 

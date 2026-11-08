@@ -9,8 +9,8 @@ permalink: /kn5000-menu-map/
 Every screen the KN5000 firmware can show, how you reach it from the panel, and where EXIT takes
 you. This page is a browsable summary. The full map, with the widget tree of every screen, is the
 generated file [`docs/gui/kn5000-menu-map.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/docs/gui/kn5000-menu-map.md) in
-technics-roms-disasm (3,904 lines). The numbers below are that file's, generated from
-program v10 on 2026-11-06.
+technics-roms-disasm (3,896 lines). The numbers below are that file's, generated from
+program v10 on 2026-11-07.
 
 Since 2026-11-06 the sound editor's pages (`TITLE_SE*`, DirmdEmulator screens) are modelled through
 their method tables and switch handlers, `SeMenu_SendEvent` and `SeMenu_GoToPageOnEnabledPart` are
@@ -21,6 +21,17 @@ calls), and a Function-table entry that handles a panel switch event is a root o
 handler"). For a title no path reaches, the generated file names the code that opens it (lanes
 kn5000-notes, kn5000-naka and kn5000-naka2, disassembly `notes/kn5000-naka-2026-11-06/README.md` and
 `notes/kn5000-naka2-2026-11-06/README.md`).
+
+Since 2026-11-07 the boot sequence is a root as well: the titles the power-on self test and the boot
+key combinations open (`TITLE_TEST1` .. `TITLE_TEST6`, `TITLE_EXT`, title `0x01A000FC` and
+`TITLE_SOFTVER`) have the path "power-on boot sequence", because the reset path's main boot routine
+`User_didnt_request_flash_mem_update` calls `SelfTest_FirmwareVersionCheck` and
+`Boot_HandleComboDisplay` directly. A dialog that returns to the title it was opened from (the title
+saved from `PREVIOUS_TITLE` into a RAM cell when its title procedure is activated) adds no transition:
+its opener has a path of its own. The tracer also reads compare guards: a `cp a, K` / `jr z` edge
+means A == K on that edge, which is how both of `FileIO_ErrorCodeByteBlock`'s paths to
+`UI_ChangeTitleByIndex` are now known to open `TITLE_DKMDLY` (lane kn5000-naka3, disassembly
+`notes/kn5000-naka3-2026-11-07/README.md`).
 
 ## Terms
 
@@ -57,19 +68,19 @@ The panel buttons come from the mode-key maps `PanelButton_ModeKeyCodes*` in
 byte 0x26FC is 1, and MENU opens `MD_SEQ_PLAY` when bit 0 of 0x266A is set. The button names are the
 MAME driver's `CPL_SEGn` / `CPR_SEGn` port names.
 
-| what                                      | count |
-|-------------------------------------------|-------|
-| titles                                    | 211   |
-| titles with a path                        | 170   |
-| modes (each with a home title)            | 21    |
-| titles one step below a home or a handler | 87    |
-| titles two steps below a home             | 40    |
-| titles three steps below a home           | 21    |
-| titles four steps below a home            | 1     |
-| widget records, in 18 C files             | 3,260 |
-| menu entries                              | 99    |
-| code transitions                          | 357   |
-| EXIT links                                | 267   |
+| what                                   | count |
+|----------------------------------------|-------|
+| titles                                 | 211   |
+| titles with a path                     | 179   |
+| modes (each with a home title)         | 21    |
+| titles one step below a home or a root | 96    |
+| titles two steps below a home          | 40    |
+| titles three steps below a home        | 21    |
+| titles four steps below a home         | 1     |
+| widget records, in 18 C files          | 3,260 |
+| menu entries                           | 99    |
+| code transitions                       | 361   |
+| EXIT links                             | 267   |
 
 ## Modes and their home screens
 
@@ -296,45 +307,56 @@ text follows the title name when it differs. Modes with no titles below them are
 
 - (by BitMapOut_UpdateWidget_Finalize) -> `TITLE_PMBKSEL`
 
-## Titles with no path (41)
+### Power-on boot sequence (`User_didnt_request_flash_mem_update`)
 
-23 of them are opened by code, but by code that no traced path reaches: panel-button handlers, the
-self test, the sequencer's play modes. The routine named is the nearest routine entry above the
+- (by Boot_HandleComboDisplay) -> `TITLE_SOFTVER` "SOFT VERSION"
+- (by SelfTest_FirmwareVersionCheck) -> `TITLE_TEST1`
+- (by SelfTest_FirmwareVersionCheck) -> `TITLE_TEST2`
+- (by SelfTest_FirmwareVersionCheck) -> `TITLE_TEST3`
+- (by SelfTest_FirmwareVersionCheck) -> `TITLE_TEST4`
+- (by SelfTest_FirmwareVersionCheck) -> `TITLE_TEST5`
+- (by SelfTest_FirmwareVersionCheck) -> `TITLE_TEST6`
+- (by SelfTest_FirmwareVersionCheck) -> `TITLE_EXT`
+- (by SelfTest_FirmwareVersionCheck) -> title `0x01A000FC` (`"TT_EXTAPR"`, the factory floppy test, which has no `TITLE_` name)
+
+## Titles with no path (32)
+
+15 of them are opened by code, but by code that no traced path reaches: panel-button handlers and
+the sequencer's play and edit code. The routine named is the nearest routine entry above the
 opening call.
 
-| title               | opened by code in                                                                            |
-|---------------------|----------------------------------------------------------------------------------------------|
-| `TITLE_SDOCT`       | `MidiPartGridCheck`                                                                          |
-| `TITLE_DPPD`        | `FmmPdMedleyFunc`                                                                            |
-| `TITLE_DPMDLYPD`    | `FmmPdMedleyFunc`                                                                            |
-| `TITLE_SQCYCPLY`    | `ApPlaySyori`                                                                                |
-| `TITLE_SQCYCREC`    | `ApPlaySyori`                                                                                |
-| `TITLE_SQSTEP`      | `Part_ValidateAndActivate`                                                                   |
-| `TITLE_SQNOTEEDT`   | `BmDrEdit_SaveSequencerState`                                                                |
-| `TITLE_SQNOTECYCP`  | `BmDrEdit_PostModeChange96`                                                                  |
-| `TITLE_SQDRMEDT`    | `BmDrEdit_SaveSequencerState`, `SeMenu_HandleMenuChange`                                     |
-| `TITLE_SQDRMCYCP`   | `BmDrEdit_PostModeChange99`                                                                  |
-| `TITLE_SQSTEPBAL`   | `UIDisp_StepMeasure`                                                                         |
-| `TITLE_SQMETBAL`    | `ApPlaySyori`                                                                                |
-| `TITLE_MUSICSTYL`   | `EffectMode_CopyVoiceParams`                                                                 |
-| `TITLE_MSPBKSL`     | `AccompSeq_ProcessAfterNote_Helper`, `SoundCtrl_CalcScaledTempo`                             |
-| `TITLE_APCSEL`      | `SoundCtrl_CalcScaledTempo`                                                                  |
-| `TITLE_SOFTVER`     | `Boot_HandleComboDisplay`, `MainTitle_PrepareAndDispatch`                                    |
-| `TITLE_TEST1`       | `SelfTest_FirmwareVersionCheck`                                                              |
-| `TITLE_TEST2`       | `SelfTest_FirmwareVersionCheck`                                                              |
-| `TITLE_TEST3`       | `SelfTest_FirmwareVersionCheck`                                                              |
-| `TITLE_TEST4`       | `SelfTest_FirmwareVersionCheck`                                                              |
-| `TITLE_TEST5`       | `SelfTest_FirmwareVersionCheck`                                                              |
-| `TITLE_TEST6`       | `SelfTest_FirmwareVersionCheck`                                                              |
-| `TITLE_EXT`         | `SelfTest_FirmwareVersionCheck`                                                              |
+| title              | opened by code in                                                |
+|--------------------|------------------------------------------------------------------|
+| `TITLE_SDOCT`      | `MidiPartGridCheck`                                              |
+| `TITLE_DPPD`       | `FmmPdMedleyFunc`                                                |
+| `TITLE_DPMDLYPD`   | `FmmPdMedleyFunc`                                                |
+| `TITLE_SQCYCPLY`   | `ApPlaySyori`                                                    |
+| `TITLE_SQCYCREC`   | `ApPlaySyori`                                                    |
+| `TITLE_SQSTEP`     | `Part_ValidateAndActivate`                                       |
+| `TITLE_SQNOTEEDT`  | `BmDrEdit_SaveSequencerState`                                    |
+| `TITLE_SQNOTECYCP` | `BmDrEdit_PostModeChange96`                                      |
+| `TITLE_SQDRMEDT`   | `BmDrEdit_SaveSequencerState`, `SeMenu_HandleMenuChange`         |
+| `TITLE_SQDRMCYCP`  | `BmDrEdit_PostModeChange99`                                      |
+| `TITLE_SQSTEPBAL`  | `UIDisp_StepMeasure`                                             |
+| `TITLE_SQMETBAL`   | `ApPlaySyori`                                                    |
+| `TITLE_MUSICSTYL`  | `EffectMode_CopyVoiceParams`                                     |
+| `TITLE_MSPBKSL`    | `AccompSeq_ProcessAfterNote_Helper`, `SoundCtrl_CalcScaledTempo` |
+| `TITLE_APCSEL`     | `SoundCtrl_CalcScaledTempo`                                      |
 
-For the other 18 no opener was found: `TITLE_CTPMPARA`, `TITLE_SQPUNCHM`, `TITLE_CMPLD`,
+The sequencer's titles are opened from ApPlaySyori's event handlers, which a widget's function reaches
+by posting an event: `TITLE_SQREALREC`'s METRONOME switch `MetRecSw` has the function
+`MetroOnOffFunc`, which posts `EVT_SET_METRO`, and its handler `ApPlaySyori_OnSetMetro` opens
+`TITLE_SQMETBAL` when the switch is turned on. The tracer has no edge rule for that hop yet.
+
+For the other 17 no opener was found: `TITLE_CTPMPARA`, `TITLE_SQPUNCHM`, `TITLE_CMPLD`,
 `TITLE_CMMODE`, `TITLE_MSCTSEL`, `TITLE_MSSCTSEL`, `TITLE_MSSONGLIST`, `TITLE_MSALPSEL`,
 `TITLE_PMVIEW`, `TITLE_PMNAME`, `TITLE_PMBKNAME`, `TITLE_SVARI`, `TITLE_RVARI`, `TITLE_ACCORDION`,
-`TITLE_SPLITSEL`, `TITLE_WELCOM`, title `0x01A000FC` (the factory floppy test, which has no
-`TITLE_` name) and `TITLE_FDMSP`. 18 call sites take the title index from RAM or a table
-(DirmdEmulator's pending title, the saved return titles of the disk dialogs), which the tracer does
-not follow, so some of these may be opened there. (`DemoSong_TitleCol`'s four bytes are read from the
+`TITLE_SPLITSEL`, `TITLE_WELCOM` and `TITLE_FDMSP`. 5 call sites still take the title index from RAM or
+from the caller's stack, which the tracer does not follow, so some of these may be opened there:
+`DirmdEmu_CheckModeChange` and `DirmdEmu_CheckSoundCtrl` (RAM `0xE3DC`),
+`SeMenu_GoToPageOnEnabledPart_Join4`, and `DiskEvt_PostModeEvent` and `DiskCap_PostModeEvent` (the
+caller's stack arguments). The saved return titles of the disk dialogs, which were among the 18 such
+sites before, now count as returns to the opener. (`DemoSong_TitleCol`'s four bytes are read from the
 ROM since 2026-11-06: they open `TITLE_DEMOSTYLE` / `DEMOSOUND` / `DEMORHY` / `DEMOFEATURE`.)
 
 ## Reading a screen in the source

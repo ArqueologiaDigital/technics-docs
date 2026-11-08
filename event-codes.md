@@ -199,6 +199,20 @@ Entries of module 4 (Suna)'s ResMethod table, object table 0x1E4. These four dri
 | `0x01E4000A` | `EVT_RLMT_UP` | Firmware method MT_RLmtUp: composer-set grid: increment the range-limit byte (record +5, max 11) of part XDE                                           |
 | `0x01E4000B` | `EVT_RLMT_DN` | Firmware method MT_RLmtDn: composer-set grid: decrement the range-limit byte (min 0) of part XDE                                                       |
 
+### Sequencer Play Methods (0x01E8xxxx)
+
+Entries of module 8 (Kubo)'s ResMethod table, object table 0x1E8. A record page's switch function posts
+them to `ApPlaySyori`, the sequencer's play event procedure, which compares the event and jumps to its
+handler:
+
+| Code         | Name            | Sender           | Handler (v10)                       | Description                                                                                                                                                                                                                                                      |
+|--------------|-----------------|------------------|-------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `0x01E80045` | `EVT_SET_METRO` | `MetroOnOffFunc` | `ApPlaySyori_OnSetMetro` (0xF462D3) | Firmware method MT_SetMetro, parameter = the METRONOME switch's new state (0 / 1). Stores it in `SEQ_METRO_FLAGS` bit 0 unless the sequencer or the count-in runs (then it only redraws the switch); switching it on in `TITLE_SQREALREC` opens `TITLE_SQMETBAL` |
+
+`ApPlaySyori_OnSetMetro` was called `NoteEditSy_ModeScroll` until 2026-11-07, a name the event-code
+catalogue already marked as misnamed (disassembly `notes/kn5000-naka3-2026-11-07/README.md`,
+`scripts/renaming/rename_kn5000_naka3_metro.sed`). No handler registration changed.
+
 ### Mode and Title Requests (0x01C00014-0x01C00016)
 
 These three events switch the instrument's current **mode** and **title** (the
