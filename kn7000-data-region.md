@@ -574,20 +574,22 @@ sampling / table-selection records) apply to every build; an array whose label w
 reader had a name is also looked up under the reader's present name, which gives 935's `localeconv`
 records 941's `LconvMonetary` / `LconvNumeric` fields and `TtMessage`'s table `MessageBoxDef`.
 
-| build | opaque bytes before | after | offset-named fields with a reader, lane | at `486525b6e` |
+| build | opaque bytes before | after | offset-named fields with a reader, lane | at `7283a6d69` |
 |-------|---------------------|-------|-----------------------------------------|----------------|
-| 941   | 9,760               | 8,038 | 185 -> 136                              | 160            |
-| 942   | 9,633               | 7,911 | 185 -> 148                              | 168            |
-| 935   | 10,300              | 8,578 | 207 -> 140                              | 164            |
-| 893   | 9,833               | 8,111 | 207 -> 152                              | 172            |
+| 941   | 9,760               | 8,038 | 185 -> 136                              | 135            |
+| 942   | 9,633               | 7,911 | 185 -> 148                              | 145            |
+| 935   | 10,300              | 8,578 | 207 -> 140                              | 139            |
+| 893   | 9,833               | 8,111 | 207 -> 152                              | 149            |
 
 Opaque bytes are `kn7000/notes/mn10300-data5-probes/opaque_diff.py` (before = the base `92b5cc4a7`'s data
 directories; "newly opaque" is 0 in every build) and `kn7000/notes/mn10300-data-probes/opaque_left.py`,
 which gives the same totals at `486525b6e`. The fields are
 `kn7000/notes/mn10300-formats-probes/field_names_census.py --md`: the lane measured 136 / 148 / 140 / 152
-on its branch, but at `486525b6e`, after lane kn7000-subsystems renamed the data labels derived from the
+on its branch.  At `486525b6e`, after lane kn7000-subsystems renamed the data labels derived from the
 routines it named, the curated kinds keyed by the old labels (`AppTaskState`, the cyclic-handler packet,
-the four JPEG mode records) are no longer applied, and the census reads 160 / 168 / 164 / 172. The rules are the
+the four JPEG mode records) were no longer applied and the census read 160 / 168 / 164 / 172;
+`data_struct_names.py` now also looks such an array up under its reader's address (`reader_unalias`,
+`7283a6d69`), and the census reads 135 / 145 / 139 / 149. The rules are the
 `gen_data_s.FEATURES` keys `sentinel_copy`, `float_pairs`, `dup_spans` and `copied_reclaim` (disassembly
 [`kn7000/notes/mn10300-data5/README.md`](https://github.com/ArqueologiaDigital/technics-roms-disasm/blob/main/kn7000/notes/mn10300-data5/README.md),
 merged in `4e1d77a5b`).

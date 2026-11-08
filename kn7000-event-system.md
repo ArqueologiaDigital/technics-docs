@@ -82,9 +82,8 @@ address the same way (`base + id*0x38`), which is how the geometry is known;
 > `InitDrawTask`, `DispatchEventForTask`, `ProcCall`, `SendEventForTask`): an event queue (read and
 > write index, size, buffer at `+0x2C`), a message and a lock flag, the current class, and the object,
 > event and parameter of the message being dispatched and of the call being made
-> (`kn7000/notes/mn10300-data5/README.md`, the kind `AppTaskState` of `kn7000/tools/data_struct_names.py`;
-> at disassembly `486525b6e` the generated source does not apply it, because the array's label was
-> renamed after its routine in the same wave). The slot's `+0x10` is that record's object field.
+> (`kn7000/notes/mn10300-data5/README.md`, the kind `AppTaskState` of `kn7000/tools/data_struct_names.py`,
+> applied in the generated source since disassembly `7283a6d69`). The slot's `+0x10` is that record's object field.
 
 ```
 GetCurrentTarget:                 # CPU 0x4842943B
