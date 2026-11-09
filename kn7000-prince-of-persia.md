@@ -33,7 +33,10 @@ Source: `kn5000_homebrew/demos/kn7000_sdlpop/` (its `README.md` has the details)
 > - stops the music before a level loads from the card, so no note hangs during the load;
 > - saves and loads a quicksave on the card (SAVE, LOAD); on the instrument this is not tried yet.
 >
-> Not yet: the music's instruments are a first guess, and a level takes 10 to 15 s to load in MAME. The port has a
+> Loads: the first picture 7.8 s after RUN in MAME and a level about 5 s (26.7 s and 10 to 15 s before 2026-11-09:
+> SDLPoP's look-ups of files that are not in the folder each read the folder from the card).
+>
+> Not yet: the music's instruments are a first guess. The port has a
 > manual in the style of the instrument's Operating Instructions (`manual/` in its folder).
 
 ![Prince of Persia's title on the KN7000's LCD, with the soft keys' labels either side, in MAME]({{ site.baseurl }}/assets/images/kn7000/pop-title.png)
