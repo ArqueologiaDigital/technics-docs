@@ -85,6 +85,7 @@ other repositories and stages the whole tree, as on the owner's card (2026-11-05
 | `PINBALL\`               | Games: Pinball Fantasies, the 1994 DOS game's four tables, from your own copy                            |
 | `DOOM\`                  | Games: [Doom]({{ site.baseurl }}/kn7000-doom/) (Chocolate Doom, the shareware episode)                   |
 | `KEYFALL\`               | Games: [Keyfall]({{ site.baseurl }}/kn7000-keyfall/), a falling-notes piano game                         |
+| `PRINCE\`                | Games: [Prince of Persia]({{ site.baseurl }}/kn7000-prince-of-persia/) (SDLPoP, with its own data)       |
 | `PDF\`                   | Tools: the [PDF viewer]({{ site.baseurl }}/kn7000-pdf-viewer/) (MuPDF)                                   |
 | `PROTRACK\`              | Other apps: [ProTracker 2.3D]({{ site.baseurl }}/kn7000-protracker/), which plays and edits modules      |
 | `DSPTONE\`               | Other apps: our own program on the effects DSP, iteration 1                                              |

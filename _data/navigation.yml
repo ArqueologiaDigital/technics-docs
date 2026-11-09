@@ -124,6 +124,8 @@
           url: /kn7000-keyfall/
         - title: "PDF Viewer (MuPDF)"
           url: /kn7000-pdf-viewer/
+        - title: "Prince of Persia (SDLPoP)"
+          url: /kn7000-prince-of-persia/
         - title: Work RAM Map
           url: /kn7000-work-ram/
     - title: Sound
