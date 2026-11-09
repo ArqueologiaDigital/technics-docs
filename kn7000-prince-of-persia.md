@@ -20,14 +20,15 @@ file's SHA-256, and the build packs it unchanged into one file on the card.
 
 Source: `kn5000_homebrew/demos/kn7000_sdlpop/` (its `README.md` has the details).
 
-> **Status (2026-11-09): plays in MAME; staged for the owner's KN7000, not yet run on it.** In MAME (program 893,
+> **Status (2026-11-09): runs on the owner's KN7000.** The owner ran it from the card on 2026-11-09 and found the
+> controls awkward, so the keybed now uses Another World's keys (below). In MAME (program 893,
 > the loader floppy, the program menu on a copy of the owner's card) it:
 > - starts from the program menu, shows SDLPoP's information screen, the story, the title and the demo;
 > - starts a game and plays level 1 from the keybed and the panel at the game's own speed, 12 ticks a second;
 > - plays its sound effects on the effects DSP and its music on the instrument's own tone generator;
 > - draws the same frames as the same code built for the PC, and as SDLPoP itself on the real SDL 2 (below);
 > - ends when EXIT is held, and gives the instrument back with the firmware's RAM it borrowed as it was;
-> - saves and loads a quicksave on the card (SAVE, LOAD).
+> - saves and loads a quicksave on the card (SAVE, LOAD); on the instrument this is not tried yet.
 >
 > Not yet: the music's instruments are a first guess, and a level takes 10 to 15 s to load in MAME. The port has a
 > manual in the style of the instrument's Operating Instructions (`manual/` in its folder).
@@ -41,12 +42,11 @@ DISK MENU, STYLE CONVERT, OK (the loader floppy), and in the program menu's Game
 
 | control                         | what it does                                                       |
 |---------------------------------|--------------------------------------------------------------------|
-| keybed F4, A4                   | left, right (run; with E4 held, a careful step)                    |
-| keybed G#4                      | up: jump, climb up, raise the sword to block                       |
-| keybed G4                       | down: crouch, climb down, put the sword away                       |
-| keybed F#4, A#4                 | jump left, jump right (Home and Page Up on a PC)                   |
-| keybed E4, C5, sustain pedal    | Shift: grab a ledge, pick up, drink, strike with the sword         |
-| keybed D5, E5                   | up and down for the right hand                                     |
+| keybed F5, C6                   | left, right (run; with the action held, a careful step)            |
+| keybed Ab5 or Bb5               | up: jump (with a direction, a running jump), climb up, block       |
+| keybed A5                       | down: crouch, climb down, put the sword away                       |
+| keybed C4 or any key below      | the action (Shift): grab a ledge, pick up, drink, strike           |
+| sustain pedal                   | the action too                                                     |
 | soft keys left: MENU            | Esc: SDLPoP's pause menu (pressing EXIT does it too)               |
 | ENTER                           | Enter: choose in the menu                                          |
 | TIME                            | Space: the minutes left                                            |
@@ -60,8 +60,9 @@ DISK MENU, STYLE CONVERT, OK (the loader floppy), and in the program menu's Game
 
 ![Level 1 on the KN7000's LCD in MAME: the Kid at the start, the frame rate at the bottom left]({{ site.baseurl }}/assets/images/kn7000/pop-level1.png)
 
-The game's keys lie above C4, as Doom's do: the keys below the split point are the arranger's chord keys, which the
-firmware sends nowhere a program can read. While the game runs, the keybed plays no sound of its own.
+The keybed keys are the same as [Another World's]({{ site.baseurl }}/another-world-vm/) on the KN7000: the right hand steers
+with F5, Ab5/Bb5, A5 and C6, and the left hand acts with C4 or any key below it. While the game runs, the keybed plays
+no sound of its own.
 
 ## How it works
 
