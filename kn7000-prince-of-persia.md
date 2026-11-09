@@ -36,6 +36,9 @@ Source: `kn5000_homebrew/demos/kn7000_sdlpop/` (its `README.md` has the details)
 > Loads: the first picture 7.8 s after RUN in MAME and a level about 5 s (26.7 s and 10 to 15 s before 2026-11-09:
 > SDLPoP's look-ups of files that are not in the folder each read the folder from the card).
 >
+> The music's timing: in MAME 99% of the title's notes reach the instrument within 18 ms of their time, none later
+> than 29 ms (before 2026-11-09: 70 ms late at the median, up to 1.3 s, which the owner heard on the instrument).
+>
 > Not yet: the music's instruments are a first guess. The port has a
 > manual in the style of the instrument's Operating Instructions (`manual/` in its folder).
 
@@ -101,6 +104,13 @@ The PC speaker sounds that have no sampled version are rendered into the bank to
 plays on an emulated OPL3; here SDLPoP's own sequencer keeps the music's time, so the scenes that wait for a song wait
 as long as before, and its notes go to the instrument's own tone generator through MIDI IN 1, on parts 4 to 13, each of
 SDLPoP's 18 OPL instruments as a GM2 sound chosen from its envelope.
+
+The notes must also leave on time. SDLPoP polled its music only between frames, and on the KN7000 a frame can take a
+tenth of a second, so the port also polls it inside the longest loops (the copy to the LCD, the blits, the PNG decoder)
+and at every yield. The firmware reads MIDI IN 1 in one of the jobs of a task that also makes the converter calls. On
+program 893 each call rests for up to 100 ms, so that the firmware's repaint loop leaves the game its CPU, and the
+reader waited the rest out. While the ring holds bytes, the rest now runs the firmware's own MIDI IN 1 parser, on that
+same task.
 
 **Two things SDLPoP does on the PC that the KN7000's CPU cannot.** The MN10300 cannot load or store 16 bits at an odd
 address. SDLPoP's settings parser wrote some settings through such pointers into packed structures (so in MAME the first
