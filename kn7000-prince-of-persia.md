@@ -20,8 +20,19 @@ file's SHA-256, and the build packs it unchanged into one file on the card.
 
 Source: `kn5000_homebrew/demos/kn7000_sdlpop/` (its `README.md` has the details).
 
-> **Status (2026-11-09): in progress.** The source is written, and the same code built for the PC matches SDLPoP on
-> the real SDL 2, frame for frame (below). Its first runs in MAME follow.
+> **Status (2026-11-09): plays in MAME; staged for the owner's KN7000, not yet run on it.** In MAME (program 893,
+> the loader floppy, the program menu on a copy of the owner's card) it:
+> - starts from the program menu, shows SDLPoP's information screen, the story, the title and the demo;
+> - starts a game and plays level 1 from the keybed and the panel at the game's own speed, 12 ticks a second;
+> - plays its sound effects on the effects DSP and its music on the instrument's own tone generator;
+> - draws the same frames as the same code built for the PC, and as SDLPoP itself on the real SDL 2 (below);
+> - ends when EXIT is held, and gives the instrument back with the firmware's RAM it borrowed as it was;
+> - saves and loads a quicksave on the card (SAVE, LOAD).
+>
+> Not yet: the music's instruments are a first guess, and a level takes 10 to 15 s to load in MAME. The port has a
+> manual in the style of the instrument's Operating Instructions (`manual/` in its folder).
+
+![Prince of Persia's title on the KN7000's LCD, with the soft keys' labels either side, in MAME]({{ site.baseurl }}/assets/images/kn7000/pop-title.png)
 
 ## Playing it
 
@@ -46,6 +57,8 @@ DISK MENU, STYLE CONVERT, OK (the loader floppy), and in the program menu's Game
 | REPLAYS                         | Tab: on the title, the replays in the folder                       |
 | QUIT                            | Ctrl+Q                                                             |
 | EXIT held 1.5 s                 | ends it at once and gives the instrument back                      |
+
+![Level 1 on the KN7000's LCD in MAME: the Kid at the start, the frame rate at the bottom left]({{ site.baseurl }}/assets/images/kn7000/pop-level1.png)
 
 The game's keys lie above C4, as Doom's do: the keys below the split point are the arranger's chord keys, which the
 firmware sends nowhere a program can read. While the game runs, the keybed plays no sound of its own.
@@ -78,14 +91,29 @@ a time.
 **The sound.** SDLPoP plays one sampled sound at a time through an audio callback. Here its sampled sounds go into the
 effects DSP's sample bank when the game starts, coded as Doom's are, and each plays on a voice of the DSP's mixer.
 The PC speaker sounds that have no sampled version are rendered into the bank too. The music is MIDI, which SDLPoP
-plays on an emulated OPL3. On the KN7000 its own sequencer still keeps the music's time, so the scenes that wait for a
-song wait as long as before, but no notes sound yet.
+plays on an emulated OPL3; here SDLPoP's own sequencer keeps the music's time, so the scenes that wait for a song wait
+as long as before, and its notes go to the instrument's own tone generator through MIDI IN 1, on parts 4 to 13, each of
+SDLPoP's 18 OPL instruments as a GM2 sound chosen from its envelope.
+
+**Two things SDLPoP does on the PC that the KN7000's CPU cannot.** The MN10300 cannot load or store 16 bits at an odd
+address. SDLPoP's settings parser wrote some settings through such pointers into packed structures (so in MAME the first
+level read 0 and every key started the demo), and its animation interpreter read jump targets from odd offsets of its
+sequence table. The port leaves those structures unpacked, as upstream SDLPoP does for the PSP for the same reason, and
+reads the jump targets a byte at a time. Plain `char` is unsigned on this compiler and signed on the PC, so the game is
+built with `-fsigned-char`.
 
 ## How it is checked
 
 The port's code is built for the PC as well (`make host`), with a virtual clock and no window. So is SDLPoP exactly as
 vendored, with the real SDL 2 (`make ref`). Both write the hash of every frame they show. With the attract mode
 (seed 1, 200 s: the story, the princess, the title, the credits and the demo fight: 1,835 distinct frames) and seven
-of the replays SDLPoP ships as test cases (levels 2, 5 and 12 among them), the two builds show the same frames.
-The same hashes from the KN7000 build in MAME are the main test of the port (`tests/mame`, `kn7hash` in the card's
-`ARGS.TXT`).
+of the replays SDLPoP ships as test cases (levels 2, 5 and 12 among them), the two builds show the same frames. A third
+PC build runs the KN7000's own allocator over arenas of the KN7000's sizes, which is how the port's memory was fitted:
+the attract mode peaks at 0.90 MB of the 1.45 MB the KN7000 has for it.
+
+In MAME, the KN7000 build plays the same replays from the card (`kn7hash` in its `ARGS.TXT` makes it count frames by a
+hash that the PC build writes too) and logs SDLPoP's state at each tick (the tick, the random seed, the Kid's place):
+each of the seven replays shows the same frames as on the PC up to its end, and SDLPoP's state is the same on 548 of the
+549 ticks both runs logged (the last of one replay was read at different moments of the return to the title). SDLPoP's story scenes, unlike its gameplay, fade inside their animation's timer loop, so how many fade
+steps fall in each animation frame depends on the machine's speed; the attract mode is compared up to the first such
+scene.
