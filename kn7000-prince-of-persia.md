@@ -23,11 +23,14 @@ Source: `kn5000_homebrew/demos/kn7000_sdlpop/` (its `README.md` has the details)
 > **Status (2026-11-09): runs on the owner's KN7000.** The owner ran it from the card on 2026-11-09 and found the
 > controls awkward, so the keybed now uses Another World's keys (below). In MAME (program 893,
 > the loader floppy, the program menu on a copy of the owner's card) it:
-> - starts from the program menu, shows SDLPoP's information screen, the story, the title and the demo;
+> - starts from the program menu and shows the story, the title and the demo (SDLPoP's information screen, written
+>   for a PC keyboard, is turned off);
 > - starts a game and plays level 1 from the keybed and the panel at the game's own speed, 12 ticks a second;
 > - plays its sound effects on the effects DSP and its music on the instrument's own tone generator;
 > - draws the same frames as the same code built for the PC, and as SDLPoP itself on the real SDL 2 (below);
-> - ends when EXIT is held, and gives the instrument back with the firmware's RAM it borrowed as it was;
+> - ends when EXIT is held or QUIT pressed, and gives the instrument back with the firmware's RAM it borrowed as it
+>   was, straight to the main screen as the program menu does, with no "ERROR!";
+> - stops the music before a level loads from the card, so no note hangs during the load;
 > - saves and loads a quicksave on the card (SAVE, LOAD); on the instrument this is not tried yet.
 >
 > Not yet: the music's instruments are a first guess, and a level takes 10 to 15 s to load in MAME. The port has a
@@ -38,7 +41,7 @@ Source: `kn5000_homebrew/demos/kn7000_sdlpop/` (its `README.md` has the details)
 ## Playing it
 
 DISK MENU, STYLE CONVERT, OK (the loader floppy), and in the program menu's Games folder, "Prince of Persia
-(SDLPoP)". SDLPoP's information screen comes first; any key goes on to the title.
+(SDLPoP)". The title comes first; ENTER starts the game.
 
 | control                         | what it does                                                       |
 |---------------------------------|--------------------------------------------------------------------|
