@@ -27,6 +27,7 @@ Source: `kn5000_homebrew/demos/kn7000_sdlpop/` (its `README.md` has the details)
 >   for a PC keyboard, is turned off);
 > - starts a game and plays level 1 from the keybed and the panel at the game's own speed, 12 ticks a second;
 > - plays its sound effects on the effects DSP and its music on the instrument's own tone generator;
+> - shows the game dot for dot in the middle of the LCD, the rooms next to the Kid's round it (below);
 > - draws the same frames as the same code built for the PC, and as SDLPoP itself on the real SDL 2 (below);
 > - ends when EXIT is held or QUIT pressed, and gives the instrument back with the firmware's RAM it borrowed as it
 >   was, straight to the main screen as the program menu does, with no "ERROR!";
@@ -67,7 +68,7 @@ DISK MENU, STYLE CONVERT, OK (the loader floppy), and in the program menu's Game
 | QUIT                            | Ctrl+Q                                                             |
 | EXIT held 1.5 s                 | ends it at once and gives the instrument back                      |
 
-![Level 1 on the KN7000's LCD in MAME: the Kid at the start, the frame rate at the bottom left]({{ site.baseurl }}/assets/images/kn7000/pop-level1.png)
+![Level 1 on the KN7000's LCD in MAME: the Kid at the start, the rooms next to his round the game's picture]({{ site.baseurl }}/assets/images/kn7000/pop-level1.png)
 
 The keybed keys are the same as [Another World's]({{ site.baseurl }}/another-world-vm/) on the KN7000: the right hand steers
 with F5, Ab5/Bb5, A5 and C6, and the left hand acts with C4 or any key below it. While the game runs, the keybed plays
@@ -86,8 +87,20 @@ The program has two parts, as Doom's has:
 the index of its colour in one palette of 252 colours that all such surfaces share. That palette is the LCD
 controller's look-up table, so a frame goes to the LCD as it is, a line only when it changed. This keeps SDLPoP's
 screens to a third of their RAM. SDLPoP's fades darken every pixel by the same amount, so here they darken the look-up
-table instead. The 320 x 200 picture is in the middle of the 640 x 240 LCD, its lines shown as 240. The columns
-either side carry the soft keys' labels and the frame rate.
+table instead.
+
+**The rooms around the screen.** The 320 x 200 picture is shown dot for dot in the middle of the 640 x 240 LCD, and
+while a level is played the space round it shows the rooms next to the Kid's: half of the room on each side, 20 lines
+of the rooms above and below (rooms lie 189 lines apart, as the game stacks them), and the corners, with the game's
+status line moved to the LCD's foot. They are drawn with SDLPoP's own room drawing, its state put back afterwards; the
+torches' flames, falling floors and moving gates are drawn again each tick, and a room's guard stands where the game
+keeps him. Where the level has no room, the stand-in is what the game itself draws at its edges: wall beside, floor
+above, masonry below. The margins take the game's flash and the menu's darkening. Two settings in SDLPoP's VISUALS
+menu: the rooms Off, at full brightness (the default) or dimmed away from the room in play by a smooth, dithered ramp;
+the soft keys' labels (50% grey boxes over the rooms) always shown or only while paused. In MAME every room the Kid
+walks into in the test replays looks as its margin showed it, 98.2 to 100% of the pixels the same (the rest: the Kid
+and what moves). The settings menu leaves out what the KN7000 has no use for: full screen, scaling, joystick, controls,
+cheats (PC keys) and torch shadows (a multiplied light mask the indexed LCD cannot show).
 
 **Memory.** `POP.BIN`'s image (about 330 KB) is linked to the free region ARENA2, and its static data (about 106 KB) to
 the program area. Everything else is malloc's: a heap in each free region and in the firmware RAM that the platform
