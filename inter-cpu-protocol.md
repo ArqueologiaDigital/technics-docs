@@ -125,7 +125,18 @@ The firmware normally runs with `EI 6` (IFF=6), which means only level 6+ interr
 
 **INT0 Detection Mode:**
 
-The Sub CPU configures INT0 as **level-triggered** (IIMC bit 1 = 0). This means the interrupt flag is asserted whenever the latch `data_pending` signal is high, and deasserted when the latch is read (clearing `data_pending`).
+Both CPUs write IIMC = 0x00, which selects **rising-edge** INT0: IIMC bit 1 is I0LE, 0 = rising edge, 1 = high
+level (TMP95C061 data sheet, External Interrupt Control, p. 20, and the TMP96C141 chapter of Toshiba's 1994
+TLCS-900 data book; no TMP94C241 data sheet is at hand). This page said "level-triggered (IIMC bit 1 = 0)" until
+2026-11-15, following MAME's TMP95C061/TMP95C063 cores, which have the bit backwards.
+
+**What drives INT0 on the board** (service manual sheets II-11 to II-14, PDF pages 32-33, read 2026-11-14): the
+latches IC22 (main to sub) and IC23 (sub to main) are 74HC374s. IC20 (74HC32) ORs each side's latch select with
+its write strobe; that signal clocks the latch and is also the reader's INT0 pin (IC20B to the sub CPU's pin 144;
+IC20D to the main CPU's, through a short pulse stretcher, IC33/IC32). So INT0 idles high, each write is a low
+pulse, and its rising edge both latches the byte and requests the interrupt. Reading the latch only enables its
+outputs: there is no "data pending" flag in hardware. MSTAT0/1 and SSTAT0/1 are plain port wires: main CPU
+PZ0-PZ3, sub CPU PD0, PD1, PD2 and PD4.
 
 ### HDMA-Based Command Reception Flow
 
@@ -637,7 +648,9 @@ On real hardware, each latch write generates a new INT0 edge/level regardless of
 
 **Issue 2: INT0 level-detect re-assertion causing runaway ISR loop**
 
-The TMP94C241 uses level-triggered INT0 (IIMC bit 1 = 0). On real hardware, the ISR reads the latch, which deasserts INT0 within the same clock cycle. In MAME, `set_input_line(CLEAR_LINE)` goes through `synchronize()` (see `diexec.cpp:663-691`), which defers the actual `execute_set_input()` call until **after the current timeslice ends**. This creates a window where `m_level[INT0]` remains `ASSERT_LINE` even though the latch has been read.
+*(Historical: this issue arose because MAME then read IIMC = 0 as level detection. It is edge detection, see
+"INT0 Detection Mode" above, and mainline MAME's KN5000 now models the latch as the board has it.)* The
+TMP94C241 was taken to use level-triggered INT0 (IIMC bit 1 = 0). On real hardware, the ISR reads the latch, which deasserts INT0 within the same clock cycle. In MAME, `set_input_line(CLEAR_LINE)` goes through `synchronize()` (see `diexec.cpp:663-691`), which defers the actual `execute_set_input()` call until **after the current timeslice ends**. This creates a window where `m_level[INT0]` remains `ASSERT_LINE` even though the latch has been read.
 
 The TMP94C241's `check_irqs()` contains a level-detect re-assertion path: after dispatching an INT0 ISR, if `m_level[INT0] == ASSERT_LINE`, it re-sets the INT0 interrupt flag. With the stale `m_level`, this causes INT0 to fire again immediately — creating a runaway loop where the ISR fires ~20 times, each reading stale/empty latch data, corrupting the command protocol.
 

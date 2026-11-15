@@ -285,7 +285,7 @@ DMA source (DMAS), destination (DMAD), count (DMAC), and mode (DMAM) registers a
 | `INTETC01` | `0xEC`  | DMA ch0/ch1 completion interrupt enable/level |
 | `INTETC23` | `0xED`  | DMA ch2/ch3 completion interrupt enable/level |
 | `INTE0AD`  | `0xF0`  | INT0/AD interrupt enable/level                |
-| `IIMC`     | `0xF6`  | INT0 mode control (bit 1: 0=level, 1=edge)    |
+| `IIMC`     | `0xF6`  | INT0 mode control (bit 1: 0=edge, 1=level)    |
 | `INTCLR`   | `0xF8`  | Interrupt clear register                      |
 
 ### Interrupts
